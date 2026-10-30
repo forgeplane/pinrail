@@ -50,7 +50,7 @@ test("⌘[ goes back, even on a round that has an earlier one", async ({ page })
   await accept(page.request, first);
   const second = await submit(page.request, "Back: two", first);
 
-  await page.goto("/#/history");
+  await page.goto("/#/?tab=history");
   await page.goto(`/#/reviews/${second}`);
   await expect(page.getByRole("navigation", { name: "Rounds" }).getByRole("link")).toHaveCount(2);
   await page.locator("body").click({ position: { x: 5, y: 5 } });
@@ -60,7 +60,7 @@ test("⌘[ goes back, even on a round that has an earlier one", async ({ page })
   // where it ends up, once both navigations had their chance: the round
   // switch and Back used to race, stepping through round 1 on the way
   await page.waitForTimeout(500);
-  expect(page.url(), "⌘[ went somewhere other than back").toMatch(/#\/history$/);
+  expect(page.url(), "⌘[ went somewhere other than back").toMatch(/#\/\?tab=history$/);
   expect(seen, "⌘[ stepped through round 1").not.toContain(`#/reviews/${first}`);
   // and Forward comes back to where Back left
   await page.keyboard.press("ControlOrMeta+BracketRight");

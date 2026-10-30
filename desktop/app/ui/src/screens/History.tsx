@@ -1,24 +1,22 @@
-import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX, Star } from "lucide-react";
+import { Archive, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import { api } from "../api/client";
-import type { ReviewListing } from "../api/types";
+import type { Review, ReviewListing } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, OutcomeBadge, SummaryCounts } from "../components/Badges";
+import { FilesCount, OutcomeBadge, SummaryCounts, outcomeOf } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
-import { PluginIcon } from "../components/PluginIcon";
 import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
-import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
-import { settledAt, stamp } from "../lib/format";
-import { clearAll, useUrlParams } from "../lib/url";
+import { age, settledAt, stamp } from "../lib/format";
+import { useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { NO_PROJECT } from "../lib/url";
 import { modalOpen } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
 import { StarButton } from "../components/StarButton";
+import { InboxHead } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
 
@@ -26,6 +24,7 @@ const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
 
+/** The inbox's History tab: every review that has ended, newest first. */
 export function History() {
   const live = useLive();
   const [params, updateParams, currentParams] = useUrlParams();
@@ -96,17 +95,6 @@ export function History() {
     if (data && total > 0 && reviews.length === 0 && page > 1) setPage(Math.ceil(total / size));
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps -- only when a page arrives, not when the page number changes
 
-  /** Changing a filter starts again from the first page. */
-  const setFilter = (key: string, value: string) => {
-    updateParams(
-      (next) => {
-        if (value) next.set(key, value);
-        else next.delete(key);
-        next.delete("page");
-      },
-      { replace: true },
-    );
-  };
   /** A page number, or a step from the page the URL is on. */
   const setPage = (n: number | ((current: number) => number)) => {
     updateParams((next) => {
@@ -117,7 +105,6 @@ export function History() {
       else next.delete("page");
     });
     setFocused(0);
-    document.querySelector(".history-table-wrap")?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   };
   const setSize = (n: number) => {
@@ -138,7 +125,7 @@ export function History() {
       if (!panelMode) return `/reviews/${id}`;
       const next = new URLSearchParams(params);
       next.set("open", id);
-      return { pathname: "/history", search: `?${next}` };
+      return { pathname: "/", search: `?${next}` };
     },
     [panelMode, params],
   );
@@ -240,98 +227,22 @@ export function History() {
     document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
   }, [focused]);
   const repos = data?.facets?.repos ?? [];
+  const now = Date.now();
 
   return (
-    <div className={`history ${openId ? "has-panel" : ""}`} ref={split}>
-      <div className="history-side split-side">
-        <header className="page-head">
-          <h1>History</h1>
-          <div className="inbox-controls">
-            <Tooltip label="Search titles, plugins, requesters, projects, workflows and refs" hoverOnly>
-              <label className="search-field">
-                <Search size={14} aria-hidden="true" />
-                <input
-                  ref={search}
-                  type="search"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  placeholder="Search history…"
-                  aria-label="Search history"
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setFilter("q", e.target.value);
-                  }}
-                />
-              </label>
-            </Tooltip>
-            <Select
-              label="Outcome"
-              icon={<CircleDot size={14} />}
-              value={status}
-              onChange={(v) => setFilter("status", v)}
-              options={[
-                { value: "", label: "All outcomes", icon: <CircleDot size={14} /> },
-                { value: "decided", label: "Decided" },
-                { value: "withdrawn", label: "Withdrawn" },
-                { value: "discarded", label: "Discarded" },
-                { value: "expired", label: "Expired" },
-              ]}
-            />
-            <Select
-              label="Project"
-              icon={<FolderGit2 size={14} />}
-              value={repo}
-              onChange={(v) => setFilter("repo", v)}
-              options={[
-                { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
-                ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-                ...(data?.facets?.unassigned || repo === NO_PROJECT
-                  ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
-                  : []),
-              ]}
-            />
-            <Select
-              label="Plugin"
-              icon={<Blocks size={14} />}
-              value={plugin}
-              onChange={(v) => setFilter("plugin", v)}
-              options={[
-                { value: "", label: "All plugins", icon: <Blocks size={14} /> },
-                ...plugins.map((p) => ({
-                  value: p,
-                  label: p,
-                  icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
-                })),
-              ]}
-            />
-            <Tooltip label={starred ? "Show every review" : "Show only the starred reviews"} side="bottom">
-              <button
-                type="button"
-                className={`chrome-button star-filter ${starred ? "is-starred" : ""}`}
-                aria-label="Starred"
-                aria-pressed={starred}
-                onClick={() => setFilter("starred", starred ? "" : "1")}
-              >
-                <Star size={14} fill={starred ? "currentColor" : "none"} />
-              </button>
-            </Tooltip>
-            {filtered ? (
-              <button
-                type="button"
-                className="chrome-button"
-                onClick={() => {
-                  setQ("");
-                  updateParams(clearAll, { replace: true });
-                }}
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </header>
+    <div className={`inbox history ${openId ? "has-panel" : ""}`} ref={split}>
+      <div className="inbox-side split-side">
+        <InboxHead
+          tab="history"
+          search={search}
+          q={q}
+          onSearch={setQ}
+          projects={repos}
+          unassigned={!!data?.facets?.unassigned}
+          plugins={plugins}
+          filtered={filtered}
+          onClear={() => setQ("")}
+        />
         {!data ? null : total === 0 ? (
           <EmptyState
             title={filtered ? "No matching decisions" : "Your decisions belong here"}
@@ -342,108 +253,63 @@ export function History() {
               : "Decided, withdrawn, discarded and expired reviews appear here, with the view they were decided in."}
           </EmptyState>
         ) : (
-          <div className="history-table-wrap">
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>Review / requester</th>
-                  <th>Outcome</th>
-                  <th className="history-col-repo">Repository</th>
-                  <th className="history-col-recorded">Recorded</th>
-                  <th className="history-col-star" aria-label="Star" />
-                </tr>
-              </thead>
-              <tbody>
-                {reviews.map((r, i) => (
-                  <tr
-                    key={r.id}
-                    className={`${i === focused ? "is-focused" : ""} ${r.id === openId ? "is-open" : ""}`}
-                    aria-current={r.id === openId ? "true" : undefined}
-                    data-history-row={i}
-                    data-testid="history-row"
-                    onMouseEnter={() => !keyboard.current && setFocused(i)}
-                    onClick={(event) => {
-                      // the title is a link of its own, which has already gone there
-                      if (event.defaultPrevented || (event.target as Element).closest("a")) return;
-                      open(r.id);
-                    }}
-                  >
-                    <td>
-                      <Link
-                        to={hrefFor(r.id)}
-                        onClick={(event) => openFromLink(event, r.id)}
-                        state={panelMode ? undefined : { from: "history" }}
-                        className="history-title"
-                      >
-                        {r.title}
-                      </Link>
-                      <small>
-                        {r.requested_by ? (
+          <div className="inbox-list history-list">
+            {reviews.map((r, i) => {
+              const outcome = outcomeOf(r);
+              return (
+                <Link
+                  key={r.id}
+                  to={hrefFor(r.id)}
+                  onClick={(event) => openFromLink(event, r.id)}
+                  state={panelMode ? undefined : { from: "history" }}
+                  className={`review-row ${i === focused ? "is-focused" : ""} ${r.id === openId ? "is-open" : ""}`}
+                  aria-current={r.id === openId ? "true" : undefined}
+                  data-history-row={i}
+                  data-testid="history-row"
+                  onMouseEnter={() => !keyboard.current && setFocused(i)}
+                >
+                  <span className={`review-row-marker is-ended status-${outcome.tone}`} aria-label={outcome.label} />
+                  <span className="review-row-main">
+                    <span className="review-row-title">
+                      {r.title}
+                      {r.origin.ref ? <span className="review-row-ref">{r.origin.ref}</span> : null}
+                    </span>
+                    <span className="review-row-meta">
+                      <span className="review-row-project">{r.origin.repo ?? "No project"}</span>
+                      {r.requested_by ? (
+                        <>
+                          <span>·</span>
                           <span className="requester">
-                            <AgentIcon requestedBy={r.requested_by} size={12} />
+                            <AgentIcon requestedBy={r.requested_by} />
                             {r.requested_by}
                           </span>
-                        ) : null}
-                        {r.requested_by ? " · " : ""}
-                        <span className="history-plugin" title={reviewLabel(r)}>
-                          <ReviewIcon review={r} size={12} />
-                          {reviewLabel(r)}
-                        </span>{" "}
-                        <FilesCount total={r.attachments_total} />
-                      </small>
-                    </td>
-                    <td>
-                      <span className="history-outcome">
-                        <OutcomeBadge review={r} />
-                        <SummaryCounts summary={r.decision?.summary} />
-                      </span>
-                    </td>
-                    <td className="history-col-repo">
-                      {r.origin.repo}
-                      {r.origin.ref ? <small className="mono">{r.origin.ref}</small> : null}
-                    </td>
-                    <td className="history-col-recorded">
-                      <span title={stamp(settledAt(r))}>{stamp(settledAt(r))}</span>
-                      {r.decision ? (
-                        <small>
-                          {r.decision.decided_by ? `Decided by ${r.decision.decided_by}` : "Decided"}
-                          <SourceBadge review={r} made={r.decision} command="decide" />
-                        </small>
+                        </>
                       ) : null}
-                      {r.status === "withdrawn" ? (
-                        <small>
-                          <Reason
-                            text={r.withdrawn_by ? `Withdrawn by ${r.withdrawn_by}` : "Withdrawn"}
-                            reason={r.withdrawn_reason}
-                          />
-                          <SourceBadge
-                            review={r}
-                            made={{ via: r.withdrawn_via, session: r.withdrawn_session }}
-                            command="withdraw"
-                          />
-                        </small>
-                      ) : null}
-                      {r.status === "discarded" ? (
-                        <small>
-                          <Reason
-                            text={r.discarded_by ? `Discarded by ${r.discarded_by}` : "Discarded"}
-                            reason={r.discarded_reason}
-                          />
-                          <SourceBadge
-                            review={r}
-                            made={{ via: r.discarded_via, session: r.discarded_session }}
-                            command="discard"
-                          />
-                        </small>
-                      ) : null}
-                    </td>
-                    <td className="history-col-star">
-                      {r.kind === "question" ? null : <StarButton review={r} inRow />}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span>·</span>
+                      <EndedBy review={r} />
+                      <FilesCount total={r.attachments_total} />
+                    </span>
+                  </span>
+                  <span className="review-row-plugin" title={reviewLabel(r)}>
+                    <ReviewIcon review={r} size={13} />
+                    {reviewLabel(r)}
+                  </span>
+                  <span className="review-row-summary history-outcome">
+                    <OutcomeBadge review={r} />
+                    <SummaryCounts summary={r.decision?.summary} />
+                  </span>
+                  <span className="review-row-end">
+                    <Tooltip label={stamp(settledAt(r))} side="top">
+                      <time className="review-row-time" dateTime={settledAt(r) ?? undefined}>
+                        {age(settledAt(r), now)}
+                      </time>
+                    </Tooltip>
+                    {/* a question has no star: the space keeps the times in line */}
+                    {r.kind === "question" ? <span className="star-slot" /> : <StarButton review={r} inRow />}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         )}
         {data ? (
@@ -457,6 +323,35 @@ export function History() {
       ) : null}
     </div>
   );
+}
+
+/** Who ended a review, and how when it was not in the app. */
+function EndedBy({ review: r }: { review: Review }) {
+  if (r.decision) {
+    return (
+      <span>
+        {r.decision.decided_by ? `Decided by ${r.decision.decided_by}` : "Decided"}
+        <SourceBadge review={r} made={r.decision} command="decide" />
+      </span>
+    );
+  }
+  if (r.status === "withdrawn") {
+    return (
+      <span>
+        <Reason text={r.withdrawn_by ? `Withdrawn by ${r.withdrawn_by}` : "Withdrawn"} reason={r.withdrawn_reason} />
+        <SourceBadge review={r} made={{ via: r.withdrawn_via, session: r.withdrawn_session }} command="withdraw" />
+      </span>
+    );
+  }
+  if (r.status === "discarded") {
+    return (
+      <span>
+        <Reason text={r.discarded_by ? `Discarded by ${r.discarded_by}` : "Discarded"} reason={r.discarded_reason} />
+        <SourceBadge review={r} made={{ via: r.discarded_via, session: r.discarded_session }} command="discard" />
+      </span>
+    );
+  }
+  return <span>Expired</span>;
 }
 
 /** Who withdrew or discarded a review, with the reason they gave in a tooltip. */

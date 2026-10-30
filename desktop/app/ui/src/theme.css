@@ -1615,6 +1615,10 @@ body.is-resizing iframe {
   border-radius: 50%;
   background: var(--accent);
 }
+/* an ended review: the dot in its outcome's colour */
+.review-row-marker.is-ended {
+  background: currentColor;
+}
 /* questions an agent asked: a question mark in place of the dot, a tint in
    the colour of what waits on the person, and "asks you" for the plugin */
 .review-row-asks {
@@ -1717,6 +1721,9 @@ body.is-resizing iframe {
 }
 .review-row-end .star-button.is-starred {
   opacity: 1;
+}
+.review-row-end .star-slot {
+  width: 22px;
 }
 .star-button[aria-disabled="true"] {
   cursor: default;
@@ -3729,88 +3736,11 @@ body.is-resizing iframe {
 .pager-page {
   font-variant-numeric: tabular-nums;
 }
-.history-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
-}
-.history-table th {
-  text-align: left;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--faint);
-  padding: 8px 12px;
-  background: var(--bg-raised);
-}
-.history-table td {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  vertical-align: middle;
-}
-.history-table tbody tr {
-  cursor: pointer;
-}
-.history-table tr.is-focused td {
-  background: var(--bg-hover);
-}
-.history-table tr.is-open td {
-  background: var(--accent-bg);
-}
-/* beside the side panel, the history shows the review and its outcome */
-@container (max-width: 640px) {
-  .history-col-repo,
-  .history-col-recorded {
-    display: none;
-  }
-}
-.history-table td.history-col-star {
-  width: 1%;
-  padding-left: 0;
-}
-/* the star shows on a starred row, and on the others under the pointer or the focus */
-.history-table .star-button {
-  width: 22px;
-  height: 22px;
-  opacity: 0;
-}
-.history-table .star-button.is-starred,
-.history-table tr:hover .star-button,
-.history-table tr.is-focused .star-button,
-.history-table .star-button:focus-visible {
-  opacity: 1;
-}
-.history-table tr.is-focused td:first-child {
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-.history-table small {
-  display: block;
-  color: var(--faint);
-  font-size: 11.5px;
-}
 /* who ended a review; the reason they gave is in its tooltip */
 .history-reason {
   text-decoration: underline dotted;
   text-underline-offset: 2px;
   cursor: help;
-}
-.history-title {
-  color: var(--text);
-  font-weight: 500;
-}
-.history-plugin {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  vertical-align: -2px;
-}
-.history-plugin svg {
-  color: var(--faint);
 }
 /* a review that came with files: a paperclip and the count, the size on hover */
 .files-count {

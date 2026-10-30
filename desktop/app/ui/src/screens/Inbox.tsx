@@ -1,24 +1,24 @@
-import { Ban, Blocks, CheckCheck, FolderGit2, List, MessageCircleQuestion, Search, SearchX } from "lucide-react";
+import { Ban, CheckCheck, MessageCircleQuestion, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
-import { PluginIcon } from "../components/PluginIcon";
 import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
-import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { NO_PROJECT, inProject } from "../lib/url";
+import { inProject } from "../lib/url";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
 import { StarButton } from "../components/StarButton";
+import { History } from "./History";
+import { InboxHead, tabOf } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 
 /** How the inbox is laid out, remembered on this machine. */
@@ -49,6 +49,12 @@ function matches(review: Review, q: string) {
 }
 
 export function Inbox() {
+  const [params] = useUrlParams();
+  return tabOf(params) === "history" ? <History /> : <Waiting />;
+}
+
+/** The Pending and New rounds tabs, from the live list of what waits. */
+function Waiting() {
   const live = useLive();
   const navigate = useNavigate();
   const [params, updateParams, currentParams] = useUrlParams();
@@ -62,6 +68,7 @@ export function Inbox() {
   const repo = params.get("repo") ?? "";
   const plugin = params.get("plugin") ?? "";
   const rounds = params.get("rounds") ?? "";
+  const starred = params.get("starred") === "1";
   const [focused, setFocused] = useState(0);
   const [layout, setLayoutState] = useState<Layout>(savedLayout);
   const setLayout = (next: Layout) => {
@@ -90,17 +97,6 @@ export function Inbox() {
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
 
-  /** Changing a filter starts again from the first page. */
-  const setParam = (key: string, value: string) => {
-    updateParams(
-      (next) => {
-        if (value) next.set(key, value);
-        else next.delete(key);
-        next.delete("page");
-      },
-      { replace: true },
-    );
-  };
   /** A page number, or a step from the page the URL is on. */
   const setPage = (n: number | ((current: number) => number)) => {
     updateParams((next) => {
@@ -130,11 +126,11 @@ export function Inbox() {
           matches(r, q) &&
           inProject(r.origin.repo, repo) &&
           (!plugin || r.plugin === plugin) &&
-          (rounds !== "new" || !!r.revises),
+          (rounds !== "new" || !!r.revises) &&
+          (!starred || !!r.starred),
       ),
-    [live.pending, q, repo, plugin, rounds],
+    [live.pending, q, repo, plugin, rounds, starred],
   );
-  const newRounds = live.pending.filter((r) => r.revises).length;
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 
   // In the order the rows are drawn. By project: the project with the
@@ -380,104 +376,25 @@ export function Inbox() {
     </Link>
   );
 
-  const filtered = !!(q || repo || plugin || rounds);
+  const filtered = !!(q || repo || plugin || rounds || starred);
   const now = Date.now();
   let index = -1;
 
   return (
     <div className={`inbox ${openId ? "has-panel" : ""}`} ref={split}>
       <div className="inbox-side split-side">
-        <header className="page-head">
-          <div className="heading-inline">
-            <h1>Inbox</h1>
-            <span className="inbox-total" data-testid="inbox-total">
-              {live.pendingCount}
-            </span>
-          </div>
-          <div className="inbox-controls">
-            <Tooltip label="Search the inbox" keys={["/"]} hoverOnly>
-              <label className="search-field">
-                <Search size={14} aria-hidden="true" />
-                <input
-                  ref={search}
-                  id="inbox-search"
-                  type="search"
-                  placeholder="Search inbox…"
-                  aria-label="Search inbox"
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setParam("q", e.target.value);
-                  }}
-                />
-              </label>
-            </Tooltip>
-            <Select
-              id="inbox-repo"
-              label="Project"
-              icon={<FolderGit2 size={14} />}
-              value={repo}
-              onChange={(v) => setParam("repo", v)}
-              options={[
-                { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
-                ...live.projects.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-                ...(live.unassigned > 0 || repo === NO_PROJECT
-                  ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
-                  : []),
-              ]}
-            />
-            <Select
-              id="inbox-plugin"
-              label="Plugin"
-              icon={<Blocks size={14} />}
-              value={plugin}
-              onChange={(v) => setParam("plugin", v)}
-              options={[
-                { value: "", label: "All plugins", icon: <Blocks size={14} /> },
-                ...plugins.map((p) => ({
-                  value: p,
-                  label: p,
-                  icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
-                })),
-              ]}
-            />
-          </div>
-        </header>
-        <nav className="list-tabs" aria-label="Inbox views">
-          <button type="button" className={rounds !== "new" ? "active" : ""} onClick={() => setParam("rounds", "")}>
-            Pending <span>{live.pendingCount}</span>
-          </button>
-          <button type="button" className={rounds === "new" ? "active" : ""} onClick={() => setParam("rounds", "new")}>
-            New rounds <span>{newRounds}</span>
-          </button>
-          <span className="list-sort">Newest first</span>
-          <span className="segmented inbox-layout" role="radiogroup" aria-label="Inbox layout">
-            <Tooltip label="Grouped by project" side="top">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={layout === "projects"}
-                aria-label="Grouped by project"
-                className={layout === "projects" ? "is-on" : ""}
-                onClick={() => setLayout("projects")}
-              >
-                <FolderGit2 size={13} />
-              </button>
-            </Tooltip>
-            <Tooltip label="One list, newest first" side="top">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={layout === "list"}
-                aria-label="One list"
-                className={layout === "list" ? "is-on" : ""}
-                onClick={() => setLayout("list")}
-              >
-                <List size={13} />
-              </button>
-            </Tooltip>
-          </span>
-        </nav>
+        <InboxHead
+          tab={rounds === "new" ? "new" : "pending"}
+          search={search}
+          q={q}
+          onSearch={setQ}
+          projects={live.projects}
+          unassigned={live.unassigned > 0}
+          plugins={plugins}
+          filtered={!!(q || repo || plugin || starred)}
+          onClear={() => setQ("")}
+          layout={{ value: layout, set: setLayout }}
+        />
         {live.pendingUnloaded > 0 ? (
           <p className="notice" data-testid="inbox-capped">
             The inbox shows the newest {live.pending.length} of {live.pendingCount} pending reviews. Decide or withdraw
@@ -501,7 +418,7 @@ export function Inbox() {
                   Clear filters
                 </button>
               ) : (
-                <Link to="/history" className="chrome-button">
+                <Link to="/?tab=history" className="chrome-button">
                   View history
                 </Link>
               )

@@ -1,7 +1,6 @@
-import { HashRouter, Navigate, Route, Routes } from "react-router";
+import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { Layout } from "./components/Layout";
 import { useExternalLinks, useNativeRoutes } from "./lib/native";
-import { History } from "./screens/History";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
@@ -9,6 +8,14 @@ import { LiveProvider } from "./state/live";
 import { SettingsProvider } from "./state/settings";
 import { ToastProvider } from "./state/toasts";
 import { TopBarProvider } from "./state/topbar";
+
+/** The History page is now a tab of the inbox: old links open it, with their filters. */
+function ToHistoryTab() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set("tab", "history");
+  return <Navigate to={{ pathname: "/", search: `?${params}` }} replace />;
+}
 
 function Shell() {
   useNativeRoutes();
@@ -18,7 +25,7 @@ function Shell() {
       <Routes>
         <Route path="/" element={<Inbox />} />
         <Route path="/reviews/:id" element={<ReviewScreen />} />
-        <Route path="/history" element={<History />} />
+        <Route path="/history" element={<ToHistoryTab />} />
         <Route path="/sessions" element={<Sessions />} />
         <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
         <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />

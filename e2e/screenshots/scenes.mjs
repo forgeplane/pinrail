@@ -117,7 +117,7 @@ export const scenes = [
     name: "history-source",
     async run({ page, app, shot }) {
       await card(page);
-      await page.goto(`${app.ui}/#/history`);
+      await page.goto(`${app.ui}/#/?tab=history`);
       await page.waitForLoadState("networkidle");
       const row = page.getByTestId("history-row").filter({ hasText: "Bump lodash" });
       await row.getByTestId("source-badge").hover();
@@ -263,7 +263,7 @@ export const scenes = [
   {
     name: "history",
     async run({ page, app, shot }) {
-      await page.goto(`${app.ui}/#/history`);
+      await page.goto(`${app.ui}/#/?tab=history`);
       await page.waitForLoadState("networkidle");
       await settle(page, 500);
       await shot("history");

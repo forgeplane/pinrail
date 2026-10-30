@@ -56,28 +56,28 @@ const NAV = [
   { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", shift: false, keys: [MOD, "I"] },
   // no shortcut of its own, which a plugin's view could no longer have
   { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, letter: "", shift: false, keys: [] },
+  // the inbox's History tab, which has a shortcut and no entry of its own
   {
     key: "history",
     label: "History",
-    to: "/history",
+    to: "/?tab=history",
     Icon: History,
     letter: "h",
     shift: true,
     keys: [MOD, SHIFT, "H"],
   },
 ];
+const SIDEBAR = NAV.filter((n) => n.key !== "history");
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
 
 const pageTitle = (path: string) =>
   path === "/"
     ? "Inbox"
-    : path.startsWith("/history")
-      ? "History"
-      : path.startsWith("/sessions/")
-        ? "Session"
-        : path.startsWith("/sessions")
-          ? "Sessions"
-          : "Review";
+    : path.startsWith("/sessions/")
+      ? "Session"
+      : path.startsWith("/sessions")
+        ? "Sessions"
+        : "Review";
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -168,7 +168,7 @@ export function Layout({ children }: { children: ReactNode }) {
         navigate(oldest ? reviewPath(oldest.id, prefs.inbox.open_in) : "/");
       },
     },
-    { id: "history", label: "Go to history", keys: NAV[1].keys, icon: History, run: () => navigate("/history") },
+    { id: "history", label: "Go to history", keys: NAV[2].keys, icon: History, run: () => navigate(NAV[2].to) },
     { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
     {
       id: "theme",
@@ -361,7 +361,7 @@ export function Layout({ children }: { children: ReactNode }) {
           navigate("/");
           break;
         case "go-history":
-          navigate("/history");
+          navigate(NAV[2].to);
           break;
         case "go-plugins":
           setSettings("plugins");
@@ -407,7 +407,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <div className="sidebar-scroll" data-testid="sidebar-scroll">
             <nav className="app-nav" aria-label="Main">
-              {NAV.map(({ key, label, to, Icon, keys }) => (
+              {SIDEBAR.map(({ key, label, to, Icon, keys }) => (
                 <Fragment key={key}>
                   <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
                     <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
@@ -422,7 +422,7 @@ export function Layout({ children }: { children: ReactNode }) {
                       ) : null}
                     </NavLink>
                   </Tooltip>
-                  {key === "history" ? (
+                  {key === "sessions" ? (
                     <button type="button" className="nav-search" onClick={() => setPalette(true)}>
                       <span className="nav-label">
                         <Search size={15} strokeWidth={1.75} />

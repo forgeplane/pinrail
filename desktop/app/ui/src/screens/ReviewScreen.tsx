@@ -99,7 +99,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
   const location = useLocation();
   // the way back is where the review was opened from
   const fromHistory = (location.state as { from?: string } | null)?.from === "history";
-  const back = fromHistory ? { to: "/history", label: "History" } : { to: "/", label: "Inbox" };
+  const back = fromHistory ? { to: "/?tab=history", label: "History" } : { to: "/", label: "Inbox" };
   const [review, setReview] = useState<Review | null>(null);
   // the review the shortcuts act on, read when a key is pressed
   const reviewRef = useRef(review);
