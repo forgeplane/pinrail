@@ -205,8 +205,8 @@ enum Command {
     ///
     /// The app keeps every status, so the thread shows what the agent did
     /// between its questions and reviews. --start says the agent starts a
-    /// task, and names it: the newest task started is the session's title
-    /// in the app. --done says the agent has finished, and its text is then
+    /// new stage of work, and names it: the newest stage started is the
+    /// session's title in the app. --done says the agent has finished, and its text is then
     /// optional. A status after it says the agent is working again.
     ///
     /// The command finds the agent and its session as submit does, and
@@ -1536,8 +1536,8 @@ struct StatusArgs {
     /// characters
     #[arg(value_name = "TEXT", required_unless_present = "done")]
     text: Option<String>,
-    /// The agent starts a task, which the text names, and which names the
-    /// session in the app
+    /// The agent starts a new stage of work, which the text names, and which
+    /// names the session in the app
     #[arg(long, conflicts_with = "done")]
     start: bool,
     /// The agent has finished its work in the session

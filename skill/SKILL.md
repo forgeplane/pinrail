@@ -58,11 +58,11 @@ pinrail status "Running the end-to-end suite"
 pinrail status --done "Opened pull request #214"
 ```
 
-- Start each task with `--start`, naming it as the person would: it is
+- Start each stage of your work with `--start`, naming it as the person would: it is
   your session's title in the app. Report each step that takes more than
   a minute or so. Do not report every command.
 - Use `--done` once the person has approved the work and you have
-  committed or delivered it, or when the task ends with nothing to
+  committed or delivered it, or when the stage ends with nothing to
   review, such as a search. Waiting for a review is a step, not the end.
 - The text is one line of at most 200 characters.
 - The command does not wait. If it fails, carry on with your work.

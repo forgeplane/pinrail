@@ -123,11 +123,11 @@ pinrail status "Running the end-to-end suite"
 pinrail status --done "Pushed the fix to pinrail-ask"
 ```
 
-The text is plain text of at most 200 characters, on one line. `--start` says the agent starts a task, and its text names the task: the newest task started is the session's title in the app, in the thread, on the Sessions page and in the sidebar. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows on the Sessions page. A status after `--done` shows the agent working again, and a new `--start` gives the session the new task's title.
+The text is plain text of at most 200 characters, on one line. `--start` says the agent starts a new stage of work, and its text names the stage: the newest stage started is the session's title in the app, in the thread, on the Sessions page and in the sidebar. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows on the Sessions page. A status after `--done` shows the agent working again, and a new `--start` gives the session the new stage's title.
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "Statuses around a question, up to pinrail status --done.")
 
-Start each task with `--start`, and report each step that takes more than a minute or so. Use `--done` once the person has approved the work and the agent has committed or delivered it, or when the task ends with nothing to review, such as a search. Waiting for a review is a step, not the end. A status for every command would bury the questions and reviews that need the person.
+Start each stage of the work with `--start`, and report each step that takes more than a minute or so. Use `--done` once the person has approved the work and the agent has committed or delivered it, or when the stage ends with nothing to review, such as a search. Waiting for a review is a step, not the end. A status for every command would bury the questions and reviews that need the person.
 
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
@@ -274,7 +274,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | Command | What it does |
 |---|---|
 | `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
-| `pinrail status <text>` | Say what the agent is doing in its session's thread: `--start` for a task, which names the session, and `--done` when it has finished. See [Reporting progress](#reporting-progress). |
+| `pinrail status <text>` | Say what the agent is doing in its session's thread: `--start` for a new stage of work, which names the session, and `--done` when it has finished. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |

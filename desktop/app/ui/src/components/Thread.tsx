@@ -30,7 +30,7 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
-import { timeline as entriesOf, tasks } from "../lib/sessions";
+import { timeline as entriesOf, stages } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -191,7 +191,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
-  const started = useMemo(() => tasks(statuses), [statuses]);
+  const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews the session sent that have ended, newest first
   const handled = items.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
   const [showHandled, setShowHandled] = useState(() => stored(HANDLED_SHOWN) === "shown");
@@ -262,10 +262,10 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
           <AgentIcon requestedBy={agent} size={18} />
         </span>
         <div className="thread-title">
-          {/* the task the agent works on names the session, with the agent
+          {/* the stage the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}
           <div className="thread-title-row">
-            <h1 className={session?.title ? "thread-task" : undefined}>
+            <h1 className={session?.title ? "thread-stage" : undefined}>
               {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
             </h1>
             {waiting.length > 0 ? (
@@ -421,41 +421,41 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
               ))}
             </section>
             {started.length > 0 ? (
-              <section aria-label="Tasks">
-                <h2>Tasks</h2>
+              <section aria-label="Stages">
+                <h2>Stages</h2>
                 <ol className="thread-rail">
-                  {started.map((task, i) => {
+                  {started.map((stage, i) => {
                     const last = i === started.length - 1;
-                    const state = task.done ? "is-done" : last ? "is-last" : "is-left";
-                    const took = task.done ? age(task.start.at, Date.parse(task.done.at)) : null;
+                    const state = stage.done ? "is-done" : last ? "is-last" : "is-left";
+                    const took = stage.done ? age(stage.start.at, Date.parse(stage.done.at)) : null;
                     const about = [
-                      task.start.text,
-                      task.current ? "In progress" : took ? `Finished in ${took}` : null,
-                      `Started ${stamp(task.start.at)}`,
+                      stage.start.text,
+                      stage.current ? "In progress" : took ? `Finished in ${took}` : null,
+                      `Started ${stamp(stage.start.at)}`,
                     ]
                       .filter(Boolean)
                       .join(" · ");
                     return (
-                      <li key={task.start.id} className={`thread-rail-stop ${state}`}>
+                      <li key={stage.start.id} className={`thread-rail-stop ${state}`}>
                         <a
-                          href={`#status-${task.start.id}`}
+                          href={`#status-${stage.start.id}`}
                           className="thread-rail-link"
-                          data-testid="task"
+                          data-testid="stage"
                           title={about}
                           aria-label={about}
                           onClick={(e) => {
                             e.preventDefault();
                             document
-                              .getElementById(`status-${task.start.id}`)
+                              .getElementById(`status-${stage.start.id}`)
                               ?.scrollIntoView({ block: "center", behavior: "smooth" });
                           }}
                         >
                           <span className="thread-rail-dot" aria-hidden>
-                            {task.done ? <Check size={9} strokeWidth={3} /> : null}
+                            {stage.done ? <Check size={9} strokeWidth={3} /> : null}
                           </span>
-                          <span className="thread-rail-text">{task.start.text}</span>
+                          <span className="thread-rail-text">{stage.start.text}</span>
                           <span className="faint thread-rail-when">
-                            {task.current ? "now" : took ? took : `${age(task.start.at)} ago`}
+                            {stage.current ? "now" : took ? took : `${age(stage.start.at)} ago`}
                           </span>
                         </a>
                       </li>
@@ -563,7 +563,7 @@ function Where({ agent, repo, reference }: { agent: string | null; repo: string 
   );
 }
 
-/** How a status reads on its own: a step as it is, the start of a task, which
+/** How a status reads on its own: a step as it is, the start of a stage, which
  *  the title names, as Started, and the end as Finished with what it says. */
 export function statusLine(status: SessionStatus): string {
   if (status.kind === "start") return "Started";
@@ -598,7 +598,7 @@ function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
   );
 }
 
-/** The agent saying it starts a task, which it names. */
+/** The agent saying it starts a stage, which it names. */
 function StartedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">

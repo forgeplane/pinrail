@@ -1,7 +1,7 @@
 // A session's timeline: its questions and reviews, and between them the
 // statuses the agent reported, in the order they happened. Statuses in a
 // row with nothing between them are one group, and the agent saying it
-// starts a task, or has finished, is a line of its own.
+// starts a stage, or has finished, is a line of its own.
 
 import type { Review, SessionStatus } from "../api/types";
 
@@ -55,14 +55,14 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
   return entries;
 }
 
-/** A task the agent started: its start, how it ended if it said, and
+/** A stage the agent started: its start, how it ended if it said, and
  *  whether it is the one the agent works on now. */
-export type Task = { start: SessionStatus; done: SessionStatus | null; current: boolean };
+export type Stage = { start: SessionStatus; done: SessionStatus | null; current: boolean };
 
-/** The tasks the agent started, oldest first. A done ends the task before
- *  it; a task followed by another start ended without a word. */
-export function tasks(statuses: SessionStatus[]): Task[] {
-  const all: Task[] = [];
+/** The stages the agent started, oldest first. A done ends the stage before
+ *  it; a stage followed by another start ended without a word. */
+export function stages(statuses: SessionStatus[]): Stage[] {
+  const all: Stage[] = [];
   for (const status of statuses) {
     const open = all[all.length - 1];
     if (status.kind === "start") all.push({ start: status, done: null, current: false });

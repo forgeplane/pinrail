@@ -3118,8 +3118,8 @@ body.is-resizing iframe {
 .thread-aside p {
   margin: 0;
 }
-/* the tasks the agent started, as stops on a rail, oldest first: a check
-   for a task finished, the last one filled, and a ring for one left for
+/* the stages the agent started, as stops on a rail, oldest first: a check
+   for a stage finished, the last one filled, and a ring for one left for
    another; each a link to its Started line */
 .thread-rail {
   position: relative;
@@ -3191,7 +3191,7 @@ body.is-resizing iframe {
   flex: none;
   font-size: 11.5px;
 }
-/* what waits on the person, as compact rows like the tasks: the kind's
+/* what waits on the person, as compact rows like the stages: the kind's
    icon in the waiting colour, the title on up to two lines, and the
    plugin and its age */
 .thread-waiting-item {

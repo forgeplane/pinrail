@@ -26,8 +26,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - `pinrail status` lets an agent say what it is doing. Its statuses show
   in the session's thread between its questions and reviews, and the
   newest shows on the Sessions page.
-  `pinrail status --start` names the task the agent starts, which becomes
-  the session's title.
+  `pinrail status --start` names the stage of work the agent starts,
+  which becomes the session's title.
 - The session details show the project, the branch and the folder the
   agent works in. The CLI now sends the folder with every review.
 

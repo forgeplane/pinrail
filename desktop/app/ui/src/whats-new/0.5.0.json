@@ -23,9 +23,9 @@
     },
     {
       "title": "See what your agents are doing",
-      "text": "An agent names each task it starts and reports its progress with pinrail status. The task becomes the session's title, and each status shows in the session's thread between its questions and reviews. Update the Pinrail skill in Settings › Agents, so that your agents start reporting.",
+      "text": "An agent names each stage of work it starts and reports its progress with pinrail status. The stage becomes the session's title, and each status shows in the session's thread between its questions and reviews. Update the Pinrail skill in Settings › Agents, so that your agents start reporting.",
       "image": "session-status",
-      "alt": "An agent session's thread named by its task: the start of the task, statuses before and after a question that was answered with a note, and the agent saying it has finished",
+      "alt": "An agent session's thread named by its stage of work: the start of the stage, statuses before and after a question that was answered with a note, and the agent saying it has finished",
       "action": {
         "label": "Open Agents settings",
         "settings": "agents"

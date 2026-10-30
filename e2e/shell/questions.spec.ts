@@ -446,7 +446,7 @@ test("the statuses an agent reports show in its thread between the questions and
   await report(page.request, session, { kind: "done", text: "Pushed the fix" });
 
   await page.goto(`/#/sessions/claude-code/${session}`);
-  // the task started names the session, and shows where it started
+  // the stage started names the session, and shows where it started
   await expect(thread(page).getByRole("heading", { level: 1 })).toHaveText("Add rate limiting");
   await expect(page.locator(".crumb-title")).toHaveText("Add rate limiting");
   await expect(thread(page).getByTestId("started")).toContainText("Started: Add rate limiting");
@@ -459,12 +459,12 @@ test("the statuses an agent reports show in its thread between the questions and
   await expect(thread(page).getByTestId("finished")).toContainText("Finished: Pushed the fix");
   // with its questions waiting, the header says so rather than Finished
   await expect(thread(page).getByTestId("head-finished")).toHaveCount(0);
-  // the task in the panel, which goes to where it started
-  const task = page.getByRole("region", { name: "Tasks" }).getByTestId("task");
-  await expect(task).toHaveCount(1);
-  await expect(task).toContainText("Add rate limiting");
-  await expect(task).toHaveAccessibleName(/^Add rate limiting · Finished in /);
-  await task.click();
+  // the stage in the panel, which goes to where it started
+  const stage = page.getByRole("region", { name: "Stages" }).getByTestId("stage");
+  await expect(stage).toHaveCount(1);
+  await expect(stage).toContainText("Add rate limiting");
+  await expect(stage).toHaveAccessibleName(/^Add rate limiting · Finished in /);
+  await stage.click();
   await expect(thread(page).getByTestId("started")).toBeInViewport();
   // the session's details, with the folder the agent works in
   const details = page.getByRole("complementary", { name: "Session details" });
@@ -495,7 +495,7 @@ test("a status the agent reports shows in an open thread at once", async ({ page
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
 });
 
-test("a task the agent starts renames its session in the sidebar at once", async ({ page }) => {
+test("a stage the agent starts renames its session in the sidebar at once", async ({ page }) => {
   await clearInbox(page.request);
   const session = fresh();
   await send(page.request, asked(session, "Rename: deploy"));
