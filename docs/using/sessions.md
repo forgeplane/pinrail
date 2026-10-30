@@ -62,6 +62,8 @@ The button at the right of the section's heading opens a menu:
 
 Pinrail keeps these choices in its settings.
 
+To make the sidebar wider or narrower, drag its right edge, or focus the edge and press <kbd>←</kbd> or <kbd>→</kbd>. Double-click the edge to restore the usual width. Pinrail remembers the width on this computer.
+
 ## What the agent is doing
 
 An agent that runs `pinrail status` reports what it is doing, in one line, such as *Running the integration tests*. Each status shows in the thread at the moment it was sent, between the questions and reviews. Several in a row show as one, the newest, with the earlier ones behind *N earlier*.

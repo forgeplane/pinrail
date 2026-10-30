@@ -25,6 +25,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   project, with what waits under the session that sent it. A mark on the
   agent's icon shows a session that works or has finished, and a menu
   groups, orders and filters the sessions.
+- Drag the sidebar's edge to resize it. Pinrail remembers the width.
 - Questions in the inbox are marked apart from reviews.
 - A question's text can use inline Markdown, such as `code` and **bold**,
   which the thread shows formatted.
