@@ -75,3 +75,20 @@ export function stages(statuses: SessionStatus[]): Stage[] {
   }
   return all;
 }
+
+/** The reviews each stage sent, by the id of the status that started it:
+ *  the reviews after its start in the timeline, up to the next start.
+ *  Questions are left out. */
+export function stageReviews(entries: Entry[]): Map<number, Review[]> {
+  const out = new Map<number, Review[]>();
+  let stage: number | null = null;
+  for (const entry of entries) {
+    if (entry.kind === "started") {
+      stage = entry.status.id;
+      out.set(stage, []);
+    } else if (entry.kind === "item" && stage !== null && entry.review.kind !== "question") {
+      out.get(stage)!.push(entry.review);
+    }
+  }
+  return out;
+}

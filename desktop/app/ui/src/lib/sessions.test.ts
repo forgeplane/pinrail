@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Review, SessionStatus } from "../api/types";
-import { stages, timeline } from "./sessions";
+import { stageReviews, stages, timeline } from "./sessions";
 
 const review = (id: string, at: string) => ({ id, created_at: at }) as Review;
 const status = (id: number, at: string, text: string, kind: SessionStatus["kind"] = "step"): SessionStatus => ({
@@ -73,5 +73,23 @@ describe("stages", () => {
       status(2, "2026-10-30T10:01:00Z", "", "done"),
     ]);
     expect(all.map((t) => t.current)).toEqual([false]);
+  });
+});
+
+describe("stageReviews", () => {
+  test("gives each stage the reviews after its start, and leaves out questions", () => {
+    const question = { ...review("q1", "2026-10-30T10:02:00Z"), kind: "question" } as Review;
+    const entries = timeline(
+      [
+        review("before", "2026-10-30T09:00:00Z"),
+        review("r1", "2026-10-30T10:01:00Z"),
+        question,
+        review("r2", "2026-10-30T11:01:00Z"),
+      ],
+      [status(1, "2026-10-30T10:00:00Z", "First", "start"), status(2, "2026-10-30T11:00:00Z", "Second", "start")],
+    );
+    const by = stageReviews(entries);
+    expect(by.get(1)?.map((r) => r.id)).toEqual(["r1"]);
+    expect(by.get(2)?.map((r) => r.id)).toEqual(["r2"]);
   });
 });

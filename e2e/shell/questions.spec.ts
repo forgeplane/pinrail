@@ -741,9 +741,18 @@ test("a review card in the thread keeps its title in view beside many counts", a
   expect(meta?.height ?? 99).toBeLessThan(24);
 });
 
-test("every stage shows how long it took, one left open until the next began", async ({ page }) => {
+test("every stage shows how long it took and, in its tooltip, when it started and what it sent", async ({ page }) => {
   const session = fresh();
   await report(page.request, session, { text: "Plan the work", kind: "start", origin: { repo: "acme/api" } });
+  await send(page.request, {
+    plugin: "list",
+    title: "Stage: the plan",
+    origin: { repo: "acme/api" },
+    requested_by: "claude-code",
+    session,
+    payload: onePayload,
+  });
+  await send(page.request, asked(session, "Stage: a question"));
   await report(page.request, session, { text: "Do the work", kind: "start" });
   await page.goto(`/#/sessions/claude-code/${session}`);
   const stages = page.getByRole("region", { name: "Stages" }).getByTestId("stage");
@@ -753,4 +762,13 @@ test("every stage shows how long it took, one left open until the next began", a
   await expect(stages.nth(1).locator(".thread-rail-when")).toHaveText(/^\d+s$/);
   // when each started is in its name
   await expect(stages.nth(0)).toHaveAccessibleName(/Started /);
+  // and in the tooltip, under how long it took
+  await stages.nth(0).hover();
+  await expect(page.getByRole("tooltip")).toContainText("Plan the work");
+  await expect(page.getByRole("tooltip")).toContainText(/Took \d+s/);
+  await expect(page.getByRole("tooltip")).toContainText("Started ");
+  // with the reviews the stage sent, and not its questions
+  await expect(page.getByRole("tooltip")).toContainText("Stage: the plan");
+  await expect(page.getByRole("tooltip")).toContainText("waiting");
+  await expect(page.getByRole("tooltip")).not.toContainText("Stage: a question");
 });

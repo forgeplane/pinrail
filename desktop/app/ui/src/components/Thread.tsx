@@ -31,7 +31,7 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
-import { timeline as entriesOf, stages } from "../lib/sessions";
+import { timeline as entriesOf, stageReviews, stages } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -87,6 +87,9 @@ type ThreadProps = {
 };
 
 /** A session's page. */
+/** At most this many of a stage's reviews in its tooltip. */
+const STAGE_REVIEWS = 5;
+
 export const sessionPath = (s: { agent: string; id: string }) =>
   `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
 
@@ -203,6 +206,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
   const started = useMemo(() => stages(statuses), [statuses]);
+  // the reviews each stage sent, for its tooltip
+  const sentBy = useMemo(() => stageReviews(entriesOf(items, statuses)), [items, statuses]);
   // the reviews the session sent that have ended, newest first
   const handled = items.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
   // the starred reviews, each once by its newest round here, newest first
@@ -512,34 +517,64 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                     // open, or until now for the one in progress
                     const end = stage.done?.at ?? (last ? null : started[i + 1].start.at);
                     const took = age(stage.start.at, end ? Date.parse(end) : Date.now());
-                    const about = [
-                      stage.start.text,
-                      stage.current ? `In progress for ${took}` : stage.done ? `Finished in ${took}` : `Took ${took}`,
-                      `Started ${stamp(stage.start.at)}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ");
+                    const length = stage.current
+                      ? `In progress for ${took}`
+                      : stage.done
+                        ? `Finished in ${took}`
+                        : `Took ${took}`;
+                    const about = [stage.start.text, length, `Started ${stamp(stage.start.at)}`].join(" · ");
                     return (
                       <li key={stage.start.id} className={`thread-rail-stop ${state}`}>
-                        <a
-                          href={`#status-${stage.start.id}`}
-                          className="thread-rail-link"
-                          data-testid="stage"
-                          title={about}
-                          aria-label={about}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            document
-                              .getElementById(`status-${stage.start.id}`)
-                              ?.scrollIntoView({ block: "center", behavior: "smooth" });
-                          }}
+                        <Tooltip
+                          side="top"
+                          label={
+                            <span className="stage-tip">
+                              <strong>{stage.start.text}</strong>
+                              <span>{length}</span>
+                              <span className="faint">Started {stamp(stage.start.at)}</span>
+                              {(sentBy.get(stage.start.id) ?? []).length > 0 ? (
+                                <span className="stage-tip-reviews">
+                                  {sentBy
+                                    .get(stage.start.id)!
+                                    .slice(0, STAGE_REVIEWS)
+                                    .map((r) => (
+                                      <span key={r.id} className="stage-tip-review">
+                                        <ReviewIcon review={r} size={12} />
+                                        <span className="stage-tip-title">{r.title}</span>
+                                        <span className="faint">
+                                          {r.status === "pending" ? "waiting" : outcomeOf(r).label}
+                                        </span>
+                                      </span>
+                                    ))}
+                                  {sentBy.get(stage.start.id)!.length > STAGE_REVIEWS ? (
+                                    <span className="faint">
+                                      {sentBy.get(stage.start.id)!.length - STAGE_REVIEWS} more
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ) : null}
+                            </span>
+                          }
                         >
-                          <span className="thread-rail-dot" aria-hidden>
-                            {stage.done ? <Check size={9} strokeWidth={3} /> : null}
-                          </span>
-                          <span className="thread-rail-text">{stage.start.text}</span>
-                          <span className="faint thread-rail-when">{took}</span>
-                        </a>
+                          <a
+                            href={`#status-${stage.start.id}`}
+                            className="thread-rail-link"
+                            data-testid="stage"
+                            aria-label={about}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              document
+                                .getElementById(`status-${stage.start.id}`)
+                                ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                            }}
+                          >
+                            <span className="thread-rail-dot" aria-hidden>
+                              {stage.done ? <Check size={9} strokeWidth={3} /> : null}
+                            </span>
+                            <span className="thread-rail-text">{stage.start.text}</span>
+                            <span className="faint thread-rail-when">{took}</span>
+                          </a>
+                        </Tooltip>
                       </li>
                     );
                   })}

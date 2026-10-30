@@ -482,9 +482,41 @@ h1 {
   font-size: 11px;
   color: var(--faint);
 }
-.sidebar-session-tip {
+.sidebar-session-tip,
+.stage-tip {
   display: grid;
   gap: 2px;
+}
+.stage-tip strong {
+  font-weight: 600;
+}
+/* the reviews the stage sent, under a rule */
+.stage-tip-reviews {
+  display: grid;
+  gap: 3px;
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+.stage-tip-review {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 320px;
+}
+.stage-tip-review svg {
+  flex: none;
+  opacity: 0.7;
+}
+.stage-tip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-tip-review .faint {
+  flex: none;
+  margin-left: auto;
 }
 /* what a session is doing, at the top right of its agent's icon: a pulsing
    dot in the accent while it works, a green check once it is done */
