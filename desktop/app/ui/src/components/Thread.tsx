@@ -28,7 +28,7 @@ import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
-import { renderMarkdown } from "../lib/markdown";
+import { plainInline, renderInline, renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
 import { timeline as entriesOf, stages } from "../lib/sessions";
@@ -1067,6 +1067,8 @@ function QuestionMessage({
   index,
 }: MessageProps) {
   const pending = review.status === "pending";
+  // the question as it reads, for the labels of what answers it
+  const asked = useMemo(() => plainInline(question.question), [question.question]);
   const options = optionsOf(question);
   const isPicked = (value: string) =>
     !draft?.own &&
@@ -1094,14 +1096,24 @@ function QuestionMessage({
         <div className="msg-question-row">
           <p className="msg-question">
             {number ? <span className="msg-number">{number}</span> : null}
-            {question.question}
+            <span
+              className="markdown-inline"
+              onClick={(e) => {
+                // its links open in the browser, as the context's do
+                const link = (e.target as HTMLElement).closest("a");
+                if (!link) return;
+                e.preventDefault();
+                openExternal(link.href);
+              }}
+              dangerouslySetInnerHTML={{ __html: renderInline(question.question) }}
+            />
           </p>
           {pending && question.answer !== "text" && !note && editing !== "note" ? (
             <Tooltip label="Add a note to this answer" keys={["C"]} side="top">
               <button
                 type="button"
                 className="compose-icon msg-note-add"
-                aria-label={`Add a note to ${question.question}`}
+                aria-label={`Add a note to ${asked}`}
                 onClick={() => onEdit("note")}
               >
                 <MessageSquarePlus size={14} />
@@ -1116,7 +1128,7 @@ function QuestionMessage({
             <span
               className="chips-group"
               role={question.answer === "choices" ? "group" : "radiogroup"}
-              aria-label={question.question}
+              aria-label={asked}
             >
               {options.map((value, i) => (
                 <button
@@ -1150,7 +1162,7 @@ function QuestionMessage({
             className="msg-field"
             value={draft?.text ?? ""}
             onChange={(text) => onChange({ ...draft, text })}
-            label={`Answer to ${question.question}`}
+            label={`Answer to ${asked}`}
             placeholder="Type your answer…"
             onSubmit={onNext}
             keys="Enter for the next question · Shift+Enter for a new line"
@@ -1162,7 +1174,7 @@ function QuestionMessage({
             className="msg-field"
             value={draft?.text ?? ""}
             onChange={(text) => onChange({ ...draft, text, own: text.trim() !== "" })}
-            label={`Answer to ${question.question} in your own words`}
+            label={`Answer to ${asked} in your own words`}
             placeholder="Answer in your own words…"
             onSubmit={close}
             onEscape={close}
@@ -1184,7 +1196,7 @@ function QuestionMessage({
             className="msg-field"
             value={draft?.note ?? ""}
             onChange={(text) => onChange({ ...draft, note: text })}
-            label={`Note on ${question.question}`}
+            label={`Note on ${asked}`}
             placeholder="Add a note…"
             onSubmit={close}
             onEscape={close}

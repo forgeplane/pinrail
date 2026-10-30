@@ -688,3 +688,24 @@ test("J on the Sessions page scrolls the focused session into view", async ({ pa
   await expect(rows.nth(13)).toHaveClass(/is-focused/);
   await expect(rows.nth(13)).toBeInViewport();
 });
+
+test("a question's text shows inline Markdown, and its labels read it as text", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, {
+    kind: "question",
+    title: "Markdown: endpoint",
+    requested_by: "claude-code",
+    session,
+    payload: {
+      questions: [{ id: "q1", question: "Keep `GET /api/v1/reviews` for **one** release?", answer: "yes-no" }],
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const line = question(page, "release").locator(".msg-question");
+  await expect(line.locator("code")).toHaveText("GET /api/v1/reviews");
+  await expect(line.locator("strong")).toHaveText("one");
+  await expect(line).not.toContainText("`");
+  // the choices are named by the question as it reads, without the marks
+  await expect(page.getByRole("radiogroup", { name: "Keep GET /api/v1/reviews for one release?" })).toBeVisible();
+});

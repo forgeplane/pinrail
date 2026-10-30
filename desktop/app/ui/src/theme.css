@@ -3500,6 +3500,17 @@ body.is-resizing iframe {
   font-family: var(--mono);
   font-size: 11.5px;
 }
+/* a question's own line, as inline Markdown: code set apart as in the inbox */
+.msg-question code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+.msg-question a {
+  color: var(--accent);
+}
 .msg-answer {
   display: flex;
   flex-wrap: wrap;
