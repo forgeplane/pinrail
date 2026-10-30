@@ -468,6 +468,8 @@ test("the statuses an agent reports show in its thread between the questions and
   await expect(stage).toHaveCount(1);
   await expect(stage).toContainText("Add rate limiting");
   await expect(stage).toHaveAccessibleName(/^Add rate limiting · Finished in /);
+  // the time beside it is how long it took
+  await expect(stage.locator(".thread-rail-when")).toHaveText(/^\d+s$/);
   await stage.click();
   await expect(thread(page).getByTestId("started")).toBeInViewport();
   // the session's details, with the folder the agent works in
@@ -737,4 +739,18 @@ test("a review card in the thread keeps its title in view beside many counts", a
   expect((title?.width ?? 0) / (box?.width ?? 1)).toBeGreaterThan(0.5);
   const meta = await card.locator(".thread-card-meta").boundingBox();
   expect(meta?.height ?? 99).toBeLessThan(24);
+});
+
+test("every stage shows how long it took, one left open until the next began", async ({ page }) => {
+  const session = fresh();
+  await report(page.request, session, { text: "Plan the work", kind: "start", origin: { repo: "acme/api" } });
+  await report(page.request, session, { text: "Do the work", kind: "start" });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const stages = page.getByRole("region", { name: "Stages" }).getByTestId("stage");
+  await expect(stages).toHaveCount(2);
+  // a stage the agent never finished took until the next one started, and the current one runs on
+  await expect(stages.nth(0).locator(".thread-rail-when")).toHaveText(/^\d+s$/);
+  await expect(stages.nth(1).locator(".thread-rail-when")).toHaveText(/^\d+s$/);
+  // when each started is in its name
+  await expect(stages.nth(0)).toHaveAccessibleName(/Started /);
 });

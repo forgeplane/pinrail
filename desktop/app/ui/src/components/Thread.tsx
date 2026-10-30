@@ -508,10 +508,13 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   {started.map((stage, i) => {
                     const last = i === started.length - 1;
                     const state = stage.done ? "is-done" : last ? "is-last" : "is-left";
-                    const took = stage.done ? age(stage.start.at, Date.parse(stage.done.at)) : null;
+                    // until it finished, until the next stage began for one left
+                    // open, or until now for the one in progress
+                    const end = stage.done?.at ?? (last ? null : started[i + 1].start.at);
+                    const took = age(stage.start.at, end ? Date.parse(end) : Date.now());
                     const about = [
                       stage.start.text,
-                      stage.current ? "In progress" : took ? `Finished in ${took}` : null,
+                      stage.current ? `In progress for ${took}` : stage.done ? `Finished in ${took}` : `Took ${took}`,
                       `Started ${stamp(stage.start.at)}`,
                     ]
                       .filter(Boolean)
@@ -535,9 +538,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                             {stage.done ? <Check size={9} strokeWidth={3} /> : null}
                           </span>
                           <span className="thread-rail-text">{stage.start.text}</span>
-                          <span className="faint thread-rail-when">
-                            {stage.current ? "now" : took ? took : `${age(stage.start.at)} ago`}
-                          </span>
+                          <span className="faint thread-rail-when">{took}</span>
                         </a>
                       </li>
                     );
