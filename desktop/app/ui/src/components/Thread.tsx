@@ -200,6 +200,10 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews the session sent that have ended, newest first
   const handled = items.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
+  // the starred reviews, each once by its newest round here, newest first
+  const starred = items
+    .filter((r) => r.kind === "review" && r.starred && !items.some((n) => n.revises === r.id))
+    .reverse();
   const [showHandled, setShowHandled] = useState(() => stored(HANDLED_SHOWN) === "shown");
   const toggleHandled = () =>
     setShowHandled((shown) => {
@@ -440,9 +444,36 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                       {r.kind === "question" ? "questions" : reviewLabel(r)} · {age(r.created_at)} ago
                     </span>
                   </span>
+                  <StarMark review={r} />
                 </a>
               ))}
             </section>
+            {starred.length > 0 ? (
+              <section aria-label="Starred">
+                <h2>Starred · {starred.length}</h2>
+                {starred.map((r) => {
+                  const outcome = outcomeOf(r);
+                  return (
+                    <Link
+                      key={r.id}
+                      to={`/reviews/${r.id}`}
+                      className={`thread-waiting-item ${r.status === "pending" ? "" : `is-ended tone-${outcome.tone}`}`}
+                      data-testid="starred-review"
+                    >
+                      <ReviewIcon review={r} size={14} />
+                      <span className="thread-waiting-item-text">
+                        <span className="text">{r.title}</span>
+                        <span className="faint" title={stamp(r.created_at)}>
+                          {r.status === "pending" ? "waiting" : <span className="thread-outcome">{outcome.label}</span>}{" "}
+                          · {r.plugin} · {age(r.created_at)} ago
+                        </span>
+                      </span>
+                      <StarMark review={r} />
+                    </Link>
+                  );
+                })}
+              </section>
+            ) : null}
             {started.length > 0 ? (
               <section aria-label="Stages">
                 <h2>Stages</h2>
@@ -519,6 +550,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                               ago
                             </span>
                           </span>
+                          <StarMark review={r} />
                         </Link>
                       );
                     })
@@ -619,6 +651,12 @@ function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
       ))}
     </div>
   );
+}
+
+/** A starred review's mark at the end of its row in the details. */
+function StarMark({ review }: { review: Review }) {
+  if (!review.starred) return null;
+  return <Star size={12} className="thread-item-star" fill="currentColor" aria-label="Starred" role="img" />;
 }
 
 /** The agent saying it starts a stage, which it names. */

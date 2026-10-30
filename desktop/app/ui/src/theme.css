@@ -1702,6 +1702,13 @@ body.is-resizing iframe {
 .review-row-end .bar-button:focus-visible {
   opacity: 1;
 }
+/* a starred review's mark in a session's details */
+.thread-item-star {
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+  color: var(--sev-major);
+}
 /* the star: amber when starred, and shown on every starred row */
 .star-button.is-starred,
 .star-filter.is-starred,

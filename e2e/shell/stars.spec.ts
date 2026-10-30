@@ -3,7 +3,7 @@
 // history, and with the history's filter.
 
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { clearInbox, core, createReview, decide, openReviewsIn } from "./helpers";
+import { clearInbox, core, createReview, decide, onePayload, openReviewsIn } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
 
@@ -85,4 +85,60 @@ test("a star given elsewhere shows at once, and marks every round", async ({ pag
   const row = page.getByTestId("review-row").filter({ hasText: "Stars: round two" });
   await expect(row.getByTestId("star")).toHaveClass(/is-starred/);
   await expect(row.getByTestId("star")).toHaveAccessibleName("An earlier round is starred");
+});
+
+test("a session's details list its starred reviews and mark them", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = `s-stars-${Date.now()}`;
+  const sent = async (title: string) => {
+    const response = await page.request.post(`${core}/api/v1/reviews`, {
+      data: {
+        plugin: "list",
+        title,
+        origin: { repo: "acme/api" },
+        requested_by: "claude-code",
+        session,
+        payload: onePayload,
+      },
+    });
+    expect(response.status()).toBe(201);
+    return ((await response.json()) as { id: string }).id;
+  };
+  const waiting = await sent("Stars: still waiting");
+  const ended = await sent("Stars: decided");
+  await sent("Stars: not starred");
+  await decide(page.request, ended, approved);
+  await star(page.request, waiting);
+  await star(page.request, ended);
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const details = page.getByRole("complementary", { name: "Session details" });
+  const listed = details.getByRole("region", { name: "Starred" }).getByTestId("starred-review");
+  // newest first
+  await expect(listed).toHaveText([/Stars: decided/, /Stars: still waiting/]);
+  // what waits on you shows its star
+  const item = details.getByTestId("waiting-item").filter({ hasText: "Stars: still waiting" });
+  await expect(item.getByRole("img", { name: "Starred" })).toBeVisible();
+  await expect(
+    details.getByTestId("waiting-item").filter({ hasText: "Stars: not starred" }).getByRole("img", { name: "Starred" }),
+  ).toHaveCount(0);
+
+  // a star removed elsewhere leaves the list at once
+  const response = await page.request.delete(`${core}/api/v1/reviews/${waiting}/star`);
+  expect(response.status()).toBe(204);
+  await expect(listed).toHaveText([/Stars: decided/]);
+  await expect(item.getByRole("img", { name: "Starred" })).toHaveCount(0);
+});
+
+test("the history's star filter lists only the starred round of a review", async ({ page }) => {
+  await clearInbox(page.request);
+  const first = await createReview(page.request, { title: "Stars: rounds one" });
+  const second = await createReview(page.request, { title: "Stars: rounds two", revises: first.id });
+  await decide(page.request, second.id, approved);
+  await star(page.request, first.id);
+
+  await page.goto("/#/history?starred=1");
+  const rows = page.getByTestId("history-row");
+  await expect(rows.filter({ hasText: "Stars: rounds one" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "Stars: rounds two" })).toHaveCount(0);
 });
