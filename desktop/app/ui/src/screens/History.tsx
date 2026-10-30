@@ -1,4 +1,4 @@
-import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
+import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX, Star } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import { api } from "../api/client";
@@ -18,6 +18,7 @@ import { NO_PROJECT } from "../lib/url";
 import { modalOpen } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
+import { StarButton } from "../components/StarButton";
 import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
 
@@ -47,12 +48,13 @@ export function History() {
   const status = params.get("status") ?? "";
   const plugin = params.get("plugin") ?? "";
   const repo = params.get("repo") ?? "";
+  const starred = params.get("starred") === "1";
   // the search box keeps its own text; see the inbox for why
   const [q, setQ] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
-  const filtered = !!(q || status || plugin || repo);
+  const filtered = !!(q || status || plugin || repo || starred);
   // with the side panel, as the inbox opens reviews, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
   const openId = panelMode ? params.get("open") : null;
@@ -73,6 +75,7 @@ export function History() {
         q: debounced,
         plugin,
         repo,
+        starred: starred ? "true" : undefined,
         offset: String((page - 1) * size),
         limit: String(size),
         include: "facets",
@@ -82,7 +85,7 @@ export function History() {
     return () => {
       cancelled = true;
     };
-  }, [status, debounced, plugin, repo, page, size, live.historyVersion]);
+  }, [status, debounced, plugin, repo, starred, page, size, live.historyVersion]);
 
   const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;
@@ -304,6 +307,17 @@ export function History() {
                 })),
               ]}
             />
+            <Tooltip label={starred ? "Show every review" : "Show only the starred reviews"} side="bottom">
+              <button
+                type="button"
+                className={`chrome-button star-filter ${starred ? "is-starred" : ""}`}
+                aria-label="Starred"
+                aria-pressed={starred}
+                onClick={() => setFilter("starred", starred ? "" : "1")}
+              >
+                <Star size={14} fill={starred ? "currentColor" : "none"} />
+              </button>
+            </Tooltip>
             {filtered ? (
               <button
                 type="button"
@@ -336,6 +350,7 @@ export function History() {
                   <th>Outcome</th>
                   <th className="history-col-repo">Repository</th>
                   <th className="history-col-recorded">Recorded</th>
+                  <th className="history-col-star" aria-label="Star" />
                 </tr>
               </thead>
               <tbody>
@@ -421,6 +436,9 @@ export function History() {
                           />
                         </small>
                       ) : null}
+                    </td>
+                    <td className="history-col-star">
+                      {r.kind === "question" ? null : <StarButton review={r} inRow />}
                     </td>
                   </tr>
                 ))}

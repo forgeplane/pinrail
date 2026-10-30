@@ -79,6 +79,10 @@ export type Review = {
   attachments?: Attachment[];
   /** how many files it carries and their bytes: on every review, listings too */
   attachments_total?: { count: number; bytes: number };
+  /** when the person starred this round, if they did */
+  starred_at?: string | null;
+  /** whether any round of the review is starred */
+  starred?: boolean;
 };
 
 /** What a plugin takes: kinds as `.ext` or media types, and its limits. */

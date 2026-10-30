@@ -97,6 +97,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         for (const missed of fetching.current) missed.push(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
         if (ENDINGS.has(notice.kind) || notice.kind === "history_swept") setHistoryVersion((v) => v + 1);
+        // a star on one round marks the whole review, in the inbox and the history
+        if (notice.kind === "starred" || notice.kind === "unstarred") {
+          setHistoryVersion((v) => v + 1);
+          refresh();
+        }
         // a review that moved may have taken a linked folder as it is now
         if (notice.kind === "plugins_reloaded" || notice.kind === "plugin_changed") loadPlugins();
       },

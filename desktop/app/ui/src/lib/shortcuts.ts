@@ -34,6 +34,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
     ],
   },
   { what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
+  { what: "Star or remove the star of the review", keys: [[MOD, SHIFT, "S"]] },
   { what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },
   { what: "Find in the view", keys: [[MOD, "F"]] },
   { what: "Previous / next round", keys: [["["], ["]"]] },

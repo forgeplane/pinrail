@@ -1702,6 +1702,18 @@ body.is-resizing iframe {
 .review-row-end .bar-button:focus-visible {
   opacity: 1;
 }
+/* the star: amber when starred, and shown on every starred row */
+.star-button.is-starred,
+.star-filter.is-starred,
+.star-filter.is-starred svg {
+  color: var(--sev-major);
+}
+.review-row-end .star-button.is-starred {
+  opacity: 1;
+}
+.star-button[aria-disabled="true"] {
+  cursor: default;
+}
 /* a narrow list shows only the title, the time and the discard button,
    and leaves out the sort's label; after the rules above, which it overrides */
 @container (max-width: 560px) {
@@ -3712,6 +3724,22 @@ body.is-resizing iframe {
   .history-col-recorded {
     display: none;
   }
+}
+.history-table td.history-col-star {
+  width: 1%;
+  padding-left: 0;
+}
+/* the star shows on a starred row, and on the others under the pointer or the focus */
+.history-table .star-button {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+}
+.history-table .star-button.is-starred,
+.history-table tr:hover .star-button,
+.history-table tr.is-focused .star-button,
+.history-table .star-button:focus-visible {
+  opacity: 1;
 }
 .history-table tr.is-focused td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);

@@ -28,6 +28,7 @@ import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../componen
 import { DiscardDialog } from "../components/DiscardDialog";
 import { FindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
+import { StarButton, useToggleStar } from "../components/StarButton";
 import { Thread, sessionOf, sessionPath } from "../components/Thread";
 import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
@@ -100,6 +101,10 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
   const fromHistory = (location.state as { from?: string } | null)?.from === "history";
   const back = fromHistory ? { to: "/history", label: "History" } : { to: "/", label: "Inbox" };
   const [review, setReview] = useState<Review | null>(null);
+  // the review the shortcuts act on, read when a key is pressed
+  const reviewRef = useRef(review);
+  reviewRef.current = review;
+  const toggleStar = useToggleStar();
   const [rounds, setRounds] = useState<Review[]>([]);
   // the whole review this round revises, with its payload, for the view: the
   // rounds list holds summaries only
@@ -204,7 +209,9 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
     const notice = live.lastNotice;
     if (!notice) return;
     const revises = notice.review?.revises;
-    if (notice.review_id === id || (revises && roundIds.current.has(revises))) load();
+    // a star on another round marks this one too
+    const round = !!notice.review_id && roundIds.current.has(notice.review_id);
+    if (notice.review_id === id || (revises && roundIds.current.has(revises)) || round) load();
   }, [live.lastNotice, id, load]);
 
   // The plugin the review renders with and the address of its view; null
@@ -411,6 +418,12 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
           return;
         }
       }
+      if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "s" || event.key === "S")) {
+        event.preventDefault();
+        const shown = reviewRef.current;
+        if (shown && shown.kind !== "question") toggleStar(shown);
+        return;
+      }
       if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "m" || event.key === "M")) {
         event.preventDefault();
         if (plugin) setMaximized((m) => !m);
@@ -477,7 +490,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
       window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:discard", onDiscard);
     };
-  }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo]);
+  }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo, toggleStar]);
 
   // the view leaves with the review
   // what was said and opened for the last review stays with it: the screen
@@ -561,6 +574,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
               )}
             </button>
           </Tooltip>
+          {review.kind === "question" ? null : <StarButton review={review} />}
           <SessionLink review={review} />
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
@@ -607,7 +621,20 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
         </>
       ) : null,
     // the id too: the screen outlives a change of review, and Copy acts on it
-    [id, review?.status, review?.requested_by, review?.session, plugin, copied, inPanel, showInPanel, onClose], // eslint-disable-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
+    [
+      id,
+      review?.status,
+      review?.requested_by,
+      review?.session,
+      review?.starred,
+      review?.starred_at,
+      plugin,
+      copied,
+      inPanel,
+      showInPanel,
+      onClose,
+    ],
   );
   const forPlugin = useMemo(
     () =>

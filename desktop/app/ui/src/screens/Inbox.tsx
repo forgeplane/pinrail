@@ -18,6 +18,7 @@ import { NO_PROJECT, inProject } from "../lib/url";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
+import { StarButton } from "../components/StarButton";
 import { ReviewView } from "./ReviewScreen";
 
 /** How the inbox is laid out, remembered on this machine. */
@@ -360,6 +361,7 @@ export function Inbox() {
         <time className="review-row-time" dateTime={review.created_at}>
           {age(review.created_at, now)}
         </time>
+        {review.kind === "question" ? null : <StarButton review={review} inRow ofReview />}
         <Tooltip label="Discard: the agent is told to stop" keys={[MOD, "D"]} side="top">
           <button
             type="button"

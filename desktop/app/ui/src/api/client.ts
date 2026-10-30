@@ -114,6 +114,8 @@ export const api = {
   discard: (id: string, reason?: string) =>
     request<Review>("POST", `/api/v1/reviews/${seg(id)}/discard`, reason ? { reason } : {}),
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${seg(id)}/viewed`),
+  /** stars a round of a review, or removes its star */
+  star: (id: string, starred: boolean) => request<void>(starred ? "PUT" : "DELETE", `/api/v1/reviews/${seg(id)}/star`),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   /** what installing a folder or a zip would do, installing nothing */
@@ -217,6 +219,8 @@ export function subscribe(handlers: {
       "plugins_reloaded",
       "settings_changed",
       "session_status",
+      "starred",
+      "unstarred",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {
