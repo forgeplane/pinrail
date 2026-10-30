@@ -43,11 +43,13 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The command palette finds the stages agents started, and opens the
   session's thread where a stage started.
 - Star a review to find it again later, from its header, with ⌘⇧S, or
-  from its row in the inbox and the history. The history's star filter
-  lists the starred reviews.
+  from its row in the inbox. The inbox's star filter lists the starred
+  reviews.
 
 ### Changed
 
+- The history moved to a History tab in the inbox, with the same rows and
+  filters as the other tabs. ⌘⇧H opens the tab.
 - The `pinrail` skill tells agents to ask their questions through Pinrail
   with `pinrail ask`, not in the chat, and to report their progress with
   `pinrail status`.

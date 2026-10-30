@@ -3,7 +3,7 @@ title: The inbox
 description: "Where reviews wait for you, how you decide them, the history of everything decided, and the keys that move you through it."
 ---
 
-The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to your history.
+The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to the inbox's History tab.
 
 Questions an agent asks with `pinrail ask` wait in the inbox too, marked with a question icon and *asks you*. They open in the thread of the agent's session. See [Questions and sessions](/docs/using/sessions/).
 
@@ -11,12 +11,16 @@ Questions an agent asks with `pinrail ask` wait in the inbox too, marked with a 
 
 ## The inbox
 
-The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what the review asks. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
+The inbox has three tabs. *Pending* lists every review that waits, newest first. *New rounds* lists only the waiting reviews that revise an earlier one. *History* lists the reviews that have ended.
+
+On the *Pending* tab, each row shows the title, the plugin, where it came from and who asked, and a summary of what the review asks. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
 
 The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a code review or *3 drafts* for emails, colored by importance. Each plugin decides what it counts, and a plugin that counts nothing shows no summary. The same counts appear in the notification for a new review and at the top of the review while it waits.
 
+The filters above the tabs apply to every tab, and keep their values when you switch tabs.
+
 - **Filter by project or plugin.** The sidebar lists the projects your reviews come from. Pick one, or choose a project or a plugin from the menus above the list, to see only those reviews.
-- **Show new rounds.** *New rounds* shows only the reviews that revise an earlier one.
+- **Show the starred reviews.** Turn on the star filter beside the menus. See [Stars](#stars).
 - **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched.
 - **Jump to the oldest.** The sidebar keeps the oldest waiting reviews one click away on every screen, and <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting.
 
@@ -29,7 +33,7 @@ Open a review with <kbd>Enter</kbd> or a click. It opens in a panel beside the i
 - **Go to the next or previous review** with <kbd>J</kbd> and <kbd>K</kbd>, in the order the inbox lists them. They work while you work in the view too, unless you are typing in a field, and go round at the ends of the list: <kbd>J</kbd> on the last review goes to the first. <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> do the same.
 - **Resize the panel** by dragging its left edge. Pinrail remembers the width.
 
-The history opens a review in the same panel. To open reviews as a page of their own instead, set *Settings › General › Opening a review* to *As a page*.
+The *History* tab opens a review in the same panel. To open reviews as a page of their own instead, set *Settings › General › Opening a review* to *As a page*.
 
 1. **Decide in the view.** Use the controls that the plugin provides, for example to accept, reject, edit or comment. Your work is saved as a draft as you go, so you can open another review and come back to it.
 2. **Add a note to the agent**, if you want to, in the box below the view. In the macOS app you can dictate it: click the microphone, speak, and click it again or press <kbd>Esc</kbd> to stop. The first time, macOS asks for access to the microphone and to speech recognition.
@@ -57,23 +61,23 @@ When an agent revises a review you asked it to change, the new round opens with 
 
 ## History
 
-Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders read-only, with the release of the plugin it was submitted to.
+Every review that has ended is on the inbox's **History** tab: decided, discarded, withdrawn or expired. Each row shows the outcome, who ended the review and when. Open one and it renders read-only, with the release of the plugin it was submitted to. Open the tab with <kbd>⌘⇧H</kbd>.
 
 Each decided review shows what was decided, as its plugin counts it: for example *2 accepted · 1 rejected*, or a verdict such as *approved* in place of *decided*. The review's header shows the same, and so does the decision the agent receives.
 
-![History: ended reviews with their outcome and what was decided, their project, and when they were recorded.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
+![The History tab: ended reviews with their outcome and what was decided, their project, and when they ended.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
 
-To search your history, press <kbd>/</kbd> and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
+To search the history, press <kbd>/</kbd> on the *History* tab and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. The *Outcome* menu shows on the *History* tab only.
 
 To choose how long history is kept, see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 
 ## Stars
 
-Star a review to find it again later. Click the star in the review's header, on its page or in the side panel, or press <kbd>⌘⇧S</kbd>. In the inbox and the history, the star sits at the end of each row: it shows on a starred review, and on the others when the pointer is over the row. Click it again to remove the star. Questions cannot be starred.
+Star a review to find it again later. Click the star in the review's header, on its page or in the side panel, or press <kbd>⌘⇧S</kbd>. In the inbox, the star sits at the end of each row: it shows on a starred review, and on the others when the pointer is over the row. Click it again to remove the star. Questions cannot be starred.
 
 A star belongs to the round you starred. A review is shown as starred when any of its rounds is.
 
-To list the rounds you starred, turn on the star filter in the history, beside the project and plugin filters. A starred review is deleted with the rest of your history after the time set in *Keep reviews for*.
+To list the starred reviews, turn on the star filter in the inbox, beside the project and plugin filters. On the *Pending* and *New rounds* tabs, it lists the waiting reviews with a starred round. On the *History* tab, it lists only the rounds you starred. A starred review is deleted with the rest of your history after the time set in *Keep reviews for*.
 
 ## Search everything
 
@@ -94,10 +98,10 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 | <kbd>⌥↓</kbd> / <kbd>⌥↑</kbd> | Next / previous waiting review |
 | <kbd>Esc</kbd> | Close the review panel |
 | <kbd>⌘D</kbd> | Discard the focused or open review |
-| <kbd>/</kbd> | Search the inbox or the history |
+| <kbd>/</kbd> | Search the inbox |
 | <kbd>⌘K</kbd> | Search everything |
 | <kbd>⌘I</kbd> | Inbox |
-| <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | History / Plugins |
+| <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | The inbox's History tab / Plugins |
 | <kbd>⌘,</kbd> | Settings |
 | <kbd>⌘⇧L</kbd> | Switch theme |
 | <kbd>⌘B</kbd> | Show or hide the sidebar |
