@@ -67,6 +67,14 @@ To search your history, press <kbd>/</kbd> and type one or more words. A review 
 
 To choose how long history is kept, see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 
+## Stars
+
+Star a review to find it again later. Click the star in the review's header, on its page or in the side panel, or press <kbd>⌘⇧S</kbd>. In the inbox and the history, the star sits at the end of each row: it shows on a starred review, and on the others when the pointer is over the row. Click it again to remove the star. Questions cannot be starred.
+
+A star belongs to the round you starred. A review is shown as starred when any of its rounds is.
+
+To list the rounds you starred, turn on the star filter in the history, beside the project and plugin filters. A starred review is deleted with the rest of your history after the time set in *Keep reviews for*.
+
 ## Search everything
 
 <kbd>⌘K</kbd> opens a palette that searches every review, pending or decided, and every action in the app, such as going to a screen, opening settings or switching the theme.
@@ -95,6 +103,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 | <kbd>⌘B</kbd> | Show or hide the sidebar |
 | <kbd>⌘[</kbd> / <kbd>⌘]</kbd> | Back / forward |
 | <kbd>⌘↵</kbd> | Hand over to the agent |
+| <kbd>⌘⇧S</kbd> | Star or remove the star of the review |
 | <kbd>⌘⇧M</kbd> | Maximize / restore the view |
 | <kbd>⌘F</kbd> | Find in the view |
 | <kbd>[</kbd> / <kbd>]</kbd> | Previous / next round |

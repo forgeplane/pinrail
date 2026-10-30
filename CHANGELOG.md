@@ -35,6 +35,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The Sessions page filters the sessions by project.
 - A review sent from a session links to the session's thread from its
   header.
+- Star a review to find it again later, from its header, with ⌘⇧S, or
+  from its row in the inbox and the history. The history's star filter
+  lists the starred reviews.
 
 ### Changed
 
