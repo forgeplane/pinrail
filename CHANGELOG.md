@@ -20,8 +20,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   questions and reviews. Pick a choice or answer in your own words, add a
   note to an answer, and comment on all the questions at once.
 - A Sessions page lists the agent sessions that asked you questions or
-  sent reviews, those waiting for you first. The sidebar lists the
-  sessions waiting for you.
+  sent reviews, those waiting for you first.
+- The sidebar lists every session that is not archived under its
+  project, with what waits under the session that sent it. A mark on the
+  agent's icon shows a session that works or has finished, and a menu
+  groups, orders and filters the sessions.
 - Questions in the inbox are marked apart from reviews.
 - A question's text can use inline Markdown, such as `code` and **bold**,
   which the thread shows formatted.

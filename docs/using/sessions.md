@@ -41,9 +41,26 @@ A question's thread links to its session's page with *session* and the id in its
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")
 
-The **Sessions** page, in the sidebar, lists every session that asked you something, sent a review or reported a status: those waiting for you first, then the most recently active. Search for an agent, a session id or a title, and choose a project in the *Project* menu to list only its sessions. Click a session to open its thread in the side panel, beside the list, as the inbox opens a review. Press <kbd>J</kbd> and <kbd>K</kbd> to open the next and previous session, and <kbd>Esc</kbd> to close the panel. The panel hides the session's details at first: show them with the button in its header. *Open as a page* opens the session on its own page. When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), sessions open on their own page too. The sidebar's *Sessions* section lists the sessions waiting for you, with how many questions and reviews wait in each.
+The **Sessions** page, in the sidebar, lists every session that asked you something, sent a review or reported a status: those waiting for you first, then the most recently active. Search for an agent, a session id or a title, and choose a project in the *Project* menu to list only its sessions. Click a session to open its thread in the side panel, beside the list, as the inbox opens a review. Press <kbd>J</kbd> and <kbd>K</kbd> to open the next and previous session, and <kbd>Esc</kbd> to close the panel. The panel hides the session's details at first: show them with the button in its header. *Open as a page* opens the session on its own page. When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), sessions open on their own page too.
 
 To archive a session you are done with, click the archive button at the end of its row, or press <kbd>E</kbd> on the focused row. You can also archive the open session with the button in its header, or with <kbd>E</kbd>. An archived session leaves the Sessions page and the sidebar, but nothing it sent is deleted: its questions and reviews stay in the inbox while they wait, and its thread still opens from a review's header and from the command palette. Turn on *Show archived*, beside the *Project* menu, to list the archived sessions with the others, and unarchive one with its button or <kbd>E</kbd>. When an archived session's agent sends a question, a review or a status, the session comes back by itself.
+
+## Sessions in the sidebar
+
+The sidebar lists every session that is not archived, under its project. Click a project's name to see its reviews in the inbox, and click the arrow beside it to collapse or expand it. Click a session to open its thread.
+
+The agent's icon shows what the session is doing. A pulsing blue dot means the agent reported a status in the last five minutes. A green check means its last status said it had finished. An amber count at the end of the row says how many questions and reviews wait in the session, and they are listed under it, each opening where you answer or decide it. A review that came from no session is listed under its project. Hover over a session to see its latest status, the agent and the branch.
+
+The button at the right of the section's heading opens a menu:
+
+- **Grouping** groups the sessions by repository, by status, by when they were last updated, or not at all. The heading takes the grouping's name.
+- **Ordering** lists what waits first, then the working, quiet and finished sessions, or the most recently updated first.
+- **Show details** adds a second line under each session. **Details** chooses what it shows: the last activity, the latest status, the branch and the agent.
+- **Show reviews** lists what waits under its session, or only counts it.
+- **Filters** list only some agents, repositories or states, or add the archived sessions. **Reset** clears them.
+- **Collapse all groups** collapses every group, and **Expand all groups** opens them again.
+
+Pinrail keeps these choices in its settings.
 
 ## What the agent is doing
 
