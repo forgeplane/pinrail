@@ -23,6 +23,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   sent reviews, those waiting for you first. The sidebar lists the
   sessions waiting for you.
 - Questions in the inbox are marked apart from reviews.
+- A question's text can use inline Markdown, such as `code` and **bold**,
+  which the thread shows formatted.
 - `pinrail status` lets an agent say what it is doing. Its statuses show
   in the session's thread between its questions and reviews, and the
   newest shows on the Sessions page.

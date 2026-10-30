@@ -12,7 +12,8 @@ use crate::origin;
 
 #[derive(Args)]
 pub struct AskArgs {
-    /// The first question, as one line of plain text
+    /// The first question, as one line, which can use inline Markdown such
+    /// as `code` for a command or a path
     #[arg(value_name = "QUESTION", required_unless_present = "data")]
     question: Option<String>,
     /// Another question. The options after it, up to the next --ask, apply

@@ -95,7 +95,7 @@ Comment: Thanks for asking first.
 
 | Option | Meaning |
 |---|---|
-| `<question>` | The first question, as one line of plain text, up to 300 characters. |
+| `<question>` | The first question, as one line of up to 300 characters. It can use inline Markdown, such as backticks around a command, a path or an endpoint. |
 | `--ask <question>` | Another question. The options after it, up to the next `--ask`, apply to it. Up to 10 questions in all. |
 | `--choice <text>` | An answer the person can pick, given once for each choice, at least twice. A choice can contain spaces and commas. Without it, the person types the answer. |
 | `--multiple` | With `--choice`: the person can pick more than one. |

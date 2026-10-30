@@ -38,6 +38,8 @@ pinrail ask "Deploy to staging or production?" \
   `--yes-no`, `--recommend` for the answer you would choose, and
   `--context` for Markdown that explains it. Without choices, the person
   answers in words.
+- A question is one line, and can use inline Markdown: put commands,
+  paths and endpoints in backticks.
 - Ask up to 10 independent questions at once. A question that depends on
   another's answer goes in a later `pinrail ask`. For questions that
   depend on each other or need long explanations, use the `feedback`
