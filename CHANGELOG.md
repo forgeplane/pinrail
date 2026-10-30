@@ -32,6 +32,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   agent works in. The CLI now sends the folder with every review.
 - The Sessions page opens a session's thread in the side panel, as the
   inbox opens a review.
+- The Sessions page filters the sessions by project.
 
 ### Changed
 
