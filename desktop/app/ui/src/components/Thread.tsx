@@ -2,7 +2,7 @@
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
 
-import { Ban, Check, GitBranch, Mic, Send, Star, X } from "lucide-react";
+import { Ban, Check, GitBranch, Mic, Star, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
@@ -17,6 +17,7 @@ import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/ques
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { ComposeField } from "./ComposeField";
 import { OutcomeBadge, SummaryCounts } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
@@ -762,51 +763,34 @@ type ComposerProps = {
 };
 
 /** The box under the thread: a comment to the agent on the questions as a
- *  whole, sent with the answers, and the buttons that send or decline them. */
+ *  whole, sent with the answers. Enter sends them, and a small button
+ *  declines them. */
 function Composer({ comment, onComment, left, busy, connected, onSend, onDecline }: ComposerProps) {
-  const { box, onKeyDown, mic } = useWritingBox(comment, onComment);
+  const sendLabel = connected ? "Send the answers to the agent" : "Reconnect to send";
   return (
-    <div className="thread-composer">
-      <div className={`composer ${busy ? "is-busy" : ""}`}>
-        <textarea
-          ref={box}
-          rows={1}
-          value={comment}
-          aria-label="Comment to the agent"
-          placeholder="Add a comment to the agent on these questions…"
-          onChange={(e) => onComment(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <div className="composer-bar">
-          <span className="composer-hint">{connected ? "The comment travels with your answers" : "Reconnecting…"}</span>
-          {mic}
+    <div className={`thread-composer ${busy ? "is-busy" : ""}`}>
+      <ComposeField
+        value={comment}
+        onChange={onComment}
+        label="Comment to the agent"
+        placeholder="Add a comment to the agent on these questions…"
+        onSubmit={onSend}
+        keys={`${left > 0 ? `${left} unanswered · ` : ""}Enter to send · Shift+Enter for a new line`}
+        tools={
           <Tooltip label="Decline: the agent is told to stop" keys={[MOD, "D"]} side="top">
-            <button type="button" className="chrome-button" onClick={onDecline}>
-              <Ban size={13} /> Decline
+            <button type="button" className="compose-icon" aria-label="Decline" onClick={onDecline}>
+              <Ban size={14} />
             </button>
           </Tooltip>
-          <Tooltip
-            label={connected ? "Send the answers to the agent" : "Reconnect to send"}
-            keys={[MOD, "Enter"]}
-            side="top"
-          >
-            <button
-              type="button"
-              className="handover-button with-icon"
-              data-testid="send-answers"
-              disabled={busy || !connected}
-              onClick={onSend}
-            >
-              {left > 0 ? `Send, ${left} unanswered` : "Send"}
-              <Send size={13} />
-              <span className="handover-keys" aria-hidden="true">
-                <kbd>{MOD}</kbd>
-                <kbd>↵</kbd>
-              </span>
-            </button>
-          </Tooltip>
-        </div>
-      </div>
+        }
+        send={{
+          label: left > 0 ? `${sendLabel}, ${left} unanswered` : sendLabel,
+          name: left > 0 ? `Send, ${left} unanswered` : "Send",
+          keys: ["Enter"],
+          disabled: busy || !connected,
+          testId: "send-answers",
+        }}
+      />
     </div>
   );
 }
@@ -815,14 +799,13 @@ function Composer({ comment, onComment, left, busy, connected, onSend, onDecline
 function IdleComposer() {
   return (
     <div className="thread-composer is-idle">
-      <div className="composer">
-        <textarea
-          rows={1}
-          disabled
-          aria-label="Comment to the agent"
-          placeholder="No question is waiting for an answer"
-        />
-      </div>
+      <ComposeField
+        value=""
+        onChange={() => {}}
+        label="Comment to the agent"
+        placeholder="No question is waiting for an answer"
+        disabled
+      />
     </div>
   );
 }

@@ -96,7 +96,7 @@ test("questions open in their session's thread in the side panel, and are answer
   await page.getByRole("textbox", { name: "Comment to the agent" }).fill("good questions");
 
   const sendButton = page.getByTestId("send-answers");
-  await expect(sendButton).toHaveText(/Send, 1 unanswered/);
+  await expect(sendButton).toHaveAccessibleName("Send, 1 unanswered");
   await sendButton.click();
   await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("decided");
   expect((await decisionOf(page.request, id)).decision?.data).toEqual({
@@ -276,7 +276,7 @@ test("the question picked keeps its keys, and a key pick moves on to the next", 
   // a second click on the pick unpicks it
   await first.getByRole("radio", { name: "production" }).click();
   await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "false");
-  await expect(page.getByTestId("send-answers")).toHaveText(/Send, 3 unanswered/);
+  await expect(page.getByTestId("send-answers")).toHaveAccessibleName("Send, 3 unanswered");
 });
 
 test("an agent asking with pinrail ask gets the answers and the comment written in the app", async ({ page }) => {
@@ -364,4 +364,21 @@ test("Enter in a question's box goes to the next, and Shift+Enter starts a new l
   await page.getByRole("textbox", { name: "Answer to What should it be called?" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("textbox", { name: "Comment to the agent" })).toBeFocused();
+});
+
+test("Enter in the comment box sends the answers, and Shift+Enter starts a new line", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const { id } = await send(page.request, asked(fresh(), "Comment: deploy"));
+  await page.goto(`/#/reviews/${id}`);
+  await page.getByRole("radio", { name: "staging" }).click();
+  const comment = page.getByRole("textbox", { name: "Comment to the agent" });
+  await comment.fill("go ahead");
+  await comment.press("Shift+Enter");
+  await comment.pressSequentially("after lunch");
+  await expect(page.getByText("2 unanswered · Enter to send")).toBeVisible();
+  await comment.press("Enter");
+  await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("decided");
+  const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
+  expect(review.agent_note).toBe("go ahead\nafter lunch");
 });

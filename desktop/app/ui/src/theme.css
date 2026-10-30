@@ -2592,6 +2592,114 @@ body.is-resizing iframe {
   opacity: 0.7;
 }
 
+/* The field to write a comment or a note in, as the SDK's .pinrail-compose
+   draws it in plugin views: one box with the text and small buttons at its
+   end. Once the text wraps or has a new line, the field is .is-wide, and
+   the text takes the whole width and the buttons a row under it, with the
+   keys on their left. */
+.compose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.compose:focus-within {
+  border-color: var(--faint);
+}
+.compose.is-wide {
+  padding: 4px 4px 3px;
+}
+.compose textarea {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 3px 8px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  resize: none;
+  overflow: hidden;
+}
+.compose textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+.compose textarea::placeholder {
+  color: var(--faint);
+}
+.compose.is-wide textarea {
+  flex-basis: 100%;
+}
+/* the keys take no width of their own, so they never widen the field */
+.compose-keys {
+  display: none;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  padding-left: 8px;
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.compose.is-wide .compose-keys {
+  display: block;
+}
+.compose-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.compose.is-wide .compose-tools {
+  margin-left: auto;
+}
+.compose-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--faint);
+}
+.compose-icon:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.compose-icon.is-listening {
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+}
+/* the send button: an arrow in a filled circle, in the accent colour */
+.compose-send,
+.compose-send:hover:not(:disabled) {
+  width: 22px;
+  height: 22px;
+  margin: 1px;
+  border-radius: 50%;
+  background: var(--button-bg);
+  color: #fff;
+}
+.compose-send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--button-bg) 85%, var(--text));
+}
+.compose-send:disabled {
+  background: var(--bg-hover);
+  color: var(--faint);
+  cursor: default;
+}
+
 /* an agent session's thread: a header across the page, the questions and
    reviews it sent down the middle, oldest first, and what waits on the
    person at the right; in the inbox's side panel, the timeline alone */
@@ -2741,8 +2849,11 @@ body.is-resizing iframe {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-.thread-composer.is-idle .composer {
+.thread-composer.is-idle .compose {
   opacity: 0.6;
+}
+.thread-composer.is-busy .compose-send {
+  opacity: 0.7;
 }
 .thread-items {
   display: flex;
@@ -2951,18 +3062,6 @@ body.is-resizing iframe {
   font-size: 11px;
   font-weight: 500;
   vertical-align: 1px;
-}
-/* in a narrow panel, the hint gives way before the buttons do */
-.thread-composer .composer-hint {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.thread-composer .handover-button {
-  flex: none;
-  white-space: nowrap;
 }
 /* what the person writes for one question, in its bubble: the answer, an
    answer in their own words, or a note on their pick */
