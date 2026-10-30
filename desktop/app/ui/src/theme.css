@@ -2927,6 +2927,21 @@ body.is-resizing iframe {
 .thread-items > * {
   flex: none;
 }
+/* on a wide window, the messages and the chat box keep to a column that
+   reads comfortably, in the middle */
+.thread-items > *,
+.thread-footer > .thread-composer {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+}
+/* a review the session sent, under the messages' text, past their avatar */
+.thread-items > .thread-card {
+  width: calc(100% - 38px);
+  max-width: calc(900px - 38px);
+  margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
+  margin-right: 0;
+}
 /* room under the last message, which a scroll container's bottom padding
    does not always give */
 .thread-items::after {
@@ -3015,7 +3030,6 @@ body.is-resizing iframe {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-left: 38px;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
