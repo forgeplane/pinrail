@@ -20,6 +20,8 @@ pub const DISCARDED: &str = "discarded";
 pub const PLUGIN_CHANGED: &str = "plugin_changed";
 pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
+/// An agent reported what it is doing in its session, with `pinrail status`.
+pub const SESSION_STATUS: &str = "session_status";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 
@@ -33,6 +35,9 @@ pub struct Notice {
     /// The settings that changed, as JSON pointers, for `settings_changed`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<Vec<String>>,
+    /// The session and its new status, for `session_status`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<Value>,
 }
 
 #[derive(Debug, Clone)]

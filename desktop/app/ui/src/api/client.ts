@@ -209,6 +209,7 @@ export function subscribe(handlers: {
       "plugin_changed",
       "plugins_reloaded",
       "settings_changed",
+      "session_status",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {

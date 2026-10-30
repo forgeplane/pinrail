@@ -220,4 +220,90 @@ mod tests {
         assert!(insert("r_plugin_question", "list", Some("question")).is_err());
         assert!(insert("r_other", "list", Some("message")).is_err());
     }
+
+    /// The sessions the reviews named before the table are its rows, with
+    /// the newest review's project and branch, and the time of their newest
+    /// event other than a review being viewed, to the millisecond.
+    #[test]
+    fn the_sessions_are_filled_from_the_reviews() {
+        let conn = Connection::open_in_memory().unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.1 != "sessions")
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        let review = |id: &str,
+                      agent: Option<&str>,
+                      session: Option<&str>,
+                      origin: &str,
+                      at: &str| {
+            conn.execute(
+                "INSERT INTO reviews (id, plugin, title, origin, requested_by, session, created_at) \
+                 VALUES (?1, 'list', 't', ?2, ?3, ?4, ?5)",
+                params![id, origin, agent, session, at],
+            )
+            .unwrap();
+        };
+        let event = |review: &str, kind: &str, at: &str| {
+            conn.execute(
+                "INSERT INTO events (review_id, kind, at) VALUES (?1, ?2, ?3)",
+                params![review, kind, at],
+            )
+            .unwrap();
+        };
+        review(
+            "r1",
+            Some("claude-code"),
+            Some("s1"),
+            r#"{"repo":"acme/api","ref":"main"}"#,
+            "2026-10-01T10:00:00Z",
+        );
+        review(
+            "r2",
+            Some("claude-code"),
+            Some("s1"),
+            r#"{"repo":"acme/api","ref":"fix"}"#,
+            "2026-10-02T10:00:00Z",
+        );
+        review(
+            "r3",
+            Some("codex"),
+            Some("s1"),
+            "{}",
+            "2026-10-03T10:00:00Z",
+        );
+        review(
+            "r4",
+            None,
+            None,
+            r#"{"repo":"acme/web"}"#,
+            "2026-10-04T10:00:00Z",
+        );
+        event("r1", "created", "2026-10-01T10:00:00Z");
+        event("r2", "created", "2026-10-02T10:00:00Z");
+        event("r1", "decided", "2026-10-05T10:00:00Z");
+        event("r2", "viewed", "2026-10-09T10:00:00Z");
+        event("r3", "created", "2026-10-03T10:00:00Z");
+        run(&conn, MIGRATIONS).unwrap();
+
+        let rows: Vec<String> = conn
+            .prepare(
+                "SELECT agent || ' ' || id || ' ' || IFNULL(repo, '-') || ' ' || IFNULL(ref, '-') \
+                 || ' ' || IFNULL(folder, '-') || ' ' || first_at || ' ' || last_at \
+                 FROM sessions ORDER BY agent",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            [
+                "claude-code s1 acme/api fix - 2026-10-01T10:00:00Z 2026-10-05T10:00:00.000Z",
+                "codex s1 - - - 2026-10-03T10:00:00Z 2026-10-03T10:00:00.000Z",
+            ]
+        );
+    }
 }

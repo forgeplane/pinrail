@@ -226,6 +226,9 @@ fn insert_in(
                     .to_string(),
             ],
         )?;
+        if let (Some(agent), Some(session)) = (&review.requested_by, &review.session) {
+            super::sessions::touch(tx, agent, session, &review.origin, review.created_at)?;
+        }
         let event_id = insert_event(
             tx,
             Some(&review.id),

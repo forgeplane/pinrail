@@ -69,6 +69,13 @@ pub(super) fn insert_event(
     actor: Option<&str>,
     attrs: &Value,
 ) -> rusqlite::Result<i64> {
+    // anything that happens to a review, other than the person opening it,
+    // is activity in its session
+    if let Some(review_id) = review_id
+        && kind != crate::events::VIEWED
+    {
+        super::sessions::touch_review(conn, review_id)?;
+    }
     conn.execute(
         "INSERT INTO events (review_id, kind, actor, at, attrs) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![

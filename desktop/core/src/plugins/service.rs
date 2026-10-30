@@ -313,6 +313,7 @@ impl PluginService {
             review_id: None,
             review: None,
             keys: None,
+            session: None,
         });
         Ok(())
     }

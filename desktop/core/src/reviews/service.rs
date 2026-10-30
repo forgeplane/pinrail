@@ -15,12 +15,16 @@ use serde_json::{Map, Value};
 use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
-use crate::db::{Db, Event, Filters, NotStored, SessionFilters, SessionRow};
+use crate::db::{
+    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StatusRow, status_notice,
+};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
 use crate::plugins::{Plugin, Registry};
 
 const DEFAULT_LIMIT: usize = 100;
+/// The longest status an agent can report, in characters.
+const STATUS_MAX: usize = 200;
 
 /// One page of a listing; see `Reviews::listing`.
 #[derive(Debug)]
@@ -293,6 +297,50 @@ impl Reviews {
             })
             .collect::<Result<_, _>>()?;
         Ok((session, items))
+    }
+
+    /// Records what the agent says it is doing in its session: one line of
+    /// text, which may be empty only when the agent says it has finished.
+    pub fn status(
+        &self,
+        agent: &str,
+        session: &str,
+        text: &str,
+        done: bool,
+        origin: Option<&Value>,
+    ) -> Result<StatusRow, Error> {
+        let text = text.trim();
+        if agent.trim().is_empty() || session.trim().is_empty() {
+            return Err(Error::invalid("session", "name the agent and the session"));
+        }
+        if text.contains(['\n', '\r']) {
+            return Err(Error::invalid("text", "must be one line"));
+        }
+        if text.chars().count() > STATUS_MAX {
+            return Err(Error::invalid(
+                "text",
+                format!("must be at most {STATUS_MAX} characters"),
+            ));
+        }
+        if text.is_empty() && !done {
+            return Err(Error::invalid("text", "say what the agent is doing"));
+        }
+        let origin = Review::normalize_origin(origin);
+        let (status, event_id) = self.db.add_status(agent, session, text, done, &origin)?;
+        self.bus.publish(Notice {
+            event_id,
+            kind: events::SESSION_STATUS.to_string(),
+            review_id: None,
+            review: None,
+            keys: None,
+            session: Some(status_notice(agent, session, &status)),
+        });
+        Ok(status)
+    }
+
+    /// The session's statuses, oldest first.
+    pub fn statuses(&self, agent: &str, session: &str) -> Result<Vec<StatusRow>, Error> {
+        Ok(self.db.statuses(agent, session)?)
     }
 
     pub fn get(&self, id: &str) -> Result<Review, Error> {
@@ -666,10 +714,13 @@ impl Reviews {
     pub fn sweep_history_before(&self, before: DateTime<Utc>) -> Result<usize, Error> {
         let ended = self.db.ended_before(before)?;
         if ended.is_empty() {
+            self.db.delete_idle_sessions(before)?;
             return Ok(0);
         }
         let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
         let count = self.db.delete_reviews(&ids)?;
+        // and the sessions that hold nothing more, and did nothing since
+        self.db.delete_idle_sessions(before)?;
         // the bundles only these reviews kept go with the bundles' sweep
         let event_id = self.db.append_event(
             None,
@@ -740,6 +791,7 @@ impl Reviews {
             review_id: None,
             review: None,
             keys: None,
+            session: None,
         });
     }
 
@@ -750,6 +802,7 @@ impl Reviews {
             review_id: Some(review.id.clone()),
             review: Some(review.to_json(false)),
             keys: None,
+            session: None,
         });
     }
 

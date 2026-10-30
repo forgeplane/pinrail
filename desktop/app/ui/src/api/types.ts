@@ -124,6 +124,10 @@ export type Session = {
   id: string;
   repo: string | null;
   ref: string | null;
+  /** the folder the agent works in, as the CLI found it */
+  folder: string | null;
+  /** what the agent last said it is doing */
+  status: SessionStatus | null;
   first_at: string;
   last_at: string;
   total: { questions: number; reviews: number };
@@ -295,6 +299,17 @@ export type Notice = {
   review: Review | null;
   /** for settings_changed: the settings that changed, as JSON pointers */
   keys?: string[];
+  /** for session_status: the session and the status the agent reported */
+  session?: { agent: string; id: string; status: SessionStatus };
+};
+
+/** What an agent said it is doing, with `pinrail status`. */
+export type SessionStatus = {
+  id: number;
+  text: string;
+  /** whether the agent said it has finished */
+  done: boolean;
+  at: string;
 };
 
 /** The web origins a plugin may open without asking, while it stays

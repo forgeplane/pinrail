@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 /// The keys kept from a submitted `origin`; everything else is dropped.
-pub const ORIGIN_KEYS: [&str; 5] = ["repo", "workflow", "run_id", "ref", "url"];
+pub const ORIGIN_KEYS: [&str; 6] = ["repo", "workflow", "run_id", "ref", "url", "folder"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {

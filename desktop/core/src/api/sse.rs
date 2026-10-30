@@ -60,15 +60,20 @@ async fn events(
             async move { fresh }
         });
     let all = stream::iter(backlog).chain(live).map(|n| {
+        let mut data = json!({
+            "event_id": n.event_id,
+            "kind": n.kind,
+            "review_id": n.review_id,
+            "review": n.review,
+        });
+        // a session's status, on the notice that brings one
+        if let Some(session) = &n.session {
+            data["session"] = session.clone();
+        }
         Ok(Event::default()
             .id(n.event_id.to_string())
             .event(n.kind.clone())
-            .json_data(json!({
-                "event_id": n.event_id,
-                "kind": n.kind,
-                "review_id": n.review_id,
-                "review": n.review,
-            }))
+            .json_data(data)
             .unwrap_or_else(|_| Event::default()))
     });
     Sse::new(all).keep_alive(KeepAlive::default())

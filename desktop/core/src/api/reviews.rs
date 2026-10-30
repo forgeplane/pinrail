@@ -41,6 +41,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
         .route("/api/v1/sessions", get(sessions))
         .route("/api/v1/sessions/{agent}/{id}", get(session))
+        .route("/api/v1/sessions/{agent}/{id}/status", post(status))
 }
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
@@ -463,6 +464,8 @@ fn session_json(session: &SessionRow) -> Value {
         "id": session.id,
         "repo": session.repo,
         "ref": session.reference,
+        "folder": session.folder,
+        "status": session.status.as_ref().map(|s| s.to_json()),
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
@@ -501,11 +504,29 @@ async fn session(
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<Json<Value>, ApiError> {
     let (session, items) = state.reviews().session(&agent, &id)?;
+    let statuses = state.reviews().statuses(&agent, &id)?;
     Ok(Json(json!({
         "session": session_json(&session),
+        "statuses": statuses.iter().map(|s| s.to_json()).collect::<Vec<_>>(),
         "items": items
             .iter()
             .map(|r| r.to_json(r.kind == Kind::Question))
             .collect::<Vec<_>>(),
     })))
+}
+
+/// What the agent says it is doing in the session, with `pinrail status`:
+/// `text`, one line, and `done` once it has finished, with the `origin` it
+/// works in. Answers 204.
+async fn status(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<StatusCode, ApiError> {
+    let text = body.get("text").and_then(Value::as_str).unwrap_or("");
+    let done = body.get("done").and_then(Value::as_bool).unwrap_or(false);
+    state
+        .reviews()
+        .status(&agent, &id, text, done, body.get("origin"))?;
+    Ok(StatusCode::NO_CONTENT)
 }

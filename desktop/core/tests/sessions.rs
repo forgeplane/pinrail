@@ -175,3 +175,154 @@ async fn reviews_are_listed_by_session() {
         .collect();
     assert_eq!(ids, [mine.as_str()]);
 }
+
+async fn status(app: &App, agent: &str, session: &str, body: Value) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/{agent}/{session}/status"),
+        Some(body),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
+    let app = app();
+    // a status before anything else makes the session
+    let (code, _) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Reading the code", "origin": {"repo": "acme", "ref": "main", "folder": "/work/acme"}}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    send(&app, question("claude-code", Some("s-1"), "Use SQLite?")).await;
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Running the tests"}),
+    )
+    .await;
+    let (code, _) = status(&app, "claude-code", "s-1", json!({"done": true})).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let statuses: Vec<(String, bool)> = thread["statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["text"].as_str().unwrap().into(),
+                s["done"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        statuses,
+        [
+            ("Reading the code".into(), false),
+            ("Running the tests".into(), false),
+            (String::new(), true),
+        ]
+    );
+    // the folder the status gave stays when the question gives none
+    assert_eq!(thread["session"]["folder"], "/work/acme");
+    assert_eq!(thread["session"]["status"]["done"], true);
+
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listing["sessions"][0]["status"]["done"], true);
+    assert_eq!(listing["sessions"][0]["total"]["questions"], 1);
+
+    // a status after the end starts the work again
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Fixing a review comment"}),
+    )
+    .await;
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(
+        listing["sessions"][0]["status"]["text"],
+        "Fixing a review comment"
+    );
+    assert_eq!(listing["sessions"][0]["status"]["done"], false);
+}
+
+#[tokio::test]
+async fn a_session_with_only_statuses_is_listed_with_nothing_in_it() {
+    let app = app();
+    status(&app, "codex", "s-quiet", json!({"text": "Planning"})).await;
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listing["total"], 1);
+    assert_eq!(
+        listing["sessions"][0]["total"],
+        json!({"questions": 0, "reviews": 0})
+    );
+    assert_eq!(
+        listing["sessions"][0]["waiting"],
+        json!({"questions": 0, "reviews": 0})
+    );
+    let (_, waiting) = call(&app, "GET", "/api/v1/sessions?waiting=true", None).await;
+    assert_eq!(waiting["total"], 0);
+    let (code, thread) = call(&app, "GET", "/api/v1/sessions/codex/s-quiet", None).await;
+    assert_eq!(code, StatusCode::OK, "{thread}");
+    assert_eq!(thread["items"], json!([]));
+}
+
+#[tokio::test]
+async fn a_status_is_one_short_line() {
+    let app = app();
+    for body in [
+        json!({"text": ""}),
+        json!({"text": "   "}),
+        json!({"text": "two\nlines"}),
+        json!({"text": "x".repeat(201)}),
+    ] {
+        let (code, refused) = status(&app, "claude-code", "s-1", body.clone()).await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{body} {refused}");
+    }
+    let (code, _) = status(&app, "claude-code", "s-1", json!({"text": "é".repeat(200)})).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn a_status_is_announced_with_its_session() {
+    let app = app();
+    let mut notices = app.state.events().subscribe();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_status");
+    let session = notice.session.unwrap();
+    assert_eq!(session["agent"], "claude-code");
+    assert_eq!(session["id"], "s-1");
+    assert_eq!(session["status"]["text"], "Building");
+    // and the same to a client catching up
+    let caught = app.state.events().after(notice.event_id - 1, 10).unwrap();
+    assert_eq!(
+        caught[0].session.as_ref().unwrap()["status"]["text"],
+        "Building"
+    );
+}
+
+#[tokio::test]
+async fn the_history_sweep_deletes_idle_sessions_with_nothing_left() {
+    let app = app();
+    status(&app, "codex", "s-idle", json!({"text": "Planning"})).await;
+    send(&app, question("claude-code", Some("s-kept"), "Pending?")).await;
+    let later = chrono::Utc::now() + chrono::Duration::days(1);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    let ids: Vec<&str> = listing["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    // the pending question keeps its session
+    assert_eq!(ids, ["s-kept"]);
+}
