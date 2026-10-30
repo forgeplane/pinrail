@@ -3354,6 +3354,17 @@ body.is-resizing iframe {
   white-space: nowrap;
   font-weight: 500;
 }
+.thread-card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-card-text > .summary-counts {
+  margin-top: 4px;
+}
+.thread-card > .status-badge {
+  flex: none;
+}
 .question-set .msg-col {
   gap: 8px;
 }

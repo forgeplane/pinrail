@@ -717,11 +717,12 @@ function ReviewCard({ review }: { review: Review }) {
       <ReviewIcon review={review} size={16} />
       <span className="thread-card-text">
         <span className="thread-card-title">{review.title}</span>
-        <span className="faint" title={stamp(review.created_at)}>
+        <span className="thread-card-meta faint" title={stamp(review.created_at)}>
           Review · {review.plugin} · {age(review.created_at)} ago
         </span>
+        {/* under the title, where many counts cannot squeeze it */}
+        <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
       </span>
-      <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
       <OutcomeBadge review={review} />
     </Link>
   );

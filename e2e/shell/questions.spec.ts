@@ -709,3 +709,28 @@ test("a question's text shows inline Markdown, and its labels read it as text", 
   // the choices are named by the question as it reads, without the marks
   await expect(page.getByRole("radiogroup", { name: "Keep GET /api/v1/reviews for one release?" })).toBeVisible();
 });
+
+test("a review card in the thread keeps its title in view beside many counts", async ({ page }) => {
+  const session = fresh();
+  const items = ["blocker", "major", "minor", "nit"].flatMap((severity, g) =>
+    [1, 2].map((k) => ({ id: g * 2 + k, severity, title: `${severity} ${k}` })),
+  );
+  await send(page.request, {
+    plugin: "list",
+    title: "Card: a review with many counts",
+    origin: { repo: "acme/api" },
+    requested_by: "claude-code",
+    session,
+    payload: { summary: "Eight proposals.", groups: [{ title: "lib/acme.ex", items }] },
+  });
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const card = thread(page).getByTestId("thread-review");
+  await expect(card.getByTestId("summary-count")).toHaveCount(4);
+  // the title has most of the card, and the line under it stays one line
+  const box = await card.boundingBox();
+  const title = await card.locator(".thread-card-title").boundingBox();
+  expect((title?.width ?? 0) / (box?.width ?? 1)).toBeGreaterThan(0.5);
+  const meta = await card.locator(".thread-card-meta").boundingBox();
+  expect(meta?.height ?? 99).toBeLessThan(24);
+});
