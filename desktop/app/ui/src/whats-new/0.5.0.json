@@ -20,6 +20,16 @@
         "label": "Open Sessions",
         "to": "/sessions"
       }
+    },
+    {
+      "title": "See what your agents are doing",
+      "text": "An agent reports its progress with pinrail status. Each status shows in the session's thread between its questions and reviews, and the newest under its title. Update the Pinrail skill in Settings › Agents, so that your agents start reporting.",
+      "image": "session-status",
+      "alt": "An agent session's thread: statuses before and after a question that was answered with a note, and the agent saying it has finished",
+      "action": {
+        "label": "Open Agents settings",
+        "settings": "agents"
+      }
     }
   ]
 }
