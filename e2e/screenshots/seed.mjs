@@ -6,7 +6,8 @@
 // reason), with `decided` saying when. `revises` names the
 // fixture a round answers. A fixture with `status` in place of a review is
 // what the agent `requested_by` reported in its `session`, with `pinrail
-// status`, and `done` when it said it had finished; it goes into the
+// status`, with `start` when it starts the task the status names, and
+// `done` when it said it had finished; it goes into the
 // session's thread in the order of the fixtures' names. `age` and `decided`
 // are how long before NOW, as
 // "4m", "2h" or "3d". `attachments` names files the review carries by path,
@@ -107,7 +108,7 @@ export async function seed(app) {
     if (f.status !== undefined) {
       await app.api("POST", `/api/v1/sessions/${f.requested_by}/${f.session}/status`, {
         text: f.status,
-        done: !!f.done,
+        kind: f.done ? "done" : f.start ? "start" : "step",
         origin: f.origin,
       });
       statuses.push(ms(f.age));
