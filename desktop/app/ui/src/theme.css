@@ -2835,19 +2835,77 @@ body.is-resizing iframe {
   min-width: 0;
   min-height: 0;
 }
+/* the chat box floats over the bottom of the timeline, which scrolls
+   under it and fades out behind it; the timeline keeps room for it under
+   the last message, as tall as the box is (--footer-height) */
+.thread-main {
+  position: relative;
+}
 .thread-footer {
-  flex: none;
-  padding: 0 32px 18px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 28px 32px 16px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 26px);
+  pointer-events: none;
+}
+.thread-footer > * {
+  pointer-events: auto;
 }
 .thread.in-panel .thread-footer {
-  padding: 0 0 4px;
+  padding: 28px 4px 4px 0;
 }
 .thread-composer {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+}
+.thread-composer .compose {
+  min-height: 44px;
+  padding: 6px 7px 6px 8px;
+  border-radius: 14px;
+  background: var(--bg-raised);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14);
+}
+.thread-composer .compose.is-wide {
+  padding: 8px 7px 6px 8px;
+}
+.thread-composer .compose textarea {
+  font-size: 13px;
+  line-height: 20px;
+}
+.thread-composer .compose-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.thread-composer .compose-send,
+.thread-composer .compose-send:hover:not(:disabled) {
+  width: 28px;
+  height: 28px;
+  margin: 0 0 0 2px;
+  border-radius: 50%;
+}
+/* back to the newest message, over the box, while the timeline is
+   scrolled away from it */
+.thread-to-end {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--dim);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.16);
+  transform: translateX(-50%);
+}
+.thread-to-end:hover {
+  color: var(--text);
 }
 .thread-composer.is-idle .compose {
   opacity: 0.6;
@@ -2874,7 +2932,7 @@ body.is-resizing iframe {
 .thread-items::after {
   content: "";
   flex: none;
-  height: 40px;
+  height: calc(var(--footer-height, 100px) + 8px);
 }
 .thread.in-panel .thread-items {
   padding: 16px 4px 0 0;

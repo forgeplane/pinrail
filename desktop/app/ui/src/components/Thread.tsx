@@ -2,7 +2,7 @@
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
 
-import { Ban, Check, GitBranch, Mic, Star, X } from "lucide-react";
+import { ArrowDown, Ban, Check, GitBranch, Mic, Star, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
@@ -111,6 +111,36 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
     }
   }, [items, focus, session]);
 
+  // the timeline keeps room under its last message for the chat box over it
+  useEffect(() => {
+    const el = timeline.current;
+    if (!footer || !el) return;
+    const size = () => el.style.setProperty("--footer-height", `${footer.offsetHeight}px`);
+    size();
+    const observer = new ResizeObserver(size);
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [footer]);
+
+  // whether the timeline shows its newest message, else a button goes there
+  const [atEnd, setAtEnd] = useState(true);
+  const checkEnd = useCallback(() => {
+    const el = timeline.current;
+    if (el) setAtEnd(el.scrollHeight - el.clientHeight - el.scrollTop < 40);
+  }, []);
+  useEffect(() => {
+    const el = timeline.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkEnd, { passive: true });
+    const observer = new ResizeObserver(checkEnd);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", checkEnd);
+      observer.disconnect();
+    };
+  }, [checkEnd]);
+  useEffect(checkEnd, [items, checkEnd]);
+
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
   const questions = items.filter((r) => r.kind === "question").length;
@@ -214,6 +244,19 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
             )}
           </div>
           <div className="thread-footer" ref={setFooter}>
+            {atEnd ? null : (
+              <button
+                type="button"
+                className="thread-to-end"
+                aria-label="Scroll to the newest message"
+                onClick={() => {
+                  const el = timeline.current;
+                  el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+                }}
+              >
+                <ArrowDown size={15} />
+              </button>
+            )}
             {active ? null : <IdleComposer />}
           </div>
         </div>
