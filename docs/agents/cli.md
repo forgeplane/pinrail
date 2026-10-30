@@ -127,7 +127,7 @@ The text is plain text of at most 200 characters, on one line. `--start` says th
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "Statuses around a question, up to pinrail status --done.")
 
-Start each task with `--start`, report each step that takes more than a minute or so, and use `--done` when you have finished. A status for every command would bury the questions and reviews that need the person.
+Start each task with `--start`, and report each step that takes more than a minute or so. Use `--done` once the person has approved the work and the agent has committed or delivered it, or when the task ends with nothing to review, such as a search. Waiting for a review is a step, not the end. A status for every command would bury the questions and reviews that need the person.
 
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
