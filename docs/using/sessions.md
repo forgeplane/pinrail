@@ -33,6 +33,8 @@ Once you have sent them, the answers show under their questions, with your notes
 
 Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. The header's title is the task the agent works on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
 
+The panel also lists the session's reviews that have ended, with their outcomes, folded under *Reviews* until you open it. Click one to open it.
+
 To hide the panel at the right, or show it again, use the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
 
 A question's thread links to its session's page with *session* and the id in its header.
