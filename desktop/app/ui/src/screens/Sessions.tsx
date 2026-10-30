@@ -153,6 +153,14 @@ export function Sessions() {
                       <small className="mono" title={s.id}>
                         {s.id}
                       </small>
+                      {s.status ? (
+                        <small
+                          className={`session-status ${s.status.done ? "is-done" : ""}`}
+                          data-testid="session-status"
+                        >
+                          {s.status.done ? (s.status.text ? `Finished: ${s.status.text}` : "Finished") : s.status.text}
+                        </small>
+                      ) : null}
                     </td>
                     <td>{waiting ? <span className="thread-waiting">{contents(s.waiting)}</span> : null}</td>
                     <td className="dim">{contents(s.total)}</td>

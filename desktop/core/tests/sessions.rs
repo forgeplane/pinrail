@@ -326,3 +326,28 @@ async fn the_history_sweep_deletes_idle_sessions_with_nothing_left() {
     // the pending question keeps its session
     assert_eq!(ids, ["s-kept"]);
 }
+
+#[tokio::test]
+async fn a_status_names_the_review_it_came_after_within_the_same_second() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Starting"})).await;
+    let question = send(&app, question("claude-code", Some("s-1"), "Use SQLite?")).await;
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Sent a question"}),
+    )
+    .await;
+    let review = send(&app, review("claude-code", Some("s-1"), "The schema")).await;
+    status(&app, "claude-code", "s-1", json!({"text": "Sent a review"})).await;
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let after: Vec<Value> = thread["statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["after"].clone())
+        .collect();
+    assert_eq!(after, [Value::Null, json!(question), json!(review)]);
+}

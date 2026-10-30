@@ -3,9 +3,11 @@
 // here, each with its chips or a reply box, and sent as a set.
 
 import {
+  Activity,
   ArrowDown,
   Ban,
   Check,
+  CheckCircle2,
   CornerDownRight,
   GitBranch,
   MessageSquarePlus,
@@ -18,12 +20,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
-import type { Answer, Question, Review, Session } from "../api/types";
+import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
+import { timeline as entriesOf } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -58,6 +61,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
   const named = given ?? (focus ? sessionOf(focus) : null);
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
+  const [statuses, setStatuses] = useState<SessionStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -66,6 +70,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
         const thread = await api.session(named.agent, named.id);
         setSession(thread.session);
         setItems(thread.items);
+        setStatuses(thread.statuses);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -86,7 +91,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
     if (!notice) return;
     const ours =
       (notice.review_id && ids.current.has(notice.review_id)) ||
-      (named && notice.review?.requested_by === named.agent && notice.review?.session === named.id);
+      (named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
+      (named && notice.session?.agent === named.agent && notice.session.id === named.id);
     if (ours) load();
   }, [live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- each notice once
 
@@ -203,6 +209,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
               </span>
             ) : null}
           </div>
+          {session?.status ? <HeadStatus status={session.status} /> : null}
         </div>
         <span className="thread-head-end">
           {items.length > 0 ? (
@@ -233,8 +240,12 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
                 <span>Session started {stamp(session.first_at)}</span>
               </div>
             ) : null}
-            {items.map((item) =>
-              item.kind === "question" ? (
+            {entriesOf(items, statuses).map((entry) => {
+              if (entry.kind === "statuses")
+                return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
+              if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
+              const item = entry.review;
+              return item.kind === "question" ? (
                 <QuestionSet
                   key={item.id}
                   review={item}
@@ -245,8 +256,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
                 />
               ) : (
                 <ReviewCard key={item.id} review={item} />
-              ),
-            )}
+              );
+            })}
           </div>
           <div className="thread-footer" ref={setFooter}>
             {atEnd ? null : (
@@ -296,6 +307,26 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
                   <dd>{session.agent}</dd>
                   <dt>Id</dt>
                   <dd className="mono">{session.id}</dd>
+                  {session.repo ? (
+                    <>
+                      <dt>Project</dt>
+                      <dd>{session.repo}</dd>
+                    </>
+                  ) : null}
+                  {session.ref ? (
+                    <>
+                      <dt>Branch</dt>
+                      <dd className="mono">{session.ref}</dd>
+                    </>
+                  ) : null}
+                  {session.folder ? (
+                    <>
+                      <dt>Folder</dt>
+                      <dd className="mono" title={session.folder}>
+                        {session.folder}
+                      </dd>
+                    </>
+                  ) : null}
                   <dt>Last activity</dt>
                   <dd title={stamp(session.last_at)}>{age(session.last_at)} ago</dd>
                 </dl>
@@ -304,6 +335,64 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
           </aside>
         )}
       </div>
+    </div>
+  );
+}
+
+/** What the agent last said, under the session's title. */
+function HeadStatus({ status }: { status: SessionStatus }) {
+  return (
+    <div className={`thread-status ${status.done ? "is-done" : ""}`} data-testid="head-status">
+      {status.done ? (
+        <CheckCircle2 size={13} aria-hidden />
+      ) : (
+        <Activity size={13} className="thread-status-icon" aria-hidden />
+      )}
+      <span className="thread-status-text">
+        {status.done ? (status.text ? `Finished: ${status.text}` : "Finished") : status.text}
+      </span>
+      <span className="faint" title={stamp(status.at)}>
+        · {age(status.at)} ago
+      </span>
+    </div>
+  );
+}
+
+/** Statuses the agent reported in a row: the newest, and the earlier ones
+ *  behind a button. */
+function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
+  const [open, setOpen] = useState(false);
+  const newest = statuses[statuses.length - 1];
+  const earlier = statuses.length - 1;
+  const shown = open ? statuses : [newest];
+  return (
+    <div className="thread-statuses" data-testid="status-group">
+      {earlier > 0 ? (
+        <button type="button" className="thread-status-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Show only the newest" : `${earlier} earlier`}
+        </button>
+      ) : null}
+      {shown.map((status) => (
+        <div key={status.id} className="thread-status-line" data-testid="status">
+          <Activity size={13} className="thread-status-icon" aria-hidden />
+          <span className="thread-status-text">{status.text}</span>
+          <span className="faint" title={stamp(status.at)}>
+            {age(status.at)} ago
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The agent saying it has finished, with what it finished with. */
+function FinishedLine({ status }: { status: SessionStatus }) {
+  return (
+    <div className="thread-divider thread-finished" data-testid="finished">
+      <span>
+        <CheckCircle2 size={13} aria-hidden /> Finished{status.text ? `: ${status.text}` : ""} ·{" "}
+        <span title={stamp(status.at)}>{age(status.at)} ago</span>
+      </span>
     </div>
   );
 }

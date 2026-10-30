@@ -425,3 +425,55 @@ test("Enter in the comment box sends the answers, and Shift+Enter starts a new l
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.agent_note).toBe("go ahead\nafter lunch");
 });
+
+async function report(request: APIRequestContext, session: string, body: Record<string, unknown>) {
+  const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, { data: body });
+  expect(response.status(), await response.text()).toBe(204);
+}
+
+test("the statuses an agent reports show in its thread between the questions and reviews", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await report(page.request, session, {
+    text: "Reading the code",
+    origin: { repo: "acme/api", ref: "main", folder: "/work/acme-api" },
+  });
+  // all within a second or two: the order comes from the core, not the times
+  await send(page.request, asked(session, "Statuses: deploy"));
+  await report(page.request, session, { text: "Running the tests" });
+  await report(page.request, session, { text: "Fixing a flaky test" });
+  await report(page.request, session, { done: true, text: "Pushed the fix" });
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const groups = thread(page).getByTestId("status-group");
+  await expect(groups).toHaveCount(2);
+  await expect(groups.first()).toContainText("Reading the code");
+  // two in a row: the newest, and the earlier one behind a button
+  await expect(groups.last().getByTestId("status")).toHaveText([/Fixing a flaky test/]);
+  await groups.last().getByRole("button", { name: "1 earlier" }).click();
+  await expect(groups.last().getByTestId("status")).toHaveText([/Running the tests/, /Fixing a flaky test/]);
+  await expect(thread(page).getByTestId("finished")).toContainText("Finished: Pushed the fix");
+  await expect(thread(page).getByTestId("head-status")).toContainText("Finished: Pushed the fix");
+  // the session's details, with the folder the agent works in
+  const details = page.getByRole("complementary", { name: "Session details" });
+  await expect(details).toContainText("acme/api");
+  await expect(details).toContainText("/work/acme-api");
+
+  // the Sessions page shows the newest status
+  await page.goto("/#/sessions");
+  await expect(page.getByTestId("session-row").filter({ hasText: session }).getByTestId("session-status")).toHaveText(
+    "Finished: Pushed the fix",
+  );
+});
+
+test("a status the agent reports shows in an open thread at once", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, asked(session, "Live: deploy"));
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(thread(page).getByTestId("question")).toHaveCount(3);
+  await expect(thread(page).getByTestId("head-status")).toHaveCount(0);
+  await report(page.request, session, { text: "Waiting for the answers" });
+  await expect(thread(page).getByTestId("head-status")).toContainText("Waiting for the answers");
+  await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
+});

@@ -713,7 +713,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
             <AttachmentsChip reviewId={review.id} attachments={review.attachments} />
           ) : null}
           {originText ? (
-            <span>
+            <span title={origin.folder ?? undefined}>
               {originText}
               {origin.ref ? <span className="mono faint"> #{origin.ref}</span> : null}
             </span>

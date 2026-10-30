@@ -8,12 +8,13 @@ import type {
   Inspection,
   Notice,
   Plugin,
-  ReviewView,
   Review,
   ReviewEvent,
   ReviewListing,
+  ReviewView,
   ServerSettings,
   Session,
+  SessionStatus,
   Violation,
 } from "./types";
 
@@ -96,7 +97,10 @@ export const api = {
     request<{ sessions: Session[]; total: number }>("GET", `/api/v1/sessions${query(params)}`),
   /** a session and its questions and reviews, oldest first */
   session: (agent: string, id: string) =>
-    request<{ session: Session; items: Review[] }>("GET", `/api/v1/sessions/${seg(agent)}/${seg(id)}`),
+    request<{ session: Session; items: Review[]; statuses: SessionStatus[] }>(
+      "GET",
+      `/api/v1/sessions/${seg(agent)}/${seg(id)}`,
+    ),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),
   /** the decision on the version the view showed: a review that moved to another since is a conflict */
   decide: (id: string, data: unknown, agentNote: string, bundle?: string) =>

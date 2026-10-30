@@ -6,6 +6,8 @@ export type Origin = {
   run_id?: string | null;
   ref?: string | null;
   url?: string | null;
+  /** the folder the agent worked in, as the CLI found it */
+  folder?: string | null;
 };
 
 /** Where a decision or a discard was made: in the app, with the pinrail
@@ -310,6 +312,9 @@ export type SessionStatus = {
   /** whether the agent said it has finished */
   done: boolean;
   at: string;
+  /** in a session's thread, the review it came after, or null for one
+   *  before them all */
+  after?: string | null;
 };
 
 /** The web origins a plugin may open without asking, while it stays

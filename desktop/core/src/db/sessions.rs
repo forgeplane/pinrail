@@ -37,6 +37,9 @@ pub struct StatusRow {
     /// whether the agent said it has finished
     pub done: bool,
     pub at: DateTime<Utc>,
+    /// in a session's thread, the review the status came after, which the
+    /// times, in whole seconds, do not always tell
+    pub after: Option<String>,
 }
 
 impl StatusRow {
@@ -46,6 +49,7 @@ impl StatusRow {
             "text": self.text,
             "done": self.done,
             "at": crate::reviews::iso(self.at),
+            "after": self.after,
         })
     }
 }
@@ -226,6 +230,7 @@ impl Db {
             text: text.to_string(),
             done,
             at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
+            after: None,
         };
         let event_id = insert_event(
             &tx,
@@ -238,21 +243,44 @@ impl Db {
         Ok((status, event_id))
     }
 
-    /// The session's statuses, oldest first.
+    /// The session's statuses, oldest first, each with the review it came
+    /// after: the events' ids give the order in which a status and the
+    /// session's reviews were recorded.
     pub fn statuses(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<StatusRow>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT id, text, done, created_at FROM session_statuses
-             WHERE agent = ?1 AND session = ?2 ORDER BY id",
+            "WITH announced AS (
+               SELECT e.id AS event, json_extract(e.attrs, '$.status.id') AS status FROM events e
+               WHERE e.review_id IS NULL AND e.kind = ?3
+                 AND json_extract(e.attrs, '$.agent') = ?1 AND json_extract(e.attrs, '$.id') = ?2
+             ),
+             created AS (
+               SELECT r.id AS review, e.id AS event FROM reviews r
+               JOIN events e ON e.review_id = r.id AND e.kind = ?4
+               WHERE r.requested_by = ?1 AND r.session = ?2
+             )
+             SELECT t.id, t.text, t.done, t.created_at,
+               (SELECT c.review FROM created c WHERE c.event < a.event ORDER BY c.event DESC LIMIT 1)
+             FROM session_statuses t LEFT JOIN announced a ON a.status = t.id
+             WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.id",
         )?;
-        let rows = stmt.query_map(params![agent, id], |row| {
-            Ok(StatusRow {
-                id: row.get(0)?,
-                text: row.get(1)?,
-                done: row.get(2)?,
-                at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![
+                agent,
+                id,
+                crate::events::SESSION_STATUS,
+                crate::events::CREATED
+            ],
+            |row| {
+                Ok(StatusRow {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    done: row.get(2)?,
+                    at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
+                    after: row.get(4)?,
+                })
+            },
+        )?;
         rows.collect()
     }
 
@@ -310,6 +338,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
             text: row.get(12)?,
             done: row.get(13)?,
             at: time(14)?,
+            after: None,
         }),
         None => None,
     };
