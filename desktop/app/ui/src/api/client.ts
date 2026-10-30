@@ -94,7 +94,10 @@ export const api = {
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${seg(id)}`),
   /** the sessions, those waiting for the person first */
   sessions: (params: Record<string, string | undefined> = {}) =>
-    request<{ sessions: Session[]; total: number }>("GET", `/api/v1/sessions${query(params)}`),
+    request<{ sessions: Session[]; total: number; facets: { repos: string[]; unassigned: boolean } }>(
+      "GET",
+      `/api/v1/sessions${query(params)}`,
+    ),
   /** a session and its questions and reviews, oldest first */
   session: (agent: string, id: string) =>
     request<{ session: Session; items: Review[]; statuses: SessionStatus[] }>(

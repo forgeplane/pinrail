@@ -475,7 +475,8 @@ fn session_json(session: &SessionRow) -> Value {
 }
 
 /// A page of sessions, those waiting for the person first, then the
-/// newest: `sessions` and `total`. Filters: `agent`, `repo`, `q` and
+/// newest: `sessions`, `total`, and `facets` with the projects of all the
+/// sessions. Filters: `agent`, `repo` (`-` for no project), `q` and
 /// `waiting=true`; pages by `limit` and `offset`.
 async fn sessions(
     State(state): State<Arc<Pinrail>>,
@@ -492,9 +493,11 @@ async fn sessions(
         offset: number("offset"),
     };
     let (sessions, total) = state.reviews().sessions(&filters)?;
+    let (repos, unassigned) = state.reviews().session_projects()?;
     Ok(Json(json!({
         "sessions": sessions.iter().map(session_json).collect::<Vec<_>>(),
         "total": total,
+        "facets": {"repos": repos, "unassigned": unassigned},
     })))
 }
 

@@ -368,3 +368,35 @@ async fn a_status_names_the_review_it_came_after_within_the_same_second() {
         .collect();
     assert_eq!(after, [Value::Null, json!(question), json!(review)]);
 }
+
+#[tokio::test]
+async fn sessions_are_filtered_by_project_and_list_their_projects() {
+    let app = app();
+    send(&app, question("claude-code", Some("s-acme"), "In acme?")).await;
+    let mut other = question("claude-code", Some("s-web"), "In web?");
+    other["origin"] = json!({"repo": "acme/web"});
+    send(&app, other).await;
+    let mut none = question("codex", Some("s-none"), "Nowhere?");
+    none["origin"] = json!({});
+    send(&app, none).await;
+
+    let ids = |listed: &Value| -> Vec<String> {
+        let mut ids: Vec<String> = listed["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
+    let (_, listed) = call(&app, "GET", "/api/v1/sessions?repo=acme/web", None).await;
+    assert_eq!(ids(&listed), ["s-web"]);
+    assert_eq!(listed["total"], 1);
+    // "-" stands for the sessions with no project
+    let (_, listed) = call(&app, "GET", "/api/v1/sessions?repo=-", None).await;
+    assert_eq!(ids(&listed), ["s-none"]);
+    // the projects to filter by are every session's, whatever the filter
+    assert_eq!(listed["facets"]["repos"], json!(["acme", "acme/web"]));
+    assert_eq!(listed["facets"]["unassigned"], true);
+}

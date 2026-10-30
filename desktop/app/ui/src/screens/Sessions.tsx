@@ -2,7 +2,7 @@
 // person first, and one session's thread: in the side panel beside the list,
 // or on a page of its own.
 
-import { MessagesSquare, Search, SearchX } from "lucide-react";
+import { FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
@@ -10,11 +10,12 @@ import type { Session } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
+import { Select } from "../components/Select";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath, statusLine } from "../components/Thread";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
-import { useUrlParams } from "../lib/url";
+import { NO_PROJECT, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
@@ -44,9 +45,11 @@ export function Sessions() {
   const openKey = panelMode ? params.get("open") : null;
   const [q, setQ] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
+  const repo = params.get("repo") ?? "";
+  const filtered = !!(query || repo);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
-  const [data, setData] = useState<{ sessions: Session[]; total: number } | null>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.sessions>> | null>(null);
   const [focused, setFocused] = useState(0);
 
   const [debounced, setDebounced] = useState(query);
@@ -58,13 +61,13 @@ export function Sessions() {
   useEffect(() => {
     let cancelled = false;
     api
-      .sessions({ q: debounced, limit: String(size), offset: String((page - 1) * size) })
+      .sessions({ q: debounced, repo, limit: String(size), offset: String((page - 1) * size) })
       .then((d) => !cancelled && setData(d))
       .catch(() => !cancelled && setData(null));
     return () => {
       cancelled = true;
     };
-  }, [debounced, page, size, live.lastNotice]);
+  }, [debounced, repo, page, size, live.lastNotice]);
 
   const sessions = useMemo(() => data?.sessions ?? [], [data]);
   const total = data?.total ?? 0;
@@ -189,15 +192,29 @@ export function Sessions() {
                 }}
               />
             </label>
+            <Select
+              id="sessions-repo"
+              label="Project"
+              icon={<FolderGit2 size={14} />}
+              value={repo}
+              onChange={(v) => setParam("repo", v)}
+              options={[
+                { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
+                ...(data?.facets.repos ?? []).map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
+                ...(data?.facets.unassigned || repo === NO_PROJECT
+                  ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
+                  : []),
+              ]}
+            />
           </div>
         </header>
         {!data ? null : total === 0 ? (
           <EmptyState
-            title={query ? "No matching sessions" : "Agents' sessions belong here"}
-            icon={query ? <SearchX size={28} strokeWidth={1.5} /> : <MessagesSquare size={28} strokeWidth={1.5} />}
+            title={filtered ? "No matching sessions" : "Agents' sessions belong here"}
+            icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <MessagesSquare size={28} strokeWidth={1.5} />}
           >
-            {query
-              ? "Nothing matches this search."
+            {filtered
+              ? "Try a different search or clear the filters."
               : "Each agent session that asks you a question or sends a review appears here, with everything it sent."}
           </EmptyState>
         ) : (

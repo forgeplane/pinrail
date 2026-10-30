@@ -274,6 +274,11 @@ impl Reviews {
         Ok(self.db.sessions(filters, Utc::now())?)
     }
 
+    /// The projects of all the sessions, and whether a session has none.
+    pub fn session_projects(&self) -> Result<(Vec<String>, bool), Error> {
+        Ok(self.db.session_projects()?)
+    }
+
     /// A session and what was sent from it, oldest first: its questions
     /// with their payloads, which the thread shows, and its reviews without.
     pub fn session(&self, agent: &str, id: &str) -> Result<(SessionRow, Vec<Review>), Error> {

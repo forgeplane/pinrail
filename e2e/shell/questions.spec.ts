@@ -614,3 +614,33 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   await sessionRow(first).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${first}$`));
 });
+
+test("the Sessions page filters the sessions by project", async ({ page }) => {
+  await clearInbox(page.request);
+  const inApi = fresh();
+  const inWeb = fresh();
+  const nowhere = fresh();
+  await send(page.request, asked(inApi, "Project: api"));
+  await send(page.request, { ...asked(inWeb, "Project: web"), origin: { repo: "acme/web" } });
+  await send(page.request, { ...asked(nowhere, "Project: none"), origin: {} });
+  await page.goto("/#/sessions");
+  const rows = page.getByTestId("session-row");
+  const choose = async (name: string) => {
+    await page.getByRole("button", { name: "Project" }).click();
+    await page.getByRole("option", { name, exact: true }).click();
+  };
+
+  await choose("acme/web");
+  await expect(page).toHaveURL(/repo=acme%2Fweb/);
+  await expect(rows.filter({ hasText: inWeb })).toHaveCount(1);
+  await expect(rows.filter({ hasText: inApi })).toHaveCount(0);
+  await expect(rows.filter({ hasText: nowhere })).toHaveCount(0);
+
+  await choose("No project");
+  await expect(rows.filter({ hasText: nowhere })).toHaveCount(1);
+  await expect(rows.filter({ hasText: inWeb })).toHaveCount(0);
+
+  await choose("All projects");
+  await expect(rows.filter({ hasText: inApi })).toHaveCount(1);
+  await expect(rows.filter({ hasText: inWeb })).toHaveCount(1);
+});

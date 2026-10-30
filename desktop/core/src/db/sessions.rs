@@ -152,6 +152,24 @@ pub(super) fn touch_review(conn: &Connection, review_id: &str) -> rusqlite::Resu
 }
 
 impl Db {
+    /// The projects of all the sessions, sorted, and whether a session has
+    /// none: what the project filter offers, whatever it filters by.
+    pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT repo FROM sessions WHERE COALESCE(repo, '') <> '' ORDER BY 1",
+        )?;
+        let repos = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        let unassigned = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE COALESCE(repo, '') = '')",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok((repos, unassigned))
+    }
+
     /// The sessions the filters admit, those waiting for the person first,
     /// then the newest; and how many there are in all.
     pub fn sessions(
@@ -165,9 +183,13 @@ impl Db {
             args.push(agent.clone());
             wheres.push(format!("s.agent = ?{}", args.len()));
         }
-        if let Some(repo) = &filters.repo {
-            args.push(repo.clone());
-            wheres.push(format!("s.repo = ?{}", args.len()));
+        match filters.repo.as_deref() {
+            Some(super::NO_PROJECT) => wheres.push("COALESCE(s.repo, '') = ''".to_string()),
+            Some(repo) => {
+                args.push(repo.to_string());
+                wheres.push(format!("s.repo = ?{}", args.len()));
+            }
+            None => {}
         }
         let mut having = Vec::new();
         if let Some(text) = &filters.text {
