@@ -673,7 +673,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
   if (review.kind === "question")
     return (
       <div className={`review-page thread-page ${inPanel ? "in-panel" : ""}`}>
-        <Thread key={review.id} focus={review} inPanel={inPanel} onEnded={onEnded} onClose={onClose} />
+        <Thread key={review.id} focus={review} inPanel={inPanel} onClose={onClose} />
       </div>
     );
 

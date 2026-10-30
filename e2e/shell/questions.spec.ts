@@ -138,6 +138,26 @@ test("questions from no session open a thread of their own, answered in the pers
   await expect(thread(page).getByTestId("answer").first()).toContainText("neither, wait");
 });
 
+test("answering in the side panel stays on the thread", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  const { id } = await send(page.request, asked(session, "Stay: deploy"));
+  await send(page.request, {
+    plugin: "list",
+    title: "Stay: the next review",
+    origin: { repo: "acme/api" },
+    requested_by: "codex",
+    payload: onePayload,
+  });
+  await page.goto("/#/");
+  await row(page, "Stay: deploy").click();
+  await page.getByRole("radio", { name: "staging" }).click();
+  await page.getByTestId("send-answers").click();
+  await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("decided");
+  await expect(thread(page).getByTestId("answer")).toHaveCount(3);
+  await expect(page).toHaveURL(new RegExp(id));
+});
+
 test("declining tells the agent to stop, with the reason", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);

@@ -31,8 +31,6 @@ type ThreadProps = {
   /** the session to show, when it is not the focus's */
   session?: { agent: string; id: string };
   inPanel?: boolean;
-  /** called when the focus's questions are answered or declined here */
-  onEnded?: () => void;
   onClose?: () => void;
 };
 
@@ -45,7 +43,7 @@ export function sessionOf(review: Review): { agent: string; id: string } | null 
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }
 
-export function Thread({ focus, session: given, inPanel = false, onEnded, onClose }: ThreadProps) {
+export function Thread({ focus, session: given, inPanel = false, onClose }: ThreadProps) {
   const live = useLive();
   const named = given ?? (focus ? sessionOf(focus) : null);
   const [session, setSession] = useState<Session | null>(null);
@@ -233,10 +231,7 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
                   active={item.id === active}
                   footer={item.id === active ? footer : null}
                   onActivate={() => setPicked(item.id)}
-                  onDone={() => {
-                    if (item.id === focus?.id && onEnded) onEnded();
-                    else load();
-                  }}
+                  onDone={load}
                 />
               ) : (
                 <ReviewCard key={item.id} review={item} />
