@@ -37,7 +37,7 @@ The panel also lists the session's reviews that have ended, with their outcomes,
 
 To hide the panel at the right, or show it again, use the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
 
-A question's thread links to its session's page with *session* and the id in its header.
+A question's thread links to its session's page with *session* and the id in its header. A review sent from a session has a button in its header, on its page and in the side panel, that opens the session's thread.
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")
 

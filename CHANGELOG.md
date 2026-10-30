@@ -33,6 +33,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The Sessions page opens a session's thread in the side panel, as the
   inbox opens a review.
 - The Sessions page filters the sessions by project.
+- A review sent from a session links to the session's thread from its
+  header.
 
 ### Changed
 
