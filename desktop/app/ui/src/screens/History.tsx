@@ -18,6 +18,7 @@ import { NO_PROJECT } from "../lib/url";
 import { modalOpen } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
+import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
 
 const ENDED = "decided,withdrawn,discarded,expired";
@@ -431,7 +432,11 @@ export function History() {
           <Pager label="History" page={page} size={size} total={total} onPage={setPage} onSize={setSize} />
         ) : null}
       </div>
-      {openId ? <SidePanel id={openId} split={split} linkTo={hrefFor} onClose={closePanel} /> : null}
+      {openId ? (
+        <SidePanel split={split}>
+          <ReviewView id={openId} inPanel linkTo={hrefFor} onClose={closePanel} />
+        </SidePanel>
+      ) : null}
     </div>
   );
 }

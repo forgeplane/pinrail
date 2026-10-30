@@ -203,8 +203,8 @@ test("the Sessions page lists the sessions, those waiting first, and opens a ses
   await page.getByRole("searchbox", { name: "Search sessions" }).fill(answered);
   await expect(rows).toHaveCount(1);
   await rows.first().click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${answered}$`));
-  await expect(thread(page).getByTestId("answer")).toHaveCount(3);
+  await expect(page).toHaveURL(new RegExp(`/sessions\\?.*open=claude-code%2F${answered}`));
+  await expect(page.getByTestId("session-panel").getByTestId("answer")).toHaveCount(3);
 });
 
 test("a session's thread opens scrolled to its newest message", async ({ page }) => {
@@ -563,4 +563,54 @@ test("a session's details list its ended reviews, folded until opened", async ({
   await expect(handled.getByTestId("handled-review")).toHaveCount(1);
   await handled.getByTestId("handled-review").click();
   await expect(page).toHaveURL(new RegExp(`/reviews/${id}$`));
+});
+
+test("a session opens in the side panel beside the Sessions page", async ({ page }) => {
+  await clearInbox(page.request);
+  const first = fresh();
+  const second = fresh();
+  await send(page.request, asked(first, "Panel: first"));
+  await send(page.request, asked(second, "Panel: second"));
+  await page.goto("/#/sessions");
+  const sessionRow = (id: string) => page.getByTestId("session-row").filter({ hasText: id });
+  const panel = page.getByTestId("session-panel");
+
+  // a click opens the session's thread beside the list, which stays
+  await sessionRow(second).click();
+  await expect(panel.getByTestId("thread")).toBeVisible();
+  await expect(panel.getByTestId("question")).toHaveCount(3);
+  await expect(panel.getByRole("link", { name: `session ${second}` })).toBeVisible();
+  await expect(sessionRow(second)).toHaveClass(/is-open/);
+  await expect(page).toHaveURL(/\/sessions\?open=claude-code%2F/);
+  // beside the panel, the list hides what the session holds, and keeps its id on one line
+  await expect(page.getByRole("columnheader", { name: "In it" })).toBeHidden();
+  const id = sessionRow(second).getByTitle(second);
+  const line = await id.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await id.boundingBox())!.height).toBeLessThan(line * 1.5);
+
+  // the details are hidden at first, and shown with the button
+  const details = panel.getByRole("complementary", { name: "Session details" });
+  await expect(details).toHaveCount(0);
+  await panel.getByRole("button", { name: "Show the session's details" }).click();
+  await expect(details).toContainText("acme/api");
+
+  // J opens the next session, with the details as they were, and Esc closes the panel
+  await page.keyboard.press("j");
+  await expect(sessionRow(first)).toHaveClass(/is-open/);
+  await expect(panel.getByRole("link", { name: `session ${first}` })).toBeVisible();
+  await expect(details).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
+  // the panel's session opens as a page
+  await sessionRow(second).click();
+  await panel.getByRole("button", { name: "Open as a page" }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${second}$`));
+  await page.goBack();
+
+  // with reviews opening on their own page, so do sessions
+  await openReviewsIn(page.request, "page");
+  await page.reload();
+  await sessionRow(first).getByRole("link").first().click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${first}$`));
 });

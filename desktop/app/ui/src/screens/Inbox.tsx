@@ -18,6 +18,7 @@ import { NO_PROJECT, inProject } from "../lib/url";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
+import { ReviewView } from "./ReviewScreen";
 
 /** How the inbox is laid out, remembered on this machine. */
 type Layout = "projects" | "list";
@@ -550,7 +551,11 @@ export function Inbox() {
           )}
         </footer>
       </div>
-      {openId ? <SidePanel id={openId} split={split} linkTo={hrefFor} onEnded={openNext} onClose={closePanel} /> : null}
+      {openId ? (
+        <SidePanel split={split}>
+          <ReviewView id={openId} inPanel linkTo={hrefFor} onEnded={openNext} onClose={closePanel} />
+        </SidePanel>
+      ) : null}
     </div>
   );
 }

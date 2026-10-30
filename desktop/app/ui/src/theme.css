@@ -3604,6 +3604,25 @@ body.is-resizing iframe {
 .sessions-table .with-icon {
   gap: 6px;
 }
+/* beside the side panel, the sessions show the session and what waits, the
+   session's id and status on one line each */
+@container (max-width: 640px) {
+  .sessions-col-total {
+    display: none;
+  }
+  .sessions-table td:first-child {
+    max-width: 0;
+    width: 100%;
+  }
+  .sessions-table td:first-child small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sessions-table .thread-waiting {
+    white-space: nowrap;
+  }
+}
 
 /* history */
 .pager {

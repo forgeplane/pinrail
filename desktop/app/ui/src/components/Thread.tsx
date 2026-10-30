@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CornerDownRight,
+  Expand,
   GitBranch,
   MessageSquarePlus,
   PanelRightClose,
@@ -22,7 +23,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
@@ -44,6 +45,8 @@ const DRAFTS = "pinrail:answers:";
 /** Whether the session's details show beside the thread, and their width,
  *  stored on this machine. */
 const DETAILS_SHOWN = "pinrail.thread.details";
+/** Whether a side panel shows the session's details, which it hides at first. */
+const DETAILS_SHOWN_PANEL = "pinrail.thread.panel-details";
 const DETAILS_WIDTH = "pinrail.thread.detailsWidth";
 /** Whether the session's details list the reviews that ended, stored on
  *  this machine; they are folded away until opened. */
@@ -92,6 +95,9 @@ export function sessionOf(review: Review): { agent: string; id: string } | null 
 export function Thread({ focus, session: given, inPanel = false, onClose, onSession }: ThreadProps) {
   const live = useLive();
   const named = given ?? (focus ? sessionOf(focus) : null);
+  const navigate = useNavigate();
+  // a side panel has details only for a question asked in a session
+  const hasDetails = !inPanel || !!named;
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
@@ -202,20 +208,24 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
     });
 
   // the session's details beside the thread: shown or hidden with the
-  // button or ⌘⇧B, and as wide as their edge is dragged
-  const [details, setDetails] = useState(() => stored(DETAILS_SHOWN) !== "hidden");
+  // button or ⌘⇧B, and as wide as their edge is dragged; a side panel keeps
+  // its own choice, and hides them at first
+  const shownKey = inPanel ? DETAILS_SHOWN_PANEL : DETAILS_SHOWN;
+  const [details, setDetails] = useState(() =>
+    inPanel ? stored(DETAILS_SHOWN_PANEL) === "shown" : stored(DETAILS_SHOWN) !== "hidden",
+  );
   const [detailsWidth, setDetailsWidth] = useState(() => {
     const n = Number(stored(DETAILS_WIDTH));
     return n >= DETAILS_MIN ? clampDetails(n) : 280;
   });
   const toggleDetails = useCallback(() => {
     setDetails((shown) => {
-      store(DETAILS_SHOWN, shown ? "hidden" : "shown");
+      store(shownKey, shown ? "hidden" : "shown");
       return !shown;
     });
-  }, []);
+  }, [shownKey]);
   useEffect(() => {
-    if (inPanel) return;
+    if (!hasDetails) return;
     const onKey = (event: KeyboardEvent) => {
       if (modalOpen() || !hasMod(event) || !event.shiftKey || event.altKey) return;
       if (event.key !== "b" && event.key !== "B") return;
@@ -224,7 +234,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [inPanel, toggleDetails]);
+  }, [hasDetails, toggleDetails]);
   const keepDetailsWidth = (w: number) => {
     setDetailsWidth(w);
     store(DETAILS_WIDTH, String(w));
@@ -287,8 +297,9 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             ) : null}
             {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
             {named ? (
-              // from a question, the session's own page; on it, the id alone
-              focus ? (
+              // from a question or a side panel, the session's own page; on
+              // it, the id alone
+              focus || inPanel ? (
                 <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
                   session {named.id}
                 </Link>
@@ -311,7 +322,19 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 .join(" · ")}
             </span>
           ) : null}
-          {inPanel ? null : (
+          {inPanel && named ? (
+            <Tooltip label="Open as a page" side="bottom">
+              <button
+                type="button"
+                className="bar-button"
+                onClick={() => navigate(sessionPath(named))}
+                aria-label="Open as a page"
+              >
+                <Expand size={15} />
+              </button>
+            </Tooltip>
+          ) : null}
+          {hasDetails ? (
             <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
               <button
                 type="button"
@@ -323,7 +346,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 {details ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
               </button>
             </Tooltip>
-          )}
+          ) : null}
           {inPanel && onClose ? (
             <Tooltip label="Close" keys={["Esc"]} side="bottom">
               <button type="button" className="bar-button" onClick={onClose} aria-label="Close the panel">
@@ -379,7 +402,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             {active ? null : <IdleComposer />}
           </div>
         </div>
-        {inPanel || !details ? null : (
+        {!hasDetails || !details ? null : (
           <div
             className="panel-resizer thread-aside-resizer"
             role="separator"
@@ -393,7 +416,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             onKeyDown={resizeDetailsBy}
           />
         )}
-        {inPanel || !details ? null : (
+        {!hasDetails || !details ? null : (
           <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
             <section>
               <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>

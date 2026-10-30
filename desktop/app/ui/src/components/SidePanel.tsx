@@ -1,10 +1,8 @@
-// The side panel a list opens a review in, beside the list: the review,
-// and an edge that resizes the panel by dragging or with the arrow keys.
-// The inbox and the history share one width, stored on this machine.
+// The side panel a list opens an item in, beside the list: a review or a
+// session's thread, and an edge that resizes the panel by dragging or with
+// the arrow keys. The lists share one width, stored on this machine.
 
 import { useState, type ReactNode, type RefObject } from "react";
-import type { To } from "react-router";
-import { ReviewView } from "../screens/ReviewScreen";
 
 /** The side panel's width, stored on this machine. */
 const PANEL_WIDTH = "pinrail.inbox.panel";
@@ -23,20 +21,15 @@ function savedWidth(): number | null {
 }
 
 export function SidePanel({
-  id,
   split,
-  linkTo,
-  onEnded,
-  onClose,
+  label = "Review",
+  children,
 }: {
-  /** the review shown */
-  id: string;
   /** the element that holds the list and the panel, which bounds the width */
   split: RefObject<HTMLDivElement | null>;
-  linkTo: (id: string) => To;
-  /** the review ended in the panel */
-  onEnded?: () => void;
-  onClose: () => void;
+  /** what the panel shows, which names it: Review or Session */
+  label?: string;
+  children: ReactNode;
 }): ReactNode {
   const [width, setWidth] = useState<number | null>(savedWidth);
   const clampWidth = (w: number) => {
@@ -81,18 +74,18 @@ export function SidePanel({
         className="panel-resizer"
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize the review panel"
+        aria-label={`Resize the ${label.toLowerCase()} panel`}
         tabIndex={0}
         onPointerDown={startResize}
         onKeyDown={resizeBy}
       />
       <aside
         className="review-panel"
-        aria-label="Review"
-        data-testid="review-panel"
+        aria-label={label}
+        data-testid={`${label.toLowerCase()}-panel`}
         style={width ? { width: clampWidth(width) } : undefined}
       >
-        <ReviewView id={id} inPanel linkTo={linkTo} onEnded={onEnded} onClose={onClose} />
+        {children}
       </aside>
     </>
   );
