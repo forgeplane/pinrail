@@ -435,19 +435,23 @@ test("the statuses an agent reports show in its thread between the questions and
   await clearInbox(page.request);
   const session = fresh();
   await report(page.request, session, {
-    text: "Reading the code",
+    text: "Add rate limiting",
+    kind: "start",
     origin: { repo: "acme/api", ref: "main", folder: "/work/acme-api" },
   });
   // all within a second or two: the order comes from the core, not the times
   await send(page.request, asked(session, "Statuses: deploy"));
   await report(page.request, session, { text: "Running the tests" });
   await report(page.request, session, { text: "Fixing a flaky test" });
-  await report(page.request, session, { done: true, text: "Pushed the fix" });
+  await report(page.request, session, { kind: "done", text: "Pushed the fix" });
 
   await page.goto(`/#/sessions/claude-code/${session}`);
+  // the task started names the session, and shows where it started
+  await expect(thread(page).getByRole("heading", { level: 1 })).toHaveText("Add rate limiting");
+  await expect(page.locator(".crumb-title")).toHaveText("Add rate limiting");
+  await expect(thread(page).getByTestId("started")).toContainText("Started: Add rate limiting");
   const groups = thread(page).getByTestId("status-group");
-  await expect(groups).toHaveCount(2);
-  await expect(groups.first()).toContainText("Reading the code");
+  await expect(groups).toHaveCount(1);
   // two in a row: the newest, and the earlier one behind a button
   await expect(groups.last().getByTestId("status")).toHaveText([/Fixing a flaky test/]);
   await groups.last().getByRole("button", { name: "1 earlier" }).click();
@@ -461,9 +465,10 @@ test("the statuses an agent reports show in its thread between the questions and
 
   // the Sessions page shows the newest status
   await page.goto("/#/sessions");
-  await expect(page.getByTestId("session-row").filter({ hasText: session }).getByTestId("session-status")).toHaveText(
-    "Finished: Pushed the fix",
-  );
+  const row = page.getByTestId("session-row").filter({ hasText: session });
+  await expect(row.getByRole("link", { name: "Add rate limiting" })).toBeVisible();
+  await expect(row.getByTestId("session-status")).toHaveText("Finished: Pushed the fix");
+  await expect(page.getByRole("region", { name: "Sessions waiting" })).toContainText("Add rate limiting");
 });
 
 test("a status the agent reports shows in an open thread at once", async ({ page }) => {
@@ -476,4 +481,17 @@ test("a status the agent reports shows in an open thread at once", async ({ page
   await report(page.request, session, { text: "Waiting for the answers" });
   await expect(thread(page).getByTestId("head-status")).toContainText("Waiting for the answers");
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
+});
+
+test("a task the agent starts renames its session in the sidebar at once", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, asked(session, "Rename: deploy"));
+  await page.goto("/#/");
+  const waiting = page.getByRole("region", { name: "Sessions waiting" }).getByTestId("waiting-session");
+  await expect(waiting).toHaveText(/claude-code/);
+  // after the loads the page makes as it starts
+  await page.waitForTimeout(1500);
+  await report(page.request, session, { text: "Ship the deploy script", kind: "start" });
+  await expect(waiting).toHaveText(/Ship the deploy script/);
 });

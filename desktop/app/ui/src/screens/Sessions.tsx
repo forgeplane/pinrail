@@ -9,7 +9,7 @@ import type { Session } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
-import { Thread, sessionPath } from "../components/Thread";
+import { Thread, sessionPath, statusLine } from "../components/Thread";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
 import { useUrlParams } from "../lib/url";
@@ -148,17 +148,17 @@ export function Sessions() {
                   >
                     <td>
                       <Link to={sessionPath(s)} className="history-title with-icon">
-                        <AgentIcon requestedBy={s.agent} size={13} /> {s.agent}
+                        <AgentIcon requestedBy={s.agent} size={13} /> {s.title ?? s.agent}
                       </Link>
                       <small className="mono" title={s.id}>
-                        {s.id}
+                        {s.title ? `${s.agent} · ${s.id}` : s.id}
                       </small>
-                      {s.status ? (
+                      {s.status && !(s.status.kind === "start" && s.title) ? (
                         <small
-                          className={`session-status ${s.status.done ? "is-done" : ""}`}
+                          className={`session-status ${s.status.kind === "done" ? "is-done" : ""}`}
                           data-testid="session-status"
                         >
-                          {s.status.done ? (s.status.text ? `Finished: ${s.status.text}` : "Finished") : s.status.text}
+                          {statusLine(s.status)}
                         </small>
                       ) : null}
                     </td>
@@ -196,6 +196,8 @@ export function Sessions() {
 /** A session's thread, at /sessions/:agent/:id. */
 export function SessionScreen() {
   const { agent = "", id = "" } = useParams();
+  // the task the agent works on names the session, once the thread has it
+  const [title, setTitle] = useState<string | null>(null);
   const crumb = useMemo(
     () => (
       <span className="crumb" data-tauri-drag-region>
@@ -203,15 +205,15 @@ export function SessionScreen() {
           Sessions
         </Link>
         <span className="crumb-sep">›</span>
-        <span className="crumb-title">{agent}</span>
+        <span className="crumb-title">{title ?? agent}</span>
       </span>
     ),
-    [agent],
+    [agent, title],
   );
   useTopBar(useMemo(() => ({ crumb }), [crumb]));
   return (
     <div className="review-page thread-page">
-      <Thread key={`${agent}/${id}`} session={{ agent, id }} />
+      <Thread key={`${agent}/${id}`} session={{ agent, id }} onSession={(s) => setTitle(s.title)} />
     </div>
   );
 }

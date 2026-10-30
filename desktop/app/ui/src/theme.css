@@ -3035,6 +3035,22 @@ body.is-resizing iframe {
 .thread-finished {
   color: var(--ok);
 }
+.thread-started {
+  color: var(--accent);
+}
+.thread-started > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* the task names the session; the agent and its project go under it */
+.thread-who {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--dim);
+}
 .thread-finished > span {
   display: inline-flex;
   align-items: center;

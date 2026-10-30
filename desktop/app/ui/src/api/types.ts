@@ -130,6 +130,8 @@ export type Session = {
   folder: string | null;
   /** what the agent last said it is doing */
   status: SessionStatus | null;
+  /** the task the agent last said it started, which names the session */
+  title: string | null;
   first_at: string;
   last_at: string;
   total: { questions: number; reviews: number };
@@ -309,8 +311,9 @@ export type Notice = {
 export type SessionStatus = {
   id: number;
   text: string;
-  /** whether the agent said it has finished */
-  done: boolean;
+  /** a step of the agent's work, the start of a task, which names the
+   *  session, or the end of its work */
+  kind: "step" | "start" | "done";
   at: string;
   /** in a session's thread, the review it came after, or null for one
    *  before them all */

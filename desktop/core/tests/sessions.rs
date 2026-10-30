@@ -194,7 +194,7 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
         &app,
         "claude-code",
         "s-1",
-        json!({"text": "Reading the code", "origin": {"repo": "acme", "ref": "main", "folder": "/work/acme"}}),
+        json!({"text": "Add rate limiting", "kind": "start", "origin": {"repo": "acme", "ref": "main", "folder": "/work/acme"}}),
     )
     .await;
     assert_eq!(code, StatusCode::NO_CONTENT);
@@ -206,35 +206,38 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
         json!({"text": "Running the tests"}),
     )
     .await;
-    let (code, _) = status(&app, "claude-code", "s-1", json!({"done": true})).await;
+    let (code, _) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
     assert_eq!(code, StatusCode::NO_CONTENT);
 
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
-    let statuses: Vec<(String, bool)> = thread["statuses"]
+    let statuses: Vec<(String, String)> = thread["statuses"]
         .as_array()
         .unwrap()
         .iter()
         .map(|s| {
             (
                 s["text"].as_str().unwrap().into(),
-                s["done"].as_bool().unwrap(),
+                s["kind"].as_str().unwrap().into(),
             )
         })
         .collect();
     assert_eq!(
         statuses,
         [
-            ("Reading the code".into(), false),
-            ("Running the tests".into(), false),
-            (String::new(), true),
+            ("Add rate limiting".into(), "start".into()),
+            ("Running the tests".into(), "step".into()),
+            (String::new(), "done".into()),
         ]
     );
     // the folder the status gave stays when the question gives none
     assert_eq!(thread["session"]["folder"], "/work/acme");
-    assert_eq!(thread["session"]["status"]["done"], true);
+    assert_eq!(thread["session"]["status"]["kind"], "done");
+    // the task started names the session
+    assert_eq!(thread["session"]["title"], "Add rate limiting");
 
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
-    assert_eq!(listing["sessions"][0]["status"]["done"], true);
+    assert_eq!(listing["sessions"][0]["status"]["kind"], "done");
+    assert_eq!(listing["sessions"][0]["title"], "Add rate limiting");
     assert_eq!(listing["sessions"][0]["total"]["questions"], 1);
 
     // a status after the end starts the work again
@@ -250,7 +253,19 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
         listing["sessions"][0]["status"]["text"],
         "Fixing a review comment"
     );
-    assert_eq!(listing["sessions"][0]["status"]["done"], false);
+    assert_eq!(listing["sessions"][0]["status"]["kind"], "step");
+
+    // a new task renames the session, and the search finds it
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Document the limits", "kind": "start"}),
+    )
+    .await;
+    let (_, found) = call(&app, "GET", "/api/v1/sessions?q=document", None).await;
+    assert_eq!(found["total"], 1);
+    assert_eq!(found["sessions"][0]["title"], "Document the limits");
 }
 
 #[tokio::test]
@@ -282,6 +297,8 @@ async fn a_status_is_one_short_line() {
         json!({"text": "   "}),
         json!({"text": "two\nlines"}),
         json!({"text": "x".repeat(201)}),
+        json!({"text": "", "kind": "start"}),
+        json!({"text": "Something", "kind": "paused"}),
     ] {
         let (code, refused) = status(&app, "claude-code", "s-1", body.clone()).await;
         assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{body} {refused}");

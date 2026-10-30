@@ -249,8 +249,10 @@ export function Layout({ children }: { children: ReactNode }) {
     [live.pending],
   );
   // the sessions with something waiting for the person, refreshed with
-  // what is pending
+  // what is pending and with each status an agent reports, which can
+  // rename its session
   const [sessions, setSessions] = useState<Session[]>([]);
+  const reported = live.lastNotice?.kind === "session_status" ? live.lastNotice.event_id : null;
   useEffect(() => {
     let cancelled = false;
     api
@@ -260,7 +262,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [live.pending]);
+  }, [live.pending, reported]);
   // how many wait per project, beside the inbox's quick filters
   const perProject = useMemo(() => {
     const counts = new Map<string, number>();
@@ -464,12 +466,12 @@ export function Layout({ children }: { children: ReactNode }) {
                 {sessions.slice(0, WAITING_SHOWN).map((s) => (
                   <Tooltip
                     key={`${s.agent}/${s.id}`}
-                    label={[s.repo, s.ref].filter(Boolean).join(" · ") || s.id}
+                    label={[s.title ? s.agent : null, s.repo, s.ref].filter(Boolean).join(" · ") || s.id}
                     side="top"
                   >
                     <NavLink to={sessionPath(s)} className="sidebar-review" data-testid="waiting-session">
                       <AgentIcon requestedBy={s.agent} size={14} />
-                      <span className="sidebar-review-title">{s.agent}</span>
+                      <span className="sidebar-review-title">{s.title ?? s.agent}</span>
                       <span className="nav-count">{s.waiting.questions + s.waiting.reviews}</span>
                     </NavLink>
                   </Tooltip>

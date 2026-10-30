@@ -229,7 +229,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         let before: Vec<Migration> = MIGRATIONS
             .iter()
-            .filter(|m| m.1 != "sessions")
+            .filter(|m| m.0 < 20261030120000)
             .copied()
             .collect();
         run(&conn, &before).unwrap();
@@ -305,5 +305,42 @@ mod tests {
                 "codex s1 - - - 2026-10-03T10:00:00Z 2026-10-03T10:00:00.000Z",
             ]
         );
+    }
+
+    /// A status of the first sessions table keeps its id and text, and
+    /// says what it was: the end of the agent's work, or a step.
+    #[test]
+    fn the_statuses_are_given_their_kind() {
+        let conn = Connection::open_in_memory().unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.0 < 20261030150000)
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        conn.execute_batch(
+            "INSERT INTO sessions (agent, id, first_at, last_at) \
+             VALUES ('claude-code', 's1', '2026-10-30T10:00:00Z', '2026-10-30T10:00:00.000Z'); \
+             INSERT INTO session_statuses (id, agent, session, text, done, created_at) VALUES \
+               (7, 'claude-code', 's1', 'Testing', 0, '2026-10-30T10:00:00Z'), \
+               (9, 'claude-code', 's1', 'Pushed', 1, '2026-10-30T10:01:00Z');",
+        )
+        .unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+        let rows: Vec<String> = conn
+            .prepare("SELECT id || ' ' || text || ' ' || kind FROM session_statuses ORDER BY id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows, ["7 Testing step", "9 Pushed done"]);
+        // and a session's statuses still go with it
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        conn.execute("DELETE FROM sessions", []).unwrap();
+        let left: i64 = conn
+            .query_row("SELECT COUNT(*) FROM session_statuses", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(left, 0);
     }
 }

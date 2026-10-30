@@ -3,25 +3,30 @@ import type { Review, SessionStatus } from "../api/types";
 import { timeline } from "./sessions";
 
 const review = (id: string, at: string) => ({ id, created_at: at }) as Review;
-const status = (id: number, at: string, text: string, done = false): SessionStatus => ({ id, at, text, done });
+const status = (id: number, at: string, text: string, kind: SessionStatus["kind"] = "step"): SessionStatus => ({
+  id,
+  at,
+  text,
+  kind,
+});
 
 describe("timeline", () => {
   test("puts the statuses between the reviews, in order, grouped when in a row", () => {
     const entries = timeline(
       [review("r1", "2026-10-30T10:00:10Z"), review("r2", "2026-10-30T10:05:00Z")],
       [
-        status(1, "2026-10-30T10:00:00Z", "Reading"),
+        status(1, "2026-10-30T10:00:00Z", "Add rate limiting", "start"),
         status(2, "2026-10-30T10:01:00Z", "Planning"),
         status(3, "2026-10-30T10:02:00Z", "Building"),
-        status(4, "2026-10-30T10:06:00Z", "", true),
+        status(4, "2026-10-30T10:06:00Z", "", "done"),
         status(5, "2026-10-30T10:07:00Z", "Fixing a comment"),
       ],
     );
     expect(
       entries.map((e) =>
-        e.kind === "item" ? e.review.id : e.kind === "finished" ? "finished" : e.statuses.map((s) => s.text),
+        e.kind === "item" ? e.review.id : e.kind === "statuses" ? e.statuses.map((s) => s.text) : e.kind,
       ),
-    ).toEqual([["Reading"], "r1", ["Planning", "Building"], "r2", "finished", ["Fixing a comment"]]);
+    ).toEqual(["started", "r1", ["Planning", "Building"], "r2", "finished", ["Fixing a comment"]]);
   });
 
   test("puts a status sent in the same second as a review after it", () => {

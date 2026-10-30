@@ -27,6 +27,36 @@ pub struct SessionRow {
     pub waiting_reviews: usize,
     /// what the agent last said it is doing
     pub status: Option<StatusRow>,
+    /// the task the agent last said it started, which names the session
+    pub title: Option<String>,
+}
+
+/// What a status says: a step of the agent's work, the start of a task,
+/// which names it, or the end of the agent's work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatusKind {
+    Step,
+    Start,
+    Done,
+}
+
+impl StatusKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StatusKind::Step => "step",
+            StatusKind::Start => "start",
+            StatusKind::Done => "done",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "step" => Some(StatusKind::Step),
+            "start" => Some(StatusKind::Start),
+            "done" => Some(StatusKind::Done),
+            _ => None,
+        }
+    }
 }
 
 /// What an agent said it is doing, with `pinrail status`.
@@ -34,8 +64,7 @@ pub struct SessionRow {
 pub struct StatusRow {
     pub id: i64,
     pub text: String,
-    /// whether the agent said it has finished
-    pub done: bool,
+    pub kind: StatusKind,
     pub at: DateTime<Utc>,
     /// in a session's thread, the review the status came after, which the
     /// times, in whole seconds, do not always tell
@@ -47,7 +76,7 @@ impl StatusRow {
         json!({
             "id": self.id,
             "text": self.text,
-            "done": self.done,
+            "kind": self.kind.as_str(),
             "at": crate::reviews::iso(self.at),
             "after": self.after,
         })
@@ -151,7 +180,9 @@ impl Db {
                 let n = args.len();
                 having.push(format!(
                     "(COALESCE(SUM(r.title LIKE ?{n} ESCAPE '\\'), 0) > 0 \
-                     OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\')"
+                     OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\' \
+                     OR {title} LIKE ?{n} ESCAPE '\\')",
+                    title = title()
                 ));
             }
         }
@@ -213,7 +244,7 @@ impl Db {
         agent: &str,
         id: &str,
         text: &str,
-        done: bool,
+        kind: StatusKind,
         origin: &Map<String, Value>,
     ) -> rusqlite::Result<(StatusRow, i64)> {
         let mut conn = self.conn();
@@ -221,14 +252,14 @@ impl Db {
         let now = Utc::now();
         touch(&tx, agent, id, origin, now)?;
         tx.execute(
-            "INSERT INTO session_statuses (agent, session, text, done, created_at)
+            "INSERT INTO session_statuses (agent, session, text, kind, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![agent, id, text, done, crate::reviews::iso(now)],
+            params![agent, id, text, kind.as_str(), crate::reviews::iso(now)],
         )?;
         let status = StatusRow {
             id: tx.last_insert_rowid(),
             text: text.to_string(),
-            done,
+            kind,
             at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
             after: None,
         };
@@ -259,7 +290,7 @@ impl Db {
                JOIN events e ON e.review_id = r.id AND e.kind = ?4
                WHERE r.requested_by = ?1 AND r.session = ?2
              )
-             SELECT t.id, t.text, t.done, t.created_at,
+             SELECT t.id, t.text, t.kind, t.created_at,
                (SELECT c.review FROM created c WHERE c.event < a.event ORDER BY c.event DESC LIMIT 1)
              FROM session_statuses t LEFT JOIN announced a ON a.status = t.id
              WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.id",
@@ -275,7 +306,7 @@ impl Db {
                 Ok(StatusRow {
                     id: row.get(0)?,
                     text: row.get(1)?,
-                    done: row.get(2)?,
+                    kind: kind_of(row.get::<_, String>(2)?),
                     at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
                     after: row.get(4)?,
                 })
@@ -316,15 +347,28 @@ fn select() -> String {
     COALESCE(SUM(r.kind = 'review'), 0) AS reviews,
     COALESCE(SUM(r.kind = 'question' AND {pending}), 0) AS waiting_questions,
     COALESCE(SUM(r.kind = 'review' AND {pending}), 0) AS waiting_reviews,
-    {id} AS status_id, {text} AS status_text, {done} AS status_done, {at} AS status_at
+    {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,
+    {title} AS title
   FROM sessions s
   LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
   LEFT JOIN outcomes o ON o.review_id = r.id",
         id = status("id"),
         text = status("text"),
-        done = status("done"),
+        kind = status("kind"),
         at = status("created_at"),
+        title = title(),
     )
+}
+
+/// The session's title: the task the agent last said it started.
+fn title() -> &'static str {
+    "(SELECT t.text FROM session_statuses t \
+     WHERE t.agent = s.agent AND t.session = s.id AND t.kind = 'start' ORDER BY t.id DESC LIMIT 1)"
+}
+
+/// A stored kind, which the table's check keeps to the three.
+fn kind_of(text: String) -> StatusKind {
+    StatusKind::parse(&text).unwrap_or(StatusKind::Step)
 }
 
 fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
@@ -336,7 +380,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         Some(id) => Some(StatusRow {
             id,
             text: row.get(12)?,
-            done: row.get(13)?,
+            kind: kind_of(row.get::<_, String>(13)?),
             at: time(14)?,
             after: None,
         }),
@@ -355,5 +399,6 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         waiting_questions: count(9)?,
         waiting_reviews: count(10)?,
         status,
+        title: row.get(15)?,
     })
 }

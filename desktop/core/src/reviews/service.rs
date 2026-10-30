@@ -16,7 +16,7 @@ use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{
-    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StatusRow, status_notice,
+    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StatusKind, StatusRow, status_notice,
 };
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -301,12 +301,13 @@ impl Reviews {
 
     /// Records what the agent says it is doing in its session: one line of
     /// text, which may be empty only when the agent says it has finished.
+    /// The start of a task names it, and so the session.
     pub fn status(
         &self,
         agent: &str,
         session: &str,
         text: &str,
-        done: bool,
+        kind: StatusKind,
         origin: Option<&Value>,
     ) -> Result<StatusRow, Error> {
         let text = text.trim();
@@ -322,11 +323,17 @@ impl Reviews {
                 format!("must be at most {STATUS_MAX} characters"),
             ));
         }
-        if text.is_empty() && !done {
-            return Err(Error::invalid("text", "say what the agent is doing"));
+        match kind {
+            StatusKind::Step if text.is_empty() => {
+                return Err(Error::invalid("text", "say what the agent is doing"));
+            }
+            StatusKind::Start if text.is_empty() => {
+                return Err(Error::invalid("text", "name the task the agent starts"));
+            }
+            _ => {}
         }
         let origin = Review::normalize_origin(origin);
-        let (status, event_id) = self.db.add_status(agent, session, text, done, &origin)?;
+        let (status, event_id) = self.db.add_status(agent, session, text, kind, &origin)?;
         self.bus.publish(Notice {
             event_id,
             kind: events::SESSION_STATUS.to_string(),

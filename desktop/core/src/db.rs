@@ -21,7 +21,7 @@ pub use events::Event;
 pub use plugins::InstallRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
-pub use sessions::{SessionFilters, SessionRow, StatusRow, status_notice};
+pub use sessions::{SessionFilters, SessionRow, StatusKind, StatusRow, status_notice};
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};

@@ -12,6 +12,7 @@ import {
   GitBranch,
   MessageSquarePlus,
   Pencil,
+  Play,
   Star,
   Trash2,
   X,
@@ -45,6 +46,8 @@ type ThreadProps = {
   session?: { agent: string; id: string };
   inPanel?: boolean;
   onClose?: () => void;
+  /** called with the session each time it is loaded */
+  onSession?: (session: Session) => void;
 };
 
 /** A session's page. */
@@ -56,7 +59,7 @@ export function sessionOf(review: Review): { agent: string; id: string } | null 
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }
 
-export function Thread({ focus, session: given, inPanel = false, onClose }: ThreadProps) {
+export function Thread({ focus, session: given, inPanel = false, onClose, onSession }: ThreadProps) {
   const live = useLive();
   const named = given ?? (focus ? sessionOf(focus) : null);
   const [session, setSession] = useState<Session | null>(null);
@@ -69,6 +72,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
       if (named) {
         const thread = await api.session(named.agent, named.id);
         setSession(thread.session);
+        onSession?.(thread.session);
         setItems(thread.items);
         setStatuses(thread.statuses);
       } else if (focus) {
@@ -169,21 +173,20 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
           <AgentIcon requestedBy={agent} size={18} />
         </span>
         <div className="thread-title">
-          <h1>
-            {agent ?? "Questions"}
-            {repo ? (
-              <>
-                {" "}
-                <span className="faint thread-in">in</span> {repo}
-                {ref ? (
-                  <span className="thread-ref" title={`Branch ${ref}`}>
-                    <GitBranch size={13} aria-label="Branch" />
-                    {ref}
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-          </h1>
+          {/* the task the agent works on names the session, with the agent
+              and where it works under it; without one, those are the title */}
+          {session?.title ? (
+            <>
+              <h1 className="thread-task">{session.title}</h1>
+              <div className="thread-who">
+                <Where agent={agent} repo={repo} reference={ref} />
+              </div>
+            </>
+          ) : (
+            <h1>
+              <Where agent={agent} repo={repo} reference={ref} />
+            </h1>
+          )}
           <div className="thread-sub">
             {waiting.length > 0 ? (
               <span className="thread-waiting">
@@ -243,6 +246,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
             {entriesOf(items, statuses).map((entry) => {
               if (entry.kind === "statuses")
                 return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
+              if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
               const item = entry.review;
               return item.kind === "question" ? (
@@ -339,18 +343,46 @@ export function Thread({ focus, session: given, inPanel = false, onClose }: Thre
   );
 }
 
+/** The agent and the project it works in, with the branch. */
+function Where({ agent, repo, reference }: { agent: string | null; repo: string | null; reference: string | null }) {
+  return (
+    <>
+      {agent ?? "Questions"}
+      {repo ? (
+        <>
+          {" "}
+          <span className="faint thread-in">in</span> {repo}
+          {reference ? (
+            <span className="thread-ref" title={`Branch ${reference}`}>
+              <GitBranch size={13} aria-label="Branch" />
+              {reference}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** How a status reads on its own: a step as it is, the start of a task, which
+ *  the title names, as Started, and the end as Finished with what it says. */
+export function statusLine(status: SessionStatus): string {
+  if (status.kind === "start") return "Started";
+  if (status.kind === "done") return status.text ? `Finished: ${status.text}` : "Finished";
+  return status.text;
+}
+
 /** What the agent last said, under the session's title. */
 function HeadStatus({ status }: { status: SessionStatus }) {
+  const done = status.kind === "done";
   return (
-    <div className={`thread-status ${status.done ? "is-done" : ""}`} data-testid="head-status">
-      {status.done ? (
+    <div className={`thread-status ${done ? "is-done" : ""}`} data-testid="head-status">
+      {done ? (
         <CheckCircle2 size={13} aria-hidden />
       ) : (
         <Activity size={13} className="thread-status-icon" aria-hidden />
       )}
-      <span className="thread-status-text">
-        {status.done ? (status.text ? `Finished: ${status.text}` : "Finished") : status.text}
-      </span>
+      <span className="thread-status-text">{statusLine(status)}</span>
       <span className="faint" title={stamp(status.at)}>
         · {age(status.at)} ago
       </span>
@@ -381,6 +413,18 @@ function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** The agent saying it starts a task, which it names. */
+function StartedLine({ status }: { status: SessionStatus }) {
+  return (
+    <div className="thread-divider thread-started" data-testid="started">
+      <span>
+        <Play size={12} aria-hidden /> Started: {status.text} ·{" "}
+        <span title={stamp(status.at)}>{age(status.at)} ago</span>
+      </span>
     </div>
   );
 }

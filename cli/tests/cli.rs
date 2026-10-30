@@ -3257,6 +3257,7 @@ fn status_sends_the_text_to_the_agents_session() {
             "it prints nothing"
         );
     };
+    status(&["--start", "Add rate limiting"]);
     status(&["Running the tests"]);
     status(&["--done"]);
     status(&["--done", "Pushed the fix"]);
@@ -3268,21 +3269,22 @@ fn status_sends_the_text_to_the_agents_session() {
         let folder = std::path::Path::new(body["origin"]["folder"].as_str().unwrap());
         assert_eq!(folder.canonicalize().unwrap(), here);
     }
-    let said: Vec<(String, bool)> = sent
+    let said: Vec<(String, String)> = sent
         .iter()
         .map(|(_, b)| {
             (
                 b["text"].as_str().unwrap().into(),
-                b["done"].as_bool().unwrap(),
+                b["kind"].as_str().unwrap().into(),
             )
         })
         .collect();
     assert_eq!(
         said,
         [
-            ("Running the tests".into(), false),
-            (String::new(), true),
-            ("Pushed the fix".into(), true),
+            ("Add rate limiting".into(), "start".into()),
+            ("Running the tests".into(), "step".into()),
+            (String::new(), "done".into()),
+            ("Pushed the fix".into(), "done".into()),
         ]
     );
 }

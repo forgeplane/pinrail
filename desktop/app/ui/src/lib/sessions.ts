@@ -1,13 +1,14 @@
 // A session's timeline: its questions and reviews, and between them the
 // statuses the agent reported, in the order they happened. Statuses in a
-// row with nothing between them are one group, and the agent saying it has
-// finished is a line of its own.
+// row with nothing between them are one group, and the agent saying it
+// starts a task, or has finished, is a line of its own.
 
 import type { Review, SessionStatus } from "../api/types";
 
 export type Entry =
   | { kind: "item"; review: Review }
   | { kind: "statuses"; statuses: SessionStatus[] }
+  | { kind: "started"; status: SessionStatus }
   | { kind: "finished"; status: SessionStatus };
 
 /** The items and the statuses, oldest first. A status goes after the
@@ -38,10 +39,11 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
       group = [];
     };
     for (const status of slots.get(slot) ?? []) {
-      if (status.done) {
+      if (status.kind === "step") group.push(status);
+      else {
         close();
-        entries.push({ kind: "finished", status });
-      } else group.push(status);
+        entries.push({ kind: status.kind === "start" ? "started" : "finished", status });
+      }
     }
     close();
   };

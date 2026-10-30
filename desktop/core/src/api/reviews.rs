@@ -17,7 +17,7 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{SessionFilters, SessionRow};
+use crate::db::{SessionFilters, SessionRow, StatusKind};
 use crate::error::Error;
 use crate::markdown::Head;
 use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
@@ -466,6 +466,7 @@ fn session_json(session: &SessionRow) -> Value {
         "ref": session.reference,
         "folder": session.folder,
         "status": session.status.as_ref().map(|s| s.to_json()),
+        "title": session.title,
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
@@ -516,17 +517,22 @@ async fn session(
 }
 
 /// What the agent says it is doing in the session, with `pinrail status`:
-/// `text`, one line, and `done` once it has finished, with the `origin` it
-/// works in. Answers 204.
+/// `text`, one line, and its `kind`: `step`, the default, `start` for the
+/// start of a task, which names it, or `done` once it has finished; with
+/// the `origin` it works in. Answers 204.
 async fn status(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<StatusCode, ApiError> {
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
-    let done = body.get("done").and_then(Value::as_bool).unwrap_or(false);
+    let kind = match body.get("kind").and_then(Value::as_str) {
+        None => StatusKind::Step,
+        Some(kind) => StatusKind::parse(kind)
+            .ok_or_else(|| Error::invalid("kind", "must be step, start or done"))?,
+    };
     state
         .reviews()
-        .status(&agent, &id, text, done, body.get("origin"))?;
+        .status(&agent, &id, text, kind, body.get("origin"))?;
     Ok(StatusCode::NO_CONTENT)
 }

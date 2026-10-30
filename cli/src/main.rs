@@ -199,13 +199,15 @@ enum Command {
     /// Say what the agent is doing in its session, in one line, shown in
     /// the session's thread in the app
     ///
+    ///     pinrail status --start "Add rate limiting to the public API"
     ///     pinrail status "Running the end-to-end suite"
     ///     pinrail status --done "Pushed the fix"
     ///
     /// The app keeps every status, so the thread shows what the agent did
-    /// between its questions and reviews. --done says the agent has
-    /// finished, and its text is then optional. A status after it says the
-    /// agent is working again.
+    /// between its questions and reviews. --start says the agent starts a
+    /// task, and names it: the newest task started is the session's title
+    /// in the app. --done says the agent has finished, and its text is then
+    /// optional. A status after it says the agent is working again.
     ///
     /// The command finds the agent and its session as submit does, and
     /// does not wait. It prints nothing.
@@ -1534,6 +1536,10 @@ struct StatusArgs {
     /// characters
     #[arg(value_name = "TEXT", required_unless_present = "done")]
     text: Option<String>,
+    /// The agent starts a task, which the text names, and which names the
+    /// session in the app
+    #[arg(long, conflicts_with = "done")]
+    start: bool,
     /// The agent has finished its work in the session
     #[arg(long)]
     done: bool,
@@ -1559,9 +1565,14 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
         .requested_by
         .or_else(agent::detect)
         .unwrap_or_else(|| "pinrail-cli".to_string());
+    let kind = match (args.start, args.done) {
+        (true, _) => "start",
+        (_, true) => "done",
+        _ => "step",
+    };
     let mut body = json!({
         "text": args.text.unwrap_or_default(),
-        "done": args.done,
+        "kind": kind,
     });
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
