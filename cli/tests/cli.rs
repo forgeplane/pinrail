@@ -173,6 +173,18 @@ fn run_in(server: &MockServer, dir: &std::path::Path, args: &[&str]) -> (i32, St
     )
 }
 
+/// The request without the folder the CLI adds to every origin, which
+/// depends on where the test runs; an origin left empty goes too.
+fn without_folder(mut body: serde_json::Value) -> serde_json::Value {
+    if let Some(origin) = body.get_mut("origin").and_then(|o| o.as_object_mut()) {
+        origin.remove("folder");
+        if origin.is_empty() {
+            body.as_object_mut().unwrap().remove("origin");
+        }
+    }
+    body
+}
+
 fn review(status: &str) -> String {
     let decision = if status == "decided" {
         r#"{"decided_by":"tester","decided_at":"2026-09-11T10:00:00Z","data":{"decisions":[{"id":1,"action":"accept"}],"undecided":[]}}"#
@@ -478,7 +490,7 @@ fn a_review_is_requested_by_the_agent_the_cli_runs_under_unless_told() {
 fn unknown_origin_keys_are_dropped_with_a_warning() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/reviews"));
-        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        let sent = without_folder(serde_json::from_str(body).unwrap());
         assert_eq!(
             sent["origin"],
             serde_json::json!({"repo": "acme", "ref": "42"})
@@ -505,7 +517,7 @@ fn unknown_origin_keys_are_dropped_with_a_warning() {
         ],
     );
     assert_eq!(code, 0, "{stderr}");
-    assert!(stderr.contains("pinrail: warning: origin key agnet dropped: the app keeps repo, ref, workflow, run_id, url\n"), "{stderr}");
+    assert!(stderr.contains("pinrail: warning: origin key agnet dropped: the app keeps repo, ref, workflow, run_id, url, folder\n"), "{stderr}");
 
     // from a request file too
     let (_, _, stderr) = run(
@@ -524,7 +536,7 @@ fn unknown_origin_keys_are_dropped_with_a_warning() {
         "the flag replaced the file's origin: {stderr}"
     );
     let server2 = MockServer::start(Box::new(|_, _, body| {
-        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        let sent = without_folder(serde_json::from_str(body).unwrap());
         assert_eq!(sent["origin"], serde_json::json!({"repo": "acme"}));
         (201, review("pending"))
     }));
@@ -2044,7 +2056,7 @@ fn describe_gives_a_file_limit_under_a_megabyte_as_it_is() {
 fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/plugins/list/sample"));
-        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        let sent = without_folder(serde_json::from_str(body).unwrap());
         assert_eq!(
             sent,
             serde_json::json!({ "title": "Try Pinrail", "requested_by": "pinrail-cli" })
@@ -2241,7 +2253,13 @@ fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
     );
     assert_eq!(code, 0, "{stderr}");
 
-    let sent = sent.lock().unwrap();
+    let sent: Vec<serde_json::Value> = sent
+        .lock()
+        .unwrap()
+        .iter()
+        .cloned()
+        .map(without_folder)
+        .collect();
     assert_eq!(
         sent[0]["origin"],
         serde_json::json!({ "repo": "acme/api", "ref": "fix/tickets" })
@@ -3207,4 +3225,107 @@ fn ask_prints_the_persons_comment_on_the_questions_after_the_answers() {
         stdout,
         "1. Deploy where?\nstaging\n\n2. Keep it?\nyes\n\nComment: ship it after lunch\n"
     );
+}
+
+#[test]
+fn status_sends_the_text_to_the_agents_session() {
+    let sent = Arc::new(Mutex::new(Vec::<(String, serde_json::Value)>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        assert_eq!(method, "POST");
+        seen.lock()
+            .unwrap()
+            .push((path.to_string(), serde_json::from_str(body).unwrap()));
+        (204, String::new())
+    }));
+    let status = |args: &[&str]| {
+        let out = pinrail()
+            .arg("status")
+            .args(args)
+            .arg("--no-start")
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+        assert_eq!(out.status.code(), Some(0), "{stderr}");
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout),
+            "",
+            "it prints nothing"
+        );
+    };
+    status(&["Running the tests"]);
+    status(&["--done"]);
+    status(&["--done", "Pushed the fix"]);
+
+    let sent = sent.lock().unwrap();
+    let here = std::env::temp_dir().canonicalize().unwrap();
+    for (path, body) in sent.iter() {
+        assert_eq!(path, "/api/v1/sessions/claude-code/c-1/status");
+        let folder = std::path::Path::new(body["origin"]["folder"].as_str().unwrap());
+        assert_eq!(folder.canonicalize().unwrap(), here);
+    }
+    let said: Vec<(String, bool)> = sent
+        .iter()
+        .map(|(_, b)| {
+            (
+                b["text"].as_str().unwrap().into(),
+                b["done"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        said,
+        [
+            ("Running the tests".into(), false),
+            (String::new(), true),
+            ("Pushed the fix".into(), true),
+        ]
+    );
+}
+
+#[test]
+fn status_without_a_session_says_it_found_none() {
+    let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
+    let (code, _, stderr) = run(&server, &["status", "Working", "--no-start"]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("needs an agent session"), "{stderr}");
+    assert!(stderr.contains("CLAUDE_CODE_SESSION_ID"), "{stderr}");
+}
+
+#[test]
+fn a_review_names_the_top_of_the_checkout_as_its_folder() {
+    let dir = tempdir();
+    let ok = std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&dir)
+        .status()
+        .unwrap()
+        .success();
+    assert!(ok);
+    let inner = dir.join("src");
+    std::fs::create_dir(&inner).unwrap();
+    let sent = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        seen.lock()
+            .unwrap()
+            .push(serde_json::from_str(body).unwrap());
+        (201, review("pending"))
+    }));
+    let (code, _, stderr) = run_in(
+        &server,
+        &inner,
+        &["submit", "list", "--title", "t", "--no-start"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let top = dir.canonicalize().unwrap();
+    let sent = sent.lock().unwrap();
+    let folder = std::path::Path::new(sent[0]["origin"]["folder"].as_str().unwrap())
+        .canonicalize()
+        .unwrap();
+    assert_eq!(folder, top);
 }

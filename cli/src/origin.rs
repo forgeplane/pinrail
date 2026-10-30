@@ -10,7 +10,7 @@ use serde_json::{Map, Value, json};
 
 /// The origin keys the app keeps, as the core's `ORIGIN_KEYS` lists them;
 /// it drops any other.
-const KEYS: [&str; 5] = ["repo", "ref", "workflow", "run_id", "url"];
+const KEYS: [&str; 6] = ["repo", "ref", "workflow", "run_id", "url", "folder"];
 
 /// Takes out of the body's origin the keys the app would drop without a
 /// word, and says so on stderr, so a misspelled key is noticed.
@@ -36,21 +36,48 @@ pub fn drop_unknown(body: &mut Value) {
 /// runs in, when they are missing, and says so on stderr. Outside a
 /// checkout, or without git, the body is left as it is.
 pub fn fill_from_git(body: &mut Value) {
+    let said = fill_body(body);
+    if !said.is_empty() {
+        crate::out::note(format_args!("origin from git: {}", said.join(", ")));
+    }
+}
+
+/// `fill_from_git`, saying nothing, for a command that prints nothing.
+pub fn fill_quietly(body: &mut Value) {
+    fill_body(body);
+}
+
+/// Fills the body's origin: the folder the command works in, then what
+/// the checkout gives. Answers what it took from git, as key=value.
+fn fill_body(body: &mut Value) -> Vec<String> {
     let mut origin = match body.get("origin") {
         Some(Value::Object(map)) => map.clone(),
         _ => Map::new(),
     };
-    if !missing(&origin, "repo") && !missing(&origin, "ref") {
-        return;
+    let found = from_git();
+    if missing(&origin, "folder")
+        && let Some(folder) = found
+            .as_ref()
+            .map(|f| f.top.clone())
+            .or_else(current_folder)
+    {
+        origin.insert("folder".to_string(), json!(folder));
     }
-    let Some(found) = from_git() else {
-        return;
+    let said = match found {
+        Some(found) if missing(&origin, "repo") || missing(&origin, "ref") => {
+            fill(&mut origin, found)
+        }
+        _ => Vec::new(),
     };
-    let said = fill(&mut origin, found);
-    if !said.is_empty() {
-        crate::out::note(format_args!("origin from git: {}", said.join(", ")));
-        body["origin"] = Value::Object(origin);
-    }
+    body["origin"] = Value::Object(origin);
+    said
+}
+
+/// The folder the command runs in, when it can be read.
+fn current_folder() -> Option<String> {
+    std::env::current_dir()
+        .ok()
+        .map(|dir| dir.display().to_string())
 }
 
 /// Puts in `origin` what the checkout gives that it lacks, and answers
@@ -90,6 +117,8 @@ pub fn repo() -> Option<String> {
 }
 
 struct Found {
+    /// the top of the checkout
+    top: String,
     repo: Option<String>,
     reference: Option<String>,
 }
@@ -107,7 +136,11 @@ fn from_git() -> Option<Found> {
         .filter(|r| !r.is_empty());
     // the branch, even before its first commit; none on a detached HEAD
     let reference = git(&["symbolic-ref", "--short", "HEAD"]);
-    Some(Found { repo, reference })
+    Some(Found {
+        top,
+        repo,
+        reference,
+    })
 }
 
 fn git(args: &[&str]) -> Option<String> {
@@ -179,6 +212,7 @@ mod tests {
     #[test]
     fn a_branch_is_taken_only_for_the_checkouts_own_project() {
         let checkout = || super::Found {
+            top: "/work/api".into(),
             repo: Some("acme/api".into()),
             reference: Some("feature".into()),
         };

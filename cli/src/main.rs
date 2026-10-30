@@ -196,6 +196,21 @@ enum Command {
     /// agent_note.
     #[command(verbatim_doc_comment)]
     Ask(ask::AskArgs),
+    /// Say what the agent is doing in its session, in one line, shown in
+    /// the session's thread in the app
+    ///
+    ///     pinrail status "Running the end-to-end suite"
+    ///     pinrail status --done "Pushed the fix"
+    ///
+    /// The app keeps every status, so the thread shows what the agent did
+    /// between its questions and reviews. --done says the agent has
+    /// finished, and its text is then optional. A status after it says the
+    /// agent is working again.
+    ///
+    /// The command finds the agent and its session as submit does, and
+    /// does not wait. It prints nothing.
+    #[command(verbatim_doc_comment)]
+    Status(StatusArgs),
     /// Submit a review, and with --wait, wait for the decision and print it
     ///
     /// The options build the review: the plugin, --title, and the payload
@@ -912,6 +927,7 @@ fn run(cli: Cli) -> Result<u8> {
     let auto_start = match &cli.command {
         Command::Submit(args) => !args.no_start,
         Command::Ask(args) => !args.no_start,
+        Command::Status(args) => !args.no_start,
         Command::Plugins(args) => {
             matches!(
                 args.command,
@@ -933,6 +949,7 @@ fn run(cli: Cli) -> Result<u8> {
                 ..output
             },
         ),
+        Command::Status(args) => status(&client, args),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
@@ -1511,6 +1528,50 @@ fn requester(given: Option<&str>) -> String {
 }
 
 /// Asks the person the questions, waits for the answers and prints them.
+#[derive(Args, Debug)]
+struct StatusArgs {
+    /// What the agent is doing, as one line of plain text of at most 200
+    /// characters
+    #[arg(value_name = "TEXT", required_unless_present = "done")]
+    text: Option<String>,
+    /// The agent has finished its work in the session
+    #[arg(long)]
+    done: bool,
+    /// Where the agent works, as for submit
+    #[arg(long, value_parser = origin::parse)]
+    origin: Option<BTreeMap<String, String>>,
+    /// Who is working, as for submit
+    #[arg(long, env = "PINRAIL_REQUESTED_BY")]
+    requested_by: Option<String>,
+    /// Do not start the server when it is not running
+    #[arg(long)]
+    no_start: bool,
+}
+
+fn status(client: &Client, args: StatusArgs) -> Result<u8> {
+    let Some(session) = agent::session() else {
+        anyhow::bail!(
+            "pinrail status needs an agent session, and none was found: run it from \
+             an agent that sets its session id, such as CLAUDE_CODE_SESSION_ID"
+        );
+    };
+    let agent = args
+        .requested_by
+        .or_else(agent::detect)
+        .unwrap_or_else(|| "pinrail-cli".to_string());
+    let mut body = json!({
+        "text": args.text.unwrap_or_default(),
+        "done": args.done,
+    });
+    if let Some(origin) = &args.origin {
+        body["origin"] = json!(origin);
+    }
+    origin::drop_unknown(&mut body);
+    origin::fill_quietly(&mut body);
+    client.status(&agent, &session, &body)?;
+    Ok(0)
+}
+
 fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
     let questions = args.questions()?;
     let mut body = json!({

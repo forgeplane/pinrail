@@ -114,6 +114,18 @@ impl Client {
         self.post("/api/v1/reviews", Some(body))
     }
 
+    /// Records what the agent says it is doing in its session.
+    pub fn status(&self, agent: &str, session: &str, body: &Value) -> Result<Value> {
+        self.post(
+            &format!(
+                "/api/v1/sessions/{}/{}/status",
+                segment(agent),
+                segment(session)
+            ),
+            Some(body),
+        )
+    }
+
     /// Sends a plugin's sample as a new review; `body` may give a title,
     /// an origin or who asks.
     pub fn sample(&self, plugin: &str, body: &Value) -> Result<Value> {
