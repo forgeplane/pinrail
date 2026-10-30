@@ -11,6 +11,9 @@ import { clearInbox, core, openReviewsIn, onePayload } from "./helpers";
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
 const thread = (page: Page) => page.getByTestId("thread");
 const question = (page: Page, text: string) => page.getByTestId("question").filter({ hasText: text });
+/** A session's row in the sidebar. */
+const inSidebar = (page: Page, session: string) =>
+  page.getByTestId("sidebar-session").and(page.locator(`[href="#/sessions/claude-code/${session}"]`));
 
 let n = 0;
 /** A session of its own for each test, so threads never share reviews. */
@@ -249,15 +252,16 @@ test("questions stand apart from reviews in the inbox, and their session waits i
   await expect(row(page, "Apart: the schema")).not.toHaveClass(/is-question/);
   await expect(row(page, "Apart: the schema")).toContainText("list");
 
-  const waiting = page.getByRole("region", { name: "Sessions waiting" }).getByTestId("waiting-session");
-  await expect(waiting).toHaveCount(1);
+  const waiting = inSidebar(page, session);
   await expect(waiting).toContainText("claude-code");
+  await expect(waiting.getByTestId("sidebar-session-waiting")).toHaveText("1");
   await waiting.click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
 
-  // once nothing waits in it, the session leaves the sidebar
+  // once nothing waits in it, the session stays without its count
   await clearInbox(page.request);
-  await expect(waiting).toHaveCount(0);
+  await expect(waiting.getByTestId("sidebar-session-waiting")).toHaveCount(0);
+  await expect(waiting).toBeVisible();
 });
 
 test("with nothing waiting, the chat box is there but cannot be written in", async ({ page }) => {
@@ -476,7 +480,7 @@ test("the statuses an agent reports show in its thread between the questions and
   const row = page.getByTestId("session-row").filter({ hasText: session });
   await expect(row.locator(".review-row-title")).toContainText("Add rate limiting");
   await expect(row.getByTestId("session-status")).toHaveText("Finished: Pushed the fix");
-  await expect(page.getByRole("region", { name: "Sessions waiting" })).toContainText("Add rate limiting");
+  await expect(inSidebar(page, session)).toContainText("Add rate limiting");
 });
 
 test("a status the agent reports shows in an open thread at once", async ({ page }) => {
@@ -500,7 +504,7 @@ test("a stage the agent starts renames its session in the sidebar at once", asyn
   const session = fresh();
   await send(page.request, asked(session, "Rename: deploy"));
   await page.goto("/#/");
-  const waiting = page.getByRole("region", { name: "Sessions waiting" }).getByTestId("waiting-session");
+  const waiting = inSidebar(page, session);
   await expect(waiting).toHaveText(/claude-code/);
   // after the loads the page makes as it starts
   await page.waitForTimeout(1500);
@@ -626,7 +630,7 @@ test("the Sessions page filters the sessions by project", async ({ page }) => {
   await page.goto("/#/sessions");
   const rows = page.getByTestId("session-row");
   const choose = async (name: string) => {
-    await page.getByRole("button", { name: "Project" }).click();
+    await page.getByRole("main").getByRole("button", { name: "Project" }).click();
     await page.getByRole("option", { name, exact: true }).click();
   };
 

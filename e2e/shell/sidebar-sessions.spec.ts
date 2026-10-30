@@ -1,0 +1,226 @@
+// The sessions in the sidebar: grouped under their projects, with a mark for
+// a session that works or is done, what waits under the session that sent
+// it, and the heading's menu, whose choices the settings keep.
+
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { clearInbox, core, onePayload } from "./helpers";
+
+let n = 0;
+/** A project and sessions of each test's own, so other tests' sessions stay apart. */
+const fresh = () => `${Date.now()}-${++n}`;
+
+const DEFAULTS = {
+  grouping: "repository",
+  ordering: "status",
+  show_details: false,
+  details: ["activity", "status"],
+  show_reviews: true,
+  agents: [],
+  repos: [],
+  states: [],
+  archived: false,
+  collapsed: [],
+};
+const setChoices = (request: APIRequestContext, sessions: Record<string, unknown>) =>
+  request.patch(`${core}/api/v1/settings`, { data: { sidebar: { sessions } } });
+
+test.afterEach(({ request }) => setChoices(request, DEFAULTS));
+
+async function report(request: APIRequestContext, agent: string, session: string, body: Record<string, unknown>) {
+  const response = await request.post(`${core}/api/v1/sessions/${agent}/${session}/status`, { data: body });
+  expect(response.status(), await response.text()).toBe(204);
+}
+async function ask(request: APIRequestContext, agent: string, session: string, repo: string, title: string) {
+  const response = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title,
+      origin: { repo },
+      requested_by: agent,
+      session,
+      payload: { questions: [{ id: "q1", question: "Go ahead?", answer: "yes-no" }] },
+    },
+  });
+  expect(response.status(), await response.text()).toBe(201);
+  return (await response.json()) as { id: string };
+}
+
+const region = (page: Page) => page.getByRole("complementary", { name: "Workspace" });
+const group = (page: Page, name: string) =>
+  region(page)
+    .getByTestId("sidebar-group")
+    .filter({ has: page.getByTestId("sidebar-group-name").getByText(name, { exact: true }) });
+const sessionRow = (page: Page, agent: string, session: string) =>
+  region(page)
+    .getByTestId("sidebar-session")
+    .and(page.locator(`[href="#/sessions/${agent}/${session}"]`));
+const openMenu = async (page: Page) => {
+  await region(page).getByRole("button", { name: "Sessions options" }).click();
+  return page.getByTestId("sidebar-sessions-menu");
+};
+
+test("a session shows whether it works or is done, and what waits sits under it", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const busy = `busy-${run}`;
+  const finished = `done-${run}`;
+  await report(page.request, "claude-code", busy, { text: "Build the sidebar", kind: "start", origin: { repo } });
+  await report(page.request, "claude-code", busy, { text: "Running the tests" });
+  await ask(page.request, "claude-code", busy, repo, `Sidebar: may I push? ${run}`);
+  await report(page.request, "codex", finished, { text: "Fix the lint", kind: "start", origin: { repo } });
+  await report(page.request, "codex", finished, { text: "Pushed", kind: "done" });
+
+  await page.goto("/#/");
+  const working = sessionRow(page, "claude-code", busy);
+  const done = sessionRow(page, "codex", finished);
+  await expect(working).toContainText("Build the sidebar");
+  await expect(working).toHaveAttribute("data-state", "working");
+  await expect(done).toHaveAttribute("data-state", "done");
+  // the project counts what waits in it, and the session too
+  await expect(group(page, repo).locator(".nav-count")).toHaveText("1");
+  await expect(working.getByTestId("sidebar-session-waiting")).toHaveText("1");
+  // what waits first, the done one last
+  await expect(
+    region(page)
+      .getByTestId("sidebar-session")
+      .filter({ hasText: /Build the sidebar|Fix the lint/ }),
+  ).toHaveText([/Build the sidebar/, /Fix the lint/]);
+
+  // the question under its session opens where it is answered: its session's page
+  const question = region(page)
+    .getByTestId("waiting-review")
+    .filter({ hasText: `may I push? ${run}` });
+  await expect(question).toHaveClass(/is-question/);
+  await question.click();
+  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${busy}$`));
+  await expect(page.getByTestId("question").filter({ hasText: "Go ahead?" })).toBeVisible();
+
+  // a review opens on its own page, whatever the inbox opens reviews in
+  const sent = await page.request.post(`${core}/api/v1/reviews`, {
+    data: {
+      plugin: "list",
+      title: `Sidebar: the plan ${run}`,
+      origin: { repo },
+      requested_by: "claude-code",
+      session: busy,
+      payload: onePayload,
+    },
+  });
+  const plan = (await sent.json()) as { id: string };
+  await region(page)
+    .getByTestId("waiting-review")
+    .filter({ hasText: `the plan ${run}` })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`#/reviews/${plan.id}$`));
+
+  // the tooltip says what the mark means and what the agent last said
+  await working.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Working");
+  await expect(page.getByRole("tooltip")).toContainText("Running the tests");
+
+  // archiving takes a session out of the sidebar
+  expect((await page.request.put(`${core}/api/v1/sessions/codex/${finished}/archive`)).status()).toBe(204);
+  await expect(done).toHaveCount(0);
+});
+
+test("the heading's menu groups, shows and filters the sessions, and the settings keep it", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const mine = `menu-${run}`;
+  const theirs = `menu-codex-${run}`;
+  await report(page.request, "claude-code", mine, { text: "Draw the menu", kind: "start", origin: { repo } });
+  await ask(page.request, "claude-code", mine, repo, `Sidebar: the menu? ${run}`);
+  await report(page.request, "codex", theirs, { text: "Tidy up", kind: "start", origin: { repo } });
+
+  await page.goto("/#/");
+  const heading = region(page)
+    .getByRole("heading", { level: 2 })
+    .filter({ has: page.getByRole("button", { name: "Sessions options" }) });
+  await expect(heading).toHaveText("Projects");
+
+  // grouping by status names the heading after it, and survives a reload
+  let menu = await openMenu(page);
+  await menu.getByRole("menuitem", { name: /Grouping/ }).click();
+  await menu.getByRole("menuitemradio", { name: "Status" }).click();
+  await expect(heading).toHaveText("Status");
+  await expect(group(page, "Waiting for you")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await page.reload();
+  await expect(heading).toHaveText("Status");
+
+  // the reviews under their session can be hidden
+  const question = region(page)
+    .getByTestId("waiting-review")
+    .filter({ hasText: `the menu? ${run}` });
+  await expect(question).toBeVisible();
+  menu = await openMenu(page);
+  await menu.getByRole("menuitemcheckbox", { name: "Show reviews" }).click();
+  await expect(question).toHaveCount(0);
+
+  // a second line of details
+  await menu.getByRole("menuitemcheckbox", { name: "Show details" }).click();
+  await expect(sessionRow(page, "codex", theirs).locator(".sidebar-session-details")).toContainText("ago");
+
+  // an agent filter, and Reset
+  await menu.getByRole("menuitem", { name: /Agent/ }).click();
+  await menu.getByRole("menuitemcheckbox", { name: "codex" }).click();
+  await expect(sessionRow(page, "claude-code", mine)).toHaveCount(0);
+  await expect(sessionRow(page, "codex", theirs)).toBeVisible();
+  await menu.getByRole("button", { name: "Reset" }).click();
+  await expect(sessionRow(page, "claude-code", mine)).toBeVisible();
+});
+
+test("a group collapses and stays collapsed, and the menu collapses them all", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const session = `fold-${run}`;
+  await report(page.request, "claude-code", session, { text: "Fold the groups", kind: "start", origin: { repo } });
+
+  await page.goto("/#/");
+  const row = sessionRow(page, "claude-code", session);
+  await expect(row).toBeVisible();
+  await group(page, repo)
+    .getByRole("button", { name: `Collapse ${repo}` })
+    .click();
+  await expect(row).toHaveCount(0);
+  await page.reload();
+  await expect(group(page, repo)).toBeVisible();
+  await expect(row).toHaveCount(0);
+  await group(page, repo)
+    .getByRole("button", { name: `Expand ${repo}` })
+    .click();
+  await expect(row).toBeVisible();
+
+  const menu = await openMenu(page);
+  await menu.getByRole("menuitem", { name: "Collapse all groups" }).click();
+  await expect(region(page).getByTestId("sidebar-session")).toHaveCount(0);
+  await (await openMenu(page)).getByRole("menuitem", { name: "Expand all groups" }).click();
+  await expect(row).toBeVisible();
+});
+
+test("a question under its session opens its thread, and the session's row keeps it", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const session = `thread-${run}`;
+  await report(page.request, "claude-code", session, { text: "Keep the thread", kind: "start", origin: { repo } });
+  await ask(page.request, "claude-code", session, repo, `Sidebar: same thread? ${run}`);
+
+  await page.goto("/#/?tab=history");
+  await region(page)
+    .getByTestId("waiting-review")
+    .filter({ hasText: `same thread? ${run}` })
+    .click();
+  const thread = page.getByTestId("thread");
+  await expect(thread.getByTestId("question")).toBeVisible();
+  await thread.evaluate((el) => ((window as unknown as { drawn: Element }).drawn = el));
+  await sessionRow(page, "claude-code", session).click();
+  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${session}$`));
+  // after the session's page had its chance to draw: the same thread, not a new one
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => document.contains((window as unknown as { drawn: Element }).drawn))).toBe(true);
+});

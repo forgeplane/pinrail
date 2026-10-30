@@ -26,44 +26,45 @@ function review(request: APIRequestContext, title: string, workflow: string, rep
 const decideNothing = (request: APIRequestContext, id: string) =>
   decide(request, id, { decisions: [], undecided: [1, 2] });
 
-/** A project's link in the sidebar, whose name is the project and its count. */
+/** A project's group in the sidebar: its name, its count, and what waits in it. */
 const project = (page: Page, name: string) =>
-  page.getByRole("region", { name: "Projects" }).getByRole("link", { name: new RegExp(`^${name} \\d+$`) });
+  page
+    .getByRole("region", { name: "Projects" })
+    .getByTestId("sidebar-group")
+    .filter({ has: page.getByTestId("sidebar-group-name").getByText(name, { exact: true }) });
 
-test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ walks it", async ({ page }) => {
+test("the sidebar lists what waits under its project on every page, and ⌥↓ walks it", async ({ page }) => {
   await clearInbox(page.request);
   const first = await review(page.request, "Sidebar: the older one", "pr-review");
   const second = await review(page.request, "Sidebar: the newer one", "triage");
 
   const loose = await review(page.request, "Sidebar: no project", "cron", null);
 
-  // on the history page, not the inbox: what waits is listed, and the
-  // projects with their counts, the same as everywhere else; a review
-  // that names no project has a row of its own
-  await page.goto("/#/history");
-  const waiting = page.getByRole("region", { name: "Waiting" });
-  await expect(waiting).toBeVisible();
+  // on the history tab, not the waiting list: what waits is listed under
+  // its project with the project's count, and a review that names no
+  // project has a group of its own
+  await page.goto("/#/?tab=history");
+  const projects = page.getByRole("region", { name: "Projects" });
   await expect(project(page, "acme/api")).toContainText("2");
   await expect(project(page, "No project")).toContainText("1");
-  await project(page, "No project").click();
+  await project(page, "No project").getByRole("link", { name: "No project" }).click();
   await expect(page).toHaveURL(/repo=-/);
   await expect(page.getByTestId("inbox-group-name")).toHaveText(["No project"]);
   await expect(page.locator("#inbox-repo")).toContainText("No project");
   await decideNothing(page.request, loose.id);
-  await expect(project(page, "No project")).toHaveCount(0);
-  await page.goto("/#/history");
-  const rows = waiting.getByTestId("waiting-review");
-  await expect(rows).toHaveCount(2);
-  await expect(rows.nth(0)).toContainText("the older one");
-  await expect(rows.nth(1)).toContainText("the newer one");
+  await expect(projects.getByTestId("waiting-review").filter({ hasText: "no project" })).toHaveCount(0);
+  await page.goto("/#/?tab=history");
+  const rows = projects.getByTestId("waiting-review");
+  // newest first, as the inbox lists them
+  await expect(rows).toHaveText([/the newer one/, /the older one/]);
 
   // a click opens the review and the row reads as current
-  await rows.nth(1).click();
+  await rows.nth(0).click();
   await expect(page).toHaveURL(new RegExp(`/reviews/${second.id}$`));
-  await expect(rows.nth(1)).toHaveAttribute("aria-current", "page");
+  await expect(rows.nth(0)).toHaveAttribute("aria-current", "page");
 
-  // ⌥↓ moves to the next waiting review, wrapping; ⌥↑ goes back. The
-  // keys are the shell's, so the view's frame must not hold the focus.
+  // ⌥↓ moves to the next waiting review, oldest first, wrapping; ⌥↑ goes
+  // back. The keys are the shell's, so the view's frame must not hold the focus.
   await page.keyboard.press("Alt+ArrowDown");
   await expect(page).toHaveURL(new RegExp(`/reviews/${first.id}$`));
   await page.getByTestId("top-bar").click();
@@ -73,27 +74,14 @@ test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ 
   // still there inside settings
   await page.keyboard.press("ControlOrMeta+,");
   await expect(settingsDialog(page)).toBeVisible();
-  await expect(waiting).toBeVisible();
+  await expect(projects).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // a decision takes its row away; the group goes with the last one
+  // a decision takes its row away
   await decideNothing(page.request, second.id);
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText("the older one");
+  await expect(rows).toHaveText([/the older one/]);
   await decideNothing(page.request, first.id);
-  await expect(waiting).toHaveCount(0);
-});
-
-test("more than five waiting points at the inbox", async ({ page }) => {
-  await clearInbox(page.request);
-  const ids: string[] = [];
-  for (let i = 1; i <= 7; i++) ids.push((await review(page.request, `Sidebar: batch ${i}`, "batch")).id);
-  await page.goto("/#/history");
-  const waiting = page.getByRole("region", { name: "Waiting" });
-  await expect(waiting.getByTestId("waiting-review")).toHaveCount(5);
-  await expect(waiting.getByRole("link", { name: /more in the inbox/ })).toHaveText("2 more in the inbox");
-  for (const id of ids) await decideNothing(page.request, id);
-  await expect(waiting).toHaveCount(0);
+  await expect(rows).toHaveCount(0);
 });
 
 test("a window too narrow for the sidebar gives its whole width to the page", async ({ page }) => {

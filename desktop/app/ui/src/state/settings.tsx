@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, inTauri } from "../api/client";
 import type { LinkPermission, ServerSettings } from "../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
+import { type Choices, DEFAULT_CHOICES } from "../lib/sidebarSessions";
 import { cacheAppearance, setThemePreference, type ThemePreference } from "../lib/theme";
 import { useLive } from "./live";
 
@@ -15,7 +16,8 @@ export type TextSize = "small" | "default" | "large";
 
 export type Settings = {
   appearance: { theme: ThemePreference; text_size: TextSize };
-  sidebar: { open: boolean };
+  /** whether the sidebar is open, and how it lists the sessions */
+  sidebar: { open: boolean; sessions: Choices & { collapsed: string[] } };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
@@ -44,7 +46,7 @@ export type Settings = {
 
 type Patch = {
   appearance?: Partial<Settings["appearance"]>;
-  sidebar?: Partial<Settings["sidebar"]>;
+  sidebar?: { open?: boolean; sessions?: Partial<Settings["sidebar"]["sessions"]> };
   close_window?: Settings["close_window"];
   menu_bar_icon?: boolean;
   notifications?: Partial<Settings["notifications"]>;
@@ -92,9 +94,12 @@ type Served = Pick<
   | "welcome"
   | "whats_new"
 >;
+/** The sidebar's sessions as they are listed until the person changes it. */
+const SESSIONS: Settings["sidebar"]["sessions"] = { ...DEFAULT_CHOICES, collapsed: [] };
+
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
-  sidebar: { open: s.sidebar.open },
+  sidebar: { open: s.sidebar.open, sessions: { ...SESSIONS, ...s.sidebar.sessions } },
   close_window: s.close_window,
   menu_bar_icon: s.menu_bar_icon,
   notifications: {
@@ -137,7 +142,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const live = useLive();
   const [settings, setSettings] = useState<Settings>(() => ({
     appearance: { theme: "system", text_size: "default" },
-    sidebar: { open: true },
+    sidebar: { open: true, sessions: SESSIONS },
     close_window: "hide",
     menu_bar_icon: true,
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
@@ -238,7 +243,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const base = current.current;
         const next: Served = {
           appearance: { ...base.appearance, ...patch.appearance },
-          sidebar: { ...base.sidebar, ...patch.sidebar },
+          sidebar: {
+            open: patch.sidebar?.open ?? base.sidebar.open,
+            sessions: { ...base.sidebar.sessions, ...patch.sidebar?.sessions },
+          },
           close_window: patch.close_window ?? base.close_window,
           menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
           notifications: { ...base.notifications, ...patch.notifications },

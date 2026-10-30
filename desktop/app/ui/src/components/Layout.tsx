@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Ban,
   Blocks,
-  FolderGit2,
   Hand,
   History,
   Inbox,
@@ -19,7 +18,7 @@ import {
   SunMoon,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
@@ -28,24 +27,18 @@ import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, hasMod } from "../lib/keys";
-import { NO_PROJECT, reviewPath, reviewShown } from "../lib/url";
+import { reviewPath, reviewShown } from "../lib/url";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
+import { SidebarSessions } from "./SidebarSessions";
 import { Tooltip } from "./Tooltip";
-import { AgentIcon } from "./AgentIcon";
-import { ReviewIcon } from "./ReviewIcon";
-import { sessionPath } from "./Thread";
-import type { Session } from "../api/types";
 import { UpdateNotice } from "./UpdateNotice";
 import { FIRST_REVIEW, WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
 import { RELEASES, compareVersions, latestNotes, releasesToShow, type CardAction, type Release } from "../lib/whatsNew";
-
-/** How many waiting reviews the sidebar lists before pointing at the inbox. */
-const WAITING_SHOWN = 5;
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
@@ -248,31 +241,6 @@ export function Layout({ children }: { children: ReactNode }) {
     () => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)),
     [live.pending],
   );
-  // the sessions with something waiting for the person, refreshed with
-  // what is pending and with each status an agent reports, which can
-  // rename its session
-  const [sessions, setSessions] = useState<Session[]>([]);
-  // a status may rename a session, and archiving one moves it in or out
-  const reported =
-    live.lastNotice && ["session_status", "session_archived", "session_unarchived"].includes(live.lastNotice.kind)
-      ? live.lastNotice.event_id
-      : null;
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .sessions({ waiting: "true", limit: String(WAITING_SHOWN + 1) })
-      .then((d) => !cancelled && setSessions(d.sessions))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [live.pending, reported]);
-  // how many wait per project, beside the inbox's quick filters
-  const perProject = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of live.pending) if (r.origin.repo) counts.set(r.origin.repo, (counts.get(r.origin.repo) ?? 0) + 1);
-    return counts;
-  }, [live.pending]);
   const waitingRef = useRef(waiting);
   waitingRef.current = waiting;
   const shownRef = useRef<string | null>(null);
@@ -437,75 +405,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Fragment>
               ))}
             </nav>
-            {waiting.length > 0 ? (
-              <section className="sidebar-waiting" aria-label="Waiting">
-                <h2>Waiting</h2>
-                {waiting.slice(0, WAITING_SHOWN).map((r) => (
-                  <Tooltip
-                    key={r.id}
-                    label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin}
-                    side="top"
-                  >
-                    <Link
-                      to={reviewPath(r.id, prefs.inbox.open_in)}
-                      className={`sidebar-review ${shown === r.id ? "active" : ""}`}
-                      aria-current={shown === r.id ? "page" : undefined}
-                      data-testid="waiting-review"
-                    >
-                      <ReviewIcon review={r} size={14} strokeWidth={1.75} />
-                      <span className="sidebar-review-title">{r.title}</span>
-                    </Link>
-                  </Tooltip>
-                ))}
-                {waiting.length > WAITING_SHOWN ? (
-                  <NavLink to="/" end className="sidebar-review sidebar-more">
-                    <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
-                  </NavLink>
-                ) : null}
-              </section>
-            ) : null}
-            {sessions.length > 0 ? (
-              <section className="sidebar-waiting" aria-label="Sessions waiting">
-                <h2>Sessions</h2>
-                {sessions.slice(0, WAITING_SHOWN).map((s) => (
-                  <Tooltip
-                    key={`${s.agent}/${s.id}`}
-                    label={[s.title ? s.agent : null, s.repo, s.ref].filter(Boolean).join(" · ") || s.id}
-                    side="top"
-                  >
-                    <NavLink to={sessionPath(s)} className="sidebar-review" data-testid="waiting-session">
-                      <AgentIcon requestedBy={s.agent} size={14} />
-                      <span className="sidebar-review-title">{s.title ?? s.agent}</span>
-                      <span className="nav-count">{s.waiting.questions + s.waiting.reviews}</span>
-                    </NavLink>
-                  </Tooltip>
-                ))}
-                {sessions.length > WAITING_SHOWN ? (
-                  <NavLink to="/sessions" end className="sidebar-review sidebar-more">
-                    <span className="sidebar-review-title">All sessions</span>
-                  </NavLink>
-                ) : null}
-              </section>
-            ) : null}
-            {live.projects.length > 0 || live.unassigned > 0 ? (
-              <section className="sidebar-repositories" aria-label="Projects">
-                <h2>Projects</h2>
-                {live.projects.map((project) => (
-                  <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo">
-                    <FolderGit2 size={14} strokeWidth={1.75} />
-                    <span className="sidebar-review-title">{project}</span>
-                    <span className="nav-count">{perProject.get(project) ?? 0}</span>
-                  </NavLink>
-                ))}
-                {live.unassigned > 0 ? (
-                  <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo">
-                    <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
-                    <span className="sidebar-review-title">No project</span>
-                    <span className="nav-count">{live.unassigned}</span>
-                  </NavLink>
-                ) : null}
-              </section>
-            ) : null}
+            <SidebarSessions shown={shown} />
             <UpdateNotice onDetails={() => setSettings("about")} />
             <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
               <MessageSquare size={15} strokeWidth={1.75} />

@@ -336,7 +336,7 @@ export type LinkPermission = { source: string; origins: string[] };
 /** What /api/v1/settings returns; the shell reads the keys it applies. */
 export type ServerSettings = {
   appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
-  sidebar: { open: boolean };
+  sidebar: { open: boolean; sessions?: Partial<import("../lib/sidebarSessions").Choices & { collapsed: string[] }> };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
