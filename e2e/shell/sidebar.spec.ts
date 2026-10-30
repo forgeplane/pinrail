@@ -148,3 +148,39 @@ test("the app's own text cannot be selected, as in a desktop app, but fields and
   expect(await selectable(page.getByTestId("review-title"))).not.toBe("none");
   expect(await selectable(page.getByTestId("review-id"))).not.toBe("none");
 });
+
+test("the sidebar's edge resizes it, within its bounds, and the width stays", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 700 });
+  await page.goto("/#/");
+  await page.evaluate(() => localStorage.removeItem("pinrail.sidebar.width"));
+  await page.reload();
+  const sidebar = page.getByRole("complementary", { name: "Workspace" });
+  const edge = page.getByRole("separator", { name: "Resize the sidebar" });
+  const width = async () => Math.round((await sidebar.boundingBox())!.width);
+  expect(await width()).toBe(220);
+
+  const drag = async (x: number) => {
+    const box = (await edge.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(x, box.y + 200, { steps: 5 });
+    await page.mouse.up();
+  };
+  await drag(320);
+  expect(await width()).toBe(320);
+  // not narrower than its minimum, nor wider than its maximum
+  await drag(50);
+  expect(await width()).toBe(200);
+  await drag(900);
+  expect(await width()).toBe(420);
+
+  // the arrow keys on the edge, and the width after a reload
+  await edge.focus();
+  await page.keyboard.press("ArrowLeft");
+  expect(await width()).toBe(400);
+  await page.reload();
+  expect(await width()).toBe(400);
+  // a double click puts it back
+  await edge.dblclick();
+  expect(await width()).toBe(220);
+});

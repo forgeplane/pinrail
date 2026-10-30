@@ -17,7 +17,7 @@ import {
   Sun,
   SunMoon,
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
@@ -62,6 +62,21 @@ const NAV = [
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
+
+/** The sidebar's width, remembered on this machine, and its bounds. */
+const SIDEBAR_WIDTH = "pinrail.sidebar.width";
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 420;
+const SIDEBAR_DEFAULT = 220;
+const clampSidebar = (w: number) => Math.round(Math.max(SIDEBAR_MIN, Math.min(w, SIDEBAR_MAX)));
+function savedSidebarWidth(): number {
+  try {
+    const n = Number(localStorage.getItem(SIDEBAR_WIDTH));
+    return n > 0 ? clampSidebar(n) : SIDEBAR_DEFAULT;
+  } catch {
+    return SIDEBAR_DEFAULT;
+  }
+}
 
 const pageTitle = (path: string) =>
   path === "/"
@@ -366,10 +381,58 @@ export function Layout({ children }: { children: ReactNode }) {
     };
   }, [navigate, update, toggleSidebar]);
 
+  // the sidebar's width: dragged by its edge, or with the arrow keys on it
+  const [sidebarWidth, setSidebarWidth] = useState(savedSidebarWidth);
+  const keepSidebarWidth = (w: number) => {
+    setSidebarWidth(w);
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH, String(w));
+    } catch {
+      // private mode or no storage: the width lasts until the app restarts
+    }
+  };
+  const resizeSidebar = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
+    document.body.classList.add("is-resizing");
+    const onMove = (e: PointerEvent) => setSidebarWidth(clampSidebar(e.clientX - left));
+    const onUp = (e: PointerEvent) => {
+      document.body.classList.remove("is-resizing");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      keepSidebarWidth(clampSidebar(e.clientX - left));
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  const resizeSidebarBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 80 : 20;
+    if (event.key === "ArrowRight") keepSidebarWidth(clampSidebar(sidebarWidth + step));
+    else if (event.key === "ArrowLeft") keepSidebarWidth(clampSidebar(sidebarWidth - step));
+    else return;
+    event.preventDefault();
+  };
+
   return (
-    <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>
+    <div
+      className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
       {sidebar ? (
         <aside className="app-sidebar" aria-label="Workspace">
+          <div
+            className="panel-resizer sidebar-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the sidebar"
+            aria-valuenow={sidebarWidth}
+            aria-valuemin={SIDEBAR_MIN}
+            aria-valuemax={SIDEBAR_MAX}
+            tabIndex={0}
+            onPointerDown={resizeSidebar}
+            onKeyDown={resizeSidebarBy}
+            onDoubleClick={() => keepSidebarWidth(SIDEBAR_DEFAULT)}
+          />
           <div className="sidebar-bar" data-tauri-drag-region>
             {sidebarButton}
           </div>

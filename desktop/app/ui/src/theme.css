@@ -224,7 +224,7 @@ h1 {
 }
 .app-frame {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: var(--sidebar-width, 220px) 1fr;
   height: 100vh;
 }
 .app-frame.sidebar-closed {
@@ -234,11 +234,22 @@ h1 {
    kept in place inside the scrolling area would still move as the
    scrolling bounces at either end */
 .app-sidebar {
+  position: relative;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+}
+/* the sidebar's edge, over its border: drag it, or use the arrow keys on it */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  margin: 0;
+  background: none;
 }
 .sidebar-scroll {
   flex: 1;
