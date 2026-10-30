@@ -237,6 +237,19 @@ export const scenes = [
     },
   },
   {
+    // a session's thread with the statuses its agent reported, the earlier
+    // ones shown, up to the agent saying it has finished
+    name: "session-status",
+    async run({ page, app, shot }) {
+      await card(page);
+      await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
+      await page.getByTestId("finished").waitFor();
+      await page.getByRole("button", { name: "2 earlier" }).click();
+      await settle(page, 400);
+      await shot("session-status");
+    },
+  },
+  {
     name: "inbox",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);

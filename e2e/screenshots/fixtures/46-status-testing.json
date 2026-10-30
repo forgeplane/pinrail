@@ -1,0 +1,7 @@
+{
+  "status": "Running the integration tests",
+  "requested_by": "claude-code",
+  "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+  "origin": { "repo": "acme/api", "ref": "rate-limit", "folder": "/Users/maya/code/acme-api" },
+  "age": "14m"
+}

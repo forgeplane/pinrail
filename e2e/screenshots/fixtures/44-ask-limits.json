@@ -1,0 +1,22 @@
+{
+  "kind": "question",
+  "title": "How many requests a minute should an API key get?",
+  "origin": { "repo": "acme/api", "ref": "rate-limit", "folder": "/Users/maya/code/acme-api" },
+  "requested_by": "claude-code",
+  "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+  "age": "27m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "How many requests a minute should an API key get?",
+        "answer": "choice",
+        "choices": ["60", "120", "600"],
+        "recommended": "120",
+        "context": "The busiest customer sends about **90** a minute at peak."
+      }
+    ]
+  },
+  "decision": { "answers": [{ "id": "q1", "choice": "120", "note": "and 600 for the internal keys" }] },
+  "decided": "24m"
+}

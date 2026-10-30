@@ -4,7 +4,11 @@
 // place of `plugin` for questions, and, for one that has ended, `decision`
 // (with an optional `note` to the agent), `discard` or `withdraw` (the
 // reason), with `decided` saying when. `revises` names the
-// fixture a round answers. `age` and `decided` are how long before NOW, as
+// fixture a round answers. A fixture with `status` in place of a review is
+// what the agent `requested_by` reported in its `session`, with `pinrail
+// status`, and `done` when it said it had finished; it goes into the
+// session's thread in the order of the fixtures' names. `age` and `decided`
+// are how long before NOW, as
 // "4m", "2h" or "3d". `attachments` names files the review carries by path,
 // relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
 // uploaded first. The plugins they use are installed first: the official
@@ -98,7 +102,17 @@ export async function seed(app) {
   }
   const plan = {};
   const created = {};
+  const statuses = [];
   for (const f of fixtures()) {
+    if (f.status !== undefined) {
+      await app.api("POST", `/api/v1/sessions/${f.requested_by}/${f.session}/status`, {
+        text: f.status,
+        done: !!f.done,
+        origin: f.origin,
+      });
+      statuses.push(ms(f.age));
+      continue;
+    }
     const review = await app.api("POST", "/api/v1/reviews", {
       // questions asked with `pinrail ask` have a kind and no plugin
       ...(f.kind ? { kind: f.kind } : { plugin: f.plugin }),
@@ -126,6 +140,6 @@ export async function seed(app) {
       await app.api("POST", `/api/v1/reviews/${review.id}/withdraw`, { reason: f.withdraw, by: f.requested_by }, "cli");
     plan[review.id] = { created: ms(f.age), ...(f.decided ? { outcome: ms(f.decided) } : {}) };
   }
-  const ids = await app.pin(plan);
+  const ids = await app.pin(plan, statuses);
   return Object.fromEntries(Object.entries(created).map(([key, id]) => [key, ids.get(id)]));
 }

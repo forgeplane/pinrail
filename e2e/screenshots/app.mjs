@@ -127,10 +127,11 @@ export async function startApp({ build = true } = {}) {
     ui,
     data,
     api,
-    /** Stops the core, rewrites times and ids to `plan`, starts it again. */
-    async pin(plan) {
+    /** Stops the core, rewrites times and ids to `plan` and the statuses'
+     *  times to `statuses`, starts it again. */
+    async pin(plan, statuses = []) {
       await stopCore();
-      const ids = pinDatabase(path.join(data, "pinrail.db"), plan);
+      const ids = pinDatabase(path.join(data, "pinrail.db"), plan, statuses);
       await startCore();
       return ids;
     },
@@ -164,9 +165,12 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, ".000Z");
  * pinned time; events keep their order, spaced a second apart from the
  * review's creation; installed plugins are dated an hour before the oldest
  * review; decisions, discards and withdrawals made in the app are
- * attributed to PERSON. Returns the map of old ids to new ids.
+ * attributed to PERSON. `statuses` gives each status an agent reported, in
+ * the order they were sent, in milliseconds before NOW; the sessions then
+ * take their first and last activity from their reviews and statuses.
+ * Returns the map of old ids to new ids.
  */
-function pinDatabase(file, plan) {
+function pinDatabase(file, plan, statuses) {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA foreign_keys = OFF; BEGIN");
   const ids = new Map();
@@ -212,6 +216,19 @@ function pinDatabase(file, plan) {
   db.prepare("UPDATE outcomes SET by = ? WHERE via = 'app'").run(PERSON);
   db.prepare("UPDATE events SET actor = ? WHERE actor = ?").run(PERSON, os.userInfo().username);
   db.prepare("UPDATE events SET at = ? WHERE review_id IS NULL").run(iso(NOW - oldest - 3_600_000));
+  db.prepare("SELECT id FROM session_statuses ORDER BY id")
+    .all()
+    .forEach((row, i) =>
+      db.prepare("UPDATE session_statuses SET created_at = ? WHERE id = ?").run(iso(NOW - statuses[i]), row.id),
+    );
+  db.exec(`UPDATE sessions SET
+    first_at = (SELECT MIN(at) FROM (
+      SELECT created_at AS at FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id
+      UNION ALL SELECT created_at FROM session_statuses t WHERE t.agent = sessions.agent AND t.session = sessions.id)),
+    last_at = strftime('%Y-%m-%dT%H:%M:%fZ', (SELECT MAX(at) FROM (
+      SELECT e.at AS at FROM events e JOIN reviews r ON r.id = e.review_id
+        WHERE r.requested_by = sessions.agent AND r.session = sessions.id AND e.kind <> 'viewed'
+      UNION ALL SELECT created_at FROM session_statuses t WHERE t.agent = sessions.agent AND t.session = sessions.id)))`);
   db.exec("COMMIT");
   db.close();
   return ids;
