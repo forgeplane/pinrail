@@ -99,6 +99,9 @@ export const api = {
       "GET",
       `/api/v1/sessions${query(params)}`,
     ),
+  /** archives a session, or brings it back */
+  archiveSession: (agent: string, id: string, archived: boolean) =>
+    request<void>(archived ? "PUT" : "DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/archive`),
   /** the stages agents started, newest first, those whose names hold every word of q */
   stages: (params: { q?: string; limit?: string }) =>
     request<{ stages: Stage[] }>("GET", `/api/v1/stages${query(params)}`),
@@ -223,6 +226,8 @@ export function subscribe(handlers: {
       "plugins_reloaded",
       "settings_changed",
       "session_status",
+      "session_archived",
+      "session_unarchived",
       "starred",
       "unstarred",
       "history_swept",

@@ -3639,6 +3639,32 @@ body.is-resizing iframe {
   min-width: 0;
   max-width: none;
 }
+/* an archived session: its rows are dimmed, and both they and its thread
+   say so beside the title */
+.archived-chip {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: 1px;
+}
+.thread-title-row .archived-chip {
+  margin-left: 0;
+}
+.session-row.is-archived:not(.is-focused):not(.is-open) .review-row-main {
+  opacity: 0.7;
+}
+.session-row.is-archived .archive-button {
+  opacity: 1;
+}
+/* a filter button that is on, such as Show archived */
+.chrome-button.is-active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
 /* the parts of the line, with dots between them that are not read out */
 .session-row .review-row-meta > * + *::before {
   content: "·" / "";

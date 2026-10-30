@@ -252,7 +252,11 @@ export function Layout({ children }: { children: ReactNode }) {
   // what is pending and with each status an agent reports, which can
   // rename its session
   const [sessions, setSessions] = useState<Session[]>([]);
-  const reported = live.lastNotice?.kind === "session_status" ? live.lastNotice.event_id : null;
+  // a status may rename a session, and archiving one moves it in or out
+  const reported =
+    live.lastNotice && ["session_status", "session_archived", "session_unarchived"].includes(live.lastNotice.kind)
+      ? live.lastNotice.event_id
+      : null;
   useEffect(() => {
     let cancelled = false;
     api

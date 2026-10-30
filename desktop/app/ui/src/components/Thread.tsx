@@ -35,6 +35,7 @@ import { timeline as entriesOf, stages } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { ComposeField } from "./ComposeField";
 import { OutcomeBadge, SummaryCounts, outcomeOf } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
@@ -243,6 +244,26 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hasDetails, toggleDetails]);
+  // E archives the session open on its page or in the side panel, or brings
+  // it back, when the focus is not in a text field
+  const toggleArchive = useToggleArchive();
+  const archivable = !focus && named && session ? { ...named, archived_at: session.archived_at } : null;
+  const archivableRef = useRef(archivable);
+  archivableRef.current = archivable;
+  useEffect(() => {
+    if (focus) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "e" && event.key !== "E") return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || modalOpen()) return;
+      const el = event.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (!archivableRef.current) return;
+      event.preventDefault();
+      toggleArchive(archivableRef.current);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focus, toggleArchive]);
   const keepDetailsWidth = (w: number) => {
     setDetailsWidth(w);
     store(DETAILS_WIDTH, String(w));
@@ -296,6 +317,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 <CheckCircle2 size={12} aria-hidden /> Finished
               </span>
             ) : null}
+            {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
           </div>
           <div className="thread-meta">
             {session?.title ? (
@@ -330,6 +352,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 .join(" · ")}
             </span>
           ) : null}
+          {named && !focus ? <ArchiveButton session={{ ...named, archived_at: session?.archived_at }} /> : null}
           {inPanel && named ? (
             <Tooltip label="Open as a page" side="bottom">
               <button

@@ -2,17 +2,19 @@
 // person first, and one session's thread: in the side panel beside the list,
 // or on a page of its own.
 
-import { FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
+import { Archive, FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
 import type { Session } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
+import { ArchiveButton, useToggleArchive } from "../components/ArchiveButton";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { Select } from "../components/Select";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath, statusLine } from "../components/Thread";
+import { Tooltip } from "../components/Tooltip";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
 import { NO_PROJECT, useUrlParams } from "../lib/url";
@@ -38,6 +40,7 @@ export function Sessions() {
   const live = useLive();
   const navigate = useNavigate();
   const [params, updateParams, currentParams] = useUrlParams();
+  const toggleArchive = useToggleArchive();
   const { settings: prefs } = useSettings();
   // as in the inbox, ?open= names the session shown beside the list, as
   // agent/id, when reviews open in the side panel
@@ -46,6 +49,8 @@ export function Sessions() {
   const [q, setQ] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
   const repo = params.get("repo") ?? "";
+  // with the archived sessions among the others
+  const withArchived = params.get("archived") === "1";
   const filtered = !!(query || repo);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
@@ -61,13 +66,19 @@ export function Sessions() {
   useEffect(() => {
     let cancelled = false;
     api
-      .sessions({ q: debounced, repo, limit: String(size), offset: String((page - 1) * size) })
+      .sessions({
+        q: debounced,
+        repo,
+        include_archived: withArchived ? "true" : undefined,
+        limit: String(size),
+        offset: String((page - 1) * size),
+      })
       .then((d) => !cancelled && setData(d))
       .catch(() => !cancelled && setData(null));
     return () => {
       cancelled = true;
     };
-  }, [debounced, repo, page, size, live.lastNotice]);
+  }, [debounced, repo, withArchived, page, size, live.lastNotice]);
 
   const sessions = useMemo(() => data?.sessions ?? [], [data]);
   const total = data?.total ?? 0;
@@ -172,10 +183,13 @@ export function Sessions() {
       if (event.key === "j") setFocused((f) => Math.min(f + 1, sessions.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
       if (event.key === "Enter" && sessions[focused] && !openKey) open(sessions[focused]);
+      // E archives the focused row; with a session open, the thread takes it
+      if ((event.key === "e" || event.key === "E") && !event.shiftKey && sessions[focused] && !openKey)
+        toggleArchive(sessions[focused]);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sessions, focused, open, openKey]);
+  }, [sessions, focused, open, openKey, toggleArchive]);
 
   return (
     <div className={`sessions ${opened ? "has-panel" : ""}`} ref={split}>
@@ -212,6 +226,17 @@ export function Sessions() {
                   : []),
               ]}
             />
+            <Tooltip label={withArchived ? "Hide the archived sessions" : "Show the archived sessions"} side="bottom">
+              <button
+                type="button"
+                className={`chrome-button ${withArchived ? "is-active" : ""}`}
+                aria-label="Show archived"
+                aria-pressed={withArchived}
+                onClick={() => setParam("archived", withArchived ? null : "1")}
+              >
+                <Archive size={14} />
+              </button>
+            </Tooltip>
           </div>
         </header>
         {!data ? null : total === 0 ? (
@@ -235,7 +260,7 @@ export function Sessions() {
                     key={keyOf(s)}
                     to={hrefFor(s)}
                     onClick={(event) => openFromLink(event, s)}
-                    className={`review-row session-row ${waiting ? "is-waiting" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
+                    className={`review-row session-row ${waiting ? "is-waiting" : ""} ${s.archived_at ? "is-archived" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
                     aria-current={keyOf(s) === openKey ? "true" : undefined}
                     onMouseEnter={() => setFocused(i)}
                     data-testid="session-row"
@@ -245,6 +270,7 @@ export function Sessions() {
                       <span className="review-row-title">
                         {s.title ?? s.agent}
                         {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
+                        {s.archived_at ? <span className="archived-chip">Archived</span> : null}
                       </span>
                       <span className="review-row-meta">
                         {s.title ? <span>{s.agent}</span> : null}
@@ -266,9 +292,12 @@ export function Sessions() {
                       {waiting ? <span className="asks-chip">{contents(s.waiting)} waiting</span> : null}
                     </span>
                     <span className="session-row-total">{contents(s.total)}</span>
-                    <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
-                      {age(s.last_at)}
-                    </time>
+                    <span className="review-row-end">
+                      <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
+                        {age(s.last_at)}
+                      </time>
+                      <ArchiveButton session={s} inRow />
+                    </span>
                   </Link>
                 );
               })}

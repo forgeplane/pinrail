@@ -139,6 +139,8 @@ export type Session = {
   status: SessionStatus | null;
   /** the stage the agent last said it started, which names the session */
   title: string | null;
+  /** when the person archived the session, if they did */
+  archived_at?: string | null;
   first_at: string;
   last_at: string;
   total: { questions: number; reviews: number };
