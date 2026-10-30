@@ -31,7 +31,7 @@ Once you have sent them, the answers show under their questions, with your notes
 
 ## Sessions
 
-Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. The header shows the agent, the project, the branch, how many questions and reviews it holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
+Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. The header's title is the task the agent works on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
 
 A question's thread links to its session's page with *session* and the id in its header.
 
@@ -41,7 +41,9 @@ The **Sessions** page, in the sidebar, lists every session that asked you someth
 
 ## What the agent is doing
 
-An agent that runs `pinrail status` reports what it is doing, in one line, such as *Running the integration tests*. Each status shows in the thread at the moment it was sent, between the questions and reviews. Several in a row show as one, the newest, with the earlier ones behind *N earlier*. When the agent says it has finished, the thread shows *Finished* with what it finished with.
+An agent that runs `pinrail status` reports what it is doing, in one line, such as *Running the integration tests*. Each status shows in the thread at the moment it was sent, between the questions and reviews. Several in a row show as one, the newest, with the earlier ones behind *N earlier*.
+
+When the agent starts a task, the thread shows *Started* with the task, and the task becomes the session's title, in the thread, on the Sessions page and in the sidebar. When the agent says it has finished, the thread shows *Finished* with what it finished with. An agent that gets more work in the same session starts a new task, and the session takes its title.
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "The agent's statuses around a question you answered, up to the end of its work.")
 

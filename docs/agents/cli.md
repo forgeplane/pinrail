@@ -118,15 +118,16 @@ When a question depends on the answer to another, ask the first, then the next w
 `pinrail status` says what the agent is doing, in one line, in its session's thread in the app. It does not wait and prints nothing.
 
 ```sh
+pinrail status --start "Add rate limiting to the public API"
 pinrail status "Running the end-to-end suite"
 pinrail status --done "Pushed the fix to pinrail-ask"
 ```
 
-The text is plain text of at most 200 characters, on one line. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows under the session's title and on the Sessions page. A status after `--done` shows the agent working again.
+The text is plain text of at most 200 characters, on one line. `--start` says the agent starts a task, and its text names the task: the newest task started is the session's title in the app, in the thread, on the Sessions page and in the sidebar. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows under the session's title and on the Sessions page. A status after `--done` shows the agent working again, and a new `--start` gives the session the new task's title.
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "Statuses around a question, up to pinrail status --done.")
 
-Report when you start a task or a step that takes more than a minute or so, and with `--done` when you have finished. A status for every command would bury the questions and reviews that need the person.
+Start each task with `--start`, report each step that takes more than a minute or so, and use `--done` when you have finished. A status for every command would bury the questions and reviews that need the person.
 
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
@@ -273,7 +274,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | Command | What it does |
 |---|---|
 | `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
-| `pinrail status <text>` | Say what the agent is doing in its session's thread; `--done` when it has finished. See [Reporting progress](#reporting-progress). |
+| `pinrail status <text>` | Say what the agent is doing in its session's thread: `--start` for a task, which names the session, and `--done` when it has finished. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |

@@ -53,13 +53,15 @@ Say what you are doing with `pinrail status`. The person sees it in your
 session's thread in the app, between your questions and reviews:
 
 ```sh
+pinrail status --start "Add rate limiting to the public API"
 pinrail status "Running the end-to-end suite"
 pinrail status --done "Opened pull request #214"
 ```
 
-- Report when you start a task or a step that takes more than a minute
-  or so, and with `--done` when you have finished. Do not report every
-  command.
+- Start each task with `--start`, naming it as the person would: it is
+  your session's title in the app. Report each step that takes more than
+  a minute or so, and use `--done` when you have finished. Do not report
+  every command.
 - The text is one line of at most 200 characters.
 - The command does not wait. If it fails, carry on with your work.
 
