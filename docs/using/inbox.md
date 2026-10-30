@@ -104,6 +104,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 | <kbd>⌘[</kbd> / <kbd>⌘]</kbd> | Back / forward |
 | <kbd>⌘↵</kbd> | Hand over to the agent |
 | <kbd>⌘⇧S</kbd> | Star or remove the star of the review |
+| <kbd>E</kbd> | Archive or unarchive the session |
 | <kbd>⌘⇧M</kbd> | Maximize / restore the view |
 | <kbd>⌘F</kbd> | Find in the view |
 | <kbd>[</kbd> / <kbd>]</kbd> | Previous / next round |

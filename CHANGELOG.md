@@ -35,6 +35,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The Sessions page filters the sessions by project.
 - A review sent from a session links to the session's thread from its
   header.
+- Archive a session from its header, its row on the Sessions page or
+  with E. Show archived lists archived sessions with the others, and new
+  activity from the agent brings a session back.
 - The command palette finds the stages agents started, and opens the
   session's thread where a stage started.
 - Star a review to find it again later, from its header, with ⌘⇧S, or
