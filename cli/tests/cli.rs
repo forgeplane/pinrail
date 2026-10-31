@@ -3290,6 +3290,60 @@ fn status_sends_the_text_to_the_agents_session() {
 }
 
 #[test]
+fn a_note_is_sent_from_its_text_a_file_or_stdin() {
+    let sent = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        seen.lock()
+            .unwrap()
+            .push(serde_json::from_str(body).unwrap());
+        (204, String::new())
+    }));
+    let dir = tempdir();
+    let file = dir.join("summary.md");
+    std::fs::write(&file, "## Summary\n\n- from a file\n").unwrap();
+    let note = |args: &[&str], stdin: Option<&str>| {
+        let mut child = pinrail()
+            .arg("status")
+            .arg("--note")
+            .args(args)
+            .arg("--no-start")
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .current_dir(std::env::temp_dir())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        std::io::Write::write_all(&mut input, stdin.unwrap_or_default().as_bytes()).unwrap();
+        drop(input);
+        let out = child.wait_with_output().unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+        assert_eq!(out.status.code(), Some(0), "{stderr}");
+    };
+    note(&["Found **3** callers."], None);
+    note(&["--file", file.to_str().unwrap()], None);
+    note(&["-"], Some("- from stdin\n- two lines\n"));
+
+    let sent = sent.lock().unwrap();
+    let said: Vec<(&str, &str)> = sent
+        .iter()
+        .map(|b| (b["text"].as_str().unwrap(), b["kind"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        said,
+        [
+            ("Found **3** callers.", "note"),
+            ("## Summary\n\n- from a file\n", "note"),
+            ("- from stdin\n- two lines\n", "note"),
+        ]
+    );
+}
+
+#[test]
 fn status_without_a_session_says_it_found_none() {
     let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
     let (code, _, stderr) = run(&server, &["status", "Working", "--no-start"]);

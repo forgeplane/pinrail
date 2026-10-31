@@ -201,6 +201,7 @@ enum Command {
     ///
     ///     pinrail status --start "Add rate limiting to the public API"
     ///     pinrail status "Running the end-to-end suite"
+    ///     pinrail status --note --file summary.md
     ///     pinrail status --done "Pushed the fix"
     ///
     /// The app keeps every status, so the thread shows what the agent did
@@ -208,6 +209,11 @@ enum Command {
     /// new stage of work, and names it: the newest stage started is the
     /// session's title in the app. --done says the agent has finished, and its text is then
     /// optional. A status after it says the agent is working again.
+    ///
+    /// --note sends a note instead: a message in Markdown that tells the
+    /// person something, such as a summary of a stage, and asks nothing.
+    /// It shows in the thread and changes nothing else: it is not the
+    /// latest status, and it neither starts nor ends a stage.
     ///
     /// The command finds the agent and its session as submit does, and
     /// does not wait. It prints nothing.
@@ -1533,8 +1539,9 @@ fn requester(given: Option<&str>) -> String {
 #[derive(Args, Debug)]
 struct StatusArgs {
     /// What the agent is doing, as one line of plain text of at most 200
-    /// characters
-    #[arg(value_name = "TEXT", required_unless_present = "done")]
+    /// characters. With --note, the note's Markdown, or - to read it from
+    /// stdin
+    #[arg(value_name = "TEXT", required_unless_present_any = ["done", "file"])]
     text: Option<String>,
     /// The agent starts a new stage of work, which the text names, and which
     /// names the session in the app
@@ -1543,6 +1550,13 @@ struct StatusArgs {
     /// The agent has finished its work in the session
     #[arg(long)]
     done: bool,
+    /// The text is a note: Markdown of at most 10,000 characters, on as
+    /// many lines as it needs
+    #[arg(long, conflicts_with_all = ["start", "done"])]
+    note: bool,
+    /// With --note, read the note from this file
+    #[arg(long, value_name = "PATH", requires = "note", conflicts_with = "text")]
+    file: Option<PathBuf>,
     /// Where the agent works, as for submit
     #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
@@ -1565,15 +1579,23 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
         .requested_by
         .or_else(agent::detect)
         .unwrap_or_else(|| "pinrail-cli".to_string());
-    let kind = match (args.start, args.done) {
-        (true, _) => "start",
-        (_, true) => "done",
+    let kind = match (args.start, args.done, args.note) {
+        (true, _, _) => "start",
+        (_, true, _) => "done",
+        (_, _, true) => "note",
         _ => "step",
     };
-    let mut body = json!({
-        "text": args.text.unwrap_or_default(),
-        "kind": kind,
-    });
+    // a note can come from a file or from stdin
+    let text = match (&args.file, args.text) {
+        (Some(file), _) => {
+            std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?
+        }
+        (None, Some(text)) if args.note && text == "-" => {
+            std::io::read_to_string(std::io::stdin()).context("reading stdin")?
+        }
+        (None, text) => text.unwrap_or_default(),
+    };
+    let mut body = json!({ "text": text, "kind": kind });
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
