@@ -643,6 +643,10 @@ h1 {
 .sidebar-group > .sidebar-review.sidebar-child {
   padding-left: 30px;
 }
+/* under a session outside any group, in line with its title */
+.sidebar-session-item.is-flat > .sidebar-review.sidebar-child {
+  padding-left: 32px;
+}
 .sidebar-review.is-question svg {
   color: var(--sev-major);
 }

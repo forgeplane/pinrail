@@ -151,7 +151,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
       </span>
     );
     return (
-      <div key={`${s.agent}/${s.id}`} className="sidebar-session-item">
+      <div key={`${s.agent}/${s.id}`} className={`sidebar-session-item ${grouped ? "" : "is-flat"}`}>
         <Tooltip label={tip} side="top">
           <NavLink
             to={sessionPath(s)}
