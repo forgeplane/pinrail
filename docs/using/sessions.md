@@ -37,7 +37,7 @@ The panel lists the session's starred reviews under *Starred*, newest first, and
 
 To hide the panel at the right, or show it again, use the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
 
-A question's thread links to its session's page with *session* and the id in its header. A review sent from a session has a button in its header, on its page and in the side panel, that opens the session's thread.
+A question's thread links to its session's page with *session* and the id in its header. A review sent from a session has a button in its header, on its page and in the side panel, that opens the session's thread. When you open a review from its session's thread, or from under its session in the sidebar, the breadcrumb at the top reads *Sessions › <session> › <review>*. Click the session's name to return to its thread. Deciding or discarding the review also returns you to the thread.
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")
 

@@ -40,7 +40,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   inbox opens a review.
 - The Sessions page filters the sessions by project.
 - A review sent from a session links to the session's thread from its
-  header.
+  header. Opened from the session, its breadcrumb names the session, and
+  deciding it returns to the thread.
 - Archive a session from its header, its row on the Sessions page or
   with E. Show archived lists archived sessions with the others, and new
   activity from the agent brings a session back.
