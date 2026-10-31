@@ -141,6 +141,8 @@ export type Session = {
   title: string | null;
   /** when the person archived the session, if they did */
   archived_at?: string | null;
+  /** when the agent last reported anything, a note included */
+  reported_at?: string | null;
   first_at: string;
   last_at: string;
   total: { questions: number; reviews: number };
@@ -321,8 +323,8 @@ export type SessionStatus = {
   id: number;
   text: string;
   /** a step of the agent's work, the start of a task, which names the
-   *  session, or the end of its work */
-  kind: "step" | "start" | "done";
+   *  session, the end of its work, or a note, whose text is Markdown */
+  kind: "step" | "start" | "done" | "note";
   at: string;
   /** in a session's thread, the review it came after, or null for one
    *  before them all */

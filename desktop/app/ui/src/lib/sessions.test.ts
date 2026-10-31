@@ -29,6 +29,22 @@ describe("timeline", () => {
     ).toEqual(["started", "r1", ["Planning", "Building"], "r2", "finished", ["Fixing a comment"]]);
   });
 
+  test("shows a note on its own, never in a group of steps", () => {
+    const entries = timeline(
+      [],
+      [
+        status(1, "2026-10-30T10:01:00Z", "Planning"),
+        status(2, "2026-10-30T10:02:00Z", "## Found\n\n- three callers", "note"),
+        status(3, "2026-10-30T10:03:00Z", "Building"),
+      ],
+    );
+    expect(entries.map((e) => (e.kind === "statuses" ? e.statuses.map((s) => s.text) : e.kind))).toEqual([
+      ["Planning"],
+      "note",
+      ["Building"],
+    ]);
+  });
+
   test("puts a status sent in the same second as a review after it", () => {
     const entries = timeline([review("r1", "2026-10-30T10:00:00Z")], [status(1, "2026-10-30T10:00:00Z", "Waiting")]);
     expect(entries.map((e) => e.kind)).toEqual(["item", "statuses"]);

@@ -18,7 +18,8 @@ export type Entry =
   | { kind: "item"; review: Review }
   | { kind: "statuses"; statuses: SessionStatus[] }
   | { kind: "started"; status: SessionStatus }
-  | { kind: "finished"; status: SessionStatus };
+  | { kind: "finished"; status: SessionStatus }
+  | { kind: "note"; status: SessionStatus };
 
 /** The items and the statuses, oldest first. A status goes after the
  *  review the core says it came after, which the times, in whole seconds,
@@ -51,7 +52,10 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
       if (status.kind === "step") group.push(status);
       else {
         close();
-        entries.push({ kind: status.kind === "start" ? "started" : "finished", status });
+        entries.push({
+          kind: status.kind === "start" ? "started" : status.kind === "note" ? "note" : "finished",
+          status,
+        });
       }
     }
     close();

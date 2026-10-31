@@ -52,6 +52,11 @@ describe("stateOf", () => {
     expect(stateOf(session("a", { status: status(1, "done") }), NOW)).toBe("done");
     expect(stateOf(session("a"), NOW)).toBe("quiet");
   });
+
+  test("a recent note is working too, but a note after the end leaves it done", () => {
+    expect(stateOf(session("a", { status: status(30) }, { reported_at: ago(2) }), NOW)).toBe("working");
+    expect(stateOf(session("a", { status: status(30, "done") }, { reported_at: ago(2) }), NOW)).toBe("done");
+  });
 });
 
 describe("arrange", () => {

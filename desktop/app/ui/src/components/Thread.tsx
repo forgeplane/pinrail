@@ -21,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -408,6 +408,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
               if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
+              if (entry.kind === "note")
+                return <NoteMessage key={`s-${entry.status.id}`} status={entry.status} agent={agent} />;
               const item = entry.review;
               return item.kind === "question" ? (
                 <QuestionSet
@@ -734,6 +736,51 @@ function StartedLine({ status }: { status: SessionStatus }) {
         <GitCommitHorizontal size={12} aria-hidden /> Started: {status.text} ·{" "}
         <span title={stamp(status.at)}>{age(status.at)} ago</span>
       </span>
+    </div>
+  );
+}
+
+/** How tall a note is before it folds, about 12 lines. */
+const NOTE_FOLDED = 230;
+
+/** A note the agent sent: a message under the agent's icon, as a question
+ *  is, with its Markdown folded when long. Its links open in the browser. */
+function NoteMessage({ status, agent }: { status: SessionStatus; agent: string | null }) {
+  const html = useMemo(() => renderMarkdown(status.text), [status.text]);
+  const body = useRef<HTMLDivElement>(null);
+  const [long, setLong] = useState(false);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    setLong((body.current?.scrollHeight ?? 0) > NOTE_FOLDED + 40);
+  }, [html]);
+  return (
+    <div className="thread-note msg" data-testid="note">
+      <span className="msg-avatar">
+        <AgentIcon requestedBy={agent} size={14} />
+      </span>
+      <div className="msg-col">
+        <div className="msg-meta">
+          <span className="text">{agent ?? "The agent"}</span> wrote ·{" "}
+          <span title={stamp(status.at)}>{age(status.at)} ago</span>
+        </div>
+        <div
+          ref={body}
+          className={`thread-note-body ${long && !open ? "is-folded" : ""}`}
+          style={long && !open ? { maxHeight: NOTE_FOLDED } : undefined}
+          onClick={(e) => {
+            const link = (e.target as HTMLElement).closest("a");
+            if (!link) return;
+            e.preventDefault();
+            openExternal(link.href);
+          }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {long ? (
+          <button type="button" className="thread-note-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            {open ? "Show less" : "Show more"}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -52,7 +52,9 @@ export const filtersSet = (c: Choices) =>
 export function stateOf(session: Session, now: number): State {
   const status = session.status;
   if (status?.kind === "done") return "done";
-  if (status && now - Date.parse(status.at) < WORKING_MS) return "working";
+  // a note is not the latest status, but it is a report of work
+  const at = session.reported_at ?? status?.at;
+  if (at && now - Date.parse(at) < WORKING_MS) return "working";
   return "quiet";
 }
 

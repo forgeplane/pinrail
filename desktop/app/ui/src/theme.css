@@ -3396,6 +3396,89 @@ body.is-resizing iframe {
   margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
   margin-right: 0;
 }
+/* a note the agent sent: a message of plain Markdown, folded when long */
+.thread-note-body {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.thread-note-body.is-folded {
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.thread-note-body > :first-child {
+  margin-top: 0;
+}
+.thread-note-body > :last-child {
+  margin-bottom: 0;
+}
+.thread-note-body h1,
+.thread-note-body h2,
+.thread-note-body h3 {
+  margin: 12px 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.thread-note-body ul,
+.thread-note-body ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.thread-note-body code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+.thread-note-body pre {
+  overflow-x: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+}
+.thread-note-body pre code {
+  padding: 0;
+  background: none;
+}
+.thread-note-body table {
+  border-collapse: collapse;
+}
+.thread-note-body th,
+.thread-note-body td {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.thread-note-body p {
+  margin: 6px 0;
+}
+.thread-note-body th {
+  background: var(--bg-raised);
+  font-weight: 600;
+}
+.thread-note-body blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--dim);
+}
+.thread-note-body hr {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.thread-note-more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
 .thread-status-line {
   display: flex;
   align-items: baseline;
