@@ -346,7 +346,6 @@ async fn save_attachment(
     review: String,
     name: String,
 ) -> Result<Option<String>, String> {
-    use tauri_plugin_dialog::DialogExt;
     let state = native.state.clone();
     let carried = state
         .reviews()
@@ -357,6 +356,37 @@ async fn save_attachment(
         .find(|a| a.name == name)
         .ok_or_else(|| format!("review {review} carries no attachment \"{name}\""))?;
     let from = state.attachments().path(&carried.sha256);
+    save_as(app, from, name).await
+}
+
+/// Saves a copy of a file a note carries where the person chooses, as
+/// [`save_attachment`] saves a review's.
+#[tauri::command]
+async fn save_note_attachment(
+    app: AppHandle,
+    native: State<'_, Native>,
+    agent: String,
+    session: String,
+    status: i64,
+    name: String,
+) -> Result<Option<String>, String> {
+    let state = native.state.clone();
+    let carried = state
+        .reviews()
+        .statuses(&agent, &session)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .find(|s| s.id == status)
+        .and_then(|s| s.attachments.into_iter().find(|a| a.name == name))
+        .ok_or_else(|| format!("the note carries no attachment \"{name}\""))?;
+    let from = state.attachments().path(&carried.sha256);
+    save_as(app, from, name).await
+}
+
+/// Asks where to save `name`, then saves a copy of the stored file there.
+/// Answers where it went, or nothing when the person cancelled.
+async fn save_as(app: AppHandle, from: PathBuf, name: String) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(to) = app
             .dialog()
@@ -687,6 +717,7 @@ pub fn run() {
             disconnect_agent,
             open_notices,
             save_attachment,
+            save_note_attachment,
             update_status,
             check_for_updates,
             restart_to_update,

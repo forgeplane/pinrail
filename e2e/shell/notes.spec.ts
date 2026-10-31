@@ -2,6 +2,7 @@
 // in the session's thread, which informs and changes nothing else.
 
 import { expect, test, type Page } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { core } from "./helpers";
 
 let n = 0;
@@ -57,4 +58,51 @@ test("a note is not the latest status on the Sessions page", async ({ page }) =>
   await page.goto(`/#/sessions?q=${session}`);
   const row = page.getByTestId("session-row").filter({ hasText: session });
   await expect(row.getByTestId("session-status")).toHaveText(/Running the tests/);
+});
+
+/** Uploads bytes as an attachment, and answers their hash. */
+async function upload(page: Page, bytes: Buffer) {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const response = await page.request.put(`${core}/api/v1/attachments/${sha256}`, {
+    data: bytes,
+    headers: { "content-type": "application/octet-stream" },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return sha256;
+}
+
+// a 2 by 2 PNG, enough for the browser to draw
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGNkYPj/n4GBgYGJgYEBAAomAgFTJp+1AAAAAElFTkSuQmCC",
+  "base64",
+);
+
+test("a note's image shows in place, and its files are chips that save", async ({ page }) => {
+  const session = fresh();
+  const chart = await upload(page, PNG);
+  const log = Buffer.from("the test log\n");
+  const logHash = await upload(page, log);
+  await report(page, session, {
+    kind: "note",
+    text: "Latency fell:\n\n![p95 latency](attachment:latency.png)\n\nThe output is in [the log](attachment:run.log).",
+    attachments: {
+      "latency.png": { sha256: chart, size: PNG.length, media_type: "image/png" },
+      "run.log": { sha256: logHash, size: log.length, media_type: "text/plain" },
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const note = page.getByTestId("note");
+  const image = note.locator(".thread-note-body img");
+  await expect(image).toHaveAttribute("alt", "p95 latency");
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2);
+  await expect(note).toContainText("2 files");
+  await expect(note.getByTestId("note-file")).toHaveText([/latency\.png/, /run\.log/]);
+
+  // a chip's button and a link to the file both save it
+  const saved = page.waitForEvent("download");
+  await note.getByRole("button", { name: "Save run.log" }).click();
+  expect((await saved).suggestedFilename()).toBe("run.log");
+  const linked = page.waitForEvent("download");
+  await note.getByRole("link", { name: "the log" }).click();
+  expect((await linked).suggestedFilename()).toBe("run.log");
 });

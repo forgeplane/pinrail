@@ -3549,6 +3549,82 @@ body.is-resizing iframe {
 .hljs-strong {
   font-weight: 600;
 }
+/* an image the note carries, shown where its Markdown puts it */
+.thread-note-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+/* the note's files: chips at its bottom, each with a button that saves it */
+.note-file-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  color: var(--faint);
+}
+.note-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.note-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 4px 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.note-file:hover {
+  border-color: var(--border-strong);
+}
+.note-file-thumb {
+  flex: none;
+  width: 34px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.note-file-icon {
+  flex: none;
+  color: var(--dim);
+}
+.note-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.note-file-save {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.note-file-save:hover,
+.note-file-save:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+  outline: none;
+}
 .thread-note-more {
   align-self: flex-start;
   padding: 0;

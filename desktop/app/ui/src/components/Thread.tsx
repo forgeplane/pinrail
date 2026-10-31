@@ -15,6 +15,7 @@ import {
   GitCommitHorizontal,
   MessageSquarePlus,
   PanelRightClose,
+  Paperclip,
   PanelRightOpen,
   Pencil,
   Star,
@@ -28,7 +29,7 @@ import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
-import { plainInline, renderInline, renderMarkdown } from "../lib/markdown";
+import { plainInline, renderInline, renderMarkdown, renderNote } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
 import { timeline as entriesOf, fromSession, stageReviews, stages, type FromSession } from "../lib/sessions";
@@ -39,6 +40,7 @@ import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { ComposeField } from "./ComposeField";
 import { OutcomeBadge, SummaryCounts, outcomeOf } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
+import { NoteFiles, filesOf, useNoteFileUrl, useSaveNoteFile } from "./NoteFiles";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 import { Tooltip } from "./Tooltip";
 
@@ -409,7 +411,14 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
               if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "note")
-                return <NoteMessage key={`s-${entry.status.id}`} status={entry.status} agent={agent} />;
+                return (
+                  <NoteMessage
+                    key={`s-${entry.status.id}`}
+                    status={entry.status}
+                    agent={agent}
+                    session={named?.id ?? null}
+                  />
+                );
               const item = entry.review;
               return item.kind === "question" ? (
                 <QuestionSet
@@ -744,15 +753,36 @@ function StartedLine({ status }: { status: SessionStatus }) {
 const NOTE_FOLDED = 230;
 
 /** A note the agent sent: a message under the agent's icon, as a question
- *  is, with its Markdown folded when long. Its links open in the browser. */
-function NoteMessage({ status, agent }: { status: SessionStatus; agent: string | null }) {
-  const html = useMemo(() => renderMarkdown(status.text), [status.text]);
+ *  is, with its Markdown folded when long and its files under it. Its links
+ *  open in the browser, and a link to one of its files saves it. */
+function NoteMessage({
+  status,
+  agent,
+  session,
+}: {
+  status: SessionStatus;
+  agent: string | null;
+  session: string | null;
+}) {
+  const files = filesOf(status);
+  const note = useMemo(
+    () => (agent && session ? { agent, session, status: status.id } : null),
+    [agent, session, status.id],
+  );
+  const url = useNoteFileUrl(note);
+  const save = useSaveNoteFile(note, url);
+  // only an image the note carries shows in place
+  const imageUrl = useCallback(
+    (name: string) => (files.some((f) => f.name === name && f.media_type.startsWith("image/")) ? url(name) : null),
+    [files, url],
+  );
+  const html = useMemo(() => renderNote(status.text, imageUrl), [status.text, imageUrl]);
   const body = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
-  useLayoutEffect(() => {
-    setLong((body.current?.scrollHeight ?? 0) > NOTE_FOLDED + 40);
-  }, [html]);
+  // measured again as its images load
+  const measure = useCallback(() => setLong((body.current?.scrollHeight ?? 0) > NOTE_FOLDED + 40), []);
+  useLayoutEffect(measure, [html, measure]);
   return (
     <div className="thread-note msg" data-testid="note">
       <span className="msg-avatar">
@@ -762,16 +792,24 @@ function NoteMessage({ status, agent }: { status: SessionStatus; agent: string |
         <div className="msg-meta">
           <span className="text">{agent ?? "The agent"}</span> wrote ·{" "}
           <span title={stamp(status.at)}>{age(status.at)} ago</span>
+          {files.length ? (
+            <span className="note-file-count">
+              <Paperclip size={12} aria-hidden /> {files.length} file{files.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
         </div>
         <div
           ref={body}
           className={`thread-note-body ${long && !open ? "is-folded" : ""}`}
           style={long && !open ? { maxHeight: NOTE_FOLDED } : undefined}
+          onLoadCapture={measure}
           onClick={(e) => {
             const link = (e.target as HTMLElement).closest("a");
             if (!link) return;
             e.preventDefault();
-            openExternal(link.href);
+            const file = link.dataset.attachment;
+            if (file !== undefined) void save(file);
+            else openExternal(link.href);
           }}
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -780,6 +818,7 @@ function NoteMessage({ status, agent }: { status: SessionStatus; agent: string |
             {open ? "Show less" : "Show more"}
           </button>
         ) : null}
+        <NoteFiles files={files} url={url} onSave={(name) => void save(name)} />
       </div>
     </div>
   );

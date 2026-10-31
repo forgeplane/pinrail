@@ -319,6 +319,9 @@ export type Notice = {
 };
 
 /** What an agent said it is doing, with `pinrail status`. */
+/** A file a note carries. */
+export type NoteAttachment = { name: string; size: number; media_type: string };
+
 export type SessionStatus = {
   id: number;
   text: string;
@@ -329,6 +332,8 @@ export type SessionStatus = {
   /** in a session's thread, the review it came after, or null for one
    *  before them all */
   after?: string | null;
+  /** the files a note carries, by name */
+  attachments?: NoteAttachment[];
 };
 
 /** The web origins a plugin may open without asking, while it stays

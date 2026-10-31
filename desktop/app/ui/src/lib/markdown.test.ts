@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { renderMarkdown } from "./markdown";
+import { renderMarkdown, renderNote } from "./markdown";
 
 describe("renderMarkdown", () => {
   test("highlights a block of code in the language it names", () => {
@@ -14,5 +14,22 @@ describe("renderMarkdown", () => {
       expect(html).toContain("&lt;b&gt;if&lt;/b&gt; x");
       expect(html).not.toContain("hljs-");
     }
+  });
+});
+
+describe("renderNote", () => {
+  const url = (name: string) => (name === "gone.png" ? null : `http://127.0.0.1:4747/files/${name}`);
+
+  test("shows an image the note carries from its address, and marks a link to a file", () => {
+    const html = renderNote("![p95](attachment:latency.png) and [the log](attachment:run%20log.txt)", url);
+    expect(html).toContain('src="http://127.0.0.1:4747/files/latency.png"');
+    expect(html).toContain('data-attachment="latency.png"');
+    expect(html).toContain('<a href="#" data-attachment="run log.txt">the log</a>');
+  });
+
+  test("leaves out an image it has no address for, and keeps other links", () => {
+    const html = renderNote("![gone](attachment:gone.png) [docs](https://example.com)", url);
+    expect(html).not.toContain("<img");
+    expect(html).toContain('href="https://example.com"');
   });
 });
