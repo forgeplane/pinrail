@@ -3,8 +3,11 @@
 // are kept, so nothing an agent writes runs here.
 
 import MarkdownIt from "markdown-it";
+import { highlight } from "./highlight";
 
-const md = new MarkdownIt({ html: false, linkify: true });
+// a block of code in a language it names is highlighted; markdown-it
+// escapes any other
+const md = new MarkdownIt({ html: false, linkify: true, highlight: (code, lang) => highlight(code, lang) ?? "" });
 const LINK = /^(https?:|mailto:)/i;
 md.validateLink = (url) => LINK.test(url.trim());
 
