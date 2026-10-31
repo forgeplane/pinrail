@@ -29,7 +29,7 @@ const decideNothing = (request: APIRequestContext, id: string) =>
 /** A project's group in the sidebar: its name, its count, and what waits in it. */
 const project = (page: Page, name: string) =>
   page
-    .getByRole("region", { name: "Projects" })
+    .getByRole("region", { name: "Repositories" })
     .getByTestId("sidebar-group")
     .filter({ has: page.getByTestId("sidebar-group-name").getByText(name, { exact: true }) });
 
@@ -44,10 +44,10 @@ test("the sidebar lists what waits under its project on every page, and ⌥↓ w
   // its project with the project's count, and a review that names no
   // project has a group of its own
   await page.goto("/#/?tab=history");
-  const projects = page.getByRole("region", { name: "Projects" });
+  const projects = page.getByRole("region", { name: "Repositories" });
   await expect(project(page, "acme/api")).toContainText("2");
-  await expect(project(page, "No project")).toContainText("1");
-  await project(page, "No project").getByRole("link", { name: "No project" }).click();
+  await expect(project(page, "No repository")).toContainText("1");
+  await project(page, "No repository").getByRole("link", { name: "No repository" }).click();
   await expect(page).toHaveURL(/repo=-/);
   await expect(page.getByTestId("inbox-group-name")).toHaveText(["No project"]);
   await expect(page.locator("#inbox-repo")).toContainText("No project");

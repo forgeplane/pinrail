@@ -215,7 +215,7 @@ export function SidebarSessionsMenu({
         "Repository",
         choices.repos.length ? String(choices.repos.length) : "",
         checks(
-          repos.map((r) => [r, r === "-" ? "No project" : r]),
+          repos.map((r) => [r, r === "-" ? "No repository" : r]),
           choices.repos,
           (r) => onChange({ repos: toggled(choices.repos, r) }),
         ),

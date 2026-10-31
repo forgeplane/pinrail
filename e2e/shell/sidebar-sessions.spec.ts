@@ -138,7 +138,7 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   const heading = region(page)
     .getByRole("heading", { level: 2 })
     .filter({ has: page.getByRole("button", { name: "Sessions options" }) });
-  await expect(heading).toHaveText("Projects");
+  await expect(heading).toHaveText("Repositories");
 
   // grouping by status names the heading after it, and survives a reload
   let menu = await openMenu(page);

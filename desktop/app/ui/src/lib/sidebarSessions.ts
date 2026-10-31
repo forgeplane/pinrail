@@ -77,7 +77,7 @@ export type Group = {
 
 /** The heading, named after the grouping. */
 export const HEADINGS: Record<Grouping, string> = {
-  repository: "Projects",
+  repository: "Repositories",
   status: "Status",
   updated: "Updated",
   none: "Sessions",
@@ -160,7 +160,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   const keyOf = (row: Row): [string, string] => {
     switch (choices.grouping) {
       case "repository":
-        return [row.session.repo ?? "", row.session.repo ?? "No project"];
+        return [row.session.repo ?? "", row.session.repo ?? "No repository"];
       case "status": {
         const key = row.waiting > 0 ? "waiting" : row.state;
         return [key, STATUS_GROUPS.find((g) => g.key === key)!.label];
@@ -176,7 +176,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   const looseKeyOf = (review: Review): [string, string] => {
     switch (choices.grouping) {
       case "repository":
-        return [review.origin.repo ?? "", review.origin.repo ?? "No project"];
+        return [review.origin.repo ?? "", review.origin.repo ?? "No repository"];
       case "status":
         return ["waiting", STATUS_GROUPS[0].label];
       case "updated": {
