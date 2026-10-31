@@ -212,6 +212,7 @@ enum Command {
     ///
     /// --note sends a note instead: a message in Markdown that tells the
     /// person something, such as a summary of a stage, and asks nothing.
+    /// --attach sends files with it, as for submit.
     /// It shows in the thread and changes nothing else: it is not the
     /// latest status, and it neither starts nor ends a stage.
     ///
@@ -1557,6 +1558,16 @@ struct StatusArgs {
     /// With --note, read the note from this file
     #[arg(long, value_name = "PATH", requires = "note", conflicts_with = "text")]
     file: Option<PathBuf>,
+    /// With --note, a file the note carries, under its own name or NAME;
+    /// the note shows an image it refers to as ![…](attachment:NAME). Repeat
+    /// for each file, ten at most
+    #[arg(
+        long = "attach",
+        value_name = "PATH[=NAME]",
+        value_parser = attachments::parse_flag,
+        requires = "note"
+    )]
+    attachments: Vec<(String, PathBuf)>,
     /// Where the agent works, as for submit
     #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
@@ -1601,6 +1612,16 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
     }
     origin::drop_unknown(&mut body);
     origin::fill_quietly(&mut body);
+    // a note's files go first, each only if the app lacks it
+    let files = attachments::read(&attachments::collect(
+        None,
+        Path::new(""),
+        &args.attachments,
+    )?)?;
+    if !files.is_empty() {
+        body["attachments"] = attachments::declare(&files);
+        attachments::upload(client, &files)?;
+    }
     client.status(&agent, &session, &body)?;
     Ok(0)
 }

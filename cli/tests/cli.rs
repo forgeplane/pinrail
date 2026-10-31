@@ -3344,6 +3344,83 @@ fn a_note_is_sent_from_its_text_a_file_or_stdin() {
 }
 
 #[test]
+fn a_note_uploads_only_the_files_the_app_lacks_and_names_them() {
+    let chart = sha256("a png chart");
+    let log = sha256("the test log");
+    let sent = Arc::new(Mutex::new(Vec::<(String, String, String)>::new()));
+    let seen = sent.clone();
+    let (have, missing) = (log.clone(), chart.clone());
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        seen.lock()
+            .unwrap()
+            .push((method.into(), path.into(), body.into()));
+        match (method, path) {
+            ("HEAD", p) if p.ends_with(&have) => (200, String::new()),
+            ("HEAD", p) if p.ends_with(&missing) => (404, String::new()),
+            ("PUT", p) if p.ends_with(&missing) => {
+                (201, format!(r#"{{"sha256":"{missing}","size":11}}"#))
+            }
+            ("POST", "/api/v1/sessions/claude-code/c-1/status") => (204, String::new()),
+            other => panic!("unexpected {other:?}"),
+        }
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("latency.png"), "a png chart").unwrap();
+    std::fs::write(dir.join("out.txt"), "the test log").unwrap();
+    let out = pinrail()
+        .args([
+            "status",
+            "--note",
+            "![p95](attachment:latency.png)",
+            "--no-start",
+        ])
+        .arg("--attach")
+        .arg(dir.join("latency.png"))
+        .arg("--attach")
+        .arg(format!("{}=run.log", dir.join("out.txt").display()))
+        .env("PINRAIL_URL", &server.url)
+        .env("CLAUDECODE", "1")
+        .env("CLAUDE_CODE_SESSION_ID", "c-1")
+        .current_dir(std::env::temp_dir())
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let sent = sent.lock().unwrap();
+    let order: Vec<String> = sent
+        .iter()
+        .map(|(m, p, _)| {
+            format!(
+                "{m} {}",
+                p.replace(&chart, "{chart}").replace(&log, "{log}")
+            )
+        })
+        .collect();
+    assert_eq!(
+        order,
+        [
+            "HEAD /api/v1/attachments/{chart}",
+            "PUT /api/v1/attachments/{chart}",
+            "HEAD /api/v1/attachments/{log}",
+            "POST /api/v1/sessions/claude-code/c-1/status",
+        ]
+    );
+    let note: serde_json::Value = serde_json::from_str(&sent[3].2).unwrap();
+    assert_eq!(note["kind"], "note");
+    assert_eq!(note["attachments"]["latency.png"]["sha256"], chart);
+    assert_eq!(
+        note["attachments"]["latency.png"]["media_type"],
+        "image/png"
+    );
+    assert_eq!(note["attachments"]["run.log"]["sha256"], log);
+}
+
+#[test]
 fn status_without_a_session_says_it_found_none() {
     let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
     let (code, _, stderr) = run(&server, &["status", "Working", "--no-start"]);
