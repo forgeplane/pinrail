@@ -7,8 +7,9 @@ CREATE TABLE session_statuses_kind (
   agent      TEXT NOT NULL,
   session    TEXT NOT NULL,
   text       TEXT NOT NULL,
-  -- a step, the start of a task, or the end of the agent's work
-  kind       TEXT NOT NULL DEFAULT 'step' CHECK (kind IN ('step', 'start', 'done')),
+  -- what the status says, such as `step`: the core checks the kinds, so
+  -- a new one needs no migration
+  kind       TEXT NOT NULL DEFAULT 'step',
   created_at TEXT NOT NULL,
   FOREIGN KEY (agent, session) REFERENCES sessions(agent, id) ON DELETE CASCADE
 );
