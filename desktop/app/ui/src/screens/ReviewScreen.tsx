@@ -43,6 +43,7 @@ import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
+import type { FromSession } from "../lib/sessions";
 
 const NOTE_PREFIX = "pinrail:draft:";
 
@@ -98,8 +99,12 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
   };
   const location = useLocation();
   // the way back is where the review was opened from
-  const fromHistory = (location.state as { from?: string } | null)?.from === "history";
+  const opened = location.state as { from?: string; session?: FromSession["session"] } | null;
+  const fromHistory = opened?.from === "history";
+  const fromSession = opened?.from === "session" && opened.session ? opened.session : null;
   const back = fromHistory ? { to: "/?tab=history", label: "History" } : { to: "/", label: "Inbox" };
+  // where a decision leads: what is still waiting, or the session it came from
+  const ended = fromSession ? sessionPath(fromSession) : "/";
   const [review, setReview] = useState<Review | null>(null);
   // the review the shortcuts act on, read when a key is pressed
   const reviewRef = useRef(review);
@@ -275,7 +280,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
         // the review is done with: back to what is still waiting, once the
         // view has been told submitted, which the bridge sends on return
         toast("Decision recorded");
-        setTimeout(() => (onEnded ? onEnded() : navigate("/")), 0);
+        setTimeout(() => (onEnded ? onEnded() : navigate(ended)), 0);
         return { ok: true, decision: decided.decision! };
       } catch (e) {
         if (wanted.current !== id) return { ok: false, violations: [] };
@@ -296,7 +301,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
         return { ok: false, violations: [] };
       }
     },
-    [id, load, navigate, toast, current?.bundle, onEnded],
+    [id, load, navigate, toast, current?.bundle, onEnded, ended],
   );
 
   // the plugin's own settings as they stand: its defaults under what was set
@@ -513,9 +518,25 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
       review ? (
         // it stretches across the bar, so its own empty space moves the window
         <span className="crumb" data-tauri-drag-region>
-          <Link to={back.to} state={location.state} className="crumb-root">
-            {back.label}
-          </Link>
+          {fromSession ? (
+            <>
+              <Link to="/sessions" className="crumb-root">
+                Sessions
+              </Link>
+              <span className="crumb-sep">›</span>
+              <Link
+                to={sessionPath(fromSession)}
+                className="crumb-root crumb-session"
+                title={fromSession.title ?? fromSession.agent}
+              >
+                {fromSession.title ?? fromSession.agent}
+              </Link>
+            </>
+          ) : (
+            <Link to={back.to} state={location.state} className="crumb-root">
+              {back.label}
+            </Link>
+          )}
           <span className="crumb-sep">›</span>
           <span className="crumb-title copyable" title={review.title} data-testid="review-title">
             {review.title}
@@ -535,10 +556,10 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
           ) : null}
         </span>
       ) : null,
-    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state], // eslint-disable-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
+    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state, fromSession], // eslint-disable-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
   );
   // a page opened from the inbox can return to its side panel
-  const showInPanel = !inPanel && !fromHistory && prefs.inbox.open_in === "panel" && pending;
+  const showInPanel = !inPanel && !fromHistory && !fromSession && prefs.inbox.open_in === "panel" && pending;
   const actions = useMemo(
     () =>
       review ? (
@@ -885,7 +906,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
             setDiscarding(false);
             toast("Discarded. The agent was told to stop.");
             if (onEnded) onEnded();
-            else navigate("/");
+            else navigate(ended);
           }}
         />
       ) : null}

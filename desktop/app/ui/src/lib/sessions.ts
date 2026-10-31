@@ -5,6 +5,15 @@
 
 import type { Review, SessionStatus } from "../api/types";
 
+/** The router state of a review opened from a session: its breadcrumb
+ *  names the session, and its decision leads back to the session. */
+export type FromSession = { from: "session"; session: { agent: string; id: string; title: string | null } };
+
+export const fromSession = (s: { agent: string; id: string; title?: string | null }): FromSession => ({
+  from: "session",
+  session: { agent: s.agent, id: s.id, title: s.title ?? null },
+});
+
 export type Entry =
   | { kind: "item"; review: Review }
   | { kind: "statuses"; statuses: SessionStatus[] }

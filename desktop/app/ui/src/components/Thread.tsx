@@ -31,7 +31,7 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
-import { timeline as entriesOf, stageReviews, stages } from "../lib/sessions";
+import { timeline as entriesOf, fromSession, stageReviews, stages, type FromSession } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -204,6 +204,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   useEffect(checkEnd, [items, checkEnd]);
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
+  // a review opened from here names the session in its breadcrumb
+  const from = named ? fromSession({ ...named, title: session?.title }) : undefined;
   const waiting = items.filter((r) => r.status === "pending");
   const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews each stage sent, for its tooltip
@@ -417,7 +419,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   onDone={load}
                 />
               ) : (
-                <ReviewCard key={item.id} review={item} />
+                <ReviewCard key={item.id} review={item} from={from} />
               );
             })}
           </div>
@@ -464,9 +466,9 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   className="thread-waiting-item"
                   data-testid="waiting-item"
                   onClick={(e) => {
-                    if (r.kind !== "question") return;
                     e.preventDefault();
-                    document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+                    if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
+                    else document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
                   }}
                 >
                   <ReviewIcon review={r} size={14} />
@@ -489,6 +491,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                     <Link
                       key={r.id}
                       to={`/reviews/${r.id}`}
+                      state={from}
                       className={`thread-waiting-item ${r.status === "pending" ? "" : `is-ended tone-${outcome.tone}`}`}
                       data-testid="starred-review"
                     >
@@ -602,6 +605,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                         <Link
                           key={r.id}
                           to={`/reviews/${r.id}`}
+                          state={from}
                           className={`thread-waiting-item is-ended tone-${outcome.tone}`}
                           data-testid="handled-review"
                         >
@@ -747,9 +751,9 @@ function FinishedLine({ status }: { status: SessionStatus }) {
 }
 
 /** A review the session sent, which opens the review. */
-function ReviewCard({ review }: { review: Review }) {
+function ReviewCard({ review, from }: { review: Review; from?: FromSession }) {
   return (
-    <Link to={`/reviews/${review.id}`} className="thread-card" data-testid="thread-review">
+    <Link to={`/reviews/${review.id}`} state={from} className="thread-card" data-testid="thread-review">
       <ReviewIcon review={review} size={16} />
       <span className="thread-card-text">
         <span className="thread-card-title">{review.title}</span>

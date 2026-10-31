@@ -10,6 +10,7 @@ import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
+import { fromSession } from "../lib/sessions";
 import { type Choices, type Group, type Row, HEADINGS, arrange } from "../lib/sidebarSessions";
 import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
@@ -90,10 +91,12 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     review.kind === "question" && review.requested_by && review.session
       ? sessionPath({ agent: review.requested_by, id: review.session })
       : `/reviews/${review.id}`;
-  const reviewLink = (review: Review) => (
+  // a review under its session names the session in its breadcrumb
+  const reviewLink = (review: Review, session?: Session) => (
     <Link
       key={review.id}
       to={linkOf(review)}
+      state={session && review.kind !== "question" ? fromSession(session) : undefined}
       className={`sidebar-review sidebar-child ${review.kind === "question" ? "is-question" : ""} ${shown === review.id ? "active" : ""}`}
       aria-current={shown === review.id ? "page" : undefined}
       data-testid="waiting-review"
@@ -169,7 +172,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             ) : null}
           </NavLink>
         </Tooltip>
-        {choices.show_reviews ? row.reviews.map(reviewLink) : null}
+        {choices.show_reviews ? row.reviews.map((r) => reviewLink(r, s)) : null}
       </div>
     );
   };
@@ -233,7 +236,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             {grouped ? groupHead(group) : null}
             {open ? (
               <>
-                {group.loose.map(reviewLink)}
+                {group.loose.map((r) => reviewLink(r))}
                 {group.rows.map(sessionRow)}
               </>
             ) : null}
