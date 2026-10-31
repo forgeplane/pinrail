@@ -45,6 +45,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
         .route(
+            "/api/v1/sessions/{agent}/{id}/statuses/{status}/attachments/{name}",
+            get(note_attachment),
+        )
+        .route(
             "/api/v1/sessions/{agent}/{id}/archive",
             put(archive).delete(unarchive),
         )
@@ -448,6 +452,37 @@ async fn attachment(
             format!("review {id} carries no attachment \"{name}\""),
         ));
     };
+    serve_attachment(&state, carried, &name).await
+}
+
+/// The bytes of a file a note carries, as a review's are served.
+async fn note_attachment(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id, status, name)): Path<(String, String, i64, String)>,
+) -> Result<Response, ApiError> {
+    let carried = state
+        .reviews()
+        .statuses(&agent, &id)?
+        .into_iter()
+        .find(|s| s.id == status)
+        .and_then(|s| s.attachments.into_iter().find(|a| a.name == name));
+    let Some(carried) = carried else {
+        return Ok(super::guard::refuse(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("status {status} of session {id} carries no attachment \"{name}\""),
+        ));
+    };
+    serve_attachment(&state, &carried, &name).await
+}
+
+/// A stored file as a download under `name`: never sniffed, never rendered
+/// in this origin.
+async fn serve_attachment(
+    state: &Pinrail,
+    carried: &crate::attachments::ReviewAttachment,
+    name: &str,
+) -> Result<Response, ApiError> {
     let path = state.attachments().path(&carried.sha256);
     let file = tokio::fs::File::open(&path)
         .await
@@ -600,8 +635,13 @@ async fn status(
         Some(kind) => StatusKind::parse(kind)
             .ok_or_else(|| Error::invalid("kind", "must be step, start, done or note"))?,
     };
-    state
-        .reviews()
-        .status(&agent, &id, text, kind, body.get("origin"))?;
+    state.reviews().status(
+        &agent,
+        &id,
+        text,
+        kind,
+        body.get("origin"),
+        body.get("attachments"),
+    )?;
     Ok(StatusCode::NO_CONTENT)
 }

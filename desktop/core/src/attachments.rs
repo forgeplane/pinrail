@@ -22,6 +22,12 @@ pub use pinrail_format::attachments::{AttachmentRules, MAX_COUNT, media_type};
 
 /// The most one review's files may add up to: 512 MB.
 pub const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
+/// The most files one note may carry.
+pub const NOTE_MAX_COUNT: usize = 10;
+/// The most one of a note's files may be: 100 MB.
+pub const NOTE_MAX_BYTES: u64 = 100 * 1024 * 1024;
+/// The most a note's files may add up to: 200 MB.
+pub const NOTE_MAX_TOTAL_BYTES: u64 = 200 * 1024 * 1024;
 /// How a payload names a file the review carries: an object with this one
 /// key, `{ "$attachment": "pivot.glb" }`, which no text can be mistaken for.
 pub const REFERENCE: &str = "$attachment";
@@ -43,6 +49,47 @@ pub fn is_name(name: &str) -> bool {
         && !name
             .chars()
             .any(|c| c == '/' || c == '\\' || c.is_control())
+}
+
+/// What a set of files may be: how many, how big each and in all, and
+/// whose files they are, for the messages.
+struct Limits {
+    max_size: u64,
+    max_count: usize,
+    max_total: u64,
+    whose: &'static str,
+}
+
+/// A submission's `attachments`: an object of name to file, or nothing.
+fn declared_map<'a>(
+    declared: Option<&'a Value>,
+    empty: &'a Map<String, Value>,
+) -> Result<&'a Map<String, Value>, Error> {
+    match declared {
+        None | Some(Value::Null) => Ok(empty),
+        Some(Value::Object(map)) => Ok(map),
+        Some(_) => Err(Error::Invalid(vec![Violation::new(
+            "/attachments",
+            "must be an object of name to {sha256, size, media_type}",
+        )])),
+    }
+}
+
+/// The names a note's Markdown refers to as `](attachment:NAME)`, in an
+/// image or a link.
+pub fn note_references(markdown: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rest = markdown;
+    while let Some(at) = rest.find("](attachment:") {
+        rest = &rest[at + "](attachment:".len()..];
+        let end = rest.find([')', ' ', '\n']).unwrap_or(rest.len());
+        let name = &rest[..end];
+        if !name.is_empty() && !names.iter().any(|n| n == name) {
+            names.push(name.to_string());
+        }
+        rest = &rest[end..];
+    }
+    names
 }
 
 /// Every `{ "$attachment": ... }` in the payload, with where it is and what
@@ -213,26 +260,91 @@ impl Attachments {
     ) -> Result<Vec<ReviewAttachment>, Error> {
         let mut violations = Vec::new();
         let empty = Map::new();
-        let map = match declared {
-            None | Some(Value::Null) => &empty,
-            Some(Value::Object(map)) => map,
-            Some(_) => {
-                return Err(Error::Invalid(vec![Violation::new(
-                    "/attachments",
-                    "must be an object of name to {sha256, size, media_type}",
-                )]));
-            }
-        };
+        let map = declared_map(declared, &empty)?;
         if !map.is_empty() && rules.is_none() {
             return Err(Error::Invalid(vec![Violation::new(
                 "/attachments",
                 "this plugin takes no attachments",
             )]));
         }
-        let max_size = rules
-            .and_then(|r| r.max_size)
-            .map_or(self.max_bytes, |m| m.min(self.max_bytes));
-        let max_count = rules.and_then(|r| r.max_count).unwrap_or(MAX_COUNT);
+        let limits = Limits {
+            max_size: rules
+                .and_then(|r| r.max_size)
+                .map_or(self.max_bytes, |m| m.min(self.max_bytes)),
+            max_count: rules.and_then(|r| r.max_count).unwrap_or(MAX_COUNT),
+            max_total: MAX_TOTAL_BYTES,
+            whose: "a review's attachments",
+        };
+        let attachments = self.entries(map, &limits, rules, presence, &mut violations)?;
+        // only a plugin that takes files has references to check: to any
+        // other, `$attachment` is just data
+        if rules.is_some() {
+            for (at, name) in references(payload) {
+                match name.as_str() {
+                    Some(name) if map.contains_key(name) => {}
+                    Some(name) => violations.push(Violation::new(
+                        at,
+                        format!("no attachment \"{name}\" on this review"),
+                    )),
+                    None => violations.push(Violation::new(
+                        format!("{at}/$attachment"),
+                        "must be the name of an attachment on this review",
+                    )),
+                }
+            }
+        }
+        if violations.is_empty() {
+            Ok(attachments)
+        } else {
+            Err(Error::Invalid(violations))
+        }
+    }
+
+    /// Reads and checks a note's `attachments` against a note's caps and the
+    /// files its Markdown refers to as `attachment:NAME`. Every blob must be
+    /// here with its size.
+    pub fn check_note(
+        &self,
+        declared: Option<&Value>,
+        markdown: &str,
+    ) -> Result<Vec<ReviewAttachment>, Error> {
+        let mut violations = Vec::new();
+        let empty = Map::new();
+        let map = declared_map(declared, &empty)?;
+        let limits = Limits {
+            max_size: NOTE_MAX_BYTES.min(self.max_bytes),
+            max_count: NOTE_MAX_COUNT,
+            max_total: NOTE_MAX_TOTAL_BYTES,
+            whose: "a note's files",
+        };
+        let attachments = self.entries(map, &limits, None, Presence::Stored, &mut violations)?;
+        for name in note_references(markdown) {
+            if !map.contains_key(&name) {
+                violations.push(Violation::new(
+                    "/text",
+                    format!("refers to attachment:{name}, which the note does not carry"),
+                ));
+            }
+        }
+        if violations.is_empty() {
+            Ok(attachments)
+        } else {
+            Err(Error::Invalid(violations))
+        }
+    }
+
+    /// Checks each declared file against the limits and, with `rules`, the
+    /// plugin's accepted types, and with [`Presence::Stored`] that it is
+    /// here with its size. Adds what is wrong to `violations`.
+    fn entries(
+        &self,
+        map: &Map<String, Value>,
+        limits: &Limits,
+        rules: Option<&AttachmentRules>,
+        presence: Presence,
+        violations: &mut Vec<Violation>,
+    ) -> Result<Vec<ReviewAttachment>, Error> {
+        let max_count = limits.max_count;
         if map.len() > max_count {
             violations.push(Violation::new(
                 "/attachments",
@@ -293,10 +405,10 @@ impl Attachments {
                     ),
                 ));
             }
-            if size > max_size {
+            if size > limits.max_size {
                 violations.push(Violation::new(
                     format!("{at}/size"),
-                    format!("an attachment may be {} bytes at most", max_size),
+                    format!("an attachment may be {} bytes at most", limits.max_size),
                 ));
             }
             total += size;
@@ -322,36 +434,16 @@ impl Attachments {
                 media_type,
             });
         }
-        if total > MAX_TOTAL_BYTES {
+        if total > limits.max_total {
             violations.push(Violation::new(
                 "/attachments",
                 format!(
-                    "a review's attachments may add up to {MAX_TOTAL_BYTES} bytes, not {total}"
+                    "{} may add up to {} bytes, not {total}",
+                    limits.whose, limits.max_total
                 ),
             ));
         }
-        // only a plugin that takes files has references to check: to any
-        // other, `$attachment` is just data
-        if rules.is_some() {
-            for (at, name) in references(payload) {
-                match name.as_str() {
-                    Some(name) if map.contains_key(name) => {}
-                    Some(name) => violations.push(Violation::new(
-                        at,
-                        format!("no attachment \"{name}\" on this review"),
-                    )),
-                    None => violations.push(Violation::new(
-                        format!("{at}/$attachment"),
-                        "must be the name of an attachment on this review",
-                    )),
-                }
-            }
-        }
-        if violations.is_empty() {
-            Ok(attachments)
-        } else {
-            Err(Error::Invalid(violations))
-        }
+        Ok(attachments)
     }
 
     /// Deletes blobs no review names that were stored before `before`: what

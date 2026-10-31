@@ -8,6 +8,7 @@ use serde_json::{Map, Value, json};
 
 use super::Db;
 use super::events::insert_event;
+use crate::attachments::ReviewAttachment;
 use crate::reviews::parse_datetime;
 
 /// One session, with what its questions and reviews hold and wait for.
@@ -77,17 +78,27 @@ pub struct StatusRow {
     /// in a session's thread, the review the status came after, which the
     /// times, in whole seconds, do not always tell
     pub after: Option<String>,
+    /// the files a note carries, by name
+    pub attachments: Vec<ReviewAttachment>,
 }
 
 impl StatusRow {
     pub fn to_json(&self) -> Value {
-        json!({
+        let mut json = json!({
             "id": self.id,
             "text": self.text,
             "kind": self.kind.as_str(),
             "at": crate::reviews::iso(self.at),
             "after": self.after,
-        })
+        });
+        if self.kind == StatusKind::Note {
+            json["attachments"] = self
+                .attachments
+                .iter()
+                .map(|a| json!({ "name": a.name, "size": a.size, "media_type": a.media_type }))
+                .collect();
+        }
+        json
     }
 }
 
@@ -332,8 +343,9 @@ impl Db {
     }
 
     /// Records what the agent says it is doing, creating its session if it
-    /// sent nothing before, with the event that announces it. Returns the
-    /// status and the event's id.
+    /// sent nothing before, with the files a note carries and the event that
+    /// announces it. Returns the status and the event's id, or the name of a
+    /// file whose blob is gone.
     pub fn add_status(
         &self,
         agent: &str,
@@ -341,7 +353,8 @@ impl Db {
         text: &str,
         kind: StatusKind,
         origin: &Map<String, Value>,
-    ) -> rusqlite::Result<(StatusRow, i64)> {
+        attachments: &[ReviewAttachment],
+    ) -> rusqlite::Result<Result<(StatusRow, i64), String>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let now = Utc::now();
@@ -351,12 +364,39 @@ impl Db {
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![agent, id, text, kind.as_str(), crate::reviews::iso(now)],
         )?;
+        let status_id = tx.last_insert_rowid();
+        for attachment in attachments {
+            let inserted = tx.execute(
+                "INSERT INTO status_attachments (status_id, name, sha256, size, media_type)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    status_id,
+                    attachment.name,
+                    attachment.sha256,
+                    attachment.size as i64,
+                    attachment.media_type
+                ],
+            );
+            // the only foreign key a new note's files can miss is the stored
+            // file itself, swept since it was checked
+            match inserted {
+                Err(rusqlite::Error::SqliteFailure(error, _))
+                    if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY =>
+                {
+                    return Ok(Err(attachment.name.clone()));
+                }
+                inserted => {
+                    inserted?;
+                }
+            }
+        }
         let status = StatusRow {
-            id: tx.last_insert_rowid(),
+            id: status_id,
             text: text.to_string(),
             kind,
             at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
             after: None,
+            attachments: attachments.to_vec(),
         };
         let event_id = insert_event(
             &tx,
@@ -366,7 +406,7 @@ impl Db {
             &status_notice(agent, id, &status),
         )?;
         tx.commit()?;
-        Ok((status, event_id))
+        Ok(Ok((status, event_id)))
     }
 
     /// The stages agents started in any session whose names hold every
@@ -438,10 +478,35 @@ impl Db {
                     kind: kind_of(row.get::<_, String>(2)?),
                     at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
                     after: row.get(4)?,
+                    attachments: Vec::new(),
                 })
             },
         )?;
-        rows.collect()
+        let mut statuses: Vec<StatusRow> = rows.collect::<rusqlite::Result<_>>()?;
+        // the files of the session's notes, by name
+        let mut stmt = conn.prepare(
+            "SELECT a.status_id, a.name, a.sha256, a.size, a.media_type FROM status_attachments a
+             JOIN session_statuses t ON t.id = a.status_id
+             WHERE t.agent = ?1 AND t.session = ?2 ORDER BY a.status_id, a.name",
+        )?;
+        let files = stmt.query_map(params![agent, id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                ReviewAttachment {
+                    name: row.get(1)?,
+                    sha256: row.get(2)?,
+                    size: row.get::<_, i64>(3)? as u64,
+                    media_type: row.get(4)?,
+                },
+            ))
+        })?;
+        for file in files {
+            let (status_id, attachment) = file?;
+            if let Some(status) = statuses.iter_mut().find(|s| s.id == status_id) {
+                status.attachments.push(attachment);
+            }
+        }
+        Ok(statuses)
     }
 
     /// Deletes the sessions with no review left and no activity since
@@ -517,6 +582,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
             kind: kind_of(row.get::<_, String>(13)?),
             at: time(14)?,
             after: None,
+            attachments: Vec::new(),
         }),
         None => None,
     };

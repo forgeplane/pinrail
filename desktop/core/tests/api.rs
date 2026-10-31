@@ -3986,3 +3986,199 @@ async fn a_decision_a_discard_and_a_withdrawal_record_where_they_came_from() {
         assert_eq!(event["actor"], by);
     }
 }
+
+/// A GET of an attachment's bytes, with its status.
+async fn get_bytes(app: &App, path: &str) -> (StatusCode, Vec<u8>) {
+    let request = Request::get(path)
+        .header("host", "127.0.0.1:4747")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    (status, body.to_vec())
+}
+
+/// Sends a note in a session, with its files, and answers its status id.
+async fn note(app: &App, session: &str, text: &str, attachments: Value) -> (StatusCode, Value) {
+    let body = json!({ "kind": "note", "text": text, "attachments": attachments });
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/status"),
+        Some(body),
+    )
+    .await
+}
+
+/// The id of the newest status in a session's thread, and the thread.
+async fn newest_status(app: &App, session: &str) -> (i64, Value) {
+    let (_, thread) = call(
+        app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    let newest = thread["statuses"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    (newest["id"].as_i64().unwrap(), newest)
+}
+
+#[tokio::test]
+async fn a_note_carries_its_files_and_serves_them() {
+    let app = app();
+    let chart = upload(&app, b"a png chart").await;
+    let log = upload(&app, b"the test log").await;
+    let (code, sent) = note(
+        &app,
+        "s-1",
+        "Latency fell:\n\n![p95](attachment:chart.png)\n\nThe output: [log](attachment:run.log).",
+        json!({
+            "chart.png": { "sha256": chart, "size": 11, "media_type": "image/png" },
+            "run.log": { "sha256": log, "size": 12, "media_type": "text/plain" },
+        }),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT, "{sent}");
+
+    let (id, status) = newest_status(&app, "s-1").await;
+    assert_eq!(
+        status["attachments"],
+        json!([
+            { "name": "chart.png", "size": 11, "media_type": "image/png" },
+            { "name": "run.log", "size": 12, "media_type": "text/plain" },
+        ])
+    );
+    let path = format!("/api/v1/sessions/claude-code/s-1/statuses/{id}/attachments/run.log");
+    assert_eq!(
+        get_bytes(&app, &path).await,
+        (StatusCode::OK, b"the test log".to_vec())
+    );
+    // only the names this note carries
+    let path = format!("/api/v1/sessions/claude-code/s-1/statuses/{id}/attachments/other.log");
+    assert_eq!(get_bytes(&app, &path).await.0, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_note_refuses_files_it_cannot_carry() {
+    let app = app();
+    let chart = upload(&app, b"a png chart").await;
+    let file = |sha: &str| json!({ "sha256": sha, "size": 11, "media_type": "image/png" });
+    let missing = sha256(b"never uploaded");
+    let eleven: serde_json::Map<String, Value> = (0..11)
+        .map(|i| (format!("{i}.png"), file(&chart)))
+        .collect();
+    for (text, attachments) in [
+        // not uploaded
+        (
+            "A chart.",
+            json!({ "chart.png": { "sha256": missing, "size": 14 } }),
+        ),
+        // a reference to a file the note does not carry
+        (
+            "![p95](attachment:other.png)",
+            json!({ "chart.png": file(&chart) }),
+        ),
+        // more than ten
+        ("Charts.", Value::Object(eleven)),
+    ] {
+        let (code, refused) = note(&app, "s-1", text, attachments).await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{text} {refused}");
+    }
+    // a step is one line, and carries nothing
+    let body = json!({ "text": "Charting", "attachments": { "chart.png": file(&chart) } });
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(body),
+    )
+    .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+/// A file a review and a note both carry, the review's from the `files`
+/// plugin, in no session.
+async fn shared_file(app: &App, root: &Path, session: &str) -> (String, String, i64) {
+    files_plugin(app, root, json!({ "accept": ["image/*"] })).await;
+    let hash = upload(app, b"a shared chart").await;
+    let file = json!({ "sha256": hash, "size": 14, "media_type": "image/png" });
+    let body = with_files(
+        json!({ "files": [{ "$attachment": "chart.png" }] }),
+        json!({ "chart.png": file }),
+    );
+    let (code, review) = call(app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(code, StatusCode::CREATED, "{review}");
+    let (code, sent) = note(app, session, "The chart.", json!({ "chart.png": file })).await;
+    assert_eq!(code, StatusCode::NO_CONTENT, "{sent}");
+    let (id, _) = newest_status(app, session).await;
+    (hash, review["id"].as_str().unwrap().to_string(), id)
+}
+
+#[tokio::test]
+async fn a_file_a_note_carries_outlives_the_review_that_shared_it() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let (hash, review, status) = shared_file(&app, scratch.path(), "s-kept").await;
+    // a question waiting keeps the note's session through the sweep
+    let ask = json!({
+        "kind": "question", "title": "Ship it?", "requested_by": "claude-code", "session": "s-kept",
+        "payload": { "questions": [{ "id": "q1", "question": "Ship it?", "answer": "yes-no" }] }
+    });
+    call(&app, "POST", "/api/v1/reviews", Some(ask)).await;
+
+    call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{review}/withdraw"),
+        None,
+    )
+    .await;
+    let later = chrono::Utc::now() + chrono::Duration::hours(2);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    assert!(db(&app).get_review(&review).unwrap().is_none());
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 0);
+    let path =
+        format!("/api/v1/sessions/claude-code/s-kept/statuses/{status}/attachments/chart.png");
+    assert_eq!(
+        get_bytes(&app, &path).await,
+        (StatusCode::OK, b"a shared chart".to_vec())
+    );
+    assert!(app.state.attachments().stored(&hash).unwrap().is_some());
+}
+
+#[tokio::test]
+async fn a_file_a_review_carries_outlives_the_session_that_shared_it() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let (hash, review, _) = shared_file(&app, scratch.path(), "s-idle").await;
+
+    // the session has only its note, so the sweep deletes it
+    let later = chrono::Utc::now() + chrono::Duration::hours(2);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    let (code, _) = call(&app, "GET", "/api/v1/sessions/claude-code/s-idle", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 0);
+    let path = format!("/api/v1/reviews/{review}/attachments/chart.png");
+    assert_eq!(
+        get_bytes(&app, &path).await,
+        (StatusCode::OK, b"a shared chart".to_vec())
+    );
+
+    // once nothing carries it, it goes
+    call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{review}/withdraw"),
+        None,
+    )
+    .await;
+    app.state.reviews().sweep_history_before(later).unwrap();
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 1);
+    assert!(app.state.attachments().stored(&hash).unwrap().is_none());
+}

@@ -60,6 +60,7 @@ impl Db {
             "DELETE FROM blobs
              WHERE created_at < ?1
                AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = blobs.sha256)
+               AND NOT EXISTS (SELECT 1 FROM status_attachments a WHERE a.sha256 = blobs.sha256)
              RETURNING sha256",
         )?
         .query_map(

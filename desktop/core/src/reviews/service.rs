@@ -324,6 +324,7 @@ impl Reviews {
         text: &str,
         kind: StatusKind,
         origin: Option<&Value>,
+        attachments: Option<&Value>,
     ) -> Result<StatusRow, Error> {
         let text = text.trim();
         if agent.trim().is_empty() || session.trim().is_empty() {
@@ -352,8 +353,28 @@ impl Reviews {
             }
             _ => {}
         }
+        // only a note carries files
+        let attachments = if note {
+            self.attachments.check_note(attachments, text)?
+        } else if attachments.is_some_and(|a| !a.is_null()) {
+            return Err(Error::invalid("attachments", "only a note carries files"));
+        } else {
+            Vec::new()
+        };
         let origin = Review::normalize_origin(origin);
-        let (status, event_id) = self.db.add_status(agent, session, text, kind, &origin)?;
+        let (status, event_id) =
+            match self
+                .db
+                .add_status(agent, session, text, kind, &origin, &attachments)?
+            {
+                Ok(added) => added,
+                Err(name) => {
+                    return Err(Error::invalid(
+                        "attachments",
+                        format!("{name} was deleted before the note was stored: upload it again"),
+                    ));
+                }
+            };
         self.bus.publish(Notice {
             event_id,
             kind: events::SESSION_STATUS.to_string(),
