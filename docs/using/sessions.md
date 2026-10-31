@@ -74,6 +74,14 @@ When the agent starts a stage of its work, the thread shows *Started* with the s
 
 The newest status also shows under the session's id on the Sessions page, and a session the agent finished shows *Finished* beside its title once nothing waits for you. A status sent after *Finished* shows the agent working again.
 
+## Notes
+
+An agent can also send a note: a message in Markdown that tells you something and asks nothing, such as a summary of a stage, a decision it took on its own, or what an investigation found. A note shows in the thread as a message under the agent's icon, with its headings, lists, tables, links and code. Code in a language the note names, such as `rust`, is highlighted. A long note is folded: click *Show more* to read it all.
+
+A note can carry files, such as a chart, a screenshot or a log. An image the note refers to shows in place, and every file is listed at the bottom of the note with its size. Click the save button beside a file, or a link to it in the note, to save a copy where you choose.
+
+A note is information only. It does not wait in the inbox, and it is not the latest status that the Sessions page and the sidebar show. A note after *Finished* leaves the session finished.
+
 Agents report their statuses when their Pinrail skill tells them to. To update the skill, choose *Update* next to each agent in *Settings › Agents*. See [Settings](/docs/using/settings/#agents), and [Reporting progress](/docs/agents/cli/#reporting-progress) for the command.
 
 ## Keys

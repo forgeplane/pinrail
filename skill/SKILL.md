@@ -20,6 +20,20 @@ If your shell does not find `pinrail`, stop and ask the person to install
 the Pinrail command line from the Pinrail app, in Settings › Data. Do not
 look for it elsewhere or install it yourself.
 
+## Which command to use
+
+- `pinrail ask`: you need a short answer before you can go on, such as a
+  choice, a fact or a preference. The question fits on one line.
+- `pinrail submit`: you made something the person should look at and
+  decide on, such as a change, a plan, a design or a list of findings.
+  The plugin shows the work, and the person approves, rejects or comments
+  on its parts.
+- `pinrail status --note`: you want the person to know something, and
+  need no answer.
+
+If the answer needs the person to look at your work first, submit it
+rather than describe it in a question.
+
 ## Asking questions
 
 When you are blocked on something only the person can answer, such as a
@@ -68,6 +82,23 @@ pinrail status --done "Opened pull request #214"
   review, such as a search. Waiting for a review is a step, not the end.
 - The text is one line of at most 200 characters.
 - The command does not wait. If it fails, carry on with your work.
+
+Send a note when the person would want to read it later in the session: a
+summary at the end of a stage, a decision you took without asking, or what
+an investigation found. A note is Markdown, and asks nothing:
+
+```sh
+pinrail status --note --file summary.md --attach latency.png --attach run.log
+pinrail status --note "Kept the old endpoint: the nightly job still calls it."
+```
+
+- Keep a note short: a few lines or a short list, not a report.
+- Do not send one for every step, and do not repeat what a review you
+  submit already shows.
+- `--attach` sends a file with the note, such as a chart, a screenshot or
+  a log. Show an image in place with `![p95 latency](attachment:latency.png)`.
+  Every file is also listed under the note.
+- A note is at most 10,000 characters, with at most 10 files.
 
 ## Submitting
 

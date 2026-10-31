@@ -129,6 +129,14 @@ The text is plain text of at most 200 characters, on one line. `--start` says th
 
 Start each stage of the work with `--start`, and report each step that takes more than a minute or so. Use `--done` once the person has approved the work and the agent has committed or delivered it, or when the stage ends with nothing to review, such as a search. Waiting for a review is a step, not the end. A status for every command would bury the questions and reviews that need the person.
 
+`--note` sends a note instead of a status: a message in Markdown of at most 10,000 characters, on as many lines as it needs, that tells the person something and asks nothing. Give it as the text, from a file with `--file`, or from stdin with `-`. `--attach` sends files with the note, at most 10, of up to 100 MB each and 200 MB in all. The note shows an image it refers to as `![…](attachment:NAME)` in place, and lists every file under it:
+
+```sh
+pinrail status --note --file summary.md --attach latency.png --attach out/run.txt=run.log
+```
+
+Send a note for what the person would want to read later in the session: a summary at the end of a stage, a decision taken without asking, or what an investigation found. A note never waits in the inbox, does not start or end a stage, and is not the session's latest status.
+
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
 ## Submitting a review
@@ -274,7 +282,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | Command | What it does |
 |---|---|
 | `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
-| `pinrail status <text>` | Say what the agent is doing in its session's thread: `--start` for a new stage of work, which names the session, and `--done` when it has finished. See [Reporting progress](#reporting-progress). |
+| `pinrail status <text>` | Say what the agent is doing in its session's thread: `--start` for a new stage of work, which names the session, `--done` when it has finished, and `--note` for a message in Markdown, with files. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
