@@ -7,7 +7,7 @@ The inbox is where your agents' reviews wait. When you open a review, its plugin
 
 Questions an agent asks with `pinrail ask` wait in the inbox too, marked with a question icon and *asks you*. They open in the thread of the agent's session. See [Questions and sessions](/docs/using/sessions/).
 
-![The inbox: eleven pending reviews grouped by project, each with counts of what it asks, and the projects with their sessions in the sidebar.](screenshot:inbox "Eleven reviews waiting, across eight projects.")
+![The inbox: eleven pending reviews grouped by project, each with counts of what it asks, and the repositories with their sessions in the sidebar.](screenshot:inbox "Eleven reviews waiting, across eight projects.")
 
 ## The inbox
 
@@ -19,7 +19,7 @@ The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a co
 
 The filters above the tabs apply to every tab, and keep their values when you switch tabs.
 
-- **Filter by project or plugin.** The sidebar lists your projects. Click one, or choose a project or a plugin from the menus above the list, to see only those reviews.
+- **Filter by project or plugin.** The sidebar lists your repositories. Click one, or choose a project or a plugin from the menus above the list, to see only those reviews.
 - **Show the starred reviews.** Turn on the star filter beside the menus. See [Stars](#stars).
 - **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched.
 - **Jump to what waits.** The sidebar lists what waits under the session that sent it, one click away on every screen. See [Sessions in the sidebar](/docs/using/sessions/#sessions-in-the-sidebar). <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting, oldest first.

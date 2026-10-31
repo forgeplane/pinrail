@@ -47,9 +47,9 @@ To archive a session you are done with, click the archive button at the end of i
 
 ## Sessions in the sidebar
 
-The sidebar lists every session that is not archived, under its project. Click a project's name to see its reviews in the inbox, and click the arrow beside it to collapse or expand it. Click a session to open its thread.
+The sidebar lists every session that is not archived, under its repository, in the *Repositories* section. Click a repository's name to see its reviews in the inbox, and click the arrow beside it to collapse or expand it. Click a session to open its thread.
 
-The agent's icon shows what the session is doing. A pulsing blue dot means the agent reported a status in the last five minutes. A green check means its last status said it had finished. An amber count at the end of the row says how many questions and reviews wait in the session, and they are listed under it, each opening where you answer or decide it. A review that came from no session is listed under its project. Hover over a session to see its latest status, the agent and the branch.
+The agent's icon shows what the session is doing. A pulsing blue dot means the agent reported a status in the last five minutes. A green check means its last status said it had finished. An amber count at the end of the row says how many questions and reviews wait in the session, and they are listed under it, each opening where you answer or decide it. A review that came from no session is listed under its repository. Hover over a session to see its latest status, the agent and the branch.
 
 The button at the right of the section's heading opens a menu:
 

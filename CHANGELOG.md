@@ -22,7 +22,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A Sessions page lists the agent sessions that asked you questions or
   sent reviews, those waiting for you first.
 - The sidebar lists every session that is not archived under its
-  project, with what waits under the session that sent it. A mark on the
+  repository, with what waits under the session that sent it. A mark on the
   agent's icon shows a session that works or has finished, and a menu
   groups, orders and filters the sessions.
 - Drag the sidebar's edge to resize it. Pinrail remembers the width.
