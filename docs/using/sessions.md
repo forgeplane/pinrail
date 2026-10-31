@@ -55,7 +55,7 @@ The button at the right of the section's heading opens a menu:
 
 - **Grouping** groups the sessions by repository, by status, by when they were last updated, or not at all. The heading takes the grouping's name.
 - **Ordering** lists what waits first, then the working, quiet and finished sessions, or the most recently updated first.
-- **Show details** adds a second line under each session. **Details** chooses what it shows: the last activity, the latest status, the branch and the agent.
+- **Show details** adds a second line under each session. **Details** chooses what it shows: the last activity, the latest status, the repository, the branch and the agent. The repository is not shown while the sessions are grouped by repository, because each group already names it.
 - **Show reviews** lists what waits under its session, or only counts it.
 - **Filters** list only some agents, repositories or states, or add the archived sessions. **Reset** clears them.
 - **Collapse all groups** collapses every group, and **Expand all groups** opens them again.
