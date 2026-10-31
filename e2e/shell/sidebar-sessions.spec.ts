@@ -143,6 +143,8 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   // grouping by status names the heading after it, and survives a reload
   let menu = await openMenu(page);
   await menu.getByRole("menuitem", { name: /Grouping/ }).click();
+  // each grouping has its icon
+  await expect(menu.getByRole("menuitemradio").locator(".menu-icon")).toHaveCount(4);
   await menu.getByRole("menuitemradio", { name: "Status" }).click();
   await expect(heading).toHaveText("Status");
   await expect(group(page, "Waiting for you")).toBeVisible();

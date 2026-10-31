@@ -679,6 +679,10 @@ h1 {
   white-space: nowrap;
   color: var(--faint);
 }
+.menu-icon {
+  flex: none;
+  color: var(--dim);
+}
 .menu-chevron {
   flex: none;
   color: var(--faint);

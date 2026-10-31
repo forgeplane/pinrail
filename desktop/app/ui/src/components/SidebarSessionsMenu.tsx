@@ -3,7 +3,7 @@
 // the right on hover or click. The menu is drawn at the end of the body, so
 // the sidebar's scrolling cannot clip it.
 
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, CircleDot, Clock, FolderGit2, List, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -26,6 +26,13 @@ const ORDERINGS: [Ordering, string][] = [
   ["status", "Status"],
   ["updated", "Updated"],
 ];
+/** The icon of each grouping and ordering, by its value. */
+const ICONS: Record<Grouping, LucideIcon> = {
+  repository: FolderGit2,
+  status: CircleDot,
+  updated: Clock,
+  none: List,
+};
 const DETAILS: [Detail, string][] = [
   ["activity", "Last activity"],
   ["status", "Latest status"],
@@ -38,7 +45,14 @@ const STATES: [State, string][] = [
   ["done", "Done"],
 ];
 
-type Option = { value: string; label: string; checked: boolean; onPick: () => void; radio?: boolean };
+type Option = {
+  value: string;
+  label: string;
+  checked: boolean;
+  onPick: () => void;
+  radio?: boolean;
+  icon?: LucideIcon;
+};
 
 /** A list of strings with one value turned on or off. */
 const toggled = <T extends string>(list: T[], value: T) =>
@@ -95,7 +109,14 @@ export function SidebarSessionsMenu({
   }, [anchor, onClose]);
 
   const radios = <T extends string>(list: [T, string][], value: T, pick: (v: T) => void): Option[] =>
-    list.map(([v, label]) => ({ value: v, label, checked: v === value, onPick: () => pick(v), radio: true }));
+    list.map(([v, label]) => ({
+      value: v,
+      label,
+      checked: v === value,
+      onPick: () => pick(v),
+      radio: true,
+      icon: ICONS[v as Grouping],
+    }));
   const checks = <T extends string>(list: [T, string][], values: T[], pick: (v: T) => void): Option[] =>
     list.map(([v, label]) => ({ value: v, label, checked: values.includes(v), onPick: () => pick(v) }));
   const named = (values: string[], all: string) => (values.length ? values.join(", ") : all);
@@ -128,6 +149,7 @@ export function SidebarSessionsMenu({
               className="menu-item"
               onClick={o.onPick}
             >
+              {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
               <span className="menu-label">{o.label}</span>
               {o.checked ? <Check size={13} className="menu-check" /> : null}
             </button>
