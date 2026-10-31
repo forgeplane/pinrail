@@ -250,7 +250,7 @@ pub fn media_type(name: &str) -> &'static str {
         "flac" => "audio/flac",
         "json" => "application/json",
         "csv" => "text/csv",
-        "txt" | "md" => "text/plain",
+        "txt" | "md" | "log" => "text/plain",
         "html" | "htm" => "text/html",
         "zip" => "application/zip",
         _ => "application/octet-stream",
