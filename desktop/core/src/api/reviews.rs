@@ -493,6 +493,7 @@ fn session_json(session: &SessionRow) -> Value {
         "status": session.status.as_ref().map(|s| s.to_json()),
         "title": session.title,
         "archived_at": session.archived_at.map(crate::reviews::iso),
+        "reported_at": session.reported_at.map(crate::reviews::iso),
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
@@ -585,8 +586,9 @@ async fn session(
 
 /// What the agent says it is doing in the session, with `pinrail status`:
 /// `text`, one line, and its `kind`: `step`, the default, `start` for the
-/// start of a task, which names it, or `done` once it has finished; with
-/// the `origin` it works in. Answers 204.
+/// start of a task, which names it, `done` once it has finished, or `note`
+/// for a Markdown message, whose text may span lines; with the `origin` it
+/// works in. Answers 204.
 async fn status(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
@@ -596,7 +598,7 @@ async fn status(
     let kind = match body.get("kind").and_then(Value::as_str) {
         None => StatusKind::Step,
         Some(kind) => StatusKind::parse(kind)
-            .ok_or_else(|| Error::invalid("kind", "must be step, start or done"))?,
+            .ok_or_else(|| Error::invalid("kind", "must be step, start, done or note"))?,
     };
     state
         .reviews()

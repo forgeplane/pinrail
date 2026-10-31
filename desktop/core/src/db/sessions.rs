@@ -31,15 +31,19 @@ pub struct SessionRow {
     pub title: Option<String>,
     /// when the person archived the session, if they did
     pub archived_at: Option<DateTime<Utc>>,
+    /// when the agent last reported anything, a note included
+    pub reported_at: Option<DateTime<Utc>>,
 }
 
 /// What a status says: a step of the agent's work, the start of a task,
-/// which names it, or the end of the agent's work.
+/// which names it, the end of the agent's work, or a note, a Markdown
+/// message that only informs the person.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusKind {
     Step,
     Start,
     Done,
+    Note,
 }
 
 impl StatusKind {
@@ -48,6 +52,7 @@ impl StatusKind {
             StatusKind::Step => "step",
             StatusKind::Start => "start",
             StatusKind::Done => "done",
+            StatusKind::Note => "note",
         }
     }
 
@@ -56,6 +61,7 @@ impl StatusKind {
             "step" => Some(StatusKind::Step),
             "start" => Some(StatusKind::Start),
             "done" => Some(StatusKind::Done),
+            "note" => Some(StatusKind::Note),
             _ => None,
         }
     }
@@ -86,9 +92,13 @@ impl StatusRow {
 }
 
 /// The session and its new status, as a `session_status` notice carries
-/// them.
+/// them. A note's Markdown is left out: the thread reads it.
 pub fn status_notice(agent: &str, id: &str, status: &StatusRow) -> Value {
-    json!({ "agent": agent, "id": id, "status": status.to_json() })
+    let mut status = status.to_json();
+    if status["kind"] == "note" {
+        status["text"] = json!("");
+    }
+    json!({ "agent": agent, "id": id, "status": status })
 }
 
 /// A stage an agent started, as a search finds it: the start status and
@@ -454,10 +464,12 @@ const WAITING: &str = "(waiting_questions + waiting_reviews)";
 fn select() -> String {
     let pending = "(r.id IS NOT NULL AND o.review_id IS NULL \
                    AND (r.expires_at IS NULL OR r.expires_at > ?1))";
+    // the latest status is the newest that is not a note
     let status = |column: &str| {
         format!(
             "(SELECT t.{column} FROM session_statuses t \
-             WHERE t.agent = s.agent AND t.session = s.id ORDER BY t.id DESC LIMIT 1)"
+             WHERE t.agent = s.agent AND t.session = s.id AND t.kind <> 'note' \
+             ORDER BY t.id DESC LIMIT 1)"
         )
     };
     format!(
@@ -468,7 +480,9 @@ fn select() -> String {
     COALESCE(SUM(r.kind = 'review' AND {pending}), 0) AS waiting_reviews,
     {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,
     {title} AS title,
-    s.archived_at
+    s.archived_at,
+    (SELECT MAX(t.created_at) FROM session_statuses t
+     WHERE t.agent = s.agent AND t.session = s.id) AS reported_at
   FROM sessions s
   LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
   LEFT JOIN outcomes o ON o.review_id = r.id",
@@ -486,7 +500,7 @@ fn title() -> &'static str {
      WHERE t.agent = s.agent AND t.session = s.id AND t.kind = 'start' ORDER BY t.id DESC LIMIT 1)"
 }
 
-/// A stored kind, which the table's check keeps to the three.
+/// A stored kind, which the core checks before it writes one.
 fn kind_of(text: String) -> StatusKind {
     StatusKind::parse(&text).unwrap_or(StatusKind::Step)
 }
@@ -522,6 +536,9 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         title: row.get(15)?,
         archived_at: row
             .get::<_, Option<String>>(16)?
+            .and_then(|s| parse_datetime(&s)),
+        reported_at: row
+            .get::<_, Option<String>>(17)?
             .and_then(|s| parse_datetime(&s)),
     })
 }

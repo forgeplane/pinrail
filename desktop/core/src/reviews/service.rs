@@ -26,6 +26,8 @@ use crate::plugins::{Plugin, Registry};
 const DEFAULT_LIMIT: usize = 100;
 /// The longest status an agent can report, in characters.
 const STATUS_MAX: usize = 200;
+/// The longest note, in characters.
+const NOTE_MAX: usize = 10_000;
 
 /// One page of a listing; see `Reviews::listing`.
 #[derive(Debug)]
@@ -312,8 +314,9 @@ impl Reviews {
     }
 
     /// Records what the agent says it is doing in its session: one line of
-    /// text, which may be empty only when the agent says it has finished.
-    /// The start of a task names it, and so the session.
+    /// text, which may be empty only when the agent says it has finished,
+    /// or a note, Markdown of several lines. The start of a task names it,
+    /// and so the session.
     pub fn status(
         &self,
         agent: &str,
@@ -326,16 +329,21 @@ impl Reviews {
         if agent.trim().is_empty() || session.trim().is_empty() {
             return Err(Error::invalid("session", "name the agent and the session"));
         }
-        if text.contains(['\n', '\r']) {
+        let note = kind == StatusKind::Note;
+        if !note && text.contains(['\n', '\r']) {
             return Err(Error::invalid("text", "must be one line"));
         }
-        if text.chars().count() > STATUS_MAX {
+        let max = if note { NOTE_MAX } else { STATUS_MAX };
+        if text.chars().count() > max {
             return Err(Error::invalid(
                 "text",
-                format!("must be at most {STATUS_MAX} characters"),
+                format!("must be at most {max} characters"),
             ));
         }
         match kind {
+            StatusKind::Note if text.is_empty() => {
+                return Err(Error::invalid("text", "write the note"));
+            }
             StatusKind::Step if text.is_empty() => {
                 return Err(Error::invalid("text", "say what the agent is doing"));
             }

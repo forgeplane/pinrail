@@ -542,3 +542,96 @@ async fn archiving_is_announced_with_its_session() {
     );
     assert_eq!(notices.recv().await.unwrap().kind, "session_unarchived");
 }
+
+#[tokio::test]
+async fn a_note_is_kept_with_its_markdown_and_is_not_the_latest_status() {
+    let app = app();
+    let markdown = "## What changed\n\n- the limits\n- their docs";
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Add rate limiting", "kind": "start"}),
+    )
+    .await;
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Running the tests"}),
+    )
+    .await;
+    let (code, _) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": markdown, "kind": "note"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let last = thread["statuses"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(last["kind"], "note");
+    assert_eq!(last["text"], markdown);
+    // the latest status is still the step, and the note is the newest report
+    assert_eq!(thread["session"]["status"]["text"], "Running the tests");
+    assert_eq!(thread["session"]["reported_at"], last["at"]);
+    assert_eq!(thread["session"]["title"], "Add rate limiting");
+
+    // a note after the end leaves the session finished
+    status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Pushed the fix.", "kind": "note"}),
+    )
+    .await;
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listing["sessions"][0]["status"]["kind"], "done");
+}
+
+#[tokio::test]
+async fn a_note_is_markdown_of_at_most_ten_thousand_characters() {
+    let app = app();
+    for text in ["", "  \n ", &"x".repeat(10_001)] {
+        let body = json!({"text": text, "kind": "note"});
+        let (code, refused) = status(&app, "claude-code", "s-1", body).await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    }
+    let long = format!("# Summary\n\n{}", "é".repeat(9_989));
+    assert_eq!(long.chars().count(), 10_000);
+    let (code, _) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": long, "kind": "note"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn a_note_is_announced_without_its_markdown() {
+    let app = app();
+    let mut notices = app.state.events().subscribe();
+    status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "A long summary", "kind": "note"}),
+    )
+    .await;
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_status");
+    let session = notice.session.unwrap();
+    assert_eq!(session["status"]["kind"], "note");
+    // the thread reads it when the notice says there is one
+    assert_eq!(session["status"]["text"], "");
+}
