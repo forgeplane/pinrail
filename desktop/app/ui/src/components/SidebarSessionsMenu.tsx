@@ -36,6 +36,7 @@ const ICONS: Record<Grouping, LucideIcon> = {
 const DETAILS: [Detail, string][] = [
   ["activity", "Last activity"],
   ["status", "Latest status"],
+  ["repo", "Repository"],
   ["branch", "Branch"],
   ["agent", "Agent"],
 ];
@@ -52,6 +53,8 @@ type Option = {
   onPick: () => void;
   radio?: boolean;
   icon?: LucideIcon;
+  /** why the option does not apply now, when it does not */
+  disabled?: string;
 };
 
 /** A list of strings with one value turned on or off. */
@@ -147,6 +150,8 @@ export function SidebarSessionsMenu({
               role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
               aria-checked={o.checked}
               className="menu-item"
+              disabled={!!o.disabled}
+              title={o.disabled}
               onClick={o.onPick}
             >
               {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
@@ -200,7 +205,12 @@ export function SidebarSessionsMenu({
         "details",
         "Details",
         "",
-        checks(DETAILS, choices.details, (d) => onChange({ details: toggled(choices.details, d) })),
+        checks(DETAILS, choices.details, (d) => onChange({ details: toggled(choices.details, d) })).map((o) =>
+          // the group names the repository already
+          o.value === "repo" && choices.grouping === "repository"
+            ? { ...o, disabled: "The groups name the repository" }
+            : o,
+        ),
       )}
       {toggle("Show reviews", choices.show_reviews, () => onChange({ show_reviews: !choices.show_reviews }))}
       <hr className="menu-separator" />

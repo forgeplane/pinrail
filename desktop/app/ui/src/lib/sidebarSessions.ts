@@ -13,7 +13,9 @@ export type Ordering = "status" | "updated";
 /** What a session's icon shows: working, finished, or neither. */
 export type State = "working" | "quiet" | "done";
 /** The details a session's second line can show. */
-export type Detail = "activity" | "status" | "branch" | "agent";
+export type Detail = "activity" | "status" | "repo" | "branch" | "agent";
+/** The details in the order the line shows them, whatever order they were chosen in. */
+export const DETAILS: Detail[] = ["activity", "status", "repo", "branch", "agent"];
 
 export type Choices = {
   grouping: Grouping;

@@ -501,21 +501,25 @@ h1 {
 .sidebar-session-details > * {
   flex: none;
 }
+.sidebar-session-details > .sidebar-session-repo,
 .sidebar-session-details > .sidebar-session-branch,
 .sidebar-session-details > .sidebar-session-text-part {
   flex: 0 1 auto;
   min-width: 0;
 }
+.sidebar-session-repo,
 .sidebar-session-branch {
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
+.sidebar-session-repo-name,
 .sidebar-session-branch-name,
 .sidebar-session-text-part {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sidebar-session-repo svg,
 .sidebar-session-branch svg {
   flex: none;
 }
@@ -665,6 +669,11 @@ h1 {
 .menu-item:focus-visible {
   background: var(--bg-hover);
   outline: none;
+}
+.menu-item:disabled {
+  color: var(--faint);
+  background: none;
+  cursor: default;
 }
 .menu-label {
   overflow: hidden;

@@ -105,7 +105,7 @@ const LEAVES: &[Leaf] = &[
         "/sidebar/sessions/details",
         Kind::TextList,
         || json!(["activity", "status"]),
-        "The details on a session's second line: `activity`, `status`, `branch` and `agent`.",
+        "The details on a session's second line: `activity`, `status`, `repo`, `branch` and `agent`.",
     ),
     (
         "/sidebar/sessions/show_reviews",

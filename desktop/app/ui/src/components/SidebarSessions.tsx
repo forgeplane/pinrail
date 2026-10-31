@@ -11,7 +11,7 @@ import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { fromSession } from "../lib/sessions";
-import { type Choices, type Group, type Row, HEADINGS, arrange } from "../lib/sidebarSessions";
+import { type Choices, type Group, type Row, DETAILS, HEADINGS, arrange } from "../lib/sidebarSessions";
 import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -108,9 +108,11 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
 
   const sessionRow = (row: Row) => {
     const s = row.session;
-    // the chosen details, each a part of the line; the branch with its icon
+    // the chosen details, each a part of the line; the repository and the
+    // branch with their icons, and the repository only when the groups do
+    // not name it
     const details: { key: string; part: ReactNode }[] = choices.show_details
-      ? choices.details.flatMap((d) => {
+      ? DETAILS.filter((d) => choices.details.includes(d)).flatMap((d) => {
           const part =
             d === "activity" ? (
               `${age(s.last_at, now)} ago`
@@ -118,6 +120,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
               s.status?.kind === "step" ? (
                 <span className="sidebar-session-text-part">{s.status.text}</span>
               ) : null
+            ) : d === "repo" ? (
+              choices.grouping !== "repository" &&
+              s.repo && (
+                <span className="sidebar-session-repo">
+                  <FolderGit2 size={10} aria-hidden />
+                  <span className="sidebar-session-repo-name">{s.repo}</span>
+                </span>
+              )
             ) : d === "branch" ? (
               s.ref && (
                 <span className="sidebar-session-branch">

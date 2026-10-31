@@ -253,3 +253,33 @@ test("a long branch in a session's details shortens, and keeps its icon and its 
   await expect(name).toHaveText(ref);
   expect((await name.boundingBox())?.width ?? 0).toBeGreaterThan(30);
 });
+
+test("a session's details can show its repository, except when grouped by repository", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const session = `repo-${run}`;
+  await report(page.request, "claude-code", session, {
+    text: "Show the repository",
+    kind: "start",
+    origin: { repo, ref: "main" },
+  });
+  await setChoices(page.request, { grouping: "status", show_details: true, details: ["activity", "repo"] });
+  await page.goto("/#/");
+  const shown = sessionRow(page, "claude-code", session).locator(".sidebar-session-repo");
+  await expect(shown).toHaveText(repo);
+  await expect(shown.locator("svg")).toBeVisible();
+  // the repository comes before the branch, whichever was chosen first
+  await setChoices(page.request, { details: ["branch", "repo"] });
+  await page.reload();
+  const parts = sessionRow(page, "claude-code", session).locator(".sidebar-session-details > :not([aria-hidden])");
+  await expect(parts).toHaveText([repo, "main"]);
+
+  // grouped by repository, the group names it already
+  const menu = await openMenu(page);
+  await menu.getByRole("menuitem", { name: /Grouping/ }).click();
+  await menu.getByRole("menuitemradio", { name: "Repository" }).click();
+  await expect(shown).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: /Details/ }).click();
+  await expect(menu.getByRole("menuitemcheckbox", { name: /Repository/ })).toBeDisabled();
+});
