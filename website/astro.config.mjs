@@ -128,6 +128,7 @@ export default defineConfig({
             "docs/using/sessions",
             "docs/using/installing-plugins",
             "docs/using/settings",
+            "docs/using/themes",
             "docs/using/notifications",
           ],
         },

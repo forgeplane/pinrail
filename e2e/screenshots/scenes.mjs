@@ -887,6 +887,24 @@ export const scenes = [
       await shot("blog-plugins");
     },
   },
+  {
+    // each scheme shows a bundled theme, so the page shows what a theme does
+    name: "themes",
+    async run({ page, app, shot }) {
+      await app.api("PATCH", "/api/v1/settings", {
+        appearance: { dark_theme: "nord", light_theme: "solarized-light" },
+      });
+      await page.goto(`${app.ui}/#/`);
+      await page.getByTestId("inbox-group").first().waitFor();
+      await page.keyboard.press("Meta+,");
+      await settingsSection(page, "Appearance").click();
+      await settle(page, 500);
+      await shot("themes");
+      await app.api("PATCH", "/api/v1/settings", {
+        appearance: { dark_theme: "dark", light_theme: "light" },
+      });
+    },
+  },
   ...[
     ["general", "General"],
     ["plugins", "Plugins"],

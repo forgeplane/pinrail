@@ -37,7 +37,9 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 | Setting | What it does |
 |---|---|
-| **Theme** | *System*, *Dark* or *Light*. Plugin views follow it. <kbd>⌘⇧L</kbd> switches it from anywhere in the app. |
+| **Colour scheme** | *System*, *Dark* or *Light*. Plugin views follow it. <kbd>⌘⇧L</kbd> switches it from anywhere in the app. |
+| **Dark theme**, **Light theme** | The theme for each colour scheme. See [Themes](/docs/using/themes/). |
+| **Custom themes** | *Open folder* opens the folder of your own themes, and *New theme…* creates one from the current theme. Any error in a theme file shows here. |
 | **Text size** | *Small*, *Default* or *Large*. |
 
 ## Shortcuts
