@@ -355,8 +355,25 @@ export type SessionMessage = {
 export type LinkPermission = { source: string; origins: string[] };
 
 /** What /api/v1/settings returns; the shell reads the keys it applies. */
+/** A theme as the core lists it. A file with an `error` has no scheme and cannot be chosen. */
+export type ThemeEntry = {
+  id: string;
+  name: string;
+  scheme: "dark" | "light" | null;
+  source: "bundled" | "user";
+  shell: Record<string, string>;
+  plugin: Record<string, string>;
+  warnings: string[];
+  error: string | null;
+};
+
 export type ServerSettings = {
-  appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
+  appearance: {
+    theme: "system" | "dark" | "light";
+    dark_theme: string;
+    light_theme: string;
+    text_size: "small" | "default" | "large";
+  };
   sidebar: { open: boolean; sessions?: Partial<import("../lib/sidebarSessions").Choices & { collapsed: string[] }> };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;

@@ -271,6 +271,33 @@ fn open_plugin_skill(
         .map_err(|e| e.to_string())
 }
 
+/// Opens the folder of the person's themes in the system's file manager.
+#[tauri::command]
+fn open_themes_folder(app: AppHandle, native: State<'_, Native>) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let folder = native.state.config().themes_dir();
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// Opens one of the person's themes in the system's editor for JSON.
+#[tauri::command]
+fn open_theme_file(app: AppHandle, native: State<'_, Native>, id: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    if !pinrail_core::themes::valid_id(&id) {
+        return Err(format!("{id} is not a theme's id"));
+    }
+    let file = native
+        .state
+        .config()
+        .themes_dir()
+        .join(format!("{id}.json"));
+    app.opener()
+        .open_path(file.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 /// The skill as the app writes it now, for an agent the app does not know.
 #[tauri::command]
 async fn agent_skill(native: State<'_, Native>) -> Result<String, String> {
@@ -701,6 +728,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_url,
             open_plugin_skill,
+            open_themes_folder,
+            open_theme_file,
             send_feedback,
             take_pending_route,
             shortcut_state,

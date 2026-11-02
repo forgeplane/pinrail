@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
 // The shell owns the theme. The preference is dark, light or system (the
-// OS's choice, followed live); the resolved theme is stamped on the root
-// element so the stylesheet and the plugins follow it.
+// OS's choice, followed live); the resolved scheme is stamped on the root
+// element so the stylesheet and the plugins follow it. A custom theme for
+// each scheme is an overlay of CSS variables on the root element's style.
 
 export type Theme = "dark" | "light";
 export type ThemePreference = Theme | "system";
@@ -10,9 +11,18 @@ export type ThemePreference = Theme | "system";
 // the last appearance the core reported, for the first paint before the
 // server answers; the server's value wins as soon as it arrives
 const CACHE = "pinrail:appearance";
+const OVERLAYS_CACHE = "pinrail:theme-overlays";
 const media =
   typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 let following = false;
+
+/** The CSS variables of a custom theme; empty for a built-in one. */
+export type Overlay = { shell: Record<string, string>; plugin: Record<string, string> };
+export type Overlays = Record<Theme, Overlay>;
+
+const NO_OVERLAY: Overlay = { shell: {}, plugin: {} };
+let overlays: Overlays = { dark: NO_OVERLAY, light: NO_OVERLAY };
+let appliedVariables: string[] = [];
 
 export function currentTheme(): Theme {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";
@@ -43,7 +53,12 @@ export function cacheAppearance(appearance: Appearance) {
 const resolve = (pref: ThemePreference): Theme => (pref === "system" ? (media?.matches ? "light" : "dark") : pref);
 
 function apply(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  for (const name of appliedVariables) root.style.removeProperty(name);
+  const { shell } = overlays[theme];
+  for (const [name, value] of Object.entries(shell)) root.style.setProperty(name, value);
+  appliedVariables = Object.keys(shell);
   window.dispatchEvent(new Event("pinrail:appearance"));
 }
 
@@ -53,7 +68,25 @@ const onMediaChange = () => {
 
 /** The cached appearance, before the server answers. */
 export function applySavedTheme() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OVERLAYS_CACHE) ?? "null") as Overlays | null;
+    if (saved?.dark?.shell && saved.light?.shell) overlays = saved;
+  } catch {
+    // no cache: the built-in colours until the server answers
+  }
   setThemePreference(cachedAppearance().theme);
+}
+
+/** The themes chosen for the two schemes, as the server last listed them. */
+export function setThemeOverlays(next: Overlays) {
+  if (JSON.stringify(next) === JSON.stringify(overlays)) return;
+  overlays = next;
+  try {
+    localStorage.setItem(OVERLAYS_CACHE, JSON.stringify(next));
+  } catch {
+    // no cache: the first paint is the built-in theme until the server answers
+  }
+  apply(currentTheme());
 }
 
 export function setThemePreference(pref: ThemePreference) {

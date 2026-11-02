@@ -16,6 +16,7 @@ import {
   Sparkles,
   Sun,
   SunMoon,
+  Palette,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
@@ -33,6 +34,7 @@ import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
+import { chooseTheme, chosenTheme } from "../lib/themes";
 import { SidebarSessions } from "./SidebarSessions";
 import { Tooltip } from "./Tooltip";
 import { UpdateNotice } from "./UpdateNotice";
@@ -110,7 +112,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
-  const { settings: prefs, update, loaded } = useSettings();
+  const { settings: prefs, themes, update, loaded } = useSettings();
   const sidebar = prefs.sidebar.open;
   const toggleSidebar = useCallback(() => update({ sidebar: { open: !sidebar } }), [update, sidebar]);
   const sidebarButton = (
@@ -185,6 +187,23 @@ export function Layout({ children }: { children: ReactNode }) {
       icon: SunMoon,
       run: toggleTheme,
     },
+    ...themes.flatMap((entry) => {
+      const scheme = entry.scheme;
+      if (!scheme || entry.error) return [];
+      const chosen = (of: "dark" | "light") =>
+        chosenTheme(themes, of === "dark" ? prefs.appearance.dark_theme : prefs.appearance.light_theme, of)?.id ?? of;
+      if (entry.id === chosen(theme)) return [];
+      // the action above already switches to the other scheme's built-in theme
+      if (scheme !== theme && entry.id === scheme && chosen(scheme) === scheme) return [];
+      return [
+        {
+          id: `theme-${entry.id}`,
+          label: `Switch to the ${entry.name} theme`,
+          icon: Palette,
+          run: () => void update(chooseTheme(entry.id, scheme, prefs.appearance.theme)),
+        },
+      ];
+    }),
     {
       id: "sidebar",
       label: sidebar ? "Hide the sidebar" : "Show the sidebar",

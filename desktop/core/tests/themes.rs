@@ -27,7 +27,7 @@ async fn theme(app: &App, id: &str) -> Value {
 async fn the_built_in_themes_are_listed_with_no_variables() {
     let app = app();
     let dark = theme(&app, "dark").await;
-    assert_eq!(dark["name"], "Dark");
+    assert_eq!(dark["name"], "Pinrail Dark");
     assert_eq!(dark["scheme"], "dark");
     assert_eq!(dark["shell"], json!({}));
     assert_eq!(dark["plugin"], json!({}));

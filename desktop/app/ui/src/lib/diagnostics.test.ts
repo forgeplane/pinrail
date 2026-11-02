@@ -24,7 +24,7 @@ const plugin = (name: string, more: Partial<Plugin> = {}) =>
   }) as Plugin;
 
 const settings = {
-  appearance: { theme: "system", text_size: "default" },
+  appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
   sidebar: { open: true },
   close_window: "hide",
   menu_bar_icon: true,
@@ -58,7 +58,7 @@ describe("describeDiagnostics", () => {
         "  model 1.2.0 (not usable)",
         "",
         "Settings:",
-        "  Theme: system, text size default",
+        "  Theme: system (dark: dark, light: light), text size default",
         "  Notifications: on, sound off",
         "  Closing the window: hides the window",
         "  Menu bar icon: on",

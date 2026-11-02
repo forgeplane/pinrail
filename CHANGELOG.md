@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Themes. Add a theme as a JSON file in the themes folder, and choose a
+  theme for dark and for light in Settings or in the command palette.
 - `pinrail ask` asks you one or more questions and prints your answers.
   Each question can offer choices, ask for yes or no, or take an answer
   in words, and you answer in the app.

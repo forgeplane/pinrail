@@ -18,6 +18,7 @@ import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 import { AgentsSection } from "./AgentsSection";
+import { ThemeRows } from "./ThemeRows";
 import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
@@ -363,11 +364,11 @@ export function SettingsDialog({
             <SettingsPage title="Appearance">
               <SettingsGroup>
                 <SettingsRow
-                  label="Theme"
+                  label="Colour scheme"
                   description={`System follows your computer's setting. ${combo(MOD, SHIFT, "L")} switches between dark and light.`}
                 >
                   <Segmented
-                    label="Theme"
+                    label="Colour scheme"
                     value={settings.appearance.theme}
                     onChange={(v) => update({ appearance: { theme: v } })}
                     options={[
@@ -377,6 +378,7 @@ export function SettingsDialog({
                     ]}
                   />
                 </SettingsRow>
+                <ThemeRows />
                 <SettingsRow label="Text size" description="The size of the interface; plugin views keep their own">
                   <Segmented
                     label="Text size"

@@ -6,16 +6,17 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, inTauri } from "../api/client";
-import type { LinkPermission, ServerSettings } from "../api/types";
+import type { LinkPermission, ServerSettings, ThemeEntry } from "../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
 import { type Choices, DEFAULT_CHOICES } from "../lib/sidebarSessions";
-import { cacheAppearance, setThemePreference, type ThemePreference } from "../lib/theme";
+import { cacheAppearance, setThemeOverlays, setThemePreference, type ThemePreference } from "../lib/theme";
+import { chosenTheme } from "../lib/themes";
 import { useLive } from "./live";
 
 export type TextSize = "small" | "default" | "large";
 
 export type Settings = {
-  appearance: { theme: ThemePreference; text_size: TextSize };
+  appearance: { theme: ThemePreference; dark_theme: string; light_theme: string; text_size: TextSize };
   /** whether the sidebar is open, and how it lists the sessions */
   sidebar: { open: boolean; sessions: Choices & { collapsed: string[] } };
   close_window: "hide" | "quit";
@@ -65,7 +66,14 @@ type Patch = {
   autostart?: boolean;
 };
 
-type Store = { settings: Settings; update: (patch: Patch) => Promise<void>; native: boolean; loaded: boolean };
+type Store = {
+  settings: Settings;
+  /** every theme the core lists */
+  themes: ThemeEntry[];
+  update: (patch: Patch) => Promise<void>;
+  native: boolean;
+  loaded: boolean;
+};
 
 const ZOOM: Record<TextSize, string> = { small: "0.92", default: "1", large: "1.08" };
 
@@ -98,7 +106,12 @@ type Served = Pick<
 const SESSIONS: Settings["sidebar"]["sessions"] = { ...DEFAULT_CHOICES, collapsed: [] };
 
 const fromServer = (s: ServerSettings): Served => ({
-  appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
+  appearance: {
+    theme: s.appearance.theme,
+    dark_theme: s.appearance.dark_theme,
+    light_theme: s.appearance.light_theme,
+    text_size: s.appearance.text_size,
+  },
   sidebar: { open: s.sidebar.open, sessions: { ...SESSIONS, ...s.sidebar.sessions } },
   close_window: s.close_window,
   menu_bar_icon: s.menu_bar_icon,
@@ -141,7 +154,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const native = inTauri();
   const live = useLive();
   const [settings, setSettings] = useState<Settings>(() => ({
-    appearance: { theme: "system", text_size: "default" },
+    appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
     sidebar: { open: true, sessions: SESSIONS },
     close_window: "hide",
     menu_bar_icon: true,
@@ -159,6 +172,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
+  const [themes, setThemes] = useState<ThemeEntry[]>([]);
+  const themesLoaded = useRef(false);
   // the settings as last applied, ahead of the next render: a change made
   // before React renders the previous one builds on it, not on a stale copy
   const current = useRef(settings);
@@ -197,6 +212,32 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadThemes = useCallback(async () => {
+    try {
+      setThemes((await api.themes()).themes);
+      themesLoaded.current = true;
+    } catch {
+      // the server is away; the cached colours stand until it is back
+    }
+  }, []);
+
+  useEffect(() => {
+    loadThemes();
+  }, [loadThemes]);
+  useEffect(() => {
+    if (live.lastNotice?.kind === "themes_changed" || live.connected) loadThemes();
+  }, [live.lastNotice, live.connected, loadThemes]);
+
+  const { dark_theme: darkTheme, light_theme: lightTheme } = settings.appearance;
+  useEffect(() => {
+    if (!themesLoaded.current || !loaded) return;
+    const overlay = (id: string, scheme: "dark" | "light") => {
+      const theme = chosenTheme(themes, id, scheme);
+      return { shell: theme?.shell ?? {}, plugin: theme?.plugin ?? {} };
+    };
+    setThemeOverlays({ dark: overlay(darkTheme, "dark"), light: overlay(lightTheme, "light") });
+  }, [themes, darkTheme, lightTheme, loaded]);
 
   // a change made elsewhere — the CLI, the file, another window
   useEffect(() => {
@@ -308,7 +349,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [native, apply],
   );
 
-  const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);
+  const value = useMemo(
+    () => ({ settings, themes, update, native, loaded }),
+    [settings, themes, update, native, loaded],
+  );
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

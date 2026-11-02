@@ -68,7 +68,7 @@ export function describeDiagnostics({
     lines.push(
       "",
       "Settings:",
-      `  Theme: ${settings.appearance.theme}, text size ${settings.appearance.text_size}`,
+      `  Theme: ${settings.appearance.theme} (dark: ${settings.appearance.dark_theme}, light: ${settings.appearance.light_theme}), text size ${settings.appearance.text_size}`,
       `  Notifications: ${onOff(n.enabled)}, sound ${onOff(n.sound)}${pausedUntil ? `, paused until ${pausedUntil}` : ""}`,
       `  Closing the window: ${settings.close_window === "quit" ? "quits" : "hides the window"}`,
       `  Menu bar icon: ${onOff(settings.menu_bar_icon)}`,

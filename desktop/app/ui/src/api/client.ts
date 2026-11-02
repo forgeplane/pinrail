@@ -10,6 +10,7 @@ import type {
   Plugin,
   Review,
   ReviewEvent,
+  ThemeEntry,
   ReviewListing,
   ReviewView,
   ServerSettings,
@@ -146,6 +147,8 @@ export const api = {
   /** drops the installation; the bundles reviews render with stay with them */
   removePlugin: (name: string) =>
     request<{ removed: string; link: boolean; version: string }>("DELETE", `/api/v1/plugins/${seg(name)}`),
+  themes: () => request<{ themes: ThemeEntry[] }>("GET", "/api/v1/themes"),
+  createTheme: (id: string, from: string) => request<{ path: string }>("POST", "/api/v1/themes", { id, from }),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** the review rendered as markdown by the core, for the clipboard */
