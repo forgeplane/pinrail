@@ -298,6 +298,7 @@ impl Reviews {
         let filters = Filters {
             agent: Some(agent.to_string()),
             session: Some(id.to_string()),
+            include_revised: true,
             oldest_first: true,
             ..Filters::default()
         };

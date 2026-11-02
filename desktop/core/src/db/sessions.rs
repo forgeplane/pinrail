@@ -530,6 +530,8 @@ fn select() -> String {
     let pending = "(r.id IS NOT NULL AND o.review_id IS NULL \
                    AND (r.expires_at IS NULL OR r.expires_at > ?1))";
     // the latest status is the newest that is not a note
+    // a review counts once, by its newest round
+    let newest = "NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)";
     let status = |column: &str| {
         format!(
             "(SELECT t.{column} FROM session_statuses t \
@@ -540,7 +542,7 @@ fn select() -> String {
     format!(
         "SELECT s.agent, s.id, s.repo, s.ref, s.folder, s.first_at, s.last_at,
     COALESCE(SUM(r.kind = 'question'), 0) AS questions,
-    COALESCE(SUM(r.kind = 'review'), 0) AS reviews,
+    COALESCE(SUM(r.kind = 'review' AND {newest}), 0) AS reviews,
     COALESCE(SUM(r.kind = 'question' AND {pending}), 0) AS waiting_questions,
     COALESCE(SUM(r.kind = 'review' AND {pending}), 0) AS waiting_reviews,
     {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,

@@ -14,18 +14,45 @@ export const fromSession = (s: { agent: string; id: string; title?: string | nul
   session: { agent: s.agent, id: s.id, title: s.title ?? null },
 });
 
+/** Which round a review's card shows, of how many. */
+export type Round = { n: number; of: number };
+
 export type Entry =
-  | { kind: "item"; review: Review }
+  | { kind: "item"; review: Review; round?: Round }
+  | { kind: "revised"; review: Review; round: number | null; card: Review }
   | { kind: "statuses"; statuses: SessionStatus[] }
   | { kind: "started"; status: SessionStatus }
   | { kind: "finished"; status: SessionStatus }
   | { kind: "note"; status: SessionStatus };
 
+/** Each review's rounds among the items, oldest first, by the id of each
+ *  of its rounds. A round that revises one from elsewhere starts a review. */
+function roundsOf(items: Review[]): Map<string, Review[]> {
+  const out = new Map<string, Review[]>();
+  for (const review of items) {
+    const chain = (review.revises && out.get(review.revises)) || [];
+    chain.push(review);
+    out.set(review.id, chain);
+  }
+  return out;
+}
+
+/** The newest round of each review, and the questions, in their order. */
+export function newestRounds(items: Review[]): Review[] {
+  const rounds = roundsOf(items);
+  return items.filter((review) => rounds.get(review.id)!.at(-1) === review);
+}
+
 /** The items and the statuses, oldest first. A status goes after the
  *  review the core says it came after, which the times, in whole seconds,
  *  do not always tell. A status without one goes by its time, after a
- *  review of the same second. */
+ *  review of the same second.
+ *
+ *  A review shows once, by its newest round, where its first round was
+ *  sent. A later round adds a line where it was sent, unless only
+ *  statuses came between it and the round before. */
 export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
+  const rounds = roundsOf(items);
   const index = new Map(items.map((review, i) => [review.id, i]));
   // the statuses after each item, by its index; -1 is before them all
   const slots = new Map<number, SessionStatus[]>();
@@ -62,7 +89,21 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
   };
   place(-1);
   items.forEach((review, i) => {
-    entries.push({ kind: "item", review });
+    const chain = rounds.get(review.id)!;
+    const [first, newest] = [chain[0], chain[chain.length - 1]];
+    // the rounds are counted only from the first, which they are not when
+    // it revises one from elsewhere
+    const counted = !first.revises;
+    const n = chain.indexOf(review) + 1;
+    if (n === 1) {
+      const round = counted && chain.length > 1 ? { n: chain.length, of: chain.length } : undefined;
+      entries.push({ kind: "item", review: newest, round });
+    } else {
+      const before = [...entries].reverse().find((e) => e.kind !== "statuses");
+      const follows =
+        (before?.kind === "item" && before.review === newest) || (before?.kind === "revised" && before.card === newest);
+      if (!follows) entries.push({ kind: "revised", review, round: counted ? n : null, card: newest });
+    }
     place(i);
   });
   return entries;

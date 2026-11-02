@@ -5,6 +5,7 @@
 import {
   Activity,
   ArrowDown,
+  ArrowUp,
   Ban,
   Check,
   CheckCircle2,
@@ -18,6 +19,7 @@ import {
   Paperclip,
   PanelRightOpen,
   Pencil,
+  RefreshCw,
   Star,
   Trash2,
   X,
@@ -32,7 +34,16 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderMarkdown, renderNote } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
-import { timeline as entriesOf, fromSession, stageReviews, stages, type FromSession } from "../lib/sessions";
+import {
+  timeline as entriesOf,
+  fromSession,
+  newestRounds,
+  stageReviews,
+  stages,
+  type Entry,
+  type FromSession,
+  type Round,
+} from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -208,16 +219,16 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const agent = named?.agent ?? focus?.requested_by ?? null;
   // a review opened from here names the session in its breadcrumb
   const from = named ? fromSession({ ...named, title: session?.title }) : undefined;
-  const waiting = items.filter((r) => r.status === "pending");
+  // each review once, by its newest round
+  const newest = useMemo(() => newestRounds(items), [items]);
+  const waiting = newest.filter((r) => r.status === "pending");
   const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews each stage sent, for its tooltip
   const sentBy = useMemo(() => stageReviews(entriesOf(items, statuses)), [items, statuses]);
   // the reviews the session sent that have ended, newest first
-  const handled = items.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
-  // the starred reviews, each once by its newest round here, newest first
-  const starred = items
-    .filter((r) => r.kind === "review" && r.starred && !items.some((n) => n.revises === r.id))
-    .reverse();
+  const handled = newest.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
+  // the starred reviews, newest first
+  const starred = newest.filter((r) => r.kind === "review" && r.starred).reverse();
   const [showHandled, setShowHandled] = useState(() => stored(HANDLED_SHOWN) === "shown");
   const toggleHandled = () =>
     setShowHandled((shown) => {
@@ -299,7 +310,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
     event.preventDefault();
   };
   const questions = items.filter((r) => r.kind === "question").length;
-  const reviews = items.length - questions;
+  const reviews = newest.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
   const ref = session?.ref ?? focus?.origin.ref ?? null;
 
@@ -419,6 +430,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                     session={named?.id ?? null}
                   />
                 );
+              if (entry.kind === "revised") return <RevisedLine key={`v-${entry.review.id}`} entry={entry} />;
               const item = entry.review;
               return item.kind === "question" ? (
                 <QuestionSet
@@ -430,7 +442,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   onDone={load}
                 />
               ) : (
-                <ReviewCard key={item.id} review={item} from={from} />
+                <ReviewCard key={item.id} review={item} round={entry.round} from={from} />
               );
             })}
           </div>
@@ -836,21 +848,58 @@ function FinishedLine({ status }: { status: SessionStatus }) {
   );
 }
 
-/** A review the session sent, which opens the review. */
-function ReviewCard({ review, from }: { review: Review; from?: FromSession }) {
+/** A review the session sent, by its newest round, which opens it. */
+function ReviewCard({ review, round, from }: { review: Review; round?: Round; from?: FromSession }) {
   return (
-    <Link to={`/reviews/${review.id}`} state={from} className="thread-card" data-testid="thread-review">
+    <Link
+      to={`/reviews/${review.id}`}
+      state={from}
+      id={`review-${review.id}`}
+      className="thread-card"
+      data-testid="thread-review"
+    >
       <ReviewIcon review={review} size={16} />
       <span className="thread-card-text">
         <span className="thread-card-title">{review.title}</span>
         <span className="thread-card-meta faint" title={stamp(review.created_at)}>
-          Review · {review.plugin} · {age(review.created_at)} ago
+          Review · {review.plugin}
+          {round ? ` · round ${round.n} of ${round.of}` : ""} · {age(review.created_at)} ago
         </span>
         {/* under the title, where many counts cannot squeeze it */}
         <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
       </span>
       <OutcomeBadge review={review} />
     </Link>
+  );
+}
+
+/** How long a card stays highlighted after a line leads to it. */
+const FLASH_MS = 1600;
+
+/** Where the agent sent a later round of a review shown further up: a quiet
+ *  line that scrolls to the review's card. */
+function RevisedLine({ entry }: { entry: Extract<Entry, { kind: "revised" }> }) {
+  const { review, round, card } = entry;
+  const waiting = card.status === "pending" && review === card;
+  const show = () => {
+    const el = document.getElementById(`review-${card.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.remove("is-flashed");
+    void el.offsetWidth; // restart the highlight when clicked again
+    el.classList.add("is-flashed");
+    window.setTimeout(() => el.classList.remove("is-flashed"), FLASH_MS);
+  };
+  return (
+    <button type="button" className="thread-revised" data-testid="revised" onClick={show}>
+      <RefreshCw size={13} className="thread-revised-icon" aria-hidden />
+      <span className="thread-revised-text">
+        Revised <span className="thread-revised-title">{review.title}</span>
+        {round ? ` · round ${round}` : ""} · <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+      </span>
+      {waiting ? <span className="thread-revised-waiting">Waiting for you</span> : null}
+      <ArrowUp size={12} className="thread-revised-up" aria-hidden />
+    </button>
   );
 }
 

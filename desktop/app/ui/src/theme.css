@@ -3912,6 +3912,9 @@ body.is-resizing iframe {
   color: var(--text);
   font-size: 12.5px;
   text-decoration: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .thread-card:hover {
   border-color: var(--border-strong);
@@ -3940,6 +3943,61 @@ body.is-resizing iframe {
 }
 .thread-card > .status-badge {
   flex: none;
+}
+/* the card a revised line led to, for a moment */
+.thread-card.is-flashed {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+/* where the agent sent a later round of a review shown further up */
+.thread-items > .thread-revised {
+  width: auto;
+  max-width: calc(100% - 38px);
+  margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
+  margin-right: auto;
+}
+.thread-revised {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.thread-revised-icon {
+  flex: none;
+  color: var(--accent);
+}
+.thread-revised-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-revised-title {
+  color: var(--text);
+}
+.thread-revised:hover .thread-revised-title {
+  text-decoration: underline;
+}
+.thread-revised-waiting {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sev-major) 14%, transparent);
+  color: var(--sev-major);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.thread-revised-up {
+  flex: none;
+  color: var(--faint);
 }
 .question-set .msg-col {
   gap: 8px;

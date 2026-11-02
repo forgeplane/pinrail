@@ -635,3 +635,29 @@ async fn a_note_is_announced_without_its_markdown() {
     // the thread reads it when the notice says there is one
     assert_eq!(session["status"]["text"], "");
 }
+
+#[tokio::test]
+async fn a_session_is_read_with_every_round_of_its_reviews() {
+    let app = app();
+    let first = send(&app, review("claude-code", Some("s-1"), "The schema")).await;
+    let asked = send(&app, question("claude-code", Some("s-1"), "Ship it?")).await;
+    let mut next = review("claude-code", Some("s-1"), "The schema");
+    next["revises"] = json!(first);
+    let second = send(&app, next).await;
+
+    let (status, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(status, StatusCode::OK, "{thread}");
+    let ids: Vec<&str> = thread["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, [first.as_str(), asked.as_str(), second.as_str()]);
+    assert_eq!(thread["items"][2]["revises"], first.as_str());
+    // a review counts once, however many rounds it has
+    assert_eq!(
+        thread["session"]["total"],
+        json!({"questions": 1, "reviews": 1})
+    );
+}

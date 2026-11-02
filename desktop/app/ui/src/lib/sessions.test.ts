@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { Review, SessionStatus } from "../api/types";
-import { stageReviews, stages, timeline } from "./sessions";
+import { newestRounds, stageReviews, stages, timeline } from "./sessions";
 
-const review = (id: string, at: string) => ({ id, created_at: at }) as Review;
+const review = (id: string, at: string, revises: string | null = null) =>
+  ({ id, created_at: at, kind: "review", revises }) as Review;
 const status = (id: number, at: string, text: string, kind: SessionStatus["kind"] = "step"): SessionStatus => ({
   id,
   at,
@@ -107,5 +108,68 @@ describe("stageReviews", () => {
     const by = stageReviews(entries);
     expect(by.get(1)?.map((r) => r.id)).toEqual(["r1"]);
     expect(by.get(2)?.map((r) => r.id)).toEqual(["r2"]);
+  });
+});
+
+describe("rounds", () => {
+  const show = (entries: ReturnType<typeof timeline>) =>
+    entries.map((e) =>
+      e.kind === "item"
+        ? `${e.review.id}${e.round ? ` ${e.round.n}/${e.round.of}` : ""}`
+        : e.kind === "revised"
+          ? `revised ${e.review.id} ${e.round} of ${e.card.id}`
+          : e.kind,
+    );
+
+  test("keeps a review revised in a later stage in its stage, with a line where the round was sent", () => {
+    const entries = timeline(
+      [review("r1", "2026-10-30T10:01:00Z"), review("r2", "2026-10-30T10:06:00Z", "r1")],
+      [status(1, "2026-10-30T10:00:00Z", "Spec", "start"), status(2, "2026-10-30T10:05:00Z", "Docs", "start")],
+    );
+    expect(show(entries)).toEqual(["started", "r2 2/2", "started", "revised r2 2 of r2"]);
+    // the stage that sent the first round keeps it, by its newest round
+    expect(
+      stageReviews(entries)
+        .get(1)!
+        .map((r) => r.id),
+    ).toEqual(["r2"]);
+    expect(stageReviews(entries).get(2)).toEqual([]);
+  });
+
+  test("adds no line for a round that follows its review with only statuses between", () => {
+    const entries = timeline(
+      [review("r1", "2026-10-30T10:01:00Z"), review("r2", "2026-10-30T10:03:00Z", "r1")],
+      [status(1, "2026-10-30T10:02:00Z", "Revising")],
+    );
+    expect(show(entries)).toEqual(["r2 2/2", "statuses"]);
+  });
+
+  test("adds a line for each later round sent after something else", () => {
+    const entries = timeline(
+      [
+        review("r1", "2026-10-30T10:01:00Z"),
+        review("o", "2026-10-30T10:02:00Z"),
+        review("r2", "2026-10-30T10:03:00Z", "r1"),
+        review("r3", "2026-10-30T10:04:00Z", "r2"),
+        review("p", "2026-10-30T10:05:00Z"),
+        review("r4", "2026-10-30T10:06:00Z", "r3"),
+      ],
+      [],
+    );
+    expect(show(entries)).toEqual(["r4 4/4", "o", "revised r2 2 of r4", "p", "revised r4 4 of r4"]);
+  });
+
+  test("shows a round of a review from elsewhere as a card without a round", () => {
+    const entries = timeline([review("r2", "2026-10-30T10:01:00Z", "gone")], []);
+    expect(show(entries)).toEqual(["r2"]);
+  });
+
+  test("counts each review once, by its newest round", () => {
+    const items = [
+      review("r1", "2026-10-30T10:01:00Z"),
+      review("o", "2026-10-30T10:02:00Z"),
+      review("r2", "2026-10-30T10:03:00Z", "r1"),
+    ];
+    expect(newestRounds(items).map((r) => r.id)).toEqual(["o", "r2"]);
   });
 });
