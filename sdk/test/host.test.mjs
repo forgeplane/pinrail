@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PROTOCOL, createHost } from "../host/host.js";
+import { PROTOCOL, createHost, themeFragment } from "../host/host.js";
 
 const review = { id: "r1", title: "A review", status: "pending", payload: { n: 1 }, attachments: [] };
 
@@ -677,4 +677,23 @@ test("a host whose plugin may not copy offers no clipboard and refuses a copy", 
   await tick();
   assert.equal(last("clipboard").error, "this app does not let the view copy to the clipboard");
   assert.deepEqual(copied, []);
+});
+
+test("appearance carries a custom theme's colours, when the host has them", () => {
+  const { h, from, last } = host({ options: { tokens: () => ({ "--pinrail-bg": "#112233" }) } });
+  from({ type: "ready" });
+  assert.deepEqual(last("appearance").tokens, { "--pinrail-bg": "#112233" });
+
+  h.appearance("light", {});
+  assert.deepEqual(last("appearance").tokens, {});
+  h.appearance("dark");
+  assert.equal("tokens" in last("appearance"), false);
+});
+
+test("the frame's fragment holds the scheme, and a custom theme's colours in base64url", () => {
+  assert.equal(themeFragment("light"), "#pinrail-theme=light");
+  assert.equal(themeFragment("dark", {}), "#pinrail-theme=dark");
+  const tokens = { "--pinrail-bg": "color-mix(in srgb, #fff 4%, #000)?>" };
+  const encoded = /&pinrail-tokens=([A-Za-z0-9_-]+)$/.exec(themeFragment("dark", tokens))[1];
+  assert.deepEqual(JSON.parse(Buffer.from(encoded, "base64url").toString()), tokens);
 });

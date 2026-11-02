@@ -33,6 +33,8 @@ export type HostOptions = {
   settings?: () => Record<string, unknown> | null;
   /** the theme sent before `init`; a host without one sends no `appearance` */
   theme?: () => Theme;
+  /** a custom theme's `--pinrail-*` colours, sent with the theme; empty for a built-in one */
+  tokens?: () => Record<string, string>;
   loadDraft?: () => unknown;
   saveDraft?: (data: unknown) => void;
   /** a host without one leaves `submit` to whoever drives the view */
@@ -89,7 +91,7 @@ export type Host = {
   /** asks the view for its decision; false when there is nothing to ask,
    *  such as while a request is open */
   collect(): boolean;
-  appearance(theme: Theme): void;
+  appearance(theme: Theme, tokens?: Record<string, string>): void;
   settings(values: Record<string, unknown>): void;
   /** searches the view for the find bar; false before the view is ready */
   find(query: string, options?: { backwards?: boolean }): boolean;
@@ -124,3 +126,6 @@ export function connectFrame(
   frame: HTMLIFrameElement,
   options: Omit<HostOptions, "post">,
 ): Host & { disconnect(): void };
+
+/** The fragment of a frame's URL that gives a view its theme before it paints. */
+export function themeFragment(theme: Theme, tokens?: Record<string, string>): string;

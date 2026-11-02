@@ -174,7 +174,7 @@ export type AppMessage =
   | { pinrail: Protocol; type: "submitted"; decision: Decision }
   /** asks for the decision; the view answers `submit` or `defer` with this `req` */
   | { pinrail: Protocol; type: "collect"; req: number }
-  | { pinrail: Protocol; type: "appearance"; theme: Theme }
+  | { pinrail: Protocol; type: "appearance"; theme: Theme; tokens?: Record<string, string> }
   /** the plugin's settings changed, in the app or through the view */
   | { pinrail: Protocol; type: "settings"; settings: Settings }
   /** the answer to the view's `settings_set` with this `req` */
@@ -266,7 +266,7 @@ export type Handlers<Payload = unknown, Data = unknown> = {
   onCollect?(): Data | undefined | void | Promise<Data | undefined | void>;
   /** a handler threw, or a decision JSON cannot hold; without it, the console */
   onError?(error: Error): void;
-  /** the theme changed; `data-theme` on the root element is already set */
+  /** the theme changed; `data-theme` and a custom theme's colours are already set */
   onAppearance?(theme: Theme): void;
   /** the plugin's own settings changed */
   onSettings?(settings: Settings): void;

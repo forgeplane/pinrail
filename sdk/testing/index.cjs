@@ -214,8 +214,9 @@ async function mountPlugin(page, pluginDir, opts) {
   if (!fs.existsSync(entryFile)) {
     throw new Error(`${entryFile} does not exist: build the plugin first`);
   }
+  const tokens = opts.tokens ? `&tokens=${Buffer.from(JSON.stringify(opts.tokens)).toString("base64url")}` : "";
   await page.goto(
-    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + "index.html")}`,
+    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}${tokens}&entry=${encodeURIComponent(bundle + "index.html")}`,
   );
   const init = {
     review,

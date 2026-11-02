@@ -258,6 +258,7 @@
           if (THEMES.includes(data.theme)) {
             state.theme = data.theme;
             if (env.applyTheme) env.applyTheme(data.theme);
+            if (env.applyTokens) env.applyTokens(data.tokens);
             call("onAppearance", data.theme);
           }
           break;
@@ -714,6 +715,33 @@
     return found && THEMES.includes(found[1]) ? found[1] : null;
   }
 
+  /* A custom theme's colours, base64url JSON on the frame's URL for the same
+     reason as the theme. `appearance` carries them from then on. */
+  function tokensFromUrl(win) {
+    const found = /(?:^|[#&])pinrail-tokens=([A-Za-z0-9_-]+)/.exec((win.location && win.location.hash) || "");
+    if (!found) return null;
+    try {
+      return JSON.parse(win.atob(found[1].replace(/-/g, "+").replace(/_/g, "/")));
+    } catch {
+      return null;
+    }
+  }
+
+  /* Sets a custom theme's colours on the root element, whose style wins over
+     the stylesheet's, and clears the ones set before. Only Pinrail's tokens
+     are set: a view's own variables are not the shell's to change. */
+  let tokensSet = [];
+  function setTokens(root, tokens) {
+    for (const name of tokensSet) root.style.removeProperty(name);
+    tokensSet = [];
+    if (!tokens || typeof tokens !== "object") return;
+    for (const [name, value] of Object.entries(tokens)) {
+      if (!name.startsWith("--pinrail-") || typeof value !== "string") continue;
+      root.style.setProperty(name, value);
+      tokensSet.push(name);
+    }
+  }
+
   /* One of the plugin's own icons, icons/<name>.svg beside the view, as
      markup, so a view that builds HTML strings can drop one in. The address is
      made whole here: a relative one inside a custom property may be read
@@ -989,6 +1017,7 @@
       applyTheme: (theme) => {
         doc.documentElement.dataset.theme = theme;
       },
+      applyTokens: (tokens) => setTokens(doc.documentElement, tokens),
       // sends an input event for dictated text, as typing would
       changed: (field) => field.dispatchEvent(new win.Event("input", { bubbles: true })),
       // finds, by its id, the field a view rendered in place of a removed one
@@ -1231,6 +1260,7 @@
   if (root.document && root.document.documentElement) {
     const initial = themeFromUrl(root);
     if (initial) root.document.documentElement.dataset.theme = initial;
+    setTokens(root.document.documentElement, tokensFromUrl(root));
   }
 
   root.Pinrail = Pinrail;

@@ -8,6 +8,12 @@ change to the protocol is a new major and a new path.
 
 ### Added
 
+- Views follow a person's custom theme. The app sends the theme's colours
+  with `appearance` and on the frame's URL, and the SDK sets them on the root
+  element before it calls `onAppearance`. A view styled with the tokens needs
+  no change. `connectFrame` takes `tokens`, `themeFragment` builds the frame's
+  fragment, `mountPlugin` takes `tokens`, and the dev shell's *Theme* button
+  has a third entry with unusual colours.
 - A `--pinrail-button-text` token: the colour of text on a filled button.
   `.pinrail-btn-primary` and `.pinrail-compose-send` use it.
 

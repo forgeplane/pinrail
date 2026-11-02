@@ -44,7 +44,7 @@ sequenceDiagram
 | `collect` | `req` | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. The view answers with `submit` or `defer` and the same `req`. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
 | `submitted` | `decision` | The decision was accepted. The app then returns to the inbox and closes the view, so there is no need to show the decision. When the person opens the review again, `init` comes with `readonly: true` and the decision. |
-| `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
+| `appearance` | `theme: "dark" \| "light"`; `tokens`, a map of `--pinrail-*` colours | Before `init`, and whenever the app's theme changes. `tokens` is empty for a built-in theme. |
 | `settings` | `settings`; or `req`, `ok`, and `errors` when not `ok` | The plugin's own settings changed, in the app or from a view. With `req`, the answer to the view's `settings_set`: `ok: true` when the app kept the change, or `ok: false` and the errors when the settings schema refused it. |
 | `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | A shortcut the manifest declares, pressed while the app, not the frame, had focus. |
 | `find` | `req`, `query`, `backwards` | The person searched the view from the app's find bar. The view answers with `found` and the same `req`. |
@@ -195,7 +195,7 @@ The app answers only for names in `review.attachments` (or in `previous.attachme
 
 ## The first frame
 
-A message cannot reach your view before it paints, so the theme travels on the frame's URL too: it ends in `#pinrail-theme=dark` or `#pinrail-theme=light`. The SDK reads it as it loads and sets `data-theme` on your root element, so the first frame is already in the app's theme.
+A message cannot reach your view before it paints, so the theme travels on the frame's URL too: it ends in `#pinrail-theme=dark` or `#pinrail-theme=light`. The SDK reads it as it loads and sets `data-theme` on your root element, so the first frame is already in the app's theme. A custom theme's colours follow as `&pinrail-tokens=`, base64url-encoded JSON of the same map as `tokens`, and the SDK sets them on your root element's style.
 
 ```css
 :root { --bg: #18191b; --text: #ededef; color-scheme: dark; }

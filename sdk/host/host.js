@@ -72,6 +72,7 @@ export function createHost(options) {
     readonly = () => false,
     settings = () => ({}),
     theme,
+    tokens,
     loadDraft = () => null,
     saveDraft,
     handOver,
@@ -162,7 +163,7 @@ export function createHost(options) {
   function init() {
     const current = review();
     if (!ready || !current) return;
-    if (theme) send({ type: "appearance", theme: theme() });
+    if (theme) send(appearanceMessage(theme(), tokens && tokens()));
     const locked = readonly();
     send({
       type: "init",
@@ -413,8 +414,8 @@ export function createHost(options) {
     /** Asks the view for its decision, as the hand-over button does; false
      *  when there is nothing to ask, such as while a request is open. */
     collect,
-    appearance(value) {
-      if (ready) send({ type: "appearance", theme: value });
+    appearance(value, colors) {
+      if (ready) send(appearanceMessage(value, colors));
     },
     /** The plugin's settings changed elsewhere: the values as they stand. */
     settings(values) {
@@ -485,6 +486,20 @@ export function createHost(options) {
       return asking !== null;
     },
   };
+}
+
+const appearanceMessage = (theme, tokens) =>
+  tokens ? { type: "appearance", theme, tokens } : { type: "appearance", theme };
+
+/**
+ * The fragment of a frame's URL, which gives a view its theme before it
+ * paints: the scheme, and a custom theme's colours as base64url JSON.
+ */
+export function themeFragment(theme, tokens) {
+  const fragment = `#pinrail-theme=${theme}`;
+  if (!tokens || !Object.keys(tokens).length) return fragment;
+  const encoded = btoa(JSON.stringify(tokens)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${fragment}&pinrail-tokens=${encoded}`;
 }
 
 /**

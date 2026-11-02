@@ -196,13 +196,25 @@
 // The app's side of the protocol, from ../host/host.js as the app runs it:
 // init on ready, collect on demand, violations or submitted in answer to a
 // submit. Everything the view posts goes into the log and the state panel.
-import { connectFrame } from "/dev/host.js";
+import { connectFrame, themeFragment } from "/dev/host.js";
 
 const $ = (id) => document.getElementById(id);
 const frame = $("frame"), stage = $("stage"), log = $("log");
 let manifest = {}, fixtures = [], review = null, previous = null, draft = null, lastSubmit = null, stamp = null;
 const THEME_KEY = "pinrail-shell:theme";
-let theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+// The third entry is a custom theme with unusual colours, to show what a
+// person's theme does to a view.
+const SAMPLE_THEME = {
+  "--pinrail-bg": "#23103a", "--pinrail-bg-panel": "#23103a", "--pinrail-bg-raised": "#32195a",
+  "--pinrail-bg-hover": "#3d2169", "--pinrail-border": "#4f2f80", "--pinrail-border-strong": "#6a44a3",
+  "--pinrail-text": "#fbeaff", "--pinrail-dim": "#d2b6e6", "--pinrail-faint": "#a98bc2",
+  "--pinrail-accent": "#ffd166", "--pinrail-info": "#ffd166", "--pinrail-accent-bg": "#4a3a2a",
+  "--pinrail-button-bg": "#ffd166", "--pinrail-button-text": "#23103a",
+};
+let themeEntry = localStorage.getItem(THEME_KEY);
+if (themeEntry !== "light" && themeEntry !== "sample") themeEntry = "dark";
+let theme = themeEntry === "light" ? "light" : "dark";
+const themeTokens = () => (themeEntry === "sample" ? SAMPLE_THEME : {});
 document.documentElement.dataset.theme = theme;
 
 // The envelope as the app hands it to a view, around the fixture's fields.
@@ -278,6 +290,7 @@ const host = connectFrame(frame, {
   readonly,
   settings: () => settingsNow(),
   theme: () => theme,
+  tokens: themeTokens,
   loadDraft: () => draft,
   saveDraft: (data) => { draft = data; keepDraft(draft); show("s-draft", draft); },
   // the label goes on the hand-over button, as in the app
@@ -419,7 +432,7 @@ function reload() {
   host.reload();
   // a frame pointed at the address it already shows does not load again, so
   // every reload is an address of its own
-  frame.src = "/plugin/view/index.html?load=" + Date.now() + "#pinrail-theme=" + theme;
+  frame.src = "/plugin/view/index.html?load=" + Date.now() + themeFragment(theme, themeTokens());
 }
 
 $("fixture").addEventListener("change", (e) => loadFixture(e.target.value));
@@ -449,10 +462,11 @@ $("send-submitted").addEventListener("click", () => {
   post({ type: "submitted", decision: accept() });
 });
 $("theme").addEventListener("click", () => {
-  theme = theme === "dark" ? "light" : "dark";
-  localStorage.setItem(THEME_KEY, theme);
+  themeEntry = { dark: "light", light: "sample", sample: "dark" }[themeEntry];
+  theme = themeEntry === "light" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, themeEntry);
   document.documentElement.dataset.theme = theme;
-  host.appearance(theme);
+  host.appearance(theme, themeTokens());
   drawComments();
 });
 

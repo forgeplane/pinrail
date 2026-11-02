@@ -11,6 +11,8 @@ export type MountOptions = {
   draft?: any;
   /** the theme the fake shell is in; the frame URL carries it, as in the app */
   theme?: "dark" | "light";
+  /** a custom theme's `--pinrail-*` colours, on the frame URL as in the app */
+  tokens?: Record<string, string>;
   /** the plugin's own settings, every key the manifest declares */
   settings?: Settings;
   /** files the review carries, by name: a path (relative to the plugin

@@ -24,14 +24,15 @@
 // the view asks by name, the shell fetches it from the core (only names the
 // review lists) and transfers the bytes into the frame.
 //
-// The theme is also on the frame's URL as #pinrail-theme=…, which is the only
+// The theme is also on the frame's URL as #pinrail-theme=…, with a custom
+// theme's colours as &pinrail-tokens=…, which is the only
 // way it can reach the view before the view paints.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { connectFrame, type Host } from "pinrail-sdk/host";
+import { connectFrame, themeFragment, type Host } from "pinrail-sdk/host";
 import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
-import { currentTheme } from "../lib/theme";
+import { currentTheme, currentTokens } from "../lib/theme";
 import { modalOpen } from "../lib/keys";
 import { copyImage, copyText } from "../lib/clipboard";
 import { canDictate, listen } from "../lib/dictation";
@@ -225,6 +226,7 @@ export function usePluginBridge(options: Options): Bridge {
       readonly: () => latest.current.readonly,
       settings: () => latest.current.settings ?? {},
       theme: currentTheme,
+      tokens: currentTokens,
       loadDraft,
       saveDraft,
       handOver: async (data) => {
@@ -311,10 +313,10 @@ export function usePluginBridge(options: Options): Bridge {
     };
     window.addEventListener("keydown", onKey);
 
-    const onAppearance = () => connection.appearance(currentTheme());
+    const onAppearance = () => connection.appearance(currentTheme(), currentTokens());
     window.addEventListener("pinrail:appearance", onAppearance);
 
-    el.src = `${src}#pinrail-theme=${currentTheme()}`;
+    el.src = `${src}${themeFragment(currentTheme(), currentTokens())}`;
 
     return () => {
       connection.disconnect();

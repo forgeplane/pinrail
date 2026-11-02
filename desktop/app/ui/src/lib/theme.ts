@@ -77,6 +77,9 @@ export function applySavedTheme() {
   setThemePreference(cachedAppearance().theme);
 }
 
+/** The active custom theme's colours for plugin views. */
+export const currentTokens = () => overlays[currentTheme()].plugin;
+
 /** The themes chosen for the two schemes, as the server last listed them. */
 export function setThemeOverlays(next: Overlays) {
   if (JSON.stringify(next) === JSON.stringify(overlays)) return;

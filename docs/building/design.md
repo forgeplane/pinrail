@@ -214,7 +214,7 @@ For a saved comment, put `.pinrail-comment-edit` and `.pinrail-comment-delete` b
 
 ## Themes
 
-The app is dark or light, and the view follows it. Before the view paints, the SDK sets `data-theme="dark"` or `data-theme="light"` on your root element, from the frame's address, so the first frame is already right. When the person switches, the app sends `appearance` and the SDK updates it again.
+The app has a dark and a light colour scheme, each with a theme that a person can choose or write, and the view follows it. Before the view paints, the SDK sets `data-theme="dark"` or `data-theme="light"` on your root element, from the frame's address, so the first frame is already right. When the person switches, the app sends `appearance` and the SDK updates it again.
 
 Styles written against the tokens need nothing more. For anything else, key it on the attribute:
 
@@ -227,7 +227,9 @@ Styles written against the tokens need nothing more. For anything else, key it o
 }
 ```
 
-`onAppearance(theme)` tells your code when the theme changes, for a canvas or a chart that draws its own colours.
+A custom theme changes the tokens, so styles written against them follow it. Colours keyed on the attribute do not, because the attribute only says `dark` or `light`.
+
+`onAppearance(theme)` tells your code when the theme changes, for a canvas or a chart that draws its own colours. The tokens are already set when it runs, so read them with `getComputedStyle`.
 
 ## Icons
 

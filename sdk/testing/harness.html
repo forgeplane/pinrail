@@ -169,7 +169,8 @@ const theme = new URLSearchParams(location.search).get("theme") === "light" ? "l
 document.body.style.background = theme === "light" ? "#ffffff" : "#101216";
 // the view's page, index.html in the view/ of the bundle the harness serves
 const entry = new URLSearchParams(location.search).get("entry") || "index.html";
-frame.src = entry + "#pinrail-theme=" + theme;
+const tokens = new URLSearchParams(location.search).get("tokens");
+frame.src = entry + "#pinrail-theme=" + theme + (tokens ? "&pinrail-tokens=" + tokens : "");
 </script>
 </body>
 </html>

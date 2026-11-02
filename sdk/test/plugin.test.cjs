@@ -267,6 +267,15 @@ test("an environment with no theme of its own leaves the plugin dark", () => {
   assert.equal(plugin.theme, "dark");
 });
 
+test("appearance sets a custom theme's colours before it tells the view", () => {
+  const env = fakeEnv();
+  const order = [];
+  env.applyTokens = (tokens) => order.push(tokens);
+  Pinrail.createPlugin(env, { onAppearance: (theme) => order.push(theme) });
+  env.deliver(shell({ type: "appearance", theme: "dark", tokens: { "--pinrail-bg": "#112233" } }));
+  assert.deepEqual(order, [{ "--pinrail-bg": "#112233" }, "dark"]);
+});
+
 test("appearance applies the theme, exposes it, and ignores anything else", () => {
   const env = fakeEnv();
   const seen = [];

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core } from "./helpers";
+import { core, createReview } from "./helpers";
 
 const bg = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
@@ -85,5 +85,28 @@ test("the command palette switches to a theme by its name", async ({ page }) => 
   await palette.getByRole("textbox").fill(name);
   await palette.getByRole("option", { name: new RegExp(`Switch to the ${name} theme`) }).click();
   await expect.poll(() => bg(page)).toBe("#334455");
+  fs.rmSync(path);
+});
+
+test("a plugin view takes a custom theme's colours and follows a change to them", async ({ page }) => {
+  const { id, path } = await newTheme(page.request, "view");
+  write(path, "View", { bg: "#445566" });
+  await settings(page.request, { theme: "dark", dark_theme: id });
+  const review = await createReview(page.request, { title: `themed ${id}` });
+
+  await page.goto(`/#/reviews/${review.id}`);
+  const token = () =>
+    page
+      .frameLocator("iframe")
+      .first()
+      .locator("html")
+      .evaluate((root) => getComputedStyle(root).getPropertyValue("--pinrail-bg").trim());
+  await expect.poll(token).toBe("#445566");
+
+  write(path, "View", { bg: "#556677" });
+  await expect.poll(token).toBe("#556677");
+
+  await settings(page.request, { dark_theme: "dark" });
+  await expect.poll(token).toBe("#18191b");
   fs.rmSync(path);
 });

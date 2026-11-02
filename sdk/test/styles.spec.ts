@@ -140,3 +140,18 @@ test("highlighted code takes the code tokens' colours, in either theme", async (
   // the light theme has colours of its own
   expect(colours.light).not.toEqual(colours.dark);
 });
+
+test("a custom theme's colours apply before the view's script and follow appearance", async ({ page }) => {
+  const plugin = await mountPlugin(page, fields(), {
+    review: reviewFrom({ title: "Styles", payload: {} }),
+    tokens: { "--pinrail-bg": "#112233", "--a-view-variable": "#000000" },
+  });
+  const token = (name: string) =>
+    plugin.frame.locator("html").evaluate((root, name) => getComputedStyle(root).getPropertyValue(name).trim(), name);
+  expect(await token("--pinrail-bg")).toBe("#112233");
+  expect(await token("--a-view-variable"), "only Pinrail's tokens are set").toBe("");
+
+  await plugin.send({ type: "appearance", theme: "dark", tokens: { "--pinrail-text": "#abcdef" } });
+  await expect.poll(() => token("--pinrail-text")).toBe("#abcdef");
+  expect(await token("--pinrail-bg"), "the colours set before are cleared").toBe("#18191b");
+});
