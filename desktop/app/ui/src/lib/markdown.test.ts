@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { renderMarkdown, renderNote } from "./markdown";
+import { renderLinks, renderMarkdown, renderNote } from "./markdown";
 
 describe("renderMarkdown", () => {
   test("highlights a block of code in the language it names", () => {
@@ -31,5 +31,17 @@ describe("renderNote", () => {
     const html = renderNote("![gone](attachment:gone.png) [docs](https://example.com)", url);
     expect(html).not.toContain("<img");
     expect(html).toContain('href="https://example.com"');
+  });
+});
+
+describe("renderLinks", () => {
+  test("links web addresses and leaves everything else as text", () => {
+    const html = renderLinks("See https://example.com/a_b *now* and <b>this</b> `code`");
+    expect(html).toContain('<a href="https://example.com/a_b">https://example.com/a_b</a>');
+    expect(html).toContain("*now* and &lt;b&gt;this&lt;/b&gt; `code`");
+  });
+
+  test("makes no link of another scheme", () => {
+    expect(renderLinks("javascript:alert(1)")).not.toContain("<a ");
   });
 });

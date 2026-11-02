@@ -27,13 +27,14 @@ function opener(): string {
     path.join(dir, "view", "index.html"),
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
 <button id="web">web</button><button id="other">other</button><button id="long">long</button>
-<button id="mail">mail</button><button id="burst">burst</button><button id="grant">grant</button>
+<button id="local">local</button><button id="mail">mail</button><button id="burst">burst</button><button id="grant">grant</button>
 <script>
   const plugin = Pinrail.connect({ onInit() {} });
   const on = (id, fn) => document.getElementById(id).addEventListener("click", fn);
   on("web", () => plugin.open(${JSON.stringify(WEB)}));
   on("other", () => plugin.open("https://other.example/"));
   on("long", () => plugin.open(${JSON.stringify(LONG)}));
+  on("local", () => plugin.open("http://127.0.0.1:4321/"));
   on("mail", () => plugin.open("mailto:someone@example.com?body=hello"));
   on("burst", () => { for (let i = 1; i <= 3; i++) plugin.open("https://example.com/?n=" + i); });
   // what a hostile view would send, without the SDK
@@ -89,6 +90,13 @@ test("a link opens only when the person agrees, and requests made while asking a
   await dialog(page).getByRole("button", { name: "Don't open" }).click();
   await expect(dialog(page)).toHaveCount(0);
   await page.waitForTimeout(300);
+  expect(await opened(page)).toEqual([]);
+});
+
+test("a view cannot open a link back into this machine", async ({ page }) => {
+  await view(page).locator("#local").click();
+  await page.waitForTimeout(300);
+  await expect(dialog(page)).toHaveCount(0);
   expect(await opened(page)).toEqual([]);
 });
 

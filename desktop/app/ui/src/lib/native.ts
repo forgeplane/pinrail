@@ -56,7 +56,19 @@ export function followable(url: string): boolean {
 
 /** Opens a link outside the app: the system browser, or the mail client. */
 export function openExternal(url: string) {
-  if (!followable(url)) return;
+  if (followable(url)) openInBrowser(url);
+}
+
+/**
+ * Opens a link from the agent's own text, which can lead to this machine: an
+ * agent runs here, and a dev server is a common thing for it to link to. A
+ * plugin's view is sandboxed, so its links go through `openExternal`.
+ */
+export function openAgentLink(url: string) {
+  if (EXTERNAL.test(url)) openInBrowser(url);
+}
+
+function openInBrowser(url: string) {
   if (!inTauri()) {
     window.open(url, "_blank", "noreferrer");
     return;

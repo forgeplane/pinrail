@@ -33,8 +33,8 @@ import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionMessage, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
-import { plainInline, renderInline, renderMarkdown, renderNote } from "../lib/markdown";
-import { openExternal } from "../lib/native";
+import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote } from "../lib/markdown";
+import { openAgentLink } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
 import { useUrlParams } from "../lib/url";
 import {
@@ -874,6 +874,22 @@ export function statusLine(status: SessionStatus): string {
   return status.text;
 }
 
+/** Text the agent reported, with its links opened in the browser. */
+function Linked({ text }: { text: string }) {
+  const html = useMemo(() => renderLinks(text), [text]);
+  return (
+    <span
+      onClick={(e) => {
+        const link = (e.target as HTMLElement).closest("a");
+        if (!link) return;
+        e.preventDefault();
+        openAgentLink(link.href);
+      }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 /** Statuses the agent reported in a row: the newest, and the earlier ones
  *  behind a button. */
 function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
@@ -891,7 +907,9 @@ function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
       {shown.map((status) => (
         <div key={status.id} className="thread-status-line" data-testid="status">
           <Activity size={13} className="thread-status-icon" aria-hidden />
-          <span className="thread-status-text">{status.text}</span>
+          <span className="thread-status-text">
+            <Linked text={status.text} />
+          </span>
           <span className="faint" title={stamp(status.at)}>
             {age(status.at)} ago
           </span>
@@ -912,7 +930,7 @@ function StartedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
       <span>
-        <GitCommitHorizontal size={12} aria-hidden /> Started: {status.text} ·{" "}
+        <GitCommitHorizontal size={12} aria-hidden /> Started: <Linked text={status.text} /> ·{" "}
         <span title={stamp(status.at)}>{age(status.at)} ago</span>
       </span>
     </div>
@@ -979,7 +997,7 @@ function NoteMessage({
             e.preventDefault();
             const file = link.dataset.attachment;
             if (file !== undefined) void save(file);
-            else openExternal(link.href);
+            else openAgentLink(link.href);
           }}
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -999,8 +1017,13 @@ function FinishedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-finished" data-testid="finished">
       <span>
-        <CheckCircle2 size={13} aria-hidden /> Finished{status.text ? `: ${status.text}` : ""} ·{" "}
-        <span title={stamp(status.at)}>{age(status.at)} ago</span>
+        <CheckCircle2 size={13} aria-hidden /> Finished
+        {status.text ? (
+          <>
+            : <Linked text={status.text} />
+          </>
+        ) : null}{" "}
+        · <span title={stamp(status.at)}>{age(status.at)} ago</span>
       </span>
     </div>
   );
@@ -1393,7 +1416,13 @@ function SetFooter({ review }: { review: Review }) {
       return (
         <p className="set-ended dim">
           {review.withdrawn_by ?? "The agent"} withdrew the questions {age(review.withdrawn_at)} ago
-          {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : "."}
+          {review.withdrawn_reason ? (
+            <>
+              : <Linked text={review.withdrawn_reason} />
+            </>
+          ) : (
+            "."
+          )}
         </p>
       );
     case "expired":
@@ -1477,7 +1506,7 @@ function QuestionMessage({
                 const link = (e.target as HTMLElement).closest("a");
                 if (!link) return;
                 e.preventDefault();
-                openExternal(link.href);
+                openAgentLink(link.href);
               }}
               dangerouslySetInnerHTML={{ __html: renderInline(question.question) }}
             />
@@ -1843,7 +1872,7 @@ function Context({ text }: { text: string }) {
         const link = (e.target as HTMLElement).closest("a");
         if (!link) return;
         e.preventDefault();
-        openExternal(link.href);
+        openAgentLink(link.href);
       }}
       dangerouslySetInnerHTML={{ __html: html }}
     />

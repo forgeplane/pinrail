@@ -59,6 +59,15 @@ export function renderInline(text: string): string {
   return md.renderInline(text);
 }
 
+// plain text with its web links, for what an agent reports as text
+const textMd = new MarkdownIt("zero", { linkify: true }).enable(["linkify"]);
+textMd.validateLink = md.validateLink;
+
+/** Text that is not Markdown, escaped, with its web links as links. */
+export function renderLinks(text: string): string {
+  return textMd.renderInline(text);
+}
+
 /** The line as it reads without its marks, for a label or a tooltip. */
 export function plainInline(text: string): string {
   return new DOMParser().parseFromString(md.renderInline(text), "text/html").body.textContent ?? text;

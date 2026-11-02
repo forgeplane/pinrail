@@ -27,6 +27,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   and a line marks where each later round was sent.
 - A session's thread shows a line when the agent withdraws a review, with its
   reason. The line leads to the review.
+- Links in the statuses an agent reports open in your browser, and links
+  to this computer in a session's thread open too, such as a dev server.
 - A Sessions page lists the agent sessions that asked you questions or
   sent reviews, those waiting for you first.
 - The sidebar lists every session that is not archived under its
