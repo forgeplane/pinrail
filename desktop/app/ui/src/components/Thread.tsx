@@ -9,6 +9,7 @@ import {
   Ban,
   Check,
   CheckCircle2,
+  Clock,
   ChevronRight,
   CornerDownRight,
   Expand,
@@ -28,7 +29,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from "react-dom";
 import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
-import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
+import type { Answer, Question, Review, Session, SessionMessage, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderMarkdown, renderNote } from "../lib/markdown";
@@ -182,6 +183,7 @@ export function Thread({
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
+  const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -192,6 +194,7 @@ export function Thread({
         onSession?.(thread.session);
         setItems(thread.items);
         setStatuses(thread.statuses);
+        setMessages(thread.messages ?? []);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -292,7 +295,10 @@ export function Thread({
   const atEarlier = !!stage && started.slice(0, earlier).some((s) => s.start.id === stage);
   const stagesShown = allStages || atEarlier ? started : started.slice(earlier);
   // the reviews each stage sent, for its tooltip
-  const sentBy = useMemo(() => stageReviews(entriesOf(items, statuses)), [items, statuses]);
+  const entries = useMemo(() => entriesOf(items, statuses, messages), [items, statuses, messages]);
+  const sentBy = useMemo(() => stageReviews(entries), [entries]);
+  // the person's messages the agent has not received yet
+  const queued = messages.filter((m) => !m.delivered_at);
   // the reviews the session sent that have ended, newest first
   const handled = newest.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
   // the starred reviews, newest first
@@ -484,7 +490,16 @@ export function Thread({
                 <span>Session started {stamp(session.first_at)}</span>
               </div>
             ) : null}
-            {entriesOf(items, statuses).map((entry) => {
+            {entries.map((entry) => {
+              if (entry.kind === "message")
+                return (
+                  <MessageBubble
+                    key={`m-${entry.message.id}`}
+                    message={entry.message}
+                    session={named!}
+                    onDeleted={load}
+                  />
+                );
               if (entry.kind === "statuses")
                 return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
               if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
@@ -543,7 +558,7 @@ export function Thread({
                 <ArrowDown size={15} />
               </button>
             )}
-            {active ? null : <IdleComposer />}
+            {active ? null : named ? <MessageComposer session={named} onSent={load} /> : <IdleComposer />}
           </div>
         </div>
         {openReview && reviewPanel ? (
@@ -599,6 +614,33 @@ export function Thread({
                 </a>
               ))}
             </section>
+            {queued.length > 0 ? (
+              <section aria-label="Waiting on the agent">
+                <h2>Waiting on the agent · {queued.length}</h2>
+                {queued.map((m) => (
+                  <a
+                    key={m.id}
+                    href={`#message-${m.id}`}
+                    className="thread-waiting-item"
+                    data-testid="queued-message"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document
+                        .getElementById(`message-${m.id}`)
+                        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                    }}
+                  >
+                    <Clock size={14} className="thread-queued-icon" aria-hidden />
+                    <span className="thread-waiting-item-text">
+                      <span className="text">{m.text}</span>
+                      <span className="faint" title={stamp(m.sent_at)}>
+                        queued · {age(m.sent_at)} ago
+                      </span>
+                    </span>
+                  </a>
+                ))}
+              </section>
+            ) : null}
             {starred.length > 0 ? (
               <section aria-label="Starred">
                 <h2>Starred · {starred.length}</h2>
@@ -1602,6 +1644,104 @@ function Composer({ comment, onComment, left, busy, connected, onSend, onDecline
 }
 
 /** The chat box with nothing to answer. */
+/** The box under the thread while no question waits: a message to the
+ *  agent, which it receives with its next status. */
+function MessageComposer({ session, onSent }: { session: { agent: string; id: string }; onSent: () => void }) {
+  const live = useLive();
+  const toast = useToast();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try {
+      await api.sendMessage(session.agent, session.id, text);
+      setText("");
+      onSent();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "The message was not sent.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`thread-composer ${busy ? "is-busy" : ""}`}>
+      <ComposeField
+        value={text}
+        onChange={setText}
+        label="Message to the agent"
+        placeholder="Message the agent"
+        onSubmit={send}
+        keys="Enter to send · Shift+Enter for a new line"
+        send={{
+          label: live.connected ? "Send the message to the agent" : "Reconnect to send",
+          name: "Send the message",
+          keys: ["Enter"],
+          disabled: busy || !live.connected || !text.trim(),
+          testId: "send-message",
+        }}
+      />
+      <p className="thread-composer-hint faint">The agent receives your message the next time it reports a status.</p>
+    </div>
+  );
+}
+
+/** A message the person sent the agent, on the right, with whether the
+ *  agent has received it; one still queued can be deleted. */
+function MessageBubble({
+  message,
+  session,
+  onDeleted,
+}: {
+  message: SessionMessage;
+  session: { agent: string; id: string };
+  onDeleted: () => void;
+}) {
+  const toast = useToast();
+  const queued = !message.delivered_at;
+  const remove = async () => {
+    try {
+      await api.deleteMessage(session.agent, session.id, message.id);
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "The message was not deleted.");
+    }
+    onDeleted();
+  };
+  return (
+    <div
+      className={`thread-message ${queued ? "is-queued" : "is-delivered"}`}
+      id={`message-${message.id}`}
+      data-testid="message"
+    >
+      <div className="thread-message-row">
+        {queued ? (
+          <Tooltip label="Delete the message" side="top">
+            <button type="button" className="thread-message-delete" aria-label="Delete the message" onClick={remove}>
+              <Trash2 size={14} />
+            </button>
+          </Tooltip>
+        ) : null}
+        <div className="thread-message-bubble" title={`Sent ${stamp(message.sent_at)}`}>
+          {message.text}
+        </div>
+      </div>
+      {queued ? (
+        <span className="thread-message-state" data-testid="message-state">
+          <Clock size={12} aria-hidden /> Queued
+        </span>
+      ) : (
+        <span
+          className="thread-message-state"
+          data-testid="message-state"
+          title={`Delivered ${stamp(message.delivered_at)}`}
+        >
+          <Check size={12} aria-hidden /> Delivered {age(message.delivered_at)} ago
+        </span>
+      )}
+    </div>
+  );
+}
+
 function IdleComposer() {
   return (
     <div className="thread-composer is-idle">

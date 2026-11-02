@@ -14,6 +14,7 @@ import type {
   ReviewView,
   ServerSettings,
   Session,
+  SessionMessage,
   SessionStatus,
   Stage,
   Violation,
@@ -105,12 +106,18 @@ export const api = {
   /** the stages agents started, newest first, those whose names hold every word of q */
   stages: (params: { q?: string; limit?: string }) =>
     request<{ stages: Stage[] }>("GET", `/api/v1/stages${query(params)}`),
-  /** a session and its questions and reviews, oldest first */
+  /** a session and its questions and reviews, oldest first, its statuses and the person's messages */
   session: (agent: string, id: string) =>
-    request<{ session: Session; items: Review[]; statuses: SessionStatus[] }>(
+    request<{ session: Session; items: Review[]; statuses: SessionStatus[]; messages: SessionMessage[] }>(
       "GET",
       `/api/v1/sessions/${seg(agent)}/${seg(id)}`,
     ),
+  /** sends the agent a message, which it receives with its next status */
+  sendMessage: (agent: string, id: string, text: string) =>
+    request<SessionMessage>("POST", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages`, { text }),
+  /** deletes a message the agent has not received yet */
+  deleteMessage: (agent: string, id: string, message: number) =>
+    request<void>("DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages/${message}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),
   /** the decision on the version the view showed: a review that moved to another since is a conflict */
   decide: (id: string, data: unknown, agentNote: string, bundle?: string) =>

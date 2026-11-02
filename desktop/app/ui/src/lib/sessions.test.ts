@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Review, SessionStatus } from "../api/types";
+import type { Review, SessionMessage, SessionStatus } from "../api/types";
 import { newestRounds, stageReviews, stages, timeline } from "./sessions";
 
 const review = (id: string, at: string, revises: string | null = null) =>
@@ -171,5 +171,54 @@ describe("rounds", () => {
       review("r2", "2026-10-30T10:03:00Z", "r1"),
     ];
     expect(newestRounds(items).map((r) => r.id)).toEqual(["o", "r2"]);
+  });
+});
+
+describe("messages", () => {
+  const message = (id: number, at: string, after: number | null = null): SessionMessage => ({
+    id,
+    text: `m${id}`,
+    sent_by: "pnezis",
+    sent_at: at,
+    delivered_at: null,
+    after_status: after,
+  });
+  const show = (entries: ReturnType<typeof timeline>) =>
+    entries.map((e) =>
+      e.kind === "item"
+        ? e.review.id
+        : e.kind === "statuses"
+          ? e.statuses.map((s) => s.text)
+          : e.kind === "message"
+            ? `m${e.message.id}`
+            : e.kind,
+    );
+
+  test("shows a message when it was sent, among the reviews and the statuses", () => {
+    const entries = timeline(
+      [review("r1", "2026-10-30T10:02:00Z")],
+      [
+        status(1, "2026-10-30T10:00:00Z", "Planning"),
+        status(2, "2026-10-30T10:01:00Z", "Building"),
+        status(3, "2026-10-30T10:03:00Z", "Testing"),
+      ],
+      [message(1, "2026-10-30T10:00:30Z", 1), message(2, "2026-10-30T10:04:00Z", 3)],
+    );
+    // a message between two steps splits them
+    expect(show(entries)).toEqual([["Planning"], "m1", ["Building"], "r1", ["Testing"], "m2"]);
+  });
+
+  test("puts a message after the status that was the newest, though they share a second", () => {
+    const entries = timeline(
+      [],
+      [status(1, "2026-10-30T10:00:00Z", "Reading"), status(2, "2026-10-30T10:00:00Z", "Switching")],
+      [message(1, "2026-10-30T10:00:00Z", 1)],
+    );
+    expect(show(entries)).toEqual([["Reading"], "m1", ["Switching"]]);
+  });
+
+  test("shows a message sent before anything else first", () => {
+    const entries = timeline([review("r1", "2026-10-30T10:02:00Z")], [], [message(1, "2026-10-30T10:00:00Z")]);
+    expect(show(entries)).toEqual(["m1", "r1"]);
   });
 });

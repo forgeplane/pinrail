@@ -3340,6 +3340,70 @@ body.is-resizing iframe {
 .thread-composer.is-idle .compose {
   opacity: 0.6;
 }
+/* how the agent receives a message, under the box */
+.thread-composer-hint {
+  margin: 6px 4px 0;
+  font-size: 11.5px;
+}
+/* a message the person sent the agent: on the right, in a bubble, with
+   whether the agent has received it under it */
+.thread-items > .thread-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.thread-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(70%, 560px);
+}
+.thread-message-bubble {
+  padding: 8px 12px;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--accent-bg);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.thread-message-delete {
+  display: inline-flex;
+  flex: none;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--dim);
+  opacity: 0;
+  cursor: pointer;
+}
+.thread-message:hover .thread-message-delete,
+.thread-message-delete:focus-visible {
+  opacity: 1;
+}
+.thread-message-delete:hover {
+  color: var(--danger);
+}
+.thread-message-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.thread-message.is-queued .thread-message-state {
+  color: var(--sev-major);
+}
+.is-delivered .thread-message-state svg {
+  color: var(--ok);
+}
+.thread-queued-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--sev-major);
+}
 .thread-composer.is-busy .compose-send {
   opacity: 0.7;
 }

@@ -264,10 +264,31 @@ test("questions stand apart from reviews in the inbox, and their session waits i
   await expect(waiting).toBeVisible();
 });
 
-test("with nothing waiting, the chat box is there but cannot be written in", async ({ page }) => {
+test("with nothing waiting, the chat box takes a message to the agent of the session", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);
   const { id } = await send(page.request, asked(fresh(), "Idle: deploy"));
+  const done = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, {
+    data: {
+      data: {
+        answers: [
+          { id: "q1", choice: "staging" },
+          { id: "q2", yes: true },
+          { id: "q3", text: "v2" },
+        ],
+      },
+    },
+  });
+  expect(done.status()).toBe(200);
+  await page.goto(`/#/reviews/${id}`);
+  await expect(page.getByRole("textbox", { name: "Message to the agent" })).toBeEditable();
+  await expect(page.getByTestId("send-answers")).toHaveCount(0);
+});
+
+test("with nothing waiting and no session, the chat box cannot be written in", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const { id } = await send(page.request, asked(null, "Idle: deploy"));
   const done = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, {
     data: {
       data: {

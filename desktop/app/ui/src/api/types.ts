@@ -336,6 +336,20 @@ export type SessionStatus = {
   attachments?: NoteAttachment[];
 };
 
+/** A message the person sent the agent from its session's thread: queued
+ *  until the agent reports a status, which delivers it. */
+export type SessionMessage = {
+  id: number;
+  text: string;
+  sent_by: string;
+  sent_at: string;
+  /** when a status handed it to the agent; null while it is queued */
+  delivered_at: string | null;
+  /** the session's newest status when it was sent, which places it among
+   *  the statuses: their times, in whole seconds, do not always tell */
+  after_status?: number | null;
+};
+
 /** The web origins a plugin may open without asking, while it stays
  *  installed from the source it had when they were allowed. */
 export type LinkPermission = { source: string; origins: string[] };

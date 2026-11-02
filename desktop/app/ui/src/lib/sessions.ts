@@ -3,7 +3,7 @@
 // row with nothing between them are one group, and the agent saying it
 // starts a stage, or has finished, is a line of its own.
 
-import type { Review, SessionStatus } from "../api/types";
+import type { Review, SessionMessage, SessionStatus } from "../api/types";
 
 /** The router state of a review opened from a session: its breadcrumb
  *  names the session, and its decision leads back to the session. */
@@ -23,7 +23,8 @@ export type Entry =
   | { kind: "statuses"; statuses: SessionStatus[] }
   | { kind: "started"; status: SessionStatus }
   | { kind: "finished"; status: SessionStatus }
-  | { kind: "note"; status: SessionStatus };
+  | { kind: "note"; status: SessionStatus }
+  | { kind: "message"; message: SessionMessage };
 
 /** Each review's rounds among the items, oldest first, by the id of each
  *  of its rounds. A round that revises one from elsewhere starts a review. */
@@ -43,7 +44,9 @@ export function newestRounds(items: Review[]): Review[] {
   return items.filter((review) => rounds.get(review.id)!.at(-1) === review);
 }
 
-/** The items and the statuses, oldest first. A status goes after the
+/** The items, the statuses and the person's messages, oldest first. A
+ *  message goes after the status the core says was the newest when it was
+ *  sent, and by its time among the items. A status goes after the
  *  review the core says it came after, which the times, in whole seconds,
  *  do not always tell. A status without one goes by its time, after a
  *  review of the same second.
@@ -51,22 +54,35 @@ export function newestRounds(items: Review[]): Review[] {
  *  A review shows once, by its newest round, where its first round was
  *  sent. A later round adds a line where it was sent, unless only
  *  statuses came between it and the round before. */
-export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
+export function timeline(items: Review[], statuses: SessionStatus[], messages: SessionMessage[] = []): Entry[] {
   const rounds = roundsOf(items);
   const index = new Map(items.map((review, i) => [review.id, i]));
+  /** The last item sent at or before a time, or -1 before them all. */
+  const slotAt = (at: string) => {
+    let slot = -1;
+    items.forEach((review, i) => {
+      if (Date.parse(review.created_at) <= Date.parse(at)) slot = i;
+    });
+    return slot;
+  };
+  // the messages after each item, by its index, as the statuses below;
+  // filled once the statuses have theirs, which a message can follow
+  const said = new Map<number, SessionMessage[]>();
+  const statusSlot = new Map<number, number>();
   // the statuses after each item, by its index; -1 is before them all
   const slots = new Map<number, SessionStatus[]>();
   for (const status of statuses) {
     let slot: number;
     if (status.after === null) slot = -1;
     else if (status.after !== undefined && index.has(status.after)) slot = index.get(status.after)!;
-    else {
-      slot = -1;
-      items.forEach((review, i) => {
-        if (Date.parse(review.created_at) <= Date.parse(status.at)) slot = i;
-      });
-    }
+    else slot = slotAt(status.at);
     slots.set(slot, [...(slots.get(slot) ?? []), status]);
+    statusSlot.set(status.id, slot);
+  }
+  for (const message of messages) {
+    const after = message.after_status != null ? statusSlot.get(message.after_status) : undefined;
+    const slot = Math.max(slotAt(message.sent_at), after ?? -1);
+    said.set(slot, [...(said.get(slot) ?? []), message]);
   }
   const entries: Entry[] = [];
   const place = (slot: number) => {
@@ -75,7 +91,16 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
       if (group.length) entries.push({ kind: "statuses", statuses: group });
       group = [];
     };
+    const queue = [...(said.get(slot) ?? [])];
+    // the messages sent before a status, each a message of its own
+    const sayUntil = (status: number) => {
+      while (queue.length && (queue[0].after_status ?? -1) < status) {
+        close();
+        entries.push({ kind: "message", message: queue.shift()! });
+      }
+    };
     for (const status of slots.get(slot) ?? []) {
+      sayUntil(status.id);
       if (status.kind === "step") group.push(status);
       else {
         close();
@@ -86,6 +111,7 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
       }
     }
     close();
+    sayUntil(Infinity);
   };
   place(-1);
   items.forEach((review, i) => {
