@@ -226,8 +226,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     loadThemes();
   }, [loadThemes]);
   useEffect(() => {
-    if (live.lastNotice?.kind === "themes_changed" || live.connected) loadThemes();
-  }, [live.lastNotice, live.connected, loadThemes]);
+    if (live.lastNotice?.kind === "themes_changed") loadThemes();
+  }, [live.lastNotice, loadThemes]);
+  useEffect(() => {
+    if (live.connected) loadThemes();
+  }, [live.connected, loadThemes]);
 
   const { dark_theme: darkTheme, light_theme: lightTheme } = settings.appearance;
   useEffect(() => {
