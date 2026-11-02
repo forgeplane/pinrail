@@ -3,7 +3,6 @@
 //! diagnostics on stderr, and meaningful exit codes, which [`EXITS`] lists
 //! for the help and the docs alike.
 
-mod agent;
 mod api;
 mod ask;
 mod attachments;
@@ -27,6 +26,7 @@ use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 
 use api::{ApiError, Client, InstallRequest};
+use pinrail_runtime::detect as agent;
 
 pub const EXIT_ERROR: u8 = 1;
 pub const EXIT_REFUSED: u8 = 2;

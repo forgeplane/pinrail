@@ -3383,6 +3383,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-user-notifications",
  "pinrail-core",
+ "pinrail-runtime",
  "rustix",
  "serde",
  "serde_json",
@@ -3420,6 +3421,10 @@ dependencies = [
  "unicode-normalization",
  "zip 9.0.4",
 ]
+
+[[package]]
+name = "pinrail-runtime"
+version = "0.4.1"
 
 [[package]]
 name = "piper"

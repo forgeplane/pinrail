@@ -900,6 +900,7 @@ dependencies = [
  "chrono",
  "clap",
  "pinrail-format",
+ "pinrail-runtime",
  "serde_json",
  "sha2",
  "ureq",
@@ -917,6 +918,10 @@ dependencies = [
  "sha2",
  "unicode-normalization",
 ]
+
+[[package]]
+name = "pinrail-runtime"
+version = "0.4.1"
 
 [[package]]
 name = "potential_utf"
