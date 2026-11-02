@@ -22,6 +22,22 @@ fn when(v: &Value) -> String {
         .unwrap_or_else(|_| iso.to_string())
 }
 
+/// The stage a status says is open, for the agent to check against its work;
+/// empty when the app does not say.
+pub fn stage(answer: &Value) -> String {
+    match answer.get("stage") {
+        None => String::new(),
+        Some(Value::Null) => {
+            "No open stage. Start one with pinrail status --start before new work.\n".to_string()
+        }
+        Some(stage) => format!(
+            "Current stage: {} (started {})\n",
+            text(&stage["text"]),
+            when(&stage["at"])
+        ),
+    }
+}
+
 /// The person's messages a status handed to the agent, each under who
 /// sent it and when, a blank line between them; empty with none.
 pub fn messages(messages: &Value) -> String {

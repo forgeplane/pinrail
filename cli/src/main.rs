@@ -196,8 +196,10 @@ enum Command {
     /// agent_note.
     #[command(verbatim_doc_comment)]
     Ask(ask::AskArgs),
-    /// Say what the agent is doing in its session, in one line, shown in
-    /// the session's thread in the app
+    /// Say what the agent is doing in its session, and receive the person's
+    /// messages
+    ///
+    /// A status is one line, shown in the session's thread in the app.
     ///
     ///     pinrail status --start "Add rate limiting to the public API"
     ///     pinrail status "Running the end-to-end suite"
@@ -216,8 +218,13 @@ enum Command {
     /// It shows in the thread and changes nothing else: it is not the
     /// latest status, and it neither starts nor ends a stage.
     ///
+    /// The person can send the agent messages from the thread. Each status
+    /// prints the messages waiting for the agent, oldest first, and each
+    /// message is printed once.
+    ///
     /// The command finds the agent and its session as submit does, and
-    /// does not wait. It prints nothing.
+    /// does not wait. It prints the stage the agent last reported, or that
+    /// no stage is open, followed by any messages from the person.
     #[command(verbatim_doc_comment)]
     Status(StatusArgs),
     /// Submit a review, and with --wait, wait for the decision and print it
@@ -1622,9 +1629,17 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
         body["attachments"] = attachments::declare(&files);
         attachments::upload(client, &files)?;
     }
-    // the person's messages, which the agent receives with its status
+    // the stage the app has, and the person's messages, which the agent
+    // receives with its status
     let answer = client.status(&agent, &session, &body)?;
-    print!("{}", md::messages(&answer["messages"]));
+    let stage = md::stage(&answer);
+    let messages = md::messages(&answer["messages"]);
+    let gap = if stage.is_empty() || messages.is_empty() {
+        ""
+    } else {
+        "\n"
+    };
+    print!("{stage}{gap}{messages}");
     Ok(0)
 }
 

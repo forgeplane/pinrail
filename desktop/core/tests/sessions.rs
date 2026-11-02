@@ -839,3 +839,63 @@ async fn a_message_names_the_newest_status_when_it_was_sent() {
         thread["statuses"][0]["id"]
     );
 }
+
+#[tokio::test]
+async fn a_status_answers_with_the_open_stage() {
+    let app = app();
+    // no stage was started yet
+    let (_, answer) = status(&app, "claude-code", "s-1", json!({"text": "Reading"})).await;
+    assert_eq!(answer["stage"], Value::Null);
+
+    let (_, answer) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Add rate limiting", "kind": "start"}),
+    )
+    .await;
+    assert_eq!(answer["stage"]["text"], "Add rate limiting");
+    assert!(answer["stage"]["at"].is_string());
+
+    // a step and a note stay in the stage
+    let (_, answer) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(answer["stage"]["text"], "Add rate limiting");
+    let (_, answer) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "A summary", "kind": "note"}),
+    )
+    .await;
+    assert_eq!(answer["stage"]["text"], "Add rate limiting");
+
+    // the newest stage is the open one
+    let (_, answer) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "Fix the tests", "kind": "start"}),
+    )
+    .await;
+    assert_eq!(answer["stage"]["text"], "Fix the tests");
+
+    // finishing closes it, and a note does not open it again
+    let (_, answer) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
+    assert_eq!(answer["stage"], Value::Null);
+    let (_, answer) = status(
+        &app,
+        "claude-code",
+        "s-1",
+        json!({"text": "A last word", "kind": "note"}),
+    )
+    .await;
+    assert_eq!(answer["stage"], Value::Null);
+
+    // a step after the end says the agent is working again
+    let (_, answer) = status(&app, "claude-code", "s-1", json!({"text": "One more"})).await;
+    assert_eq!(answer["stage"]["text"], "Fix the tests");
+
+    // another session has its own
+    let (_, answer) = status(&app, "claude-code", "s-2", json!({"text": "Elsewhere"})).await;
+    assert_eq!(answer["stage"], Value::Null);
+}

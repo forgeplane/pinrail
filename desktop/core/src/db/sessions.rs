@@ -69,6 +69,37 @@ impl StatusKind {
     }
 }
 
+/// The stage open in a session. A note neither starts nor ends a stage, and
+/// a status after the end says the agent is working on it again.
+fn open_stage(conn: &Connection, agent: &str, id: &str) -> rusqlite::Result<Option<OpenStage>> {
+    let latest: Option<String> = conn
+        .query_row(
+            "SELECT kind FROM session_statuses
+             WHERE agent = ?1 AND session = ?2 AND kind <> 'note'
+             ORDER BY id DESC LIMIT 1",
+            params![agent, id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if latest.as_deref() == Some(StatusKind::Done.as_str()) {
+        return Ok(None);
+    }
+    conn.query_row(
+        "SELECT text, created_at FROM session_statuses
+         WHERE agent = ?1 AND session = ?2 AND kind = 'start'
+         ORDER BY id DESC LIMIT 1",
+        params![agent, id],
+        |row| {
+            let at: String = row.get(1)?;
+            Ok(OpenStage {
+                text: row.get(0)?,
+                at: parse_datetime(&at).unwrap_or_else(Utc::now),
+            })
+        },
+    )
+    .optional()
+}
+
 /// What an agent said it is doing, with `pinrail status`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusRow {
@@ -128,6 +159,22 @@ pub struct Added {
     pub event_id: i64,
     pub messages: Vec<MessageRow>,
     pub delivered: Option<i64>,
+    /// the stage open once the status is recorded
+    pub stage: Option<OpenStage>,
+}
+
+/// The stage an agent is in: the newest it started, unless it has reported
+/// that it finished since.
+#[derive(Debug, Clone)]
+pub struct OpenStage {
+    pub text: String,
+    pub at: DateTime<Utc>,
+}
+
+impl OpenStage {
+    pub fn to_json(&self) -> Value {
+        json!({ "text": self.text, "at": crate::reviews::iso(self.at) })
+    }
 }
 
 /// A stage an agent started, as a search finds it: the start status and
@@ -436,12 +483,14 @@ impl Db {
                 &delivered_notice(agent, id, &messages),
             )?)
         };
+        let stage = open_stage(&tx, agent, id)?;
         tx.commit()?;
         Ok(Ok(Added {
             status,
             event_id,
             messages,
             delivered,
+            stage,
         }))
     }
 

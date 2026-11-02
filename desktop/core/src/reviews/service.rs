@@ -16,8 +16,8 @@ use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{
-    Db, Deleted, Event, Filters, MessageRow, NotStored, SessionFilters, SessionRow, StageRow,
-    StatusKind, StatusRow, delivered_notice, message_notice, status_notice,
+    Db, Deleted, Event, Filters, MessageRow, NotStored, OpenStage, SessionFilters, SessionRow,
+    StageRow, StatusKind, StatusRow, delivered_notice, message_notice, status_notice,
 };
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -329,7 +329,7 @@ impl Reviews {
         kind: StatusKind,
         origin: Option<&Value>,
         attachments: Option<&Value>,
-    ) -> Result<(StatusRow, Vec<MessageRow>), Error> {
+    ) -> Result<(Vec<MessageRow>, Option<OpenStage>), Error> {
         let text = text.trim();
         if agent.trim().is_empty() || session.trim().is_empty() {
             return Err(Error::invalid("session", "name the agent and the session"));
@@ -396,7 +396,7 @@ impl Reviews {
                 session: Some(delivered_notice(agent, session, &added.messages)),
             });
         }
-        Ok((added.status, added.messages))
+        Ok((added.messages, added.stage))
     }
 
     /// Queues a message from the person to the agent of a session, which

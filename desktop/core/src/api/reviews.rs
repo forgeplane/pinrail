@@ -17,7 +17,7 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{MessageRow, SessionFilters, SessionRow, StageRow, StatusKind};
+use crate::db::{MessageRow, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind};
 use crate::error::Error;
 use crate::markdown::Head;
 use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
@@ -632,7 +632,8 @@ async fn session(
 /// start of a task, which names it, `done` once it has finished, or `note`
 /// for a Markdown message, whose text may span lines; with the `origin` it
 /// works in. Answers `messages`, the person's messages it handed to the
-/// agent, oldest first.
+/// agent, oldest first, and `stage`, the stage now open with its `text` and
+/// `at`, or `null`.
 async fn status(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
@@ -644,7 +645,7 @@ async fn status(
         Some(kind) => StatusKind::parse(kind)
             .ok_or_else(|| Error::invalid("kind", "must be step, start, done or note"))?,
     };
-    let (_, messages) = state.reviews().status(
+    let (messages, stage) = state.reviews().status(
         &agent,
         &id,
         text,
@@ -654,6 +655,7 @@ async fn status(
     )?;
     Ok(Json(json!({
         "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
+        "stage": stage.as_ref().map(OpenStage::to_json),
     })))
 }
 

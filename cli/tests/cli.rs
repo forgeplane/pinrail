@@ -3502,3 +3502,45 @@ fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
          Message from pnezis, sent 2026-11-02 10:05:\nAnd keep the old tests:\nthey cover the retries.\n"
     );
 }
+
+#[test]
+fn status_prints_the_open_stage_above_the_messages() {
+    let answers = vec![
+        r#"{"messages":[],"stage":{"text":"Add rate limiting","at":"2026-11-02T10:00:00Z"}}"#
+            .to_string(),
+        r#"{"messages":[],"stage":null}"#.to_string(),
+        r#"{"messages":[{"sent_by":"pnezis","sent_at":"2026-11-02T10:04:00Z","text":"Use v2."}],
+            "stage":{"text":"Add rate limiting","at":"2026-11-02T10:00:00Z"}}"#
+            .to_string(),
+    ];
+    let next = Mutex::new(answers);
+    let server = MockServer::start(Box::new(move |_, _, _| {
+        (200, next.lock().unwrap().remove(0))
+    }));
+    let status = || {
+        let out = pinrail()
+            .args(["status", "Running the tests", "--no-start"])
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", "UTC")
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0));
+        String::from_utf8(out.stdout).unwrap()
+    };
+    assert_eq!(
+        status(),
+        "Current stage: Add rate limiting (started 2026-11-02 10:00)\n"
+    );
+    assert_eq!(
+        status(),
+        "No open stage. Start one with pinrail status --start before new work.\n"
+    );
+    assert_eq!(
+        status(),
+        "Current stage: Add rate limiting (started 2026-11-02 10:00)\n\n\
+         Message from pnezis, sent 2026-11-02 10:04:\nUse v2.\n"
+    );
+}

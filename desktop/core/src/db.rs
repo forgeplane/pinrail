@@ -24,8 +24,8 @@ pub use plugins::InstallRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
 pub use sessions::{
-    Added, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow, delivered_notice,
-    status_notice,
+    Added, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
+    delivered_notice, status_notice,
 };
 
 use std::path::Path;

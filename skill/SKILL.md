@@ -63,7 +63,7 @@ pinrail ask "Deploy to staging or production?" \
 ## Reporting progress
 
 Say what you are doing with `pinrail status`. The person sees it in your
-session's thread in the app, between your questions and reviews:
+session's thread in the app:
 
 ```sh
 pinrail status --start "Add rate limiting to the public API"
@@ -80,9 +80,9 @@ pinrail status --done "Opened pull request #214"
 - The text is one line of at most 200 characters.
 - The command does not wait. If it fails, carry on with your work.
 
-The person can send you messages from the app. They arrive in the output
-of `pinrail status`, each under *Message from*. Act on them before you go
-on, and say what you did in your next status.
+The output shows your current stage: if your work has moved on, use
+`--start`. It also shows the person's messages, each under *Message from*.
+Act on them before you go on, and say what you did in your next status.
 
 Send a note when the person would want to read it later in the session: a
 summary at the end of a stage, a decision you took without asking, or what
