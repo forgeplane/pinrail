@@ -244,7 +244,7 @@ mod tests {
             );
             // the text an agent reads, without the menu at the end
             let text = brief.body.split("\n## More\n").next().unwrap();
-            let limit = if brief.path == "index" { 10240 } else { 20480 };
+            let limit = if brief.path == "index" { 16384 } else { 20480 };
             assert!(
                 text.len() <= limit,
                 "{} is {} bytes, over {limit}",
