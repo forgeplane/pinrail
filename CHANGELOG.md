@@ -35,7 +35,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   in the session's thread between its questions and reviews, and the
   newest shows on the Sessions page.
   `pinrail status --start` names the stage of work the agent starts,
-  which becomes the session's title.
+  which becomes the session's title. The session details list its latest
+  8 stages and fold the earlier ones.
   `pinrail status --note` sends a note: a message in Markdown, with files
   such as a chart or a log, that shows in the thread and asks nothing.
 - Code in a note or a question's context is highlighted when it names its
