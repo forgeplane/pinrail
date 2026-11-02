@@ -22,6 +22,27 @@ fn when(v: &Value) -> String {
         .unwrap_or_else(|_| iso.to_string())
 }
 
+/// The person's messages a status handed to the agent, each under who
+/// sent it and when, a blank line between them; empty with none.
+pub fn messages(messages: &Value) -> String {
+    messages
+        .as_array()
+        .map(|all| {
+            all.iter()
+                .map(|m| {
+                    format!(
+                        "Message from {}, sent {}:\n{}\n",
+                        text(&m["sent_by"]),
+                        when(&m["sent_at"]),
+                        text(&m["text"])
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
+}
+
 /// What a listing was narrowed to, to say above it.
 pub struct Scope {
     pub status: Option<String>,

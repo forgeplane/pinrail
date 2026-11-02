@@ -1622,7 +1622,9 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
         body["attachments"] = attachments::declare(&files);
         attachments::upload(client, &files)?;
     }
-    client.status(&agent, &session, &body)?;
+    // the person's messages, which the agent receives with its status
+    let answer = client.status(&agent, &session, &body)?;
+    print!("{}", md::messages(&answer["messages"]));
     Ok(0)
 }
 

@@ -3462,3 +3462,43 @@ fn a_review_names_the_top_of_the_checkout_as_its_folder() {
         .unwrap();
     assert_eq!(folder, top);
 }
+
+#[test]
+fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
+    let answers = Arc::new(Mutex::new(vec![
+        r#"{"messages": []}"#.to_string(),
+        r#"{"messages": [
+            {"id": 1, "text": "Use the v2 endpoint.", "sent_by": "pnezis", "sent_at": "2026-11-02T10:04:00Z", "delivered_at": "2026-11-02T10:06:00Z"},
+            {"id": 2, "text": "And keep the old tests:\nthey cover the retries.", "sent_by": "pnezis", "sent_at": "2026-11-02T10:05:00Z", "delivered_at": "2026-11-02T10:06:00Z"}
+        ]}"#
+        .to_string(),
+    ]));
+    let next = answers.clone();
+    let server = MockServer::start(Box::new(move |_, _, _| {
+        (200, next.lock().unwrap().remove(0))
+    }));
+    let status = || {
+        let out = pinrail()
+            .args(["status", "Running the tests", "--no-start"])
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", "UTC")
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    };
+    assert_eq!(status(), "");
+    assert_eq!(
+        status(),
+        "Message from pnezis, sent 2026-11-02 10:04:\nUse the v2 endpoint.\n\n\
+         Message from pnezis, sent 2026-11-02 10:05:\nAnd keep the old tests:\nthey cover the retries.\n"
+    );
+}
