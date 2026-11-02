@@ -10,6 +10,7 @@
 mod blobs;
 mod bundles;
 mod events;
+mod messages;
 mod outcomes;
 mod plugins;
 mod reviews;
@@ -18,10 +19,14 @@ mod sessions;
 
 pub use bundles::BundleRecord;
 pub use events::Event;
+pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
-pub use sessions::{SessionFilters, SessionRow, StageRow, StatusKind, StatusRow, status_notice};
+pub use sessions::{
+    Added, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow, delivered_notice,
+    status_notice,
+};
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};

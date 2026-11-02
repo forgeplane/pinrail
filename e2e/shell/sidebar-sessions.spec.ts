@@ -28,7 +28,7 @@ test.afterEach(({ request }) => setChoices(request, DEFAULTS));
 
 async function report(request: APIRequestContext, agent: string, session: string, body: Record<string, unknown>) {
   const response = await request.post(`${core}/api/v1/sessions/${agent}/${session}/status`, { data: body });
-  expect(response.status(), await response.text()).toBe(204);
+  expect(response.status(), await response.text()).toBe(200);
 }
 async function ask(request: APIRequestContext, agent: string, session: string, repo: string, title: string) {
   const response = await request.post(`${core}/api/v1/reviews`, {

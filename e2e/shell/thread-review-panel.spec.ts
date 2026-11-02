@@ -34,7 +34,7 @@ async function sessionWithReview(request: APIRequestContext, title: string) {
     const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
       data: { text: `Step ${i}`, kind: i % 3 ? "step" : "start" },
     });
-    expect(response.status()).toBe(204);
+    expect(response.status()).toBe(200);
   }
   const id = await submit(request, session, title);
   return { session, id };

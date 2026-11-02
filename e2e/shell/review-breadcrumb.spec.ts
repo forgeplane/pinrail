@@ -18,7 +18,7 @@ async function sessionWithReview(page: Page, title: string, stage = "Tidy the si
   const status = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
     data: { kind: "start", text: stage },
   });
-  expect(status.status(), await status.text()).toBe(204);
+  expect(status.status(), await status.text()).toBe(200);
   const response = await page.request.post(`${core}/api/v1/reviews`, {
     data: {
       plugin: "list",

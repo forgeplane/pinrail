@@ -14,7 +14,7 @@ async function startStages(page: Page, session: string, tag: string, count: numb
     const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
       data: { text: `${tag} stage ${i}`, kind: "start", origin: { repo: "acme/api" } },
     });
-    expect(response.status(), await response.text()).toBe(204);
+    expect(response.status(), await response.text()).toBe(200);
   }
 }
 

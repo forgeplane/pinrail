@@ -8,6 +8,7 @@ use serde_json::{Map, Value, json};
 
 use super::Db;
 use super::events::insert_event;
+use super::messages::MessageRow;
 use crate::attachments::ReviewAttachment;
 use crate::reviews::parse_datetime;
 
@@ -110,6 +111,23 @@ pub fn status_notice(agent: &str, id: &str, status: &StatusRow) -> Value {
         status["text"] = json!("");
     }
     json!({ "agent": agent, "id": id, "status": status })
+}
+
+/// The session and the messages a status handed to the agent, as a
+/// `session_messages_delivered` notice carries them.
+pub fn delivered_notice(agent: &str, id: &str, messages: &[MessageRow]) -> Value {
+    let messages: Vec<Value> = messages.iter().map(MessageRow::to_json).collect();
+    json!({ "agent": agent, "id": id, "messages": messages })
+}
+
+/// A status as it was recorded: the status and its event, and the
+/// person's messages it delivered, with their event when there were any.
+#[derive(Debug, Clone)]
+pub struct Added {
+    pub status: StatusRow,
+    pub event_id: i64,
+    pub messages: Vec<MessageRow>,
+    pub delivered: Option<i64>,
 }
 
 /// A stage an agent started, as a search finds it: the start status and
@@ -354,7 +372,7 @@ impl Db {
         kind: StatusKind,
         origin: &Map<String, Value>,
         attachments: &[ReviewAttachment],
-    ) -> rusqlite::Result<Result<(StatusRow, i64), String>> {
+    ) -> rusqlite::Result<Result<Added, String>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let now = Utc::now();
@@ -405,8 +423,26 @@ impl Db {
             None,
             &status_notice(agent, id, &status),
         )?;
+        // the person's queued messages go to the agent with the status
+        let messages = super::messages::deliver(&tx, agent, id, now)?;
+        let delivered = if messages.is_empty() {
+            None
+        } else {
+            Some(insert_event(
+                &tx,
+                None,
+                crate::events::SESSION_MESSAGES_DELIVERED,
+                None,
+                &delivered_notice(agent, id, &messages),
+            )?)
+        };
         tx.commit()?;
-        Ok(Ok((status, event_id)))
+        Ok(Ok(Added {
+            status,
+            event_id,
+            messages,
+            delivered,
+        }))
     }
 
     /// The stages agents started in any session whose names hold every
@@ -509,13 +545,16 @@ impl Db {
         Ok(statuses)
     }
 
-    /// Deletes the sessions with no review left and no activity since
-    /// `before`, with their statuses. Returns how many went.
+    /// Deletes the sessions with no review left, no message queued and no
+    /// activity since `before`, with their statuses. Returns how many went.
     pub fn delete_idle_sessions(&self, before: DateTime<Utc>) -> rusqlite::Result<usize> {
         let conn = self.conn();
         conn.execute(
             "DELETE FROM sessions WHERE last_at < ?1 AND NOT EXISTS
-               (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)",
+               (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)
+             AND NOT EXISTS
+               (SELECT 1 FROM session_messages m WHERE m.agent = sessions.agent
+                  AND m.session = sessions.id AND m.delivered_at IS NULL)",
             params![activity(before)],
         )
     }

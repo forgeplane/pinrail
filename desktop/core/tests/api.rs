@@ -4044,7 +4044,7 @@ async fn a_note_carries_its_files_and_serves_them() {
         }),
     )
     .await;
-    assert_eq!(code, StatusCode::NO_CONTENT, "{sent}");
+    assert_eq!(code, StatusCode::OK, "{sent}");
 
     let (id, status) = newest_status(&app, "s-1").await;
     assert_eq!(
@@ -4115,7 +4115,7 @@ async fn shared_file(app: &App, root: &Path, session: &str) -> (String, String, 
     let (code, review) = call(app, "POST", "/api/v1/reviews", Some(body)).await;
     assert_eq!(code, StatusCode::CREATED, "{review}");
     let (code, sent) = note(app, session, "The chart.", json!({ "chart.png": file })).await;
-    assert_eq!(code, StatusCode::NO_CONTENT, "{sent}");
+    assert_eq!(code, StatusCode::OK, "{sent}");
     let (id, _) = newest_status(app, session).await;
     (hash, review["id"].as_str().unwrap().to_string(), id)
 }

@@ -22,10 +22,15 @@ pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
 /// An agent reported what it is doing in its session, with `pinrail status`.
 pub const SESSION_STATUS: &str = "session_status";
-/// The person starred a round of a review, or removed its star.
+/// The person sent the agent a message in its session, deleted one still
+/// queued, or the agent received the queued ones with a status.
+pub const SESSION_MESSAGE_SENT: &str = "session_message_sent";
+pub const SESSION_MESSAGE_DELETED: &str = "session_message_deleted";
+pub const SESSION_MESSAGES_DELIVERED: &str = "session_messages_delivered";
 /// The person archived a session, or brought it back.
 pub const SESSION_ARCHIVED: &str = "session_archived";
 pub const SESSION_UNARCHIVED: &str = "session_unarchived";
+/// The person starred a round of a review, or removed its star.
 pub const STARRED: &str = "starred";
 pub const UNSTARRED: &str = "unstarred";
 /// Reviews past the history's keep-days were deleted.

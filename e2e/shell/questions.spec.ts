@@ -432,7 +432,7 @@ test("Enter in the comment box sends the answers, and Shift+Enter starts a new l
 
 async function report(request: APIRequestContext, session: string, body: Record<string, unknown>) {
   const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, { data: body });
-  expect(response.status(), await response.text()).toBe(204);
+  expect(response.status(), await response.text()).toBe(200);
 }
 
 test("the statuses an agent reports show in its thread between the questions and reviews", async ({ page }) => {

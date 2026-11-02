@@ -11,7 +11,7 @@ const fresh = () => `s-note-${Date.now()}-${++n}`;
 
 async function report(page: Page, session: string, body: Record<string, unknown>) {
   const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, { data: body });
-  expect(response.status(), await response.text()).toBe(204);
+  expect(response.status(), await response.text()).toBe(200);
 }
 
 test("a note shows in the thread as Markdown, and a status after it as a status", async ({ page }) => {

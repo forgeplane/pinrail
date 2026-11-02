@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -17,7 +17,7 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{SessionFilters, SessionRow, StageRow, StatusKind};
+use crate::db::{MessageRow, SessionFilters, SessionRow, StageRow, StatusKind};
 use crate::error::Error;
 use crate::markdown::Head;
 use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
@@ -44,6 +44,11 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/stages", get(stages))
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
+        .route("/api/v1/sessions/{agent}/{id}/messages", post(send_message))
+        .route(
+            "/api/v1/sessions/{agent}/{id}/messages/{message}",
+            delete(delete_message),
+        )
         .route(
             "/api/v1/sessions/{agent}/{id}/statuses/{status}/attachments/{name}",
             get(note_attachment),
@@ -601,17 +606,20 @@ async fn stages(
     })))
 }
 
-/// One session as a thread: the session, and its questions and reviews
-/// oldest first, the questions with their payloads.
+/// One session as a thread: the session, its questions and reviews oldest
+/// first, the questions with their payloads, its statuses and the person's
+/// messages to the agent.
 async fn session(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<Json<Value>, ApiError> {
     let (session, items) = state.reviews().session(&agent, &id)?;
     let statuses = state.reviews().statuses(&agent, &id)?;
+    let messages = state.reviews().messages(&agent, &id)?;
     Ok(Json(json!({
         "session": session_json(&session),
         "statuses": statuses.iter().map(|s| s.to_json()).collect::<Vec<_>>(),
+        "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
         "items": items
             .iter()
             .map(|r| r.to_json(r.kind == Kind::Question))
@@ -623,19 +631,20 @@ async fn session(
 /// `text`, one line, and its `kind`: `step`, the default, `start` for the
 /// start of a task, which names it, `done` once it has finished, or `note`
 /// for a Markdown message, whose text may span lines; with the `origin` it
-/// works in. Answers 204.
+/// works in. Answers `messages`, the person's messages it handed to the
+/// agent, oldest first.
 async fn status(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
     Json(body): Json<Value>,
-) -> Result<StatusCode, ApiError> {
+) -> Result<Json<Value>, ApiError> {
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
     let kind = match body.get("kind").and_then(Value::as_str) {
         None => StatusKind::Step,
         Some(kind) => StatusKind::parse(kind)
             .ok_or_else(|| Error::invalid("kind", "must be step, start, done or note"))?,
     };
-    state.reviews().status(
+    let (_, messages) = state.reviews().status(
         &agent,
         &id,
         text,
@@ -643,5 +652,29 @@ async fn status(
         body.get("origin"),
         body.get("attachments"),
     )?;
+    Ok(Json(json!({
+        "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
+    })))
+}
+
+/// Sends the agent of the session a message, `text`, which waits until
+/// the agent next reports a status. Answers 201 with the message.
+async fn send_message(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let text = body.get("text").and_then(Value::as_str).unwrap_or("");
+    let message = state.reviews().send_message(&agent, &id, text)?;
+    Ok((StatusCode::CREATED, Json(message.to_json())))
+}
+
+/// Deletes a message the agent has not received yet. Answers 204, or 409
+/// once the agent has received it.
+async fn delete_message(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id, message)): Path<(String, String, i64)>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().delete_message(&agent, &id, message)?;
     Ok(StatusCode::NO_CONTENT)
 }

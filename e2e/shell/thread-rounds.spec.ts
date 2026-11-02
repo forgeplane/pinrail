@@ -13,7 +13,7 @@ const thread = (page: Page) => page.getByTestId("thread");
 
 async function report(request: APIRequestContext, session: string, body: Record<string, unknown>) {
   const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, { data: body });
-  expect(response.status(), await response.text()).toBe(204);
+  expect(response.status(), await response.text()).toBe(200);
 }
 
 async function submit(request: APIRequestContext, session: string, title: string, revises?: string) {

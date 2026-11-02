@@ -197,7 +197,7 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
         json!({"text": "Add rate limiting", "kind": "start", "origin": {"repo": "acme", "ref": "main", "folder": "/work/acme"}}),
     )
     .await;
-    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert_eq!(code, StatusCode::OK);
     send(&app, question("claude-code", Some("s-1"), "Use SQLite?")).await;
     status(
         &app,
@@ -207,7 +207,7 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
     )
     .await;
     let (code, _) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
-    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert_eq!(code, StatusCode::OK);
 
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
     let statuses: Vec<(String, String)> = thread["statuses"]
@@ -304,7 +304,7 @@ async fn a_status_is_one_short_line() {
         assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{body} {refused}");
     }
     let (code, _) = status(&app, "claude-code", "s-1", json!({"text": "é".repeat(200)})).await;
-    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert_eq!(code, StatusCode::OK);
 }
 
 #[tokio::test]
@@ -517,7 +517,7 @@ async fn a_question_a_review_or_a_status_brings_an_archived_session_back() {
             _ => {
                 let (code, _) =
                     status(&app, "claude-code", "s-1", json!({"text": "Working"})).await;
-                assert_eq!(code, StatusCode::NO_CONTENT);
+                assert_eq!(code, StatusCode::OK);
             }
         }
         assert_eq!(listed_ids(&app, "").await, ["s-1"], "back after the {step}");
@@ -568,7 +568,7 @@ async fn a_note_is_kept_with_its_markdown_and_is_not_the_latest_status() {
         json!({"text": markdown, "kind": "note"}),
     )
     .await;
-    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert_eq!(code, StatusCode::OK);
 
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
     let last = thread["statuses"]
@@ -614,7 +614,7 @@ async fn a_note_is_markdown_of_at_most_ten_thousand_characters() {
         json!({"text": long, "kind": "note"}),
     )
     .await;
-    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert_eq!(code, StatusCode::OK);
 }
 
 #[tokio::test]
@@ -659,5 +659,183 @@ async fn a_session_is_read_with_every_round_of_its_reviews() {
     assert_eq!(
         thread["session"]["total"],
         json!({"questions": 1, "reviews": 1})
+    );
+}
+
+async fn message(app: &App, session: &str, text: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/messages"),
+        Some(json!({ "text": text })),
+    )
+    .await
+}
+
+async fn delete_message(app: &App, session: &str, id: &Value) -> StatusCode {
+    call(
+        app,
+        "DELETE",
+        &format!("/api/v1/sessions/claude-code/{session}/messages/{id}"),
+        None,
+    )
+    .await
+    .0
+}
+
+#[tokio::test]
+async fn a_status_delivers_the_queued_messages_once_oldest_first() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let (code, first) = message(&app, "s-1", "  Use the v2 endpoint.  ").await;
+    assert_eq!(code, StatusCode::CREATED, "{first}");
+    assert_eq!(first["text"], "Use the v2 endpoint.");
+    assert_eq!(first["delivered_at"], Value::Null);
+    let (_, second) = message(&app, "s-1", "And keep the old tests.").await;
+    // another session's message stays where it is
+    status(&app, "claude-code", "s-2", json!({"text": "Elsewhere"})).await;
+    message(&app, "s-2", "Not for s-1.").await;
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let texts: Vec<&str> = thread["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(texts, ["Use the v2 endpoint.", "And keep the old tests."]);
+
+    let (code, delivered) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(code, StatusCode::OK);
+    let ids: Vec<&Value> = delivered["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| &m["id"])
+        .collect();
+    assert_eq!(ids, [&first["id"], &second["id"]]);
+    assert!(delivered["messages"][0]["delivered_at"].is_string());
+    // once: the next status has nothing for the agent
+    let (_, again) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
+    assert_eq!(again["messages"], json!([]));
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert!(thread["messages"][1]["delivered_at"].is_string());
+    let (_, other) = call(&app, "GET", "/api/v1/sessions/claude-code/s-2", None).await;
+    assert_eq!(other["messages"][0]["delivered_at"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_queued_message_can_be_deleted_and_a_delivered_one_cannot() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let (_, queued) = message(&app, "s-1", "Never mind.").await;
+    assert_eq!(
+        delete_message(&app, "s-1", &queued["id"]).await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        delete_message(&app, "s-1", &queued["id"]).await,
+        StatusCode::NOT_FOUND
+    );
+
+    let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
+    // a message is deleted only from its own session
+    status(&app, "claude-code", "s-2", json!({"text": "Elsewhere"})).await;
+    assert_eq!(
+        delete_message(&app, "s-2", &sent["id"]).await,
+        StatusCode::NOT_FOUND
+    );
+    status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(
+        delete_message(&app, "s-1", &sent["id"]).await,
+        StatusCode::CONFLICT
+    );
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_message_needs_a_session_and_its_text() {
+    let app = app();
+    let (code, _) = message(&app, "s-nope", "Anyone?").await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    for text in ["   ".to_string(), "é".repeat(4001)] {
+        let (code, refused) = message(&app, "s-1", &text).await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    }
+    let (code, _) = message(&app, "s-1", &"é".repeat(4000)).await;
+    assert_eq!(code, StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn messages_are_announced_when_sent_delivered_and_deleted() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let mut notices = app.state.events().subscribe();
+    let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_message_sent");
+    assert_eq!(notice.session.unwrap()["message"]["id"], sent["id"]);
+
+    let (_, other) = message(&app, "s-1", "Never mind.").await;
+    notices.recv().await.unwrap();
+    delete_message(&app, "s-1", &other["id"]).await;
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_message_deleted");
+    assert_eq!(notice.session.unwrap()["message"]["id"], other["id"]);
+
+    status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(notices.recv().await.unwrap().kind, "session_status");
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_messages_delivered");
+    assert_eq!(notice.session.unwrap()["messages"][0]["id"], sent["id"]);
+}
+
+#[tokio::test]
+async fn a_queued_message_keeps_its_session_from_the_sweep() {
+    let app = app();
+    status(&app, "claude-code", "s-queued", json!({"text": "Planning"})).await;
+    message(&app, "s-queued", "Use the v2 endpoint.").await;
+    status(
+        &app,
+        "claude-code",
+        "s-delivered",
+        json!({"text": "Planning"}),
+    )
+    .await;
+    message(&app, "s-delivered", "Use the v2 endpoint.").await;
+    status(
+        &app,
+        "claude-code",
+        "s-delivered",
+        json!({"text": "Received"}),
+    )
+    .await;
+    let later = chrono::Utc::now() + chrono::Duration::days(1);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    let ids: Vec<&str> = listing["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["s-queued"]);
+}
+
+#[tokio::test]
+async fn a_message_names_the_newest_status_when_it_was_sent() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Reading"})).await;
+    let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
+    status(&app, "claude-code", "s-1", json!({"text": "Switching"})).await;
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(sent["after_status"], thread["statuses"][0]["id"]);
+    assert_eq!(
+        thread["messages"][0]["after_status"],
+        thread["statuses"][0]["id"]
     );
 }

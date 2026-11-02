@@ -63,7 +63,7 @@ test("⌘K finds the stages agents started, and opens the thread at one", async 
     const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
       data: { origin: { repo: "acme/api" }, ...body },
     });
-    expect(response.status(), await response.text()).toBe(204);
+    expect(response.status(), await response.text()).toBe(200);
   };
   await report({ text: `${tag} add rate limiting`, kind: "start" });
   // enough after it that the thread opened at its end would not show the start

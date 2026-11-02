@@ -16,8 +16,8 @@ use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{
-    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
-    status_notice,
+    Db, Deleted, Event, Filters, MessageRow, NotStored, SessionFilters, SessionRow, StageRow,
+    StatusKind, StatusRow, delivered_notice, message_notice, status_notice,
 };
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -28,6 +28,8 @@ const DEFAULT_LIMIT: usize = 100;
 const STATUS_MAX: usize = 200;
 /// The longest note, in characters.
 const NOTE_MAX: usize = 10_000;
+/// The longest message to the agent, in characters.
+const MESSAGE_MAX: usize = 4_000;
 
 /// One page of a listing; see `Reviews::listing`.
 #[derive(Debug)]
@@ -317,7 +319,8 @@ impl Reviews {
     /// Records what the agent says it is doing in its session: one line of
     /// text, which may be empty only when the agent says it has finished,
     /// or a note, Markdown of several lines. The start of a task names it,
-    /// and so the session.
+    /// and so the session. Returns the status and the person's queued
+    /// messages, which it hands to the agent.
     pub fn status(
         &self,
         agent: &str,
@@ -326,7 +329,7 @@ impl Reviews {
         kind: StatusKind,
         origin: Option<&Value>,
         attachments: Option<&Value>,
-    ) -> Result<StatusRow, Error> {
+    ) -> Result<(StatusRow, Vec<MessageRow>), Error> {
         let text = text.trim();
         if agent.trim().is_empty() || session.trim().is_empty() {
             return Err(Error::invalid("session", "name the agent and the session"));
@@ -363,28 +366,98 @@ impl Reviews {
             Vec::new()
         };
         let origin = Review::normalize_origin(origin);
-        let (status, event_id) =
-            match self
-                .db
-                .add_status(agent, session, text, kind, &origin, &attachments)?
-            {
-                Ok(added) => added,
-                Err(name) => {
-                    return Err(Error::invalid(
-                        "attachments",
-                        format!("{name} was deleted before the note was stored: upload it again"),
-                    ));
-                }
-            };
+        let added = match self
+            .db
+            .add_status(agent, session, text, kind, &origin, &attachments)?
+        {
+            Ok(added) => added,
+            Err(name) => {
+                return Err(Error::invalid(
+                    "attachments",
+                    format!("{name} was deleted before the note was stored: upload it again"),
+                ));
+            }
+        };
         self.bus.publish(Notice {
-            event_id,
+            event_id: added.event_id,
             kind: events::SESSION_STATUS.to_string(),
             review_id: None,
             review: None,
             keys: None,
-            session: Some(status_notice(agent, session, &status)),
+            session: Some(status_notice(agent, session, &added.status)),
         });
-        Ok(status)
+        if let Some(event_id) = added.delivered {
+            self.bus.publish(Notice {
+                event_id,
+                kind: events::SESSION_MESSAGES_DELIVERED.to_string(),
+                review_id: None,
+                review: None,
+                keys: None,
+                session: Some(delivered_notice(agent, session, &added.messages)),
+            });
+        }
+        Ok((added.status, added.messages))
+    }
+
+    /// Queues a message from the person to the agent of a session, which
+    /// the agent receives with its next status.
+    pub fn send_message(
+        &self,
+        agent: &str,
+        session: &str,
+        text: &str,
+    ) -> Result<MessageRow, Error> {
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(Error::invalid("text", "write the message"));
+        }
+        if text.chars().count() > MESSAGE_MAX {
+            return Err(Error::invalid(
+                "text",
+                format!("must be at most {MESSAGE_MAX} characters"),
+            ));
+        }
+        let Some((message, event_id)) = self.db.add_message(agent, session, text, &self.user)?
+        else {
+            return Err(Error::NotFound(format!("session {session} of {agent}")));
+        };
+        self.bus.publish(Notice {
+            event_id,
+            kind: events::SESSION_MESSAGE_SENT.to_string(),
+            review_id: None,
+            review: None,
+            keys: None,
+            session: Some(message_notice(agent, session, &message)),
+        });
+        Ok(message)
+    }
+
+    /// Deletes a message the agent has not received yet.
+    pub fn delete_message(&self, agent: &str, session: &str, message: i64) -> Result<(), Error> {
+        match self.db.delete_message(agent, session, message)? {
+            Deleted::Yes(event_id, deleted) => {
+                self.bus.publish(Notice {
+                    event_id,
+                    kind: events::SESSION_MESSAGE_DELETED.to_string(),
+                    review_id: None,
+                    review: None,
+                    keys: None,
+                    session: Some(message_notice(agent, session, &deleted)),
+                });
+                Ok(())
+            }
+            Deleted::Delivered => Err(Error::Conflict(
+                "The agent has already received this message.".to_string(),
+            )),
+            Deleted::Missing => Err(Error::NotFound(format!(
+                "message {message} of session {session}"
+            ))),
+        }
+    }
+
+    /// The session's messages to the agent, oldest first.
+    pub fn messages(&self, agent: &str, session: &str) -> Result<Vec<MessageRow>, Error> {
+        Ok(self.db.messages(agent, session)?)
     }
 
     /// The session's statuses, oldest first.
