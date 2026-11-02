@@ -26,8 +26,6 @@ look for it elsewhere or install it yourself.
   choice, a fact or a preference. The question fits on one line.
 - `pinrail submit`: you made something the person should look at and
   decide on, such as a change, a plan, a design or a list of findings.
-  The plugin shows the work, and the person approves, rejects or comments
-  on its parts.
 - `pinrail status --note`: you want the person to know something, and
   need no answer.
 
@@ -36,8 +34,7 @@ rather than describe it in a question.
 
 ## Asking questions
 
-When you are blocked on something only the person can answer, such as a
-choice between options, a missing fact or a preference, ask with
+When you are blocked on something only the person can answer, ask with
 `pinrail ask`:
 
 ```sh
@@ -83,6 +80,10 @@ pinrail status --done "Opened pull request #214"
 - The text is one line of at most 200 characters.
 - The command does not wait. If it fails, carry on with your work.
 
+The person can send you messages from the app. They arrive in the output
+of `pinrail status`, each under *Message from*. Act on them before you go
+on, and say what you did in your next status.
+
 Send a note when the person would want to read it later in the session: a
 summary at the end of a stage, a decision you took without asking, or what
 an investigation found. A note is Markdown, and asks nothing:
@@ -92,9 +93,8 @@ pinrail status --note --file summary.md --attach latency.png --attach run.log
 pinrail status --note "Kept the old endpoint: the nightly job still calls it."
 ```
 
-- Keep a note short: a few lines or a short list, not a report.
-- Do not send one for every step, and do not repeat what a review you
-  submit already shows.
+- Keep a note to a few lines, and do not repeat what a review you submit
+  already shows.
 - `--attach` sends a file with the note, such as a chart, a screenshot or
   a log. Show an image in place with `![p95 latency](attachment:latency.png)`.
   Every file is also listed under the note.
@@ -127,9 +127,8 @@ The options of `submit`:
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long. If
   your commands stop after a time limit, keep it below that limit.
   `PINRAIL_TIMEOUT` sets it once for every wait.
-- `--json`: the whole review as JSON. The person's answer is its
-  `decision.data`, shaped by the plugin's decision schema. Use it only to
-  process the result by program, and read the default Markdown otherwise.
+- `--json`: the whole review as JSON, with the person's answer in
+  `decision.data`. Use it only to process the result by program.
 - `--dry-run`: run every check without creating a review. It exits with 0
   if the review would be accepted, and with 2 if not.
 - `--revises <id>`: the new version of a review, shown beside the last one.

@@ -115,7 +115,7 @@ When a question depends on the answer to another, ask the first, then the next w
 
 ## Reporting progress
 
-`pinrail status` says what the agent is doing, in one line, in its session's thread in the app. It does not wait and prints nothing.
+`pinrail status` says what the agent is doing, in one line, in its session's thread in the app. It does not wait, and prints only the person's messages, if there are any.
 
 ```sh
 pinrail status --start "Add rate limiting to the public API"
@@ -138,6 +138,17 @@ pinrail status --note --file summary.md --attach latency.png --attach out/run.tx
 Send a note for what the person would want to read later in the session: a summary at the end of a stage, a decision taken without asking, or what an investigation found. A note never waits in the inbox, does not start or end a stage, and is not the session's latest status.
 
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
+
+### Messages from the person
+
+The person can send the agent messages from its session's thread. A message waits until the agent next runs `pinrail status`, of any kind, which prints every waiting message, oldest first, and marks it delivered. Each message is printed once:
+
+```text
+Message from Sam, sent 2026-11-02 10:04:
+Use the v2 endpoint, the v1 one is going away.
+```
+
+The agent should act on a message before it goes on, and say what it did in its next status.
 
 ## Submitting a review
 

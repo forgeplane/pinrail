@@ -86,6 +86,12 @@ A note can carry files, such as a chart, a screenshot or a log. An image the not
 
 A note is information only. It does not wait in the inbox, and it is not the latest status that the Sessions page and the sidebar show. A note after *Finished* leaves the session finished.
 
+## Messages to the agent
+
+When no question is waiting, the box at the bottom of a session's thread sends the agent a message, such as a correction or something it should know. Press <kbd>Enter</kbd> or click the arrow button to send it, and <kbd>⇧Enter</kbd> to start a new line. While questions wait, the box holds your comment on the answers instead.
+
+The agent receives a message the next time it reports a status with `pinrail status`. Until then, the message is *Queued*, and the session's details list it under *Waiting on the agent*. Once the agent has received it, the message shows *Delivered* with the time. To delete a queued message, point at it and click the bin. A delivered message cannot be deleted.
+
 Agents report their statuses when their Pinrail skill tells them to. To update the skill, choose *Update* next to each agent in *Settings › Agents*. See [Settings](/docs/using/settings/#agents), and [Reporting progress](/docs/agents/cli/#reporting-progress) for the command.
 
 ## Keys

@@ -39,6 +39,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   8 stages and fold the earlier ones.
   `pinrail status --note` sends a note: a message in Markdown, with files
   such as a chart or a log, that shows in the thread and asks nothing.
+- Send the agent a message from its session's thread. The agent receives
+  it the next time it runs `pinrail status`, and the thread shows whether
+  it was delivered. A message that is still queued can be deleted.
 - Code in a note or a question's context is highlighted when it names its
   language.
 - The session details show the project, the branch and the folder the
