@@ -520,6 +520,17 @@ mod tests {
     }
 
     #[test]
+    fn every_bundled_theme_sets_every_key() {
+        for file in BUNDLED.files() {
+            let id = bundled_id(file.path());
+            assert!(valid_id(id), "{id}");
+            let theme = parse(file.contents_utf8().unwrap()).unwrap();
+            assert!(theme.warnings.is_empty(), "{id}: {:?}", theme.warnings);
+            assert_eq!(theme.colors.len(), KEYS.len(), "{id}");
+        }
+    }
+
+    #[test]
     fn colours_are_checked() {
         for good in [
             "#abc",
