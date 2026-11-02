@@ -29,6 +29,7 @@
     --pinrail-accent: #a1a5ef;
     --pinrail-accent-bg: #292a3c;
     --pinrail-button-bg: #6873d6;
+    --pinrail-button-text: #ffffff;
 
     /* the five tones the manifest's summary uses */
     --pinrail-danger: #e48c98;
@@ -74,6 +75,7 @@
     --pinrail-accent: #5965cb;
     --pinrail-accent-bg: #f0f0fa;
     --pinrail-button-bg: #5965bc;
+    --pinrail-button-text: #ffffff;
 
     --pinrail-danger: #bc4655;
     --pinrail-warning: #99651b;

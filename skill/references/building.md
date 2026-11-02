@@ -272,7 +272,7 @@ the view follows the app's theme.
 
 - Colours: `--pinrail-` followed by `bg`, `bg-panel`, `bg-raised`,
   `bg-hover`, `border`, `border-strong`, `text`, `dim`, `faint`, `accent`,
-  `accent-bg` or `button-bg`. The tones are `danger`, `warning`, `info`,
+  `accent-bg`, `button-bg` or `button-text`. The tones are `danger`, `warning`, `info`,
   `success` and `neutral`, and diffs have `add-bg`, `add-gut`, `del-bg`
   and `del-gut`.
 - Type: `--pinrail-sans` and `--pinrail-mono`, with text at 13px.

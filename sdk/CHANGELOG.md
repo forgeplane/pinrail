@@ -4,6 +4,13 @@ The package's version is the SDK's, and its major is the protocol's:
 `1.x` speaks protocol 1, served by the app at `/sdk/v1`. A breaking
 change to the protocol is a new major and a new path.
 
+## [Unreleased]
+
+### Added
+
+- A `--pinrail-button-text` token: the colour of text on a filled button.
+  `.pinrail-btn-primary` and `.pinrail-compose-send` use it.
+
 ## [1.4.0]
 
 ### Added

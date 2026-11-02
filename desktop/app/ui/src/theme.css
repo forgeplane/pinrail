@@ -16,6 +16,7 @@
   --accent: #a1a5ef;
   --accent-bg: #292a3c;
   --button-bg: #6873d6;
+  --button-text: #ffffff;
   --ok: #7cc79e;
   --danger: #e48c98;
   --sev-blocker: #e48c98;
@@ -65,6 +66,7 @@
   --accent: #5965cb;
   --accent-bg: #f0f0fa;
   --button-bg: #5965bc;
+  --button-text: #ffffff;
   --ok: #28795c;
   --danger: #bc4655;
   --sev-blocker: #bc4655;
@@ -874,7 +876,7 @@ h1 {
   border: 1px solid var(--button-bg);
   border-radius: 5px;
   background: var(--button-bg);
-  color: #fff;
+  color: var(--button-text);
   font: inherit;
   font-weight: 500;
   cursor: pointer;
@@ -2327,7 +2329,7 @@ body.is-resizing iframe {
 .button-primary {
   background: var(--button-bg);
   border-color: var(--button-bg);
-  color: #fff;
+  color: var(--button-text);
 }
 .button-primary:hover {
   background: color-mix(in srgb, var(--button-bg) 85%, black);
@@ -2343,7 +2345,7 @@ body.is-resizing iframe {
 .button-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--button-text);
 }
 .button-danger:hover {
   background: color-mix(in srgb, var(--danger) 85%, black);
@@ -2946,7 +2948,7 @@ body.is-resizing iframe {
   border: 0;
   border-radius: 6px;
   background: var(--button-bg);
-  color: #fff;
+  color: var(--button-text);
   font-weight: 600;
   font-size: 12.5px;
   gap: 7px;
@@ -2967,8 +2969,8 @@ body.is-resizing iframe {
   font-size: 10px;
   padding: 0 4px;
   border: 0;
-  background: rgb(255 255 255 / 0.18);
-  color: rgb(255 255 255 / 0.9);
+  background: color-mix(in srgb, var(--button-text) 18%, transparent);
+  color: color-mix(in srgb, var(--button-text) 90%, transparent);
 }
 .composer.is-busy .handover-button {
   opacity: 0.7;
@@ -3071,7 +3073,7 @@ body.is-resizing iframe {
   margin: 1px;
   border-radius: 50%;
   background: var(--button-bg);
-  color: #fff;
+  color: var(--button-text);
 }
 .compose-send:hover:not(:disabled) {
   background: color-mix(in srgb, var(--button-bg) 85%, var(--text));
@@ -3837,7 +3839,7 @@ body.is-resizing iframe {
   border: 2px solid var(--border-strong);
   border-radius: 50%;
   background: var(--bg);
-  color: #fff;
+  color: var(--button-text);
 }
 .is-done .thread-rail-dot {
   border-color: var(--ok);
@@ -5068,7 +5070,7 @@ body.is-resizing iframe {
   padding: 5px 6px;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  border-left-color: color-mix(in srgb, #fff 35%, var(--button-bg));
+  border-left-color: color-mix(in srgb, var(--button-text) 35%, var(--button-bg));
 }
 .install-menu {
   position: absolute;

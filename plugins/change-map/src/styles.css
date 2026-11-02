@@ -1774,7 +1774,7 @@ body.cm-panning * {
   padding: 0 4px;
   border-radius: 8px;
   background: var(--pinrail-accent);
-  color: var(--pinrail-accent-fg, #fff);
+  color: var(--pinrail-button-text, #fff);
   font-size: 10.5px;
   line-height: 16px;
   text-align: center;

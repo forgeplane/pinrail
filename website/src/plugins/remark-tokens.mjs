@@ -50,6 +50,7 @@ const GROUPS = [
       ["--pinrail-accent", "Links, focus, what is selected"],
       ["--pinrail-accent-bg", "Behind what is selected"],
       ["--pinrail-button-bg", "The one primary button"],
+      ["--pinrail-button-text", "Text on the primary button"],
     ],
   ],
   [

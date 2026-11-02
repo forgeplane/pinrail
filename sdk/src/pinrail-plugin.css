@@ -438,11 +438,11 @@
   .pinrail-btn-primary {
     background: var(--pinrail-button-bg);
     border-color: transparent;
-    color: #fff;
+    color: var(--pinrail-button-text);
     padding: 6px 16px;
   }
   .pinrail-btn-primary:hover:not(:disabled) {
-    color: #fff;
+    color: var(--pinrail-button-text);
     filter: brightness(1.1);
   }
   .pinrail-btn-danger {
@@ -694,7 +694,7 @@
     margin: 1px;
     border-radius: 50%;
     background: var(--pinrail-accent);
-    color: var(--pinrail-accent-fg, #fff);
+    color: var(--pinrail-button-text);
   }
   .pinrail-compose-send:hover:not(:disabled) {
     background: color-mix(in srgb, var(--pinrail-accent) 85%, var(--pinrail-text));
