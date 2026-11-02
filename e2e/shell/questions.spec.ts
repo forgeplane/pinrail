@@ -568,7 +568,7 @@ test("a session's details list its ended reviews, folded until opened", async ({
   await page.reload();
   await expect(handled.getByTestId("handled-review")).toHaveCount(1);
   await handled.getByTestId("handled-review").click();
-  await expect(page).toHaveURL(new RegExp(`/reviews/${id}$`));
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?review=${id}$`));
 });
 
 test("a session opens in the side panel beside the Sessions page", async ({ page }) => {

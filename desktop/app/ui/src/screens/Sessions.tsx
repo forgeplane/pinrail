@@ -21,6 +21,7 @@ import { NO_PROJECT, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
+import { ReviewView } from "./ReviewScreen";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -354,6 +355,17 @@ export function SessionScreen() {
         session={{ agent, id }}
         stage={stage}
         onSession={(s) => setTitle(s.title)}
+        reviewPanel={({ id: review, linkTo, onEnded, onClose }) => (
+          <ReviewView
+            key={review}
+            id={review}
+            inPanel
+            besideThread
+            linkTo={linkTo}
+            onEnded={onEnded}
+            onClose={onClose}
+          />
+        )}
       />
     </div>
   );

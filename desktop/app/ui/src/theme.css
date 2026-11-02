@@ -3948,6 +3948,11 @@ body.is-resizing iframe {
 .thread-card > .status-badge {
   flex: none;
 }
+/* the review shown in the panel beside the thread */
+.thread-card.is-open {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
 /* the card a revised line led to, for a moment */
 .thread-card.is-flashed {
   border-color: var(--accent);

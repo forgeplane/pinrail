@@ -46,7 +46,7 @@ test("a review revised in a later stage stays in its stage, with a line where th
   await expect(cards).toHaveCount(2);
   await expect(cards.first()).toContainText("Rounds: the spec");
   await expect(cards.first()).toContainText("round 2 of 2");
-  await expect(cards.first()).toHaveAttribute("href", `#/reviews/${second}`);
+  await expect(cards.first()).toHaveAttribute("href", new RegExp(`review=${second}$`));
   await expect(cards.last()).not.toContainText("round");
   // the header counts reviews, not rounds
   await expect(thread(page)).toContainText("2 reviews");
@@ -57,6 +57,10 @@ test("a review revised in a later stage stays in its stage, with a line where th
   await line.click();
   await expect(cards.first()).toHaveClass(/is-flashed/);
   await expect(cards.first()).toBeInViewport();
+  // and opens the newest round beside the thread
+  await expect(page).toHaveURL(new RegExp(`\\?review=${second}$`));
+  await page.locator("body").press("Escape");
+  await expect(page.getByTestId("review-panel")).toHaveCount(0);
 
   // the stage that sent the spec lists it, and the later stage does not
   const stages = page.getByRole("region", { name: "Stages" }).getByTestId("stage");

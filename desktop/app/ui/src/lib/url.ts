@@ -50,10 +50,12 @@ export function clearAll(next: URLSearchParams) {
 export const reviewPath = (id: string, openIn: "panel" | "page") =>
   openIn === "panel" ? `/?open=${encodeURIComponent(id)}` : `/reviews/${id}`;
 
-/** The review a location shows, on its own page or in the inbox's side panel. */
+/** The review a location shows: on its own page, in the inbox's side panel,
+ *  or in the side panel beside a session's thread. */
 export function reviewShown(pathname: string, search: string): string | null {
   const page = pathname.match(/^\/reviews\/([^/]+)/)?.[1];
   if (page) return decodeURIComponent(page);
+  if (pathname.startsWith("/sessions/")) return new URLSearchParams(search).get("review");
   return pathname === "/" ? new URLSearchParams(search).get("open") : null;
 }
 

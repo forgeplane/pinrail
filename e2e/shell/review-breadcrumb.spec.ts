@@ -3,7 +3,10 @@
 // session, and its decision leads back to the thread.
 
 import { expect, test, type Page } from "@playwright/test";
-import { core, onePayload } from "./helpers";
+import { core, onePayload, onReviewPages } from "./helpers";
+
+// these tests open a review on a page of its own, which the breadcrumb heads
+onReviewPages();
 
 let n = 0;
 /** A session of its own for each test, so threads never share reviews. */

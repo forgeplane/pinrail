@@ -63,12 +63,21 @@ type ReviewViewProps = {
   onEnded?: () => void;
   /** closes the side panel */
   onClose?: () => void;
+  /** shown beside its session's thread, which it then does not link to */
+  besideThread?: boolean;
 };
 
 const pageOf = (id: string): To => `/reviews/${id}`;
 
 /** A review: its strip, its plugin view, and the note sent with a decision. */
-export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onClose }: ReviewViewProps) {
+export function ReviewView({
+  id,
+  inPanel = false,
+  linkTo = pageOf,
+  onEnded,
+  onClose,
+  besideThread = false,
+}: ReviewViewProps) {
   const live = useLive();
   const { settings: prefs, update: updatePrefs } = useSettings();
   const navigate = useNavigate();
@@ -596,7 +605,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
             </button>
           </Tooltip>
           {review.kind === "question" ? null : <StarButton review={review} />}
-          <SessionLink review={review} />
+          {besideThread ? null : <SessionLink review={review} />}
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
               <button
@@ -655,6 +664,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
       inPanel,
       showInPanel,
       onClose,
+      besideThread,
     ],
   );
   const forPlugin = useMemo(

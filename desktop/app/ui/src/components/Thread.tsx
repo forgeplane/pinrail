@@ -24,9 +24,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
@@ -34,6 +34,7 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderMarkdown, renderNote } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
+import { useUrlParams } from "../lib/url";
 import {
   timeline as entriesOf,
   fromSession,
@@ -45,6 +46,7 @@ import {
   type Round,
 } from "../lib/sessions";
 import { useLive } from "../state/live";
+import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
@@ -53,6 +55,7 @@ import { OutcomeBadge, SummaryCounts, outcomeOf } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
 import { NoteFiles, filesOf, useNoteFileUrl, useSaveNoteFile } from "./NoteFiles";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
+import { SidePanel } from "./SidePanel";
 import { Tooltip } from "./Tooltip";
 
 const DRAFTS = "pinrail:answers:";
@@ -97,6 +100,19 @@ type ThreadProps = {
   onSession?: (session: Session) => void;
   /** the start of a stage to open the thread at, by its status's id */
   stage?: number;
+  /** the review shown in the side panel beside the thread, when reviews
+   *  open in a panel: the session's page passes it */
+  reviewPanel?: (panel: ReviewPanelProps) => ReactNode;
+};
+
+/** What the side panel beside a thread needs to show a review. */
+export type ReviewPanelProps = {
+  id: string;
+  /** the link to another round of the review */
+  linkTo: (id: string) => To;
+  /** the review was decided or discarded */
+  onEnded: () => void;
+  onClose: () => void;
 };
 
 /** A session's page. */
@@ -113,8 +129,52 @@ export function sessionOf(review: Review): { agent: string; id: string } | null 
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }
 
-export function Thread({ focus, session: given, inPanel = false, onClose, onSession, stage }: ThreadProps) {
+export function Thread({
+  focus,
+  session: given,
+  inPanel = false,
+  onClose,
+  onSession,
+  stage,
+  reviewPanel,
+}: ThreadProps) {
   const live = useLive();
+  const { settings: prefs } = useSettings();
+  const [params, updateParams, currentParams] = useUrlParams();
+  // with reviews opening in a panel, ?review= names the review shown beside
+  // the thread, in place of the session's details
+  const panelMode = !!reviewPanel && prefs.inbox.open_in === "panel";
+  const openReview = panelMode ? params.get("review") : null;
+  /** Shows a review beside the thread, or closes the panel with null. A
+   *  review shown in place of another replaces its history entry. */
+  const showReview = useCallback(
+    (id: string | null, options?: { replace?: boolean }) =>
+      updateParams(
+        (next) => {
+          if (id) next.set("review", id);
+          else next.delete("review");
+        },
+        { replace: options?.replace ?? (!!id && currentParams().has("review")) },
+      ),
+    [updateParams, currentParams],
+  );
+  /** Where a link to a review goes: the panel, or the review's page. */
+  const reviewTo = useCallback(
+    (id: string): To => {
+      if (!panelMode) return `/reviews/${id}`;
+      const next = new URLSearchParams(params);
+      next.set("review", id);
+      return { search: `?${next}` };
+    },
+    [panelMode, params],
+  );
+  /** A plain click on a review's link, which opens it in the panel. */
+  const openFromLink = (event: React.MouseEvent, id: string) => {
+    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    showReview(id);
+  };
+  const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
   const navigate = useNavigate();
   // a side panel has details only for a question asked in a session
@@ -416,7 +476,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
         </span>
       </header>
       {error ? <p className="notice notice-danger">{error}</p> : null}
-      <div className="thread-body">
+      <div className="thread-body" ref={body}>
         <div className="thread-main">
           <div className="thread-items" ref={timeline}>
             {session ? (
@@ -438,7 +498,14 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                     session={named?.id ?? null}
                   />
                 );
-              if (entry.kind === "revised") return <RevisedLine key={`v-${entry.review.id}`} entry={entry} />;
+              if (entry.kind === "revised")
+                return (
+                  <RevisedLine
+                    key={`v-${entry.review.id}`}
+                    entry={entry}
+                    onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
+                  />
+                );
               const item = entry.review;
               return item.kind === "question" ? (
                 <QuestionSet
@@ -450,7 +517,15 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   onDone={load}
                 />
               ) : (
-                <ReviewCard key={item.id} review={item} round={entry.round} from={from} />
+                <ReviewCard
+                  key={item.id}
+                  review={item}
+                  round={entry.round}
+                  to={reviewTo(item.id)}
+                  state={panelMode ? undefined : from}
+                  open={item.id === openReview}
+                  onClick={(e) => openFromLink(e, item.id)}
+                />
               );
             })}
           </div>
@@ -471,7 +546,17 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             {active ? null : <IdleComposer />}
           </div>
         </div>
-        {!hasDetails || !details ? null : (
+        {openReview && reviewPanel ? (
+          <SidePanel split={body}>
+            {reviewPanel({
+              id: openReview,
+              linkTo: reviewTo,
+              onEnded: () => showReview(null, { replace: true }),
+              onClose: () => showReview(null),
+            })}
+          </SidePanel>
+        ) : null}
+        {!hasDetails || !details || openReview ? null : (
           <div
             className="panel-resizer thread-aside-resizer"
             role="separator"
@@ -485,7 +570,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             onKeyDown={resizeDetailsBy}
           />
         )}
-        {!hasDetails || !details ? null : (
+        {!hasDetails || !details || openReview ? null : (
           <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
             <section>
               <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
@@ -498,7 +583,8 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   data-testid="waiting-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
+                    if (r.kind !== "question" && panelMode) showReview(r.id);
+                    else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
                     else document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
                   }}
                 >
@@ -521,8 +607,9 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                   return (
                     <Link
                       key={r.id}
-                      to={`/reviews/${r.id}`}
-                      state={from}
+                      to={reviewTo(r.id)}
+                      state={panelMode ? undefined : from}
+                      onClick={(e) => openFromLink(e, r.id)}
                       className={`thread-waiting-item ${r.status === "pending" ? "" : `is-ended tone-${outcome.tone}`}`}
                       data-testid="starred-review"
                     >
@@ -646,8 +733,9 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                       return (
                         <Link
                           key={r.id}
-                          to={`/reviews/${r.id}`}
-                          state={from}
+                          to={reviewTo(r.id)}
+                          state={panelMode ? undefined : from}
+                          onClick={(e) => openFromLink(e, r.id)}
                           className={`thread-waiting-item is-ended tone-${outcome.tone}`}
                           data-testid="handled-review"
                         >
@@ -867,14 +955,26 @@ function FinishedLine({ status }: { status: SessionStatus }) {
   );
 }
 
+type CardProps = {
+  review: Review;
+  round?: Round;
+  to: To;
+  state?: FromSession;
+  /** shown in the panel beside the thread */
+  open: boolean;
+  onClick: (event: React.MouseEvent) => void;
+};
+
 /** A review the session sent, by its newest round, which opens it. */
-function ReviewCard({ review, round, from }: { review: Review; round?: Round; from?: FromSession }) {
+function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
   return (
     <Link
-      to={`/reviews/${review.id}`}
-      state={from}
+      to={to}
+      state={state}
+      onClick={onClick}
       id={`review-${review.id}`}
-      className="thread-card"
+      className={`thread-card ${open ? "is-open" : ""}`}
+      aria-current={open ? "true" : undefined}
       data-testid="thread-review"
     >
       <ReviewIcon review={review} size={16} />
@@ -896,8 +996,9 @@ function ReviewCard({ review, round, from }: { review: Review; round?: Round; fr
 const FLASH_MS = 1600;
 
 /** Where the agent sent a later round of a review shown further up: a quiet
- *  line that scrolls to the review's card. */
-function RevisedLine({ entry }: { entry: Extract<Entry, { kind: "revised" }> }) {
+ *  line that scrolls to the review's card, and opens the review in the
+ *  panel beside the thread when reviews open there. */
+function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "revised" }>; onOpen?: () => void }) {
   const { review, round, card } = entry;
   const waiting = card.status === "pending" && review === card;
   const show = () => {
@@ -908,6 +1009,7 @@ function RevisedLine({ entry }: { entry: Extract<Entry, { kind: "revised" }> }) 
     void el.offsetWidth; // restart the highlight when clicked again
     el.classList.add("is-flashed");
     window.setTimeout(() => el.classList.remove("is-flashed"), FLASH_MS);
+    onOpen?.();
   };
   return (
     <button type="button" className="thread-revised" data-testid="revised" onClick={show}>
