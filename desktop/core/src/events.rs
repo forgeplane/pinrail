@@ -20,6 +20,8 @@ pub const DISCARDED: &str = "discarded";
 pub const PLUGIN_CHANGED: &str = "plugin_changed";
 pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
+/// A file in the themes folder was added, changed or removed.
+pub const THEMES_CHANGED: &str = "themes_changed";
 /// An agent reported what it is doing in its session, with `pinrail status`.
 pub const SESSION_STATUS: &str = "session_status";
 /// The person sent the agent a message in its session, deleted one still

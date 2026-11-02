@@ -24,6 +24,7 @@ pub use pinrail_format::schema;
 pub use pinrail_format::skill;
 pub mod server_info;
 pub mod settings;
+pub mod themes;
 
 pub use app::Pinrail;
 pub use config::Config;

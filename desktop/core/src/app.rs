@@ -17,6 +17,7 @@ use crate::events::Events;
 use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Registry};
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
+use crate::themes::Themes;
 
 /// The running application, shared by the desktop and HTTP interfaces.
 /// Opening it initializes local storage and services without starting a
@@ -27,6 +28,7 @@ pub struct Pinrail {
     config: Config,
     events: Events,
     settings: SettingsService,
+    themes: Themes,
     plugins: PluginService,
     reviews: Reviews,
     attachments: Attachments,
@@ -65,6 +67,11 @@ impl Pinrail {
     /// Settings reads and changes share validation, persistence and notifications.
     pub fn settings(&self) -> &SettingsService {
         &self.settings
+    }
+
+    /// The bundled themes and the person's own.
+    pub fn themes(&self) -> &Themes {
+        &self.themes
     }
 
     /// Plugin operations share the registry, persistence and change notifications.
@@ -147,6 +154,7 @@ impl Pinrail {
         let events = Events::new(db.clone());
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());
+        let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
         let plugins = PluginService::new(db.clone(), registry.clone(), events.bus());
         let attachments = Attachments::open(
             &config.attachments_dir(),
@@ -164,6 +172,7 @@ impl Pinrail {
             config,
             events,
             settings,
+            themes,
             plugins,
             reviews,
             attachments,

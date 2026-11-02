@@ -232,6 +232,7 @@ export function subscribe(handlers: {
       "plugin_changed",
       "plugins_reloaded",
       "settings_changed",
+      "themes_changed",
       "session_status",
       "session_message_sent",
       "session_message_deleted",

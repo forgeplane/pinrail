@@ -9,6 +9,7 @@ mod plugins;
 mod reviews;
 mod settings;
 mod sse;
+mod themes;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -79,6 +80,7 @@ fn router_with(state: ApiState) -> Router {
         .merge(sse::routes())
         .merge(files::routes())
         .merge(settings::routes())
+        .merge(themes::routes())
         .layer(axum::extract::DefaultBodyLimit::max(guard::JSON_LIMIT))
         .layer(axum::middleware::from_fn(guard::body_limit))
         // inside CORS, so a preflight is answered before a write is judged
@@ -166,7 +168,7 @@ pub async fn serve(
             }
         })
     };
-    // an edit to settings.json outside the app is noticed within a second
+    // an edit to settings.json or a theme outside the app is noticed within a second
     let watcher = {
         let app = state.app.clone();
         tokio::spawn(async move {
@@ -175,6 +177,9 @@ pub async fn serve(
                 tick.tick().await;
                 if let Err(error) = app.settings().reload() {
                     eprintln!("pinrail: settings change not announced: {error}");
+                }
+                if let Err(error) = app.themes().reload() {
+                    eprintln!("pinrail: theme change not announced: {error}");
                 }
                 if let Err(error) = app.plugins().reload_if_links_changed() {
                     eprintln!("pinrail: a linked plugin's change was not read: {error}");

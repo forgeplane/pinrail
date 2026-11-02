@@ -32,6 +32,8 @@ enum Kind {
     NullableDays,
     /// a version such as 0.3.0, or null
     NullableVersion,
+    /// the id of a theme, which need not exist: its file may arrive later
+    ThemeId,
 }
 
 /// A setting: its JSON pointer, its kind, its default, and one line saying
@@ -45,7 +47,19 @@ const LEAVES: &[Leaf] = &[
         "/appearance/theme",
         Kind::Enum(&["system", "dark", "light"]),
         || json!("system"),
-        "The theme of the app and of every plugin view. `system` follows the operating system.",
+        "The colour scheme of the app and of every plugin view. `system` follows the operating system.",
+    ),
+    (
+        "/appearance/dark_theme",
+        Kind::ThemeId,
+        || json!("dark"),
+        "The theme used in the dark colour scheme.",
+    ),
+    (
+        "/appearance/light_theme",
+        Kind::ThemeId,
+        || json!("light"),
+        "The theme used in the light colour scheme.",
     ),
     (
         "/appearance/text_size",
@@ -254,6 +268,7 @@ impl Kind {
             Kind::Port => "a port, 1 to 65535".into(),
             Kind::NullableDays => "a positive number of days, or `null`".into(),
             Kind::NullableVersion => "a version such as `\"0.3.0\"`, or `null`".into(),
+            Kind::ThemeId => "a theme's id, such as `\"nord\"`".into(),
         }
     }
 }
@@ -669,6 +684,10 @@ fn check(kind: Kind, value: &Value) -> Option<String> {
         Kind::Enum(options) => match value.as_str() {
             Some(s) if options.contains(&s) => None,
             _ => wrong(&format!("one of {}", options.join(", "))),
+        },
+        Kind::ThemeId => match value.as_str() {
+            Some(s) if crate::themes::valid_id(s) => None,
+            _ => wrong("a theme's id: lowercase letters, digits and hyphens"),
         },
         Kind::Text => match value.as_str() {
             Some(s) if !s.trim().is_empty() => None,

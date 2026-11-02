@@ -107,6 +107,11 @@ impl Config {
         self.data_dir.join("attachments")
     }
 
+    /// The person's themes: one JSON file per theme.
+    pub fn themes_dir(&self) -> PathBuf {
+        self.data_dir.join("themes")
+    }
+
     /// Plugin bundles: one folder per bundle, named by its hash.
     pub fn plugin_bundles_dir(&self) -> PathBuf {
         self.plugins_dir().join("bundles")
