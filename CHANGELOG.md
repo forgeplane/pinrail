@@ -19,6 +19,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Questions open in a thread of the agent's session, beside its earlier
   questions and reviews. Pick a choice or answer in your own words, add a
   note to an answer, and comment on all the questions at once.
+  A revised review stays where it was first sent and names its round,
+  and a line marks where each later round was sent.
 - A Sessions page lists the agent sessions that asked you questions or
   sent reviews, those waiting for you first.
 - The sidebar lists every session that is not archived under its

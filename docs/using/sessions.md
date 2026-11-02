@@ -31,7 +31,7 @@ Once you have sent them, the answers show under their questions, with your notes
 
 ## Sessions
 
-Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. The header's title is the stage of work the agent is on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
+Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. A review the agent revised shows once, where its first round was sent, with its newest round and the round's number, such as *round 2 of 2*. Where the agent sent a later round, a *Revised* line names the review and says when the round waits for you. Click the line to scroll to the review. The header's title is the stage of work the agent is on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
 
 The panel lists the session's starred reviews under *Starred*, newest first, and marks a starred review with a star wherever it is listed. It also lists the session's reviews that have ended, with their outcomes, folded under *Reviews* until you open it. Click one to open it.
 
