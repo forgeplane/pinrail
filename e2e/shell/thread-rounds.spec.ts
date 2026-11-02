@@ -55,10 +55,11 @@ test("a review revised in a later stage stays in its stage, with a line where th
   await expect(line).toHaveText(/Revised Rounds: the spec · round 2 · .* agoWaiting for you/);
   await page.locator(".thread-items").evaluate((el) => (el.scrollTop = el.scrollHeight));
   await line.click();
-  await expect(cards.first()).toHaveClass(/is-flashed/);
+  await expect(cards.first()).toHaveAttribute("data-flashed", "true");
   await expect(cards.first()).toBeInViewport();
   // and opens the newest round beside the thread
   await expect(page).toHaveURL(new RegExp(`\\?review=${second}$`));
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
   await page.locator("body").press("Escape");
   await expect(page.getByTestId("review-panel")).toHaveCount(0);
 

@@ -1047,10 +1047,11 @@ function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "revised
     const el = document.getElementById(`review-${card.id}`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.remove("is-flashed");
+    // an attribute, because opening the review sets the card's class
+    delete el.dataset.flashed;
     void el.offsetWidth; // restart the highlight when clicked again
-    el.classList.add("is-flashed");
-    window.setTimeout(() => el.classList.remove("is-flashed"), FLASH_MS);
+    el.dataset.flashed = "true";
+    window.setTimeout(() => delete el.dataset.flashed, FLASH_MS);
     onOpen?.();
   };
   return (

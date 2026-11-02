@@ -4020,7 +4020,7 @@ body.is-resizing iframe {
   background: var(--accent-bg);
 }
 /* the card a revised line led to, for a moment */
-.thread-card.is-flashed {
+.thread-card[data-flashed] {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
