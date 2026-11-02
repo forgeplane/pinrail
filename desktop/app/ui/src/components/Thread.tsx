@@ -24,6 +24,7 @@ import {
   Star,
   Trash2,
   X,
+  Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -517,6 +518,14 @@ export function Thread({
                 return (
                   <RevisedLine
                     key={`v-${entry.review.id}`}
+                    entry={entry}
+                    onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
+                  />
+                );
+              if (entry.kind === "withdrawn")
+                return (
+                  <WithdrawnLine
+                    key={`w-${entry.review.id}`}
                     entry={entry}
                     onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
                   />
@@ -1037,31 +1046,56 @@ function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
 /** How long a card stays highlighted after a line leads to it. */
 const FLASH_MS = 1600;
 
+/** Scrolls to a review's card and highlights it. */
+function showCard(id: string, onOpen?: () => void) {
+  const el = document.getElementById(`review-${id}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  // an attribute, because opening the review sets the card's class
+  delete el.dataset.flashed;
+  void el.offsetWidth; // restart the highlight when clicked again
+  el.dataset.flashed = "true";
+  window.setTimeout(() => delete el.dataset.flashed, FLASH_MS);
+  onOpen?.();
+}
+
 /** Where the agent sent a later round of a review shown further up: a quiet
  *  line that scrolls to the review's card, and opens the review in the
  *  panel beside the thread when reviews open there. */
 function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "revised" }>; onOpen?: () => void }) {
   const { review, round, card } = entry;
   const waiting = card.status === "pending" && review === card;
-  const show = () => {
-    const el = document.getElementById(`review-${card.id}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // an attribute, because opening the review sets the card's class
-    delete el.dataset.flashed;
-    void el.offsetWidth; // restart the highlight when clicked again
-    el.dataset.flashed = "true";
-    window.setTimeout(() => delete el.dataset.flashed, FLASH_MS);
-    onOpen?.();
-  };
   return (
-    <button type="button" className="thread-revised" data-testid="revised" onClick={show}>
+    <button type="button" className="thread-revised" data-testid="revised" onClick={() => showCard(card.id, onOpen)}>
       <RefreshCw size={13} className="thread-revised-icon" aria-hidden />
       <span className="thread-revised-text">
         Revised <span className="thread-revised-title">{review.title}</span>
         {round ? ` · round ${round}` : ""} · <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
       </span>
       {waiting ? <span className="thread-revised-waiting">Waiting for you</span> : null}
+      <ArrowUp size={12} className="thread-revised-up" aria-hidden />
+    </button>
+  );
+}
+
+/** Where the agent withdrew a review shown further up, and why. */
+function WithdrawnLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "withdrawn" }>; onOpen?: () => void }) {
+  const { review, card } = entry;
+  const at = review.withdrawn_at!;
+  const said = `${review.withdrawn_by ?? "The agent"} withdrew`;
+  return (
+    <button
+      type="button"
+      className="thread-revised thread-withdrawn"
+      data-testid="withdrawn"
+      onClick={() => showCard(card.id, onOpen)}
+    >
+      <Undo2 size={13} className="thread-revised-icon" aria-hidden />
+      <span className="thread-revised-text">
+        {said} <span className="thread-revised-title">{review.title}</span> ·{" "}
+        <span title={stamp(at)}>{age(at)} ago</span>
+        {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : ""}
+      </span>
       <ArrowUp size={12} className="thread-revised-up" aria-hidden />
     </button>
   );

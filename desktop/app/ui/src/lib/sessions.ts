@@ -20,6 +20,7 @@ export type Round = { n: number; of: number };
 export type Entry =
   | { kind: "item"; review: Review; round?: Round }
   | { kind: "revised"; review: Review; round: number | null; card: Review }
+  | { kind: "withdrawn"; review: Review; card: Review }
   | { kind: "statuses"; statuses: SessionStatus[] }
   | { kind: "started"; status: SessionStatus }
   | { kind: "finished"; status: SessionStatus }
@@ -53,7 +54,8 @@ export function newestRounds(items: Review[]): Review[] {
  *
  *  A review shows once, by its newest round, where its first round was
  *  sent. A later round adds a line where it was sent, unless only
- *  statuses came between it and the round before. */
+ *  statuses came between it and the round before. A review the agent
+ *  withdrew adds a line by the time it did. */
 export function timeline(items: Review[], statuses: SessionStatus[], messages: SessionMessage[] = []): Entry[] {
   const rounds = roundsOf(items);
   const index = new Map(items.map((review, i) => [review.id, i]));
@@ -84,6 +86,19 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
     const slot = Math.max(slotAt(message.sent_at), after ?? -1);
     said.set(slot, [...(said.get(slot) ?? []), message]);
   }
+  // the reviews the agent withdrew after each item. A new round withdraws
+  // the one it replaces, which needs no line, and a question says so itself
+  const withdrawn = new Map<number, Review[]>();
+  for (const review of items) {
+    if (review.status !== "withdrawn" || !review.withdrawn_at || review.kind === "question") continue;
+    const chain = rounds.get(review.id)!;
+    const next = chain[chain.indexOf(review) + 1];
+    if (next && review.withdrawn_reason === `superseded by ${next.id}`) continue;
+    // times are in whole seconds: a later round came after it either way
+    const at = slotAt(review.withdrawn_at);
+    const slot = next ? Math.min(at, index.get(next.id)! - 1) : at;
+    withdrawn.set(slot, [...(withdrawn.get(slot) ?? []), review]);
+  }
   const entries: Entry[] = [];
   const place = (slot: number) => {
     let group: SessionStatus[] = [];
@@ -92,6 +107,16 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
       group = [];
     };
     const queue = [...(said.get(slot) ?? [])];
+    const ended = [...(withdrawn.get(slot) ?? [])].sort(
+      (a, b) => Date.parse(a.withdrawn_at!) - Date.parse(b.withdrawn_at!),
+    );
+    const endUntil = (at: number) => {
+      while (ended.length && Date.parse(ended[0].withdrawn_at!) <= at) {
+        close();
+        const review = ended.shift()!;
+        entries.push({ kind: "withdrawn", review, card: rounds.get(review.id)!.at(-1)! });
+      }
+    };
     // the messages sent before a status, each a message of its own
     const sayUntil = (status: number) => {
       while (queue.length && (queue[0].after_status ?? -1) < status) {
@@ -100,6 +125,7 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
       }
     };
     for (const status of slots.get(slot) ?? []) {
+      endUntil(Date.parse(status.at));
       sayUntil(status.id);
       if (status.kind === "step") group.push(status);
       else {
@@ -112,6 +138,7 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
     }
     close();
     sayUntil(Infinity);
+    endUntil(Infinity);
   };
   place(-1);
   items.forEach((review, i) => {

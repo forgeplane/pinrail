@@ -4055,6 +4055,10 @@ body.is-resizing iframe {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* a withdrawn review's reason is the point of its line */
+.thread-withdrawn .thread-revised-text {
+  white-space: normal;
+}
 .thread-revised-title {
   color: var(--text);
 }

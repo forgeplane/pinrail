@@ -174,6 +174,58 @@ describe("rounds", () => {
   });
 });
 
+describe("withdrawn reviews", () => {
+  const withdrawn = (id: string, at: string, by: string, revises: string | null = null) =>
+    ({ ...review(id, at, revises), status: "withdrawn", withdrawn_at: by }) as Review;
+  const show = (entries: ReturnType<typeof timeline>) =>
+    entries.map((e) =>
+      e.kind === "item" || e.kind === "withdrawn"
+        ? `${e.kind} ${e.review.id}`
+        : e.kind === "statuses"
+          ? `step ${e.statuses[0].text}`
+          : e.kind,
+    );
+
+  test("adds a line where the agent withdrew a review", () => {
+    const entries = timeline(
+      [withdrawn("r1", "2026-11-02T10:00:00Z", "2026-11-02T10:10:00Z"), review("r2", "2026-11-02T10:05:00Z")],
+      [status(1, "2026-11-02T10:06:00Z", "Before"), status(2, "2026-11-02T10:20:00Z", "After")],
+    );
+    expect(show(entries)).toEqual(["item r1", "item r2", "step Before", "withdrawn r1", "step After"]);
+  });
+
+  test("adds no line for a round that a later round replaced", () => {
+    const replaced = {
+      ...withdrawn("r1", "2026-11-02T10:00:00Z", "2026-11-02T10:05:00Z"),
+      withdrawn_reason: "superseded by r2",
+    } as Review;
+    const entries = timeline([replaced, review("r2", "2026-11-02T10:05:00Z", "r1")], []);
+    expect(show(entries)).toEqual(["item r2"]);
+  });
+
+  test("keeps the line when the agent sends a new round of a review it withdrew", () => {
+    const entries = timeline(
+      [withdrawn("r1", "2026-11-02T10:00:00Z", "2026-11-02T10:05:00Z"), review("r2", "2026-11-02T10:06:00Z", "r1")],
+      [],
+    );
+    expect(show(entries)).toEqual(["item r2", "withdrawn r1", "revised"]);
+    expect(entries[1]).toMatchObject({ kind: "withdrawn", card: { id: "r2" } });
+  });
+
+  test("puts the line before the next round when both have the same second", () => {
+    const entries = timeline(
+      [withdrawn("r1", "2026-11-02T10:00:00Z", "2026-11-02T10:05:00Z"), review("r2", "2026-11-02T10:05:00Z", "r1")],
+      [],
+    );
+    expect(show(entries)).toEqual(["item r2", "withdrawn r1", "revised"]);
+  });
+
+  test("adds no line for questions, which say so themselves", () => {
+    const question = { ...withdrawn("q1", "2026-11-02T10:00:00Z", "2026-11-02T10:05:00Z"), kind: "question" } as Review;
+    expect(show(timeline([question], []))).toEqual(["item q1"]);
+  });
+});
+
 describe("messages", () => {
   const message = (id: number, at: string, after: number | null = null): SessionMessage => ({
     id,
