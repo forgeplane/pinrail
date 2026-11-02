@@ -102,6 +102,8 @@ type ThreadProps = {
 /** A session's page. */
 /** At most this many of a stage's reviews in its tooltip. */
 const STAGE_REVIEWS = 5;
+/** How many of the latest stages the details show before the rest fold. */
+const STAGES_SHOWN = 8;
 
 export const sessionPath = (s: { agent: string; id: string }) =>
   `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
@@ -223,6 +225,12 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const newest = useMemo(() => newestRounds(items), [items]);
   const waiting = newest.filter((r) => r.status === "pending");
   const started = useMemo(() => stages(statuses), [statuses]);
+  // the latest stages, and the earlier ones once unfolded; a stage the
+  // thread was opened at is never folded away
+  const [allStages, setAllStages] = useState(false);
+  const earlier = Math.max(0, started.length - STAGES_SHOWN);
+  const atEarlier = !!stage && started.slice(0, earlier).some((s) => s.start.id === stage);
+  const stagesShown = allStages || atEarlier ? started : started.slice(earlier);
   // the reviews each stage sent, for its tooltip
   const sentBy = useMemo(() => stageReviews(entriesOf(items, statuses)), [items, statuses]);
   // the reviews the session sent that have ended, newest first
@@ -535,8 +543,19 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             {started.length > 0 ? (
               <section aria-label="Stages">
                 <h2>Stages</h2>
+                {earlier > 0 && !atEarlier ? (
+                  <button
+                    type="button"
+                    className="thread-status-more thread-rail-more"
+                    aria-expanded={allStages}
+                    onClick={() => setAllStages((all) => !all)}
+                  >
+                    {allStages ? "Show only the latest" : `${earlier} earlier ${earlier === 1 ? "stage" : "stages"}`}
+                  </button>
+                ) : null}
                 <ol className="thread-rail">
-                  {started.map((stage, i) => {
+                  {stagesShown.map((stage) => {
+                    const i = started.indexOf(stage);
                     const last = i === started.length - 1;
                     const state = stage.done ? "is-done" : last ? "is-last" : "is-left";
                     // until it finished, until the next stage began for one left

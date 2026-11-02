@@ -3732,6 +3732,10 @@ body.is-resizing iframe {
 .thread-rail-stop {
   position: relative;
 }
+.thread-rail-more {
+  display: block;
+  margin: 0 0 1px 20px;
+}
 /* the rail between this stop and the next */
 .thread-rail-stop:not(:last-child)::after {
   content: "";
