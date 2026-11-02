@@ -9,8 +9,11 @@ import {
   Ban,
   Check,
   CheckCircle2,
+  ClipboardCheck,
+  ClipboardX,
   Clock,
   ChevronRight,
+  Copy,
   CornerDownRight,
   Expand,
   GitBranch,
@@ -31,6 +34,7 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionMessage, SessionStatus } from "../api/types";
+import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote } from "../lib/markdown";
@@ -434,6 +438,7 @@ export function Thread({
                 </span>
               )
             ) : null}
+            {named ? <CopySessionId id={named.id} /> : null}
           </div>
         </div>
         <span className="thread-head-end">
@@ -1876,5 +1881,40 @@ function Context({ text }: { text: string }) {
       }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  );
+}
+
+/** Copies the session's id, for a message to the agent or a command line. */
+function CopySessionId({ id }: { id: string }) {
+  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
+  const copy = async () => {
+    try {
+      await copyText(id);
+      setCopied("done");
+    } catch {
+      setCopied("failed");
+    }
+    window.setTimeout(() => setCopied(null), 3500);
+  };
+  return (
+    <Tooltip
+      label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy the id"}
+      side="bottom"
+    >
+      <button
+        type="button"
+        className={`id-copy ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`}
+        onClick={copy}
+        aria-label="Copy the session id"
+      >
+        {copied === "done" ? (
+          <ClipboardCheck size={14} />
+        ) : copied === "failed" ? (
+          <ClipboardX size={14} />
+        ) : (
+          <Copy size={14} />
+        )}
+      </button>
+    </Tooltip>
   );
 }

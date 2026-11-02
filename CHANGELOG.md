@@ -17,6 +17,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   theme for dark and for light in Settings or in the command palette.
 - Add the Nord, Dracula, Catppuccin Mocha, Catppuccin Latte and Solarized
   Light themes.
+- Add a button to copy the session id in a session's header.
 - `pinrail ask` asks you one or more questions and prints your answers.
   Each question can offer choices, ask for yes or no, or take an answer
   in words, and you answer in the app.

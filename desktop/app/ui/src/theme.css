@@ -3210,6 +3210,13 @@ body.is-resizing iframe {
   left: -10px;
   color: var(--faint);
 }
+/* the copy button belongs to the id before it */
+.thread-meta > .id-copy {
+  margin-left: -10px;
+}
+.thread-meta > .id-copy::before {
+  content: none;
+}
 .thread-meta-where {
   display: inline-flex;
   align-items: center;
