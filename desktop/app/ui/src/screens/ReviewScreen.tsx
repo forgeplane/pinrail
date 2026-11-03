@@ -529,10 +529,14 @@ export function ReviewView({
         <span className="crumb" data-tauri-drag-region>
           {fromSession ? (
             <>
-              <Link to="/sessions" className="crumb-root">
-                Sessions
-              </Link>
-              <span className="crumb-sep">›</span>
+              {prefs.labs.sessions ? (
+                <>
+                  <Link to="/sessions" className="crumb-root">
+                    Sessions
+                  </Link>
+                  <span className="crumb-sep">›</span>
+                </>
+              ) : null}
               <Link
                 to={sessionPath(fromSession)}
                 className="crumb-root crumb-session"
@@ -565,7 +569,17 @@ export function ReviewView({
           ) : null}
         </span>
       ) : null,
-    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state, fromSession], // eslint-disable-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
+    [
+      review?.title,
+      review?.origin.ref,
+      originUrl,
+      back.to,
+      back.label,
+      location.state,
+      fromSession,
+      prefs.labs.sessions,
+    ],
   );
   // a page opened from the inbox can return to its side panel
   const showInPanel = !inPanel && !fromHistory && !fromSession && prefs.inbox.open_in === "panel" && pending;
@@ -605,7 +619,7 @@ export function ReviewView({
             </button>
           </Tooltip>
           {review.kind === "question" ? null : <StarButton review={review} />}
-          {besideThread ? null : <SessionLink review={review} />}
+          {besideThread || !prefs.labs.sessions ? null : <SessionLink review={review} />}
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
               <button

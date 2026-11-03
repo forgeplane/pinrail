@@ -61,7 +61,10 @@ export function CommandPalette({
 }) {
   const { pending: waiting } = useLive();
   const navigate = useNavigate();
-  const openIn = useSettings().settings.inbox.open_in;
+  const { inbox, labs } = useSettings().settings;
+  const openIn = inbox.open_in;
+  // the stages belong to sessions, which are in Settings › Labs
+  const filters = labs.sessions ? FILTERS : FILTERS.filter((f) => f.key !== "stages");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [active, setActive] = useState(0);
@@ -113,7 +116,7 @@ export function CommandPalette({
 
   // the stages agents started, from the server, once something is typed
   useEffect(() => {
-    if (!open || (filter !== "all" && filter !== "stages")) return;
+    if (!open || !labs.sessions || (filter !== "all" && filter !== "stages")) return;
     if (!q && all) {
       setStages([]);
       return;
@@ -132,7 +135,7 @@ export function CommandPalette({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [open, q, filter, all]);
+  }, [open, q, filter, all, labs.sessions]);
 
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
@@ -173,7 +176,7 @@ export function CommandPalette({
         });
       }
     }
-    if (want("stages")) {
+    if (labs.sessions && want("stages")) {
       for (const s of stages) {
         out.push({
           key: `stage:${s.id}`,
@@ -231,7 +234,7 @@ export function CommandPalette({
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, stages, plugins, actions, navigate, openIn]);
+  }, [all, filter, q, waiting, history, stages, plugins, actions, navigate, openIn, labs.sessions]);
 
   useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {
@@ -245,8 +248,8 @@ export function CommandPalette({
     item.run();
   };
   const cycle = (dir: 1 | -1) => {
-    const at = FILTERS.findIndex((f) => f.key === filter);
-    setFilter(FILTERS[(at + dir + FILTERS.length) % FILTERS.length].key);
+    const at = filters.findIndex((f) => f.key === filter);
+    setFilter(filters[(at + dir + filters.length) % filters.length].key);
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
     event.stopPropagation();
@@ -301,7 +304,7 @@ export function CommandPalette({
           />
         </label>
         <div className="palette-filters" role="tablist">
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.key}
               type="button"

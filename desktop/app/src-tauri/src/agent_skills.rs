@@ -19,7 +19,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pinrail_runtime::skills::{AGENTS, Agent};
+use pinrail_runtime::skills::{AGENTS, Agent, skill_text};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -59,8 +59,10 @@ impl Skill {
     /// The app's files, with the skills the `plugins` ship under `plugins/`
     /// and SKILL.md naming those plugins in place of `{plugin_skills}`. The
     /// other plugins are for `pinrail plugins` to list. A plugin skill whose
-    /// files cannot be read is left out, with its plugin.
-    pub fn with(plugins: &[InstalledPlugin]) -> Skill {
+    /// files cannot be read is left out, with its plugin. With `sessions`
+    /// off, as Settings › Labs starts, the skill leaves out `pinrail ask`
+    /// and `pinrail status`.
+    pub fn with(plugins: &[InstalledPlugin], sessions: bool) -> Skill {
         let mut extra: Vec<(String, Vec<u8>)> = Vec::new();
         let mut list = String::new();
         for plugin in plugins {
@@ -97,10 +99,11 @@ impl Skill {
         let mut files: Vec<(String, Vec<u8>)> = FILES
             .iter()
             .map(|(rel, text)| {
+                let text = skill_text(text, sessions);
                 let text = if *rel == "SKILL.md" {
                     text.replace("{plugin_skills}", &named)
                 } else {
-                    text.to_string()
+                    text
                 };
                 (rel.to_string(), text.into_bytes())
             })
@@ -396,7 +399,7 @@ mod tests {
 
     /// The skill with no plugins installed.
     fn none() -> Skill {
-        Skill::with(&[])
+        Skill::with(&[], true)
     }
 
     fn state(home: &Path, id: &str) -> AgentStatus {
@@ -502,7 +505,7 @@ mod tests {
     #[test]
     fn the_skill_names_the_plugins_with_a_skill_and_carries_their_skills() {
         let root = tempfile::tempdir().unwrap();
-        let skill = Skill::with(&plugins(root.path()));
+        let skill = Skill::with(&plugins(root.path()), true);
         let text = skill.text();
         assert!(
             text.contains(
@@ -531,7 +534,7 @@ mod tests {
     #[test]
     fn the_skill_to_copy_names_the_command_for_each_plugins_skill() {
         let root = tempfile::tempdir().unwrap();
-        let text = Skill::with(&plugins(root.path())).to_copy();
+        let text = Skill::with(&plugins(root.path()), true).to_copy();
         assert!(
             text.contains("- `change-map`: `pinrail plugins skill change-map`\n"),
             "{text}"
@@ -542,7 +545,7 @@ mod tests {
     #[test]
     fn a_removed_plugins_skill_goes_and_the_agents_follow_the_plugins() {
         let root = tempfile::tempdir().unwrap();
-        let with = Skill::with(&plugins(root.path()));
+        let with = Skill::with(&plugins(root.path()), true);
         let home = home_with(&[".claude", ".codex"]);
         connect(home.path(), "claude", &with).unwrap();
         connect(home.path(), "codex", &with).unwrap();
@@ -555,7 +558,7 @@ mod tests {
         fs::write(&codex, &older).unwrap();
 
         // the change map removed: the list alone
-        let without = Skill::with(&plugins(root.path())[..1]);
+        let without = Skill::with(&plugins(root.path())[..1], true);
         assert_eq!(status(home.path(), &without)[0].state, State::Outdated);
         assert_eq!(refresh_plugins(home.path(), &without), ["Claude Code"]);
         let claude = home.path().join(".claude/skills/pinrail");
@@ -570,9 +573,34 @@ mod tests {
     }
 
     #[test]
+    fn with_sessions_off_the_skill_leaves_out_ask_and_status() {
+        let on = Skill::with(&[], true);
+        let off = Skill::with(&[], false);
+        let (on_text, off_text) = (on.text(), off.text());
+        for text in [&on_text, &off_text] {
+            assert!(!text.contains("<!--"), "no marker is left: {text}");
+            assert!(text.contains("pinrail submit"), "{text}");
+        }
+        assert!(on_text.contains("pinrail ask"), "{on_text}");
+        assert!(on_text.contains("## Reporting progress"), "{on_text}");
+        assert!(!off_text.contains("pinrail ask"), "{off_text}");
+        assert!(!off_text.contains("pinrail status"), "{off_text}");
+        assert!(
+            !off_text.contains("questions or submit"),
+            "the description too: {off_text}"
+        );
+        assert!(
+            off_text.contains("description: Submit a review"),
+            "{off_text}"
+        );
+        // a change of the setting makes connected agents' skills outdated
+        assert_ne!(on.sha, off.sha);
+    }
+
+    #[test]
     fn without_plugin_skills_the_skill_names_no_plugins() {
         let root = tempfile::tempdir().unwrap();
-        let text = Skill::with(&plugins(root.path())[..1]).text();
+        let text = Skill::with(&plugins(root.path())[..1], true).text();
         assert!(
             text.contains(
                 "it says how to\nderive the payload from the work.\n\nA plugin fits only"
@@ -597,7 +625,7 @@ mod tests {
             root.path().join("change-map/skill"),
             vec!["../../secret".into()],
         ));
-        let skill = Skill::with(&listed);
+        let skill = Skill::with(&listed, true);
         let text = skill.text();
         assert!(!text.contains("`change-map`"), "{text}");
         assert!(!text.contains("plugins/"), "{text}");

@@ -23,7 +23,7 @@ pub struct Brief {
     pub summary: String,
     /// the children, in the order the menu shows them, each with its line
     pub menu: Vec<(String, String)>,
-    pub body: &'static str,
+    pub body: String,
 }
 
 /// The brief's path for a file of the skill.
@@ -83,10 +83,12 @@ fn menu(file: &str, body: &str) -> Vec<(String, String)> {
 }
 
 fn parse(file: &'static str, source: &'static str) -> Brief {
+    // the skill as it reads with sessions and questions on: every command
+    let source = pinrail_runtime::skills::skill_text(source, true);
     let (head, body) = source
         .strip_prefix("---\n")
         .and_then(|rest| rest.split_once("\n---\n"))
-        .unwrap_or(("", source));
+        .unwrap_or(("", &source));
     let body = body.trim_start_matches('\n');
     Brief {
         path: brief_path(file),
@@ -98,7 +100,7 @@ fn parse(file: &'static str, source: &'static str) -> Brief {
             .to_string(),
         summary: description(head),
         menu: menu(file, body),
-        body,
+        body: body.to_string(),
     }
 }
 

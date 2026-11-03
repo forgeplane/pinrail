@@ -899,3 +899,11 @@ async fn a_status_answers_with_the_open_stage() {
     let (_, answer) = status(&app, "claude-code", "s-2", json!({"text": "Elsewhere"})).await;
     assert_eq!(answer["stage"], Value::Null);
 }
+
+#[tokio::test]
+async fn a_status_is_refused_while_sessions_are_off() {
+    let app = common::app_as_new();
+    let (code, body) = status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(body["error"], "off");
+}

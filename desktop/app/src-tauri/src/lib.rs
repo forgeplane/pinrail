@@ -221,9 +221,10 @@ fn installed_plugins(state: &Pinrail) -> Vec<agent_skills::InstalledPlugin> {
 }
 
 /// The `pinrail` skill as the app writes it now, with the plugins
-/// installed now.
+/// installed now and sessions as Settings › Labs has them.
 pub(crate) fn current_skill(state: &Pinrail) -> agent_skills::Skill {
-    agent_skills::Skill::with(&installed_plugins(state))
+    let sessions = state.settings().value("/labs/sessions") == serde_json::Value::Bool(true);
+    agent_skills::Skill::with(&installed_plugins(state), sessions)
 }
 
 /// The agents found on this computer, and whether each has the `pinrail`

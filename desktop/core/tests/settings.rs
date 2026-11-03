@@ -5,11 +5,11 @@ use axum::http::StatusCode;
 use serde_json::{Value, json};
 
 mod common;
-use common::{App, app, call};
+use common::{App, call};
 
 #[tokio::test]
 async fn every_setting_is_listed_at_its_default() {
-    let app = app();
+    let app = common::app_as_new();
     let (status, body) = call(&app, "GET", "/api/v1/settings", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["appearance"]["theme"], "system");
@@ -37,7 +37,7 @@ async fn every_setting_is_listed_at_its_default() {
 
 #[tokio::test]
 async fn a_change_is_applied_written_and_announced() {
-    let app = app();
+    let app = common::app_as_new();
     let mut rx = app.state.events().subscribe();
     let (status, body) = call(
         &app,
@@ -91,7 +91,7 @@ async fn a_change_is_applied_written_and_announced() {
 
 #[tokio::test]
 async fn a_change_that_changes_nothing_announces_nothing() {
-    let app = app();
+    let app = common::app_as_new();
     let mut rx = app.state.events().subscribe();
     let (status, _) = call(
         &app,
@@ -107,7 +107,7 @@ async fn a_change_that_changes_nothing_announces_nothing() {
 /// The release whose notes were last shown: a version, or null.
 #[tokio::test]
 async fn the_last_release_shown_is_a_version() {
-    let app = app();
+    let app = common::app_as_new();
     let patch = |seen: Value| json!({"whats_new": {"seen": seen}});
     let (status, body) = call(
         &app,
@@ -129,7 +129,7 @@ async fn the_last_release_shown_is_a_version() {
 
 #[tokio::test]
 async fn a_bad_change_is_refused_with_paths_and_applies_nothing() {
-    let app = app();
+    let app = common::app_as_new();
     let (status, body) = call(
         &app,
         "PATCH",
@@ -159,7 +159,7 @@ async fn a_bad_change_is_refused_with_paths_and_applies_nothing() {
 
 #[tokio::test]
 async fn an_edit_to_the_file_is_picked_up_with_its_keys() {
-    let app = app();
+    let app = common::app_as_new();
     call(
         &app,
         "PATCH",
@@ -221,7 +221,7 @@ async fn with_knobs(app: &App) -> tempfile::TempDir {
 
 #[tokio::test]
 async fn a_plugin_declares_settings_and_the_core_keeps_them() {
-    let app = app();
+    let app = common::app_as_new();
     let _dir = with_knobs(&app).await;
     let mut rx = app.state.events().subscribe();
 

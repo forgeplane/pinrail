@@ -1,6 +1,6 @@
 ---
 name: pinrail
-description: Ask the person questions or submit a review to them through Pinrail and wait for their answer, or build a Pinrail plugin. Use when you need an answer only the person can give, or when a prompt, a skill or your instructions tell you to ask, check with, or get approval from the person through Pinrail.
+description: {description}
 metadata:
   managed-by: Pinrail
   sha: {sha}
@@ -9,17 +9,27 @@ metadata:
 
 # Pinrail
 
+<!-- sessions -->
 Pinrail is an app on this computer where a person answers an agent's
 questions and reviews what it proposes. You ask with `pinrail ask` and
 submit a review with `pinrail submit`. Both wait until the person answers
 in the app, then print the answer. Whenever you need the person to answer
 something, ask through Pinrail, not in chat, and do not go ahead without
 the answer.
+<!-- end sessions -->
+<!-- no sessions -->
+Pinrail is an app on this computer where a person reviews what an agent
+proposes. You submit a review with `pinrail submit`, which waits until the
+person decides in the app, then prints the decision. Whenever you need the
+person to decide something, ask through Pinrail, not in chat, and do not
+go ahead without the decision.
+<!-- end no sessions -->
 
 If your shell does not find `pinrail`, stop and ask the person to install
 the Pinrail command line from the Pinrail app, in Settings › Data. Do not
 look for it elsewhere or install it yourself.
 
+<!-- sessions -->
 ## Which command to use
 
 - `pinrail ask`: you need a short answer before you can go on, such as a
@@ -100,6 +110,7 @@ pinrail status --note "Kept the old endpoint: the nightly job still calls it."
   Every file is also listed under the note.
 - A note is at most 10,000 characters, with at most 10 files.
 
+<!-- end sessions -->
 ## Submitting
 
 ```sh
@@ -197,8 +208,13 @@ returns the decision you need: a diff view does not make a plugin fit for
 approving a commit if it does not return an approval. Do not bend the task
 to fit a schema, or make up an item just to have something to decide on.
 Most people have `list`, for items to accept or reject one by one, and
+<!-- sessions -->
 `feedback`, for questions that depend on each other or need more context
 than `pinrail ask` gives.
+<!-- end sessions -->
+<!-- no sessions -->
+`feedback`, for questions to the person.
+<!-- end no sessions -->
 
 If no plugin returns the decision you need, build one for the task, as
 [building a plugin](references/building.md) describes. Installing someone
@@ -233,8 +249,13 @@ put the payload's shape in the rule itself.
 
 ## Rules
 
+<!-- sessions -->
 - Never decide or discard a review you submitted, or answer the questions
   you asked. The person does.
+<!-- end sessions -->
+<!-- no sessions -->
+- Never decide or discard a review you submitted. The person does.
+<!-- end no sessions -->
 - Every command explains itself: `pinrail <command> --help`.
 
 ## More

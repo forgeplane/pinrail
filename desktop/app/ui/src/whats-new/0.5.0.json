@@ -3,27 +3,27 @@
   "cards": [
     {
       "title": "Agents ask you questions",
-      "text": "An agent asks with pinrail ask, and its questions wait in your inbox. Pick a choice or answer in your own words, add a note to any answer, and send them back together.",
+      "text": "An agent asks with pinrail ask, and its questions wait in your inbox. Pick a choice or answer in your own words, add a note to any answer, and send them back together. Turn on Sessions and questions in Settings › Labs to try it.",
       "image": "ask-thread",
       "alt": "An agent session's thread: waiting questions with their choices, a note on the first answer, and the box for a comment to the agent",
       "action": {
-        "label": "Open the inbox",
-        "to": "/"
+        "label": "Open Labs",
+        "settings": "labs"
       }
     },
     {
       "title": "Every agent session in one place",
-      "text": "The new Sessions page lists each agent session that asked you something or sent a review, those waiting for you first. A session opens as a thread of its questions and reviews.",
+      "text": "The new Sessions page lists each agent session that asked you something or sent a review, those waiting for you first. A session opens as a thread of its questions and reviews. It comes with Sessions and questions, in Labs.",
       "image": "sessions",
       "alt": "The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity",
       "action": {
-        "label": "Open Sessions",
-        "to": "/sessions"
+        "label": "Open Labs",
+        "settings": "labs"
       }
     },
     {
       "title": "See what your agents are doing",
-      "text": "An agent names each stage of work it starts and reports its progress with pinrail status. The stage becomes the session's title, and each status shows in the session's thread between its questions and reviews. Update the Pinrail skill in Settings › Agents, so that your agents start reporting.",
+      "text": "An agent names each stage of work it starts and reports its progress with pinrail status. The stage becomes the session's title, and each status shows in the session's thread between its questions and reviews. With Sessions and questions on in Labs, update the Pinrail skill in Settings › Agents, so that your agents start reporting.",
       "image": "session-status",
       "alt": "An agent session's thread named by its stage of work: the start of the stage, statuses before and after a question that was answered with a note, and the agent saying it has finished",
       "action": {

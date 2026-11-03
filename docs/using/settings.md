@@ -99,6 +99,14 @@ The *Install* field at the top installs a new plugin, and *Reload* reads every p
 | **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
 | **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`, so agents can run it. |
 
+## Labs
+
+Labs holds features that are still in the works. Each is off until you turn it on.
+
+| Setting | What it does |
+|---|---|
+| **Sessions and questions** | Lets agents ask you questions with `pinrail ask` and report what they are doing with `pinrail status`, in a thread for each agent session. It adds the Sessions page and lists the sessions in the sidebar. While it is off, the sidebar lists the reviews that wait and the projects, and the app refuses questions and statuses. After you change it, update the skill in *Settings › Agents*, so your agents know which commands to use. See [Questions and sessions](/docs/using/sessions/). |
+
 ## About
 
 This section shows the version, the update status, where to start writing a plugin, and the license with its third-party notices.

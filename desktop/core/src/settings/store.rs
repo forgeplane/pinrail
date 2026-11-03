@@ -230,6 +230,12 @@ const LEAVES: &[Leaf] = &[
         "The release of Pinrail whose notes were last shown. A newer release with notes shows them once when it first starts.",
     ),
     (
+        "/labs/sessions",
+        Kind::Bool,
+        || json!(false),
+        "Turn on sessions and questions: the Sessions page, the sessions in the sidebar, `pinrail ask` and `pinrail status`. While `false`, the core refuses questions and statuses, and the skill leaves them out.",
+    ),
+    (
         "/welcome/seen",
         Kind::Bool,
         || json!(false),

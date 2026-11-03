@@ -35,6 +35,7 @@ import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { chooseTheme, chosenTheme } from "../lib/themes";
+import { SidebarProjects } from "./SidebarProjects";
 import { SidebarSessions } from "./SidebarSessions";
 import { Tooltip } from "./Tooltip";
 import { UpdateNotice } from "./UpdateNotice";
@@ -114,6 +115,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update, loaded } = useSettings();
   const sidebar = prefs.sidebar.open;
+  // sessions, their page and their list in the sidebar, are in Settings › Labs
+  const sessionsOn = prefs.labs.sessions;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
@@ -457,7 +460,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <div className="sidebar-scroll" data-testid="sidebar-scroll">
             <nav className="app-nav" aria-label="Main">
-              {SIDEBAR.map(({ key, label, to, Icon, keys }) => (
+              {SIDEBAR.filter((n) => sessionsOn || n.key !== "sessions").map(({ key, label, to, Icon, keys }) => (
                 <Fragment key={key}>
                   <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
                     <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
@@ -472,22 +475,24 @@ export function Layout({ children }: { children: ReactNode }) {
                       ) : null}
                     </NavLink>
                   </Tooltip>
-                  {key === "sessions" ? (
-                    <button type="button" className="nav-search" onClick={() => setPalette(true)}>
-                      <span className="nav-label">
-                        <Search size={15} strokeWidth={1.75} />
-                        Search
-                      </span>
-                      <span className="nav-keys">
-                        <kbd>{MOD}</kbd>
-                        <kbd>K</kbd>
-                      </span>
-                    </button>
-                  ) : null}
                 </Fragment>
               ))}
+              <button type="button" className="nav-search" onClick={() => setPalette(true)}>
+                <span className="nav-label">
+                  <Search size={15} strokeWidth={1.75} />
+                  Search
+                </span>
+                <span className="nav-keys">
+                  <kbd>{MOD}</kbd>
+                  <kbd>K</kbd>
+                </span>
+              </button>
             </nav>
-            <SidebarSessions shown={shown} />
+            {sessionsOn ? (
+              <SidebarSessions shown={shown} />
+            ) : (
+              <SidebarProjects shown={shown} openIn={prefs.inbox.open_in} />
+            )}
             <UpdateNotice onDetails={() => setSettings("about")} />
             <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
               <MessageSquare size={15} strokeWidth={1.75} />

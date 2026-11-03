@@ -17,6 +17,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   theme for dark and for light in Settings or in the command palette.
 - Add the Nord, Dracula, Catppuccin Mocha, Catppuccin Latte and Solarized
   Light themes.
+- Settings › Labs, with features still in the works, each off until you
+  turn it on. Questions and sessions are the first: while they are off,
+  the sidebar lists the reviews that wait and the projects, the app
+  refuses `pinrail ask` and `pinrail status`, and the skill leaves them
+  out.
 - Add a button to copy the session id in a session's header.
 - `pinrail status` prints the current stage, or says that no stage is open.
 - `pinrail ask` asks you one or more questions and prints your answers.

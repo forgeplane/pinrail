@@ -1,6 +1,7 @@
 // Empties the shell suite's data folder, given as the argument, and starts it
 // as a returning person's: the setup and the release notes already seen, so
-// their dialogs do not cover what the tests click.
+// their dialogs do not cover what the tests click, and sessions turned on in
+// Settings › Labs, which most of the suite tests; labs.spec.ts turns them off.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -9,5 +10,5 @@ fs.rmSync(dir, { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(
   path.join(dir, "settings.json"),
-  JSON.stringify({ welcome: { seen: true }, whats_new: { seen: "999.0.0" } }),
+  JSON.stringify({ welcome: { seen: true }, whats_new: { seen: "999.0.0" }, labs: { sessions: true } }),
 );

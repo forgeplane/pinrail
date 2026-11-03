@@ -72,6 +72,8 @@ An agent that runs `pinrail plugins`, then `pinrail plugins describe <name>`, ca
 
 `pinrail ask` sends one or more short questions, waits for the answers and prints them. It needs no plugin and no payload file: each question is an argument, followed by its own options.
 
+Questions and statuses need *Sessions and questions* turned on in the app's *Settings › Labs*. While it is off, `pinrail ask` and `pinrail status` exit with `2`, and the skill the app installs does not mention them.
+
 ```sh
 pinrail ask "Deploy to staging or production?" \
   --choice staging --choice production --recommend staging \
@@ -278,7 +280,7 @@ Waiting survives the app restarting. `wait` polls the app and retries when the c
 |---|---|
 | `0` | Done. For `wait` and `submit --wait`: the review was decided. |
 | `1` | Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again. |
-| `2` | The app refused the request, for example a payload the plugin's schema rejects, or a folder that `plugins check` would not install. Why is on stderr. It lists each refused field with its reason, or, with `--json`, gives the app's JSON answer. |
+| `2` | The app refused the request, for example a payload the plugin's schema rejects, a folder that `plugins check` would not install, or a question or status while sessions are off in *Settings › Labs*. Why is on stderr. It lists each refused field with its reason, or, with `--json`, gives the app's JSON answer. |
 | `3` | The review was withdrawn by the agent, or expired, before anyone decided. |
 | `4` | `--timeout` ran out. The review is still pending. |
 | `5` | The person discarded the review: stop the work it was gating, and do not ask again. |

@@ -59,8 +59,28 @@ pub fn routes() -> Router<ApiState> {
         )
 }
 
+/// Questions and statuses belong to sessions, which the person turns on in
+/// Settings › Labs; while they are off, the core takes neither.
+fn sessions_on(state: &Pinrail) -> Result<(), Error> {
+    if state.settings().value("/labs/sessions") == Value::Bool(true) {
+        return Ok(());
+    }
+    Err(Error::Off(
+        "questions and sessions are turned off in Pinrail; the person can turn them on in Settings › Labs"
+            .into(),
+    ))
+}
+
+/// Whether a submission is a question, as `pinrail ask` sends one.
+fn is_question(body: &Value) -> bool {
+    body.get("kind").and_then(Value::as_str) == Some(Kind::Question.as_str())
+}
+
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
     let body = parse_body(&body)?;
+    if is_question(&body) {
+        sessions_on(&state)?;
+    }
     // the same submission as a review still pending answers that review
     let (review, created) = state.reviews().submit_once(&body, None)?;
     let status = if created {
@@ -76,6 +96,9 @@ async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Respon
 /// would answer.
 async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
+    if is_question(&body) {
+        sessions_on(&state)?;
+    }
     let plugin = state.reviews().validate(&body)?;
     Ok(Json(json!({
         "valid": true,
@@ -639,6 +662,7 @@ async fn status(
     Path((agent, id)): Path<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, ApiError> {
+    sessions_on(&state)?;
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
     let kind = match body.get("kind").and_then(Value::as_str) {
         None => StatusKind::Step,
