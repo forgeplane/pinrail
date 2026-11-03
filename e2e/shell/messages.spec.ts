@@ -19,7 +19,10 @@ async function report(request: APIRequestContext, session: string, text: string)
   return ((await response.json()) as { messages: { text: string }[] }).messages;
 }
 
-test("a message is queued, delivered with the agent's next status, and deleted only while queued", async ({ page }) => {
+// The box that sends messages is off until Pinrail can reach an idle agent.
+test.skip("a message is queued, delivered with the agent's next status, and deleted only while queued", async ({
+  page,
+}) => {
   const session = fresh();
   await report(page.request, session, "Reading the callers");
   await page.goto(`/#/sessions/claude-code/${session}`);

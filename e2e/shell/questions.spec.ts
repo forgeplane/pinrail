@@ -264,7 +264,8 @@ test("questions stand apart from reviews in the inbox, and their session waits i
   await expect(waiting).toBeVisible();
 });
 
-test("with nothing waiting, the chat box takes a message to the agent of the session", async ({ page }) => {
+// The box that sends messages is off until Pinrail can reach an idle agent.
+test.skip("with nothing waiting, the chat box takes a message to the agent of the session", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);
   const { id } = await send(page.request, asked(fresh(), "Idle: deploy"));
