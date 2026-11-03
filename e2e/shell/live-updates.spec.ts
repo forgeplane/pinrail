@@ -17,9 +17,20 @@ const pendingList = /^\/api\/v1\/reviews\?.*status=pending/;
 const decideNothing = { decisions: [], undecided: [1, 2] };
 
 test("a review that arrives or ends updates the inbox without fetching the pending list again", async ({ page }) => {
+  // The inbox fetches the list once when it loads and once when the event
+  // stream connects. The stream connects late here, as on a slow runner, so
+  // the count must start only once it is connected.
+  await page.route(
+    (url) => url.origin === core && url.pathname === "/api/v1/events",
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    },
+  );
   await clearInbox(page.request);
   await page.goto("/#/");
   await expect(page.getByTestId("inbox-total")).toHaveText("0");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   const fetched = requests(page, pendingList);
 
   const review = await createReview(page.request, { title: "Live: arrives" });
