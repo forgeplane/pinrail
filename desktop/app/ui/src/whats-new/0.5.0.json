@@ -2,6 +2,16 @@
   "version": "0.5.0",
   "cards": [
     {
+      "title": "Themes",
+      "text": "Pick a theme for dark and one for light, from Nord, Dracula, Catppuccin Mocha and Latte, and Solarized Light, or add your own as a JSON file in the themes folder. Plugin views follow the theme.",
+      "image": "themes-card",
+      "alt": "Settings › Appearance with Nord as the dark theme and Solarized Light as the light theme",
+      "action": {
+        "label": "Open Appearance settings",
+        "settings": "appearance"
+      }
+    },
+    {
       "title": "Agents ask you questions",
       "text": "An agent asks with pinrail ask, and its questions wait in your inbox. Pick a choice or answer in your own words, add a note to any answer, and send them back together. Turn on Sessions and questions in Settings › Labs to try it.",
       "image": "ask-thread",
@@ -29,6 +39,16 @@
       "action": {
         "label": "Open Agents settings",
         "settings": "agents"
+      }
+    },
+    {
+      "title": "Notes with files from your agents",
+      "text": "An agent sends a note with pinrail status --note, in Markdown, with files such as a chart, a screenshot or a log. Images show in the note, and you can save any file. It comes with Sessions and questions, in Labs.",
+      "image": "status-note",
+      "alt": "A session's thread with a note from the agent: a summary of a load test and its chart of p95 latency",
+      "action": {
+        "label": "Open Labs",
+        "settings": "labs"
       }
     }
   ]

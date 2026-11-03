@@ -244,11 +244,46 @@ export const scenes = [
       await card(page);
       await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
       await page.getByTestId("finished").waitFor();
-      await page.getByRole("button", { name: "2 earlier" }).click();
+      await page.getByRole("button", { name: /^\d+ earlier$/ }).click();
       // from the start of the stage; the header says it has finished
       await page.locator(".thread-items").evaluate((el) => (el.scrollTop = 0));
       await settle(page, 400);
       await shot("session-status");
+    },
+  },
+  {
+    // a note an agent sent with pinrail status --note, with a chart it made
+    name: "status-note",
+    async run({ page, app, shot }) {
+      await card(page);
+      await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
+      const note = page.getByTestId("note").first();
+      const chart = note.getByRole("img", { name: "p95 latency under load" });
+      await chart.waitFor();
+      // the whole note, with its chart in view
+      await note.getByRole("button", { name: "Show more" }).click();
+      await note.evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await settle(page, 500);
+      await shot("status-note");
+    },
+  },
+  {
+    // a theme chosen for dark and for light, in Settings › Appearance
+    name: "themes-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await app.api("PATCH", "/api/v1/settings", {
+        appearance: { dark_theme: "nord", light_theme: "solarized-light" },
+      });
+      await page.goto(`${app.ui}/#/`);
+      await page.getByTestId("inbox-group").first().waitFor();
+      await page.keyboard.press("Meta+,");
+      await settingsSection(page, "Appearance").click();
+      await settle(page, 500);
+      await shot("themes-card");
+      await app.api("PATCH", "/api/v1/settings", {
+        appearance: { dark_theme: "dark", light_theme: "light" },
+      });
     },
   },
   {

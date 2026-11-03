@@ -1,0 +1,18 @@
+{
+  "status": "Load test of the public API, 5 minutes at each rate from 100 to 600 requests a second.\n\nWith the limiter, p95 latency stays under 120 ms at every rate, and requests over the limit get a `429` at once. Before it, p95 passed 700 ms at 600 requests a second.\n\n![p95 latency under load](attachment:latency.png)",
+  "note": true,
+  "requested_by": "claude-code",
+  "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+  "origin": {
+    "repo": "acme/api",
+    "ref": "rate-limit",
+    "folder": "/Users/maya/code/acme-api"
+  },
+  "age": "12m",
+  "attachments": {
+    "latency.png": {
+      "path": "assets/latency.png",
+      "media_type": "image/png"
+    }
+  }
+}
