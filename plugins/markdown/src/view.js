@@ -32,6 +32,8 @@ let editing = null;
 let renderGeneration = 0;
 /** the outline beside the document: shown unless the person folded it away */
 let outlineOpen = true;
+/** the comments beside the document: shown unless the person folded them away */
+let commentsOpen = true;
 /** in a narrow frame, the outline or the comments open as a drawer over the document */
 let drawer = null;
 const narrowOutline = window.matchMedia("(max-width: 1100px)");
@@ -60,11 +62,13 @@ function syncBar() {
 
 function applySettings(settings) {
   if (typeof settings?.outline_open === "boolean") outlineOpen = settings.outline_open;
+  if (typeof settings?.comments_open === "boolean") commentsOpen = settings.comments_open;
 }
 
 const plugin = Pinrail.connect({
   onInit({ review, draft, settings }) {
     applySettings(settings);
+    renderCommentsPanel();
     violations = [];
     const d = draft || {};
     comments = Array.isArray(d.comments) ? d.comments : [];
@@ -83,6 +87,7 @@ const plugin = Pinrail.connect({
   onSettings(settings) {
     applySettings(settings);
     renderOutline();
+    renderCommentsPanel();
   },
   onCollect() {
     return handOver();
@@ -989,6 +994,11 @@ $("outline-toggle").addEventListener("click", () => {
   renderOutline();
 });
 $("comments-toggle").addEventListener("click", () => openDrawer(drawer === "comments" ? null : "comments"));
+$("side-toggle").addEventListener("click", () => {
+  commentsOpen = !commentsOpen;
+  plugin.setSetting("comments_open", commentsOpen);
+  renderCommentsPanel();
+});
 $("scrim").addEventListener("click", () => openDrawer(null));
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && drawer && !event.defaultPrevented) {
@@ -1020,5 +1030,18 @@ function renderDrawers() {
   $("side").classList.toggle("drawer", drawer === "comments");
   $("comments-toggle").setAttribute("aria-expanded", String(drawer === "comments"));
   renderOutline();
+  renderCommentsPanel();
+}
+
+/** The comments beside the document, or folded away. In a narrow frame
+ *  they are a drawer, whatever this setting says. */
+function renderCommentsPanel() {
+  const toggle = $("side-toggle");
+  toggle.innerHTML = Pinrail.icon(commentsOpen ? "panel-right-close" : "panel-right-open", {
+    size: 15,
+    label: commentsOpen ? "Hide the comments" : "Show the comments",
+  });
+  toggle.setAttribute("aria-expanded", String(commentsOpen));
+  $("work").classList.toggle("no-side", !commentsOpen);
 }
 $("shell").append(confirm.element);

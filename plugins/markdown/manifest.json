@@ -1,6 +1,6 @@
 {
   "name": "markdown",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "title": "Markdown review",
   "description": "A Markdown document, rendered with its diagrams and as its raw source, with its outline. Comment on a section, a diagram or a selected passage, and approve it or ask for changes.",
   "use_when": "You wrote or changed a Markdown document (a design document, a README, a spec, release notes) and need a person to read it and say what to change, section by section or on a passage, before you go on.",
@@ -50,6 +50,12 @@
         "type": "boolean",
         "title": "Outline open",
         "description": "Start with the document's outline beside it",
+        "default": true
+      },
+      "comments_open": {
+        "type": "boolean",
+        "title": "Comments open",
+        "description": "Start with the comments beside the document",
         "default": true
       }
     }

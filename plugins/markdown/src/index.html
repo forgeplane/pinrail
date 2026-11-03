@@ -12,6 +12,9 @@
   /* the outline's toggle, an icon at the start of the header */
   .outline-toggle { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: -6px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--pinrail-dim); cursor: pointer; }
   .outline-toggle:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+  /* the comments' toggle, the same at the end of the header */
+  .side-toggle { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: -6px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--pinrail-dim); cursor: pointer; }
+  .side-toggle:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
 
   /* the bar: what is reviewed, the mode, and the tally */
   .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 16px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
@@ -28,6 +31,10 @@
   .work { display: grid; grid-template-columns: 230px minmax(0, 1fr) 340px; min-height: 0; }
   .work.no-outline { grid-template-columns: minmax(0, 1fr) 340px; }
   .work.no-outline .outline { display: none; }
+  /* the comments folded away: the document takes their width */
+  .work.no-side { grid-template-columns: 230px minmax(0, 1fr); }
+  .work.no-outline.no-side { grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 761px) { .work.no-side .side { display: none; } }
 
   /* the outline: every heading, with its comments */
   .outline { overflow: auto; padding: 12px 8px 24px; border-right: 1px solid var(--pinrail-border); font-size: 12.5px; }
@@ -158,12 +165,15 @@
     .outline, .work.no-outline .outline { display: none; position: absolute; z-index: 7; top: 0; bottom: 0; left: 0; width: min(280px, 85%); box-sizing: border-box; background: var(--pinrail-bg-panel); box-shadow: 0 8px 28px rgb(0 0 0 / .28); }
     .outline.drawer { display: block; }
     .work.drawer-open .scrim { display: block; position: absolute; inset: 0; z-index: 6; background: rgb(0 0 0 / .25); }
+    .work.no-side, .work.no-outline.no-side { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 760px) {
     .work, .work.no-outline { grid-template-columns: minmax(0, 1fr); }
     .side { display: none; position: absolute; z-index: 7; top: 0; bottom: 0; right: 0; width: min(340px, 90%); box-shadow: 0 8px 28px rgb(0 0 0 / .28); }
     .side.drawer { display: grid; }
     .tally { display: none; }
+    /* the comments are a drawer here, opened by the count */
+    .side-toggle { display: none; }
     .comments-toggle { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 3px 8px; border: 1px solid var(--pinrail-border); border-radius: 7px; background: none; color: var(--pinrail-dim); font: 500 12px var(--pinrail-sans); cursor: pointer; }
     .comments-toggle:hover, .comments-toggle[aria-expanded="true"] { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
     .comments-toggle b { color: var(--pinrail-text); font-variant-numeric: tabular-nums; }
@@ -205,6 +215,7 @@
     </div>
     <span class="tally" id="tally"></span>
     <button type="button" class="comments-toggle" id="comments-toggle" aria-expanded="false" aria-controls="side"></button>
+    <button type="button" class="side-toggle" id="side-toggle" aria-controls="side"></button>
     <div class="context" id="context" hidden></div>
   </header>
   <div class="work" id="work">

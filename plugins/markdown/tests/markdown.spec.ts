@@ -124,6 +124,26 @@ test("the outline folds away from the header, and the choice is kept as a settin
   await expect(folded.frame.locator("#outline")).toBeHidden();
 });
 
+test("the comments fold away from the header, and the choice is kept as a setting", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: round() });
+  const f = plugin.frame;
+  const side = f.getByRole("complementary", { name: "Comments" });
+  const doc = f.locator("#docs");
+  await expect(side).toBeVisible();
+  const narrow = (await doc.boundingBox())!.width;
+  await f.getByRole("button", { name: "Hide the comments" }).click();
+  await expect(side).toBeHidden();
+  // the document takes the width the comments had
+  await expect.poll(async () => (await doc.boundingBox())!.width).toBeGreaterThan(narrow + 200);
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ comments_open: false });
+  await f.getByRole("button", { name: "Show the comments" }).click();
+  await expect(side).toBeVisible();
+
+  // a setting from the app starts them folded
+  const folded = await mountPlugin(page, dir, { review: round(), settings: { comments_open: false } });
+  await expect(folded.frame.getByRole("complementary", { name: "Comments" })).toBeHidden();
+});
+
 test("a decision the app refuses says why in the confirmation bar", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;

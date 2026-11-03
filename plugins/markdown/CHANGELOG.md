@@ -4,6 +4,15 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.3.0] - Unreleased
+
+### Added
+
+- The comments beside the document can be hidden with the button at the
+  right of the header, so the document takes their width. The plugin's
+  `comments_open` setting keeps the choice, as `outline_open` does for
+  the outline.
+
 ## [1.2.0] - Pinrail 0.4.1
 
 ### Added
