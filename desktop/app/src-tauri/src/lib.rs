@@ -693,6 +693,13 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
+            if let Some(url) = help_link(id) {
+                use tauri_plugin_opener::OpenerExt;
+                if let Err(error) = app.opener().open_url(url, None::<&str>) {
+                    eprintln!("pinrail: could not open {url}: {error}");
+                }
+                return;
+            }
             if matches!(
                 id,
                 "search"
@@ -778,9 +785,19 @@ pub fn run() {
     });
 }
 
+/// The pages of the website the Help menu opens in the browser, by the
+/// menu item's id.
+fn help_link(id: &str) -> Option<&'static str> {
+    match id {
+        "help-docs" => Some("https://pinrail.dev/docs/"),
+        "help-blog" => Some("https://pinrail.dev/blog/"),
+        _ => None,
+    }
+}
+
 /// The standard menus plus a Navigate menu, whose accelerators reach the
-/// shell even while a plugin view has focus, and What's New and Send
-/// Feedback items in the Help menu.
+/// shell even while a plugin view has focus, and in the Help menu What's
+/// New, Send Feedback, and links to the documentation and the blog.
 fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::default(app)?;
     let navigate = Submenu::with_items(
@@ -843,6 +860,22 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .get(tauri::menu::HELP_SUBMENU_ID)
         .and_then(|item| item.as_submenu().cloned())
     {
+        // prepended, so in the reverse of the order they show in
+        help.prepend(&MenuItem::with_id(
+            app,
+            "help-blog",
+            "Pinrail Blog",
+            true,
+            None::<&str>,
+        )?)?;
+        help.prepend(&MenuItem::with_id(
+            app,
+            "help-docs",
+            "Pinrail Documentation",
+            true,
+            None::<&str>,
+        )?)?;
+        help.prepend(&PredefinedMenuItem::separator(app)?)?;
         help.prepend(&MenuItem::with_id(
             app,
             "feedback",
@@ -924,6 +957,19 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
 
 #[cfg(all(test, unix))]
 mod tests {
+    #[test]
+    fn the_help_menu_links_to_the_docs_and_the_blog() {
+        assert_eq!(
+            super::help_link("help-docs"),
+            Some("https://pinrail.dev/docs/")
+        );
+        assert_eq!(
+            super::help_link("help-blog"),
+            Some("https://pinrail.dev/blog/")
+        );
+        assert_eq!(super::help_link("feedback"), None);
+    }
+
     use std::os::unix::fs::PermissionsExt;
 
     /// A plugin folder with a skill, named `name`.
