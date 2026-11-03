@@ -114,7 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update, loaded } = useSettings();
   const sidebar = prefs.sidebar.open;
-  const toggleSidebar = useCallback(() => update({ sidebar: { open: !sidebar } }), [update, sidebar]);
+  const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
       <button

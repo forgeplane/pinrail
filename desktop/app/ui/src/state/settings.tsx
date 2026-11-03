@@ -70,7 +70,10 @@ type Store = {
   settings: Settings;
   /** every theme the core lists */
   themes: ThemeEntry[];
-  update: (patch: Patch) => Promise<void>;
+  /** Changes the settings. A function builds the change from the settings
+   *  as last applied, which a toggle needs: two presses before a redraw
+   *  would otherwise both read the same value. */
+  update: (patch: Patch | ((settings: Settings) => Patch)) => Promise<void>;
   native: boolean;
   loaded: boolean;
 };
@@ -182,6 +185,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const sent = useRef(0);
   // the changes sent and not yet answered
   const unanswered = useRef(0);
+  // the last change sent: each waits for the one before it, so the core
+  // stores them in the order they were made
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const applied = useRef<Pick<Settings, "appearance"> | null>(null);
 
   const apply = useCallback((s: Pick<Settings, "appearance">) => {
@@ -265,7 +271,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [native]);
 
   const update = useCallback(
-    async (patch: Patch) => {
+    async (change: Patch | ((settings: Settings) => Patch)) => {
+      const patch = typeof change === "function" ? change(current.current) : change;
       // the core's settings go to the core; applied at once, confirmed by the response
       if (
         patch.appearance ||
@@ -327,7 +334,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const mine = ++sent.current;
         unanswered.current++;
         try {
-          const s = fromServer(await api.patchSettings(body));
+          const request = queue.current.then(() => api.patchSettings(body));
+          queue.current = request.catch(() => {});
+          const s = fromServer(await request);
           unanswered.current--;
           if (mine !== sent.current) return;
           apply(s);

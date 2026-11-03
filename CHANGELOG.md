@@ -77,6 +77,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   with `pinrail ask`, not in the chat, and to report their progress with
   `pinrail status`.
 
+### Fixed
+
+- Pressing ⌘B twice in quick succession hides the sidebar and shows it
+  again, and the next start keeps it shown.
+
 ## [0.4.1]
 
 ### Added

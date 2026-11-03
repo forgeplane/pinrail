@@ -104,6 +104,25 @@ test("⌘B hides the sidebar and shows it again", async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
 });
 
+test("two ⌘B presses before the app redraws hide the sidebar and show it again", async ({ page }) => {
+  await page.goto("/#/history");
+  const toggle = page.getByRole("button", { name: /^(Hide|Show) sidebar$/ });
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // both presses in one task, so the app cannot redraw between them, as
+  // happens on a slow machine
+  await page.evaluate(() => {
+    const mac = /Mac/i.test(navigator.platform);
+    for (let i = 0; i < 2; i++) {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: mac, ctrlKey: !mac, bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(300);
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // and the core keeps it shown: the second change reached it last
+  const saved = await (await page.request.get(`${core}/api/v1/settings`)).json();
+  expect(saved.sidebar.open).toBe(true);
+});
+
 test("a quick second ⌘B is not undone by the reload the first one caused", async ({ page }) => {
   await page.goto("/#/history");
   const toggle = page.getByRole("button", { name: /^(Hide|Show) sidebar$/ });
