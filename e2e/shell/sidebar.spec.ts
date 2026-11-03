@@ -123,6 +123,42 @@ test("two ⌘B presses before the app redraws hide the sidebar and show it again
   expect(saved.sidebar.open).toBe(true);
 });
 
+test("⌘B pressed as the settings arrive keeps them, and opens no setup", async ({ page }) => {
+  // a returning person, with the sidebar shown
+  await page.request.patch(`${core}/api/v1/settings`, {
+    data: { sidebar: { open: true }, welcome: { seen: true }, whats_new: { seen: "999.0.0" } },
+  });
+  // press ⌘B once the first settings answer is read, before the app redraws,
+  // as a slow machine can
+  await page.addInitScript(() => {
+    const text = Response.prototype.text;
+    let pressed = false;
+    Response.prototype.text = async function () {
+      const body = await text.call(this);
+      if (!pressed && new URL(this.url).pathname === "/api/v1/settings") {
+        pressed = true;
+        const mac = /Mac/i.test(navigator.platform);
+        let chain = Promise.resolve();
+        for (let i = 0; i < 20; i++) chain = chain.then(() => undefined);
+        void chain.then(() =>
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: mac, ctrlKey: !mac, bubbles: true })),
+        );
+      }
+      return body;
+    };
+  });
+  await page.goto("/#/history");
+  const toggle = page.getByRole("button", { name: /^(Hide|Show) sidebar$/ });
+  await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
+  await page.waitForTimeout(500);
+  await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
+  const saved = await (await page.request.get(`${core}/api/v1/settings`)).json();
+  expect(saved.welcome.seen).toBe(true);
+  expect(saved.whats_new.seen).toBe("999.0.0");
+  expect(saved.sidebar.open).toBe(false);
+  await page.request.patch(`${core}/api/v1/settings`, { data: { sidebar: { open: true } } });
+});
+
 test("a quick second ⌘B is not undone by the reload the first one caused", async ({ page }) => {
   await page.goto("/#/history");
   const toggle = page.getByRole("button", { name: /^(Hide|Show) sidebar$/ });

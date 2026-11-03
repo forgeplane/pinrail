@@ -208,6 +208,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const s = fromServer(await api.settings());
       if (overlapped()) return;
       apply(s);
+      // a change made before the next redraw builds on these, not on the
+      // defaults the provider started with
+      current.current = { ...current.current, ...s };
       setSettings((prev) => ({ ...prev, ...s }));
       setLoaded(true);
     } catch {

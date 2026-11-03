@@ -81,6 +81,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 - Pressing ⌘B twice in quick succession hides the sidebar and shows it
   again, and the next start keeps it shown.
+- A change made as the app starts, such as ⌘B, no longer resets the other
+  settings, which could open the setup again.
 
 ## [0.4.1]
 
