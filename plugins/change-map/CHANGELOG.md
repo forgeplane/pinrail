@@ -4,6 +4,13 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.1.1] - Unreleased
+
+### Fixed
+
+- The count on a tab uses the theme's colour for text on filled buttons,
+  so it stays readable in a theme with a light accent colour.
+
 ## [1.1.0] - Pinrail 0.4.1
 
 ### Changed
