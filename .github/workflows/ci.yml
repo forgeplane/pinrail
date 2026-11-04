@@ -182,12 +182,41 @@ jobs:
           exit $failed
       # the shell suite checks fixtures with the plugin SDK's harness, which
       # needs the package's own dependencies
-      - name: Install Playwright
+      - name: Install the end-to-end packages
+        id: e2e
         working-directory: e2e
         run: |
           npm ci
           (cd ../sdk && npm ci)
-          npx playwright install --with-deps chromium
+          echo "playwright=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      # The headless shell the tests run, kept per Playwright version. Only
+      # main saves, as with the other caches.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: browser
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/Library/Caches/ms-playwright
+            ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.e2e.outputs.playwright }}
+      # The system's libraries only on Linux, where the browser needs them.
+      # On Windows --with-deps installs Media Foundation, which takes three
+      # or four minutes and which no test uses.
+      - name: Install Playwright
+        working-directory: e2e
+        env:
+          CACHED: ${{ steps.browser.outputs.cache-hit }}
+        run: |
+          if [ "$CACHED" != true ]; then npx playwright install --only-shell chromium; fi
+          if [ "$RUNNER_OS" = Linux ]; then npx playwright install-deps chromium; fi
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.ref == 'refs/heads/main' && steps.browser.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/Library/Caches/ms-playwright
+            ~/AppData/Local/ms-playwright
+          key: ${{ steps.browser.outputs.cache-primary-key }}
       - name: CLI end to end
         working-directory: e2e
         run: npx playwright test
