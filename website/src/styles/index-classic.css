@@ -336,6 +336,10 @@
   .topnav .links {
     display: none;
   }
+  /* without the links, the theme button keeps the right edge */
+  .topnav pinrail-theme-toggle {
+    margin-left: auto;
+  }
   .c-hero {
     padding: 56px 16px 20px;
   }
