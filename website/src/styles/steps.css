@@ -1,0 +1,63 @@
+/* A :::steps block (src/plugins/remark-steps.mjs): each step's number in a
+   badge, and a line from one badge to the next. The colours come from the
+   blog's tokens, or the docs' where those are not set. */
+
+/* the step's line height, as a length, for the badge and the line, which
+   have a smaller font of their own */
+@property --steps-lh {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+.steps {
+  --steps-accent: var(--pen, var(--sl-color-accent));
+  --steps-line: var(--rule, var(--sl-color-hairline-light));
+  --steps-paper: var(--paper, var(--sl-color-bg));
+  --steps-badge: 1.75rem;
+  margin-top: 1.5em;
+}
+.steps > ol {
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.steps > ol > li {
+  counter-increment: step;
+  --steps-lh: 1lh;
+  position: relative;
+  margin: 0;
+  padding: 0 0 1.4em calc(var(--steps-badge) + 1rem);
+}
+.steps > ol > li:last-child {
+  padding-bottom: 0;
+}
+/* the badge, on the step's first line */
+.steps > ol > li::before {
+  content: counter(step);
+  position: absolute;
+  top: calc((var(--steps-lh) - var(--steps-badge)) / 2);
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: var(--steps-badge);
+  height: var(--steps-badge);
+  border-radius: 50%;
+  background: var(--steps-accent);
+  font: 600 0.8rem/1 var(--sl-font-mono, var(--mono, monospace));
+  color: var(--steps-paper);
+}
+/* the line down to the next badge */
+.steps > ol > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc((var(--steps-lh) + var(--steps-badge)) / 2 + 0.3rem);
+  bottom: 0.3rem;
+  left: calc(var(--steps-badge) / 2 - 0.75px);
+  width: 1.5px;
+  background: var(--steps-line);
+}
+.steps > ol > li > :first-child {
+  margin-top: 0;
+}

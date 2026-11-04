@@ -15,6 +15,7 @@ import remarkPageSlug from "./src/plugins/remark-page-slug.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
 import remarkTokens, { stylesheetDigest } from "./src/plugins/remark-tokens.mjs";
 import remarkExamples from "./src/plugins/remark-examples.mjs";
+import remarkSteps from "./src/plugins/remark-steps.mjs";
 
 export default defineConfig({
   site: "https://pinrail.dev",
@@ -40,6 +41,7 @@ export default defineConfig({
         remarkContract,
         [remarkTokens, { stylesheet: stylesheetDigest }],
         remarkExamples,
+        remarkSteps,
       ],
     }),
   },
@@ -52,7 +54,7 @@ export default defineConfig({
       // blog's posts are the site's own pages, which it cannot see into, and
       // the docs name the local server's address on purpose
       plugins: [starlightLinksValidator({ exclude: ["/", "/download/", "/blog/**"], errorOnLocalLinks: false })],
-      customCss: ["./src/styles/docs.css", "./src/styles/terminal.css"],
+      customCss: ["./src/styles/docs.css", "./src/styles/terminal.css", "./src/styles/steps.css"],
       // the docs live beside the code, so Starlight's asides and heading links
       // must reach them there; blog posts get the same asides (:::note)
       markdown: { processedDirs: ["../docs", "./src/content/blog"] },
