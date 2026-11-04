@@ -3,7 +3,7 @@
    mono, and the person's side is red pen. */
 
 .blog {
-  --measure: 680px;
+  --measure: 760px;
   --wide: 980px;
   --gutter: 24px;
 }
