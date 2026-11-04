@@ -1,0 +1,81 @@
+---
+// The landing page's clip of a session's thread: the blog post's video of
+// two stages, with statuses, a question, a review and a note. It loops
+// without sound while it is on screen; a reader who asks for reduced motion
+// sees its poster, and plays it with a click.
+//
+// A build plays it from media.pinrail.dev, where the post's videos are
+// uploaded; the dev server plays it from agent-docs/blog-sessions.
+const name = "sessions-clip-stages";
+const version = "v1";
+const local = new URL("../../../../agent-docs/blog-sessions/", import.meta.url).pathname;
+const hosted = (file: string) =>
+  import.meta.env.DEV ? `/@fs${local}${file}` : `https://media.pinrail.dev/${file.replace(/(\.\w+)$/, `-${version}$1`)}`;
+---
+
+<div class="sessions-clip">
+  {
+    [
+      ["theme-light", name],
+    ].map(([theme, file]) => (
+      <video
+        class={theme === "theme-light" ? undefined : theme}
+        muted
+        loop
+        playsinline
+        preload="none"
+        poster={hosted(`${file}-poster.jpg`)}
+        aria-label="A session's thread in Pinrail: the agent reports its steps, asks a question that is answered, sends a review that is decided beside the thread, finishes the stage, then starts a new one that ends with a note."
+      >
+        <source src={hosted(`${file}.mp4`)} type="video/mp4" />
+      </video>
+    ))
+  }
+</div>
+
+<script>
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  for (const box of document.querySelectorAll<HTMLElement>(".sessions-clip")) {
+    const videos = [...box.querySelectorAll("video")];
+    let seen = false;
+    let paused = still.matches;
+    const update = () => {
+      for (const video of videos) {
+        if (seen && !paused && !still.matches && video.offsetParent) video.play().catch(() => {});
+        else video.pause();
+      }
+    };
+    new IntersectionObserver(
+      ([entry]) => {
+        seen = entry.isIntersecting;
+        update();
+      },
+      { threshold: 0.4 },
+    ).observe(box);
+    // a click pauses or plays it, also for a reader who asks for reduced motion
+    box.addEventListener("click", () => {
+      paused = !paused;
+      const shown = videos.find((v) => v.offsetParent);
+      if (paused) shown?.pause();
+      else shown?.play().catch(() => {});
+    });
+  }
+</script>
+
+<style>
+  .sessions-clip {
+    overflow: hidden;
+    border: 1px solid var(--rule-strong);
+    border-radius: 12px;
+    background: var(--sheet);
+    box-shadow: 0 30px 70px -36px color-mix(in oklab, var(--ink) 50%, transparent);
+  }
+  .sessions-clip video {
+    display: block;
+    width: 100%;
+    /* the clip's shape, before it loads, so a theme switch keeps its place */
+    aspect-ratio: 1800 / 1075;
+    height: auto;
+    cursor: pointer;
+  }
+</style>

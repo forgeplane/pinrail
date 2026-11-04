@@ -217,6 +217,27 @@
   font-size: 18px;
 }
 
+/* sessions: the text, then the thread's clip across the column */
+.c-labs {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--agent-wash);
+  color: var(--agent);
+  letter-spacing: 0.04em;
+}
+.c-sessions .c-head {
+  margin-bottom: 32px;
+}
+.c-sessions-more a {
+  color: var(--pen);
+  text-decoration: none;
+  font-weight: 500;
+}
+.c-sessions-more a:hover {
+  text-decoration: underline;
+}
+
 /* how it works, played out */
 
 .plugin {

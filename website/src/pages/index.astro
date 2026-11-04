@@ -1,6 +1,7 @@
 ---
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
+import SessionsClip from "../components/index/SessionsClip.astro";
 import { plugins } from "../components/plugins/plugins";
 import ThemeHead from "../components/ThemeHead.astro";
 import SocialCard from "../components/SocialCard.astro";
@@ -49,7 +50,7 @@ const shown = [...views, ...samples];
     <header class="topnav">
       <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
       <nav class="links" aria-label="Main">
-        <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/plugins/">Plugins</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+        <a href="#how">How it works</a><a href="#views">Views</a><a href="#sessions">Sessions</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/plugins/">Plugins</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
       <ModeSwitch current="classic" />
     </header>
@@ -100,15 +101,25 @@ const shown = [...views, ...samples];
         </div>
       </section>
 
+      <section class="c-section c-sessions" id="sessions">
+        <div class="c-head">
+          <p class="kicker">03 · Sessions <span class="c-labs">Labs</span></p>
+          <h2>Not everything <em>needs a review.</em></h2>
+          <p>An agent asks a quick question with <code>pinrail ask</code>, says what it is doing with <code>pinrail status</code>, and leaves a note with what it found. Each lands in its session's thread, next to its reviews, so you answer in context.</p>
+          <p class="c-sessions-more"><a href="/blog/questions-statuses-and-notes/">How sessions work, and what is still open →</a></p>
+        </div>
+        <SessionsClip />
+      </section>
+
       <section class="c-section c-split">
         <div>
-          <p class="kicker">03 · Rounds</p>
+          <p class="kicker">04 · Rounds</p>
           <h2>A no comes with a reason, <em>and the reason comes back.</em></h2>
           <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts and comments, so you see what changed and why, and a view can set the two rounds side by side to check each fix. Every round and every decision is kept, and can be opened again later.</p>
           <RoundDemo />
         </div>
         <div>
-          <p class="kicker">04 · Stop</p>
+          <p class="kicker">05 · Stop</p>
           <h2>“Stop” is <em>a real answer.</em></h2>
           <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. Every ending has its code:</p>
           <table class="codes">
@@ -119,7 +130,7 @@ const shown = [...views, ...samples];
 
       <section class="c-section c-cli" id="cli">
         <div class="c-head">
-          <p class="kicker">05 · The CLI</p>
+          <p class="kicker">06 · The CLI</p>
           <h2>For an agent, <em>and for a script.</em></h2>
           <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
         </div>
@@ -128,7 +139,7 @@ const shown = [...views, ...samples];
 
       <section class="c-section c-faq" id="faq">
         <div class="c-head">
-          <p class="kicker">06 · Questions</p>
+          <p class="kicker">07 · Questions</p>
           <h2>Before you <em>ask.</em></h2>
         </div>
         <div class="faq-list"><Faq /></div>
