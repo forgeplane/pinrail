@@ -1,4 +1,4 @@
-# A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
+# A tag v<version> (v0.1.0) releases the desktop app: the full CI passes first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
 # .app.tar.gz the action adds) and Linux builds for x86-64 and ARM64
 # (.AppImage, .deb, .rpm), each
@@ -35,13 +35,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A release pushes the tag with main, so the push to main already runs
+  # the full CI on the same commit. This waits for that run and takes its
+  # result, rather than running every job a second time.
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+    outputs:
+      passed: ${{ steps.main.outputs.passed }}
+    steps:
+      - name: Wait for the CI run of this commit on main
+        id: main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          # the push to main starts its run at the same moment as this one;
+          # give it two minutes to appear
+          for _ in $(seq 1 24); do
+            run=$(gh run list --repo "$REPO" --workflow ci.yml --branch main --event push \
+              --commit "$SHA" --limit 1 --json databaseId -q '.[0].databaseId // empty')
+            test -n "$run" && break
+            sleep 5
+          done
+          if [ -z "$run" ]; then
+            echo "No CI run on main for $SHA, so this release runs CI itself."
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Waiting for CI run $run on main."
+          gh run watch "$run" --repo "$REPO" --interval 30 --exit-status > /dev/null \
+            || { echo "CI run $run on main did not pass: https://github.com/$REPO/actions/runs/$run"; exit 1; }
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+  # the full CI, when main has no run of this commit to wait for
   test:
+    needs: ci
+    if: needs.ci.outputs.passed != 'true'
     # zizmor prefers $/, which actionlint cannot read yet
     uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
 
   draft:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
+    needs: [ci, test]
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.ci.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -96,9 +135,9 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: [test, draft]
+    needs: [ci, test, draft]
     # a tag builds into its draft; a manual run builds with nothing to release
-    if: always() && needs.test.result == 'success' && (needs.draft.result == 'success' || needs.draft.result == 'skipped')
+    if: always() && needs.ci.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') && (needs.draft.result == 'success' || needs.draft.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
