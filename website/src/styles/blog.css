@@ -122,6 +122,16 @@
   color: var(--ink);
   scroll-margin-top: 80px;
 }
+/* a command in a heading: mono in the pen colour, without the inline-code
+   box */
+.prose h2 code {
+  padding: 0;
+  background: none;
+  font-size: 0.86em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--pen);
+}
 /* each section's number above its heading: 01, 02, … */
 .prose h2::before {
   counter-increment: section;
