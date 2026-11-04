@@ -8,6 +8,8 @@ export default defineConfig({
   globalSetup: "./helpers/global-setup.ts",
   globalTeardown: "./helpers/global-teardown.ts",
   workers: 1,
+  // a test that fails once in CI runs again, and the report marks it flaky
+  retries: process.env.CI ? 1 : 0,
   fullyParallel: false,
   timeout: 60_000,
   expect: { timeout: 10_000 },
