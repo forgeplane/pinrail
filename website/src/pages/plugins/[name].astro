@@ -1,0 +1,57 @@
+---
+// A plugin's page in the gallery: what it is for, its view in the reader's
+// theme, and how to install it.
+import SitePage from "../../components/SitePage.astro";
+import PluginShot from "../../components/plugins/PluginShot.astro";
+import Install from "../../components/plugins/Install.astro";
+import { plugins, type Plugin } from "../../components/plugins/plugins";
+import "../../styles/plugins.css";
+
+export function getStaticPaths() {
+  return plugins.map((plugin) => ({ params: { name: plugin.name }, props: { plugin } }));
+}
+
+interface Props {
+  plugin: Plugin;
+}
+const { plugin } = Astro.props;
+---
+
+<SitePage title={`${plugin.title} · Pinrail plugins`} description={plugin.description} current="plugins">
+  <article class="plugin-page">
+    <a class="plugin-back" href="/plugins/">← Plugins</a>
+    <header class="plugin-page-head">
+      <h1>{plugin.title}</h1>
+      <p class="plugin-meta">
+        <code>{plugin.name}</code>
+        <span>{plugin.version}</span>
+        <span>{plugin.official ? "Comes with the app" : "Sample"}</span>
+        {plugin.recommended ? <span class="plugin-badge">Recommended</span> : null}
+        {plugin.takes_files ? <span>Takes files</span> : null}
+      </p>
+      <p class="plugin-description">{plugin.description}</p>
+    </header>
+
+    <PluginShot plugin={plugin} sizes="(max-width: 1100px) 92vw, 1040px" zoom loading="eager" />
+
+    <section class="plugin-section">
+      <h2>When an agent uses it</h2>
+      <p>{plugin.use_when}</p>
+    </section>
+
+    <section class="plugin-section">
+      <h2>Install it</h2>
+      <Install plugin={plugin} />
+    </section>
+
+    <section class="plugin-section">
+      <h2>What the agent sends and gets back</h2>
+      <p>
+        {plugin.official ? "Its docs page" : "Its README"} describes the payload an agent sends and the decision it gets
+        back, with an example of each. With the plugin installed, an agent prints them with
+        <code>pinrail plugins describe {plugin.name}</code>.
+      </p>
+      <p><a class="ghost big" href={plugin.docs}>{plugin.official ? "Read its docs →" : "Read its README ↗"}</a></p>
+    </section>
+  </article>
+</SitePage>

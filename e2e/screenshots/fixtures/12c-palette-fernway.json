@@ -1,0 +1,442 @@
+{
+  "plugin": "palette",
+  "title": "Fernway colours",
+  "origin": {
+    "repo": "fernway/app",
+    "workflow": "design"
+  },
+  "requested_by": "claude",
+  "age": "4h",
+  "payload": {
+    "notes": "Round 1 of the **Fernway** colour system: four directions, each with a light and a dark theme. Look at the sample screen in both, check the contrast table, and click anything on the screen to comment on the colour it uses, or to set a new value.",
+    "subject": {
+      "name": "Fernway",
+      "description": "A trail and trip planner. Calm, outdoorsy, trustworthy."
+    },
+    "checks": [
+      {
+        "label": "Links on the page",
+        "fg": "primary",
+        "bg": "background",
+        "min": 4.5
+      }
+    ],
+    "palettes": [
+      {
+        "id": "P1",
+        "name": "Moss",
+        "reasoning": "Forest greens on a faintly warm white, so the app feels like the outdoors without shouting it. The primary is dark enough for **white text in light** and flips to a soft sage in dark.",
+        "tokens": [
+          {
+            "name": "color.bg",
+            "role": "background",
+            "light": "#f7f8f5",
+            "dark": "#0f1411"
+          },
+          {
+            "name": "color.surface",
+            "role": "surface",
+            "light": "#ffffff",
+            "dark": "#171e1a"
+          },
+          {
+            "name": "color.surface.muted",
+            "role": "surface-muted",
+            "light": "#eef1ec",
+            "dark": "#1e2722"
+          },
+          {
+            "name": "color.border",
+            "role": "border",
+            "light": "#e1e5de",
+            "dark": "#26302a"
+          },
+          {
+            "name": "color.border.strong",
+            "role": "border-strong",
+            "light": "#8a968c",
+            "dark": "#5d6b62"
+          },
+          {
+            "name": "color.text",
+            "role": "text",
+            "light": "#1b2420",
+            "dark": "#e6ece8"
+          },
+          {
+            "name": "color.text.muted",
+            "role": "text-muted",
+            "light": "#5b6760",
+            "dark": "#9aa7a0"
+          },
+          {
+            "name": "color.primary",
+            "role": "primary",
+            "light": "#2f6b4f",
+            "dark": "#6fbf92"
+          },
+          {
+            "name": "color.on-primary",
+            "role": "on-primary",
+            "light": "#ffffff",
+            "dark": "#0b1a12"
+          },
+          {
+            "name": "color.accent",
+            "role": "accent",
+            "light": "#d9ead0",
+            "dark": "#2a4a36"
+          },
+          {
+            "name": "color.on-accent",
+            "role": "on-accent",
+            "light": "#22472f",
+            "dark": "#cfe8d8"
+          },
+          {
+            "name": "color.success",
+            "role": "success",
+            "light": "#2e7d4f",
+            "dark": "#6fcf97"
+          },
+          {
+            "name": "color.warning",
+            "role": "warning",
+            "light": "#8f5b00",
+            "dark": "#e2b04a"
+          },
+          {
+            "name": "color.danger",
+            "role": "danger",
+            "light": "#b3261e",
+            "dark": "#f2867e"
+          },
+          {
+            "name": "color.info",
+            "role": "info",
+            "light": "#2d6a9f",
+            "dark": "#7db7e8"
+          },
+          {
+            "name": "color.focus",
+            "role": "focus",
+            "light": "#2f6b4f",
+            "dark": "#6fbf92"
+          },
+          {
+            "name": "color.brand.leaf",
+            "value": "#4caf50",
+            "description": "The leaf in the logo; not used in the interface."
+          }
+        ]
+      },
+      {
+        "id": "P2",
+        "name": "Harbour",
+        "reasoning": "A confident blue for trust, with one warm **amber accent** kept the same in both themes so badges read as the brand everywhere.",
+        "tokens": [
+          {
+            "name": "color.bg",
+            "role": "background",
+            "light": "#f5f7fa",
+            "dark": "#0d1320"
+          },
+          {
+            "name": "color.surface",
+            "role": "surface",
+            "light": "#ffffff",
+            "dark": "#151c2b"
+          },
+          {
+            "name": "color.surface.muted",
+            "role": "surface-muted",
+            "light": "#edf1f7",
+            "dark": "#1b2436"
+          },
+          {
+            "name": "color.border",
+            "role": "border",
+            "light": "#dde3ec",
+            "dark": "#243047"
+          },
+          {
+            "name": "color.border.strong",
+            "role": "border-strong",
+            "light": "#8792a3",
+            "dark": "#56647d"
+          },
+          {
+            "name": "color.text",
+            "role": "text",
+            "light": "#16202e",
+            "dark": "#e4e9f2"
+          },
+          {
+            "name": "color.text.muted",
+            "role": "text-muted",
+            "light": "#5a6576",
+            "dark": "#97a3b8"
+          },
+          {
+            "name": "color.primary",
+            "role": "primary",
+            "light": "#1f5fbf",
+            "dark": "#5b9bff"
+          },
+          {
+            "name": "color.on-primary",
+            "role": "on-primary",
+            "light": "#ffffff",
+            "dark": "#06142e"
+          },
+          {
+            "name": "color.accent",
+            "role": "accent",
+            "value": "#ffb547"
+          },
+          {
+            "name": "color.on-accent",
+            "role": "on-accent",
+            "value": "#3a2500"
+          },
+          {
+            "name": "color.success",
+            "role": "success",
+            "light": "#1e7a4c",
+            "dark": "#5fd39a"
+          },
+          {
+            "name": "color.warning",
+            "role": "warning",
+            "light": "#8f5400",
+            "dark": "#f0b44c"
+          },
+          {
+            "name": "color.danger",
+            "role": "danger",
+            "light": "#c0362c",
+            "dark": "#ff7b72"
+          },
+          {
+            "name": "color.info",
+            "role": "info",
+            "light": "#1f5fbf",
+            "dark": "#5b9bff"
+          },
+          {
+            "name": "color.focus",
+            "role": "focus",
+            "light": "#1f5fbf",
+            "dark": "#8fb9ff"
+          }
+        ]
+      },
+      {
+        "id": "P3",
+        "name": "Ember",
+        "reasoning": "Terracotta and sand: the warmest of the four, closer to a travel magazine than a utility. The orange primary is the point of it, and the riskiest for contrast.",
+        "tokens": [
+          {
+            "name": "color.bg",
+            "role": "background",
+            "light": "#fbf7f3",
+            "dark": "#16110e"
+          },
+          {
+            "name": "color.surface",
+            "role": "surface",
+            "light": "#ffffff",
+            "dark": "#1f1814"
+          },
+          {
+            "name": "color.surface.muted",
+            "role": "surface-muted",
+            "light": "#f5ede5",
+            "dark": "#2a211b"
+          },
+          {
+            "name": "color.border",
+            "role": "border",
+            "light": "#eadfd4",
+            "dark": "#342922"
+          },
+          {
+            "name": "color.border.strong",
+            "role": "border-strong",
+            "light": "#b8a697",
+            "dark": "#6d5a4d"
+          },
+          {
+            "name": "color.text",
+            "role": "text",
+            "light": "#2a1f1a",
+            "dark": "#f1e7df"
+          },
+          {
+            "name": "color.text.muted",
+            "role": "text-muted",
+            "light": "#8a7a70",
+            "dark": "#a8968a"
+          },
+          {
+            "name": "color.primary",
+            "role": "primary",
+            "light": "#d9653b",
+            "dark": "#e8774d"
+          },
+          {
+            "name": "color.on-primary",
+            "role": "on-primary",
+            "light": "#ffffff",
+            "dark": "#ffffff"
+          },
+          {
+            "name": "color.accent",
+            "role": "accent",
+            "light": "#f4c95d",
+            "dark": "#f4c95d"
+          },
+          {
+            "name": "color.on-accent",
+            "role": "on-accent",
+            "light": "#3d2a00",
+            "dark": "#3d2a00"
+          },
+          {
+            "name": "color.success",
+            "role": "success",
+            "light": "#3f8f5a",
+            "dark": "#74c28f"
+          },
+          {
+            "name": "color.warning",
+            "role": "warning",
+            "light": "#c98a12",
+            "dark": "#e8b14a"
+          },
+          {
+            "name": "color.danger",
+            "role": "danger",
+            "light": "#c23b30",
+            "dark": "#f08a7e"
+          },
+          {
+            "name": "color.info",
+            "role": "info",
+            "light": "#3a7ca5",
+            "dark": "#7fb6d9"
+          },
+          {
+            "name": "color.focus",
+            "role": "focus",
+            "light": "#d9653b",
+            "dark": "#f3a07f"
+          }
+        ]
+      },
+      {
+        "id": "P4",
+        "name": "Dusk",
+        "reasoning": "Violet with a blush accent, for evenings planning the next trip. The most distinctive in an app store row; the least *outdoors*.",
+        "tokens": [
+          {
+            "name": "color.bg",
+            "role": "background",
+            "light": "#f8f7fb",
+            "dark": "#111019"
+          },
+          {
+            "name": "color.surface",
+            "role": "surface",
+            "light": "#ffffff",
+            "dark": "#1a1824"
+          },
+          {
+            "name": "color.surface.muted",
+            "role": "surface-muted",
+            "light": "#f0eef6",
+            "dark": "#221f2f"
+          },
+          {
+            "name": "color.border",
+            "role": "border",
+            "light": "#e3e0ec",
+            "dark": "#2c2940"
+          },
+          {
+            "name": "color.border.strong",
+            "role": "border-strong",
+            "light": "#8b86a0",
+            "dark": "#5f5a78"
+          },
+          {
+            "name": "color.text",
+            "role": "text",
+            "light": "#1d1a28",
+            "dark": "#ebe8f4"
+          },
+          {
+            "name": "color.text.muted",
+            "role": "text-muted",
+            "light": "#625d75",
+            "dark": "#a29dba"
+          },
+          {
+            "name": "color.primary",
+            "role": "primary",
+            "light": "#5b4bc4",
+            "dark": "#a59bff"
+          },
+          {
+            "name": "color.on-primary",
+            "role": "on-primary",
+            "light": "#ffffff",
+            "dark": "#141029"
+          },
+          {
+            "name": "color.accent",
+            "role": "accent",
+            "light": "#ffd6e8",
+            "dark": "#4a2340"
+          },
+          {
+            "name": "color.on-accent",
+            "role": "on-accent",
+            "light": "#6b1d45",
+            "dark": "#ffd6e8"
+          },
+          {
+            "name": "color.success",
+            "role": "success",
+            "light": "#237a57",
+            "dark": "#6fd1a4"
+          },
+          {
+            "name": "color.warning",
+            "role": "warning",
+            "light": "#8f5d00",
+            "dark": "#e9b95c"
+          },
+          {
+            "name": "color.danger",
+            "role": "danger",
+            "light": "#b4233c",
+            "dark": "#ff8597"
+          },
+          {
+            "name": "color.info",
+            "role": "info",
+            "light": "#3d5fc4",
+            "dark": "#8aa8ff"
+          },
+          {
+            "name": "color.focus",
+            "role": "focus",
+            "light": "#5b4bc4",
+            "dark": "#c3bbff"
+          }
+        ]
+      }
+    ]
+  }
+}

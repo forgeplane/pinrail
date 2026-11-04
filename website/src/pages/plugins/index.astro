@@ -1,0 +1,77 @@
+---
+// The plugin gallery: the plugins that come with the app, then the samples,
+// each card leading to the plugin's page.
+import SitePage from "../../components/SitePage.astro";
+import PluginShot from "../../components/plugins/PluginShot.astro";
+import { plugins, type Plugin } from "../../components/plugins/plugins";
+import "../../styles/plugins.css";
+
+const groups: { id: string; title: string; text: string; items: Plugin[] }[] = [
+  {
+    id: "with-the-app",
+    title: "Come with the app",
+    text: "They install by name, and the setup installs the two it recommends.",
+    items: plugins.filter((p) => p.official),
+  },
+  {
+    id: "samples",
+    title: "Samples",
+    text: "They show what else a plugin can do, and install from a checkout of forgeplane/pinrail-plugins.",
+    items: plugins.filter((p) => !p.official),
+  },
+];
+---
+
+<SitePage
+  title="Plugins · Pinrail"
+  description="The views a person reviews an agent's work in: code changes, plans, lists, images, schemas, designs, audio and video. Install one with a command, or give your agent one line."
+  current="plugins"
+>
+  <section class="c-hero plugins-hero">
+    <h1>A view for <em>every review.</em></h1>
+    <p class="c-lede">
+      Every review opens in a plugin's view, made for the work it shows. Install one with a command, or give your agent
+      one line and it installs it for you.
+    </p>
+  </section>
+
+  {
+    groups.map((g) => (
+      <section class="plugins-group" id={g.id} aria-labelledby={`${g.id}-title`}>
+        <header>
+          <h2 id={`${g.id}-title`}>{g.title}</h2>
+          <p>{g.text}</p>
+        </header>
+        <ul class="plugins-grid">
+          {g.items.map((p) => (
+            <li>
+              <a class="plugin-card" href={`/plugins/${p.name}/`}>
+                <PluginShot plugin={p} sizes="(max-width: 1000px) 92vw, 560px" />
+                <span class="plugin-card-text">
+                  <span class="plugin-card-head">
+                    <b>{p.title}</b>
+                    {p.recommended ? <span class="plugin-badge">Recommended</span> : null}
+                  </span>
+                  <code>{p.name}</code>
+                  <span class="plugin-card-description">{p.description}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  <section class="plugins-own">
+    <h2>The next one is yours.</h2>
+    <p>
+      A plugin is a manifest, two JSON schemas and a web page. Your agent can build one for the work you review, and
+      try it in the app before you install it.
+    </p>
+    <div class="plugins-own-actions">
+      <code>pinrail plugins new my_plugin</code>
+      <a class="ghost big" href="/docs/building/writing/">Write a plugin →</a>
+    </div>
+  </section>
+</SitePage>

@@ -1,0 +1,273 @@
+/* The plugin gallery (src/pages/plugins/): a grid of cards, each with its
+   plugin's view, and a page for each plugin. Tokens come from index.css. */
+
+.plugins-hero {
+  padding-bottom: 8px;
+}
+
+.plugins-group {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 64px 28px 0;
+}
+.plugins-group header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.plugins-group h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.plugins-group header p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+.plugins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plugin-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--sheet);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+.plugin-card:hover {
+  border-color: var(--rule-strong);
+  transform: translateY(-2px);
+}
+.plugin-card:focus-visible {
+  outline: 2px solid var(--pen);
+  outline-offset: 2px;
+}
+/* the whole view, framed on the card's shaded top */
+.plugin-card .plugin-shot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9.4;
+  padding: 22px 22px 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-deep);
+}
+.plugin-card .plugin-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.45);
+}
+.plugin-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px 18px;
+}
+.plugin-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.plugin-card-head b {
+  font-size: 18px;
+  color: var(--ink);
+}
+.plugin-card code {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  font: 12px var(--mono);
+  color: var(--faint);
+}
+.plugin-card-description {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.plugin-badge {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--pen-wash);
+  font: 500 11px var(--mono);
+  color: var(--pen);
+}
+
+.plugins-own {
+  max-width: 1180px;
+  margin: 72px auto 0;
+  padding: 36px 28px 96px;
+  text-align: center;
+}
+.plugins-own h2 {
+  margin: 0 0 10px;
+  font-size: 32px;
+}
+.plugins-own p {
+  max-width: 36em;
+  margin: 0 auto 22px;
+  color: var(--ink-2);
+  font-size: 18px;
+}
+.plugins-own-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.plugins-own-actions code {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--night);
+  color: var(--night-fg);
+  font-size: 14px;
+}
+
+/* a plugin's page */
+.plugin-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 28px 96px;
+}
+.plugin-back {
+  font: 500 13px var(--mono);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.plugin-back:hover {
+  color: var(--pen);
+}
+.plugin-page-head {
+  max-width: 760px;
+  margin: 22px 0 32px;
+}
+.plugin-page-head h1 {
+  margin: 0 0 12px;
+  font-size: clamp(40px, 5.4vw, 64px);
+  line-height: 1;
+}
+.plugin-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 18px;
+  font: 13px var(--mono);
+  color: var(--faint);
+}
+.plugin-meta code {
+  font-size: 13px;
+  color: var(--ink);
+}
+.plugin-description {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.plugin-page > .plugin-shot,
+.plugin-page > .zoom {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+}
+/* the whole view, at the page's width */
+.plugin-page > .zoom img {
+  width: 100%;
+  height: auto;
+}
+.plugin-section {
+  max-width: 760px;
+  margin-top: 48px;
+}
+.plugin-section h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+}
+.plugin-section p {
+  color: var(--ink-2);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.plugin-install {
+  display: grid;
+  gap: 22px;
+}
+.plugin-install h3 {
+  margin: 0 0 8px;
+  font: 500 12px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.plugin-install p {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+.plugin-copy {
+  position: relative;
+  border-radius: 10px;
+  background: var(--night);
+  color: var(--night-fg);
+}
+.plugin-copy > code,
+.plugin-copy pre {
+  display: block;
+  margin: 0;
+  padding: 14px 86px 14px 16px;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: 14px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.plugin-copy pre code {
+  font: inherit;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+.plugin-copy-button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 5px 11px;
+  border: 1px solid var(--night-dim);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--night-fg);
+  font: 500 12px var(--mono);
+  cursor: pointer;
+}
+.plugin-copy-button:hover {
+  border-color: var(--night-fg);
+}

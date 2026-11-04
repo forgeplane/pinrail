@@ -521,6 +521,7 @@ export const scenes = [
       await f.locator(".rendered h2", { hasText: "Design" }).evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page, 600);
       await shot("markdown");
+      await shot("markdown-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -545,6 +546,7 @@ export const scenes = [
       await f.getByPlaceholder("Add a comment").fill("Disable the whole form while it saves, not only the button");
       await settle(page, 600);
       await shot("change-map");
+      await shot("change-map-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -591,6 +593,85 @@ export const scenes = [
       await f.locator("#area-comment").press("Enter");
       await settle(page, 600);
       await shot("change-map-screens");
+    },
+  },
+  {
+    // two comments pinned, a third element picked and its comment being typed
+    name: "artifact",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["12-artifact-landing"]);
+      const comment = async (selector, text, save = true) => {
+        if (!(await f.locator("[data-select]").getAttribute("class"))?.includes("is-on"))
+          await f.locator("[data-select]").click();
+        await f.locator(`[data-artifact] ${selector}`).first().click();
+        await f.locator("[data-comment-text]").fill(text);
+        if (save) await f.locator("[data-save]").click();
+        await settle(page, 200);
+      };
+      await comment(
+        "#hero h1",
+        "Lead with the outcome: “Show the right shipping price at checkout.” Keep the carrier count as the subline.",
+      );
+      await comment(
+        "#pricing .price",
+        "Add a second column for volume pricing past 1M requests; enterprise buyers ask first.",
+      );
+      await comment("#features .card h3", "Rename to “One schema for every carrier”", false);
+      // clicks scroll the page wherever timing leaves it; set it: the cards
+      // at the top, the comment being written and the second pin below
+      await f.locator("[data-artifact] #features").evaluate((el) => {
+        el.scrollIntoView({ block: "start", behavior: "instant" });
+        let scroller = (el.getRootNode().host ?? el).parentElement;
+        while (scroller && scroller.scrollHeight <= scroller.clientHeight) scroller = scroller.parentElement;
+        scroller?.scrollBy({ top: -24, behavior: "instant" });
+      });
+      await settle(page);
+      await shot("artifact-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the view as the review opens, for the plugin gallery
+    name: "logo-view",
+    async run({ page, app, reviews, shot }) {
+      await openReview(page, app, reviews["17-logo-tidemark"]);
+      await settle(page, 1500);
+      await shot("logo-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the view as the review opens, for the plugin gallery
+    name: "calendar-view",
+    async run({ page, app, reviews, shot }) {
+      await openReview(page, app, reviews["18-calendar-week"]);
+      await settle(page, 1500);
+      await shot("calendar-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the view as the review opens, for the plugin gallery
+    name: "palette-view",
+    async run({ page, app, reviews, shot }) {
+      await openReview(page, app, reviews["12c-palette-fernway"]);
+      await settle(page, 1500);
+      await shot("palette-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the view as the review opens, for the plugin gallery
+    name: "motion-view",
+    async run({ page, app, reviews, shot }) {
+      await openReview(page, app, reviews["12d-motion-save"]);
+      await settle(page, 1500);
+      await shot("motion-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the view as the review opens, for the plugin gallery
+    name: "trade-view",
+    async run({ page, app, reviews, shot }) {
+      await openReview(page, app, reviews["12e-trade-gold"]);
+      await settle(page, 1500);
+      await shot("trade-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {

@@ -1,0 +1,44 @@
+---
+// A plugin's picture in the gallery: the screenshot run's shot of its view,
+// in the reader's theme, or the light screenshot of its README when the run
+// has none (scripts/plugin-gallery.mjs).
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import Zoom from "../index/Zoom.astro";
+import type { Plugin } from "./plugins";
+
+interface Props {
+  plugin: Plugin;
+  sizes: string;
+  /** opens full size on a click */
+  zoom?: boolean;
+  loading?: "eager" | "lazy";
+}
+const { plugin, sizes, zoom = false, loading = "lazy" } = Astro.props;
+
+const shots = import.meta.glob<{ default: ImageMetadata }>("../../assets/screenshots/*.png", { eager: true });
+const readmes = import.meta.glob<{ default: ImageMetadata }>("../../assets/plugins/*.png", { eager: true });
+const find = (images: typeof shots, file: string) => {
+  const found = images[file];
+  if (!found) throw new Error(`no image ${file} for the plugin ${plugin.name}`);
+  return found.default;
+};
+const { image } = plugin;
+const light =
+  "shot" in image
+    ? find(shots, `../../assets/screenshots/${image.shot}-light.png`)
+    : find(readmes, `../../assets/plugins/${image.readme}.png`);
+const dark = "shot" in image && image.dark ? find(shots, `../../assets/screenshots/${image.shot}-dark.png`) : undefined;
+const alt = `The ${plugin.title} view in Pinrail.`;
+---
+
+{
+  zoom ? (
+    <Zoom src={light} dark={dark} alt={alt} caption={plugin.title} sizes={sizes} class="plugin-shot" />
+  ) : (
+    <div class="plugin-shot">
+      <Image src={light} alt={alt} widths={[480, 800, 1200]} sizes={sizes} loading={loading} class:list={[dark && "theme-light"]} />
+      {dark && <Image src={dark} alt={alt} widths={[480, 800, 1200]} sizes={sizes} loading={loading} class="theme-dark" />}
+    </div>
+  )
+}

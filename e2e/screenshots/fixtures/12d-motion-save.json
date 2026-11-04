@@ -1,0 +1,55 @@
+{
+  "plugin": "motion",
+  "title": "Save button",
+  "origin": {
+    "repo": "tessel/editor",
+    "workflow": "design"
+  },
+  "requested_by": "claude",
+  "age": "5h",
+  "payload": {
+    "subject": "Save button — press, saving, saved",
+    "notes": "Round 1 of the feedback on **Save** in Tessel's editor: the press, the wait while it saves, and the moment it is saved. A real save takes 0.6–2 s, so each take stands for about a second of waiting. Watch the first 400 ms at 0.25×: the press should feel instant, the wait calm.",
+    "stage": {
+      "width": 320,
+      "height": 160,
+      "background": "#f4f5f8"
+    },
+    "variants": [
+      {
+        "id": "V1",
+        "name": "Squish",
+        "reasoning": "The button gives under the finger (**scale 0.94** at 105 ms) and springs back past its size, then the label lifts out for a spinner. Two turns of the spinner stand for the save; the tick draws in as the button turns green.",
+        "html": "<button class=\"btn\"><span class=\"label\">Save</span><span class=\"ring\"></span><svg class=\"tick\" viewBox=\"0 0 24 24\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg></button>",
+        "css": ".btn { display: grid; place-items: center; width: 160px; height: 44px; border: 0; border-radius: 10px;\n  background: #2f6fed; color: #fff; font: 600 15px/1 -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif;\n  overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(47, 111, 237, .45); }\n.btn > * { grid-area: 1 / 1; }\n.ring { width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .35); border-top-color: #fff; opacity: 0; }\n.tick { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; }\n@keyframes spin { to { transform: rotate(360deg); } }\n@keyframes draw { to { stroke-dashoffset: 0; } }\n@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes lift-out { to { opacity: 0; transform: translateY(-8px); } }\n@keyframes done { to { background: #1f9d63; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(31, 157, 99, .45); } }\n.btn { animation: press 420ms cubic-bezier(.3, .7, .4, 1) both, done 240ms 1100ms ease-out both; }\n@keyframes press { 0% { transform: scale(1); } 25% { transform: scale(.94); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }\n.label { animation: lift-out 140ms 300ms ease-in both; }\n.ring { animation: fade-in 120ms 380ms both, spin 360ms 380ms linear 2, fade-out 100ms 1100ms forwards; }\n.tick { animation: draw 260ms 1140ms cubic-bezier(.6, 0, .2, 1) both; }"
+      },
+      {
+        "id": "V2",
+        "name": "Fill",
+        "reasoning": "No spinner: a lighter band sweeps across the button while it saves, and *Saved* drops in with its tick when the band reaches the end. Reads as progress, so it only fits if a save takes about as long every time.",
+        "html": "<button class=\"btn\"><span class=\"fill\"></span><span class=\"label\">Save</span><span class=\"saved\"><svg class=\"tick\" viewBox=\"0 0 24 24\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg>Saved</span></button>",
+        "css": ".btn { display: grid; place-items: center; width: 160px; height: 44px; border: 0; border-radius: 10px;\n  background: #2f6fed; color: #fff; font: 600 15px/1 -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif;\n  overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(47, 111, 237, .45); }\n.btn > * { grid-area: 1 / 1; }\n.ring { width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .35); border-top-color: #fff; opacity: 0; }\n.tick { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; }\n@keyframes spin { to { transform: rotate(360deg); } }\n@keyframes draw { to { stroke-dashoffset: 0; } }\n@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes lift-out { to { opacity: 0; transform: translateY(-8px); } }\n@keyframes done { to { background: #1f9d63; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(31, 157, 99, .45); } }\n.btn { animation: nudge 240ms ease-out both, done 260ms 1260ms ease-out both; }\n@keyframes nudge { 40% { transform: scale(.97); } }\n.fill { place-self: stretch; background: rgba(255, 255, 255, .24); transform-origin: left; transform: scaleX(0); animation: sweep 1100ms 160ms cubic-bezier(.65, 0, .35, 1) both; }\n@keyframes sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }\n.label { animation: lift-out 160ms 1240ms ease-in both; }\n.saved { display: flex; align-items: center; gap: 6px; opacity: 0; animation: drop-in 220ms 1320ms cubic-bezier(.2, .8, .3, 1) both; }\n.saved .tick { width: 18px; height: 18px; animation: draw 240ms 1400ms ease-out both; }\n@keyframes drop-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }"
+      },
+      {
+        "id": "V3",
+        "name": "Morph",
+        "reasoning": "The button folds into a circle that spins while the save runs, then grows back out, green, with a little overshoot, and draws its tick. The most motion of the three CSS takes; watch **80–400 ms** at 0.25× for the fold.",
+        "html": "<button class=\"btn\"><span class=\"label\">Save</span><span class=\"ring\"></span><svg class=\"tick\" viewBox=\"0 0 24 24\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg></button>",
+        "css": ".btn { display: grid; place-items: center; width: 160px; height: 44px; border: 0; border-radius: 10px;\n  background: #2f6fed; color: #fff; font: 600 15px/1 -apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif;\n  overflow: hidden; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(47, 111, 237, .45); }\n.btn > * { grid-area: 1 / 1; }\n.ring { width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, .35); border-top-color: #fff; opacity: 0; }\n.tick { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; }\n@keyframes spin { to { transform: rotate(360deg); } }\n@keyframes draw { to { stroke-dashoffset: 0; } }\n@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes lift-out { to { opacity: 0; transform: translateY(-8px); } }\n@keyframes done { to { background: #1f9d63; box-shadow: 0 1px 2px rgba(16, 24, 40, .12), 0 4px 12px -4px rgba(31, 157, 99, .45); } }\n.btn { animation: shrink 320ms 80ms cubic-bezier(.5, 0, .2, 1) both, grow 380ms 1240ms cubic-bezier(.3, 1.35, .5, 1) forwards, done 200ms 1240ms ease-out both; }\n@keyframes shrink { from { width: 160px; border-radius: 10px; } to { width: 44px; border-radius: 22px; } }\n@keyframes grow { from { width: 44px; border-radius: 22px; } to { width: 160px; border-radius: 10px; } }\n.label { animation: fade-out 100ms 40ms both; }\n.ring { animation: fade-in 120ms 380ms both, spin 420ms 380ms linear 2, fade-out 80ms 1220ms forwards; }\n.tick { animation: draw 280ms 1420ms cubic-bezier(.6, 0, .2, 1) both; }"
+      },
+      {
+        "id": "V4",
+        "name": "Badge",
+        "reasoning": "Made in After Effects and exported with Bodymovin: the button presses, shrinks away and a green badge pops in its place, then the tick is drawn. No text, so the label would sit beside it.",
+        "lottie": {
+          "$attachment": "tick.json"
+        }
+      }
+    ]
+  },
+  "attachments": {
+    "tick.json": {
+      "path": "../../../../pinrail-plugins/plugins/motion/samples/motion/tick.json"
+    }
+  }
+}

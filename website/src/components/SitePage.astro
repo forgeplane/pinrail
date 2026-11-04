@@ -1,0 +1,59 @@
+---
+// A page of the site outside the landing pages and the docs, such as the
+// plugin gallery: the head, the top bar with the theme button, and the
+// footer, around the page's own content.
+import ThemeHead from "./ThemeHead.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+import SocialCard from "./SocialCard.astro";
+import "../styles/index.css";
+import "../styles/index-classic.css";
+import Footer from "./Footer.astro";
+import Brand from "./Brand.astro";
+import Lightbox from "./index/Lightbox.astro";
+import { repo } from "./index/content";
+
+interface Props {
+  title: string;
+  description: string;
+  /** the top bar's link to mark as the page you are on */
+  current?: "plugins" | "blog" | "download";
+}
+const { title, description, current } = Astro.props;
+const here = (name: Props["current"]) => (current === name ? "page" : undefined);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <ThemeHead />
+    <title>{title}</title>
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <SocialCard />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  </head>
+  <body class="classic no-switch">
+    <a href="#main" class="skip">Skip to content</a>
+
+    <header class="topnav">
+      <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
+      <nav class="links" aria-label="Main">
+        <a href="/plugins/" aria-current={here("plugins")}>Plugins</a><a href="/blog/" aria-current={here("blog")}>Blog</a><a href="/docs/">Docs</a><a href="/download/" aria-current={here("download")}>Download</a><a href={repo}>GitHub ↗</a>
+      </nav>
+      <ThemeToggle />
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <Footer other={{ href: "/review", label: "Review version" }} />
+    <Lightbox />
+  </body>
+</html>

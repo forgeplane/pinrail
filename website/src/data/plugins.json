@@ -1,0 +1,306 @@
+[
+  {
+    "name": "list",
+    "title": "Action list",
+    "version": "1.2.0",
+    "description": "Items grouped under headings, each accepted or rejected with an optional note.",
+    "use_when": "You have a list of findings, proposed changes or tasks and need a person to accept or reject each one before you act on them.",
+    "official": true,
+    "recommended": true,
+    "takes_files": false,
+    "build": false,
+    "docs": "/docs/plugins/list/",
+    "image": {
+      "shot": "list-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "feedback",
+    "title": "Feedback",
+    "version": "1.2.0",
+    "description": "Questions answered in one pass: choices, yes or no, free text, each with an optional recommendation.",
+    "use_when": "You are blocked on decisions only the person can make, such as choices between options, missing facts or preferences, and want them answered before you go on.",
+    "official": true,
+    "recommended": true,
+    "takes_files": false,
+    "build": false,
+    "docs": "/docs/plugins/feedback/",
+    "image": {
+      "shot": "feedback-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "code-review",
+    "title": "Code review",
+    "version": "1.3.0",
+    "description": "A change's diff with the comments a reviewer agent proposes to post, each accepted or rejected before anything is posted.",
+    "use_when": "You reviewed a merge or pull request and want a person to approve each comment before it is posted to the forge.",
+    "official": true,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "/docs/plugins/code-review/",
+    "image": {
+      "shot": "review-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "change-map",
+    "title": "Change map",
+    "version": "1.1.1",
+    "description": "A code change, such as a pull request, drawn as a diagram of the parts it touches and how they interact. Each part opens its files in a diff viewer, and parts of the interface show screenshots before and after. Comment on a part, an interaction or a line, and approve the change or ask for changes.",
+    "use_when": "You made or studied a code change with several moving parts, such as a feature across services, modules and screens, and the person should understand how the parts fit together before reading the diff, then approve it or say what to change.",
+    "official": true,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "/docs/plugins/change-map/",
+    "image": {
+      "shot": "change-map-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "markdown",
+    "title": "Markdown review",
+    "version": "1.3.0",
+    "description": "A Markdown document, rendered with its diagrams and as its raw source, with its outline. Comment on a section, a diagram or a selected passage, and approve it or ask for changes.",
+    "use_when": "You wrote or changed a Markdown document (a design document, a README, a spec, release notes) and need a person to read it and say what to change, section by section or on a passage, before you go on.",
+    "official": true,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "/docs/plugins/markdown/",
+    "image": {
+      "shot": "markdown-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "image",
+    "title": "Image review",
+    "version": "1.2.0",
+    "description": "A round of generated images or illustrations, sent as PNG, JPEG, WebP or SVG files, each large on a stage to zoom and pan. Pick a favourite, keep or drop the rest, and box or pin a spot on an image to ask for a change there.",
+    "use_when": "You generated candidate images or illustrations (a spot illustration, a hero, a product shot, an icon set) and need a person to pick one, shortlist or drop the rest, and mark the areas to fix, remove or redraw, in coordinates an image-editing or inpainting step can act on.",
+    "official": true,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "/docs/plugins/image/",
+    "image": {
+      "shot": "image-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "db-schema",
+    "title": "Database schema review",
+    "version": "0.2.0",
+    "description": "A database schema, or a change to one, drawn as a diagram of its tables and relationships. Comment on a table, a column or a relationship, answer the agent's questions, and approve the schema or send it back.",
+    "use_when": "You designed a database schema or a migration, such as new tables, changed columns or new foreign keys, and need a person to approve it before you write or run the migration.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": true,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/db-schema",
+    "image": {
+      "shot": "db-schema-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "canvas",
+    "title": "Design canvas",
+    "version": "0.2.0",
+    "description": "A set of designs laid out on a canvas, such as the steps of a wizard or variants of a screen. Pan and zoom, pin comments to any point or element, mark each frame approved or in need of changes, and approve the set or ask for changes.",
+    "use_when": "You designed several screens, dialogs or steps of a flow (as HTML mockups or images) and need a person to look at them side by side, say what to change on each, and tell you which ones are done.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/canvas",
+    "image": {
+      "shot": "canvas-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "artifact",
+    "title": "HTML artifact",
+    "version": "1.1.0",
+    "description": "An HTML page reviewed element by element: each comment comes back with the element's CSS selector.",
+    "use_when": "You designed an HTML page, such as a mockup, a landing page, an email template or a dashboard, and want comments pinned to its elements before you publish it.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": true,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/artifact",
+    "image": {
+      "shot": "artifact-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "email",
+    "title": "Draft emails",
+    "version": "1.1.0",
+    "description": "Email drafts read, edited and sent, revised or discarded one by one.",
+    "use_when": "You drafted emails on the person's behalf and need them read, edited or approved before anything is sent.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/email",
+    "image": {
+      "shot": "email-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "audio",
+    "title": "Audio review",
+    "version": "1.1.0",
+    "description": "Audio takes, such as voices reading one script, jingle variants or podcast cuts, each with its waveform and, when given, its transcript in sync. Play and compare them at the same point, comment at a moment or over a stretch, mark what to cut, and pick a favourite, keep or drop each one.",
+    "use_when": "You made candidate audio (text-to-speech takes, voice-overs, jingles, podcast edits) and need a person to listen, pick one, and say exactly where to fix or cut, in milliseconds you can act on.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/audio",
+    "image": {
+      "shot": "audio-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "video",
+    "title": "Video review",
+    "version": "0.2.0",
+    "description": "A video to watch on a stage, with its scenes and its sound on a timeline. Comment at a moment or over a stretch, on the picture or on the sound, box an area of a frame to say what to change there, and approve the cut or ask for changes.",
+    "use_when": "You made a video (a promo cut, a screen recording, a rendered animation, a generated clip) and need a person to watch it and say what to change: at which moment, over which stretch, where on the frame, and whether it is about the picture or the sound.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/video",
+    "image": {
+      "shot": "video-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "visual-diff",
+    "title": "Before and after",
+    "version": "1.1.0",
+    "description": "Before and after images of a revision, compared with a wipe slider, side by side, an onion-skin fade or a difference highlight. Each request the revision claims to address is marked fixed, partly or not fixed, new problems are marked on the after image, and each pair is accepted or sent back for another pass.",
+    "use_when": "You revised a page, screen, image or render after a person's feedback and need them to check, against before and after images, that each thing they asked for was fixed and nothing else broke.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/visual-diff",
+    "image": {
+      "shot": "visual-diff-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "model-3d",
+    "title": "3D model review",
+    "version": "1.1.0",
+    "description": "Candidate 3D models, sent as GLB files, each one to orbit under studio light, from set views and the agent's own, with its size and triangle count. Pick a favourite, keep or drop the rest, and click a part to ask for a change to it.",
+    "use_when": "You made candidate 3D models or scenes (GLB files, or small three.js JSON) and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a model.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": true,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/model-3d",
+    "image": {
+      "shot": "model-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "logo",
+    "title": "Logo review",
+    "version": "1.1.0",
+    "description": "Candidate logo marks, shown the way they will live: at every size, as app icons, in a browser tab and a menu bar, and beside the wordmark, in the brand's own colours. Pick a favourite, keep or drop the rest.",
+    "use_when": "You designed candidate logo marks, app icons or favicons as SVG and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a mark.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/logo",
+    "image": {
+      "shot": "logo-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "palette",
+    "title": "Palette review",
+    "version": "1.1.0",
+    "description": "Candidate colour systems, each painted on a sample app screen in light and dark, with WCAG contrast measured on the pairs that matter. Pick a favourite, keep or drop the rest, comment on a token, and set a new value for one.",
+    "use_when": "You proposed colour palettes or design tokens for a product (light and dark themes) and need a person to pick one, shortlist or drop the rest, and say what to change in individual tokens, down to a new value.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/palette",
+    "image": {
+      "shot": "palette-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "motion",
+    "title": "Motion review",
+    "version": "1.1.0",
+    "description": "Animation variants, as CSS or Lottie, each on a stage with a timeline to play, scrub and step frame by frame, at a quarter speed and up, alone or side by side in sync. Pick a favourite, keep or drop the rest, and comment at a moment or over a stretch of the animation.",
+    "use_when": "You made candidate animations (a loading state, a button's feedback, a transition) as CSS keyframes or Lottie JSON and need a person to choose one and say, at what moment, what should move differently.",
+    "official": false,
+    "recommended": false,
+    "takes_files": true,
+    "build": true,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/motion",
+    "image": {
+      "shot": "motion-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "calendar",
+    "title": "Calendar",
+    "version": "1.1.0",
+    "description": "Times to arrange on a calendar around what is already booked: pick one suggested slot per item, or leave it for the agent.",
+    "use_when": "You found candidate times for appointments, meetings or interviews and need the person to choose one for each, around their existing calendar, before you book anything.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/calendar",
+    "image": {
+      "shot": "calendar-view",
+      "dark": true
+    }
+  },
+  {
+    "name": "trade",
+    "title": "Trade approval",
+    "version": "0.2.0",
+    "description": "A trade an agent proposes, on the market's candlestick chart with its entry, stop and targets drawn in, beside the agent's reasoning. Approve it or reject it, with a note.",
+    "use_when": "You decided on a trade (to buy, sell, close or hold a position) and need a person to look at the chart and your reasoning and approve it before you place the order.",
+    "official": false,
+    "recommended": false,
+    "takes_files": false,
+    "build": false,
+    "docs": "https://github.com/forgeplane/pinrail-plugins/tree/main/plugins/trade",
+    "image": {
+      "shot": "trade-view",
+      "dark": true
+    }
+  }
+]
