@@ -9,12 +9,13 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
-## [Unreleased]
+## [0.5.0]
 
 ### Added
 
 - Themes. Add a theme as a JSON file in the themes folder, and choose a
   theme for dark and for light in Settings or in the command palette.
+  Plugin views follow the theme.
 - Add the Nord, Dracula, Catppuccin Mocha, Catppuccin Latte and Solarized
   Light themes.
 - Settings › Labs, with features still in the works, each off until you
@@ -44,6 +45,10 @@ The `pinrail` command ships inside the app and carries the app's version.
   agent's icon shows a session that works or has finished, and a menu
   groups, orders and filters the sessions.
 - Drag the sidebar's edge to resize it. Pinrail remembers the width.
+- Hide the session's details beside its thread with the header's button
+  or ⌘⇧B, and drag their edge to resize them.
+- The markdown plugin can hide its comments with the button at the right
+  of its header, so the document takes their width.
 - Questions in the inbox are marked apart from reviews.
 - A question's text can use inline Markdown, such as `code` and **bold**,
   which the thread shows formatted.
@@ -322,6 +327,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 Initial version of Pinrail.
 
+[0.5.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.5.0
 [0.4.1]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.1
 [0.4.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.0
 [0.3.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.3.0
