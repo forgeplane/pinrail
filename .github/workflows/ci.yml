@@ -125,6 +125,8 @@ jobs:
       # as the release installs them: the package lists are refreshed first,
       # since the runner image's lists can name versions the mirror no
       # longer has
+      - uses: ./.github/actions/apt-mirrors # zizmor: ignore[self-repository]
+        if: runner.os == 'Linux'
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -268,6 +270,8 @@ jobs:
           persist-credentials: false
           # the release tags, which the plugin version check compares with
           fetch-depth: 0
+      # the Playwright installs below fetch the browser's system libraries
+      - uses: ./.github/actions/apt-mirrors # zizmor: ignore[self-repository]
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
