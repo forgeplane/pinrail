@@ -1,6 +1,7 @@
 ---
 // The landing page's clip of a session's thread: the blog post's video of
-// two stages, with statuses, a question, a review and a note. It loops
+// two stages, with statuses, a question, a review and a note, recorded in
+// the app's light and dark themes; the page shows the one for its own. It loops
 // without sound while it is on screen; a reader who asks for reduced motion
 // sees its poster, and plays it with a click.
 //
@@ -17,9 +18,10 @@ const hosted = (file: string) =>
   {
     [
       ["theme-light", name],
+      ["theme-dark", `${name}-dark`],
     ].map(([theme, file]) => (
       <video
-        class={theme === "theme-light" ? undefined : theme}
+        class={theme}
         muted
         loop
         playsinline
@@ -34,6 +36,8 @@ const hosted = (file: string) =>
 </div>
 
 <script>
+  // the clip on screen is the one of the page's theme; the other is not
+  // displayed and stays paused, and a theme switch swaps them
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   for (const box of document.querySelectorAll<HTMLElement>(".sessions-clip")) {
     const videos = [...box.querySelectorAll("video")];
@@ -52,6 +56,7 @@ const hosted = (file: string) =>
       },
       { threshold: 0.4 },
     ).observe(box);
+    new MutationObserver(() => requestAnimationFrame(update)).observe(document.documentElement, { attributeFilter: ["data-theme"] });
     // a click pauses or plays it, also for a reader who asks for reduced motion
     box.addEventListener("click", () => {
       paused = !paused;
