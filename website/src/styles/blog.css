@@ -171,7 +171,7 @@
   margin-top: 1em;
 }
 
-.prose ul {
+.prose :is(ul, ol) {
   margin-top: 1.15em;
   margin-bottom: 0;
   padding-left: 0;
@@ -182,7 +182,24 @@
   margin-top: 0.6em;
   padding-left: 1.5em;
 }
-.prose li::before {
+/* a numbered list's numbers in the pen's mono, as the section numbers */
+.prose > ol {
+  counter-reset: item;
+}
+.prose > ol > li {
+  counter-increment: item;
+  padding-left: 2em;
+}
+.prose > ol > li::before {
+  content: counter(item, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0.8em;
+  font: 500 13px var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--pen);
+}
+.prose ul > li::before {
   content: "";
   position: absolute;
   left: 0.2em;
