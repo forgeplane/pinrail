@@ -26,6 +26,26 @@
   color-scheme: light;
 }
 
+/* the dark theme, in the docs' dark colours (docs.css): the paper turns to
+   the night, and the inks lighten. The terminals stay a shade darker than
+   the page. */
+:root[data-theme="dark"] {
+  --paper: #1c1a17;
+  --paper-deep: #161412;
+  --sheet: #23201c;
+  --ink: #fbf8f2;
+  --ink-2: #cdc5b6;
+  --faint: #a1998b;
+  --rule: #34302b;
+  --rule-strong: #4a453e;
+  --pen: #e5694f;
+  --agent: #8db4dc;
+  --ok: #6cc08b;
+  --night: #131210;
+  --night-2: #23201c;
+  color-scheme: dark;
+}
+
 *,
 *::before,
 *::after {

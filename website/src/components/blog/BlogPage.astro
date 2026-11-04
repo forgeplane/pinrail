@@ -2,6 +2,8 @@
 // The frame of every blog page: the landing pages' bar and footer around
 // the blog's own reading layout. A post passes itself, which adds the
 // article's metadata for link previews and search engines.
+import ThemeHead from "../ThemeHead.astro";
+import ThemeToggle from "../ThemeToggle.astro";
 import "../../styles/index.css";
 import "../../styles/index-classic.css";
 import "../../styles/blog.css";
@@ -32,13 +34,12 @@ const article = post && {
 };
 ---
 <!doctype html>
-<!-- light, as the landing pages are; the code blocks follow data-theme -->
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f5f0e6" />
+    <ThemeHead />
     <title>{title}</title>
     <link rel="canonical" href={url} />
     <link rel="alternate" type="application/atom+xml" title="Pinrail blog" href="/blog/feed.xml" />
@@ -69,6 +70,7 @@ const article = post && {
       <nav class="links" aria-label="Main">
         <a href="/blog/" aria-current={Astro.url.pathname.startsWith("/blog") ? "page" : undefined}>Blog</a><a href="/docs/">Docs</a><a href="/download/">Download</a><a href={repo}>GitHub ↗</a>
       </nav>
+      <ThemeToggle />
     </header>
 
     <main id="main">

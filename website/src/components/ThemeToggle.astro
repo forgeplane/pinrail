@@ -1,5 +1,6 @@
 ---
-// Starlight's theme menu, as one button: it flips between light and dark.
+// The theme button of the docs, where it stands in for Starlight's theme menu,
+// and of the landing pages and the blog: it flips between light and dark.
 // Until it is pressed the page follows the system, as Starlight's "auto" does,
 // and the choice is kept under the same key, so Starlight's early script still
 // applies it before first paint.
@@ -19,6 +20,8 @@
   };
   const apply = (theme: "light" | "dark") => {
     document.documentElement.dataset.theme = theme;
+    // the browser's bar, on the pages outside the docs
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#1c1a17" : "#f5f0e6");
     for (const b of document.querySelectorAll<HTMLButtonElement>(".theme-toggle")) {
       b.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
     }
@@ -44,12 +47,12 @@
   .theme-toggle {
     position: relative; display: grid; place-items: center;
     width: 2.1rem; height: 2.1rem; padding: 0;
-    border: 1px solid var(--sl-color-gray-5); border-radius: 50%;
-    background: transparent; color: var(--sl-color-gray-2); cursor: pointer;
+    border: 1px solid var(--sl-color-gray-5, var(--rule-strong)); border-radius: 50%;
+    background: transparent; color: var(--sl-color-gray-2, var(--ink-2)); cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease;
   }
-  .theme-toggle:hover { border-color: var(--sl-color-accent); color: var(--sl-color-accent); }
-  .theme-toggle:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 2px; }
+  .theme-toggle:hover { border-color: var(--sl-color-accent, var(--pen)); color: var(--sl-color-accent, var(--pen)); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--sl-color-accent, var(--pen)); outline-offset: 2px; }
   .theme-toggle svg { grid-area: 1 / 1; width: 1rem; height: 1rem; transition: transform 0.35s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease; }
   /* the icon shows the theme you are in; the other one waits, turned away */
   :global([data-theme="light"]) .moon, :global(:root:not([data-theme="light"])) .sun { opacity: 0; transform: rotate(-90deg) scale(0.6); }

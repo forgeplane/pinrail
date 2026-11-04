@@ -1,0 +1,19 @@
+---
+// Sets the theme before the page is drawn, on the pages outside the docs: the
+// one chosen with the theme button, kept under Starlight's key so the docs and
+// these pages share it, or the system's. ThemeToggle.astro switches it.
+---
+<meta name="theme-color" content="#f5f0e6" />
+<script is:inline>
+  (() => {
+    let theme;
+    try {
+      theme = localStorage.getItem("starlight-theme");
+    } catch {}
+    if (theme !== "light" && theme !== "dark") {
+      theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    }
+    document.documentElement.dataset.theme = theme;
+    if (theme === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#1c1a17");
+  })();
+</script>
