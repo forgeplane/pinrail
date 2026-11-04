@@ -4,10 +4,10 @@
 // and dark themes
 import review from "../../assets/screenshots/review-view-light.png";
 import reviewDark from "../../assets/screenshots/review-view-dark.png";
-import email from "../../assets/screenshots/email-view-light.png";
-import emailDark from "../../assets/screenshots/email-view-dark.png";
-import artifact from "../../assets/screenshots/artifact-view-light.png";
-import artifactDark from "../../assets/screenshots/artifact-view-dark.png";
+import dbSchema from "../../assets/screenshots/db-schema-view-light.png";
+import dbSchemaDark from "../../assets/screenshots/db-schema-view-dark.png";
+import canvas from "../../assets/screenshots/canvas-view-light.png";
+import canvasDark from "../../assets/screenshots/canvas-view-dark.png";
 import list from "../../assets/screenshots/list-view-light.png";
 import listDark from "../../assets/screenshots/list-view-dark.png";
 import feedback from "../../assets/screenshots/feedback-view-light.png";
@@ -84,23 +84,24 @@ export const views = [
     alt: "Pinrail's code review view: a TypeScript diff with a finding accepted and a revision note being written.",
   },
   {
-    name: "Email drafts",
-    plugin: "email",
-    gist: "drafts to edit, send, revise or discard",
-    image: email,
-    imageDark: emailDark,
+    name: "Database schemas",
+    plugin: "db-schema",
+    gist: "a schema change, drawn as its tables",
+    image: dbSchema,
+    imageDark: dbSchemaDark,
     detail:
-      "Edit the draft itself and see your changes against it, leave an instruction on a passage, then send, revise or discard each one.",
-    alt: "Pinrail's email view: a draft with an edit showing against the original and a comment on one passage.",
+      "The tables and their relationships, with what is new or changed marked. Comment on a table, a column or a relationship, and answer the agent's questions.",
+    alt: "Pinrail's database schema view: six tables with the new and changed ones marked, a comment on a column, and a question being written on the invitations table.",
   },
   {
     name: "Pages & designs",
-    plugin: "artifact",
-    gist: "a page to comment on, element by element",
-    image: artifact,
-    imageDark: artifactDark,
-    detail: "Click an element on the rendered page. Your comment goes back with the selector the agent needs.",
-    alt: "Pinrail's artifact view: a landing page with comments pinned to elements and one being written.",
+    plugin: "canvas",
+    gist: "frames of a design to mark up, element by element",
+    image: canvas,
+    imageDark: canvasDark,
+    detail:
+      "The frames of a design side by side. Pin a comment to an element, and mark each frame approved or in need of changes.",
+    alt: "Pinrail's canvas view: the three steps of a setup wizard, one approved, one marked for changes, with comments pinned to the email field and a button.",
   },
   {
     name: "Lists",

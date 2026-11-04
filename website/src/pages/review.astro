@@ -32,7 +32,7 @@ const promo = import.meta.env.DEV
 
 // the views the review page shows first, in a carousel; the rest are an option
 const all = [...views, ...samples];
-const firstFive = ["code-review", "email", "image", "audio", "video"].map((p) => all.find((v) => v.plugin === p)!);
+const firstFive = ["code-review", "db-schema", "image", "audio", "video"].map((p) => all.find((v) => v.plugin === p)!);
 ---
 <!doctype html>
 <html lang="en">

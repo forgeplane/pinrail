@@ -594,37 +594,47 @@ export const scenes = [
     },
   },
   {
-    // two comments pinned, a third element picked and its comment being typed
-    name: "artifact",
+    // a schema change with a comment saved on a column and a question being
+    // written on a table
+    name: "db-schema",
     async run({ page, app, reviews, shot }) {
-      const f = await openReview(page, app, reviews["12-artifact-landing"]);
-      const comment = async (selector, text, save = true) => {
-        if (!(await f.locator("[data-select]").getAttribute("class"))?.includes("is-on"))
-          await f.locator("[data-select]").click();
-        await f.locator(`[data-artifact] ${selector}`).first().click();
-        await f.locator("[data-comment-text]").fill(text);
-        if (save) await f.locator("[data-save]").click();
+      const f = await openReview(page, app, reviews["12a-db-schema-workspaces"]);
+      await f.getByRole("button", { name: "Column memberships.role" }).waitFor();
+      await settle(page, 600);
+      await f.getByRole("button", { name: "Column memberships.role" }).click();
+      await f
+        .getByRole("textbox", { name: "Comment" })
+        .fill("Text with a check constraint: we add roles more often than we think.");
+      await f.getByRole("button", { name: "Add comment" }).click();
+      await settle(page, 200);
+      await f.getByRole("button", { name: "Table invitations" }).click();
+      await f.getByRole("button", { name: "Question", exact: true }).click();
+      await f.getByRole("textbox", { name: "Comment" }).fill("Is an accepted invitation kept, or deleted?");
+      await settle(page);
+      await shot("db-schema-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the frames of a design, a comment pinned to an element of one and a
+    // frame approved
+    name: "canvas",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["12b-canvas-wizard"]);
+      await f.locator(".frame").first().waitFor();
+      await settle(page, 600);
+      const pin = async (frame, selector, text) => {
+        await f.locator('.tools [data-tool="comment"]').click();
+        await f.locator(`section[data-frame="${frame}"] .host`).locator(selector).click();
+        await f.locator("#compose-body").fill(text);
+        await f.locator("#compose-body").press("Enter");
         await settle(page, 200);
       };
-      await comment(
-        "#hero h1",
-        "Lead with the outcome: “Show the right shipping price at checkout.” Keep the carrier count as the subline.",
-      );
-      await comment(
-        "#pricing .price",
-        "Add a second column for volume pricing past 1M requests; enterprise buyers ask first.",
-      );
-      await comment("#features .card h3", "Rename to “One schema for every carrier”", false);
-      // clicks scroll the page wherever timing leaves it; set it: the cards
-      // at the top, the comment being written and the second pin below
-      await f.locator("[data-artifact] #features").evaluate((el) => {
-        el.scrollIntoView({ block: "start", behavior: "instant" });
-        let scroller = (el.getRootNode().host ?? el).parentElement;
-        while (scroller && scroller.scrollHeight <= scroller.clientHeight) scroller = scroller.parentElement;
-        scroller?.scrollBy({ top: -24, behavior: "instant" });
-      });
+      await pin("account", "#email", "Say why we ask for an email, and that it is optional.");
+      await pin("done", "button.primary", "“Write your first note” says what happens next.");
+      await f.locator('[data-row="welcome"] [data-mark="approved"]').click();
+      await f.locator('[data-row="account"] [data-mark="changes"]').click();
       await settle(page);
-      await shot("artifact-view", page.locator("#plugin-frame"), { site: true });
+      await shot("canvas-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {

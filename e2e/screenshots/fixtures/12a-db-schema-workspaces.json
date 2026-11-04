@@ -1,0 +1,458 @@
+{
+  "plugin": "db-schema",
+  "title": "Add team workspaces",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "schema"
+  },
+  "requested_by": "claude",
+  "age": "2h",
+  "payload": {
+    "summary": "Projects move from a single owner to a **workspace**, which several users share. Each user gets a personal workspace in the migration, and their projects move into it, so nothing changes for existing users until they invite someone.\n\nThe migration runs in three steps: create the new tables, fill them from `projects.owner_id`, then drop the old column.",
+    "dialect": "postgresql",
+    "tables": [
+      {
+        "name": "users",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "primary_key": true,
+            "default": "generated always as identity"
+          },
+          {
+            "name": "email",
+            "type": "citext",
+            "unique": true,
+            "change": "changed",
+            "was": {
+              "type": "text"
+            },
+            "note": "Case-insensitive, so that an invitation to *Ana@example.com* finds the account of *ana@example.com*."
+          },
+          {
+            "name": "name",
+            "type": "text"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "default": "now()"
+          }
+        ]
+      },
+      {
+        "name": "workspaces",
+        "change": "added",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "primary_key": true,
+            "default": "generated always as identity"
+          },
+          {
+            "name": "name",
+            "type": "text"
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "unique": true,
+            "note": "Used in URLs: `/w/acme/projects`."
+          },
+          {
+            "name": "personal",
+            "type": "boolean",
+            "default": "false",
+            "note": "The workspace the migration creates for each user. It cannot be left or deleted."
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "default": "now()"
+          }
+        ]
+      },
+      {
+        "name": "memberships",
+        "change": "added",
+        "columns": [
+          {
+            "name": "workspace_id",
+            "type": "bigint",
+            "primary_key": true
+          },
+          {
+            "name": "user_id",
+            "type": "bigint",
+            "primary_key": true
+          },
+          {
+            "name": "role",
+            "type": "text",
+            "default": "'member'",
+            "note": "One of `owner`, `admin` or `member`, checked by a constraint."
+          },
+          {
+            "name": "joined_at",
+            "type": "timestamptz",
+            "default": "now()"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "memberships_user",
+            "columns": [
+              "user_id"
+            ],
+            "note": "Lists a user's workspaces."
+          }
+        ]
+      },
+      {
+        "name": "invitations",
+        "change": "added",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "primary_key": true,
+            "default": "generated always as identity"
+          },
+          {
+            "name": "workspace_id",
+            "type": "bigint"
+          },
+          {
+            "name": "email",
+            "type": "citext"
+          },
+          {
+            "name": "role",
+            "type": "text",
+            "default": "'member'"
+          },
+          {
+            "name": "invited_by",
+            "type": "bigint",
+            "nullable": true
+          },
+          {
+            "name": "token",
+            "type": "text",
+            "unique": true
+          },
+          {
+            "name": "expires_at",
+            "type": "timestamptz"
+          },
+          {
+            "name": "accepted_at",
+            "type": "timestamptz",
+            "nullable": true
+          }
+        ],
+        "indexes": [
+          {
+            "name": "invitations_open",
+            "columns": [
+              "workspace_id",
+              "email"
+            ],
+            "unique": true,
+            "where": "accepted_at is null",
+            "note": "One open invitation per address and workspace."
+          }
+        ]
+      },
+      {
+        "name": "projects",
+        "change": "changed",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "primary_key": true,
+            "default": "generated always as identity"
+          },
+          {
+            "name": "owner_id",
+            "type": "bigint",
+            "change": "removed"
+          },
+          {
+            "name": "workspace_id",
+            "type": "bigint",
+            "change": "added"
+          },
+          {
+            "name": "name",
+            "type": "text"
+          },
+          {
+            "name": "archived_at",
+            "type": "timestamptz",
+            "nullable": true
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "default": "now()"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "projects_owner",
+            "columns": [
+              "owner_id"
+            ],
+            "change": "removed"
+          },
+          {
+            "name": "projects_workspace",
+            "columns": [
+              "workspace_id"
+            ],
+            "change": "added"
+          }
+        ]
+      },
+      {
+        "name": "tasks",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "primary_key": true,
+            "default": "generated always as identity"
+          },
+          {
+            "name": "project_id",
+            "type": "bigint"
+          },
+          {
+            "name": "assignee_id",
+            "type": "bigint",
+            "nullable": true
+          },
+          {
+            "name": "title",
+            "type": "text"
+          },
+          {
+            "name": "done_at",
+            "type": "timestamptz",
+            "nullable": true
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "default": "now()"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "tasks_open_by_assignee",
+            "columns": [
+              "project_id",
+              "assignee_id",
+              "created_at desc"
+            ],
+            "include": [
+              "title",
+              "done_at"
+            ],
+            "where": "done_at is null",
+            "change": "added",
+            "note": "Serves the board's *open tasks* list, by assignee and newest first, from the index alone."
+          },
+          {
+            "name": "tasks_title_search",
+            "columns": [
+              "to_tsvector('simple', title)"
+            ],
+            "using": "gin",
+            "change": "added",
+            "note": "Full-text search on titles."
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "memberships_workspace_id_fkey",
+        "change": "added",
+        "from": {
+          "table": "memberships",
+          "columns": [
+            "workspace_id"
+          ]
+        },
+        "to": {
+          "table": "workspaces",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "cascade"
+      },
+      {
+        "id": "memberships_user_id_fkey",
+        "change": "added",
+        "from": {
+          "table": "memberships",
+          "columns": [
+            "user_id"
+          ]
+        },
+        "to": {
+          "table": "users",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "cascade"
+      },
+      {
+        "id": "invitations_workspace_id_fkey",
+        "change": "added",
+        "from": {
+          "table": "invitations",
+          "columns": [
+            "workspace_id"
+          ]
+        },
+        "to": {
+          "table": "workspaces",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "cascade"
+      },
+      {
+        "id": "invitations_invited_by_fkey",
+        "change": "added",
+        "from": {
+          "table": "invitations",
+          "columns": [
+            "invited_by"
+          ]
+        },
+        "to": {
+          "table": "users",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "set null",
+        "note": "Kept when the inviter's account is deleted, so the invitation still works."
+      },
+      {
+        "id": "projects_owner_id_fkey",
+        "change": "removed",
+        "from": {
+          "table": "projects",
+          "columns": [
+            "owner_id"
+          ]
+        },
+        "to": {
+          "table": "users",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "cascade"
+      },
+      {
+        "id": "projects_workspace_id_fkey",
+        "change": "added",
+        "from": {
+          "table": "projects",
+          "columns": [
+            "workspace_id"
+          ]
+        },
+        "to": {
+          "table": "workspaces",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "restrict",
+        "note": "A workspace with projects cannot be deleted until they are archived and moved."
+      },
+      {
+        "id": "tasks_project_id_fkey",
+        "from": {
+          "table": "tasks",
+          "columns": [
+            "project_id"
+          ]
+        },
+        "to": {
+          "table": "projects",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "cascade"
+      },
+      {
+        "id": "tasks_assignee_id_fkey",
+        "from": {
+          "table": "tasks",
+          "columns": [
+            "assignee_id"
+          ]
+        },
+        "to": {
+          "table": "users",
+          "columns": [
+            "id"
+          ]
+        },
+        "on_delete": "set null"
+      }
+    ],
+    "questions": [
+      {
+        "id": "q1",
+        "text": "Should the role be a Postgres `enum` type instead of `text` with a check constraint? An enum is stricter, but adding a role later needs `ALTER TYPE`.",
+        "about": {
+          "table": "memberships",
+          "column": "role"
+        },
+        "options": [
+          "text with a check constraint",
+          "enum type"
+        ],
+        "proposal": "text with a check constraint"
+      },
+      {
+        "id": "q2",
+        "text": "When a member leaves a workspace, what should happen to the tasks assigned to them there?",
+        "about": {
+          "relationship": "tasks_assignee_id_fkey"
+        },
+        "options": [
+          "Leave them assigned",
+          "Unassign them"
+        ],
+        "proposal": "Leave them assigned"
+      },
+      {
+        "id": "q3",
+        "text": "How long should an invitation stay valid?",
+        "about": {
+          "table": "invitations",
+          "column": "expires_at"
+        },
+        "proposal": "Seven days"
+      }
+    ],
+    "sql": "create extension if not exists citext;\n\nalter table users alter column email type citext;\n\ncreate table workspaces (\n  id bigint generated always as identity primary key,\n  name text not null,\n  slug text not null unique,\n  personal boolean not null default false,\n  created_at timestamptz not null default now()\n);\n\ncreate table memberships (\n  workspace_id bigint not null references workspaces (id) on delete cascade,\n  user_id bigint not null references users (id) on delete cascade,\n  role text not null default 'member' check (role in ('owner', 'admin', 'member')),\n  joined_at timestamptz not null default now(),\n  primary key (workspace_id, user_id)\n);\ncreate index memberships_user on memberships (user_id);\n\ncreate table invitations (\n  id bigint generated always as identity primary key,\n  workspace_id bigint not null references workspaces (id) on delete cascade,\n  email citext not null,\n  role text not null default 'member',\n  invited_by bigint references users (id) on delete set null,\n  token text not null unique,\n  expires_at timestamptz not null,\n  accepted_at timestamptz\n);\ncreate unique index invitations_open on invitations (workspace_id, email) where accepted_at is null;\n\nalter table projects add column workspace_id bigint references workspaces (id) on delete restrict;\n\n-- one personal workspace per user, holding their projects\ninsert into workspaces (name, slug, personal)\nselect u.name, 'u-' || u.id, true from users u;\ninsert into memberships (workspace_id, user_id, role)\nselect w.id, u.id, 'owner' from users u join workspaces w on w.slug = 'u-' || u.id;\nupdate projects p set workspace_id = w.id from workspaces w where w.slug = 'u-' || p.owner_id;\n\nalter table projects alter column workspace_id set not null;\ncreate index projects_workspace on projects (workspace_id);\ndrop index projects_owner;\nalter table projects drop column owner_id;\n\ncreate index tasks_open_by_assignee on tasks (project_id, assignee_id, created_at desc)\n  include (title, done_at) where done_at is null;\ncreate index tasks_title_search on tasks using gin (to_tsvector('simple', title));\n"
+  }
+}

@@ -54,7 +54,18 @@ const CARRIED = [
 ];
 
 /** The plugins the fixtures use from forgeplane/pinrail-plugins. */
-const OPTIONAL = ["email", "artifact", "logo", "calendar", "model-3d", "audio", "visual-diff", "video"];
+const OPTIONAL = [
+  "email",
+  "artifact",
+  "db-schema",
+  "canvas",
+  "logo",
+  "calendar",
+  "model-3d",
+  "audio",
+  "visual-diff",
+  "video",
+];
 
 /** Where the sample plugins are: the plugins folder of their checkout. */
 const samplePlugins = (app) =>

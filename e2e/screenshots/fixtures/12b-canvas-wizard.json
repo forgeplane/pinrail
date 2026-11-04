@@ -1,0 +1,41 @@
+{
+  "plugin": "canvas",
+  "title": "Acme setup wizard",
+  "origin": {
+    "repo": "acme/web",
+    "workflow": "design"
+  },
+  "requested_by": "codex",
+  "age": "3h",
+  "payload": {
+    "context": "Three steps of the setup wizard. Is the order right, and is anything missing?",
+    "flow": true,
+    "frames": [
+      {
+        "id": "welcome",
+        "group": "Setup",
+        "title": "1. Welcome",
+        "width": 560,
+        "height": 380,
+        "notes": "The first thing a new person sees.",
+        "html": "<!doctype html><html><head><style>\nbody { margin: 0; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: #1f2328; background: #f6f7f9; display: grid; place-items: center; height: 100%; }\n.dialog { width: 440px; background: #fff; border: 1px solid #d8dee4; border-radius: 12px; padding: 24px; box-shadow: 0 12px 32px -12px rgba(0,0,0,.25); }\nh1 { font-size: 18px; margin: 0 0 6px; }\np { margin: 0 0 16px; color: #59636e; }\n.steps { display: flex; gap: 6px; margin-bottom: 18px; }\n.steps span { flex: 1; height: 4px; border-radius: 2px; background: #d8dee4; }\n.steps span.on { background: #5b5bd6; }\n.actions { display: flex; justify-content: flex-end; gap: 8px; }\nbutton { font: inherit; padding: 6px 14px; border-radius: 7px; border: 1px solid #d8dee4; background: #fff; }\nbutton.primary { background: #5b5bd6; color: #fff; border-color: transparent; }\nlabel { display: block; font-weight: 600; margin-bottom: 4px; }\ninput { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 10px; border: 1px solid #d8dee4; border-radius: 7px; margin-bottom: 16px; }\n</style></head><body><div class=\"dialog\" id=\"dialog\"><div class=\"steps\"><span class=\"on\"></span><span class=\"\"></span><span class=\"\"></span></div><h1>Welcome to Acme</h1><p>Acme keeps your notes in sync across your devices.</p><div class=\"actions\"><button>Back</button><button class=\"primary\">Get started</button></div></div></body></html>"
+      },
+      {
+        "id": "account",
+        "group": "Setup",
+        "title": "2. Account",
+        "width": 560,
+        "height": 380,
+        "html": "<!doctype html><html><head><style>\nbody { margin: 0; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: #1f2328; background: #f6f7f9; display: grid; place-items: center; height: 100%; }\n.dialog { width: 440px; background: #fff; border: 1px solid #d8dee4; border-radius: 12px; padding: 24px; box-shadow: 0 12px 32px -12px rgba(0,0,0,.25); }\nh1 { font-size: 18px; margin: 0 0 6px; }\np { margin: 0 0 16px; color: #59636e; }\n.steps { display: flex; gap: 6px; margin-bottom: 18px; }\n.steps span { flex: 1; height: 4px; border-radius: 2px; background: #d8dee4; }\n.steps span.on { background: #5b5bd6; }\n.actions { display: flex; justify-content: flex-end; gap: 8px; }\nbutton { font: inherit; padding: 6px 14px; border-radius: 7px; border: 1px solid #d8dee4; background: #fff; }\nbutton.primary { background: #5b5bd6; color: #fff; border-color: transparent; }\nlabel { display: block; font-weight: 600; margin-bottom: 4px; }\ninput { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 10px; border: 1px solid #d8dee4; border-radius: 7px; margin-bottom: 16px; }\n</style></head><body><div class=\"dialog\" id=\"dialog\"><div class=\"steps\"><span class=\"on\"></span><span class=\"on\"></span><span class=\"\"></span></div><h1>Your account</h1><p>Sign in, or continue without an account.</p><label for=\"email\">Email</label><input id=\"email\" placeholder=\"you@example.com\"><div class=\"actions\"><button>Back</button><button class=\"primary\">Continue</button></div></div></body></html>"
+      },
+      {
+        "id": "done",
+        "group": "Setup",
+        "title": "3. Done",
+        "width": 560,
+        "height": 380,
+        "html": "<!doctype html><html><head><style>\nbody { margin: 0; font: 14px/1.5 -apple-system, system-ui, sans-serif; color: #1f2328; background: #f6f7f9; display: grid; place-items: center; height: 100%; }\n.dialog { width: 440px; background: #fff; border: 1px solid #d8dee4; border-radius: 12px; padding: 24px; box-shadow: 0 12px 32px -12px rgba(0,0,0,.25); }\nh1 { font-size: 18px; margin: 0 0 6px; }\np { margin: 0 0 16px; color: #59636e; }\n.steps { display: flex; gap: 6px; margin-bottom: 18px; }\n.steps span { flex: 1; height: 4px; border-radius: 2px; background: #d8dee4; }\n.steps span.on { background: #5b5bd6; }\n.actions { display: flex; justify-content: flex-end; gap: 8px; }\nbutton { font: inherit; padding: 6px 14px; border-radius: 7px; border: 1px solid #d8dee4; background: #fff; }\nbutton.primary { background: #5b5bd6; color: #fff; border-color: transparent; }\nlabel { display: block; font-weight: 600; margin-bottom: 4px; }\ninput { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 10px; border: 1px solid #d8dee4; border-radius: 7px; margin-bottom: 16px; }\n</style></head><body><div class=\"dialog\" id=\"dialog\"><div class=\"steps\"><span class=\"on\"></span><span class=\"on\"></span><span class=\"on\"></span></div><h1>You are set</h1><p>Your first note is waiting.</p><div class=\"actions\"><button>Back</button><button class=\"primary\">Open Acme</button></div></div></body></html>"
+      }
+    ]
+  }
+}
