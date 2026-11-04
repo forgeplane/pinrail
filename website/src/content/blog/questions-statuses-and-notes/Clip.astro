@@ -1,0 +1,95 @@
+---
+// A video in this post, as a numbered figure. A short clip plays in a loop
+// with no sound while it is on screen; the overview, with `controls`, waits
+// for the reader to press play. A reader who asks for reduced motion sees
+// each clip's poster, and plays it with a click.
+//
+// The videos and posters are too large for the repository. A build plays
+// them from media.pinrail.dev, under the names `hosted` gives; the dev
+// server plays them from agent-docs/blog-sessions, where
+// capture/capture.mjs writes them. A file on media.pinrail.dev is cached for
+// a year, so a new cut gets a new version in its name.
+import Figure from "../../../components/blog/Figure.astro";
+
+interface Props {
+  n: number;
+  /** the file's name in agent-docs/blog-sessions, without .mp4 */
+  name: string;
+  alt: string;
+  caption: string;
+  controls?: boolean;
+  wide?: boolean;
+}
+const { n, name, alt, caption, controls = false, wide = true } = Astro.props;
+const version = "v1";
+const local = new URL(`../../../../../agent-docs/blog-sessions/`, import.meta.url).pathname;
+const hosted = (file: string) =>
+  import.meta.env.DEV ? `/@fs${local}${file}` : `https://media.pinrail.dev/${file.replace(/(\.\w+)$/, `-${version}$1`)}`;
+const src = hosted(`${name}.mp4`);
+const poster = hosted(`${name}-poster.jpg`);
+---
+<Figure n={n} caption={caption} wide={wide}>
+  <div class="clip">
+    {
+      controls ? (
+        <video controls playsinline preload="metadata" poster={poster} aria-label={alt}>
+          <source src={src} type="video/mp4" />
+        </video>
+      ) : (
+        <video data-loop muted loop playsinline autoplay preload="metadata" poster={poster} aria-label={alt}>
+          <source src={src} type="video/mp4" />
+        </video>
+      )
+    }
+  </div>
+</Figure>
+<style>
+  .clip {
+    overflow: hidden;
+    border: 1px solid var(--rule-strong);
+    border-radius: 10px;
+    background: var(--sheet);
+    box-shadow: 0 24px 60px -32px color-mix(in oklab, var(--ink) 45%, transparent);
+  }
+  .clip video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .clip video[data-loop] {
+    cursor: pointer;
+  }
+</style>
+
+<script>
+  // Loops play only while on screen, and not at all for a reader who asks
+  // for reduced motion; a click plays or pauses one.
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  const loops = document.querySelectorAll<HTMLVideoElement>("video[data-loop]");
+  const seen = new IntersectionObserver(
+    (entries) => {
+      for (const { target, isIntersecting } of entries) {
+        const video = target as HTMLVideoElement;
+        if (isIntersecting && !still.matches && !video.dataset.paused) video.play().catch(() => {});
+        else video.pause();
+      }
+    },
+    { threshold: 0.4 },
+  );
+  for (const video of loops) {
+    if (still.matches) {
+      video.removeAttribute("autoplay");
+      video.pause();
+    }
+    seen.observe(video);
+    video.addEventListener("click", () => {
+      if (video.paused) {
+        delete video.dataset.paused;
+        video.play().catch(() => {});
+      } else {
+        video.dataset.paused = "1";
+        video.pause();
+      }
+    });
+  }
+</script>

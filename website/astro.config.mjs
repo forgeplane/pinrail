@@ -21,9 +21,18 @@ export default defineConfig({
   site: "https://pinrail.dev",
   vite: {
     plugins: [tailwindcss()],
-    // the dev server may serve the promo video from the repository's
-    // agent-docs, before it is on media.pinrail.dev (videos.mjs)
-    server: { fs: { allow: [".", fileURLToPath(new URL("../agent-docs/promo-video/out", import.meta.url))] } },
+    // the dev server may serve the promo video and the sessions post's
+    // videos from the repository's agent-docs, before they are on
+    // media.pinrail.dev (videos.mjs, the post's Clip.astro)
+    server: {
+      fs: {
+        allow: [
+          ".",
+          fileURLToPath(new URL("../agent-docs/promo-video/out", import.meta.url)),
+          fileURLToPath(new URL("../agent-docs/blog-sessions", import.meta.url)),
+        ],
+      },
+    },
   },
   // unified, so the docs' ```mermaid blocks become diagrams, screenshot:
   // images the app in the reader's theme, and contract: images a plugin's

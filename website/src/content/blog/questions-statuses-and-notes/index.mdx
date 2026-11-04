@@ -1,0 +1,212 @@
+---
+title: Questions, statuses and notes from your agents
+dek: Not everything an agent needs from you is a review. Sometimes it is one question, and sometimes it is only telling you where it is. Pinrail 0.5 adds both as an experimental feature in Labs.
+description: How Pinrail's sessions, pinrail ask, pinrail status and notes let a coding agent ask a person short questions, report what it is doing and send what it found, all kept in one thread per session, and what is still open about them.
+date: "2026-11-10"
+kind: Labs
+minutes: 10
+---
+
+import Shot from "../../../components/blog/Shot.astro";
+import Clip from "./Clip.astro";
+import page from "./page.png";
+import sidebar from "./sidebar.png";
+import thread from "./thread.png";
+import note from "./note.png";
+import labs from "./labs.png";
+
+<p class="lead">An agent is adding a rate limiter to an API gateway. Before it writes the limiter, it needs three decisions from me: how many requests a minute a key should get, whether internal keys should skip the limit, and what a limited request should see. None of them needs a review. Together they need a few seconds of my time, and the answer has to reach the agent without my going to look for its terminal.</p>
+
+<Clip
+  n={1}
+  name="sessions-overview"
+  controls
+  alt="On the left, an agent's terminal; on the right, Pinrail. The agent starts a stage with pinrail status, reports a step, then asks three questions with pinrail ask and waits. The questions appear in the session's thread. 120 is picked, with the note and 600 for the internal keys, No for the second question, and a few words for the third, and the answers are sent. The terminal prints the answers, the agent reports two more steps, sends a note with a chart of a load test, which is unfolded in the thread, and finishes the stage."
+  caption="The whole loop. The terminal runs the real pinrail command against the app, so what it prints is what the agent reads. 39 seconds."
+/>
+
+Pinrail started as a place to review what agents make: a code change, a plan, a design, a batch of emails, each in a view built for it. Reviews remain the core of it. But working with agents every day, we kept running into three other moments that a review does not fit:
+
+- **A short question.** The agent needs a choice, a fact or a preference before it can go on. Building a review for it is too much, and asking in the terminal means it waits until I happen to look.
+- **Not knowing what an agent is doing.** A long run is silent until it stops. I cannot tell an agent that is working from one that has been stuck for an hour.
+- **What the agent found.** At the end of a stage, the agent knows things worth keeping: what it measured, what it decided without asking, what it could not do. In a terminal, that scrolls away.
+
+Pinrail 0.5 adds three commands for these, `pinrail ask`, `pinrail status` and `pinrail status --note`, and a place where they all land: the agent's **session**. They are still experimental, so they are off until you turn them on in *Settings › Labs*. This post explains how they work, why we built them this way, and what is still open.
+
+## A session is one run of an agent
+
+A session is one conversation with an agent, such as one Claude Code conversation or one Codex thread. Agents already have an id for it, and the `pinrail` command reads it from the environment the agent sets, so the agent does not have to pass it. Everything the agent sends from a session is kept together: its questions, its reviews, its statuses and its notes.
+
+Each session has a thread in the app, oldest first. The Sessions page lists them all, those waiting for you first, and the sidebar lists them under their repositories, with what waits under the session that sent it.
+
+<Shot
+  n={2}
+  src={page}
+  alt="The Sessions page: four sessions, two of them with a question waiting, and Add rate limiting to the public API finished with Opened pull request #214."
+  caption="The Sessions page. A session is named by the stage of work its agent started, and the ones waiting for you come first."
+/>
+
+<Shot
+  n={3}
+  src={sidebar}
+  alt="The sidebar beside a question's thread: Inbox, Sessions and Search, then the repositories with their sessions under them. A question waits under a claude-code session in forgeplane/pinrail and is marked as open, another waits under a codex session, and a green check marks a finished session. At the right, the thread with an earlier answered question and four new ones waiting."
+  caption="The sessions in the sidebar, under their repositories, beside the thread of the question that is open. A question waits under the session that asked it, and a check marks a session whose agent said it had finished."
+/>
+
+The thread is the point. When I open a question, I see what the agent asked before, what I answered, which reviews it sent, and what it has been doing since. I am not answering a question out of context.
+
+### The sidebar
+
+The sidebar lists the sessions under their repositories, and each session's icon shows its state. A dot means the agent reported something in the last five minutes, and a check means it finished its stage. A number counts what waits for you in the session.
+
+The button beside the sidebar's heading opens its options. *Grouping* lists the sessions by repository, by status, by when they were last updated, or in one list. *Ordering* puts the sessions waiting for you first, or the most recent first. *Show details* adds a second line to each session, with the details you choose: the last activity, the latest status, the repository, the branch or the agent. *Show reviews* lists what waits under the session that sent it. The filters list only some agents, repositories or states, or add the archived sessions.
+
+<Clip
+  n={4}
+  name="sessions-clip-sidebar"
+  alt="The sidebar's options menu opens. Show details turns on, and each session gets a second line with its last activity. Branch is added to the details, then the Agent filter is set to claude-code, and only the claude-code sessions remain, each with its age and branch. Last, Grouping is set to None, and the sessions are listed in one list without their repositories."
+  caption="The sidebar's options: details on each session, a filter for one agent, and no grouping, so the sessions are listed in one list."
+/>
+
+## `pinrail ask`: questions that do not need a review
+
+A question is one command. Each question is an argument, followed by its own options:
+
+```sh wrap
+pinrail ask "CI's rustfmt check fails on cli/src/main.rs. Fix it in a new commit, or amend and force-push?" \
+  --choice "New commit" --choice "Amend and force-push" --recommend "Amend and force-push" \
+  --context "The commit is already pushed to \`work-items\`, which **nobody else** uses yet." \
+  --ask "Run the end-to-end suite before pushing?" --yes-no --recommend yes \
+  --ask "Which other checks should run before pushing?" --multiple \
+  --choice "CLI tests" --choice "Clippy" --choice "Prettier" --choice "cargo-deny" \
+  --ask "Anything else to fold into the commit?"
+```
+
+The questions arrive in the inbox, marked *asks you*, and open in the session's thread. A question can offer choices, one or several to pick, ask for yes or no, or take an answer in words. The agent can mark the answer it would choose with a star, and give context in Markdown.
+
+<Clip
+  n={5}
+  name="sessions-clip-answer"
+  alt="Four questions in a session's thread. The 2 key picks Amend and force-push and moves to the next question, C opens a note on it, only the sessions specs is typed and saved, and the 1 key answers yes. On the third question, the 1 and 2 keys select CLI tests and Clippy, and N moves on. Bump the version in the changelog too is typed as the fourth answer, and the answers are sent."
+  caption="Answering with the keyboard. A number picks a choice and moves on, or selects one of several, N goes to the next question, C adds a note to the current one, and ⌘↵ sends."
+/>
+
+Answering is meant to be fast. The number keys pick a choice and move on to the next question. On a question with several answers, they select and clear choices, and N moves on. A note can go with any answer, so "yes, but" does not need a question of its own. Anything I leave alone goes back as *not answered*, which the agent must not read as a yes. The box at the bottom takes a comment on all the questions at once, and ⌘D declines them when the agent should not have asked.
+
+The agent waits for the answers, then reads them as plain text:
+
+```text frame="terminal" wrap
+1. CI's rustfmt check fails on cli/src/main.rs. Fix it in a new commit, or amend and force-push?
+Amend and force-push
+
+2. Run the end-to-end suite before pushing?
+yes
+Note: only the sessions specs
+
+3. Which other checks should run before pushing?
+CLI tests
+Clippy
+
+4. Anything else to fold into the commit?
+Bump the version in the changelog too
+```
+
+### Why not a review?
+
+We could have built questions as one more plugin, and early on we did. It was the wrong shape. A review is something the person judges: it has a view, a decision and a record. A question is part of a conversation. It needs no payload file and no view, it comes in the middle of a stage of work, and it only makes sense next to what the agent asked before. Putting questions in the session's thread, not in a view of their own, is what made them feel light.
+
+For questions that depend on each other, or need a long explanation each, a review is still the better tool, and the `feedback` plugin is built for it.
+
+## `pinrail status`: what the agent is doing
+
+`pinrail status` says, in one line, what the agent is doing. It does not wait.
+
+```sh wrap
+pinrail status --start "Add search to the orders page"
+pinrail status "Adding a search index on orders"
+pinrail status --done "Opened pull request #88"
+```
+
+`--start` begins a **stage** of work and names it. The newest stage is the session's title in the thread, in the sidebar and on the Sessions page, so a session is called *Add search to the orders page*, not by an id. `--done` says the stage is finished, and the sidebar marks the session with a check.
+
+<Clip
+  n={6}
+  name="sessions-clip-stages"
+  controls
+  alt="The thread of a session named Add search to the orders page. Statuses arrive, then a question, Search by customer email as well as order number?, which is answered yes. The agent reports another step and sends a review of the changes, which is opened beside the thread, its three changes accepted and handed over. The agent runs the end-to-end suite and finishes with Opened pull request #88. Then it starts a new stage, Fix the flaky checkout test, which becomes the session's title, and asks whether to quarantine the test, which is answered with Quarantine it. After a status, the agent sends a note that explains why the test was flaky, with a table of failures before and after and a list of the changes, and it finishes the stage with Fixed the flaky checkout test in #91."
+  caption="A session over two stages. The first has statuses, a question and a review decided beside the thread. The second starts with a question and ends with a note on what the agent found. 42 seconds."
+/>
+
+Each status also answers the agent. It prints the stage Pinrail last recorded for the session:
+
+```shellsession frame="terminal" wrap
+$ pinrail status "Adding a search index on orders"
+Current stage: Add search to the orders page (started 2026-11-10 09:41)
+```
+
+That small line turned out to matter. An agent loses track of its stages, especially after its context is compacted, and the line tells it what Pinrail thinks it is doing. After `--done`, it says that no stage is open, which reminds the agent to start one before new work.
+
+<Shot
+  n={7}
+  src={thread}
+  alt="The thread of Add rate limiting to the public API: the start of the stage, a status, a question answered with 120 and a note, a folded status, and a note from the agent with the start of a chart, with the stage and the session's details in the panel at the right."
+  caption="A whole stage in one thread: the start, the statuses, a question with its answer, and a note, with the session's stages and details at the right."
+/>
+
+## Notes: what the agent wants you to read later
+
+A note is a status that carries a message: Markdown of up to 10,000 characters, with up to ten files. It asks nothing and never waits in the inbox.
+
+```sh wrap
+pinrail status --note --file summary.md --attach latency.png --attach run.log
+```
+
+<Clip
+  n={8}
+  name="sessions-clip-note"
+  alt="A note arrives in the thread: two paragraphs on a load test and the start of a chart of p95 latency, with latency.png and run.log listed under it. Show more unfolds the rest of the chart, and the pointer moves to the files."
+  caption="A note with a chart and a log arriving. The image shows in place, Show more unfolds a long note, and every file can be saved."
+/>
+
+An agent uses a note at the end of a stage, for a decision it took without asking, or for what an investigation found. An image the note refers to shows in place, and every file is listed under the note to save. It is the part of the agent's work that would otherwise scroll away with the terminal.
+
+<Shot
+  n={9}
+  src={note}
+  alt="A note from claude-code in its session's thread: a summary of a load test, a chart of p95 latency before and with the rate limiter, and latency.png listed under it, between two statuses and above the end of the stage."
+  caption="The note unfolded in its thread, between the statuses before and after it."
+/>
+
+## How the agent knows
+
+None of this works unless agents use the commands at the right moments. Pinrail installs a skill into each agent it finds, in *Settings › Agents*, which tells the agent when to ask, when to start a stage, and when to send a note. When sessions are off, the skill leaves those parts out, and the app refuses the commands, so an agent never sends something you cannot see.
+
+The skill does a lot of the work, and it is also the weak point, as the next section explains.
+
+## What is still open
+
+We are putting this in Labs, not in the main app, because three things are not settled.
+
+**Reaching an agent that is waiting for you.** An agent reads what Pinrail has for it when it runs a command. An agent that has finished its turn and is waiting for you runs none, so anything sent to it waits too. Every agent handles this differently, and we want to find the best way for it to work across all of them. That is coming in a future release.
+
+**Knowing whether a session is still running.** Pinrail only knows what an agent last reported. It cannot yet tell an agent that is thinking from one that has stopped, which matters before we let you resume a stopped session from the app. We are working on it.
+
+**Agents forgetting to report.** A model that is deep in a task forgets to start a stage, or reports too much. The current stage line helps, but it will never be perfect, so the app has to stay useful when the reports are sparse.
+
+## Try it
+
+Sessions, questions, statuses and notes are in Pinrail 0.5. To turn them on:
+
+:::steps
+1. Open *Settings › Labs* and turn on *Sessions and questions*.
+2. Open *Settings › Agents* and update the skill of each agent you use, so that it knows the new commands.
+:::
+
+<Shot
+  n={10}
+  src={labs}
+  alt="Settings › Labs, with Sessions and questions turned on."
+  caption="Settings › Labs. Turning sessions on or off marks the agents' skills as outdated, so they can be updated."
+/>
+
+Then give an agent a task long enough to have stages. We would like to hear how it goes, especially where it breaks: use *Send feedback* in the app, or open an issue on [GitHub](https://github.com/forgeplane/pinrail).
