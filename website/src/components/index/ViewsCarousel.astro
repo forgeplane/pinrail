@@ -7,7 +7,7 @@ import type { ImageMetadata } from "astro";
 // and the count), a track of slides, and a progress bar to jump with. The
 // page puts it in an element marked data-carousels, which scopes the script.
 interface Props {
-  items: { name: string; plugin: string; detail: string; alt: string; image: ImageMetadata }[];
+  items: { name: string; plugin: string; detail: string; alt: string; image: ImageMetadata; imageDark?: ImageMetadata }[];
 }
 const { items } = Astro.props;
 ---
