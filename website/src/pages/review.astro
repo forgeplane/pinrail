@@ -4,6 +4,8 @@
 // an item to accept or send back with a reason, a rejection comes back as a
 // second round, the decision builds up as JSON beside the page, and handing it
 // back plays out in the agent's terminal.
+import ThemeHead from "../components/ThemeHead.astro";
+import ThemeToggle from "../components/ThemeToggle.astro";
 import SocialCard from "../components/SocialCard.astro";
 import path from "node:path";
 import "../styles/index.css";
@@ -40,7 +42,7 @@ const firstFive = ["code-review", "db-schema", "image", "audio", "video"].map((p
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Before your agent acts, it asks. Pinrail is a desktop inbox where agents wait for your decision: a diff, a batch of emails, a page. Review this page to see how it works." />
-    <meta name="theme-color" content="#f5f0e6" />
+    <ThemeHead />
     <meta property="og:title" content="Pinrail — before your agent acts, it asks" />
     <meta property="og:description" content="An agent drafted this page and is waiting for your review." />
     <SocialCard />
@@ -63,6 +65,7 @@ const firstFive = ["code-review", "db-schema", "image", "audio", "video"].map((p
       <ModeSwitch current="review" />
       <div class="review-progress" aria-live="polite"><span data-count>0 of 6</span> decided<span class="track" aria-hidden="true"><span data-bar></span></span></div>
       <div class="review-actions">
+        <ThemeToggle />
         <button type="button" class="ghost" data-discard>Discard</button>
         <button type="button" class="primary" data-handback>Hand back <kbd>⌘↵</kbd></button>
       </div>
@@ -167,7 +170,7 @@ const firstFive = ["code-review", "db-schema", "image", "audio", "video"].map((p
                 <div class="views">
                   {all.map((v, i) => (
                     <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i % 5]}deg`}>
-                      <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
+                      <Zoom src={v.image} dark={v.imageDark} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
                       <figcaption><b>{v.name}</b>{v.detail}</figcaption>
                     </figure>
                   ))}
