@@ -220,9 +220,35 @@ jobs:
       - name: CLI end to end
         working-directory: e2e
         run: npx playwright test
+      # Three shards side by side, each with its own core, Vite and browser:
+      # the binaries and the SDK copy are built first, so the shards do not
+      # wait on cargo's lock or write the copy at once. Each shard's log is
+      # printed whole, in turn: folded when it passed, open when it failed.
       - name: Shell end to end
         working-directory: e2e
-        run: npx playwright test -c shell.config.ts
+        run: |
+          (cd ../desktop && cargo build -q -p pinrail-desktop --locked)
+          (cd ../cli && cargo build -q --locked)
+          (cd ../desktop/app && npm run sdk:build)
+          pids=()
+          for i in 1 2 3; do
+            SHELL_SHARD=$i SHELL_SDK_BUILT=1 npx playwright test -c shell.config.ts \
+              --shard="$i/3" --output="test-results/shard-$i" > "shard-$i.log" 2>&1 &
+            pids+=($!)
+          done
+          failed=0
+          for i in 1 2 3; do
+            if wait "${pids[$((i - 1))]}"; then
+              echo "::group::Shard $i of 3 passed"
+              cat "shard-$i.log"
+              echo "::endgroup::"
+            else
+              failed=1
+              echo "Shard $i of 3 failed:"
+              cat "shard-$i.log"
+            fi
+          done
+          exit $failed
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
