@@ -2,7 +2,6 @@
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
 import ThemeHead from "../components/ThemeHead.astro";
-import ThemeToggle from "../components/ThemeToggle.astro";
 import SocialCard from "../components/SocialCard.astro";
 import "../styles/index.css";
 import "../styles/index-classic.css";
@@ -51,7 +50,6 @@ const shown = [...views, ...samples];
       <nav class="links" aria-label="Main">
         <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
-      <ThemeToggle />
       <ModeSwitch current="classic" />
     </header>
 

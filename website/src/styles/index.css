@@ -278,8 +278,8 @@ a {
   padding: 13px 20px;
   font-size: 14px;
 }
-[data-phase="handed"] .review-actions button:not(.theme-toggle),
-[data-phase="discarded"] .review-actions button:not(.theme-toggle) {
+[data-phase="handed"] .review-actions button,
+[data-phase="discarded"] .review-actions button {
   opacity: 0.35;
   pointer-events: none;
 }
@@ -1126,15 +1126,21 @@ h3 {
 
 /* Switching between the two versions of the page */
 /* The switch between the two versions sits in the same corner of the window on
-   both, so changing pages does not move it; each header keeps that corner clear. */
+   both, with the theme button at its right as in the docs, so changing pages
+   does not move them; each header keeps that corner clear. */
 :root {
-  --switch-room: 250px;
+  --switch-room: 294px;
 }
-.mode-switch {
+.corner {
   position: fixed;
   top: 12px;
   right: 28px;
   z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mode-switch {
   display: inline-flex;
   padding: 3px;
   border: 1px solid var(--rule-strong);
@@ -1783,9 +1789,9 @@ h3 {
     background-size: 18px 18px;
   }
   :root {
-    --switch-room: 104px;
+    --switch-room: 148px;
   }
-  .mode-switch {
+  .corner {
     top: 10px;
     right: 16px;
   }
