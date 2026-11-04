@@ -65,6 +65,18 @@ export function onReviewPages() {
 }
 
 /** Discards whatever is pending, so a test starts from an empty inbox. */
+/** Waits until the core has a setting the page changed. The app saves a
+ *  change in the background, so a test that ends right after one would
+ *  leave the save to land in the next test, which the live updates then
+ *  show on its page. */
+export async function settingSaved(
+  request: APIRequestContext,
+  read: (settings: Record<string, any>) => unknown,
+  expected: unknown,
+) {
+  await expect.poll(async () => read(await (await request.get(`${core}/api/v1/settings`)).json())).toEqual(expected);
+}
+
 export async function clearInbox(request: APIRequestContext) {
   const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()).reviews as {
     id: string;

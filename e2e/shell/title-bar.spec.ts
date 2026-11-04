@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { clearInbox, createReview } from "./helpers";
+import { clearInbox, createReview, settingSaved } from "./helpers";
 
 /** The macOS title bar, where the window's buttons overlay the top left and
  *  end where the app measured them: further right on macOS 26 than on 15. */
@@ -26,6 +26,7 @@ for (const end of [66, 76]) {
 
     await page.keyboard.press("ControlOrMeta+b");
     await expect(toggle(page)).toHaveAttribute("aria-label", "Hide sidebar");
+    await settingSaved(page.request, (s) => s.sidebar.open, true);
   });
 }
 

@@ -3,7 +3,7 @@
 // it, and the heading's menu, whose choices the settings keep.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { clearInbox, core, onePayload } from "./helpers";
+import { clearInbox, core, onePayload, settingSaved } from "./helpers";
 
 let n = 0;
 /** A project and sessions of each test's own, so other tests' sessions stay apart. */
@@ -282,6 +282,7 @@ test("a session's details can show its repository, except when grouped by reposi
   await expect(shown).toHaveCount(0);
   await menu.getByRole("menuitem", { name: /Details/ }).click();
   await expect(menu.getByRole("menuitemcheckbox", { name: /Repository/ })).toBeDisabled();
+  await settingSaved(page.request, (s) => s.sidebar.sessions.grouping, "repository");
 });
 
 test("what waits under a session lines up with the session's title, grouped or not", async ({ page }) => {
