@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { corePort } from "./shell/helpers";
+import { corePort, shard, uiPort } from "./shell/helpers";
 
 // The desktop shell in a browser: the app's UI from vite against the
 // desktop core running headless on a scratch data directory. The
@@ -9,16 +9,19 @@ import { corePort } from "./shell/helpers";
 // the CLI with it, for the one test where an agent waits on a person.
 // The data starts as a returning person's: the setup already seen, so its
 // dialog does not cover what the tests click.
+//
+// Runs side by side, with --shard, each set SHELL_SHARD for ports and folders
+// of their own, and SHELL_SDK_BUILT once the SDK copy is built, which they
+// would otherwise write at the same time.
 const root = path.resolve(__dirname, "..");
-const uiPort = 5199;
 const feedbackUrl = "https://feedback.test/v1/feedback";
-const data = path.join(__dirname, ".state", "shell-data");
+const data = path.join(__dirname, ".state", `shell-data-${shard}`);
 const exe = process.platform === "win32" ? ".exe" : "";
 const core = path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
 
 // An official plugin at two versions, which the app does not carry, so an
 // installed older one is offered the newer: notes, made from hello.
-const catalog = path.join(__dirname, ".state", "shell-catalog");
+const catalog = path.join(__dirname, ".state", `shell-catalog-${shard}`);
 fs.rmSync(catalog, { recursive: true, force: true });
 for (const version of ["1.0.0", "1.1.0"]) {
   const dir = path.join(catalog, `notes-${version}`);
@@ -60,7 +63,7 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: `npm run sdk:build && npx vite --host 127.0.0.1 --port ${uiPort} --strictPort`,
+      command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && "}npx vite --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
       // feedback goes to an address the tests answer, never to the service
       env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`, VITE_PINRAIL_FEEDBACK_URL: feedbackUrl },

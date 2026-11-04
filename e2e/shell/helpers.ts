@@ -5,11 +5,16 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import fs from "node:fs";
 import path from "node:path";
 
+/** Which of the runs side by side this is, from SHELL_SHARD (0 when the
+ *  suite runs alone): each has its own ports and data folder. */
+export const shard = Number(process.env.SHELL_SHARD ?? 0);
 /** The port of the headless core the shell runs against. */
-export const corePort = 4799;
+export const corePort = 4799 + 10 * shard;
 export const core = `http://127.0.0.1:${corePort}`;
+/** The port the shell is served on. */
+export const uiPort = 5199 + 10 * shard;
 /** The origin the shell runs on in these tests, which the core takes for the app's. */
-export const shellOrigin = "http://127.0.0.1:5199";
+export const shellOrigin = `http://127.0.0.1:${uiPort}`;
 
 /** A list review with one proposal, for when the content does not matter. */
 export const onePayload = {
