@@ -10,9 +10,9 @@
 // a fixed value, and the browser's clock is frozen at the same moment. Each
 // scene then runs once per theme and saves <name>-light.png and
 // <name>-dark.png where they are used: into website/public/screenshots when
-// a docs page shows it as screenshot:<name>, and, in the light theme only,
-// into website/src/assets/screenshots when the scene marks it `site: true`,
-// for the landing pages, where Astro optimizes it, and into
+// a docs page shows it as screenshot:<name>, into
+// website/src/assets/screenshots when the scene marks it `site: true`, for
+// the landing pages, where Astro optimizes it, and into
 // desktop/app/ui/src/whats-new/<version>/ as WebP, about a third of the
 // size of the PNG, when a release's What's new card uses it as its image.
 // A shot that none of them uses fails the run. With --out, every shot
@@ -137,19 +137,15 @@ try {
     for (const scene of chosen) {
       const page = await context.newPage();
       await page.clock.setFixedTime(NOW);
-      // `site: true` saves the light shot into the website's assets, for the
-      // landing pages, which are light
+      // `site: true` saves the shot into the website's assets, for the
+      // landing pages, which show the one for the reader's theme
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
         if (!elsewhere && !inDocs.has(name) && !inWhatsNew.has(name) && !site) {
           throw new Error(`${name} is shown by no docs page or What's new card, and not marked site: true`);
         }
         const folders = elsewhere
           ? [out]
-          : [
-              ...(inDocs.has(name) ? [out] : []),
-              ...(site && theme === "light" ? [siteAssets] : []),
-              ...(inWhatsNew.get(name) ?? []),
-            ];
+          : [...(inDocs.has(name) ? [out] : []), ...(site ? [siteAssets] : []), ...(inWhatsNew.get(name) ?? [])];
         for (const folder of folders) fs.mkdirSync(folder, { recursive: true });
         if (!folders.length) return;
         await page.evaluate(() => document.fonts.ready);

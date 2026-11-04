@@ -16,7 +16,8 @@
   document.addEventListener("click", (e) => {
     const trigger = (e.target as HTMLElement).closest<HTMLElement>("[data-zoom]");
     if (!trigger) return;
-    img.src = trigger.dataset.zoom!;
+    const dark = document.documentElement.dataset.theme === "dark" && trigger.dataset.zoomDark;
+    img.src = dark || trigger.dataset.zoom!;
     img.alt = trigger.dataset.zoomAlt || "";
     caption.textContent = trigger.dataset.zoomCaption || "";
     dialog.showModal();

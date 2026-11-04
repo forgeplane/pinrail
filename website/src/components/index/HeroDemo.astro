@@ -45,7 +45,8 @@ const svg = (name: string) => `<svg viewBox="0 0 24 24" width="16" height="16" f
             </p>
           </header>
           <div class="demo-scroll" tabindex="0" aria-label={`${r.title}: the ${r.plugin} view, scroll to see all of it`}>
-            <Image src={r.image} alt={r.alt} widths={[1020, 2040]} sizes="(max-width: 800px) 200vw, (max-width: 1300px) 80vw, 1020px" loading={i === 0 ? "eager" : "lazy"} />
+            <Image class="theme-light" src={r.image} alt={r.alt} widths={[1020, 2040]} sizes="(max-width: 800px) 200vw, (max-width: 1300px) 80vw, 1020px" loading={i === 0 ? "eager" : "lazy"} />
+            <Image class="theme-dark" src={r.imageDark} alt={r.alt} widths={[1020, 2040]} sizes="(max-width: 800px) 200vw, (max-width: 1300px) 80vw, 1020px" loading={i === 0 ? "eager" : "lazy"} />
           </div>
           <footer class="demo-foot" aria-hidden="true">
             <span class="demo-note">Add a note for the agent…</span>
@@ -63,7 +64,7 @@ const svg = (name: string) => `<svg viewBox="0 0 24 24" width="16" height="16" f
   for (const root of document.querySelectorAll<HTMLElement>("[data-demo]")) {
     const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-demo-tab]")];
     const panes = [...root.querySelectorAll<HTMLElement>("[data-demo-pane]")];
-    const warm = (i: number) => panes[i].querySelector("img")?.setAttribute("loading", "eager");
+    const warm = (i: number) => panes[i].querySelectorAll("img").forEach((img) => img.setAttribute("loading", "eager"));
     const show = (i: number, focus = false) => {
       tabs.forEach((t, k) => {
         t.setAttribute("aria-selected", String(k === i));

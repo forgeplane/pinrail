@@ -7,6 +7,10 @@
   --a-faint: #9b9ba5;
   --a-accent: #5b5bd6;
   --a-wash: #eeeefc;
+  --a-hover: #efeff2;
+  --a-pending-bg: #e8f0fe;
+  --a-pending: #2f5bd3;
+  --a-on-accent: #fff;
   font:
     12px/1.4 -apple-system,
     BlinkMacSystemFont,
@@ -19,6 +23,21 @@
   /* the layout follows the window's width, not the page's: the review
      page shows it in a narrower column */
   container-type: inline-size;
+}
+/* the app's dark theme (desktop/app/ui/src/theme.css), with the page's */
+:root[data-theme="dark"] .demo {
+  --a-bg: #18191b;
+  --a-side: #141517;
+  --a-line: #2b2d31;
+  --a-ink: #ededef;
+  --a-dim: #999ba5;
+  --a-faint: #7b7d87;
+  --a-accent: #a1a5ef;
+  --a-wash: #292a3c;
+  --a-hover: #232428;
+  --a-pending-bg: #1f2a44;
+  --a-pending: #9cb8f5;
+  --a-on-accent: #18191b;
 }
 .demo svg {
   flex: none;
@@ -114,7 +133,7 @@
   text-overflow: ellipsis;
 }
 .demo-tabs button:hover {
-  background: #efeff2;
+  background: var(--a-hover);
 }
 .demo-tabs button[aria-selected="true"] {
   background: var(--a-wash);
@@ -177,8 +196,8 @@
 }
 .demo-head .demo-chips .demo-pending {
   border-color: transparent;
-  background: #e8f0fe;
-  color: #2f5bd3;
+  background: var(--a-pending-bg);
+  color: var(--a-pending);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -215,7 +234,7 @@
   padding: 6px 11px;
   border-radius: 7px;
   background: var(--a-accent);
-  color: #fff;
+  color: var(--a-on-accent);
   font-weight: 600;
 }
 .demo-foot .demo-handover kbd {

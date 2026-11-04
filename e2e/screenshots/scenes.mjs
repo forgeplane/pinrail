@@ -3,7 +3,7 @@
 // options?)`, which saves <name>-<theme>.png. The plugin scenes show a
 // decision under way: verdicts given, a note or a comment half written, and
 // save the plugin's view alone as <name>-view as well, for the website.
-// `site: true` marks the shots the landing pages use, in the light theme.
+// `site: true` marks the shots the landing pages use, in both themes.
 
 import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";

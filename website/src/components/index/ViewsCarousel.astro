@@ -22,7 +22,7 @@ const { items } = Astro.props;
 <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label="Views: scroll sideways for more">
   {items.map((v, i) => (
     <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${items.length}: ${v.name}`}>
-      <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
+      <Zoom src={v.image} dark={v.imageDark} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
       <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
     </figure>
   ))}

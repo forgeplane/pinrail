@@ -1,7 +1,8 @@
 // The views in the website's hero window: each plugin under the SDK's
 // harness at the width the app gives it (1240 px, at 2x), grown to its whole
 // length so the page can scroll through it, and shown there scaled to the
-// pane; light theme, into website/src/assets/hero/<name>.png.
+// pane; into website/src/assets/hero/<name>.png in the light theme and
+// <name>-dark.png in the dark one.
 //
 //   node screenshots/hero.mjs [name…]
 //
@@ -176,6 +177,12 @@ const browser = await chromium.launch();
 let failed = false;
 for (const [name, scene] of Object.entries(scenes)) {
   if (only.length && !only.includes(name)) continue;
+  for (const theme of ["light", "dark"]) await take(name, scene, theme);
+}
+await browser.close();
+if (failed) process.exit(1);
+
+async function take(name, scene, theme) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
   try {
     await page.addInitScript(() =>
@@ -183,7 +190,7 @@ for (const [name, scene] of Object.entries(scenes)) {
         document.body.style.margin = "0";
       }),
     );
-    const plugin = await mountPlugin(page, scene.plugin, { review: fixture(scene.review), theme: "light" });
+    const plugin = await mountPlugin(page, scene.plugin, { review: fixture(scene.review), theme });
     await plugin.setFrameHeight(H);
     await page.waitForTimeout(500);
     await scene.act(plugin.frame, page);
@@ -198,14 +205,12 @@ for (const [name, scene] of Object.entries(scenes)) {
       await page.waitForTimeout(300);
     }
     await page.waitForTimeout(400);
-    const file = path.join(out, `${name}.png`);
+    const file = path.join(out, theme === "light" ? `${name}.png` : `${name}-dark.png`);
     await page.locator("#plugin-frame").screenshot({ path: file });
     console.log(`hero: ${path.relative(root, file)}  ${W}×${height}`);
   } catch (error) {
     failed = true;
-    console.error(`hero: ${name} failed: ${error.message.split("\n")[0]}`);
+    console.error(`hero: ${name} (${theme}) failed: ${error.message.split("\n")[0]}`);
   }
   await page.close();
 }
-await browser.close();
-if (failed) process.exit(1);

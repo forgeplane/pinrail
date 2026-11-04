@@ -1,24 +1,41 @@
 // What both versions of the page say, so the review and the classic page
 // never drift apart on a fact.
-// the plugins' views as `mise run screenshots` makes them, in the site's light theme
+// the plugins' views as `mise run screenshots` makes them, in the site's light
+// and dark themes
 import review from "../../assets/screenshots/review-view-light.png";
+import reviewDark from "../../assets/screenshots/review-view-dark.png";
 import email from "../../assets/screenshots/email-view-light.png";
+import emailDark from "../../assets/screenshots/email-view-dark.png";
 import artifact from "../../assets/screenshots/artifact-view-light.png";
+import artifactDark from "../../assets/screenshots/artifact-view-dark.png";
 import list from "../../assets/screenshots/list-view-light.png";
+import listDark from "../../assets/screenshots/list-view-dark.png";
 import feedback from "../../assets/screenshots/feedback-view-light.png";
+import feedbackDark from "../../assets/screenshots/feedback-view-dark.png";
 import image from "../../assets/screenshots/image-view-light.png";
+import imageDark from "../../assets/screenshots/image-view-dark.png";
 import audio from "../../assets/screenshots/audio-view-light.png";
+import audioDark from "../../assets/screenshots/audio-view-dark.png";
 import visualDiff from "../../assets/screenshots/visual-diff-view-light.png";
+import visualDiffDark from "../../assets/screenshots/visual-diff-view-dark.png";
 import video from "../../assets/screenshots/video-view-light.png";
+import videoDark from "../../assets/screenshots/video-view-dark.png";
 import model from "../../assets/screenshots/model-view-light.png";
+import modelDark from "../../assets/screenshots/model-view-dark.png";
 // the hero window's views, each at the pane's width and its whole length, as
 // e2e/screenshots/hero.mjs makes them
 import demoReview from "../../assets/hero/review.png";
+import demoReviewDark from "../../assets/hero/review-dark.png";
 import demoImage from "../../assets/hero/image.png";
+import demoImageDark from "../../assets/hero/image-dark.png";
 import demoFeedback from "../../assets/hero/feedback.png";
+import demoFeedbackDark from "../../assets/hero/feedback-dark.png";
 import demoAudio from "../../assets/hero/audio.png";
+import demoAudioDark from "../../assets/hero/audio-dark.png";
 import demoList from "../../assets/hero/list.png";
+import demoListDark from "../../assets/hero/list-dark.png";
 import demoVideo from "../../assets/hero/video.png";
+import demoVideoDark from "../../assets/hero/video-dark.png";
 
 export const repo = "https://github.com/forgeplane/pinrail";
 export const releases = `${repo}/releases`;
@@ -61,6 +78,7 @@ export const views = [
     plugin: "code-review",
     gist: "a diff and the agent's proposed comments",
     image: review,
+    imageDark: reviewDark,
     detail:
       "The diff, with the agent's proposed comments on the lines they are about. Accept one with a note, reject the next with a reason.",
     alt: "Pinrail's code review view: a TypeScript diff with a finding accepted and a revision note being written.",
@@ -70,6 +88,7 @@ export const views = [
     plugin: "email",
     gist: "drafts to edit, send, revise or discard",
     image: email,
+    imageDark: emailDark,
     detail:
       "Edit the draft itself and see your changes against it, leave an instruction on a passage, then send, revise or discard each one.",
     alt: "Pinrail's email view: a draft with an edit showing against the original and a comment on one passage.",
@@ -79,6 +98,7 @@ export const views = [
     plugin: "artifact",
     gist: "a page to comment on, element by element",
     image: artifact,
+    imageDark: artifactDark,
     detail: "Click an element on the rendered page. Your comment goes back with the selector the agent needs.",
     alt: "Pinrail's artifact view: a landing page with comments pinned to elements and one being written.",
   },
@@ -87,6 +107,7 @@ export const views = [
     plugin: "list",
     gist: "items with a verdict and a note each",
     image: list,
+    imageDark: listDark,
     detail:
       "Findings, tasks, proposed actions: a verdict and a note on every item, grouped the way the agent sent them.",
     alt: "Pinrail's list view: dependency upgrades, some accepted, one held back with a reason.",
@@ -96,6 +117,7 @@ export const views = [
     plugin: "feedback",
     gist: "questions, with the agent's recommendations",
     image: feedback,
+    imageDark: feedbackDark,
     detail:
       "When the agent needs your call before it starts: choices with its recommendation, follow-ups, and room to qualify an answer.",
     alt: "Pinrail's feedback view: questions about an API change, answered, with a comment on one.",
@@ -108,6 +130,7 @@ export const samples = [
     plugin: "image",
     gist: "images to box, pin and comment on",
     image,
+    imageDark,
     detail:
       "Box a region or pin a point and say what to change. Each one goes back in pixels and in fractions of the image, ready for an inpainting pass.",
     alt: "Pinrail's image view: four illustrations in a rail, the favourite on the stage with a region boxed and a point pinned.",
@@ -117,6 +140,7 @@ export const samples = [
     plugin: "model-3d",
     gist: "3D models to orbit, with comments on their parts",
     image: model,
+    imageDark: modelDark,
     detail:
       "Orbit each model under studio light, from set views and the agent's own. Click a part and say what to change; it goes back by the part's name, with the angle you saw it from.",
     alt: "The 3D model view: four desk lamps in a rail, one on the stage with a comment being written on its shade.",
@@ -126,6 +150,7 @@ export const samples = [
     plugin: "audio",
     gist: "takes to hear, with their waveforms and transcripts",
     image: audio,
+    imageDark: audioDark,
     detail:
       "The waveform and the transcript in sync. Comment on a word or a stretch, mark what to cut, and hear the take without the cuts.",
     alt: "The audio view: four voice takes, one open with its waveform, two comments, a cut and the transcript underneath.",
@@ -135,6 +160,7 @@ export const samples = [
     plugin: "visual-diff",
     gist: "before and after, to check each fix",
     image: visualDiff,
+    imageDark: visualDiffDark,
     detail:
       "Did the revision fix what you asked? Wipe, fade or diff the two, and mark each claimed fix fixed, partly or not fixed.",
     alt: "The before and after view: a pricing card with its changed areas boxed, and one requested fix marked not fixed.",
@@ -144,6 +170,7 @@ export const samples = [
     plugin: "video",
     gist: "a video to comment on at a moment, over a stretch or on an area",
     image: video,
+    imageDark: videoDark,
     detail:
       "Comment at a moment, over a stretch, or on an area of a frame, on the picture or on the sound. Each comment goes back with its time, its frame and its scene.",
     alt: "The video view: a promo five seconds in, an area of the frame boxed and commented, and a second comment at the same moment.",
@@ -164,6 +191,7 @@ export const demo = [
     agent: "claude",
     age: "41m",
     image: demoReview,
+    imageDark: demoReviewDark,
     alt: "The code review view: a diff of deliver.ts and backoff.ts, one finding accepted with a note being written, one rejected with a reason.",
   },
   {
@@ -176,6 +204,7 @@ export const demo = [
     agent: "gemini",
     age: "34m",
     image: demoImage,
+    imageDark: demoImageDark,
     alt: "The image view: four illustrations in a rail, the paper plane on the stage with two regions boxed and noted.",
   },
   {
@@ -189,6 +218,7 @@ export const demo = [
     agent: "claude",
     age: "27m",
     image: demoFeedback,
+    imageDark: demoFeedbackDark,
     alt: "The feedback view: questions about paginating an API, answered beside the agent's recommendations, with a comment on one.",
   },
   {
@@ -201,6 +231,7 @@ export const demo = [
     agent: "opencode",
     age: "19m",
     image: demoAudio,
+    imageDark: demoAudioDark,
     alt: "The audio view: four voice takes, one open with its waveform and transcript, two comments and a cut.",
   },
   {
@@ -213,6 +244,7 @@ export const demo = [
     agent: "renovate-agent",
     age: "12m",
     image: demoList,
+    imageDark: demoListDark,
     alt: "The list view: dependency upgrades, the safe ones accepted, one held back with a reason.",
   },
   {
@@ -225,6 +257,7 @@ export const demo = [
     agent: "codex",
     age: "6m",
     image: demoVideo,
+    imageDark: demoVideoDark,
     alt: "The video view: the promo five seconds in, an area of the frame boxed and commented, and a second comment at the same moment.",
   },
 ];

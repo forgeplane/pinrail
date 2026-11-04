@@ -1,7 +1,7 @@
 .window {
   border-radius: 12px;
   overflow: hidden;
-  background: #fff;
+  background: var(--window-bg, #fff);
   border: 1px solid var(--rule-strong);
   box-shadow:
     0 40px 80px -40px rgba(30, 20, 10, 0.55),
@@ -18,7 +18,7 @@
   align-items: center;
   gap: 7px;
   padding: 10px 14px;
-  background: #ebe7e0;
+  background: var(--window-bar, #ebe7e0);
   border-bottom: 1px solid var(--rule);
 }
 .window-bar span {
@@ -49,4 +49,10 @@
     transform: none;
     box-shadow: 0 20px 40px -24px rgba(30, 20, 10, 0.5);
   }
+}
+
+/* the window in the dark theme, as the app draws it */
+:root[data-theme="dark"] .window {
+  --window-bg: #18191b;
+  --window-bar: #23201c;
 }

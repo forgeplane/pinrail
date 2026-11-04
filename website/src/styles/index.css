@@ -46,6 +46,17 @@
   color-scheme: dark;
 }
 
+/* a picture of the app in each theme: the page shows the one for its own */
+.theme-dark {
+  display: none !important;
+}
+:root[data-theme="dark"] .theme-light {
+  display: none !important;
+}
+:root[data-theme="dark"] .theme-dark {
+  display: block !important;
+}
+
 *,
 *::before,
 *::after {
