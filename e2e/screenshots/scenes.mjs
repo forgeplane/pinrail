@@ -345,7 +345,11 @@ export const scenes = [
       const verdict = async (index, action, note) => {
         await f.locator(".pick").nth(index).click();
         await f.locator(`.choice[data-action="${action}"]`).click();
-        if (note) await f.locator("#note").fill(note);
+        // the note field opens with its button
+        if (note) {
+          await f.locator(".add-note").click();
+          await f.locator("#note").fill(note);
+        }
         await settle(page, 150);
       };
       await verdict(1, "drop", "A lamp that cannot be aimed is not a desk lamp");
@@ -443,10 +447,11 @@ export const scenes = [
       await f.locator(".pick .thumb img").nth(1).waitFor();
       // the frame takes the keys from here
       await f.locator("#pair-name").click();
+      // f marks a request fixed, x not fixed, and Shift+N goes to the next one
       await page.keyboard.press("f");
-      await page.keyboard.press("n");
+      await page.keyboard.press("Shift+N");
       await page.keyboard.press("f");
-      await page.keyboard.press("n");
+      await page.keyboard.press("Shift+N");
       await page.keyboard.press("x");
       await f.locator('[data-note-for="2"]').fill("Still misspelled, now as “projcts”.");
       // back to the top, where the two images are compared
