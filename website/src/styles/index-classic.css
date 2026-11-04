@@ -98,6 +98,28 @@
   flex-wrap: wrap;
   gap: 10px;
 }
+/* under the hero's window: a quiet link to the plugin gallery */
+.c-more {
+  display: block;
+  width: min(1240px, calc(100vw - 48px));
+  margin: 36px 0 0 50%;
+  padding-left: 8px;
+  translate: -50% 0;
+  text-align: left;
+  font-size: 16px;
+  color: var(--faint);
+  text-decoration: none;
+}
+.c-more:hover {
+  color: var(--ink);
+}
+.c-more span {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.c-more:hover span {
+  transform: translateX(3px);
+}
 .c-fine {
   margin: 16px 0 0;
   font: 12px var(--mono);

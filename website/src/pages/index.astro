@@ -1,6 +1,7 @@
 ---
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
+import { plugins } from "../components/plugins/plugins";
 import ThemeHead from "../components/ThemeHead.astro";
 import SocialCard from "../components/SocialCard.astro";
 import "../styles/index.css";
@@ -67,6 +68,7 @@ const shown = [...views, ...samples];
           <span class="hand shot-note left" aria-hidden="true">click a review<svg class="scribble" viewBox="0 0 64 50"><path d="M2 12c14-7 34-8 44 2 7 7 8 17 6 30" /><path d="M44 36l8 9 7-10" /></svg></span>
           <HeroDemo />
         </div>
+        <a class="c-more" href="/plugins/">Not only code: {plugins.length} plugins for schemas, designs, audio, video and more <span aria-hidden="true">→</span></a>
       </section>
 
       <section class="c-agents" aria-label="Works with any agent">
