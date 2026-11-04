@@ -182,6 +182,8 @@ fn start(url: &str) -> Result<Value> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
     }
+    #[cfg(windows)]
+    keep_own_output_from_children();
     let mut child = cmd
         .spawn()
         .with_context(|| format!("starting the server with {command}"))?;
@@ -218,6 +220,38 @@ fn start(url: &str) -> Result<Value> {
             );
         }
         std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+/// Marks this process's stdin, stdout and stderr as not inheritable.
+///
+/// Windows hands a new process every inheritable handle of its parent, not
+/// only the ones given to it as its own input and output. The server would
+/// otherwise hold the CLI's output open for as long as it runs, and a
+/// program reading `pinrail serve` through a pipe, as an agent's shell tool
+/// does, would wait until the server exits. A command the CLI runs later
+/// with `Stdio::inherit()` still gets them: Rust passes it a fresh copy.
+///
+/// Two Windows calls, which Rust has no safe API for. They take no pointers
+/// and only change a flag on handles this process owns; a missing or
+/// invalid handle makes the call fail, which is harmless here.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn keep_own_output_from_children() {
+    use windows_sys::Win32::Foundation::{
+        HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation,
+    };
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    };
+    for which in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: see above
+        unsafe {
+            let handle = GetStdHandle(which);
+            if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+                SetHandleInformation(handle, HANDLE_FLAG_INHERIT, 0);
+            }
+        }
     }
 }
 

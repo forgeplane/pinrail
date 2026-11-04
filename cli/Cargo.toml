@@ -8,9 +8,10 @@ license = "Apache-2.0"
 # it embeds files from elsewhere in the repository, so it is built from here only
 publish = false
 
-# CI turns warnings into errors
+# CI turns warnings into errors. Unsafe code is refused, except where a
+# function allows it and says why.
 [lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 
 [lints.clippy]
 dbg_macro = "warn"
@@ -35,6 +36,10 @@ pinrail-runtime = { path = "../desktop/runtime" }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["json"] }
+
+# to keep the CLI's own output out of the server it starts
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
 
 [profile.release]
 strip = true
