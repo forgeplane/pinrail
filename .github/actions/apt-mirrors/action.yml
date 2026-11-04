@@ -1,0 +1,21 @@
+# apt on GitHub's x64 Ubuntu runners reads one Azure mirror, which now and
+# then answers so slowly that an install takes half an hour. This lists
+# two more mirrors to fall back to, and gives up on a slow one after 15 s.
+name: apt mirrors
+description: Let apt fall back to other Ubuntu mirrors, with short timeouts
+runs:
+  using: composite
+  steps:
+    - name: apt mirrors with fallback
+      shell: bash
+      run: |
+        printf '%s\tpriority:%s\n' \
+          http://azure.archive.ubuntu.com/ubuntu 1 \
+          https://archive.ubuntu.com/ubuntu 2 \
+          https://mirrors.edge.kernel.org/ubuntu 3 \
+          | sudo tee /etc/apt/mirrors.txt > /dev/null
+        # ARM runners read ports.ubuntu.com, which this leaves alone
+        sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' \) \
+          -exec sed -i -E 's#https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com/ubuntu/?#mirror+file:/etc/apt/mirrors.txt#g' {} +
+        printf '%s\n' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' 'Acquire::Retries "3";' \
+          | sudo tee /etc/apt/apt.conf.d/80-timeouts > /dev/null
