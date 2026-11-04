@@ -71,9 +71,15 @@ export default async function globalSetup() {
   saveState(state);
 
   console.log(`e2e: starting the server on ${state.url} (data in ${run})`);
-  const serve = spawnSync(cli, ["serve"], { env: cliEnv(state), encoding: "utf8", timeout: 120_000 });
-  if (serve.status !== 0) {
-    throw new Error(`pinrail serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
+  // The output goes to a file, not a pipe: on Windows the server the
+  // command starts can hold a pipe open, and the setup would wait out its
+  // timeout (tests/serve-pipes.spec.ts).
+  const output = path.join(run, "serve.out");
+  const fd = fs.openSync(output, "w");
+  const serve = spawnSync(cli, ["serve"], { env: cliEnv(state), stdio: ["ignore", fd, fd], timeout: 120_000 });
+  fs.closeSync(fd);
+  if (serve.error || serve.status !== 0) {
+    throw new Error(`pinrail serve failed (${serve.error ?? serve.status}):\n${fs.readFileSync(output, "utf8")}`);
   }
 
   // One install per test plugin, the way a person installs one: hello is
