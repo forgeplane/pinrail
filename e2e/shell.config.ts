@@ -41,6 +41,8 @@ export default defineConfig({
   // after the web servers: the official plugins the specs use
   globalSetup: "./shell/global-setup.ts",
   workers: 1,
+  // a test that fails once in CI runs again, and the report marks it flaky
+  retries: process.env.CI ? 1 : 0,
   fullyParallel: false,
   timeout: 60_000,
   expect: { timeout: 10_000 },
