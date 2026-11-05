@@ -94,7 +94,10 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     api
       .projects()
-      .then((l) => !cancelled && setNamedProjects(l.projects.map(({ id, name }) => ({ id, name }))))
+      .then(
+        (l) =>
+          !cancelled && setNamedProjects(l.projects.map(({ id, name, color, emoji }) => ({ id, name, color, emoji }))),
+      )
       .catch(() => {});
     return () => {
       cancelled = true;

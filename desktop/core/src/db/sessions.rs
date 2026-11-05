@@ -646,7 +646,7 @@ fn select() -> String {
     s.archived_at,
     (SELECT MAX(t.created_at) FROM session_statuses t
      WHERE t.agent = s.agent AND t.session = s.id) AS reported_at,
-    {project_id}, {project_name}
+    {project}
   FROM sessions s
   LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
   LEFT JOIN outcomes o ON o.review_id = r.id",
@@ -655,8 +655,7 @@ fn select() -> String {
         kind = status("kind"),
         at = status("created_at"),
         title = title(),
-        project_id = super::projects::project_of("id", "s.repo"),
-        project_name = super::projects::project_of("name", "s.repo"),
+        project = super::projects::project_json("s.repo"),
     )
 }
 
@@ -707,9 +706,6 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         reported_at: row
             .get::<_, Option<String>>(17)?
             .and_then(|s| parse_datetime(&s)),
-        project: match (row.get(18)?, row.get(19)?) {
-            (Some(id), Some(name)) => Some(super::ProjectRef { id, name }),
-            _ => None,
-        },
+        project: super::ProjectRef::from_column(row.get(18)?),
     })
 }

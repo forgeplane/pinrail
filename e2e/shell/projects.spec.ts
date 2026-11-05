@@ -174,11 +174,10 @@ test("the inbox groups and filters by project, and names each review's repositor
   await expect(groups).toHaveText(["mix/elsewhere", "Mix"]);
   const mixed = page.getByTestId("inbox-group").filter({ has: page.getByText("Mix", { exact: true }) });
   await expect(mixed.getByTestId("review-row-project")).toHaveText(["mix/infra", "mix/app"]);
-  // each heading's icon is centred on its name's capital letters
+  // each heading's arrow, and its icon or avatar, is centred on the name's capital letters
   for (const heading of await page.getByTestId("inbox-group-heading").all()) {
-    const offset = await heading.evaluate((h) => {
+    const offsets = await heading.evaluate((h) => {
       const name = h.querySelector("strong")!;
-      const icon = h.querySelector("svg")!.getBoundingClientRect();
       // the baseline, where an empty inline block sits, and the capitals' height
       const probe = document.createElement("span");
       probe.style.cssText = "display: inline-block; width: 0; height: 0";
@@ -187,10 +186,14 @@ test("the inbox groups and filters by project, and names each review's repositor
       probe.remove();
       const context = document.createElement("canvas").getContext("2d")!;
       context.font = getComputedStyle(name).font;
-      const cap = context.measureText("P").actualBoundingBoxAscent;
-      return icon.top + icon.height / 2 - (baseline - cap / 2);
+      const capCentre = baseline - context.measureText("P").actualBoundingBoxAscent / 2;
+      return [...h.querySelectorAll(":scope > svg, :scope > .project-avatar")].map((icon) => {
+        const box = icon.getBoundingClientRect();
+        return box.top + box.height / 2 - capCentre;
+      });
     });
-    expect(Math.abs(offset)).toBeLessThan(0.3);
+    expect(offsets.length).toBe(2);
+    for (const offset of offsets) expect(Math.abs(offset)).toBeLessThan(0.3);
   }
 
   // the filter takes the project, and the address keeps it
@@ -221,11 +224,15 @@ test("the project or repository filter narrows its choices to what is typed", as
   const search = page.getByRole("textbox", { name: "Filter project or repository" });
   await expect(search).toBeFocused();
   await expect(search).toHaveValue("we");
-  await expect(page.getByRole("option")).toHaveText(["typed/web"]);
+  await expect(page.getByRole("option").locator(".select-option-label")).toHaveText(["typed/web"]);
 
   // the projects match by their names too; the arrow keys and Enter pick a match
   await search.fill("TYPED");
-  await expect(page.getByRole("option")).toHaveText(["Typed", "typed/app", "typed/web"]);
+  await expect(page.getByRole("option").locator(".select-option-label")).toHaveText([
+    "Typed",
+    "typed/app",
+    "typed/web",
+  ]);
   await search.press("ArrowDown");
   await search.press("Enter");
   await expect(page).toHaveURL(/repo=typed%2Fapp/);
@@ -240,4 +247,55 @@ test("the project or repository filter narrows its choices to what is typed", as
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(filter).toBeFocused();
   await expect(page).toHaveURL(/repo=typed%2Fapp/);
+});
+
+test("a project's avatar takes a colour and an icon, and shows where the project does", async ({ page, request }) => {
+  await clearInbox(request);
+  await createReview(request, { title: "Avatar: app", origin: { repo: "avatar/app" } });
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Avatar", repos: ["avatar/app"] } });
+  await page.goto("/#/projects");
+  const group = card(page, "Avatar");
+  // the first letter on a colour of its own until the person chooses
+  await expect(group.locator(".project-avatar")).toHaveText("A");
+
+  await group.getByRole("button", { name: "Avatar actions" }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit project" });
+  await edit.getByRole("radio", { name: "Green" }).click();
+  await edit.getByLabel("Icon").fill("🚂");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(group.locator(".project-avatar")).toHaveText("🚂");
+  await expect(group.locator(".project-avatar")).toHaveAttribute("data-color", "green");
+
+  // the letter sits in the middle of its square
+  await edit.waitFor({ state: "detached" });
+  await group.getByRole("button", { name: "Avatar actions" }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await edit.getByLabel("Icon").fill("");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(group.locator(".project-avatar")).toHaveText("A");
+  // the letter's baseline is half the font's capital height below the middle,
+  // with the height measured from the font as drawn
+  const offset = await group.locator(".project-avatar").evaluate((avatar) => {
+    const text = avatar.querySelector("text")!;
+    const svg = avatar.querySelector("svg")!.getBoundingClientRect();
+    const scale = svg.height / 100;
+    const size = Number(text.getAttribute("font-size")) * scale;
+    const baseline =
+      svg.top +
+      (Number(text.getAttribute("y")) + parseFloat(text.getAttribute("dy")!) * Number(text.getAttribute("font-size"))) *
+        scale;
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.font = `${getComputedStyle(text).fontWeight} ${size}px ${getComputedStyle(text).fontFamily}`;
+    const cap = context.measureText("A").actualBoundingBoxAscent;
+    return baseline - cap / 2 - (svg.top + svg.height / 2);
+  });
+  expect(Math.abs(offset)).toBeLessThan(0.3);
+
+  // the inbox's group shows it too
+  await page.goto("/#/");
+  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await expect(
+    page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar"),
+  ).toHaveAttribute("data-color", "green");
 });

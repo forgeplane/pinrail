@@ -2,7 +2,7 @@
 // person first, and one session's thread: in the side panel beside the list,
 // or on a page of its own.
 
-import { Archive, FolderGit2, LayoutGrid, MessagesSquare, Search, SearchX } from "lucide-react";
+import { Archive, FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
@@ -12,6 +12,7 @@ import { ArchiveButton, useToggleArchive } from "../components/ArchiveButton";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { Select } from "../components/Select";
+import { ProjectAvatar } from "../components/ProjectAvatar";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath, statusLine } from "../components/Thread";
 import { Tooltip } from "../components/Tooltip";
@@ -235,7 +236,7 @@ export function Sessions() {
                 (o) => ({
                   value: o.value,
                   label: o.label,
-                  icon: o.kind === "project" ? <LayoutGrid size={14} /> : <FolderGit2 size={14} />,
+                  icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
                 }),
               )}
             />

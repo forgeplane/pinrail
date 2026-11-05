@@ -88,7 +88,13 @@ export type Review = {
 };
 
 /** A project as a review or a session names it. */
-export type ProjectRef = { id: string; name: string };
+export type ProjectRef = {
+  id: string;
+  name: string;
+  /** its avatar's colour and emoji, when the person chose them */
+  color?: string | null;
+  emoji?: string | null;
+};
 
 /** A repository the app knows, with what it holds. */
 export type ProjectRepo = {
@@ -107,6 +113,9 @@ export type Project = {
   name: string;
   /** a line on what the project is, if the person wrote one */
   description: string | null;
+  /** its avatar's colour and emoji, when the person chose them */
+  color: string | null;
+  emoji: string | null;
   created_at: string;
   repos: ProjectRepo[];
   sessions: number;

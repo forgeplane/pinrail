@@ -675,11 +675,10 @@ fn select(with_payload: bool) -> String {
     r.kind,
     r.starred_at,
     r.id IN ({STARRED_ROUNDS}),
-    {project_id}, {project_name}
+    {project}
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}",
-        project_id = super::projects::project_of("id", REPO),
-        project_name = super::projects::project_of("name", REPO),
+        project = super::projects::project_json(REPO),
     )
 }
 
@@ -778,10 +777,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .get::<_, Option<String>>(25)?
             .and_then(|s| parse_datetime(&s)),
         starred: row.get(26)?,
-        project: match (row.get(27)?, row.get(28)?) {
-            (Some(id), Some(name)) => Some(super::ProjectRef { id, name }),
-            _ => None,
-        },
+        project: super::ProjectRef::from_column(row.get(27)?),
         id: row.get(0)?,
         kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,

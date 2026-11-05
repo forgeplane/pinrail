@@ -206,6 +206,8 @@ test("grouped by project, a project's repositories share a group, and each sessi
       .filter({ has: page.getByRole("button", { name: "Sessions options" }) });
     await expect(heading).toHaveText("Projects");
     await expect(group(page, name)).toBeVisible();
+    // its avatar's letter stays white, whatever colour the row gives its icons
+    await expect(group(page, name).locator(".project-avatar text")).toHaveCSS("fill", "rgb(255, 255, 255)");
     // the repository in no project is a group of its own
     await expect(group(page, other)).toBeVisible();
     await expect(sessionRow(page, "claude-code", `p-app-${run}`).locator(".sidebar-session-repo-label")).toHaveText(

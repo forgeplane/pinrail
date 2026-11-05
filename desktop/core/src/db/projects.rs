@@ -16,11 +16,27 @@ use crate::reviews::parse_datetime;
 pub struct ProjectRef {
     pub id: String,
     pub name: String,
+    /// its avatar's colour and emoji, when the person chose them
+    pub color: Option<String>,
+    pub emoji: Option<String>,
 }
 
 impl ProjectRef {
     pub fn to_json(&self) -> Value {
-        json!({ "id": self.id, "name": self.name })
+        json!({ "id": self.id, "name": self.name, "color": self.color, "emoji": self.emoji })
+    }
+
+    /// The project as `project_json` gives it, or `None` for a repository in
+    /// no project.
+    pub(super) fn from_column(json: Option<String>) -> Option<Self> {
+        let value: Value = serde_json::from_str(&json?).ok()?;
+        let text = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_string);
+        Some(ProjectRef {
+            id: text("id")?,
+            name: text("name")?,
+            color: text("color"),
+            emoji: text("emoji"),
+        })
     }
 }
 
@@ -55,6 +71,8 @@ pub struct ProjectRow {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
+    pub color: Option<String>,
+    pub emoji: Option<String>,
     pub created_at: DateTime<Utc>,
     pub repos: Vec<RepoRow>,
 }
@@ -65,6 +83,8 @@ impl ProjectRow {
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "color": self.color,
+            "emoji": self.emoji,
             "created_at": crate::reviews::iso(self.created_at),
             "repos": self.repos.iter().map(RepoRow::to_json).collect::<Vec<_>>(),
             "sessions": self.repos.iter().map(|r| r.sessions).sum::<usize>(),
@@ -72,6 +92,25 @@ impl ProjectRow {
             "last_at": self.repos.iter().filter_map(|r| r.last_at).max().map(crate::reviews::iso),
         })
     }
+}
+
+/// What a project says about itself besides its name: each `None` when the
+/// person gave none.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Details {
+    pub description: Option<String>,
+    pub color: Option<String>,
+    pub emoji: Option<String>,
+}
+
+/// A change to a project: `None` leaves a field as it is, and
+/// `Some(None)` removes the description, the colour or the emoji.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Change {
+    pub name: Option<String>,
+    pub description: Option<Option<String>>,
+    pub color: Option<Option<String>>,
+    pub emoji: Option<Option<String>>,
 }
 
 /// Why a change to the projects was not made.
@@ -83,12 +122,12 @@ pub enum NotChanged {
     NoProject,
 }
 
-/// The SQL for the project of a repository given as `repo`: the project's
-/// column, or NULL.
-pub(super) fn project_of(column: &str, repo: &str) -> String {
+/// The SQL for the project of a repository given as `repo`, as a JSON
+/// object that `ProjectRef::from_column` reads, or NULL.
+pub(super) fn project_json(repo: &str) -> String {
     format!(
-        "(SELECT p.{column} FROM project_repos pr JOIN projects p ON p.id = pr.project_id \
-         WHERE pr.repo = {repo})"
+        "(SELECT json_object('id', p.id, 'name', p.name, 'color', p.color, 'emoji', p.emoji) \
+         FROM project_repos pr JOIN projects p ON p.id = pr.project_id WHERE pr.repo = {repo})"
     )
 }
 
@@ -157,7 +196,7 @@ impl Db {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, created_at FROM projects ORDER BY name COLLATE NOCASE",
+            "SELECT id, name, description, color, emoji, created_at FROM projects ORDER BY name COLLATE NOCASE",
         )?;
         let mut projects = stmt
             .query_map([], |row| {
@@ -165,7 +204,9 @@ impl Db {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     description: row.get(2)?,
-                    created_at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
+                    color: row.get(3)?,
+                    emoji: row.get(4)?,
+                    created_at: parse_datetime(&row.get::<_, String>(5)?).unwrap_or_default(),
                     repos: Vec::new(),
                 })
             })?
@@ -186,18 +227,14 @@ impl Db {
     /// The project a repository is in, if any.
     pub fn project_of_repo(&self, repo: &str) -> rusqlite::Result<Option<ProjectRef>> {
         let conn = self.conn();
-        conn.query_row(
-            "SELECT p.id, p.name FROM project_repos pr JOIN projects p ON p.id = pr.project_id
-             WHERE pr.repo = ?1",
-            params![repo],
-            |row| {
-                Ok(ProjectRef {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                })
-            },
-        )
-        .optional()
+        let json: Option<Option<String>> = conn
+            .query_row(
+                &format!("SELECT {}", project_json("?1")),
+                params![repo],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(ProjectRef::from_column(json.flatten()))
     }
 
     /// Creates a project with these repositories, moving any that are in
@@ -206,7 +243,7 @@ impl Db {
         &self,
         id: &str,
         name: &str,
-        description: Option<&str>,
+        details: &Details,
         repos: &[String],
         at: DateTime<Utc>,
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
@@ -214,8 +251,16 @@ impl Db {
         let tx = conn.transaction()?;
         let at = crate::reviews::iso(at);
         match tx.execute(
-            "INSERT INTO projects (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params![id, name, description, at],
+            "INSERT INTO projects (id, name, description, color, emoji, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                id,
+                name,
+                details.description,
+                details.color,
+                details.emoji,
+                at
+            ],
         ) {
             Err(error) if is_unique_violation(&error) => return Ok(Err(NotChanged::NameTaken)),
             inserted => inserted?,
@@ -228,22 +273,30 @@ impl Db {
         Ok(Ok(event_id))
     }
 
-    /// Changes a project's name, its description, or both: `None` leaves
-    /// one as it is, and a description of `Some(None)` removes it. Returns
-    /// its event's id.
+    /// Changes what `change` gives of a project. Returns its event's id.
     pub fn update_project(
         &self,
         id: &str,
-        name: Option<&str>,
-        description: Option<Option<&str>>,
+        change: &Change,
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         match tx.execute(
             "UPDATE projects SET name = COALESCE(?2, name),
-               description = CASE WHEN ?3 THEN ?4 ELSE description END
+               description = CASE WHEN ?3 THEN ?4 ELSE description END,
+               color = CASE WHEN ?5 THEN ?6 ELSE color END,
+               emoji = CASE WHEN ?7 THEN ?8 ELSE emoji END
              WHERE id = ?1",
-            params![id, name, description.is_some(), description.flatten()],
+            params![
+                id,
+                change.name,
+                change.description.is_some(),
+                change.description.clone().flatten(),
+                change.color.is_some(),
+                change.color.clone().flatten(),
+                change.emoji.is_some(),
+                change.emoji.clone().flatten(),
+            ],
         ) {
             Err(error) if is_unique_violation(&error) => return Ok(Err(NotChanged::NameTaken)),
             Ok(0) => return Ok(Err(NotChanged::NoProject)),

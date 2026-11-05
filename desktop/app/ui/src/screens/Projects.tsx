@@ -23,6 +23,7 @@ import { useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
+import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -215,7 +216,11 @@ export function Projects() {
         >
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        <Icon size={14} className="project-group-icon" aria-hidden />
+        {actions ? (
+          <ProjectAvatar project={actions} size={20} />
+        ) : (
+          <Icon size={14} className="project-group-icon" aria-hidden />
+        )}
         <h2>{title}</h2>
         {actions?.description ? (
           <span className="project-group-description" title={actions.description}>
@@ -363,8 +368,8 @@ export function Projects() {
           title="New project"
           action="Create project"
           repos={dialog.repos}
-          onSave={async (name, description) => {
-            await api.createProject(name, description, dialog.repos);
+          onSave={async ({ name, description, color, emoji }) => {
+            await api.createProject(name, { description, color, emoji }, dialog.repos);
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
@@ -374,10 +379,9 @@ export function Projects() {
         <ProjectDialog
           title="Edit project"
           action="Save"
-          name={dialog.project.name}
-          description={dialog.project.description ?? ""}
-          onSave={async (name, description) => {
-            await api.updateProject(dialog.project.id, { name, description });
+          project={dialog.project}
+          onSave={async (change) => {
+            await api.updateProject(dialog.project.id, change);
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
@@ -439,23 +443,27 @@ function AddRepo({ onAdd, onDone }: { onAdd: (repo: string) => void; onDone: () 
 function ProjectDialog({
   title,
   action,
-  name: initialName = "",
-  description: initialDescription = "",
+  project,
   repos,
   onSave,
   onClose,
 }: {
   title: string;
   action: string;
-  name?: string;
-  description?: string;
+  /** the project to change; none for a new one */
+  project?: Project;
   /** the repositories a new project begins with */
   repos?: string[];
-  onSave: (name: string, description: string) => Promise<void>;
+  onSave: (fields: { name: string; description: string; color: string; emoji: string }) => Promise<void>;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
+  const [name, setName] = useState(project?.name ?? "");
+  const [description, setDescription] = useState(project?.description ?? "");
+  // a new project starts with a colour of its own, which the person can change
+  const [color, setColor] = useState<ProjectColor>(() =>
+    project ? colorOf(project) : PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
+  );
+  const [emoji, setEmoji] = useState(project?.emoji ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -476,7 +484,7 @@ function ProjectDialog({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(name, description);
+      await onSave({ name, description, color, emoji });
     } catch (e) {
       setError(reason(e));
       setSaving(false);
@@ -523,6 +531,38 @@ function ProjectDialog({
             }}
           />
         </label>
+        <div className="project-look">
+          <ProjectAvatar project={{ id: project?.id ?? "", name: name || "?", color, emoji }} size={36} />
+          <div className="project-look-fields">
+            <div className="project-swatches" role="radiogroup" aria-label="Colour">
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={color === c}
+                  aria-label={c[0].toUpperCase() + c.slice(1)}
+                  className={`project-swatch ${color === c ? "is-on" : ""}`}
+                  style={{ background: `var(--project-${c})` }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+            </div>
+            <label className="project-emoji">
+              <span>Icon</span>
+              <input
+                className="feedback-input"
+                value={emoji}
+                maxLength={8}
+                placeholder="An emoji, or the first letter"
+                onChange={(event) => {
+                  setEmoji(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
+          </div>
+        </div>
         {repos?.length ? (
           <p className="dim project-dialog-note">It starts with {repos.join(", ")}. Drag more repositories under it.</p>
         ) : repos ? (

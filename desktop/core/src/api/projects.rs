@@ -53,38 +53,45 @@ async fn create(
             .collect::<Result<_, _>>()?,
         Some(_) => return Err(Error::invalid("/repos", "is not a list").into()),
     };
-    let description = optional_text(&body, "description")?;
-    let project = state
-        .projects()
-        .create(&name, description.as_deref(), &repos)?;
+    let details = crate::db::Details {
+        description: optional_text(&body, "description")?,
+        color: optional_text(&body, "color")?,
+        emoji: optional_text(&body, "emoji")?,
+    };
+    let project = state.projects().create(&name, &details, &repos)?;
     Ok((StatusCode::CREATED, Json(project)))
 }
 
-/// Changes a project's `name`, its `description`, or both; an empty or
-/// `null` description removes it: the project, or 404.
+/// Changes a project's `name`, `description`, `color` or `emoji`, any of
+/// them; an empty or `null` description, colour or emoji removes it: the
+/// project, or 404.
 async fn update(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let name = match body.get("name") {
-        None => None,
-        Some(_) => Some(text(&body, "name")?),
+    // given as a string, removed as null, left as it is when missing
+    let removable = |key: &str| -> Result<Option<Option<String>>, Error> {
+        match body.get(key) {
+            None => Ok(None),
+            Some(Value::Null) => Ok(Some(None)),
+            Some(_) => Ok(Some(optional_text(&body, key)?)),
+        }
     };
-    let description = match body.get("description") {
-        None => None,
-        Some(Value::Null) => Some(String::new()),
-        Some(_) => optional_text(&body, "description")?,
+    let change = crate::db::Change {
+        name: match body.get("name") {
+            None => None,
+            Some(_) => Some(text(&body, "name")?),
+        },
+        description: removable("description")?,
+        color: removable("color")?,
+        emoji: removable("emoji")?,
     };
-    if name.is_none() && description.is_none() {
-        return Err(Error::invalid("", "give a name or a description").into());
+    if change == crate::db::Change::default() {
+        return Err(Error::invalid("", "give a name, a description, a color or an emoji").into());
     }
-    Ok(Json(state.projects().update(
-        &id,
-        name.as_deref(),
-        description.as_deref(),
-    )?))
+    Ok(Json(state.projects().update(&id, &change)?))
 }
 
 /// Deletes a project, leaving its repositories in none: 204, or 404.

@@ -91,15 +91,15 @@ export const inScope = (repo: string | null | undefined, project: { id: string }
 
 /** The combined filter's choices: every project, then the repositories, then
  *  none when some have none. */
-export function scopeOptions(
-  projects: { id: string; name: string }[],
+export function scopeOptions<P extends { id: string; name: string }>(
+  projects: P[],
   repos: string[],
   unassigned: boolean,
   current: string,
-): { value: string; label: string; kind: "all" | "project" | "repository" }[] {
+): { value: string; label: string; kind: "all" | "project" | "repository"; project?: P }[] {
   return [
     { value: "", label: "All projects and repositories", kind: "all" },
-    ...projects.map((p) => ({ value: `${PROJECT}${p.id}`, label: p.name, kind: "project" as const })),
+    ...projects.map((p) => ({ value: `${PROJECT}${p.id}`, label: p.name, kind: "project" as const, project: p })),
     ...repos.map((r) => ({ value: r, label: r, kind: "repository" as const })),
     ...(unassigned || current === NO_PROJECT
       ? [{ value: NO_PROJECT, label: "No repository", kind: "repository" as const }]

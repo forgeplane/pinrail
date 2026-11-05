@@ -1,10 +1,11 @@
-import { Ban, CheckCheck, ChevronDown, FolderGit2, LayoutGrid, MessageCircleQuestion, SearchX } from "lucide-react";
+import { Ban, CheckCheck, ChevronDown, FolderGit2, MessageCircleQuestion, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
+import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
@@ -432,7 +433,7 @@ function Waiting() {
                   {/* points down while the group is open, and right once it is folded */}
                   <ChevronDown size={13} className="inbox-group-fold" aria-hidden />
                   {key.startsWith("project:") ? (
-                    <LayoutGrid size={13} className="inbox-group-icon" aria-label="Project" />
+                    <ProjectAvatar project={items[0].project!} size={18} className="inbox-group-icon" />
                   ) : (
                     <FolderGit2 size={13} className="inbox-group-icon" aria-label="Repository" />
                   )}

@@ -4,7 +4,7 @@
 // lib/sidebarSessions; this draws them and keeps the choices in the
 // settings.
 
-import { ChevronDown, ChevronRight, FolderGit2, GitBranch, LayoutGrid, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
@@ -18,6 +18,7 @@ import { useSettings } from "../state/settings";
 import { AgentIcon } from "./AgentIcon";
 import { ReviewIcon } from "./ReviewIcon";
 import { SidebarSessionsMenu } from "./SidebarSessionsMenu";
+import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 
@@ -215,7 +216,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             to={`/?project=${encodeURIComponent(group.key.slice("project:".length))}`}
             className="sidebar-group-name"
           >
-            <LayoutGrid size={14} strokeWidth={1.75} />
+            {group.project ? <ProjectAvatar project={group.project} size={16} /> : null}
             <span className="sidebar-review-title" data-testid="sidebar-group-name">
               {group.label}
             </span>

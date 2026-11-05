@@ -22,7 +22,7 @@ pub use bundles::BundleRecord;
 pub use events::Event;
 pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;
-pub use projects::{NotChanged, ProjectRef, ProjectRow, RepoRow};
+pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
 pub use sessions::{

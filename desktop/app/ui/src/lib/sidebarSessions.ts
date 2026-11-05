@@ -77,6 +77,8 @@ export type Group = {
   kind: "project" | "repository" | "other";
   /** a project whose sessions and reviews come from more than one repository */
   mixed: boolean;
+  /** the project, for a project's group */
+  project?: { id: string; name: string; color?: string | null; emoji?: string | null };
   rows: Row[];
   /** waiting reviews that came from no session */
   loose: Review[];
@@ -164,7 +166,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   const groups = new Map<string, Group>();
   /** the repositories seen in each group, to tell a mixed project */
   const seen = new Map<string, Set<string>>();
-  const groupFor = (key: string, label: string, repo: string | null | undefined) => {
+  const groupFor = (key: string, label: string, repo: string | null | undefined, project?: Group["project"] | null) => {
     let group = groups.get(key);
     if (!group) {
       const kind = key.startsWith("project:")
@@ -173,6 +175,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
           ? "repository"
           : "other";
       group = { key, label, kind, mixed: false, rows: [], loose: [], waiting: 0 };
+      if (kind === "project" && project) group.project = project;
       groups.set(key, group);
       seen.set(key, new Set());
     }
@@ -224,12 +227,12 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   // which the ordering put first; status and updated groups in their fixed
   // order
   for (const row of rows) {
-    const group = groupFor(...keyOf(row), row.session.repo);
+    const group = groupFor(...keyOf(row), row.session.repo, row.session.project);
     group.rows.push(row);
     group.waiting += row.waiting;
   }
   for (const review of looseShown) {
-    const group = groupFor(...looseKeyOf(review), review.origin.repo);
+    const group = groupFor(...looseKeyOf(review), review.origin.repo, review.project);
     group.loose.push(review);
     group.waiting += 1;
   }

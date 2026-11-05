@@ -6,6 +6,7 @@ import { Blocks, CircleDot, FolderGit2, LayoutGrid, List, Search, Star } from "l
 import type { ReactNode, RefObject } from "react";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
+import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Tooltip } from "../components/Tooltip";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { filtering, waitingFilter } from "../lib/waiting";
@@ -164,7 +165,7 @@ export function InboxHead({
             options={scopeOptions(live.namedProjects, projects, unassigned, scope).map((o) => ({
               value: o.value,
               label: o.label,
-              icon: o.kind === "project" ? <LayoutGrid size={14} /> : <FolderGit2 size={14} />,
+              icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
             }))}
           />
           <Select

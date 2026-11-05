@@ -103,7 +103,10 @@ async fn reviews_and_sessions_name_their_project_and_filter_by_it() {
 
     // the review sent before the project existed names it now
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{schema}"), None).await;
-    assert_eq!(read["project"], json!({"id": id, "name": "Pinrail"}));
+    assert_eq!(
+        read["project"],
+        json!({"id": id, "name": "Pinrail", "color": null, "emoji": null})
+    );
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{bucket}"), None).await;
     assert_eq!(read["project"], Value::Null);
     // and one sent after it names it as it is created
@@ -356,4 +359,53 @@ async fn a_project_has_an_optional_description_that_can_be_changed_or_removed() 
     assert!(refused.to_string().contains("/description"), "{refused}");
     let (status, _) = call(&app, "PATCH", &path, Some(json!({}))).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_sessions_carry() {
+    let app = app();
+    let review = send(&app, review("forgeplane/pinrail", "s-1", "Schema")).await;
+    let project = create(
+        &app,
+        json!({"name": "Pinrail", "color": "blue", "emoji": "🚂", "repos": ["forgeplane/pinrail"]}),
+    )
+    .await;
+    assert_eq!(project["color"], "blue");
+    assert_eq!(project["emoji"], "🚂");
+    let id = project["id"].as_str().unwrap();
+
+    // a review and a session name the project with its avatar
+    let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{review}"), None).await;
+    assert_eq!(
+        read["project"],
+        json!({"id": id, "name": "Pinrail", "color": "blue", "emoji": "🚂"})
+    );
+    let (_, session) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(session["session"]["project"]["emoji"], "🚂");
+
+    // each is changed or removed on its own
+    let path = format!("/api/v1/projects/{id}");
+    let (_, changed) = call(&app, "PATCH", &path, Some(json!({"color": "green"}))).await;
+    assert_eq!(changed["color"], "green");
+    assert_eq!(changed["emoji"], "🚂");
+    let (_, changed) = call(&app, "PATCH", &path, Some(json!({"emoji": null}))).await;
+    assert_eq!(changed["emoji"], Value::Null);
+    assert_eq!(changed["color"], "green");
+    let (_, changed) = call(&app, "PATCH", &path, Some(json!({"emoji": "PR"}))).await;
+    assert_eq!(changed["emoji"], "PR");
+    // one made without them has neither, and the app picks for it
+    let plain = create(&app, json!({"name": "Plain"})).await;
+    assert_eq!(
+        (plain["color"].clone(), plain["emoji"].clone()),
+        (Value::Null, Value::Null)
+    );
+
+    for (body, path_part) in [
+        (json!({"color": "chartreuse"}), "/color"),
+        (json!({"emoji": "too many letters"}), "/emoji"),
+    ] {
+        let (status, refused) = call(&app, "PATCH", &path, Some(body.clone())).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert!(refused.to_string().contains(path_part), "{refused}");
+    }
 }

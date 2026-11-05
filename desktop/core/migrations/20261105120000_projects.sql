@@ -6,6 +6,11 @@ CREATE TABLE projects (
   name        TEXT NOT NULL,
   -- a line on what the project is, if the person wrote one
   description TEXT,
+  -- its avatar: a colour of the app's palette, by name, and an emoji or a
+  -- letter or two in place of the name's first letter; the app picks the
+  -- colour and shows the letter when they are NULL
+  color       TEXT,
+  emoji       TEXT,
   created_at  TEXT NOT NULL
 );
 -- two projects cannot share a name, whatever its case
