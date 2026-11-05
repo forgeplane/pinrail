@@ -277,7 +277,7 @@ export function History() {
                   aria-current={r.id === openId ? "true" : undefined}
                   data-history-row={i}
                   data-testid="history-row"
-                  onMouseEnter={() => !keyboard.current && setFocused(i)}
+                  onMouseEnter={() => !keyboard.current && !menu && setFocused(i)}
                 >
                   <span className={`review-row-marker is-ended status-${outcome.tone}`} aria-label={outcome.label} />
                   <span className="review-row-main">
@@ -329,6 +329,7 @@ export function History() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setFocused(i);
                         setMenu({ review: r, anchor: event.currentTarget });
                       }}
                     >

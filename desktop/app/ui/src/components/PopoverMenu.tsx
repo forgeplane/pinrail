@@ -49,6 +49,12 @@ export function PopoverMenu({
     setPos({ top, left: Math.max(4, Math.min(left, window.innerWidth - width - 4)) });
   }, [anchor, align]);
 
+  // the button says its menu is open, which keeps it and its row shown
+  useEffect(() => {
+    anchor.setAttribute("aria-expanded", "true");
+    return () => anchor.setAttribute("aria-expanded", "false");
+  }, [anchor]);
+
   useEffect(() => {
     menu.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
     const onDown = (event: MouseEvent) => {

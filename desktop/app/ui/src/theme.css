@@ -5927,6 +5927,22 @@ body.is-resizing iframe {
 .project-row-menu:focus-visible {
   opacity: 1;
 }
+/* While a row's menu is open, that row stays highlighted with its button
+   shown, and the rows the pointer passes over stay as they are. */
+.project-row-menu[aria-expanded="true"],
+.review-row-end .bar-button[aria-expanded="true"] {
+  opacity: 1;
+}
+.project-repo:has([aria-expanded="true"]) {
+  background: var(--bg-hover);
+}
+body:has(.menu-popup) .project-repo:hover:not(:has([aria-expanded="true"])) {
+  background: none;
+}
+body:has(.menu-popup) .project-repo:hover:not(:has([aria-expanded="true"])) .project-row-menu,
+body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-button:not([aria-expanded="true"]) {
+  opacity: 0;
+}
 .project-empty {
   padding: 7px 4px 7px 26px;
   color: var(--dim);
