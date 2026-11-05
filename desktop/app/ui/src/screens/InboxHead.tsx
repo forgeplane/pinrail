@@ -142,6 +142,7 @@ export function InboxHead({
           ) : null}
           <Select
             id="inbox-repo"
+            searchable
             label="Project or repository"
             icon={<FolderGit2 size={14} />}
             value={scope}

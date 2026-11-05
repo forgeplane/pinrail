@@ -218,6 +218,7 @@ export function Sessions() {
             </label>
             <Select
               id="sessions-repo"
+              searchable
               label="Project or repository"
               icon={<FolderGit2 size={14} />}
               value={scope}

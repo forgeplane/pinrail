@@ -1251,6 +1251,38 @@ body.is-resizing iframe {
 .select-list.is-placed {
   animation: tooltip-in 100ms ease-out forwards;
 }
+.select-options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* a searchable list: its field stays at the top while the options scroll */
+.select-list.is-searchable {
+  padding-top: 0;
+  min-width: 240px;
+}
+.select-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: block;
+  width: calc(100% + 8px);
+  margin: 0 -4px 4px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.select-empty {
+  padding: 6px 10px;
+  color: var(--faint);
+  font-size: 12.5px;
+}
 @media (prefers-reduced-motion: reduce) {
   .select-list.is-placed {
     animation: none;

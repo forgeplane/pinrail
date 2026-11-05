@@ -1,7 +1,9 @@
 // A select of the shell's own: a button that shows the choice, a list that
 // opens under it. Arrow keys move, Enter and Space choose, Escape and a
-// click outside close, typing jumps to a matching option. The list is
-// rendered at the end of the body and kept inside the window.
+// click outside close, typing jumps to a matching option. A searchable one
+// opens with a field above the list instead, which keeps the options whose
+// names hold what is typed. The list is rendered at the end of the body and
+// kept inside the window.
 
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -17,27 +19,37 @@ type Props = {
   label: string;
   icon?: ReactNode;
   id?: string;
+  /** a field above the list narrows the options to those whose labels hold what is typed */
+  searchable?: boolean;
 };
 
 const GAP = 4;
 const MARGIN = 8;
 
-export function Select({ value, options, onChange, label, icon, id }: Props) {
+export function Select({ value, options: all, onChange, label, icon, id, searchable = false }: Props) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLUListElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const typed = useRef({ text: "", at: 0 });
-  const current = options.find((o) => o.value === value);
+  const [query, setQuery] = useState("");
+  const current = all.find((o) => o.value === value);
+  const words = query.trim().toLowerCase();
+  const options = words ? all.filter((o) => o.label.toLowerCase().includes(words)) : all;
 
-  const openList = () => {
+  /** Opens the list on the current choice; a searchable one may start with what was typed. */
+  const openList = (start = "") => {
+    setQuery(start);
     setActive(
-      Math.max(
-        0,
-        options.findIndex((o) => o.value === value),
-      ),
+      start
+        ? 0
+        : Math.max(
+            0,
+            all.findIndex((o) => o.value === value),
+          ),
     );
     setOpen(true);
   };
@@ -60,6 +72,11 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
     if (top + box.height > window.innerHeight - MARGIN) top = Math.max(MARGIN, t.top - box.height - GAP);
     setPos({ top, left, minWidth: t.width });
   }, [open, options.length]);
+
+  // a searchable list takes the typing in its field
+  useEffect(() => {
+    if (open && searchable) field.current?.focus();
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,13 +103,27 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
     list.current?.querySelectorAll<HTMLElement>("[role=option]")[active]?.scrollIntoView({ block: "nearest" });
   }, [open, active]);
 
+  const printable = (event: React.KeyboardEvent) =>
+    event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey;
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (!open) {
       if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
         event.preventDefault();
         event.stopPropagation();
         openList();
+      } else if (searchable && printable(event)) {
+        // typing on the closed select starts a search with that letter
+        event.preventDefault();
+        event.stopPropagation();
+        openList(event.key);
       }
+      return;
+    }
+    // in the search field, Space, Home and End belong to the text
+    const inField = event.target === field.current;
+    if (inField && [" ", "Home", "End"].includes(event.key)) {
+      event.stopPropagation();
       return;
     }
     // the list has the keyboard; the page's own shortcuts stay out of it
@@ -127,7 +158,7 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
         setOpen(false);
         break;
       default:
-        if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (!inField && printable(event)) {
           const now = Date.now();
           typed.current = {
             text: (now - typed.current.at < 700 ? typed.current.text : "") + event.key.toLowerCase(),
@@ -159,33 +190,57 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
       </button>
       {open
         ? createPortal(
-            <ul
+            <div
               ref={list}
-              id={listId}
-              role="listbox"
-              aria-label={label}
-              aria-activedescendant={`${listId}-${active}`}
-              className={`select-list ${pos ? "is-placed" : ""}`}
+              className={`select-list ${searchable ? "is-searchable" : ""} ${pos ? "is-placed" : ""}`}
               style={pos ? { top: pos.top, left: pos.left, minWidth: pos.minWidth } : { top: -9999, left: -9999 }}
             >
-              {options.map((option, i) => (
-                <li
-                  key={option.value}
-                  id={`${listId}-${i}`}
-                  role="option"
-                  aria-selected={option.value === value}
-                  className={`select-option ${i === active ? "is-active" : ""}`}
-                  onMouseEnter={() => setActive(i)}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => choose(option)}
-                >
-                  {option.icon ? <span className="select-option-icon">{option.icon}</span> : null}
-                  <span className="select-option-label">{option.label}</span>
-                  {option.hint ? <span className="select-option-hint">{option.hint}</span> : null}
-                  <span className="select-option-check">{option.value === value ? <Check size={14} /> : null}</span>
-                </li>
-              ))}
-            </ul>,
+              {searchable ? (
+                <input
+                  ref={field}
+                  className="select-search"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Type to filter"
+                  aria-label={`Filter ${label.toLowerCase()}`}
+                  aria-controls={listId}
+                  aria-activedescendant={options[active] ? `${listId}-${active}` : undefined}
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setActive(0);
+                  }}
+                  onKeyDown={onKeyDown}
+                />
+              ) : null}
+              <ul
+                id={listId}
+                role="listbox"
+                aria-label={label}
+                aria-activedescendant={`${listId}-${active}`}
+                className="select-options"
+              >
+                {options.map((option, i) => (
+                  <li
+                    key={option.value}
+                    id={`${listId}-${i}`}
+                    role="option"
+                    aria-selected={option.value === value}
+                    className={`select-option ${i === active ? "is-active" : ""}`}
+                    onMouseEnter={() => setActive(i)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => choose(option)}
+                  >
+                    {option.icon ? <span className="select-option-icon">{option.icon}</span> : null}
+                    <span className="select-option-label">{option.label}</span>
+                    {option.hint ? <span className="select-option-hint">{option.hint}</span> : null}
+                    <span className="select-option-check">{option.value === value ? <Check size={14} /> : null}</span>
+                  </li>
+                ))}
+                {options.length === 0 ? <li className="select-empty">No matches</li> : null}
+              </ul>
+            </div>,
             document.body,
           )
         : null}

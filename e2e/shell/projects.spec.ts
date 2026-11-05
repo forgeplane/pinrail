@@ -184,3 +184,38 @@ test("the inbox groups and filters by project, and names each review's repositor
   // the layout is kept in the settings
   await settingSaved(request, (s) => s.inbox.layout, "project");
 });
+
+test("the project or repository filter narrows its choices to what is typed", async ({ page, request }) => {
+  await clearInbox(request);
+  await createReview(request, { title: "Type: app", origin: { repo: "typed/app" } });
+  await createReview(request, { title: "Type: web", origin: { repo: "typed/web" } });
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Typed", repos: ["typed/app"] } });
+  await page.goto("/#/");
+  const filter = page.getByRole("button", { name: "Project or repository" });
+
+  // typing on the closed filter opens it with a search for what was typed
+  await filter.focus();
+  await page.keyboard.type("we");
+  const search = page.getByRole("textbox", { name: "Filter project or repository" });
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("we");
+  await expect(page.getByRole("option")).toHaveText(["typed/web"]);
+
+  // the projects match by their names too; the arrow keys and Enter pick a match
+  await search.fill("TYPED");
+  await expect(page.getByRole("option")).toHaveText(["Typed", "typed/app", "typed/web"]);
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(page).toHaveURL(/repo=typed%2Fapp/);
+  await expect(page.getByTestId("review-row")).toHaveText([/Type: app/]);
+
+  // nothing matching says so, and Escape leaves the choice as it was
+  await filter.click();
+  await expect(search).toHaveValue("");
+  await search.fill("nothing like it");
+  await expect(page.getByRole("listbox")).toContainText("No matches");
+  await search.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(filter).toBeFocused();
+  await expect(page).toHaveURL(/repo=typed%2Fapp/);
+});
