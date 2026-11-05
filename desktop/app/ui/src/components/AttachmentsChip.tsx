@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { inTauri, serverUrl } from "../api/client";
 import type { Attachment } from "../api/types";
 import { size } from "../lib/format";
+import { viewportRect } from "../lib/viewport";
 import { useToasts } from "../state/toasts";
 
 const GAP = 6;
@@ -29,7 +30,7 @@ export function AttachmentsChip({ reviewId, attachments }: Props) {
 
   useLayoutEffect(() => {
     if (!open || !trigger.current || !panel.current) return;
-    const at = trigger.current.getBoundingClientRect();
+    const at = viewportRect(trigger.current);
     const width = panel.current.offsetWidth;
     const left = Math.min(Math.max(MARGIN, at.left), window.innerWidth - width - MARGIN);
     setPos({ top: at.bottom + GAP, left });

@@ -5,6 +5,7 @@
 import { Check, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { viewportRect } from "../lib/viewport";
 
 export type MenuEntry =
   | {
@@ -38,7 +39,7 @@ export function PopoverMenu({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
-    const box = anchor.getBoundingClientRect();
+    const box = viewportRect(anchor);
     const width = menu.current?.offsetWidth ?? 210;
     const left = align === "right" ? box.right - width : box.left;
     setPos({ top: box.bottom + 4, left: Math.max(4, Math.min(left, window.innerWidth - width - 4)) });

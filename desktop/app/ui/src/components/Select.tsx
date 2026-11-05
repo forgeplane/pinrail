@@ -8,6 +8,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { viewportRect } from "../lib/viewport";
 
 export type SelectOption = { value: string; label: string; hint?: string; icon?: ReactNode };
 
@@ -64,7 +65,7 @@ export function Select({ value, options: all, onChange, label, icon, id, searcha
 
   useLayoutEffect(() => {
     if (!open || !trigger.current || !list.current) return;
-    const t = trigger.current.getBoundingClientRect();
+    const t = viewportRect(trigger.current);
     const box = list.current.getBoundingClientRect();
     let left = Math.min(t.left, window.innerWidth - box.width - MARGIN);
     left = Math.max(MARGIN, left);

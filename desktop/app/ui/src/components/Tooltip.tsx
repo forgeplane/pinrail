@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { viewportRect } from "../lib/viewport";
 
 const HOVER_DELAY_MS = 350;
 const GAP = 6;
@@ -51,7 +52,7 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
 
   useLayoutEffect(() => {
     if (!open || !trigger.current || !tip.current) return;
-    const t = trigger.current.getBoundingClientRect();
+    const t = viewportRect(trigger.current);
     const box = tip.current.getBoundingClientRect();
     let left = t.left + t.width / 2 - box.width / 2;
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - box.width - MARGIN));

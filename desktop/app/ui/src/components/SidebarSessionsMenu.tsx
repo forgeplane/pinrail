@@ -6,6 +6,7 @@
 import { Check, ChevronRight, CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { viewportRect } from "../lib/viewport";
 import {
   type Choices,
   type Detail,
@@ -89,7 +90,7 @@ export function SidebarSessionsMenu({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
-    const box = anchor.getBoundingClientRect();
+    const box = viewportRect(anchor);
     setPos({ top: box.bottom + 4, left: box.left });
   }, [anchor]);
 

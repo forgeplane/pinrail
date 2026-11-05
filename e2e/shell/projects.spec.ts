@@ -299,3 +299,26 @@ test("a project's avatar takes a colour and an icon, and shows where the project
     page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar"),
   ).toHaveAttribute("data-color", "green");
 });
+
+test("at the large interface size, a project's menu opens under its button", async ({ page, request }) => {
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Zoomed" } });
+  await request.patch(`${core}/api/v1/settings`, { data: { appearance: { text_size: "large" } } });
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto("/#/projects");
+    const button = card(page, "Zoomed").getByRole("button", { name: "Zoomed actions" });
+    await expect(page.locator("#root")).toHaveCSS("zoom", "1.08");
+    await button.click();
+    const menu = page.getByRole("menu", { name: "Zoomed" });
+    await expect(menu).toBeVisible();
+    const b = (await button.boundingBox())!;
+    const m = (await menu.boundingBox())!;
+    // its right edge on the button's, just below it
+    expect(Math.abs(m.x + m.width - (b.x + b.width))).toBeLessThan(2);
+    expect(m.y - (b.y + b.height)).toBeGreaterThanOrEqual(0);
+    expect(m.y - (b.y + b.height)).toBeLessThan(10);
+  } finally {
+    await request.patch(`${core}/api/v1/settings`, { data: { appearance: { text_size: "default" } } });
+    await settingSaved(request, (s) => s.appearance.text_size, "default");
+  }
+});
