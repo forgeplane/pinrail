@@ -10,7 +10,8 @@ import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
-import { clearAll, inScope, scopeOf, useUrlParams } from "../lib/url";
+import { clearAll, scopeOf, useUrlParams } from "../lib/url";
+import { waitingFilter } from "../lib/waiting";
 import { useLive } from "../state/live";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
@@ -23,22 +24,6 @@ import { ReviewView } from "./ReviewScreen";
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
 const OLD_LAYOUT = "pinrail.inbox.layout";
-
-function matches(review: Review, q: string) {
-  if (!q) return true;
-  const text = [
-    review.title,
-    reviewLabel(review),
-    review.requested_by,
-    review.origin.repo,
-    review.origin.workflow,
-    review.origin.ref,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return text.includes(q.toLowerCase());
-}
 
 export function Inbox() {
   const [params] = useUrlParams();
@@ -119,16 +104,8 @@ function Waiting() {
   };
 
   const reviews = useMemo(
-    () =>
-      live.pending.filter(
-        (r) =>
-          matches(r, q) &&
-          inScope(r.origin.repo, r.project, scope) &&
-          (!plugin || r.plugin === plugin) &&
-          (rounds !== "new" || !!r.revises) &&
-          (!starred || !!r.starred),
-      ),
-    [live.pending, q, scope, plugin, rounds, starred],
+    () => live.pending.filter((r) => waitingFilter(params, q)(r) && (rounds !== "new" || !!r.revises)),
+    [live.pending, params, q, rounds],
   );
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 

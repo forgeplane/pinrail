@@ -68,3 +68,26 @@ test("⌘⇧H opens the History tab", async ({ page }) => {
   await expect(page).toHaveURL(/#\/\?tab=history$/);
   await expect(tab(page, "History")).toHaveAttribute("aria-selected", "true");
 });
+
+test("the tabs count what the filters keep, and the title says how much of the whole it is", async ({ page }) => {
+  await clearInbox(page.request);
+  const first = await createReview(page.request, { title: "Counts: api", origin: { repo: "counts/api" } });
+  await createReview(page.request, { title: "Counts: api again", origin: { repo: "counts/api" }, revises: first.id });
+  await createReview(page.request, { title: "Counts: web", origin: { repo: "counts/web" } });
+  await page.goto("/#/");
+  await expect(tab(page, "Pending")).toContainText("2");
+  await expect(tab(page, "New rounds")).toContainText("1");
+
+  await expect(page.getByTestId("inbox-total")).toHaveText("2");
+
+  await page.goto("/#/?repo=counts%2Fweb");
+  await expect(tab(page, "Pending")).toContainText("1");
+  await expect(tab(page, "New rounds")).toContainText("0");
+  await expect(page.getByTestId("inbox-total")).toHaveText("1 of 2");
+
+  // the search counts as a filter too
+  await page.goto("/#/");
+  await page.getByLabel("Search inbox").fill("again");
+  await expect(tab(page, "Pending")).toContainText("1");
+  await expect(tab(page, "New rounds")).toContainText("1");
+});

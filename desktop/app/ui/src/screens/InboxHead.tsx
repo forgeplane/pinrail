@@ -8,6 +8,7 @@ import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
+import { filtering, waitingFilter } from "../lib/waiting";
 import { useLive } from "../state/live";
 
 export type InboxTab = "pending" | "new" | "history";
@@ -56,7 +57,11 @@ export function InboxHead({
   const status = params.get("status") ?? "";
   const starred = params.get("starred") === "1";
   const history = tab === "history";
-  const newRounds = live.pending.filter((r) => r.revises).length;
+  // what the filters keep counts in the tabs; with none set, every review
+  // that waits counts, those beyond the loaded ones too
+  const kept = live.pending.filter(waitingFilter(params, q));
+  const pending = filtering(params, q) ? kept.length : live.pendingCount;
+  const newRounds = kept.filter((r) => r.revises).length;
 
   /** Changing a filter starts again from the first page. */
   const setParam = (key: string, value: string) => {
@@ -95,8 +100,9 @@ export function InboxHead({
       <header className="page-head">
         <div className="heading-inline">
           <h1>Inbox</h1>
+          {/* filtered, what the filters keep of everything that waits */}
           <span className="inbox-total" data-testid="inbox-total">
-            {live.pendingCount}
+            {filtering(params, q) ? `${pending} of ${live.pendingCount}` : live.pendingCount}
           </span>
         </div>
         <div className="inbox-controls">
@@ -210,7 +216,7 @@ export function InboxHead({
         </div>
       </header>
       <nav className="list-tabs" role="tablist" aria-label="Inbox views">
-        {tabButton("pending", "Pending", live.pendingCount)}
+        {tabButton("pending", "Pending", pending)}
         {tabButton("new", "New rounds", newRounds)}
         {tabButton("history", "History")}
         <span className="list-sort">Newest first</span>
