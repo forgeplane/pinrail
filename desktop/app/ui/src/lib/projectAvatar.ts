@@ -2,18 +2,24 @@
 // what the person chose or, failing that, from the project itself. The
 // ProjectAvatar component draws it.
 
-/** The colours a project can take, as the core names them. */
+/** The colours a project can take, as the core names them, around the colour wheel and the neutrals last. */
 export const PROJECT_COLORS = [
-  "gray",
   "red",
   "orange",
   "amber",
+  "lime",
   "green",
   "teal",
+  "cyan",
   "blue",
   "indigo",
   "violet",
+  "fuchsia",
   "pink",
+  "rose",
+  "brown",
+  "slate",
+  "gray",
 ] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
 

@@ -296,16 +296,22 @@ h1 {
 /* The colours a project's avatar takes, the same in every theme: white
    text reads on each of them. */
 :root {
-  --project-gray: #6b7280;
   --project-red: #d9534f;
   --project-orange: #e07a2f;
   --project-amber: #c9940a;
+  --project-lime: #6f9e2a;
   --project-green: #3e9a5a;
   --project-teal: #2a9a96;
+  --project-cyan: #1f93b5;
   --project-blue: #3f7fd9;
   --project-indigo: #5b5bd6;
   --project-violet: #8a5bd6;
+  --project-fuchsia: #b54fc0;
   --project-pink: #d4558f;
+  --project-rose: #e04d6f;
+  --project-brown: #9a6b4b;
+  --project-slate: #4f6178;
+  --project-gray: #6b7280;
 }
 /* On macOS the window's buttons overlay the top left. The app measures
    where they end and where their middle is, which differ between macOS
@@ -6014,9 +6020,10 @@ body.is-resizing iframe {
   flex: 1;
   min-width: 0;
 }
+/* two rows of eight */
 .project-swatches {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, 22px);
   gap: 8px;
   padding: 2px;
 }

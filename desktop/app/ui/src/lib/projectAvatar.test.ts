@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { PROJECT_COLORS, colorOf, markOf } from "./projectAvatar";
+import coreProjects from "../../../../core/src/projects.rs?raw";
 
 describe("a project's avatar", () => {
   test("shows the colour the person chose", () => {
@@ -23,5 +24,14 @@ describe("a project's avatar", () => {
     // a letter made of two characters stays whole
     expect(markOf({ name: "🦀 Rust" })).toBe("🦀");
     expect(markOf({ name: "" })).toBe("?");
+  });
+});
+
+describe("the palette", () => {
+  test("has the sixteen colours the core accepts", () => {
+    const core = coreProjects.match(/pub const COLORS: \[&str; \d+\] = \[([^\]]+)\]/)![1];
+    const accepted = [...core.matchAll(/"(\w+)"/g)].map((m) => m[1]);
+    expect(PROJECT_COLORS).toHaveLength(16);
+    expect([...PROJECT_COLORS].sort()).toEqual([...accepted].sort());
   });
 });

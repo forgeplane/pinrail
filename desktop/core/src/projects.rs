@@ -17,8 +17,9 @@ pub const MAX_NAME: usize = 80;
 /// The longest description a project can have.
 pub const MAX_DESCRIPTION: usize = 280;
 /// The colours a project's avatar can take, by the names the app draws them by.
-pub const COLORS: [&str; 10] = [
-    "gray", "red", "orange", "amber", "green", "teal", "blue", "indigo", "violet", "pink",
+pub const COLORS: [&str; 16] = [
+    "red", "orange", "amber", "lime", "green", "teal", "cyan", "blue", "indigo", "violet",
+    "fuchsia", "pink", "rose", "brown", "slate", "gray",
 ];
 /// The longest emoji, or letters, a project's avatar takes in place of the
 /// name's first letter: one emoji can run to several characters.

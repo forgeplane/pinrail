@@ -261,6 +261,12 @@ test("a project's avatar takes a colour and an icon, and shows where the project
   await group.getByRole("button", { name: "Avatar actions" }).click();
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   const edit = page.getByRole("dialog", { name: "Edit project" });
+  // sixteen colours, each drawn in a colour of its own
+  const swatches = edit.getByRole("radio");
+  await expect(swatches).toHaveCount(16);
+  const drawn = await swatches.evaluateAll((all) => all.map((s) => getComputedStyle(s).backgroundColor));
+  expect(new Set(drawn).size).toBe(16);
+  expect(drawn).not.toContain("rgba(0, 0, 0, 0)");
   await edit.getByRole("radio", { name: "Green" }).click();
   await edit.getByLabel("Icon").fill("🚂");
   await edit.getByRole("button", { name: "Save" }).click();
