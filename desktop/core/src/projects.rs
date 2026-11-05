@@ -21,8 +21,11 @@ pub const COLORS: [&str; 16] = [
     "red", "orange", "amber", "lime", "green", "teal", "cyan", "blue", "indigo", "violet",
     "fuchsia", "pink", "rose", "brown", "slate", "gray",
 ];
-/// The longest emoji, or letters, a project's avatar takes in place of the
-/// name's first letter: one emoji can run to several characters.
+/// The most letters or digits a project's avatar takes in place of the
+/// name's first letter.
+pub const MAX_LETTERS: usize = 3;
+/// The longest emoji a project's avatar takes: one emoji, with its skin tone
+/// or the pieces joined into it, runs to several characters.
 pub const MAX_EMOJI: usize = 8;
 /// The longest repository name a project takes, as origins give it.
 pub const MAX_REPO: usize = 200;
@@ -200,12 +203,20 @@ fn checked_color(color: &str) -> Result<Option<String>, Error> {
 }
 
 /// The emoji or letters trimmed, `None` when empty, or why they cannot be one.
+/// The icon trimmed, `None` when empty, or why it cannot be one: up to three
+/// letters or digits, or one emoji, which holds none.
 fn checked_emoji(emoji: &str) -> Result<Option<String>, Error> {
     let emoji = emoji.trim();
-    if emoji.chars().count() > MAX_EMOJI {
+    let letters = emoji.chars().filter(|c| c.is_alphanumeric()).count();
+    let refused = if letters == emoji.chars().count() {
+        letters > MAX_LETTERS
+    } else {
+        letters > 0 || emoji.chars().count() > MAX_EMOJI
+    };
+    if refused {
         return Err(Error::invalid(
             "/emoji",
-            format!("is longer than {MAX_EMOJI} characters: give one emoji or a letter or two"),
+            format!("give one emoji, or up to {MAX_LETTERS} letters or digits"),
         ));
     }
     Ok((!emoji.is_empty()).then(|| emoji.to_string()))

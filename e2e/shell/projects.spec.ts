@@ -268,6 +268,18 @@ test("a project's avatar takes a colour and an icon, and shows where the project
   expect(new Set(drawn).size).toBe(16);
   expect(drawn).not.toContain("rgba(0, 0, 0, 0)");
   await edit.getByRole("radio", { name: "Green" }).click();
+  // up to three letters, which shrink to fit the square
+  await edit.getByLabel("Icon").fill("pinrail");
+  await expect(edit.getByLabel("Icon")).toHaveValue("pin");
+  const preview = edit.locator(".project-avatar");
+  await expect(preview).toHaveText("PIN");
+  // letters stay white on the solid colour, as the name's first letter does
+  await expect(preview).not.toHaveClass(/is-emoji/);
+  const [text, square] = await preview.evaluate((a) => [
+    a.querySelector("text")!.getBoundingClientRect().width,
+    a.getBoundingClientRect().width,
+  ]);
+  expect(text).toBeLessThan(square);
   await edit.getByLabel("Icon").fill("🚂");
   await edit.getByRole("button", { name: "Save" }).click();
   await expect(group.locator(".project-avatar")).toHaveText("🚂");

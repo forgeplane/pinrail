@@ -24,6 +24,7 @@ import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
+import { iconInput } from "../lib/projectAvatar";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -560,9 +561,9 @@ function ProjectDialog({
             className="feedback-input"
             value={emoji}
             maxLength={8}
-            placeholder="An emoji, or a letter or two"
+            placeholder="An emoji, or up to three letters"
             onChange={(event) => {
-              setEmoji(event.target.value);
+              setEmoji(iconInput(event.target.value));
               setError(null);
             }}
           />

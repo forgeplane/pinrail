@@ -391,8 +391,14 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
     let (_, changed) = call(&app, "PATCH", &path, Some(json!({"emoji": null}))).await;
     assert_eq!(changed["emoji"], Value::Null);
     assert_eq!(changed["color"], "green");
-    let (_, changed) = call(&app, "PATCH", &path, Some(json!({"emoji": "PR"}))).await;
-    assert_eq!(changed["emoji"], "PR");
+    // up to three letters or digits
+    for letters in ["PR", "API", "v2"] {
+        let (_, changed) = call(&app, "PATCH", &path, Some(json!({ "emoji": letters }))).await;
+        assert_eq!(changed["emoji"], letters);
+    }
+    // one emoji, even made of several characters
+    let (status, _) = call(&app, "PATCH", &path, Some(json!({"emoji": "👩🏽‍💻"}))).await;
+    assert_eq!(status, StatusCode::OK);
     // one made without them has neither, and the app picks for it
     let plain = create(&app, json!({"name": "Plain"})).await;
     assert_eq!(
@@ -402,7 +408,8 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
 
     for (body, path_part) in [
         (json!({"color": "chartreuse"}), "/color"),
-        (json!({"emoji": "too many letters"}), "/emoji"),
+        (json!({"emoji": "four"}), "/emoji"),
+        (json!({"emoji": "🚂x"}), "/emoji"),
     ] {
         let (status, refused) = call(&app, "PATCH", &path, Some(body.clone())).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");

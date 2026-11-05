@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { PROJECT_COLORS, colorOf, markOf } from "./projectAvatar";
+import { PROJECT_COLORS, colorOf, iconInput, letterSize, markOf } from "./projectAvatar";
 import coreProjects from "../../../../core/src/projects.rs?raw";
 
 describe("a project's avatar", () => {
@@ -24,6 +24,22 @@ describe("a project's avatar", () => {
     // a letter made of two characters stays whole
     expect(markOf({ name: "🦀 Rust" })).toBe("🦀");
     expect(markOf({ name: "" })).toBe("?");
+    // letters given as the icon show in capitals
+    expect(markOf({ name: "Pinrail", emoji: "api" })).toBe("API");
+  });
+
+  test("shrinks its letters as there are more of them, so that three fit", () => {
+    expect(letterSize("P")).toBeGreaterThan(letterSize("PR"));
+    expect(letterSize("PR")).toBeGreaterThan(letterSize("API"));
+    // three letters, each about as wide as it is tall, fit in the square
+    expect(letterSize("API") * 3).toBeLessThan(1.05);
+  });
+
+  test("the icon field keeps up to three letters, and an emoji whole", () => {
+    expect(iconInput("pinrail")).toBe("pin");
+    expect(iconInput("ab")).toBe("ab");
+    expect(iconInput("👩🏽‍💻")).toBe("👩🏽‍💻");
+    expect(iconInput("")).toBe("");
   });
 });
 

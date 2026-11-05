@@ -34,6 +34,25 @@ export function colorOf(project: Pick<Avatar, "id" | "color">): ProjectColor {
   return PROJECT_COLORS[hash % PROJECT_COLORS.length];
 }
 
-/** What the avatar shows: the emoji, or the name's first letter. */
-export const markOf = (project: Pick<Avatar, "name" | "emoji">) =>
-  project.emoji || [...project.name.trim()][0]?.toUpperCase() || "?";
+/** The most letters or digits an avatar shows, as the core allows. */
+export const MAX_LETTERS = 3;
+
+/** Whether a mark is letters or digits, which sit on a baseline, rather than an emoji. */
+export const isLetters = (mark: string) => /^[\p{L}\p{N}]+$/u.test(mark);
+
+/** What the avatar shows: the emoji, the letters given in capitals, or the
+ *  name's first letter. */
+export function markOf(project: Pick<Avatar, "name" | "emoji">): string {
+  const icon = project.emoji?.trim();
+  if (icon) return isLetters(icon) ? icon.toUpperCase() : icon;
+  return [...project.name.trim()][0]?.toUpperCase() || "?";
+}
+
+/** The letters' size in the avatar, as a share of its side: smaller for
+ *  more of them, so that up to three fit in the square. */
+export const letterSize = (mark: string) => [0.62, 0.62, 0.46, 0.34][Math.min([...mark].length, 3)];
+
+/** What the icon field keeps of what is typed: letters or digits stop at
+ *  three; an emoji is left whole. */
+export const iconInput = (typed: string) =>
+  isLetters(typed.trim()) ? [...typed.trim()].slice(0, MAX_LETTERS).join("") : typed;
