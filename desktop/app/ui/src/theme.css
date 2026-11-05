@@ -5927,23 +5927,6 @@ body.is-resizing iframe {
   font-size: 12.5px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
-.link-button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-}
-.link-button:hover {
-  text-decoration: underline;
-}
-.project-add-row {
-  padding: 5px 4px 5px 26px;
-}
-.project-add-row input {
-  width: min(100%, 420px);
-}
 .project-dialog {
   width: min(460px, calc(100vw - 40px));
 }

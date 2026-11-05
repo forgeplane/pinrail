@@ -86,7 +86,7 @@ test("a project started from a repository's menu begins with it", async ({ page,
   await expect(card(page, "Seeded").getByTestId("project-repo")).toHaveText([/proj\/seed/]);
 });
 
-test("a repository moves between projects by dragging and from its menu", async ({ page, request }) => {
+test("a repository moves between projects by dragging and from its menu, and only so", async ({ page, request }) => {
   await createReview(request, { title: "Projects: web", origin: { repo: "proj/web" } });
   for (const name of ["One", "Two"]) {
     const response = await request.post(`${core}/api/v1/projects`, { data: { name } });
@@ -114,11 +114,8 @@ test("a repository moves between projects by dragging and from its menu", async 
   await page.getByRole("menuitem", { name: "Remove from Two" }).click();
   await expect(loose(page)).toContainText("proj/web");
 
-  // a repository nothing has sent from yet is added by its name
-  await card(page, "One").getByRole("button", { name: "Add a repository to One" }).click();
-  await card(page, "One").getByLabel("Repository", { exact: true }).fill("proj/later");
-  await card(page, "One").getByLabel("Repository", { exact: true }).press("Enter");
-  await expect(card(page, "One")).toContainText("proj/later");
+  // repositories come by dragging: a project's heading offers no other way
+  await expect(card(page, "One").getByRole("button", { name: /Add a repository/ })).toHaveCount(0);
 });
 
 test("the sidebar leads to the Projects page", async ({ page }) => {

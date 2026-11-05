@@ -56,7 +56,6 @@ export function Projects() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [folded, setFolded] = useState<string[]>([]);
-  const [adding, setAdding] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   // what waits and when it last moved change with every event
@@ -240,17 +239,6 @@ export function Projects() {
             <button
               type="button"
               className="bar-button"
-              aria-label={`Add a repository to ${actions.name}`}
-              onClick={() => {
-                setFolded((now) => now.filter((k) => k !== key));
-                setAdding(actions.id);
-              }}
-            >
-              <Plus size={14} />
-            </button>
-            <button
-              type="button"
-              className="bar-button"
               aria-label={`${actions.name} actions`}
               aria-haspopup="menu"
               onClick={(event) => projectMenu(actions, event.currentTarget)}
@@ -325,19 +313,7 @@ export function Projects() {
             {folded.includes(project.id) ? null : (
               <ul className="project-repos" aria-label={`${project.name} repositories`}>
                 {project.repos.map(repoRow)}
-                {adding === project.id ? (
-                  <AddRepo
-                    onAdd={(repo) => move(repo, project.id)}
-                    onDone={() => setAdding((a) => (a === project.id ? null : a))}
-                  />
-                ) : project.repos.length === 0 ? (
-                  <li className="project-empty">
-                    Drop a repository here, or{" "}
-                    <button type="button" className="link-button" onClick={() => setAdding(project.id)}>
-                      add one by name
-                    </button>
-                  </li>
-                ) : null}
+                {project.repos.length === 0 ? <li className="project-empty">Drop a repository here</li> : null}
               </ul>
             )}
           </section>
@@ -403,38 +379,6 @@ export function Projects() {
         />
       ) : null}
     </div>
-  );
-}
-
-/** A row that takes a repository's name, for one nothing has sent from yet. */
-function AddRepo({ onAdd, onDone }: { onAdd: (repo: string) => void; onDone: () => void }) {
-  const [repo, setRepo] = useState("");
-  return (
-    <li className="project-add-row">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (repo.trim()) onAdd(repo.trim());
-          onDone();
-        }}
-      >
-        <input
-          autoFocus
-          className="feedback-input"
-          aria-label="Repository"
-          placeholder="A repository, such as acme/web"
-          value={repo}
-          onChange={(event) => setRepo(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              onDone();
-            }
-          }}
-          onBlur={() => !repo.trim() && onDone()}
-        />
-      </form>
-    </li>
   );
 }
 
