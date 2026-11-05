@@ -1,5 +1,5 @@
-// A menu that opens under a button: a list of actions, with headings and
-// separators. It is drawn at the end of the body, so a scrolling list
+// A menu that opens under a button, or above it near the window's bottom: a
+// list of actions, with headings and separators. It is drawn at the end of the body, so a scrolling list
 // cannot clip it. A click outside, Escape or a pick closes it.
 
 import { Check, type LucideIcon } from "lucide-react";
@@ -41,8 +41,12 @@ export function PopoverMenu({
   useLayoutEffect(() => {
     const box = viewportRect(anchor);
     const width = menu.current?.offsetWidth ?? 210;
+    const height = menu.current?.offsetHeight ?? 0;
     const left = align === "right" ? box.right - width : box.left;
-    setPos({ top: box.bottom + 4, left: Math.max(4, Math.min(left, window.innerWidth - width - 4)) });
+    // under the button, or above it when the window ends first
+    const below = box.bottom + 4;
+    const top = below + height > window.innerHeight - 4 ? Math.max(4, box.top - height - 4) : below;
+    setPos({ top, left: Math.max(4, Math.min(left, window.innerWidth - width - 4)) });
   }, [anchor, align]);
 
   useEffect(() => {

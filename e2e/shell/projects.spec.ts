@@ -499,3 +499,18 @@ test("search fields neither complete, correct, capitalise nor spell-check what i
   await page.keyboard.press("ControlOrMeta+k");
   await check(page.getByRole("dialog", { name: "Search" }).getByRole("textbox"));
 });
+
+test("a menu near the window's bottom opens above its button", async ({ page, request }) => {
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Low" } });
+  await page.setViewportSize({ width: 1200, height: 260 });
+  await page.goto("/#/projects");
+  const button = card(page, "Low").getByRole("button", { name: "Low actions" });
+  await button.evaluate((b) => b.scrollIntoView({ block: "end" }));
+  await button.click();
+  const menu = page.getByRole("menu", { name: "Low" });
+  await expect(menu).toBeInViewport({ ratio: 1 });
+  const b = (await button.boundingBox())!;
+  const m = (await menu.boundingBox())!;
+  // it rises from the button rather than falling past the window's bottom
+  expect(m.y).toBeLessThan(b.y);
+});
