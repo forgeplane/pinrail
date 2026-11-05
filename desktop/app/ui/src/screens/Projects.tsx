@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
@@ -49,6 +49,7 @@ export function Projects() {
   const live = useLive();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings: prefs } = useSettings();
   const sessionsOn = prefs.labs.sessions;
   const [listing, setListing] = useState<ProjectsListing | null>(null);
@@ -69,6 +70,13 @@ export function Projects() {
       cancelled = true;
     };
   }, [live.lastNotice, live.projectsVersion]);
+  // the command palette's New project opens the dialog here, once
+  useEffect(() => {
+    if ((location.state as { newProject?: boolean } | null)?.newProject) {
+      setDialog({ kind: "new", repos: [] });
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
   // a menu opened on a project or a repository that changed since is stale
   useEffect(() => setMenu(null), [live.projectsVersion]);
 

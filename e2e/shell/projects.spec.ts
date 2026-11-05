@@ -337,3 +337,26 @@ test("at the large interface size, a project's menu opens under its button", asy
     await settingSaved(request, (s) => s.appearance.text_size, "default");
   }
 });
+
+test("the command palette goes to the projects, makes one, and shows one's reviews", async ({ page, request }) => {
+  const created = await request.post(`${core}/api/v1/projects`, { data: { name: "Palette" } });
+  const { id } = (await created.json()) as { id: string };
+  await page.goto("/#/");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  const run = async (text: string, option: RegExp) => {
+    await page.keyboard.press("ControlOrMeta+k");
+    await palette.getByRole("textbox").fill(text);
+    await expect(palette.getByRole("option", { name: option })).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Enter");
+  };
+
+  await run("go to projects", /Go to projects/);
+  await expect(page).toHaveURL(/#\/projects$/);
+
+  await run("new project", /New project/);
+  await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await run("show palette", /Show Palette in the inbox/);
+  await expect(page).toHaveURL(new RegExp(`project=${id}`));
+});

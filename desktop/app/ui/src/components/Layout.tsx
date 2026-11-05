@@ -186,6 +186,20 @@ export function Layout({ children }: { children: ReactNode }) {
       },
     },
     { id: "history", label: "Go to history", keys: NAV[2].keys, icon: History, run: () => navigate(NAV[2].to) },
+    { id: "projects", label: "Go to projects", icon: LayoutGrid, run: () => navigate("/projects") },
+    {
+      id: "new-project",
+      label: "New project…",
+      icon: LayoutGrid,
+      run: () => navigate("/projects", { state: { newProject: true } }),
+    },
+    // each project, to see what waits in it
+    ...live.namedProjects.map<PaletteAction>((project) => ({
+      id: `project-${project.id}`,
+      label: `Show ${project.name} in the inbox`,
+      icon: LayoutGrid,
+      run: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
+    })),
     { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
     {
       id: "theme",
