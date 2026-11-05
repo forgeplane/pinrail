@@ -187,7 +187,13 @@ impl Reviews {
                 Some(last) => self.db.is_starred(last)?,
                 None => false,
             },
+            project: None,
         };
+        // the notice and the answer name the project as a read would
+        let mut review = review;
+        if let Some(repo) = review.origin.get("repo").and_then(Value::as_str) {
+            review.project = self.db.project_of_repo(repo)?;
+        }
         let event_id = match self.db.insert_review_once(&review, actor) {
             Ok(Ok(event_id)) => event_id,
             Ok(Err(NotStored::Twin(existing))) => return Ok((self.get(&existing)?, false)),

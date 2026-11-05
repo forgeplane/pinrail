@@ -244,6 +244,7 @@ export function subscribe(handlers: {
       "session_unarchived",
       "starred",
       "unstarred",
+      "projects_changed",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {

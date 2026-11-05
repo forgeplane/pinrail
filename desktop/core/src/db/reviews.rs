@@ -19,6 +19,8 @@ pub struct Filters {
     pub agent: Option<String>,
     pub session: Option<String>,
     pub repo: Option<String>,
+    /// Only the reviews from the repositories of this project, by its id.
+    pub project: Option<String>,
     pub workflow: Option<String>,
     pub reference: Option<String>,
     pub run_id: Option<String>,
@@ -453,6 +455,13 @@ impl Db {
                 sql.push_str(&format!(" AND {column} = ?{n}"));
             }
         }
+        if let Some(project) = &filters.project {
+            let n = push(project);
+            sql.push_str(&format!(
+                " AND {}",
+                super::projects::in_project("json_extract(r.origin, '$.repo')", n)
+            ));
+        }
         if let Some(kind) = filters.kind {
             let n = push(kind.as_str());
             sql.push_str(&format!(" AND r.kind = ?{n}"));
@@ -665,11 +674,17 @@ fn select(with_payload: bool) -> String {
     o.via, o.session,
     r.kind,
     r.starred_at,
-    r.id IN ({STARRED_ROUNDS})
+    r.id IN ({STARRED_ROUNDS}),
+    {project_id}, {project_name}
   FROM reviews r
-  LEFT JOIN outcomes o ON o.review_id = r.id{join}"
+  LEFT JOIN outcomes o ON o.review_id = r.id{join}",
+        project_id = super::projects::project_of("id", REPO),
+        project_name = super::projects::project_of("name", REPO),
     )
 }
+
+/// A review's repository, in SQL.
+const REPO: &str = "json_extract(r.origin, '$.repo')";
 
 /// What `Review::status` says, as SQL over the same columns, so a listing
 /// and a count read only the rows they answer with. `?now` is the caller's
@@ -763,6 +778,10 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .get::<_, Option<String>>(25)?
             .and_then(|s| parse_datetime(&s)),
         starred: row.get(26)?,
+        project: match (row.get(27)?, row.get(28)?) {
+            (Some(id), Some(name)) => Some(super::ProjectRef { id, name }),
+            _ => None,
+        },
         id: row.get(0)?,
         kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,

@@ -19,6 +19,7 @@ pub mod events;
 pub mod id;
 pub use pinrail_format::markdown;
 pub mod plugins;
+pub mod projects;
 pub mod reviews;
 pub use pinrail_format::schema;
 pub use pinrail_format::skill;

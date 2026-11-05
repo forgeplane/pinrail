@@ -15,6 +15,7 @@ use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
 use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Registry};
+use crate::projects::Projects;
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
 use crate::themes::Themes;
@@ -31,6 +32,7 @@ pub struct Pinrail {
     themes: Themes,
     plugins: PluginService,
     reviews: Reviews,
+    projects: Projects,
     attachments: Attachments,
     bundles: Bundles,
     /// The data directory's lock, held until the application is dropped
@@ -52,6 +54,11 @@ impl Pinrail {
     /// Review operations share the application's storage, registry and event bus.
     pub fn reviews(&self) -> &Reviews {
         &self.reviews
+    }
+
+    /// The person's projects: named sets of repositories.
+    pub fn projects(&self) -> &Projects {
+        &self.projects
     }
 
     /// The plugin bundles the app holds, by hash.
@@ -161,6 +168,7 @@ impl Pinrail {
             db.clone(),
             config.max_attachment_bytes,
         )?;
+        let projects = Projects::new(db.clone(), events.bus());
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),
@@ -175,6 +183,7 @@ impl Pinrail {
             themes,
             plugins,
             reviews,
+            projects,
             attachments,
             bundles,
             _lock: lock,

@@ -188,6 +188,8 @@ pub struct Review {
     pub starred_at: Option<DateTime<Utc>>,
     /// Whether any round of the review is starred.
     pub starred: bool,
+    /// The project its repository is in, looked up when it is read.
+    pub project: Option<crate::db::ProjectRef>,
 }
 
 impl Review {
@@ -248,6 +250,7 @@ impl Review {
             "attachments_total": { "count": self.attachments_total.0, "bytes": self.attachments_total.1 },
             "starred_at": self.starred_at.map(iso),
             "starred": self.starred,
+            "project": self.project.as_ref().map(crate::db::ProjectRef::to_json),
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
@@ -314,6 +317,7 @@ mod tests {
             attachments_total: (0, 0),
             starred_at: None,
             starred: false,
+            project: None,
             id: "r_1".into(),
             kind: Kind::Review,
             plugin: "list".into(),

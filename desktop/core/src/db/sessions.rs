@@ -35,6 +35,8 @@ pub struct SessionRow {
     pub archived_at: Option<DateTime<Utc>>,
     /// when the agent last reported anything, a note included
     pub reported_at: Option<DateTime<Utc>>,
+    /// the project its repository is in
+    pub project: Option<super::ProjectRef>,
 }
 
 /// What a status says: a step of the agent's work, the start of a task,
@@ -207,6 +209,8 @@ impl StageRow {
 pub struct SessionFilters {
     pub agent: Option<String>,
     pub repo: Option<String>,
+    /// only the sessions in the repositories of this project, by its id
+    pub project: Option<String>,
     /// words found in the agent, the session id or a title in the session
     pub text: Option<String>,
     /// only sessions with something waiting for the person
@@ -336,6 +340,10 @@ impl Db {
                 wheres.push(format!("s.repo = ?{}", args.len()));
             }
             None => {}
+        }
+        if let Some(project) = &filters.project {
+            args.push(project.clone());
+            wheres.push(super::projects::in_project("s.repo", args.len()));
         }
         if !filters.include_archived {
             wheres.push("s.archived_at IS NULL".to_string());
@@ -637,7 +645,8 @@ fn select() -> String {
     {title} AS title,
     s.archived_at,
     (SELECT MAX(t.created_at) FROM session_statuses t
-     WHERE t.agent = s.agent AND t.session = s.id) AS reported_at
+     WHERE t.agent = s.agent AND t.session = s.id) AS reported_at,
+    {project_id}, {project_name}
   FROM sessions s
   LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
   LEFT JOIN outcomes o ON o.review_id = r.id",
@@ -646,6 +655,8 @@ fn select() -> String {
         kind = status("kind"),
         at = status("created_at"),
         title = title(),
+        project_id = super::projects::project_of("id", "s.repo"),
+        project_name = super::projects::project_of("name", "s.repo"),
     )
 }
 
@@ -696,5 +707,9 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         reported_at: row
             .get::<_, Option<String>>(17)?
             .and_then(|s| parse_datetime(&s)),
+        project: match (row.get(18)?, row.get(19)?) {
+            (Some(id), Some(name)) => Some(super::ProjectRef { id, name }),
+            _ => None,
+        },
     })
 }

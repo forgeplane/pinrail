@@ -25,6 +25,11 @@ pub fn next() -> String {
     next_at(ms)
 }
 
+/// The next project id: `p_` and a ULID from the same sequence as reviews'.
+pub fn next_project() -> String {
+    format!("p_{}", &next()[PREFIX.len()..])
+}
+
 /// The next id for a clock that reads `ms`.
 fn next_at(ms: u64) -> String {
     let ms = ms & ((1 << 48) - 1);

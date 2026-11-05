@@ -35,6 +35,9 @@ pub const SESSION_UNARCHIVED: &str = "session_unarchived";
 /// The person starred a round of a review, or removed its star.
 pub const STARRED: &str = "starred";
 pub const UNSTARRED: &str = "unstarred";
+/// The person created, renamed or deleted a project, or moved a
+/// repository into or out of one.
+pub const PROJECTS_CHANGED: &str = "projects_changed";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 

@@ -445,6 +445,7 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         agent: text("agent"),
         session: text("session"),
         repo: text("repo"),
+        project: text("project"),
         workflow: text("workflow"),
         reference: text("ref"),
         run_id: text("run_id"),
@@ -557,6 +558,7 @@ fn session_json(session: &SessionRow) -> Value {
         "title": session.title,
         "archived_at": session.archived_at.map(crate::reviews::iso),
         "reported_at": session.reported_at.map(crate::reviews::iso),
+        "project": session.project.as_ref().map(crate::db::ProjectRef::to_json),
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
@@ -577,6 +579,7 @@ async fn sessions(
     let filters = SessionFilters {
         agent: text("agent"),
         repo: text("repo"),
+        project: text("project"),
         text: text("q"),
         waiting: params.get("waiting").is_some_and(|v| v == "true"),
         include_archived: params.get("include_archived").is_some_and(|v| v == "true"),
