@@ -1,4 +1,4 @@
-import { Ban, CheckCheck, FolderGit2, LayoutGrid, MessageCircleQuestion, SearchX } from "lucide-react";
+import { Ban, CheckCheck, ChevronDown, FolderGit2, LayoutGrid, MessageCircleQuestion, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
@@ -452,6 +452,8 @@ function Waiting() {
             {groups.map(([key, items]) => (
               <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                 <summary data-testid="inbox-group-heading">
+                  {/* points down while the group is open, and right once it is folded */}
+                  <ChevronDown size={13} className="inbox-group-fold" aria-hidden />
                   {key.startsWith("project:") ? (
                     <LayoutGrid size={13} className="inbox-group-icon" aria-label="Project" />
                   ) : (

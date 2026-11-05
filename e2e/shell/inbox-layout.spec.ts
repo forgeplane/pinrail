@@ -178,3 +178,34 @@ for (const from of ["the review", "its row in the inbox"])
     await expect(rows.filter({ hasText: "Discard two" })).toHaveCount(0);
     await expect(rows.filter({ hasText: "Discard one" })).toHaveClass(/is-open/);
   });
+
+test("a group's heading has an arrow that folds the group and turns with it", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Fold: api", origin: { repo: "fold/api" } });
+  await createReview(page.request, { title: "Fold: web", origin: { repo: "fold/web" } });
+  await page.goto("/#/");
+  const group = page.getByTestId("inbox-group").filter({ hasText: "fold/api" });
+  const arrow = group.locator(".inbox-group-fold");
+  await expect(arrow).toBeVisible();
+  const turn = () => arrow.evaluate((el) => getComputedStyle(el).transform);
+  expect(await turn()).toBe("none");
+
+  await group.getByTestId("inbox-group-heading").click();
+  await expect(group.getByTestId("review-row")).toBeHidden();
+  // a quarter turn, to point right
+  await expect.poll(turn).toMatch(/^matrix\((-?0(\.0+)?(e-\d+)?), -1, 1, (-?0(\.0+)?(e-\d+)?), 0, 0\)$/);
+
+  await group.getByTestId("inbox-group-heading").click();
+  await expect(group.getByTestId("review-row")).toBeVisible();
+  await expect.poll(turn).toBe("none");
+
+  // the arrow lines up with the icon beside it
+  const [a, b] = await group
+    .getByTestId("inbox-group-heading")
+    .evaluate((h) =>
+      [...h.querySelectorAll("svg")]
+        .slice(0, 2)
+        .map((s) => s.getBoundingClientRect().top + s.getBoundingClientRect().height / 2),
+    );
+  expect(Math.abs(a - b)).toBeLessThan(0.5);
+});
