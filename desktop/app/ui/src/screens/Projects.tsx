@@ -11,6 +11,7 @@ import {
   ChevronsUpDown,
   FolderGit2,
   GripVertical,
+  History,
   Inbox,
   LayoutGrid,
   MessagesSquare,
@@ -109,14 +110,34 @@ export function Projects() {
 
   const projectOf = (repo: string) => projects.find((p) => p.repos.some((r) => r.repo === repo)) ?? null;
 
-  const repoMenu = (repo: string, anchor: HTMLElement) => {
+  const repoMenu = (row: ProjectRepo, anchor: HTMLElement) => {
+    const repo = row.repo;
     const current = projectOf(repo);
     const targets = projects.filter((p) => p.id !== current?.id);
+    const scoped = (path: string) => navigate(`${path}repo=${encodeURIComponent(repo)}`);
     setMenu({
       anchor,
-      label: `Move ${repo}`,
+      label: repo,
       align: "right",
       entries: [
+        {
+          label: "Open in the inbox",
+          icon: Inbox,
+          disabled: row.waiting ? undefined : "Nothing waits in this repository",
+          onPick: () => scoped("/?"),
+        },
+        ...(sessionsOn
+          ? [
+              {
+                label: "Open its sessions",
+                icon: MessagesSquare,
+                disabled: row.sessions ? undefined : "This repository has no sessions",
+                onPick: () => scoped("/sessions?"),
+              } as MenuEntry,
+            ]
+          : []),
+        { label: "Open in the history", icon: History, onPick: () => scoped("/?tab=history&") },
+        { kind: "separator" },
         { kind: "heading", label: `Move ${repo} to` },
         ...targets.map<MenuEntry>((p) => ({ label: p.name, icon: LayoutGrid, onPick: () => move(repo, p.id) })),
         ...(targets.length ? [{ kind: "separator" } as MenuEntry] : []),
@@ -208,9 +229,9 @@ export function Projects() {
       <button
         type="button"
         className="bar-button project-row-menu"
-        aria-label={`Move ${repo.repo}`}
+        aria-label={`${repo.repo} actions`}
         aria-haspopup="menu"
-        onClick={(event) => repoMenu(repo.repo, event.currentTarget)}
+        onClick={(event) => repoMenu(repo, event.currentTarget)}
       >
         <MoreHorizontal size={14} />
       </button>

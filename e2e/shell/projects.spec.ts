@@ -79,7 +79,7 @@ test("a project started from a repository's menu begins with it", async ({ page,
   await page.goto("/#/projects");
   const seed = loose(page).getByTestId("project-repo").filter({ hasText: "proj/seed" });
   await seed.hover();
-  await seed.getByRole("button", { name: "Move proj/seed" }).click();
+  await seed.getByRole("button", { name: "proj/seed actions" }).click();
   await page.getByRole("menuitem", { name: "New project…" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await expect(dialog).toContainText("It starts with proj/seed");
@@ -105,14 +105,14 @@ test("a repository moves between projects by dragging and from its menu, and onl
   // its menu moves it to another, and takes it out of every project
   const inOne = card(page, "One").getByTestId("project-repo").filter({ hasText: "proj/web" });
   await inOne.hover();
-  await inOne.getByRole("button", { name: "Move proj/web" }).click();
+  await inOne.getByRole("button", { name: "proj/web actions" }).click();
   await page.getByRole("menuitem", { name: "Two" }).click();
   await expect(card(page, "Two")).toContainText("proj/web");
   await expect(card(page, "One")).not.toContainText("proj/web");
 
   const inTwo = card(page, "Two").getByTestId("project-repo").filter({ hasText: "proj/web" });
   await inTwo.hover();
-  await inTwo.getByRole("button", { name: "Move proj/web" }).click();
+  await inTwo.getByRole("button", { name: "proj/web actions" }).click();
   await page.getByRole("menuitem", { name: "Remove from Two" }).click();
   await expect(loose(page)).toContainText("proj/web");
 
@@ -498,6 +498,42 @@ test("search fields neither complete, correct, capitalise nor spell-check what i
   await check(page.getByLabel("Search sessions"));
   await page.keyboard.press("ControlOrMeta+k");
   await check(page.getByRole("dialog", { name: "Search" }).getByRole("textbox"));
+});
+
+test("a repository's menu opens it in the inbox, its sessions and the history", async ({ page, request }) => {
+  const run = Date.now();
+  const waiting = `open-menu/waiting-${run}`;
+  const quiet = `open-menu/quiet-${run}`;
+  await createReview(request, { title: "Open: waiting", origin: { repo: waiting } });
+  await request.post(`${core}/api/v1/sessions/claude-code/open-${run}/status`, {
+    data: { text: "Quiet work", kind: "start", origin: { repo: quiet } },
+  });
+  await page.goto("/#/projects");
+  const menuOf = async (repo: string) => {
+    const row = loose(page).getByTestId("project-repo").filter({ hasText: repo });
+    await row.hover();
+    await row.getByRole("button", { name: `${repo} actions` }).click();
+    return page.getByRole("menu", { name: repo });
+  };
+
+  // a repository with something waiting opens in the inbox, filtered to it
+  let menu = await menuOf(waiting);
+  await menu.getByRole("menuitem", { name: "Open in the inbox" }).click();
+  await expect(page).toHaveURL(new RegExp(`repo=${encodeURIComponent(waiting)}`));
+  await expect(page.getByTestId("review-row")).toHaveText([/Open: waiting/]);
+
+  // one with nothing waiting cannot, but its sessions and its history can
+  await page.goto("/#/projects");
+  menu = await menuOf(quiet);
+  await expect(menu.getByRole("menuitem", { name: "Open in the inbox" })).toBeDisabled();
+  await menu.getByRole("menuitem", { name: "Open its sessions" }).click();
+  await expect(page).toHaveURL(new RegExp(`#/sessions\\?repo=${encodeURIComponent(quiet)}`));
+  await expect(page.getByTestId("session-row")).toHaveCount(1);
+
+  await page.goto("/#/projects");
+  menu = await menuOf(quiet);
+  await menu.getByRole("menuitem", { name: "Open in the history" }).click();
+  await expect(page).toHaveURL(new RegExp(`tab=history&repo=${encodeURIComponent(quiet)}`));
 });
 
 test("a menu near the window's bottom opens above its button", async ({ page, request }) => {

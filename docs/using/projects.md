@@ -18,7 +18,7 @@ Open **Projects** in the sidebar. The page lists the projects by name. Each proj
 - **Change a project** with **Edit…** in the **…** menu of its heading. **Delete project…** removes the project and nothing else: its repositories are in no project again, and their reviews and sessions stay as they are.
 - **Fold a project** with the arrow before its name, and **filter** the page by a project's or a repository's name.
 
-From a project's **…** menu, **Open in the inbox** shows the reviews of all its repositories, and **Open its sessions** shows their sessions.
+From a project's **…** menu, **Open in the inbox** shows the reviews of all its repositories, and **Open its sessions** shows their sessions. A repository's **…** menu opens that repository in the inbox, when something waits in it, in the Sessions page or in the history.
 
 ## Grouping by project
 
