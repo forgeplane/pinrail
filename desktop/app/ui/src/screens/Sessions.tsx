@@ -12,6 +12,9 @@ import { ArchiveButton, useToggleArchive } from "../components/ArchiveButton";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { Select } from "../components/Select";
+import { GroupHeading } from "../components/GroupHeading";
+import { LayoutSwitch } from "../components/LayoutSwitch";
+import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath, statusLine } from "../components/Thread";
@@ -43,7 +46,7 @@ export function Sessions() {
   const navigate = useNavigate();
   const [params, updateParams, currentParams] = useUrlParams();
   const toggleArchive = useToggleArchive();
-  const { settings: prefs } = useSettings();
+  const { settings: prefs, update } = useSettings();
   // as in the inbox, ?open= names the session shown beside the list, as
   // agent/id, when reviews open in the side panel
   const panelMode = prefs.inbox.open_in === "panel";
@@ -85,7 +88,18 @@ export function Sessions() {
     };
   }, [debounced, repo, project, withArchived, page, size, live.lastNotice]);
 
-  const sessions = useMemo(() => data?.sessions ?? [], [data]);
+  // grouped by project or by repository within the page shown, or one
+  // list; J, K and Enter walk the rows in the order they are drawn
+  const layout = prefs.sessions.layout;
+  const groups = useMemo(() => {
+    const fetched = data?.sessions ?? [];
+    return layout === "list" ? null : grouped(fetched, (s) => groupKey(layout, s.repo, s.project));
+  }, [data, layout]);
+  const sessions = useMemo(
+    () => (groups ? groups.flatMap(([, items]) => items) : (data?.sessions ?? [])),
+    [groups, data],
+  );
+  const mixed = useMemo(() => (groups ? mixedGroups(groups, (s) => s.repo) : new Set<string>()), [groups]);
   const total = data?.total ?? 0;
   const setParam = (key: string, value: string | null) =>
     updateParams(
@@ -196,6 +210,59 @@ export function Sessions() {
     return () => window.removeEventListener("keydown", onKey);
   }, [sessions, focused, open, openKey, toggleArchive]);
 
+  /** A session's row; `i` is its place in the order J and K walk, and
+   *  `group` the group it is drawn in, if any. */
+  const row = (s: Session, i: number, group?: string) => {
+    const waiting = s.waiting.questions + s.waiting.reviews;
+    // the newest status, unless it is the start that titles the session
+    const status = s.status && !(s.status.kind === "start" && s.title) ? s.status : null;
+    return (
+      <Link
+        key={keyOf(s)}
+        to={hrefFor(s)}
+        onClick={(event) => openFromLink(event, s)}
+        className={`review-row session-row ${waiting ? "is-waiting" : ""} ${s.archived_at ? "is-archived" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
+        aria-current={keyOf(s) === openKey ? "true" : undefined}
+        onMouseEnter={() => setFocused(i)}
+        data-testid="session-row"
+      >
+        <AgentIcon requestedBy={s.agent} size={15} />
+        <span className="review-row-main">
+          <span className="review-row-title">
+            {s.title ?? s.agent}
+            {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
+            {s.archived_at ? <span className="archived-chip">Archived</span> : null}
+          </span>
+          <span className="review-row-meta">
+            {s.title ? <span>{s.agent}</span> : null}
+            {s.repo && (!group || mixed.has(group)) ? <span className="review-row-project">{s.repo}</span> : null}
+            <span className="session-row-id mono" title={s.id}>
+              {s.id}
+            </span>
+            {status ? (
+              <span
+                className={`session-status ${status.kind === "done" ? "is-done" : ""}`}
+                data-testid="session-status"
+              >
+                {statusLine(status)}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <span className="session-row-waiting">
+          {waiting ? <span className="asks-chip">{contents(s.waiting)} waiting</span> : null}
+        </span>
+        <span className="session-row-total">{contents(s.total)}</span>
+        <span className="review-row-end">
+          <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
+            {age(s.last_at)}
+          </time>
+          <ArchiveButton session={s} inRow />
+        </span>
+      </Link>
+    );
+  };
+
   return (
     <div className={`sessions ${opened ? "has-panel" : ""}`} ref={split}>
       <div className="sessions-side split-side">
@@ -251,6 +318,14 @@ export function Sessions() {
                 <Archive size={14} />
               </button>
             </Tooltip>
+            <LayoutSwitch
+              value={layout}
+              onChange={(next) => {
+                void update({ sessions: { layout: next } });
+                setFocused(0);
+              }}
+              label="Sessions layout"
+            />
           </div>
         </header>
         {!data ? null : total === 0 ? (
@@ -264,58 +339,22 @@ export function Sessions() {
           </EmptyState>
         ) : (
           <>
-            <div className="inbox-list" ref={list}>
-              {sessions.map((s, i) => {
-                const waiting = s.waiting.questions + s.waiting.reviews;
-                // the newest status, unless it is the start that titles the session
-                const status = s.status && !(s.status.kind === "start" && s.title) ? s.status : null;
-                return (
-                  <Link
-                    key={keyOf(s)}
-                    to={hrefFor(s)}
-                    onClick={(event) => openFromLink(event, s)}
-                    className={`review-row session-row ${waiting ? "is-waiting" : ""} ${s.archived_at ? "is-archived" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
-                    aria-current={keyOf(s) === openKey ? "true" : undefined}
-                    onMouseEnter={() => setFocused(i)}
-                    data-testid="session-row"
-                  >
-                    <AgentIcon requestedBy={s.agent} size={15} />
-                    <span className="review-row-main">
-                      <span className="review-row-title">
-                        {s.title ?? s.agent}
-                        {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
-                        {s.archived_at ? <span className="archived-chip">Archived</span> : null}
-                      </span>
-                      <span className="review-row-meta">
-                        {s.title ? <span>{s.agent}</span> : null}
-                        {s.repo ? <span className="review-row-project">{s.repo}</span> : null}
-                        <span className="session-row-id mono" title={s.id}>
-                          {s.id}
-                        </span>
-                        {status ? (
-                          <span
-                            className={`session-status ${status.kind === "done" ? "is-done" : ""}`}
-                            data-testid="session-status"
-                          >
-                            {statusLine(status)}
-                          </span>
-                        ) : null}
-                      </span>
-                    </span>
-                    <span className="session-row-waiting">
-                      {waiting ? <span className="asks-chip">{contents(s.waiting)} waiting</span> : null}
-                    </span>
-                    <span className="session-row-total">{contents(s.total)}</span>
-                    <span className="review-row-end">
-                      <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
-                        {age(s.last_at)}
-                      </time>
-                      <ArchiveButton session={s} inRow />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
+            {groups ? (
+              <div className="inbox-groups" ref={list}>
+                {groups.map(([key, items]) => (
+                  <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
+                    <summary data-testid="inbox-group-heading">
+                      <GroupHeading groupKey={key} project={items[0].project} count={items.length} />
+                    </summary>
+                    {items.map((s) => row(s, sessions.indexOf(s), key))}
+                  </details>
+                ))}
+              </div>
+            ) : (
+              <div className="inbox-list" ref={list}>
+                {sessions.map((s, i) => row(s, i))}
+              </div>
+            )}
             <Pager
               page={page}
               size={size}

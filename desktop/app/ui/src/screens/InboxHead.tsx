@@ -2,10 +2,11 @@
 // History. The filters keep their values from tab to tab; Outcome applies to
 // the History tab only, and the layout to the waiting tabs.
 
-import { Blocks, CircleDot, FolderGit2, LayoutGrid, List, Search, Star } from "lucide-react";
+import { Blocks, CircleDot, FolderGit2, Search, Star } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
+import { LayoutSwitch } from "../components/LayoutSwitch";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Tooltip } from "../components/Tooltip";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
@@ -21,7 +22,8 @@ export function tabOf(params: URLSearchParams): InboxTab {
 }
 
 /** How the waiting tabs are laid out: grouped by project or by repository, or one list. */
-export type Layout = "project" | "repository" | "list";
+export type { Layout } from "../lib/grouping";
+import type { Layout } from "../lib/grouping";
 /** The layout of the waiting tabs, and how to change it. */
 export type LayoutChoice = { value: Layout; set: (next: Layout) => void };
 
@@ -222,44 +224,12 @@ export function InboxHead({
         {tabButton("history", "History")}
         <span className="list-sort">Newest first</span>
         {layout ? (
-          <span className="segmented inbox-layout" role="radiogroup" aria-label="Inbox layout">
-            <Tooltip label="Grouped by project" side="top">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={layout.value === "project"}
-                aria-label="Grouped by project"
-                className={layout.value === "project" ? "is-on" : ""}
-                onClick={() => layout.set("project")}
-              >
-                <LayoutGrid size={13} />
-              </button>
-            </Tooltip>
-            <Tooltip label="Grouped by repository" side="top">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={layout.value === "repository"}
-                aria-label="Grouped by repository"
-                className={layout.value === "repository" ? "is-on" : ""}
-                onClick={() => layout.set("repository")}
-              >
-                <FolderGit2 size={13} />
-              </button>
-            </Tooltip>
-            <Tooltip label="One list, newest first" side="top">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={layout.value === "list"}
-                aria-label="One list"
-                className={layout.value === "list" ? "is-on" : ""}
-                onClick={() => layout.set("list")}
-              >
-                <List size={13} />
-              </button>
-            </Tooltip>
-          </span>
+          <LayoutSwitch
+            value={layout.value}
+            onChange={layout.set}
+            label="Inbox layout"
+            listTip="One list, newest first"
+          />
         ) : null}
       </nav>
     </>

@@ -17,8 +17,10 @@ test.beforeEach(({ request }) => noProjects(request));
 test.afterAll(({ request }) => noProjects(request));
 // the inbox's layout is a setting the core keeps: each test leaves the default
 test.afterEach(async ({ request }) => {
-  await request.patch(`${core}/api/v1/settings`, { data: { inbox: { layout: "repository" } } });
-  await settingSaved(request, (s) => s.inbox.layout, "repository");
+  await request.patch(`${core}/api/v1/settings`, {
+    data: { inbox: { layout: "repository" }, sessions: { layout: "list" } },
+  });
+  await settingSaved(request, (s) => [s.inbox.layout, s.sessions.layout], ["repository", "list"]);
 });
 
 test("a project is created with a description, edited, and deleted", async ({ page }) => {
@@ -424,4 +426,39 @@ test("a project's avatar takes a PNG, cropped to its middle square, and gives it
   await edit.getByRole("button", { name: "Save" }).click();
   await expect(group.locator(".project-avatar")).toHaveText("P");
   await expect(group.locator(".project-avatar img")).toHaveCount(0);
+});
+
+test("the Sessions page groups the sessions by project or by repository", async ({ page, request }) => {
+  const run = Date.now();
+  const report = (id: string, repo: string, text: string) =>
+    request.post(`${core}/api/v1/sessions/claude-code/${id}-${run}/status`, {
+      data: { text, kind: "start", origin: { repo } },
+    });
+  await report("grp-app", `grp-app/${run}`, "App work");
+  await report("grp-infra", `grp-infra/${run}`, "Infra work");
+  await report("grp-other", `grp-other/${run}`, "Other work");
+  const name = `Grouped ${run}`;
+  await request.post(`${core}/api/v1/projects`, {
+    data: { name, repos: [`grp-app/${run}`, `grp-infra/${run}`] },
+  });
+
+  // only this run's sessions, which others waiting would push off the first page
+  await page.goto(`/#/sessions?q=${run}`);
+  await expect(page.getByTestId("session-row")).toHaveCount(3);
+  await expect(page.getByTestId("inbox-group")).toHaveCount(0);
+  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  const group = (title: string) =>
+    page
+      .getByTestId("inbox-group")
+      .filter({ has: page.getByTestId("inbox-group-name").getByText(title, { exact: true }) });
+  await expect(group(name).getByTestId("session-row")).toHaveCount(2);
+  // in a project of several repositories, each session names its own
+  await expect(group(name).locator(".review-row-project")).toHaveCount(2);
+  await expect(group(`grp-other/${run}`).getByTestId("session-row")).toHaveCount(1);
+
+  // by repository, each has its group, and the rows leave the repository out
+  await page.getByRole("radio", { name: "Grouped by repository" }).click();
+  await expect(group(`grp-app/${run}`).getByTestId("session-row")).toHaveCount(1);
+  await expect(group(`grp-app/${run}`).locator(".review-row-project")).toHaveCount(0);
+  await settingSaved(request, (s) => s.sessions.layout, "repository");
 });

@@ -25,6 +25,7 @@ export type Settings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** where the inbox opens a review: in the side panel, or on its own page */
   inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
+  sessions: { layout: "project" | "repository" | "list" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
   /** each plugin's permission to open links without asking */
@@ -55,6 +56,7 @@ type Patch = {
   notifications?: Partial<Settings["notifications"]>;
   shortcut?: Partial<Settings["shortcut"]>;
   inbox?: Partial<Settings["inbox"]>;
+  sessions?: Partial<Settings["sessions"]>;
   /** a change to one or more plugins' settings, merged key by key */
   plugins?: Record<string, Record<string, unknown>>;
   /** a plugin's link permission replaced, or null to forget it */
@@ -99,6 +101,7 @@ type Served = Pick<
   | "notifications"
   | "shortcut"
   | "inbox"
+  | "sessions"
   | "plugins"
   | "links"
   | "port"
@@ -130,6 +133,7 @@ const fromServer = (s: ServerSettings): Served => ({
   },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   inbox: { open_in: s.inbox?.open_in ?? "panel", layout: s.inbox?.layout ?? "repository" },
+  sessions: { layout: s.sessions?.layout ?? "list" },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
   port: s.port,
@@ -169,6 +173,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     inbox: { open_in: "panel", layout: "repository" },
+    sessions: { layout: "list" },
     plugins: {},
     links: {},
     port: 4747,
@@ -291,6 +296,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         patch.notifications ||
         patch.shortcut ||
         patch.inbox ||
+        patch.sessions ||
         patch.plugins ||
         patch.links ||
         patch.port !== undefined ||
@@ -313,6 +319,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           notifications: { ...base.notifications, ...patch.notifications },
           shortcut: { ...base.shortcut, ...patch.shortcut },
           inbox: { ...base.inbox, ...patch.inbox },
+          sessions: { ...base.sessions, ...patch.sessions },
           plugins: mergePlugins(base.plugins, patch.plugins),
           links: mergeLinks(base.links, patch.links),
           port: patch.port ?? base.port,
@@ -334,6 +341,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.notifications) body.notifications = patch.notifications;
         if (patch.shortcut) body.shortcut = patch.shortcut;
         if (patch.inbox) body.inbox = patch.inbox;
+        if (patch.sessions) body.sessions = patch.sessions;
         if (patch.plugins) body.plugins = patch.plugins;
         if (patch.links) body.links = patch.links;
         if (patch.port !== undefined) body.port = patch.port;

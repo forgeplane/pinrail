@@ -24,6 +24,7 @@ From a project's **…** menu, **Open in the inbox** shows the reviews of all it
 
 - **Inbox:** the buttons at the right of the tabs group the waiting reviews by project, by repository, or show them in one list. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository.
 - **Sidebar:** the button at the right of the sessions heading opens its menu. Under **Grouping**, choose **Project**.
+- **Sessions page:** the buttons at the right of its header group the sessions by project, by repository, or show them in one list.
 - **Filters:** the **Project or repository** menu in the inbox, the history and the Sessions page lists the projects first. Choosing a project shows the reviews or sessions of all its repositories. Type in the menu to find a project or a repository by name.
 
 The command palette, <kbd>⌘K</kbd>, has **Go to projects**, **New project…**, and **Show** followed by a project's name, which opens the inbox filtered to that project.

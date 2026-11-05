@@ -92,6 +92,12 @@ const LEAVES: &[Leaf] = &[
         "How the inbox lists what waits: grouped by project, grouped by repository, or in one list, newest first.",
     ),
     (
+        "/sessions/layout",
+        Kind::Enum(&["project", "repository", "list"]),
+        || json!("list"),
+        "How the Sessions page lists the sessions: grouped by project, grouped by repository, or in one list.",
+    ),
+    (
         "/menu_bar_icon",
         Kind::Bool,
         || json!(true),

@@ -1,11 +1,10 @@
-import { Ban, CheckCheck, ChevronDown, FolderGit2, MessageCircleQuestion, SearchX } from "lucide-react";
+import { Ban, CheckCheck, MessageCircleQuestion, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
-import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
@@ -13,6 +12,8 @@ import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, scopeOf, useUrlParams } from "../lib/url";
 import { waitingFilter } from "../lib/waiting";
+import { groupKey, grouped, mixedGroups } from "../lib/grouping";
+import { GroupHeading } from "../components/GroupHeading";
 import { useLive } from "../state/live";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
@@ -116,44 +117,21 @@ function Waiting() {
   // group holds every repository in it, and a repository in no project is
   // a group of its own. As a list: newest first, as they come. J, K and
   // Enter walk this order, so the row they open is the row lit.
-  const groupOf = useCallback(
-    (r: Review) => (layout === "project" && r.project ? `project:${r.project.id}` : (r.origin.repo ?? "")),
-    [layout],
+  const groupOf = useCallback((r: Review) => groupKey(layout, r.origin.repo, r.project), [layout]);
+  const ordered = useMemo(
+    () => (layout === "list" ? reviews : grouped(reviews, groupOf).flatMap(([, items]) => items)),
+    [reviews, layout, groupOf],
   );
-  const ordered = useMemo(() => {
-    if (layout === "list") return reviews;
-    const byGroup = new Map<string, Review[]>();
-    for (const r of reviews) {
-      const key = groupOf(r);
-      byGroup.set(key, [...(byGroup.get(key) ?? []), r]);
-    }
-    return [...byGroup.entries()].flatMap(([, items]) => items);
-  }, [reviews, layout, groupOf]);
 
   // a page past the end, after reviews were decided: the last page there is
   const pages = Math.max(1, Math.ceil(ordered.length / size));
   const current = Math.min(page, pages);
   const shown = useMemo(() => ordered.slice((current - 1) * size, current * size), [ordered, current, size]);
 
-  const groups = useMemo(() => {
-    const byGroup = new Map<string, Review[]>();
-    for (const r of shown) {
-      const key = groupOf(r);
-      byGroup.set(key, [...(byGroup.get(key) ?? []), r]);
-    }
-    return [...byGroup.entries()];
-  }, [shown, groupOf]);
+  const groups = useMemo(() => grouped(shown, groupOf), [shown, groupOf]);
   // a project's group whose reviews come from more than one repository
   // names the repository on each row
-  const mixed = useMemo(() => {
-    const repos = new Map<string, Set<string>>();
-    for (const r of reviews) {
-      const key = groupOf(r);
-      if (!key.startsWith("project:")) continue;
-      repos.set(key, (repos.get(key) ?? new Set()).add(r.origin.repo ?? ""));
-    }
-    return new Set([...repos].filter(([, set]) => set.size > 1).map(([key]) => key));
-  }, [reviews, groupOf]);
+  const mixed = useMemo(() => mixedGroups(grouped(reviews, groupOf), (r) => r.origin.repo), [reviews, groupOf]);
 
   useEffect(() => {
     setFocused((f) => Math.min(f, Math.max(0, shown.length - 1)));
@@ -430,17 +408,11 @@ function Waiting() {
             {groups.map(([key, items]) => (
               <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                 <summary data-testid="inbox-group-heading">
-                  {/* points down while the group is open, and right once it is folded */}
-                  <ChevronDown size={13} className="inbox-group-fold" aria-hidden />
-                  {key.startsWith("project:") ? (
-                    <ProjectAvatar project={items[0].project!} size={20} className="inbox-group-icon" />
-                  ) : (
-                    <FolderGit2 size={13} className="inbox-group-icon" aria-label="Repository" />
-                  )}
-                  <strong data-testid="inbox-group-name">
-                    {key.startsWith("project:") ? items[0].project?.name : key || "No repository"}
-                  </strong>
-                  <span>{reviews.filter((r) => groupOf(r) === key).length}</span>
+                  <GroupHeading
+                    groupKey={key}
+                    project={items[0].project}
+                    count={reviews.filter((r) => groupOf(r) === key).length}
+                  />
                 </summary>
                 {items.map((review) => {
                   index += 1;
