@@ -83,7 +83,37 @@ export type Review = {
   starred_at?: string | null;
   /** whether any round of the review is starred */
   starred?: boolean;
+  /** the project its repository is in */
+  project?: ProjectRef | null;
 };
+
+/** A project as a review or a session names it. */
+export type ProjectRef = { id: string; name: string };
+
+/** A repository the app knows, with what it holds. */
+export type ProjectRepo = {
+  repo: string;
+  /** its sessions that are not archived */
+  sessions: number;
+  /** its questions and reviews that wait for the person */
+  waiting: number;
+  /** its latest session activity or review */
+  last_at: string | null;
+};
+
+/** A named set of repositories the inbox and the sidebar can group by. */
+export type Project = {
+  id: string;
+  name: string;
+  created_at: string;
+  repos: ProjectRepo[];
+  sessions: number;
+  waiting: number;
+  last_at: string | null;
+};
+
+/** The projects by name, and the repositories in none. */
+export type ProjectsListing = { projects: Project[]; loose: ProjectRepo[] };
 
 /** What a plugin takes: kinds as `.ext` or media types, and its limits. */
 export type AttachmentRules = {
@@ -143,6 +173,8 @@ export type Session = {
   archived_at?: string | null;
   /** when the agent last reported anything, a note included */
   reported_at?: string | null;
+  /** the project its repository is in */
+  project?: ProjectRef | null;
   first_at: string;
   last_at: string;
   total: { questions: number; reviews: number };

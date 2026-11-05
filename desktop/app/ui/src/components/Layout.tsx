@@ -7,6 +7,7 @@ import {
   History,
   Inbox,
   Keyboard,
+  LayoutGrid,
   MessageSquare,
   MessagesSquare,
   Moon,
@@ -62,6 +63,7 @@ const NAV = [
     shift: true,
     keys: [MOD, SHIFT, "H"],
   },
+  { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, letter: "", shift: false, keys: [] },
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
@@ -88,7 +90,9 @@ const pageTitle = (path: string) =>
       ? "Session"
       : path.startsWith("/sessions")
         ? "Sessions"
-        : "Review";
+        : path.startsWith("/projects")
+          ? "Projects"
+          : "Review";
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;

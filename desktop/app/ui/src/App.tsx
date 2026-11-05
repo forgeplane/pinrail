@@ -1,5 +1,6 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { Layout } from "./components/Layout";
+import { Projects } from "./screens/Projects";
 import { useExternalLinks, useNativeRoutes } from "./lib/native";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
@@ -28,6 +29,7 @@ function Shell() {
         <Route path="/history" element={<ToHistoryTab />} />
         <Route path="/sessions" element={<SessionsPage />} />
         <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
+        <Route path="/projects" element={<Projects />} />
         <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />
       </Routes>
     </Layout>

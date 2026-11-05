@@ -24,6 +24,9 @@ type Live = {
   /** advances when a review ends or old history is deleted: what the
    *  history lists has changed */
   historyVersion: number;
+  /** advances when a project changes: what names or groups by projects
+   *  must read them again */
+  projectsVersion: number;
   lastNotice: Notice | null;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
@@ -43,6 +46,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Review[]>([]);
   const [unloaded, setUnloaded] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [projectsVersion, setProjectsVersion] = useState(0);
   const [lastNotice, setLastNotice] = useState<Notice | null>(null);
   const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
 
@@ -102,6 +106,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           setHistoryVersion((v) => v + 1);
           refresh();
         }
+        // the pending reviews name their project, which may have changed
+        if (notice.kind === "projects_changed") {
+          setProjectsVersion((v) => v + 1);
+          setHistoryVersion((v) => v + 1);
+          refresh();
+        }
         // a review that moved may have taken a linked folder as it is now
         if (notice.kind === "plugins_reloaded" || notice.kind === "plugin_changed") loadPlugins();
       },
@@ -130,11 +140,23 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       projects,
       unassigned,
       historyVersion,
+      projectsVersion,
       lastNotice,
       plugins,
       pluginIcon,
     }),
-    [connected, pending, unloaded, projects, unassigned, historyVersion, lastNotice, plugins, pluginIcon],
+    [
+      connected,
+      pending,
+      unloaded,
+      projects,
+      unassigned,
+      historyVersion,
+      projectsVersion,
+      lastNotice,
+      plugins,
+      pluginIcon,
+    ],
   );
   const pluginsValue = useMemo<Plugins>(() => ({ plugins, pluginIcon }), [plugins, pluginIcon]);
   return (

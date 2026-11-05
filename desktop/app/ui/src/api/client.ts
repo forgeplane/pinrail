@@ -8,6 +8,8 @@ import type {
   Inspection,
   Notice,
   Plugin,
+  Project,
+  ProjectsListing,
   Review,
   ReviewEvent,
   ThemeEntry,
@@ -101,6 +103,16 @@ export const api = {
       "GET",
       `/api/v1/sessions${query(params)}`,
     ),
+  /** the projects by name, and the repositories in none */
+  projects: () => request<ProjectsListing>("GET", "/api/v1/projects"),
+  /** creates a project, moving into it any of the repositories that are in another */
+  createProject: (name: string, repos: string[] = []) => request<Project>("POST", "/api/v1/projects", { name, repos }),
+  renameProject: (id: string, name: string) => request<Project>("PATCH", `/api/v1/projects/${seg(id)}`, { name }),
+  /** deletes a project; its repositories are in none after it */
+  deleteProject: (id: string) => request<void>("DELETE", `/api/v1/projects/${seg(id)}`),
+  /** puts a repository in a project, out of the one it was in, or in none with null */
+  moveRepo: (repo: string, project: string | null) =>
+    request<void>("PUT", `/api/v1/repos/${seg(repo)}/project`, { project_id: project }),
   /** archives a session, or brings it back */
   archiveSession: (agent: string, id: string, archived: boolean) =>
     request<void>(archived ? "PUT" : "DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/archive`),
