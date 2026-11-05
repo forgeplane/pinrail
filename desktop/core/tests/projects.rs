@@ -620,3 +620,60 @@ async fn an_agent_waiting_on_a_deleted_repository_is_told_it_was_discarded() {
         "{answer}"
     );
 }
+
+#[tokio::test]
+async fn deleting_a_review_deletes_every_round_and_tells_the_waiting_agent() {
+    let app = app();
+    let first = send(&app, review("acme/api", "s-api", "First round")).await;
+    let mut second = review("acme/api", "s-api", "Second round");
+    second["revises"] = json!(first);
+    let second = send(&app, second).await;
+    let other = send(&app, review("acme/api", "s-api", "Another review")).await;
+
+    let router = app.router.clone();
+    let path = format!("/api/v1/reviews/{second}/wait?timeout=20");
+    let waiter = tokio::spawn(async move {
+        use axum::body::Body;
+        use axum::http::Request;
+        use http_body_util::BodyExt;
+        use tower::ServiceExt;
+        let request = Request::get(path)
+            .header("host", "127.0.0.1:4747")
+            .body(Body::empty())
+            .unwrap();
+        let response = router.oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null),
+        )
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    // deleting from the first round takes the second with it
+    let (status, deleted) = call(&app, "DELETE", &format!("/api/v1/reviews/{first}"), None).await;
+    assert_eq!(status, StatusCode::OK, "{deleted}");
+    let mut ids: Vec<String> = serde_json::from_value(deleted["ids"].clone()).unwrap();
+    ids.sort();
+    let mut expected = vec![first.clone(), second.clone()];
+    expected.sort();
+    assert_eq!(ids, expected);
+    for id in [&first, &second] {
+        let (status, _) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{id}");
+    }
+    let (status, _) = call(&app, "GET", &format!("/api/v1/reviews/{other}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, answer) = waiter.await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["status"], "discarded");
+    assert_eq!(
+        answer["discarded_reason"],
+        "The person deleted this review from Pinrail."
+    );
+
+    let (status, _) = call(&app, "DELETE", &format!("/api/v1/reviews/{first}"), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

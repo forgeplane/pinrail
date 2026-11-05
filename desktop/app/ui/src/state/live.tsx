@@ -120,6 +120,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         for (const missed of fetching.current) missed.push(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
         if (ENDINGS.has(notice.kind) || notice.kind === "history_swept") setHistoryVersion((v) => v + 1);
+        // a deleted review leaves the inbox and the history
+        if (notice.kind === "review_deleted") {
+          setHistoryVersion((v) => v + 1);
+          refresh();
+        }
         // a star on one round marks the whole review, in the inbox and the history
         if (notice.kind === "starred" || notice.kind === "unstarred") {
           setHistoryVersion((v) => v + 1);

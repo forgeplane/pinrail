@@ -1,4 +1,4 @@
-import { Archive, SearchX } from "lucide-react";
+import { Archive, MoreHorizontal, SearchX, Star, Trash2 } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import { api } from "../api/client";
@@ -15,7 +15,10 @@ import { useLive } from "../state/live";
 import { modalOpen } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
-import { StarButton } from "../components/StarButton";
+import { useToggleStar } from "../components/StarButton";
+import { DeleteReviewDialog } from "../components/DeleteReviewDialog";
+import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
+import { useToast } from "../state/toasts";
 import { InboxHead } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
@@ -32,6 +35,12 @@ export function History() {
   const { settings: prefs } = useSettings();
   const [data, setData] = useState<ReviewListing | null>(null);
   const [focused, setFocused] = useState(0);
+  const [menu, setMenu] = useState<{ review: Review; anchor: HTMLElement } | null>(null);
+  const [deleting, setDeleting] = useState<Review | null>(null);
+  // bumped after a delete made here, so the list shows it at once
+  const [reloads, setReloads] = useState(0);
+  const toggleStar = useToggleStar();
+  const toast = useToast();
   const search = useRef<HTMLInputElement>(null);
   // While the keyboard moves the focus the list scrolls under a still
   // pointer, and the row that slides under it must not take the focus
@@ -86,7 +95,7 @@ export function History() {
     return () => {
       cancelled = true;
     };
-  }, [status, debounced, plugin, repo, project, starred, page, size, live.historyVersion]);
+  }, [status, debounced, plugin, repo, project, starred, page, size, live.historyVersion, reloads]);
 
   const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;
@@ -306,8 +315,25 @@ export function History() {
                         {age(settledAt(r), now)}
                       </time>
                     </Tooltip>
-                    {/* a question has no star: the space keeps the times in line */}
-                    {r.kind === "question" ? <span className="star-slot" /> : <StarButton review={r} inRow />}
+                    {/* a starred round shows its star; the space keeps the times in line */}
+                    {r.starred_at ? (
+                      <Star size={14} className="history-star" fill="currentColor" aria-label="Starred" />
+                    ) : (
+                      <span className="star-slot" />
+                    )}
+                    <button
+                      type="button"
+                      className="bar-button review-row-menu"
+                      aria-label={`${r.title} actions`}
+                      aria-haspopup="menu"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMenu({ review: r, anchor: event.currentTarget });
+                      }}
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
                   </span>
                 </Link>
               );
@@ -318,6 +344,44 @@ export function History() {
           <Pager label="History" page={page} size={size} total={total} onPage={setPage} onSize={setSize} />
         ) : null}
       </div>
+      {menu ? (
+        <PopoverMenu
+          anchor={menu.anchor}
+          label={menu.review.title}
+          align="right"
+          onClose={() => setMenu(null)}
+          entries={[
+            ...(menu.review.kind === "question"
+              ? []
+              : [
+                  {
+                    label: menu.review.starred_at ? "Remove star" : "Star",
+                    icon: Star,
+                    onPick: () => toggleStar(menu.review),
+                  } as MenuEntry,
+                  { kind: "separator" } as MenuEntry,
+                ]),
+            {
+              label: menu.review.kind === "question" ? "Delete questions…" : "Delete review…",
+              icon: Trash2,
+              danger: true,
+              onPick: () => setDeleting(menu.review),
+            },
+          ]}
+        />
+      ) : null}
+      {deleting ? (
+        <DeleteReviewDialog
+          review={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={() => {
+            if (deleting.id === openId) closePanel();
+            setDeleting(null);
+            setReloads((n) => n + 1);
+            toast("Deleted");
+          }}
+        />
+      ) : null}
       {openId ? (
         <SidePanel split={split}>
           <ReviewView id={openId} inPanel linkTo={hrefFor} onClose={closePanel} />

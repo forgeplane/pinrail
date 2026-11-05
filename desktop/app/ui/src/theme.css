@@ -2178,6 +2178,12 @@ body.is-resizing iframe {
 .review-row-end .star-slot {
   width: 22px;
 }
+/* a starred round's mark in the history, where the star is in the menu */
+.review-row-end .history-star {
+  flex: none;
+  width: 22px;
+  color: var(--sev-major);
+}
 .star-button[aria-disabled="true"] {
   cursor: default;
 }

@@ -25,6 +25,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   repository, from one menu that you can type in.
 - Go to the projects, create one, or show a project's reviews from the
   command palette.
+- Delete a review, with every round of it, from the **…** menu of its row
+  in the history, from its header or from the command palette. A round
+  that still waits is discarded first, so the agent stops.
 - Delete a repository from the Projects page. Its reviews, questions and
   sessions are deleted, and what still waits is discarded first, so the
   agents waiting on it stop.
@@ -35,6 +38,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   same one.
 - Where the inbox, the history and the Sessions page said "project" for
   a repository, they now say "repository".
+- The history's star moved into the **…** menu at the end of each row. A
+  starred round still shows its star.
 - The inbox's Pending and New rounds tabs count what the filters show,
   and its title reads "3 of 11" while a filter is set.
 

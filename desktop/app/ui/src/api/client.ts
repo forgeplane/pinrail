@@ -163,6 +163,7 @@ export const api = {
     request<Review>("POST", `/api/v1/reviews/${seg(id)}/discard`, reason ? { reason } : {}),
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${seg(id)}/viewed`),
   /** stars a round of a review, or removes its star */
+  deleteReview: (id: string) => request<{ ids: string[] }>("DELETE", `/api/v1/reviews/${seg(id)}`),
   star: (id: string, starred: boolean) => request<void>(starred ? "PUT" : "DELETE", `/api/v1/reviews/${seg(id)}/star`),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
@@ -279,6 +280,7 @@ export function subscribe(handlers: {
       "unstarred",
       "projects_changed",
       "repository_deleted",
+      "review_deleted",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {

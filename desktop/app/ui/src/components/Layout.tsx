@@ -18,6 +18,7 @@ import {
   Sun,
   SunMoon,
   Palette,
+  Trash2,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
@@ -245,6 +246,12 @@ export function Layout({ children }: { children: ReactNode }) {
             keys: [MOD, "D"],
             icon: Ban,
             run: () => window.dispatchEvent(new Event("pinrail:discard")),
+          },
+          {
+            id: "delete-review",
+            label: "Delete this review…",
+            icon: Trash2,
+            run: () => window.dispatchEvent(new Event("pinrail:delete-review")),
           },
         ]
       : []),

@@ -15,6 +15,7 @@ import {
   Send,
   TriangleAlert,
   X,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
@@ -26,6 +27,7 @@ import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
+import { DeleteReviewDialog } from "../components/DeleteReviewDialog";
 import { FindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
 import { StarButton, useToggleStar } from "../components/StarButton";
@@ -160,6 +162,7 @@ export function ReviewView({
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [note, setNote] = useState("");
   const noteBox = useRef<HTMLTextAreaElement>(null);
   const [maximized, setMaximized] = useState(false);
@@ -496,13 +499,17 @@ export function ReviewView({
     };
     // the palette's "Discard this review"
     const onDiscard = () => setDiscarding(true);
+    // and its "Delete this review…"
+    const onDelete = () => setDeleting(true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("pinrail:command", onCommand);
     window.addEventListener("pinrail:discard", onDiscard);
+    window.addEventListener("pinrail:delete-review", onDelete);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:discard", onDiscard);
+      window.removeEventListener("pinrail:delete-review", onDelete);
     };
   }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo, toggleStar]);
 
@@ -515,6 +522,7 @@ export function ReviewView({
     setFlash(null);
     setViolations([]);
     setDiscarding(false);
+    setDeleting(false);
     setCopied(null);
     setCopiedId(null);
   }, [id]);
@@ -619,6 +627,16 @@ export function ReviewView({
             </button>
           </Tooltip>
           {review.kind === "question" ? null : <StarButton review={review} />}
+          <Tooltip label={review.kind === "question" ? "Delete these questions" : "Delete this review"} side="bottom">
+            <button
+              type="button"
+              className="bar-button"
+              onClick={() => setDeleting(true)}
+              aria-label={review.kind === "question" ? "Delete these questions" : "Delete this review"}
+            >
+              <Trash2 size={15} />
+            </button>
+          </Tooltip>
           {besideThread || !prefs.labs.sessions ? null : <SessionLink review={review} />}
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
@@ -920,6 +938,19 @@ export function ReviewView({
       ) : null}
       {linkAsk && plugin ? (
         <LinkDialog plugin={plugin.title || plugin.name} request={linkAsk} onClose={onLinkChoice} />
+      ) : null}
+      {deleting ? (
+        <DeleteReviewDialog
+          review={review}
+          onClose={() => setDeleting(false)}
+          onDone={() => {
+            setDeleting(false);
+            toast("Deleted");
+            // nothing is left to show: back to the list it came from
+            if (onClose) onClose();
+            else navigate(fromSession ? ended : back.to);
+          }}
+        />
       ) : null}
       {discarding && review.status === "pending" ? (
         <DiscardDialog

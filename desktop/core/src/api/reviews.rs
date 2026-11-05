@@ -29,7 +29,7 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
         .route("/api/v1/reviews/validate", post(validate))
-        .route("/api/v1/reviews/{id}", get(show))
+        .route("/api/v1/reviews/{id}", get(show).delete(delete_review))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
         .route("/api/v1/reviews/{id}/view", post(view))
         .route("/api/v1/reviews/{id}/wait", get(wait))
@@ -344,6 +344,20 @@ pub(crate) const CLIENT_HEADER: &str = "x-pinrail-client";
 /// itself in a header, and sends the agent's session it runs in; anything
 /// else is another client of the API. A program on this machine can claim
 /// any of these, so this records what a client says, not proof.
+/// Deletes a review with every round of it. A round still waiting is
+/// discarded first, so the agent waiting on it is told to stop. Answers
+/// the `ids` that went.
+async fn delete_review(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let ids = state
+        .reviews()
+        .delete_review(&id, &source(&headers, &Value::Null))?;
+    Ok(Json(json!({ "ids": ids })))
+}
+
 pub(super) fn source(headers: &HeaderMap, body: &Value) -> Source {
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     if origin.is_some_and(|o| super::shell_origins().iter().any(|s| s == o)) {

@@ -73,9 +73,13 @@ To search the history, press <kbd>/</kbd> on the *History* tab and type one or m
 
 To choose how long history is kept, see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 
+### Deleting a review
+
+To delete a review, choose **Delete review…** from the **…** menu at the end of its row on the *History* tab, or click the trash button in the review's header. The command palette has **Delete this review…** while a review is open. Every round of the review is deleted, with its decisions and comments, and this cannot be undone. If a round still waits, it is discarded first, so the agent waiting on it is told to stop.
+
 ## Stars
 
-Star a review to find it again later. Click the star in the review's header, on its page or in the side panel, or press <kbd>⌘⇧S</kbd>. In the inbox, the star sits at the end of each row: it shows on a starred review, and on the others when the pointer is over the row. Click it again to remove the star. Questions cannot be starred.
+Star a review to find it again later. Click the star in the review's header, on its page or in the side panel, or press <kbd>⌘⇧S</kbd>. In the inbox, the star sits at the end of each row: it shows on a starred review, and on the others when the pointer is over the row. Click it again to remove the star. On the *History* tab, a starred round shows its star, and the **…** menu at the end of the row has **Star** and **Remove star**. Questions cannot be starred.
 
 A star belongs to the round you starred. A review is shown as starred when any of its rounds is.
 

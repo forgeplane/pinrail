@@ -48,6 +48,8 @@ const MAX_LIMIT: usize = 500;
 /// What an agent waiting on a review is told when the person deletes its
 /// repository from the app.
 const DELETED_REASON: &str = "The person deleted this repository from Pinrail, with its reviews.";
+/// What an agent waiting on a review is told when the person deletes it.
+const REVIEW_DELETED_REASON: &str = "The person deleted this review from Pinrail.";
 
 #[derive(Debug, Clone)]
 pub struct Reviews {
@@ -918,6 +920,29 @@ impl Reviews {
         }))
     }
 
+    /// Deletes a review with every round of it, as the person asked: a
+    /// round still waiting is discarded first, so the agent waiting on it
+    /// is told to stop. Returns the ids that went.
+    pub fn delete_review(&self, id: &str, source: &Source) -> Result<Vec<String>, Error> {
+        let ids: Vec<String> = self.rounds(id)?.into_iter().map(|r| r.id).collect();
+        for round in &ids {
+            match self.discard(round, Some(REVIEW_DELETED_REASON), source) {
+                Ok(_) | Err(Error::NotPending(_) | Error::NotFound(_)) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        self.db.delete_reviews(&refs)?;
+        let event_id = self.db.append_event(
+            None,
+            events::REVIEW_DELETED,
+            None,
+            &serde_json::json!({ "ids": ids }),
+        )?;
+        self.publish_plain(event_id, events::REVIEW_DELETED);
+        Ok(ids)
+    }
+
     /// `sweep_history` with the moment spelled out.
     pub fn sweep_history_before(&self, before: DateTime<Utc>) -> Result<usize, Error> {
         let ended = self.db.ended_before(before)?;
@@ -966,9 +991,9 @@ impl Reviews {
                     match notice {
                         Ok(n) if n.review_id.as_deref() == Some(id) => match self.get(id) {
                             Ok(read) => review = read,
-                            // discarded and deleted at once, as a deleted
-                            // repository's waiting reviews are: the waiter
-                            // is told of the discard it was sent
+                            // discarded and deleted at once, as the waiting
+                            // rounds of a deleted review or repository are:
+                            // the waiter is told of the discard it was sent
                             Err(Error::NotFound(_)) if n.kind == events::DISCARDED => {
                                 return Ok(Some(discarded_from(review, &n)));
                             }
@@ -1154,7 +1179,8 @@ pub struct Opened {
 }
 
 /// The review as its discard's notice describes it, for a waiter whose
-/// review was deleted right after: the person discarded it, when and why.
+/// review was deleted right after, with its repository or by itself: the
+/// person discarded it, when and why.
 fn discarded_from(mut review: Review, notice: &Notice) -> Review {
     let field = |key: &str| {
         notice
@@ -1170,7 +1196,6 @@ fn discarded_from(mut review: Review, notice: &Notice) -> Review {
             .unwrap_or_else(Utc::now),
     );
     review.discarded_by = field("discarded_by");
-    review.discarded_reason =
-        field("discarded_reason").or_else(|| Some(DELETED_REASON.to_string()));
+    review.discarded_reason = field("discarded_reason");
     review
 }

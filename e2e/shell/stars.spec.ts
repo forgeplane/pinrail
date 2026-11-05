@@ -63,8 +63,11 @@ test("the history lists the starred reviews with its filter", async ({ page }) =
   await expect(rows.filter({ hasText: "Stars: kept" })).toHaveCount(1);
   await expect(rows.filter({ hasText: "Stars: not kept" })).toHaveCount(0);
 
-  // the row's star removes it, and the filtered list lets it go
-  await rows.filter({ hasText: "Stars: kept" }).getByTestId("star").click();
+  // the row's menu removes the star, and the filtered list lets it go
+  const keptRow = rows.filter({ hasText: "Stars: kept" });
+  await expect(keptRow.getByLabel("Starred")).toBeVisible();
+  await keptRow.getByRole("button", { name: "Stars: kept actions" }).click();
+  await page.getByRole("menu", { name: "Stars: kept" }).getByRole("menuitem", { name: "Remove star" }).click();
   await expect(rows.filter({ hasText: "Stars: kept" })).toHaveCount(0);
 });
 
