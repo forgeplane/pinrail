@@ -41,7 +41,8 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   // a status may rename a session or mark it done, and archiving one moves
   // it in or out
   const reported =
-    live.lastNotice && ["session_status", "session_archived", "session_unarchived"].includes(live.lastNotice.kind)
+    live.lastNotice &&
+    ["session_status", "session_archived", "session_unarchived", "repository_deleted"].includes(live.lastNotice.kind)
       ? live.lastNotice.event_id
       : null;
   useEffect(() => {

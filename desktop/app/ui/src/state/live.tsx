@@ -125,8 +125,9 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           setHistoryVersion((v) => v + 1);
           refresh();
         }
-        // the pending reviews name their project, which may have changed
-        if (notice.kind === "projects_changed") {
+        // the pending reviews name their project, which may have changed;
+        // a deleted repository leaves the lists and its project
+        if (notice.kind === "projects_changed" || notice.kind === "repository_deleted") {
           setProjectsVersion((v) => v + 1);
           setHistoryVersion((v) => v + 1);
           refresh();

@@ -45,6 +45,10 @@ pub struct Listing {
 }
 const MAX_LIMIT: usize = 500;
 
+/// What an agent waiting on a review is told when the person deletes its
+/// repository from the app.
+const DELETED_REASON: &str = "The person deleted this repository from Pinrail, with its reviews.";
+
 #[derive(Debug, Clone)]
 pub struct Reviews {
     db: Arc<Db>,
@@ -886,6 +890,34 @@ impl Reviews {
         }
     }
 
+    /// Deletes a repository from the app, as the person asked: what waits
+    /// from it is discarded first, so the agents waiting on it are told to
+    /// stop, then every round of its reviews and its sessions are deleted,
+    /// and it leaves its project. Returns what went.
+    pub fn delete_repo(&self, repo: &str, source: &Source) -> Result<Value, Error> {
+        let repo = repo.trim();
+        if repo.is_empty() {
+            return Err(Error::invalid("/repo", "is empty"));
+        }
+        let mut discarded = 0;
+        for id in self.db.pending_in_repo(repo, Utc::now())? {
+            match self.discard(&id, Some(DELETED_REASON), source) {
+                Ok(_) => discarded += 1,
+                // decided or withdrawn meanwhile: it goes with the rest
+                Err(Error::NotPending(_) | Error::NotFound(_)) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let (reviews, sessions, event_id) = self.db.delete_repo(repo)?;
+        self.publish_plain(event_id, events::REPOSITORY_DELETED);
+        Ok(serde_json::json!({
+            "repo": repo,
+            "reviews": reviews,
+            "sessions": sessions,
+            "discarded": discarded,
+        }))
+    }
+
     /// `sweep_history` with the moment spelled out.
     pub fn sweep_history_before(&self, before: DateTime<Utc>) -> Result<usize, Error> {
         let ended = self.db.ended_before(before)?;
@@ -932,7 +964,16 @@ impl Reviews {
             tokio::select! {
                 notice = rx.recv() => {
                     match notice {
-                        Ok(n) if n.review_id.as_deref() == Some(id) => review = self.get(id)?,
+                        Ok(n) if n.review_id.as_deref() == Some(id) => match self.get(id) {
+                            Ok(read) => review = read,
+                            // discarded and deleted at once, as a deleted
+                            // repository's waiting reviews are: the waiter
+                            // is told of the discard it was sent
+                            Err(Error::NotFound(_)) if n.kind == events::DISCARDED => {
+                                return Ok(Some(discarded_from(review, &n)));
+                            }
+                            Err(e) => return Err(e),
+                        },
                         Ok(_) => {}
                         Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => review = self.get(id)?,
                         Err(_) => return Ok(None),
@@ -1110,4 +1151,26 @@ pub struct Opened {
     pub refused: Option<String>,
     /// the bundle its plugin's installation holds now
     pub installed: Option<String>,
+}
+
+/// The review as its discard's notice describes it, for a waiter whose
+/// review was deleted right after: the person discarded it, when and why.
+fn discarded_from(mut review: Review, notice: &Notice) -> Review {
+    let field = |key: &str| {
+        notice
+            .review
+            .as_ref()
+            .and_then(|r| r.get(key))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    };
+    review.discarded_at = Some(
+        field("discarded_at")
+            .and_then(|at| parse_datetime(&at))
+            .unwrap_or_else(Utc::now),
+    );
+    review.discarded_by = field("discarded_by");
+    review.discarded_reason =
+        field("discarded_reason").or_else(|| Some(DELETED_REASON.to_string()));
+    review
 }

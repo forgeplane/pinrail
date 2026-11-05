@@ -550,3 +550,57 @@ test("a menu near the window's bottom opens above its button", async ({ page, re
   // it rises from the button rather than falling past the window's bottom
   expect(m.y).toBeLessThan(b.y);
 });
+
+test("deleting a repository discards what waits and deletes its reviews and sessions", async ({ page, request }) => {
+  const run = Date.now();
+  const repo = `delete-me/repo-${run}`;
+  await createReview(request, { title: `Doomed ${run}`, origin: { repo } });
+  await request.post(`${core}/api/v1/sessions/claude-code/doomed-${run}/status`, {
+    data: { text: "Doomed work", kind: "start", origin: { repo } },
+  });
+  await page.goto("/#/projects");
+  const row = loose(page).getByTestId("project-repo").filter({ hasText: repo });
+  await row.hover();
+  await row.getByRole("button", { name: `${repo} actions` }).click();
+  await page.getByRole("menu", { name: repo }).getByRole("menuitem", { name: "Delete repository…" }).click();
+
+  const dialog = page.getByRole("dialog", { name: `Delete ${repo}?` });
+  await expect(dialog.getByTestId("repo-delete-waiting")).toContainText("1 review or question still waits");
+  // the button waits for the repository's name, typed out in full
+  const confirm = dialog.getByRole("button", { name: "Delete repository" });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(/To confirm, type/).fill(repo.slice(0, -1));
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(/To confirm, type/).fill(repo);
+  await confirm.click();
+  await expect(dialog).toBeHidden();
+  await expect(row).toHaveCount(0);
+
+  // nothing of it is left in the inbox, the history or the sessions
+  const { reviews } = await (
+    await request.get(
+      `${core}/api/v1/reviews?repo=${encodeURIComponent(repo)}&status=pending,decided,discarded,withdrawn,expired`,
+    )
+  ).json();
+  expect(reviews).toEqual([]);
+  const session = await request.get(`${core}/api/v1/sessions/claude-code/doomed-${run}`);
+  expect(session.status()).toBe(404);
+  await page.goto(`/#/?q=${run}`);
+  await expect(page.getByTestId("review-row")).toHaveCount(0);
+});
+
+test("the Projects page drops a deleted repository without waiting for its event", async ({ page, request }) => {
+  const repo = `delete-quiet/repo-${Date.now()}`;
+  await createReview(request, { title: "Quiet delete", origin: { repo } });
+  // a window whose event stream does not carry the deletion's event
+  await page.route("**/api/v1/events*", (route) => route.abort());
+  await page.goto("/#/projects");
+  const row = loose(page).getByTestId("project-repo").filter({ hasText: repo });
+  await row.hover();
+  await row.getByRole("button", { name: `${repo} actions` }).click();
+  await page.getByRole("menu", { name: repo }).getByRole("menuitem", { name: "Delete repository…" }).click();
+  const dialog = page.getByRole("dialog", { name: `Delete ${repo}?` });
+  await dialog.getByLabel(/To confirm, type/).fill(repo);
+  await dialog.getByRole("button", { name: "Delete repository" }).click();
+  await expect(row).toHaveCount(0);
+});

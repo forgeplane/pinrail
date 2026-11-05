@@ -48,7 +48,10 @@ const reason = (error: unknown) =>
 
 type Menu = { anchor: HTMLElement; label: string; entries: MenuEntry[]; align?: "left" | "right" };
 type Dialog =
-  { kind: "new"; repos: string[] } | { kind: "edit"; project: Project } | { kind: "delete"; project: Project };
+  | { kind: "new"; repos: string[] }
+  | { kind: "edit"; project: Project }
+  | { kind: "delete"; project: Project }
+  | { kind: "delete-repo"; repo: ProjectRepo };
 
 export function Projects() {
   const live = useLive();
@@ -63,6 +66,9 @@ export function Projects() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [folded, setFolded] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
+  // bumped after a change made here, so the page shows it without waiting
+  // for the event that announces it
+  const [reloads, setReloads] = useState(0);
 
   // what waits and when it last moved change with every event
   useEffect(() => {
@@ -74,7 +80,7 @@ export function Projects() {
     return () => {
       cancelled = true;
     };
-  }, [live.lastNotice, live.projectsVersion]);
+  }, [live.lastNotice, live.projectsVersion, reloads]);
   // the command palette's New project opens the dialog here, once
   useEffect(() => {
     if ((location.state as { newProject?: boolean } | null)?.newProject) {
@@ -145,6 +151,13 @@ export function Projects() {
         ...(current
           ? [{ label: `Remove from ${current.name}`, icon: X, onPick: () => move(repo, null) } as MenuEntry]
           : []),
+        { kind: "separator" },
+        {
+          label: "Delete repository…",
+          icon: Trash2,
+          danger: true,
+          onPick: () => setDialog({ kind: "delete-repo", repo: row }),
+        },
       ],
     });
   };
@@ -417,6 +430,24 @@ export function Projects() {
           onClose={() => setDialog(null)}
         />
       ) : null}
+      {dialog?.kind === "delete-repo" ? (
+        <DeleteRepoDialog
+          repo={dialog.repo}
+          onDelete={async () => {
+            try {
+              const gone = await api.deleteRepo(dialog.repo.repo);
+              setReloads((n) => n + 1);
+              toast(
+                `Deleted ${gone.repo}: ${plural(gone.reviews, "review", "reviews")} and ${plural(gone.sessions, "session", "sessions")}`,
+              );
+            } catch (error) {
+              toast(reason(error), "danger");
+            }
+            setDialog(null);
+          }}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
       {dialog?.kind === "delete" ? (
         <DeleteDialog
           project={dialog.project}
@@ -657,6 +688,88 @@ function ProjectDialog({
 }
 
 /** Asks before a project is deleted, saying what stays. */
+function DeleteRepoDialog({
+  repo,
+  onDelete,
+  onClose,
+}: {
+  repo: ProjectRepo;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const confirm = useRef<HTMLInputElement>(null);
+  const [typed, setTyped] = useState("");
+  const confirmId = useId();
+  const confirmed = typed.trim() === repo.repo;
+  useEffect(() => {
+    confirm.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return (
+    <div className="app-dialog-backdrop" onMouseDown={onClose}>
+      <div
+        className="app-dialog project-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="repo-delete-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-head">
+          <h2 id="repo-delete-title">Delete {repo.repo}?</h2>
+        </div>
+        <p className="dim">
+          All of its reviews, questions and sessions will be deleted from Pinrail, including the history. This cannot be
+          undone.
+        </p>
+        {repo.waiting ? (
+          <p className="dim" data-testid="repo-delete-waiting">
+            {plural(repo.waiting, "review or question", "reviews or questions")} still{" "}
+            {repo.waiting === 1 ? "waits" : "wait"}. They will be discarded first, and the agents waiting on them will
+            be told to stop.
+          </p>
+        ) : null}
+        <form
+          className="repo-delete-confirm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (confirmed) onDelete();
+          }}
+        >
+          <label htmlFor={confirmId}>
+            To confirm, type <strong>{repo.repo}</strong>
+          </label>
+          <input
+            ref={confirm}
+            id={confirmId}
+            className="settings-input"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+          <div className="dialog-actions">
+            <button type="button" className="chrome-button" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="chrome-button button-danger" disabled={!confirmed}>
+              Delete repository
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DeleteDialog({ project, onDelete, onClose }: { project: Project; onDelete: () => void; onClose: () => void }) {
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {

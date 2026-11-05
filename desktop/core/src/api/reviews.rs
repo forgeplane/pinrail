@@ -344,7 +344,7 @@ pub(crate) const CLIENT_HEADER: &str = "x-pinrail-client";
 /// itself in a header, and sends the agent's session it runs in; anything
 /// else is another client of the API. A program on this machine can claim
 /// any of these, so this records what a client says, not proof.
-fn source(headers: &HeaderMap, body: &Value) -> Source {
+pub(super) fn source(headers: &HeaderMap, body: &Value) -> Source {
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     if origin.is_some_and(|o| super::shell_origins().iter().any(|s| s == o)) {
         return Source {

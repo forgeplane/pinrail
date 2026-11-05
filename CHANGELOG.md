@@ -25,6 +25,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   repository, from one menu that you can type in.
 - Go to the projects, create one, or show a project's reviews from the
   command palette.
+- Delete a repository from the Projects page. Its reviews, questions and
+  sessions are deleted, and what still waits is discarded first, so the
+  agents waiting on it stop.
 
 ### Changed
 

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, put};
 use axum::{Json, Router};
@@ -26,6 +26,7 @@ pub fn routes() -> Router<ApiState> {
             put(set_image).get(image).delete(remove_image),
         )
         .route("/api/v1/repos/{repo}/project", put(set_repo))
+        .route("/api/v1/repos/{repo}", axum::routing::delete(delete_repo))
 }
 
 /// Every project with its repositories, by name, and the repositories in
@@ -187,6 +188,20 @@ async fn image(
         bytes,
     )
         .into_response())
+}
+
+/// Deletes a repository from the app, URL-encoded in the path: what waits
+/// from it is discarded, and the agents waiting are told to stop; then
+/// every round of its reviews and its sessions are deleted, and it leaves
+/// its project. Answers how many `reviews` and `sessions` went, and how
+/// many were `discarded`.
+async fn delete_repo(
+    State(state): State<Arc<Pinrail>>,
+    Path(repo): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let source = super::reviews::source(&headers, &Value::Null);
+    Ok(Json(state.reviews().delete_repo(&repo, &source)?))
 }
 
 /// A required string field of the body.

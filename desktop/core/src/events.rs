@@ -38,6 +38,9 @@ pub const UNSTARRED: &str = "unstarred";
 /// The person created, renamed or deleted a project, or moved a
 /// repository into or out of one.
 pub const PROJECTS_CHANGED: &str = "projects_changed";
+/// The person deleted a repository: its reviews, its sessions and its
+/// place in a project.
+pub const REPOSITORY_DELETED: &str = "repository_deleted";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 

@@ -126,6 +126,11 @@ export const api = {
   },
   /** deletes a project; its repositories are in none after it */
   deleteProject: (id: string) => request<void>("DELETE", `/api/v1/projects/${seg(id)}`),
+  deleteRepo: (repo: string) =>
+    request<{ repo: string; reviews: number; sessions: number; discarded: number }>(
+      "DELETE",
+      `/api/v1/repos/${seg(repo)}`,
+    ),
   /** puts a repository in a project, out of the one it was in, or in none with null */
   moveRepo: (repo: string, project: string | null) =>
     request<void>("PUT", `/api/v1/repos/${seg(repo)}/project`, { project_id: project }),
@@ -273,6 +278,7 @@ export function subscribe(handlers: {
       "starred",
       "unstarred",
       "projects_changed",
+      "repository_deleted",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {

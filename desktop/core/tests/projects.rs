@@ -529,3 +529,94 @@ async fn an_avatar_image_must_be_a_png_of_at_most_512_kb() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+async fn deleting_a_repository_discards_what_waits_and_deletes_its_reviews_and_sessions() {
+    let app = app();
+    let waiting = send(&app, review("acme/api", "s-api", "Waiting")).await;
+    let decided = send(&app, review("acme/api", "s-api", "Decided")).await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{decided}/decision"),
+        Some(json!({"data": {"decisions": [{"id": 1, "action": "accept"}], "undecided": []}})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let other = send(&app, review("acme/web", "s-web", "Elsewhere")).await;
+    let project = create(
+        &app,
+        json!({"name": "Acme", "repos": ["acme/api", "acme/web"]}),
+    )
+    .await;
+
+    let (status, deleted) = call(&app, "DELETE", "/api/v1/repos/acme%2Fapi", None).await;
+    assert_eq!(status, StatusCode::OK, "{deleted}");
+    assert_eq!(
+        deleted,
+        json!({"repo": "acme/api", "reviews": 2, "sessions": 1, "discarded": 1})
+    );
+
+    // the one that waited was discarded first (the waiting agent's test
+    // shows what it is told); its events went with it
+    for id in [&waiting, &decided] {
+        let (status, _) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{id}");
+    }
+    let (status, _) = call(&app, "GET", "/api/v1/sessions/claude-code/s-api", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // the other repository, its session and the project stay; the deleted
+    // repository is in no list
+    let (status, _) = call(&app, "GET", &format!("/api/v1/reviews/{other}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let listing = listing(&app).await;
+    let acme = listing["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == project["id"])
+        .unwrap();
+    assert_eq!(repos(acme), ["acme/web"]);
+    assert!(!listing.to_string().contains("acme/api"));
+}
+
+#[tokio::test]
+async fn an_agent_waiting_on_a_deleted_repository_is_told_it_was_discarded() {
+    let app = app();
+    let waiting = send(&app, review("acme/api", "s-api", "Waiting")).await;
+    let router = app.router.clone();
+    let path = format!("/api/v1/reviews/{waiting}/wait?timeout=20");
+    let waiter = tokio::spawn(async move {
+        use axum::body::Body;
+        use axum::http::Request;
+        use http_body_util::BodyExt;
+        use tower::ServiceExt;
+        let request = Request::get(path)
+            .header("host", "127.0.0.1:4747")
+            .body(Body::empty())
+            .unwrap();
+        let response = router.oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null),
+        )
+    });
+    // the wait is listening before the repository goes
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let (status, _) = call(&app, "DELETE", "/api/v1/repos/acme%2Fapi", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, answer) = waiter.await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["status"], "discarded");
+    assert!(
+        answer["discarded_reason"]
+            .as_str()
+            .unwrap()
+            .contains("deleted this repository"),
+        "{answer}"
+    );
+}

@@ -393,6 +393,46 @@ impl Db {
     }
 }
 
+impl Db {
+    /// The reviews from a repository still waiting at `now`, newest rounds
+    /// only, as the inbox lists them.
+    pub fn pending_in_repo(&self, repo: &str, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT r.id FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+             WHERE json_extract(r.origin, '$.repo') = ?1 AND o.review_id IS NULL
+               AND (r.expires_at IS NULL OR r.expires_at > ?2)
+               AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)",
+        )?;
+        stmt.query_map(params![repo, crate::reviews::iso(now)], |row| row.get(0))?
+            .collect()
+    }
+
+    /// Deletes a repository from the app: every round of its reviews, with
+    /// what cascades from them, its sessions, with their statuses and
+    /// messages, and its place in a project. Returns how many reviews and
+    /// sessions went, and the event's id.
+    pub fn delete_repo(&self, repo: &str) -> rusqlite::Result<(usize, usize, i64)> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let reviews = tx.execute(
+            "DELETE FROM reviews WHERE json_extract(origin, '$.repo') = ?1",
+            params![repo],
+        )?;
+        let sessions = tx.execute("DELETE FROM sessions WHERE repo = ?1", params![repo])?;
+        tx.execute("DELETE FROM project_repos WHERE repo = ?1", params![repo])?;
+        let event_id = insert_event(
+            &tx,
+            None,
+            crate::events::REPOSITORY_DELETED,
+            None,
+            &json!({ "repo": repo, "reviews": reviews, "sessions": sessions }),
+        )?;
+        tx.commit()?;
+        Ok((reviews, sessions, event_id))
+    }
+}
+
 /// Puts `repo` in `project`, or in none.
 fn move_repo(
     conn: &Connection,

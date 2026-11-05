@@ -5930,6 +5930,26 @@ body.is-resizing iframe {
 .project-dialog {
   width: min(460px, calc(100vw - 40px));
 }
+/* typing the repository's name to confirm its deletion */
+.repo-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.repo-delete-confirm label {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.repo-delete-confirm .dialog-actions {
+  margin-top: 8px;
+}
+.repo-delete-confirm input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.project-dialog p + p {
+  margin-top: -6px;
+}
 .menu-item.is-danger {
   color: var(--danger);
 }
