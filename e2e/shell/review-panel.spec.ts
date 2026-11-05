@@ -86,7 +86,8 @@ test("a review opens beside the inbox, and closes with its button or Escape", as
   await expect(page).toHaveURL(/#\/$/);
 
   await row(page, "Panel: open and close").click();
-  await expect(panel(page)).toBeVisible();
+  // the view has loaded, as when a person reads the review before closing it
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
   await page.locator("body").press("Escape");
   await expect(panel(page)).toHaveCount(0);
 });
