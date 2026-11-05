@@ -1019,6 +1019,36 @@ export const scenes = [
     },
   },
   {
+    // the Projects page: two projects of several repositories, and the
+    // repositories in no project below them
+    name: "projects",
+    async run({ page, app, shot }) {
+      // none left from an earlier run
+      for (const { id } of (await app.api("GET", "/api/v1/projects")).projects)
+        await app.api("DELETE", `/api/v1/projects/${id}`);
+      const made = [];
+      for (const data of [
+        {
+          name: "Northwind",
+          description: "The shop, its API and its infrastructure",
+          color: "blue",
+          repos: ["northwind/api", "northwind/web-app", "northwind/infra"],
+        },
+        { name: "Acme", color: "orange", repos: ["acme/api", "acme/web", "acme/helpdesk"] },
+      ])
+        made.push((await app.api("POST", "/api/v1/projects", data)).id);
+      try {
+        await page.goto(`${app.ui}/#/projects`);
+        await page.getByTestId("project-group").first().waitFor();
+        await page.mouse.move(5, 600);
+        await settle(page, 500);
+        await shot("projects");
+      } finally {
+        for (const id of made) await app.api("DELETE", `/api/v1/projects/${id}`);
+      }
+    },
+  },
+  {
     // each scheme shows a bundled theme, so the page shows what a theme does
     name: "themes",
     async run({ page, app, shot }) {
