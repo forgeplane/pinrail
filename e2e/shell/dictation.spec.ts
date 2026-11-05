@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { clearInbox, createReview } from "./helpers";
+import { clearInbox, createReview, openReviewsIn } from "./helpers";
 
 // Dictation, with the browser's speech recognition replaced by a fake that
 // the test controls. It covers the note box's microphone and a field of a
@@ -85,6 +85,8 @@ test("Esc stops a dictation, and leaves the panel open", async ({ page }) => {
   await fakeRecognition(page);
   await clearInbox(page.request);
   const review = await createReview(page.request, { title: "Dictation: Esc" });
+  // ?open= shows the review in the side panel only while reviews open there
+  await openReviewsIn(page.request, "panel");
   await page.goto(`/#/?open=${review.id}`);
   const frame = page.frameLocator("#plugin-frame");
   await expect(frame.getByLabel("note for item 1")).toBeVisible();
