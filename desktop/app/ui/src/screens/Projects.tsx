@@ -18,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
@@ -464,6 +464,7 @@ function ProjectDialog({
     project ? colorOf(project) : PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
   );
   const [emoji, setEmoji] = useState(project?.emoji ?? "");
+  const nameId = useId();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -504,20 +505,25 @@ function ProjectDialog({
         <div className="dialog-head">
           <h2 id="project-dialog-title">{title}</h2>
         </div>
-        <label className="feedback-field">
-          <span>Name</span>
-          <input
-            ref={input}
-            className="feedback-input"
-            value={name}
-            maxLength={80}
-            placeholder="Such as Pinrail"
-            onChange={(event) => {
-              setName(event.target.value);
-              setError(null);
-            }}
-          />
-        </label>
+        <div className="feedback-field">
+          <label htmlFor={nameId}>Name</label>
+          {/* the avatar as it will show, beside the name it takes its letter from */}
+          <span className="project-name-row">
+            <ProjectAvatar project={{ id: project?.id ?? "", name: name || "?", color, emoji }} size={32} />
+            <input
+              id={nameId}
+              ref={input}
+              className="feedback-input"
+              value={name}
+              maxLength={80}
+              placeholder="Such as Pinrail"
+              onChange={(event) => {
+                setName(event.target.value);
+                setError(null);
+              }}
+            />
+          </span>
+        </div>
         <label className="feedback-field">
           <span>Description (optional)</span>
           <input
@@ -531,38 +537,37 @@ function ProjectDialog({
             }}
           />
         </label>
-        <div className="project-look">
-          <ProjectAvatar project={{ id: project?.id ?? "", name: name || "?", color, emoji }} size={36} />
-          <div className="project-look-fields">
-            <div className="project-swatches" role="radiogroup" aria-label="Colour">
-              {PROJECT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={color === c}
-                  aria-label={c[0].toUpperCase() + c.slice(1)}
-                  className={`project-swatch ${color === c ? "is-on" : ""}`}
-                  style={{ background: `var(--project-${c})` }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-            <label className="project-emoji">
-              <span>Icon</span>
-              <input
-                className="feedback-input"
-                value={emoji}
-                maxLength={8}
-                placeholder="An emoji, or the first letter"
-                onChange={(event) => {
-                  setEmoji(event.target.value);
-                  setError(null);
-                }}
+        <div className="feedback-field">
+          <span id="project-colour">Colour</span>
+          <div className="project-swatches" role="radiogroup" aria-labelledby="project-colour">
+            {PROJECT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={color === c}
+                aria-label={c[0].toUpperCase() + c.slice(1)}
+                className={`project-swatch ${color === c ? "is-on" : ""}`}
+                style={{ background: `var(--project-${c})` }}
+                onClick={() => setColor(c)}
               />
-            </label>
+            ))}
           </div>
         </div>
+        <label className="feedback-field">
+          <span>Icon (optional)</span>
+          <input
+            className="feedback-input"
+            value={emoji}
+            maxLength={8}
+            placeholder="An emoji, or a letter or two"
+            onChange={(event) => {
+              setEmoji(event.target.value);
+              setError(null);
+            }}
+          />
+          <span className="project-field-hint">Without one, the avatar shows the name's first letter.</span>
+        </label>
         {repos?.length ? (
           <p className="dim project-dialog-note">It starts with {repos.join(", ")}. Drag more repositories under it.</p>
         ) : repos ? (
