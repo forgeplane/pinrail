@@ -17,7 +17,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { AgentIcon } from "./AgentIcon";
 import { ReviewIcon } from "./ReviewIcon";
-import { SidebarSessionsMenu } from "./SidebarSessionsMenu";
+import { SidebarSessionsMenu, type ScopeChoice } from "./SidebarSessionsMenu";
 import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
@@ -64,16 +64,32 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
 
   const groups = useMemo(() => arrange(sessions, live.pending, choices, now), [sessions, live.pending, choices, now]);
   const agents = useMemo(() => [...new Set(sessions.map((s) => s.agent))].sort(), [sessions]);
-  // the projects first, then the repositories, then sessions with none
+  // the projects first, with their avatars, then the repositories, then
+  // sessions with none, as the inbox's filter lists them
   const repos = useMemo(() => {
-    const projects = new Map<string, string>();
-    for (const s of sessions) if (s.project) projects.set(`project:${s.project.id}`, s.project.name);
-    const named = [...projects].sort((a, b) => a[1].localeCompare(b[1]));
+    const projects = new Map<string, ScopeChoice>();
+    for (const s of sessions) {
+      if (!s.project) continue;
+      const project = live.namedProjects.find((p) => p.id === s.project!.id) ?? s.project;
+      projects.set(`project:${s.project.id}`, {
+        value: `project:${s.project.id}`,
+        label: s.project.name,
+        icon: <ProjectAvatar project={project} size={16} />,
+      });
+    }
+    const named = [...projects.values()].sort((a, b) => a.label.localeCompare(b.label));
     const plain = [...new Set(sessions.map((s) => s.repo ?? NO_PROJECT))].sort((a, b) =>
       a === NO_PROJECT ? 1 : b === NO_PROJECT ? -1 : a.localeCompare(b),
     );
-    return [...named, ...plain.map((r): [string, string] => [r, r === NO_PROJECT ? "No repository" : r])];
-  }, [sessions]);
+    return [
+      ...named,
+      ...plain.map((r): ScopeChoice => ({
+        value: r,
+        label: r === NO_PROJECT ? "No repository" : r,
+        icon: <FolderGit2 size={14} />,
+      })),
+    ];
+  }, [sessions, live.namedProjects]);
 
   const change = (patch: Partial<Choices & { collapsed: string[] }>) => update({ sidebar: { sessions: patch } });
   const keyOf = (group: Group) => `${choices.grouping}:${group.key}`;

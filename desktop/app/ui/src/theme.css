@@ -737,6 +737,22 @@ h1 {
   flex: none;
   color: var(--dim);
 }
+/* a project's avatar or a folder in a menu, in the icon's place */
+.menu-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+/* a submenu with a search field, which stays at its top as in a select */
+.menu-submenu.is-searchable {
+  min-width: 240px;
+  padding-top: 0;
+}
+.menu-submenu.is-searchable .select-search {
+  width: calc(100% + 10px);
+  margin: 0 -5px 4px;
+}
 .menu-chevron {
   flex: none;
   color: var(--faint);

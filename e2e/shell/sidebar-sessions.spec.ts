@@ -217,6 +217,12 @@ test("grouped by project, a project's repositories share a group, and each sessi
     // the filter takes the project, and keeps its repositories' sessions
     const menu = await openMenu(page);
     await menu.getByRole("menuitem", { name: /Project or repository/ }).click();
+    // as in the inbox's filter: typed words narrow the list, and a project
+    // shows its avatar
+    const submenu = page.getByRole("menu", { name: "Project or repository" });
+    await submenu.getByRole("textbox", { name: "Filter project or repository" }).fill(`proj ${run}`);
+    await expect(submenu.getByRole("menuitemcheckbox")).toHaveCount(1);
+    await expect(submenu.getByRole("menuitemcheckbox", { name }).locator(".project-avatar")).toBeVisible();
     await menu.getByRole("menuitemcheckbox", { name }).click();
     await expect(sessionRow(page, "claude-code", `p-infra-${run}`)).toBeVisible();
     await expect(sessionRow(page, "codex", `p-other-${run}`)).toHaveCount(0);

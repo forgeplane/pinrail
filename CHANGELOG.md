@@ -21,8 +21,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Group the inbox, the sidebar's sessions and the Sessions page by
   project. A repository in no project is a group of its own. The Sessions
   page can also group its sessions by repository.
-- Filter the inbox, the history and the Sessions page by a project or a
-  repository, from one menu that you can type in.
+- Filter the inbox, the history, the Sessions page and the sidebar's
+  sessions by a project or a repository, from a menu that you can type
+  in.
 - Go to the projects, create one, or show a project's reviews from the
   command palette.
 - Delete a review, with every round of it, from the **…** menu of its row

@@ -49,6 +49,9 @@ const STATES: [State, string][] = [
   ["done", "Done"],
 ];
 
+/** A project or a repository the sessions can be filtered by. */
+export type ScopeChoice = { value: string; label: string; icon: ReactNode };
+
 type Option = {
   value: string;
   label: string;
@@ -56,6 +59,8 @@ type Option = {
   onPick: () => void;
   radio?: boolean;
   icon?: LucideIcon;
+  /** a picture in place of the icon, such as a project's avatar */
+  mark?: ReactNode;
   /** why the option does not apply now, when it does not */
   disabled?: string;
 };
@@ -88,7 +93,7 @@ export function SidebarSessionsMenu({
   /** the agents there are sessions of, and the projects and repositories
    *  as values and labels, for the filters */
   agents: string[];
-  repos: [string, string][];
+  repos: ScopeChoice[];
   collapsedAll: boolean;
   onChange: (change: Partial<Choices>) => void;
   onCollapseAll: (collapse: boolean) => void;
@@ -96,6 +101,9 @@ export function SidebarSessionsMenu({
 }) {
   const menu = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<string | null>(null);
+  // what is typed in a searchable submenu
+  const [query, setQuery] = useState("");
+  useEffect(() => setQuery(""), [open]);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -138,44 +146,70 @@ export function SidebarSessionsMenu({
   const named = (values: string[], all: string) => (values.length ? values.join(", ") : all);
   const label = (list: [string, string][], value: string) => list.find(([v]) => v === value)?.[1] ?? "";
 
-  const submenu = (key: string, text: string, value: string, options: Option[]) => (
-    <div className="menu-sub" onMouseEnter={() => setOpen(key)}>
-      <button
-        type="button"
-        role="menuitem"
-        aria-haspopup="menu"
-        aria-expanded={open === key}
-        className={`menu-item ${open === key ? "is-open" : ""}`}
-        // the pointer opened it already on its way to the click
-        onClick={() => setOpen(key)}
-      >
-        {text}
-        <span className="menu-value">{value}</span>
-        <ChevronRight size={13} className="menu-chevron" />
-      </button>
-      {open === key ? (
-        <div ref={fitInWindow} className="menu-popup menu-submenu" role="menu" aria-label={text}>
-          {options.length === 0 ? <div className="menu-note">None yet</div> : null}
-          {options.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
-              aria-checked={o.checked}
-              className="menu-item"
-              disabled={!!o.disabled}
-              title={o.disabled}
-              onClick={o.onPick}
-            >
-              {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
-              <span className="menu-label">{o.label}</span>
-              {o.checked ? <Check size={13} className="menu-check" /> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
+  const submenu = (key: string, text: string, value: string, all: Option[], searchable = false) => {
+    const words = query.trim().toLowerCase();
+    const options = searchable && words ? all.filter((o) => o.label.toLowerCase().includes(words)) : all;
+    return (
+      <div className="menu-sub" onMouseEnter={() => setOpen(key)}>
+        <button
+          type="button"
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={open === key}
+          className={`menu-item ${open === key ? "is-open" : ""}`}
+          // the pointer opened it already on its way to the click
+          onClick={() => setOpen(key)}
+        >
+          {text}
+          <span className="menu-value">{value}</span>
+          <ChevronRight size={13} className="menu-chevron" />
+        </button>
+        {open === key ? (
+          <div
+            ref={fitInWindow}
+            className={`menu-popup menu-submenu ${searchable ? "is-searchable" : ""}`}
+            role="menu"
+            aria-label={text}
+          >
+            {searchable && all.length ? (
+              <input
+                autoFocus
+                className="select-search"
+                type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder="Type to filter"
+                aria-label={`Filter ${text.toLowerCase()}`}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            ) : null}
+            {all.length === 0 ? <div className="menu-note">None yet</div> : null}
+            {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
+                aria-checked={o.checked}
+                className="menu-item"
+                disabled={!!o.disabled}
+                title={o.disabled}
+                onClick={o.onPick}
+              >
+                {o.mark ? <span className="menu-icon menu-mark">{o.mark}</span> : null}
+                {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
+                <span className="menu-label">{o.label}</span>
+                {o.checked ? <Check size={13} className="menu-check" /> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
   const toggle = (text: string, checked: boolean, onPick: () => void, extra?: ReactNode) => (
     <button
       type="button"
@@ -259,7 +293,14 @@ export function SidebarSessionsMenu({
         "repos",
         "Project or repository",
         choices.repos.length ? String(choices.repos.length) : "",
-        checks(repos, choices.repos, (r) => onChange({ repos: toggled(choices.repos, r) })),
+        repos.map((r) => ({
+          value: r.value,
+          label: r.label,
+          mark: r.icon,
+          checked: choices.repos.includes(r.value),
+          onPick: () => onChange({ repos: toggled(choices.repos, r.value) }),
+        })),
+        true,
       )}
       {submenu(
         "states",
