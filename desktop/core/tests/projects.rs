@@ -313,3 +313,47 @@ async fn every_change_is_announced() {
     call(&app, "DELETE", &format!("/api/v1/projects/{id}"), None).await;
     assert_eq!(kinds(&app), 4);
 }
+
+#[tokio::test]
+async fn a_project_has_an_optional_description_that_can_be_changed_or_removed() {
+    let app = app();
+    let project = create(
+        &app,
+        json!({"name": "Pinrail", "description": "  The app, its plugins and its site  "}),
+    )
+    .await;
+    assert_eq!(project["description"], "The app, its plugins and its site");
+    let id = project["id"].as_str().unwrap();
+    let path = format!("/api/v1/projects/{id}");
+
+    // a new description leaves the name as it is
+    let (status, changed) = call(
+        &app,
+        "PATCH",
+        &path,
+        Some(json!({"description": "The app"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{changed}");
+    assert_eq!(changed["name"], "Pinrail");
+    assert_eq!(changed["description"], "The app");
+    // and a new name the description
+    let (_, changed) = call(&app, "PATCH", &path, Some(json!({"name": "Pinrail app"}))).await;
+    assert_eq!(changed["description"], "The app");
+    // empty or null removes it
+    for gone in [json!(""), Value::Null] {
+        call(&app, "PATCH", &path, Some(json!({"description": "again"}))).await;
+        let (_, changed) = call(&app, "PATCH", &path, Some(json!({ "description": gone }))).await;
+        assert_eq!(changed["description"], Value::Null, "{gone}");
+    }
+    // one without a description has none
+    let other = create(&app, json!({"name": "Other"})).await;
+    assert_eq!(other["description"], Value::Null);
+
+    let long = "x".repeat(281);
+    let (status, refused) = call(&app, "PATCH", &path, Some(json!({ "description": long }))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(refused.to_string().contains("/description"), "{refused}");
+    let (status, _) = call(&app, "PATCH", &path, Some(json!({}))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

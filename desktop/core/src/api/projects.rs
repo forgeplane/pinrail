@@ -19,7 +19,7 @@ use crate::error::Error;
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/projects", get(list).post(create))
-        .route("/api/v1/projects/{id}", patch(rename).delete(delete))
+        .route("/api/v1/projects/{id}", patch(update).delete(delete))
         .route("/api/v1/repos/{repo}/project", put(set_repo))
 }
 
@@ -31,8 +31,9 @@ async fn list(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError
     Ok(Json(state.projects().listing()?))
 }
 
-/// Creates a project from `name` and, optionally, `repos`, moving any
-/// repository that is in another project: 201 with the project.
+/// Creates a project from `name` and, optionally, a `description` and
+/// `repos`, moving any repository that is in another project: 201 with the
+/// project.
 async fn create(
     State(state): State<Arc<Pinrail>>,
     body: Bytes,
@@ -52,19 +53,38 @@ async fn create(
             .collect::<Result<_, _>>()?,
         Some(_) => return Err(Error::invalid("/repos", "is not a list").into()),
     };
-    let project = state.projects().create(&name, &repos)?;
+    let description = optional_text(&body, "description")?;
+    let project = state
+        .projects()
+        .create(&name, description.as_deref(), &repos)?;
     Ok((StatusCode::CREATED, Json(project)))
 }
 
-/// Renames a project with `name`: the project, or 404.
-async fn rename(
+/// Changes a project's `name`, its `description`, or both; an empty or
+/// `null` description removes it: the project, or 404.
+async fn update(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let name = text(&body, "name")?;
-    Ok(Json(state.projects().rename(&id, &name)?))
+    let name = match body.get("name") {
+        None => None,
+        Some(_) => Some(text(&body, "name")?),
+    };
+    let description = match body.get("description") {
+        None => None,
+        Some(Value::Null) => Some(String::new()),
+        Some(_) => optional_text(&body, "description")?,
+    };
+    if name.is_none() && description.is_none() {
+        return Err(Error::invalid("", "give a name or a description").into());
+    }
+    Ok(Json(state.projects().update(
+        &id,
+        name.as_deref(),
+        description.as_deref(),
+    )?))
 }
 
 /// Deletes a project, leaving its repositories in none: 204, or 404.
@@ -93,6 +113,15 @@ async fn set_repo(
     };
     state.projects().set_repo(&repo, project)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// An optional string field of the body: `None` when it is missing or `null`.
+fn optional_text(body: &Value, key: &str) -> Result<Option<String>, Error> {
+    match body.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s.clone())),
+        Some(_) => Err(Error::invalid(format!("/{key}"), "is not a string")),
+    }
 }
 
 /// A required string field of the body.

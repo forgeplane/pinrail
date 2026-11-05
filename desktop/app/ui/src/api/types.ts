@@ -105,6 +105,8 @@ export type ProjectRepo = {
 export type Project = {
   id: string;
   name: string;
+  /** a line on what the project is, if the person wrote one */
+  description: string | null;
   created_at: string;
   repos: ProjectRepo[];
   sessions: number;

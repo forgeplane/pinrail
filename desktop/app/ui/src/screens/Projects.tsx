@@ -41,7 +41,7 @@ const reason = (error: unknown) =>
 
 type Menu = { anchor: HTMLElement; label: string; entries: MenuEntry[]; align?: "left" | "right" };
 type Dialog =
-  { kind: "new"; repos: string[] } | { kind: "rename"; project: Project } | { kind: "delete"; project: Project };
+  { kind: "new"; repos: string[] } | { kind: "edit"; project: Project } | { kind: "delete"; project: Project };
 
 export function Projects() {
   const live = useLive();
@@ -136,7 +136,7 @@ export function Projects() {
             ]
           : []),
         { kind: "separator" },
-        { label: "Rename…", icon: Pencil, onPick: () => setDialog({ kind: "rename", project }) },
+        { label: "Edit…", icon: Pencil, onPick: () => setDialog({ kind: "edit", project }) },
         { kind: "separator" },
         { label: "Delete project…", icon: Trash2, danger: true, onPick: () => setDialog({ kind: "delete", project }) },
       ],
@@ -217,6 +217,11 @@ export function Projects() {
         </button>
         <Icon size={14} className="project-group-icon" aria-hidden />
         <h2>{title}</h2>
+        {actions?.description ? (
+          <span className="project-group-description" title={actions.description}>
+            {actions.description}
+          </span>
+        ) : null}
         <span className="project-group-meta">
           {meta.filter(Boolean).map((m) => (
             <span key={m} className={m!.endsWith("waiting") && !m!.startsWith("Nothing") ? "is-waiting" : ""}>
@@ -357,26 +362,22 @@ export function Projects() {
         <ProjectDialog
           title="New project"
           action="Create project"
-          initial=""
-          choices={[
-            ...loose.map((r) => ({ repo: r.repo, owner: null })),
-            ...projects.flatMap((p) => p.repos.map((r) => ({ repo: r.repo, owner: p.name }))),
-          ]}
-          chosen={dialog.repos}
-          onSave={async (name, repos) => {
-            await api.createProject(name, repos);
+          repos={dialog.repos}
+          onSave={async (name, description) => {
+            await api.createProject(name, description, dialog.repos);
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
         />
       ) : null}
-      {dialog?.kind === "rename" ? (
+      {dialog?.kind === "edit" ? (
         <ProjectDialog
-          title="Rename project"
-          action="Rename"
-          initial={dialog.project.name}
-          onSave={async (name) => {
-            await api.renameProject(dialog.project.id, name);
+          title="Edit project"
+          action="Save"
+          name={dialog.project.name}
+          description={dialog.project.description ?? ""}
+          onSave={async (name, description) => {
+            await api.updateProject(dialog.project.id, { name, description });
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
@@ -432,29 +433,29 @@ function AddRepo({ onAdd, onDone }: { onAdd: (repo: string) => void; onDone: () 
   );
 }
 
-/** Asks for a project's name, to create or rename one, and for a new
- *  project, the repositories it starts with. */
+/** Asks for a project's name and, optionally, a line on what it is: for a
+ *  new project, or to change one. A new project started from a
+ *  repository's menu says it begins with that repository. */
 function ProjectDialog({
   title,
   action,
-  initial,
-  choices = [],
-  chosen = [],
+  name: initialName = "",
+  description: initialDescription = "",
+  repos,
   onSave,
   onClose,
 }: {
   title: string;
   action: string;
-  initial: string;
-  /** the repositories to pick from, each with the project it is in */
-  choices?: { repo: string; owner: string | null }[];
-  /** those picked to begin with */
-  chosen?: string[];
-  onSave: (name: string, repos: string[]) => Promise<void>;
+  name?: string;
+  description?: string;
+  /** the repositories a new project begins with */
+  repos?: string[];
+  onSave: (name: string, description: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(initial);
-  const [picked, setPicked] = useState<string[]>(chosen);
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -475,7 +476,7 @@ function ProjectDialog({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(name, picked);
+      await onSave(name, description);
     } catch (e) {
       setError(reason(e));
       setSaving(false);
@@ -509,23 +510,23 @@ function ProjectDialog({
             }}
           />
         </label>
-        {choices.length ? (
-          <fieldset className="project-choices">
-            <legend>Repositories (optional)</legend>
-            {choices.map(({ repo, owner }) => (
-              <label key={repo} className="project-choice">
-                <input
-                  type="checkbox"
-                  checked={picked.includes(repo)}
-                  onChange={() =>
-                    setPicked((now) => (now.includes(repo) ? now.filter((r) => r !== repo) : [...now, repo]))
-                  }
-                />
-                <span className="project-choice-repo">{repo}</span>
-                {owner ? <span className="dim">in {owner}, moves</span> : null}
-              </label>
-            ))}
-          </fieldset>
+        <label className="feedback-field">
+          <span>Description (optional)</span>
+          <input
+            className="feedback-input"
+            value={description}
+            maxLength={280}
+            placeholder="Such as The app, its plugins and its website"
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setError(null);
+            }}
+          />
+        </label>
+        {repos?.length ? (
+          <p className="dim project-dialog-note">It starts with {repos.join(", ")}. Drag more repositories under it.</p>
+        ) : repos ? (
+          <p className="dim project-dialog-note">Add repositories by dragging them under it.</p>
         ) : null}
         {error ? <p className="notice notice-danger">{error}</p> : null}
         <div className="dialog-actions">

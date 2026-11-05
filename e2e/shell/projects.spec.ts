@@ -21,7 +21,7 @@ test.afterEach(async ({ request }) => {
   await settingSaved(request, (s) => s.inbox.layout, "repository");
 });
 
-test("a project is created with repositories, renamed and deleted", async ({ page }) => {
+test("a project is created with a description, edited, and deleted", async ({ page }) => {
   await createReview(page.request, { title: "Projects: app", origin: { repo: "proj/app" } });
   await createReview(page.request, { title: "Projects: infra", origin: { repo: "proj/infra" } });
 
@@ -30,16 +30,20 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
   await expect(loose(page)).toContainText("proj/app");
   await page.getByRole("button", { name: "New project" }).click();
 
+  // a name and a description; the repositories come by dragging, not from a list
   const dialog = page.getByRole("dialog", { name: "New project" });
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
   await dialog.getByLabel("Name", { exact: true }).fill("Proj");
-  await dialog.getByRole("checkbox", { name: "proj/app" }).check();
-  await dialog.getByRole("checkbox", { name: "proj/infra" }).check();
+  await dialog.getByLabel("Description (optional)").fill("The app and its infrastructure");
   await dialog.getByRole("button", { name: "Create project" }).click();
   await expect(dialog).toBeHidden();
+  await expect(card(page, "Proj")).toContainText("The app and its infrastructure");
+  await expect(card(page, "Proj")).toContainText("Drop a repository here");
 
+  for (const repo of ["proj/app", "proj/infra"])
+    await loose(page).getByTestId("project-repo").filter({ hasText: repo }).dragTo(card(page, "Proj"));
   await expect(card(page, "Proj").getByTestId("project-repo")).toHaveText([/proj\/app/, /proj\/infra/]);
   await expect(card(page, "Proj")).toContainText("2 waiting");
-  await expect(loose(page).getByText("proj/app")).toHaveCount(0);
 
   // a name another project has is refused, whatever its case
   await page.getByRole("button", { name: "New project" }).click();
@@ -49,12 +53,16 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
+  // Edit changes the name and the description, and an empty one removes it
   await card(page, "Proj").getByRole("button", { name: "Proj actions" }).click();
-  await page.getByRole("menuitem", { name: "Rename…" }).click();
-  const rename = page.getByRole("dialog", { name: "Rename project" });
-  await rename.getByLabel("Name", { exact: true }).fill("Proj app");
-  await rename.getByRole("button", { name: "Rename" }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit project" });
+  await expect(edit.getByLabel("Description (optional)")).toHaveValue("The app and its infrastructure");
+  await edit.getByLabel("Name", { exact: true }).fill("Proj app");
+  await edit.getByLabel("Description (optional)").fill("");
+  await edit.getByRole("button", { name: "Save" }).click();
   await expect(card(page, "Proj app")).toBeVisible();
+  await expect(card(page, "Proj app")).not.toContainText("The app and its infrastructure");
 
   await card(page, "Proj app").getByRole("button", { name: "Proj app actions" }).click();
   await page.getByRole("menuitem", { name: "Delete project…" }).click();
@@ -62,6 +70,20 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
   await expect(page.getByTestId("project-group")).toHaveCount(0);
   // its repositories are in no project again
   await expect(loose(page)).toContainText("proj/infra");
+});
+
+test("a project started from a repository's menu begins with it", async ({ page, request }) => {
+  await createReview(request, { title: "Projects: seed", origin: { repo: "proj/seed" } });
+  await page.goto("/#/projects");
+  const seed = loose(page).getByTestId("project-repo").filter({ hasText: "proj/seed" });
+  await seed.hover();
+  await seed.getByRole("button", { name: "Move proj/seed" }).click();
+  await page.getByRole("menuitem", { name: "New project…" }).click();
+  const dialog = page.getByRole("dialog", { name: "New project" });
+  await expect(dialog).toContainText("It starts with proj/seed");
+  await dialog.getByLabel("Name", { exact: true }).fill("Seeded");
+  await dialog.getByRole("button", { name: "Create project" }).click();
+  await expect(card(page, "Seeded").getByTestId("project-repo")).toHaveText([/proj\/seed/]);
 });
 
 test("a repository moves between projects by dragging and from its menu", async ({ page, request }) => {

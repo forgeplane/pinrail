@@ -14,6 +14,8 @@ use crate::events::{self, Bus, Notice};
 
 /// The longest name a project can have.
 pub const MAX_NAME: usize = 80;
+/// The longest description a project can have.
+pub const MAX_DESCRIPTION: usize = 280;
 /// The longest repository name a project takes, as origins give it.
 pub const MAX_REPO: usize = 200;
 
@@ -48,10 +50,16 @@ impl Projects {
             .ok_or_else(|| Error::NotFound(format!("project {id}")))
     }
 
-    /// Creates a project with these repositories, moving any that are in
-    /// another project. Returns it.
-    pub fn create(&self, name: &str, repos: &[String]) -> Result<Value, Error> {
+    /// Creates a project with an optional description and these
+    /// repositories, moving any that are in another project. Returns it.
+    pub fn create(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        repos: &[String],
+    ) -> Result<Value, Error> {
         let name = checked_name(name)?;
+        let description = description.map(checked_description).transpose()?.flatten();
         let repos = repos
             .iter()
             .enumerate()
@@ -60,18 +68,29 @@ impl Projects {
         let id = crate::id::next_project();
         let event_id = self
             .db
-            .create_project(&id, &name, &repos, Utc::now())?
+            .create_project(&id, &name, description.as_deref(), &repos, Utc::now())?
             .map_err(|e| refused(e, &id))?;
         self.announce(event_id);
         self.get(&id)
     }
 
-    /// Renames a project. Returns it.
-    pub fn rename(&self, id: &str, name: &str) -> Result<Value, Error> {
-        let name = checked_name(name)?;
+    /// Changes a project's name, its description, or both: `None` leaves
+    /// one as it is, and an empty description removes it. Returns it.
+    pub fn update(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+    ) -> Result<Value, Error> {
+        let name = name.map(checked_name).transpose()?;
+        let description = description.map(checked_description).transpose()?;
         let event_id = self
             .db
-            .rename_project(id, &name)?
+            .update_project(
+                id,
+                name.as_deref(),
+                description.as_ref().map(|d| d.as_deref()),
+            )?
             .map_err(|e| refused(e, id))?;
         self.announce(event_id);
         self.get(id)
@@ -128,6 +147,18 @@ fn checked_name(name: &str) -> Result<String, Error> {
         ));
     }
     Ok(name.to_string())
+}
+
+/// The description trimmed, `None` when it is empty, or why it cannot be one.
+fn checked_description(description: &str) -> Result<Option<String>, Error> {
+    let description = description.trim();
+    if description.chars().count() > MAX_DESCRIPTION {
+        return Err(Error::invalid(
+            "/description",
+            format!("is longer than {MAX_DESCRIPTION} characters"),
+        ));
+    }
+    Ok((!description.is_empty()).then(|| description.to_string()))
 }
 
 /// The repository trimmed, or why it cannot be one.

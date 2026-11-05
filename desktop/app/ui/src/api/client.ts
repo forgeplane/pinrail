@@ -106,8 +106,11 @@ export const api = {
   /** the projects by name, and the repositories in none */
   projects: () => request<ProjectsListing>("GET", "/api/v1/projects"),
   /** creates a project, moving into it any of the repositories that are in another */
-  createProject: (name: string, repos: string[] = []) => request<Project>("POST", "/api/v1/projects", { name, repos }),
-  renameProject: (id: string, name: string) => request<Project>("PATCH", `/api/v1/projects/${seg(id)}`, { name }),
+  createProject: (name: string, description = "", repos: string[] = []) =>
+    request<Project>("POST", "/api/v1/projects", { name, description, repos }),
+  /** changes a project's name, its description, or both; an empty description removes it */
+  updateProject: (id: string, change: { name?: string; description?: string }) =>
+    request<Project>("PATCH", `/api/v1/projects/${seg(id)}`, change),
   /** deletes a project; its repositories are in none after it */
   deleteProject: (id: string) => request<void>("DELETE", `/api/v1/projects/${seg(id)}`),
   /** puts a repository in a project, out of the one it was in, or in none with null */

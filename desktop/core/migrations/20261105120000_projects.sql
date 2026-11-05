@@ -1,10 +1,12 @@
 -- A set of repositories the person named, to group the inbox and the
--- sidebar by. Projects have no stored order: the app orders them by what
--- waits in them and by their latest activity.
+-- sidebar by, with a line on what it is. Projects have no stored order: the
+-- app lists them by name.
 CREATE TABLE projects (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  -- a line on what the project is, if the person wrote one
+  description TEXT,
+  created_at  TEXT NOT NULL
 );
 -- two projects cannot share a name, whatever its case
 CREATE UNIQUE INDEX projects_name ON projects(name COLLATE NOCASE);

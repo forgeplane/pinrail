@@ -54,6 +54,7 @@ impl RepoRow {
 pub struct ProjectRow {
     pub id: String,
     pub name: String,
+    pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub repos: Vec<RepoRow>,
 }
@@ -63,6 +64,7 @@ impl ProjectRow {
         json!({
             "id": self.id,
             "name": self.name,
+            "description": self.description,
             "created_at": crate::reviews::iso(self.created_at),
             "repos": self.repos.iter().map(RepoRow::to_json).collect::<Vec<_>>(),
             "sessions": self.repos.iter().map(|r| r.sessions).sum::<usize>(),
@@ -154,14 +156,16 @@ impl Db {
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        let mut stmt =
-            conn.prepare("SELECT id, name, created_at FROM projects ORDER BY name COLLATE NOCASE")?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, created_at FROM projects ORDER BY name COLLATE NOCASE",
+        )?;
         let mut projects = stmt
             .query_map([], |row| {
                 Ok(ProjectRow {
                     id: row.get(0)?,
                     name: row.get(1)?,
-                    created_at: parse_datetime(&row.get::<_, String>(2)?).unwrap_or_default(),
+                    description: row.get(2)?,
+                    created_at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
                     repos: Vec::new(),
                 })
             })?
@@ -202,6 +206,7 @@ impl Db {
         &self,
         id: &str,
         name: &str,
+        description: Option<&str>,
         repos: &[String],
         at: DateTime<Utc>,
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
@@ -209,8 +214,8 @@ impl Db {
         let tx = conn.transaction()?;
         let at = crate::reviews::iso(at);
         match tx.execute(
-            "INSERT INTO projects (id, name, created_at) VALUES (?1, ?2, ?3)",
-            params![id, name, at],
+            "INSERT INTO projects (id, name, description, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![id, name, description, at],
         ) {
             Err(error) if is_unique_violation(&error) => return Ok(Err(NotChanged::NameTaken)),
             inserted => inserted?,
@@ -223,17 +228,22 @@ impl Db {
         Ok(Ok(event_id))
     }
 
-    /// Renames a project. Returns its event's id.
-    pub fn rename_project(
+    /// Changes a project's name, its description, or both: `None` leaves
+    /// one as it is, and a description of `Some(None)` removes it. Returns
+    /// its event's id.
+    pub fn update_project(
         &self,
         id: &str,
-        name: &str,
+        name: Option<&str>,
+        description: Option<Option<&str>>,
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         match tx.execute(
-            "UPDATE projects SET name = ?2 WHERE id = ?1",
-            params![id, name],
+            "UPDATE projects SET name = COALESCE(?2, name),
+               description = CASE WHEN ?3 THEN ?4 ELSE description END
+             WHERE id = ?1",
+            params![id, name, description.is_some(), description.flatten()],
         ) {
             Err(error) if is_unique_violation(&error) => return Ok(Err(NotChanged::NameTaken)),
             Ok(0) => return Ok(Err(NotChanged::NoProject)),
