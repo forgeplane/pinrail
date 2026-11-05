@@ -307,12 +307,14 @@ test("a project's avatar takes a colour and an icon, and shows where the project
   });
   expect(Math.abs(offset)).toBeLessThan(0.3);
 
-  // the inbox's group shows it too
+  // the inbox's group shows it too, at the size the Projects page does
+  const onPage = (await group.locator(".project-avatar").boundingBox())!;
   await page.goto("/#/");
   await page.getByRole("radio", { name: "Grouped by project" }).click();
-  await expect(
-    page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar"),
-  ).toHaveAttribute("data-color", "green");
+  const inInbox = page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar");
+  await expect(inInbox).toHaveAttribute("data-color", "green");
+  const inbox = (await inInbox.boundingBox())!;
+  expect([inbox.width, inbox.height]).toEqual([onPage.width, onPage.height]);
 });
 
 test("at the large interface size, a project's menu opens under its button", async ({ page, request }) => {

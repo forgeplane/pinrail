@@ -433,7 +433,7 @@ function Waiting() {
                   {/* points down while the group is open, and right once it is folded */}
                   <ChevronDown size={13} className="inbox-group-fold" aria-hidden />
                   {key.startsWith("project:") ? (
-                    <ProjectAvatar project={items[0].project!} size={18} className="inbox-group-icon" />
+                    <ProjectAvatar project={items[0].project!} size={20} className="inbox-group-icon" />
                   ) : (
                     <FolderGit2 size={13} className="inbox-group-icon" aria-label="Repository" />
                   )}
