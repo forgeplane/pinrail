@@ -359,3 +359,19 @@ test("what waits under a session lines up with the session's title, grouped or n
     expect(Math.abs((icon?.x ?? 0) - (title?.x ?? 0)), grouping).toBeLessThanOrEqual(2);
   }
 });
+
+test("a submenu near the window's bottom moves up to fit in it", async ({ page }) => {
+  const run = fresh();
+  for (let i = 0; i < 8; i++) {
+    await report(page.request, "claude-code", `fit-${i}-${run}`, {
+      text: "Fit",
+      kind: "start",
+      origin: { repo: `fit/${i}-${run}` },
+    });
+  }
+  await page.setViewportSize({ width: 1000, height: 560 });
+  await page.goto("/#/");
+  const menu = await openMenu(page);
+  await menu.getByRole("menuitem", { name: /Project or repository/ }).click();
+  await expect(page.getByRole("menu", { name: "Project or repository" })).toBeInViewport({ ratio: 1 });
+});

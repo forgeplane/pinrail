@@ -60,6 +60,15 @@ type Option = {
   disabled?: string;
 };
 
+/** Moves a submenu up, beside its item, as far as it runs past the
+ *  window's bottom. */
+function fitInWindow(node: HTMLElement | null) {
+  if (!node) return;
+  node.style.top = "";
+  const over = node.getBoundingClientRect().bottom - (window.innerHeight - 8);
+  if (over > 0) node.style.top = `${parseFloat(getComputedStyle(node).top) - over}px`;
+}
+
 /** A list of strings with one value turned on or off. */
 const toggled = <T extends string>(list: T[], value: T) =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -145,7 +154,7 @@ export function SidebarSessionsMenu({
         <ChevronRight size={13} className="menu-chevron" />
       </button>
       {open === key ? (
-        <div className="menu-popup menu-submenu" role="menu" aria-label={text}>
+        <div ref={fitInWindow} className="menu-popup menu-submenu" role="menu" aria-label={text}>
           {options.length === 0 ? <div className="menu-note">None yet</div> : null}
           {options.map((o) => (
             <button
