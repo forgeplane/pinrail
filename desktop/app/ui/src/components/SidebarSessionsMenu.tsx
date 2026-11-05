@@ -3,7 +3,7 @@
 // the right on hover or click. The menu is drawn at the end of the body, so
 // the sidebar's scrolling cannot clip it.
 
-import { Check, ChevronRight, CircleDot, Clock, FolderGit2, List, type LucideIcon } from "lucide-react";
+import { Check, ChevronRight, CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -17,6 +17,7 @@ import {
 } from "../lib/sidebarSessions";
 
 const GROUPINGS: [Grouping, string][] = [
+  ["project", "Project"],
   ["repository", "Repository"],
   ["status", "Status"],
   ["updated", "Updated"],
@@ -28,6 +29,7 @@ const ORDERINGS: [Ordering, string][] = [
 ];
 /** The icon of each grouping and ordering, by its value. */
 const ICONS: Record<Grouping, LucideIcon> = {
+  project: LayoutGrid,
   repository: FolderGit2,
   status: CircleDot,
   updated: Clock,
@@ -73,9 +75,10 @@ export function SidebarSessionsMenu({
 }: {
   anchor: HTMLElement;
   choices: Choices;
-  /** the agents and repositories there are sessions of, for the filters */
+  /** the agents there are sessions of, and the projects and repositories
+   *  as values and labels, for the filters */
   agents: string[];
-  repos: string[];
+  repos: [string, string][];
   collapsedAll: boolean;
   onChange: (change: Partial<Choices>) => void;
   onCollapseAll: (collapse: boolean) => void;
@@ -244,13 +247,9 @@ export function SidebarSessionsMenu({
       )}
       {submenu(
         "repos",
-        "Repository",
+        "Project or repository",
         choices.repos.length ? String(choices.repos.length) : "",
-        checks(
-          repos.map((r) => [r, r === "-" ? "No repository" : r]),
-          choices.repos,
-          (r) => onChange({ repos: toggled(choices.repos, r) }),
-        ),
+        checks(repos, choices.repos, (r) => onChange({ repos: toggled(choices.repos, r) })),
       )}
       {submenu(
         "states",

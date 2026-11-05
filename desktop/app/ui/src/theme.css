@@ -5896,3 +5896,13 @@ body.is-resizing iframe {
 .projects-page .inbox-controls input {
   width: 260px;
 }
+/* in a project with several repositories, which one a session works in */
+.sidebar-session-repo-label {
+  flex: none;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--faint);
+}

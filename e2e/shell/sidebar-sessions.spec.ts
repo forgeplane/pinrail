@@ -144,7 +144,7 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   let menu = await openMenu(page);
   await menu.getByRole("menuitem", { name: /Grouping/ }).click();
   // each grouping has its icon
-  await expect(menu.getByRole("menuitemradio").locator(".menu-icon")).toHaveCount(4);
+  await expect(menu.getByRole("menuitemradio").locator(".menu-icon")).toHaveCount(5);
   await menu.getByRole("menuitemradio", { name: "Status" }).click();
   await expect(heading).toHaveText("Status");
   await expect(group(page, "Waiting for you")).toBeVisible();
@@ -180,6 +180,48 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   await expect(sessionRow(page, "codex", theirs)).toBeVisible();
   await menu.getByRole("button", { name: "Reset" }).click();
   await expect(sessionRow(page, "claude-code", mine)).toBeVisible();
+});
+
+test("grouped by project, a project's repositories share a group, and each session names its own", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const [app, infra, other] = [`proj-app/${run}`, `proj-infra/${run}`, `proj-other/${run}`];
+  await report(page.request, "claude-code", `p-app-${run}`, { text: "App work", kind: "start", origin: { repo: app } });
+  await report(page.request, "claude-code", `p-infra-${run}`, {
+    text: "Infra work",
+    kind: "start",
+    origin: { repo: infra },
+  });
+  await report(page.request, "codex", `p-other-${run}`, { text: "Other work", kind: "start", origin: { repo: other } });
+  const name = `Proj ${run}`;
+  const created = await page.request.post(`${core}/api/v1/projects`, { data: { name, repos: [app, infra] } });
+  expect(created.status()).toBe(201);
+  const project = (await created.json()) as { id: string };
+
+  try {
+    await setChoices(page.request, { grouping: "project" });
+    await page.goto("/#/");
+    const heading = region(page)
+      .getByRole("heading", { level: 2 })
+      .filter({ has: page.getByRole("button", { name: "Sessions options" }) });
+    await expect(heading).toHaveText("Projects");
+    await expect(group(page, name)).toBeVisible();
+    // the repository in no project is a group of its own
+    await expect(group(page, other)).toBeVisible();
+    await expect(sessionRow(page, "claude-code", `p-app-${run}`).locator(".sidebar-session-repo-label")).toHaveText(
+      run,
+    );
+
+    // the filter takes the project, and keeps its repositories' sessions
+    const menu = await openMenu(page);
+    await menu.getByRole("menuitem", { name: /Project or repository/ }).click();
+    await menu.getByRole("menuitemcheckbox", { name }).click();
+    await expect(sessionRow(page, "claude-code", `p-infra-${run}`)).toBeVisible();
+    await expect(sessionRow(page, "codex", `p-other-${run}`)).toHaveCount(0);
+    await settingSaved(page.request, (s) => s.sidebar.sessions.repos, [`project:${project.id}`]);
+  } finally {
+    await page.request.delete(`${core}/api/v1/projects/${project.id}`);
+  }
 });
 
 test("a group collapses and stays collapsed, and the menu collapses them all", async ({ page }) => {

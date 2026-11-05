@@ -8,7 +8,7 @@ import type { Review, Session } from "../api/types";
 /** A session sent a status this recently: it is working. */
 export const WORKING_MS = 5 * 60_000;
 
-export type Grouping = "repository" | "status" | "updated" | "none";
+export type Grouping = "project" | "repository" | "status" | "updated" | "none";
 export type Ordering = "status" | "updated";
 /** What a session's icon shows: working, finished, or neither. */
 export type State = "working" | "quiet" | "done";
@@ -25,7 +25,8 @@ export type Choices = {
   show_reviews: boolean;
   /** agents to list; none lists every agent */
   agents: string[];
-  /** repositories to list, with "-" for no project; none lists every one */
+  /** repositories to list, with "-" for none, and projects as
+   *  "project:<id>"; none lists every one */
   repos: string[];
   /** states to list; none lists every state */
   states: State[];
@@ -72,6 +73,10 @@ export type Row = {
 export type Group = {
   key: string;
   label: string;
+  /** a project, a repository, or a status or a time */
+  kind: "project" | "repository" | "other";
+  /** a project whose sessions and reviews come from more than one repository */
+  mixed: boolean;
   rows: Row[];
   /** waiting reviews that came from no session */
   loose: Review[];
@@ -81,6 +86,7 @@ export type Group = {
 
 /** The heading, named after the grouping. */
 export const HEADINGS: Record<Grouping, string> = {
+  project: "Projects",
   repository: "Repositories",
   status: "Status",
   updated: "Updated",
@@ -130,11 +136,14 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
     } else loose.push(review);
   }
 
-  const listed = (repo: string | null | undefined) => !choices.repos.length || choices.repos.includes(repo ?? "-");
+  const listed = (repo: string | null | undefined, project?: { id: string } | null) =>
+    !choices.repos.length ||
+    choices.repos.includes(repo ?? "-") ||
+    (!!project && choices.repos.includes(`project:${project.id}`));
   const rows: Row[] = sessions
     .filter((s) => choices.archived || !s.archived_at)
     .filter((s) => !choices.agents.length || choices.agents.includes(s.agent))
-    .filter((s) => listed(s.repo))
+    .filter((s) => listed(s.repo, s.project))
     .map((session) => ({
       session,
       state: stateOf(session, now),
@@ -148,21 +157,39 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
 
   // a review from no session follows the agent filter only when it has an agent
   const looseShown = loose
-    .filter((r) => listed(r.origin.repo))
+    .filter((r) => listed(r.origin.repo, r.project))
     .filter((r) => !choices.agents.length || (!!r.requested_by && choices.agents.includes(r.requested_by)))
     .filter(() => !choices.states.length);
 
   const groups = new Map<string, Group>();
-  const groupFor = (key: string, label: string) => {
+  /** the repositories seen in each group, to tell a mixed project */
+  const seen = new Map<string, Set<string>>();
+  const groupFor = (key: string, label: string, repo: string | null | undefined) => {
     let group = groups.get(key);
     if (!group) {
-      group = { key, label, rows: [], loose: [], waiting: 0 };
+      const kind = key.startsWith("project:")
+        ? "project"
+        : choices.grouping === "repository" || choices.grouping === "project"
+          ? "repository"
+          : "other";
+      group = { key, label, kind, mixed: false, rows: [], loose: [], waiting: 0 };
       groups.set(key, group);
+      seen.set(key, new Set());
     }
+    const repos = seen.get(key)!;
+    repos.add(repo ?? "");
+    group.mixed = group.kind === "project" && repos.size > 1;
     return group;
   };
+  /** a project's group, or the repository's when it is in none */
+  const projectKey = (
+    project: { id: string; name: string } | null | undefined,
+    repo: string | null | undefined,
+  ): [string, string] => (project ? [`project:${project.id}`, project.name] : [repo ?? "", repo ?? "No repository"]);
   const keyOf = (row: Row): [string, string] => {
     switch (choices.grouping) {
+      case "project":
+        return projectKey(row.session.project, row.session.repo);
       case "repository":
         return [row.session.repo ?? "", row.session.repo ?? "No repository"];
       case "status": {
@@ -179,6 +206,8 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   };
   const looseKeyOf = (review: Review): [string, string] => {
     switch (choices.grouping) {
+      case "project":
+        return projectKey(review.project, review.origin.repo);
       case "repository":
         return [review.origin.repo ?? "", review.origin.repo ?? "No repository"];
       case "status":
@@ -191,15 +220,16 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
         return ["", HEADINGS.none];
     }
   };
-  // repositories come in the order of their first session, which the
-  // ordering put first; status and updated groups in their fixed order
+  // projects and repositories come in the order of their first session,
+  // which the ordering put first; status and updated groups in their fixed
+  // order
   for (const row of rows) {
-    const group = groupFor(...keyOf(row));
+    const group = groupFor(...keyOf(row), row.session.repo);
     group.rows.push(row);
     group.waiting += row.waiting;
   }
   for (const review of looseShown) {
-    const group = groupFor(...looseKeyOf(review));
+    const group = groupFor(...looseKeyOf(review), review.origin.repo);
     group.loose.push(review);
     group.waiting += 1;
   }

@@ -105,6 +105,44 @@ describe("arrange", () => {
     ]);
   });
 
+  test("groups by project, a repository in none being a group of its own", () => {
+    const pinrail = { id: "p_1", name: "Pinrail" };
+    const grouped = [
+      session("app", { repo: "forgeplane/pinrail", last: 5 }, { project: pinrail }),
+      session("infra", { repo: "forgeplane/pinrail-infra", last: 10 }, { project: pinrail }),
+      session("api", { repo: "acme/api", last: 20 }),
+      session("loose", { repo: null as unknown as string, last: 30 }),
+    ];
+    const pending = [{ ...review("ci", { repo: "forgeplane/pinrail-infra" }), project: pinrail }];
+    const groups = arrange(grouped, pending, choose({ grouping: "project", ordering: "updated" }), NOW);
+    expect(ids(groups)).toEqual([
+      ["Pinrail", ["app", "infra"]],
+      ["acme/api", ["api"]],
+      ["No repository", ["loose"]],
+    ]);
+    expect(groups.map((g) => [g.kind, g.mixed])).toEqual([
+      ["project", true],
+      ["repository", false],
+      ["repository", false],
+    ]);
+    expect(groups[0].loose.map((r) => r.id)).toEqual(["ci"]);
+    expect(groups[0].waiting).toBe(1);
+    // a project with one repository needs no repository on each row
+    const single = arrange(grouped.slice(0, 1), [], choose({ grouping: "project" }), NOW);
+    expect(single[0].mixed).toBe(false);
+  });
+
+  test("filters by a project as by its repositories", () => {
+    const pinrail = { id: "p_1", name: "Pinrail" };
+    const listed = [
+      session("app", { repo: "forgeplane/pinrail" }, { project: pinrail }),
+      session("api", { repo: "acme/api" }),
+    ];
+    expect(ids(arrange(listed, [], choose({ repos: ["project:p_1"] }), NOW))).toEqual([
+      ["forgeplane/pinrail", ["app"]],
+    ]);
+  });
+
   test("lists everything in one group without a grouping", () => {
     expect(ids(arrange(sessions, [], choose({ grouping: "none" }), NOW))).toEqual([
       ["Sessions", ["waiting-api", "working-web", "quiet-api", "done-web"]],

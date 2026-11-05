@@ -99,9 +99,9 @@ const LEAVES: &[Leaf] = &[
     ),
     (
         "/sidebar/sessions/grouping",
-        Kind::Enum(&["repository", "status", "updated", "none"]),
+        Kind::Enum(&["project", "repository", "status", "updated", "none"]),
         || json!("repository"),
-        "How the sidebar groups the sessions: by repository, by status, by when they were last updated, or not at all.",
+        "How the sidebar groups the sessions: by project, by repository, by status, by when they were last updated, or not at all.",
     ),
     (
         "/sidebar/sessions/ordering",
@@ -137,7 +137,7 @@ const LEAVES: &[Leaf] = &[
         "/sidebar/sessions/repos",
         Kind::TextList,
         || json!([]),
-        "List only these repositories' sessions in the sidebar, with `-` for no project. An empty list shows every one.",
+        "List only these repositories' sessions in the sidebar, with `-` for none, and a project's as `project:<id>`. An empty list shows every one.",
     ),
     (
         "/sidebar/sessions/states",

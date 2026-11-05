@@ -4,7 +4,7 @@
 // lib/sidebarSessions; this draws them and keeps the choices in the
 // settings.
 
-import { ChevronDown, ChevronRight, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderGit2, GitBranch, LayoutGrid, SlidersHorizontal } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
@@ -62,13 +62,16 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
 
   const groups = useMemo(() => arrange(sessions, live.pending, choices, now), [sessions, live.pending, choices, now]);
   const agents = useMemo(() => [...new Set(sessions.map((s) => s.agent))].sort(), [sessions]);
-  const repos = useMemo(
-    () =>
-      [...new Set(sessions.map((s) => s.repo ?? NO_PROJECT))].sort((a, b) =>
-        a === NO_PROJECT ? 1 : b === NO_PROJECT ? -1 : a.localeCompare(b),
-      ),
-    [sessions],
-  );
+  // the projects first, then the repositories, then sessions with none
+  const repos = useMemo(() => {
+    const projects = new Map<string, string>();
+    for (const s of sessions) if (s.project) projects.set(`project:${s.project.id}`, s.project.name);
+    const named = [...projects].sort((a, b) => a[1].localeCompare(b[1]));
+    const plain = [...new Set(sessions.map((s) => s.repo ?? NO_PROJECT))].sort((a, b) =>
+      a === NO_PROJECT ? 1 : b === NO_PROJECT ? -1 : a.localeCompare(b),
+    );
+    return [...named, ...plain.map((r): [string, string] => [r, r === NO_PROJECT ? "No repository" : r])];
+  }, [sessions]);
 
   const change = (patch: Partial<Choices & { collapsed: string[] }>) => update({ sidebar: { sessions: patch } });
   const keyOf = (group: Group) => `${choices.grouping}:${group.key}`;
@@ -106,7 +109,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     </Link>
   );
 
-  const sessionRow = (row: Row) => {
+  const sessionRow = (row: Row, group: Group) => {
     const s = row.session;
     // the chosen details, each a part of the line; the repository and the
     // branch with their icons, and the repository only when the groups do
@@ -122,6 +125,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
               ) : null
             ) : d === "repo" ? (
               choices.grouping !== "repository" &&
+              !group.mixed &&
               s.repo && (
                 <span className="sidebar-session-repo">
                   <FolderGit2 size={10} aria-hidden />
@@ -175,6 +179,11 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
                 </span>
               ) : null}
             </span>
+            {group.mixed && s.repo ? (
+              <span className="sidebar-session-repo-label" title={s.repo}>
+                {s.repo.split("/").pop()}
+              </span>
+            ) : null}
             {row.waiting > 0 ? (
               <span className="sidebar-badge" data-testid="sidebar-session-waiting">
                 {row.waiting}
@@ -201,7 +210,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
         >
           <Chevron size={12} />
         </button>
-        {choices.grouping === "repository" ? (
+        {group.kind === "project" ? (
+          <button type="button" className="sidebar-group-name" onClick={() => toggleGroup(group)}>
+            <LayoutGrid size={14} strokeWidth={1.75} />
+            <span className="sidebar-review-title" data-testid="sidebar-group-name">
+              {group.label}
+            </span>
+          </button>
+        ) : group.kind === "repository" ? (
           <NavLink to={`/?repo=${encodeURIComponent(group.key || NO_PROJECT)}`} className="sidebar-group-name">
             <FolderGit2 size={14} strokeWidth={1.75} className={group.key ? "" : "is-faint"} />
             <span className="sidebar-review-title" data-testid="sidebar-group-name">
@@ -247,7 +263,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             {open ? (
               <>
                 {group.loose.map((r) => reviewLink(r))}
-                {group.rows.map(sessionRow)}
+                {group.rows.map((row) => sessionRow(row, group))}
               </>
             ) : null}
           </div>
