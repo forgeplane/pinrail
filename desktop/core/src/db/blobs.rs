@@ -49,7 +49,7 @@ impl Db {
         Ok(touched > 0)
     }
 
-    /// Deletes the blobs no review names that were stored before `before`,
+    /// Deletes the blobs no review, note or project names that were stored before `before`,
     /// in one statement, and returns the ones it deleted.
     pub fn delete_orphan_blobs(
         &self,
@@ -61,6 +61,7 @@ impl Db {
              WHERE created_at < ?1
                AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = blobs.sha256)
                AND NOT EXISTS (SELECT 1 FROM status_attachments a WHERE a.sha256 = blobs.sha256)
+               AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.image = blobs.sha256)
              RETURNING sha256",
         )?
         .query_map(

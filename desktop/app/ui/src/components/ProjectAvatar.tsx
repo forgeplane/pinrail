@@ -9,6 +9,7 @@
 
 import type { CSSProperties } from "react";
 import { type Avatar, colorOf, isLetters, letterSize, markOf } from "../lib/projectAvatar";
+import { imageUrl, useServerUrl } from "../lib/projectImage";
 
 export { PROJECT_COLORS, colorOf, type ProjectColor } from "../lib/projectAvatar";
 
@@ -19,31 +20,40 @@ export function ProjectAvatar({
   project,
   size = 16,
   className = "",
+  src,
 }: {
-  project: Avatar;
+  project: Avatar & { image?: string | null };
   size?: number;
   className?: string;
+  /** an image to show in place of the project's own, such as one being chosen */
+  src?: string | null;
 }) {
+  const base = useServerUrl();
   const mark = markOf(project);
+  const image = src ?? (base ? imageUrl(base, project) : null);
   return (
     <span
-      className={`project-avatar ${isLetters(mark) ? "" : "is-emoji"} ${className}`}
+      className={`project-avatar ${image ? "is-image" : isLetters(mark) ? "" : "is-emoji"} ${className}`}
       style={{ "--avatar": `var(--project-${colorOf(project)})`, "--icon": `${size}px` } as CSSProperties}
       data-color={colorOf(project)}
       aria-hidden
     >
-      <svg className="project-avatar-mark" viewBox="0 0 100 100" width="100%" height="100%">
-        {isLetters(mark) ? (
-          // Inter's capitals are 0.727 of its size: half of it below the middle
-          <text x="50" y="50" dy={`${CAP / 2}em`} textAnchor="middle" fontSize={letterSize(mark) * 100}>
-            {mark}
-          </text>
-        ) : (
-          <text x="50" y="50" dominantBaseline="central" textAnchor="middle" fontSize="70">
-            {mark}
-          </text>
-        )}
-      </svg>
+      {image ? (
+        <img className="project-avatar-image" src={image} alt="" draggable={false} />
+      ) : (
+        <svg className="project-avatar-mark" viewBox="0 0 100 100" width="100%" height="100%">
+          {isLetters(mark) ? (
+            // Inter's capitals are 0.727 of its size: half of it below the middle
+            <text x="50" y="50" dy={`${CAP / 2}em`} textAnchor="middle" fontSize={letterSize(mark) * 100}>
+              {mark}
+            </text>
+          ) : (
+            <text x="50" y="50" dominantBaseline="central" textAnchor="middle" fontSize="70">
+              {mark}
+            </text>
+          )}
+        </svg>
+      )}
     </span>
   );
 }

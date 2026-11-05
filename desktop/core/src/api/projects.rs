@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, put};
 use axum::{Json, Router};
 use serde_json::Value;
@@ -20,6 +21,10 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/projects", get(list).post(create))
         .route("/api/v1/projects/{id}", patch(update).delete(delete))
+        .route(
+            "/api/v1/projects/{id}/image",
+            put(set_image).get(image).delete(remove_image),
+        )
         .route("/api/v1/repos/{repo}/project", put(set_repo))
 }
 
@@ -129,6 +134,59 @@ fn optional_text(body: &Value, key: &str) -> Result<Option<String>, Error> {
         Some(Value::String(s)) => Ok(Some(s.clone())),
         Some(_) => Err(Error::invalid(format!("/{key}"), "is not a string")),
     }
+}
+
+/// Sets the PNG the project's avatar shows, sent as the body: the project,
+/// 404, or 422 for a body that is not a PNG or is over 512 KB.
+async fn set_image(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(state.projects().set_image(&id, &body)?))
+}
+
+/// Removes the project's PNG: the project, or 404.
+async fn remove_image(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(state.projects().remove_image(&id)?))
+}
+
+/// The project's PNG, as an image and nothing else; 404 when it has none.
+/// The app asks for it with the image's hash in the address, so a new
+/// image is a new address and the old one can be kept.
+async fn image(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let Some(path) = state.projects().image_path(&id)? else {
+        return Ok(super::guard::refuse(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("project {id} has no image"),
+        ));
+    };
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|e| Error::Internal(format!("project {id}'s image: {e}")))?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, "image/png"),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "sandbox; default-src 'none'",
+            ),
+            (
+                header::CACHE_CONTROL,
+                "private, max-age=31536000, immutable",
+            ),
+        ],
+        bytes,
+    )
+        .into_response())
 }
 
 /// A required string field of the body.

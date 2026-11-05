@@ -5988,6 +5988,17 @@ body.is-resizing iframe {
   font-family: inherit;
   font-weight: 600;
 }
+/* an image fills the square, its corners rounded with it */
+.project-avatar.is-image {
+  overflow: hidden;
+  background: none;
+}
+.project-avatar-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 /* an emoji keeps its own colours, on a tint of the project's */
 .project-avatar.is-emoji {
   background: color-mix(in srgb, var(--avatar) 22%, transparent);
@@ -6026,6 +6037,13 @@ body.is-resizing iframe {
   box-shadow:
     0 0 0 2px var(--bg-panel),
     0 0 0 4px var(--text);
+}
+.project-image-row {
+  display: flex;
+  gap: 8px;
+}
+.project-avatar-drop {
+  display: inline-flex;
 }
 .project-field-hint {
   font-size: 11.5px;

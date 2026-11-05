@@ -25,6 +25,7 @@ import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
 import { iconInput } from "../lib/projectAvatar";
+import { squarePng } from "../lib/projectImage";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -353,8 +354,9 @@ export function Projects() {
           title="New project"
           action="Create project"
           repos={dialog.repos}
-          onSave={async ({ name, description, color, emoji }) => {
-            await api.createProject(name, { description, color, emoji }, dialog.repos);
+          onSave={async ({ name, description, color, emoji, image }) => {
+            const made = await api.createProject(name, { description, color, emoji }, dialog.repos);
+            if (image) await api.setProjectImage(made.id, image);
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
@@ -365,8 +367,9 @@ export function Projects() {
           title="Edit project"
           action="Save"
           project={dialog.project}
-          onSave={async (change) => {
+          onSave={async ({ image, ...change }) => {
             await api.updateProject(dialog.project.id, change);
+            if (image !== undefined) await api.setProjectImage(dialog.project.id, image);
             setDialog(null);
           }}
           onClose={() => setDialog(null)}
@@ -407,7 +410,14 @@ function ProjectDialog({
   project?: Project;
   /** the repositories a new project begins with */
   repos?: string[];
-  onSave: (fields: { name: string; description: string; color: string; emoji: string }) => Promise<void>;
+  /** `image` is a new PNG, `null` to remove the project's, or left out to keep it */
+  onSave: (fields: {
+    name: string;
+    description: string;
+    color: string;
+    emoji: string;
+    image?: Blob | null;
+  }) => Promise<void>;
   onClose: () => void;
 }) {
   const [name, setName] = useState(project?.name ?? "");
@@ -418,6 +428,21 @@ function ProjectDialog({
   );
   const [emoji, setEmoji] = useState(project?.emoji ?? "");
   const nameId = useId();
+  // a PNG chosen here, with its preview, or "removed" for the project's own
+  const [image, setImage] = useState<{ png: Blob; url: string } | "removed" | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => () => void (image && image !== "removed" && URL.revokeObjectURL(image.url)), [image]);
+  const choose = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const png = await squarePng(file);
+      setImage({ png, url: URL.createObjectURL(png) });
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The image could not be read.");
+    }
+  };
+  const hasImage = image === "removed" ? false : !!image || !!project?.image;
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -438,7 +463,13 @@ function ProjectDialog({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave({ name, description, color, emoji });
+      await onSave({
+        name,
+        description,
+        color,
+        emoji,
+        image: image === "removed" ? null : image ? image.png : undefined,
+      });
     } catch (e) {
       setError(reason(e));
       setSaving(false);
@@ -462,7 +493,23 @@ function ProjectDialog({
           <label htmlFor={nameId}>Name</label>
           {/* the avatar as it will show, beside the name it takes its letter from */}
           <span className="project-name-row">
-            <ProjectAvatar project={{ id: project?.id ?? "", name: name || "?", color, emoji }} size={32} />
+            {/* a PNG dropped on the preview is chosen as the image */}
+            <span
+              className="project-avatar-drop"
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                void choose(event.dataTransfer.files[0]);
+              }}
+            >
+              <ProjectAvatar
+                project={{ id: project?.id ?? "", name: name || "?", color, emoji, image: project?.image }}
+                size={32}
+                src={image === "removed" ? "" : image?.url}
+              />
+            </span>
             <input
               id={nameId}
               ref={input}
@@ -521,6 +568,33 @@ function ProjectDialog({
           />
           <span className="project-field-hint">Without one, the avatar shows the name's first letter.</span>
         </label>
+        <div className="feedback-field">
+          <span>Image (optional)</span>
+          <span className="project-image-row">
+            <button type="button" className="chrome-button" onClick={() => picker.current?.click()}>
+              Choose PNG…
+            </button>
+            {hasImage ? (
+              <button type="button" className="chrome-button" onClick={() => setImage("removed")}>
+                Remove image
+              </button>
+            ) : null}
+            <input
+              ref={picker}
+              type="file"
+              accept="image/png"
+              hidden
+              aria-label="Image"
+              onChange={(event) => {
+                void choose(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+          </span>
+          <span className="project-field-hint">
+            A PNG, which takes the place of the icon. Its middle square is kept. You can also drop one on the avatar.
+          </span>
+        </div>
         {repos?.length ? (
           <p className="dim project-dialog-note">It starts with {repos.join(", ")}. Drag more repositories under it.</p>
         ) : repos ? (

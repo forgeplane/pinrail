@@ -19,11 +19,19 @@ pub struct ProjectRef {
     /// its avatar's colour and emoji, when the person chose them
     pub color: Option<String>,
     pub emoji: Option<String>,
+    /// the hash of its avatar's PNG, when the person chose one
+    pub image: Option<String>,
 }
 
 impl ProjectRef {
     pub fn to_json(&self) -> Value {
-        json!({ "id": self.id, "name": self.name, "color": self.color, "emoji": self.emoji })
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "color": self.color,
+            "emoji": self.emoji,
+            "image": self.image,
+        })
     }
 
     /// The project as `project_json` gives it, or `None` for a repository in
@@ -36,6 +44,7 @@ impl ProjectRef {
             name: text("name")?,
             color: text("color"),
             emoji: text("emoji"),
+            image: text("image"),
         })
     }
 }
@@ -73,6 +82,7 @@ pub struct ProjectRow {
     pub description: Option<String>,
     pub color: Option<String>,
     pub emoji: Option<String>,
+    pub image: Option<String>,
     pub created_at: DateTime<Utc>,
     pub repos: Vec<RepoRow>,
 }
@@ -85,6 +95,7 @@ impl ProjectRow {
             "description": self.description,
             "color": self.color,
             "emoji": self.emoji,
+            "image": self.image,
             "created_at": crate::reviews::iso(self.created_at),
             "repos": self.repos.iter().map(RepoRow::to_json).collect::<Vec<_>>(),
             "sessions": self.repos.iter().map(|r| r.sessions).sum::<usize>(),
@@ -126,7 +137,8 @@ pub enum NotChanged {
 /// object that `ProjectRef::from_column` reads, or NULL.
 pub(super) fn project_json(repo: &str) -> String {
     format!(
-        "(SELECT json_object('id', p.id, 'name', p.name, 'color', p.color, 'emoji', p.emoji) \
+        "(SELECT json_object('id', p.id, 'name', p.name, 'color', p.color, 'emoji', p.emoji, \
+         'image', p.image) \
          FROM project_repos pr JOIN projects p ON p.id = pr.project_id WHERE pr.repo = {repo})"
     )
 }
@@ -196,7 +208,7 @@ impl Db {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, color, emoji, created_at FROM projects ORDER BY name COLLATE NOCASE",
+            "SELECT id, name, description, color, emoji, image, created_at FROM projects ORDER BY name COLLATE NOCASE",
         )?;
         let mut projects = stmt
             .query_map([], |row| {
@@ -206,7 +218,8 @@ impl Db {
                     description: row.get(2)?,
                     color: row.get(3)?,
                     emoji: row.get(4)?,
-                    created_at: parse_datetime(&row.get::<_, String>(5)?).unwrap_or_default(),
+                    image: row.get(5)?,
+                    created_at: parse_datetime(&row.get::<_, String>(6)?).unwrap_or_default(),
                     repos: Vec::new(),
                 })
             })?
@@ -271,6 +284,39 @@ impl Db {
         let event_id = changed(&tx)?;
         tx.commit()?;
         Ok(Ok(event_id))
+    }
+
+    /// Sets the PNG a project's avatar shows, by its blob's hash, or removes
+    /// it with `None`. Returns its event's id.
+    pub fn set_project_image(
+        &self,
+        id: &str,
+        image: Option<&str>,
+    ) -> rusqlite::Result<Result<i64, NotChanged>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        if tx.execute(
+            "UPDATE projects SET image = ?2 WHERE id = ?1",
+            params![id, image],
+        )? == 0
+        {
+            return Ok(Err(NotChanged::NoProject));
+        }
+        let event_id = changed(&tx)?;
+        tx.commit()?;
+        Ok(Ok(event_id))
+    }
+
+    /// The hash of a project's PNG, if it has one; `None` when there is no
+    /// such project.
+    pub fn project_image(&self, id: &str) -> rusqlite::Result<Option<Option<String>>> {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT image FROM projects WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()
     }
 
     /// Changes what `change` gives of a project. Returns its event's id.

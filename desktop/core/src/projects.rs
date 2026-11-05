@@ -7,7 +7,9 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use serde_json::{Value, json};
+use sha2::Digest;
 
+use crate::attachments::{Attachments, UploadError};
 use crate::db::{Change, Db, Details, NotChanged};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
@@ -21,6 +23,11 @@ pub const COLORS: [&str; 16] = [
     "red", "orange", "amber", "lime", "green", "teal", "cyan", "blue", "indigo", "violet",
     "fuchsia", "pink", "rose", "brown", "slate", "gray",
 ];
+/// The largest PNG a project's avatar takes: the app sends 256 pixels square.
+pub const MAX_IMAGE: usize = 512 * 1024;
+/// How every PNG file begins.
+const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+
 /// The most letters or digits a project's avatar takes in place of the
 /// name's first letter.
 pub const MAX_LETTERS: usize = 3;
@@ -34,11 +41,17 @@ pub const MAX_REPO: usize = 200;
 pub struct Projects {
     db: Arc<Db>,
     bus: Bus,
+    /// where the avatars' PNGs are stored, with the files sent beside reviews
+    attachments: Attachments,
 }
 
 impl Projects {
-    pub(crate) fn new(db: Arc<Db>, bus: Bus) -> Self {
-        Projects { db, bus }
+    pub(crate) fn new(db: Arc<Db>, bus: Bus, attachments: Attachments) -> Self {
+        Projects {
+            db,
+            bus,
+            attachments,
+        }
     }
 
     /// Every project with its repositories and what they hold, by name,
@@ -109,6 +122,59 @@ impl Projects {
             .map_err(|e| refused(e, id))?;
         self.announce(event_id);
         self.get(id)
+    }
+
+    /// Sets the PNG a project's avatar shows, in place of its emoji or its
+    /// letter. Returns the project.
+    pub fn set_image(&self, id: &str, png: &[u8]) -> Result<Value, Error> {
+        if !png.starts_with(PNG_SIGNATURE) {
+            return Err(Error::invalid("", "is not a PNG image"));
+        }
+        if png.len() > MAX_IMAGE {
+            return Err(Error::invalid(
+                "",
+                format!("is larger than {} KB", MAX_IMAGE / 1024),
+            ));
+        }
+        if self.db.project_image(id)?.is_none() {
+            return Err(Error::NotFound(format!("project {id}")));
+        }
+        let sha256 = format!("{:x}", sha2::Sha256::digest(png));
+        if self.attachments.confirm(&sha256)?.is_none() {
+            let failed = |error: UploadError| match error {
+                UploadError::Failed(error) => error,
+                UploadError::TooLarge { .. } => Error::invalid("", "is larger than the app takes"),
+                other => Error::Internal(format!("storing a project's image: {other:?}")),
+            };
+            let mut upload = self.attachments.begin(&sha256)?;
+            upload.write(png).map_err(failed)?;
+            upload.finish().map_err(failed)?;
+        }
+        let event_id = self
+            .db
+            .set_project_image(id, Some(&sha256))?
+            .map_err(|e| refused(e, id))?;
+        self.announce(event_id);
+        self.get(id)
+    }
+
+    /// Removes a project's PNG; its avatar shows its emoji or its letter
+    /// again. Returns the project.
+    pub fn remove_image(&self, id: &str) -> Result<Value, Error> {
+        let event_id = self
+            .db
+            .set_project_image(id, None)?
+            .map_err(|e| refused(e, id))?;
+        self.announce(event_id);
+        self.get(id)
+    }
+
+    /// Where a project's PNG is, or `None` when it has none.
+    pub fn image_path(&self, id: &str) -> Result<Option<std::path::PathBuf>, Error> {
+        let Some(image) = self.db.project_image(id)? else {
+            return Err(Error::NotFound(format!("project {id}")));
+        };
+        Ok(image.map(|sha256| self.attachments.path(&sha256)))
     }
 
     /// Deletes a project. Its repositories, reviews and sessions stay.

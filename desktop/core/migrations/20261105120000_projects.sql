@@ -11,6 +11,9 @@ CREATE TABLE projects (
   -- colour and shows the letter when they are NULL
   color       TEXT,
   emoji       TEXT,
+  -- a PNG the person chose for the avatar, stored as a blob; the sweep
+  -- leaves a blob a project names
+  image       TEXT REFERENCES blobs(sha256),
   created_at  TEXT NOT NULL
 );
 -- two projects cannot share a name, whatever its case

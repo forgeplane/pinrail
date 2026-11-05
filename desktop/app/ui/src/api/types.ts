@@ -94,6 +94,8 @@ export type ProjectRef = {
   /** its avatar's colour and emoji, when the person chose them */
   color?: string | null;
   emoji?: string | null;
+  /** the hash of its avatar's PNG, when the person chose one */
+  image?: string | null;
 };
 
 /** A repository the app knows, with what it holds. */
@@ -116,6 +118,7 @@ export type Project = {
   /** its avatar's colour and emoji, when the person chose them */
   color: string | null;
   emoji: string | null;
+  image: string | null;
   created_at: string;
   repos: ProjectRepo[];
   sessions: number;

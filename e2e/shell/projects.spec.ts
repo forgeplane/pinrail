@@ -360,3 +360,66 @@ test("the command palette goes to the projects, makes one, and shows one's revie
   await run("show palette", /Show Palette in the inbox/);
   await expect(page).toHaveURL(new RegExp(`project=${id}`));
 });
+
+test("a project's avatar takes a PNG, cropped to its middle square, and gives it up again", async ({
+  page,
+  request,
+}) => {
+  await clearInbox(request);
+  await createReview(request, { title: "Image: app", origin: { repo: "image/app" } });
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Pictured", repos: ["image/app"] } });
+  await page.goto("/#/projects");
+  // a 400 by 300 PNG, drawn here
+  const png = Buffer.from(
+    (
+      await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 300;
+        const context = canvas.getContext("2d")!;
+        context.fillStyle = "#c33";
+        context.fillRect(0, 0, 400, 300);
+        return canvas.toDataURL("image/png");
+      })
+    ).split(",")[1],
+    "base64",
+  );
+  const group = card(page, "Pictured");
+  const edit = page.getByRole("dialog", { name: "Edit project" });
+
+  // a file that is not a PNG is refused
+  await group.getByRole("button", { name: "Pictured actions" }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await edit
+    .getByLabel("Image")
+    .setInputFiles({ name: "photo.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });
+  await expect(edit).toContainText("Choose a PNG image.");
+
+  await edit.getByLabel("Image").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: png });
+  await expect(edit.locator(".project-avatar img")).toBeVisible();
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit).toBeHidden();
+
+  // shown on the page and in the inbox, as the middle square at 256 pixels
+  const shown = group.locator(".project-avatar img");
+  await expect(shown).toHaveAttribute("src", /\/api\/v1\/projects\/p_\w+\/image\?v=[0-9a-f]{64}$/);
+  const size = await shown.evaluate(async (img: HTMLImageElement) => {
+    await img.decode();
+    return [img.naturalWidth, img.naturalHeight];
+  });
+  expect(size).toEqual([256, 256]);
+  await page.goto("/#/");
+  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await expect(
+    page.getByTestId("inbox-group").filter({ hasText: "Pictured" }).locator(".project-avatar img"),
+  ).toBeVisible();
+
+  // removed, the letter is back
+  await page.goto("/#/projects");
+  await group.getByRole("button", { name: "Pictured actions" }).click();
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await edit.getByRole("button", { name: "Remove image" }).click();
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(group.locator(".project-avatar")).toHaveText("P");
+  await expect(group.locator(".project-avatar img")).toHaveCount(0);
+});

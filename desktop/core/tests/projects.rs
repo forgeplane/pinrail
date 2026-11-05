@@ -105,7 +105,7 @@ async fn reviews_and_sessions_name_their_project_and_filter_by_it() {
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{schema}"), None).await;
     assert_eq!(
         read["project"],
-        json!({"id": id, "name": "Pinrail", "color": null, "emoji": null})
+        json!({"id": id, "name": "Pinrail", "color": null, "emoji": null, "image": null})
     );
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{bucket}"), None).await;
     assert_eq!(read["project"], Value::Null);
@@ -378,7 +378,7 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{review}"), None).await;
     assert_eq!(
         read["project"],
-        json!({"id": id, "name": "Pinrail", "color": "blue", "emoji": "🚂"})
+        json!({"id": id, "name": "Pinrail", "color": "blue", "emoji": "🚂", "image": null})
     );
     let (_, session) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
     assert_eq!(session["session"]["project"]["emoji"], "🚂");
@@ -415,4 +415,117 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
         assert!(refused.to_string().contains(path_part), "{refused}");
     }
+}
+
+/// A request with a raw body, as the app sends an image: the status, the
+/// content type and the bytes of the answer.
+async fn raw(app: &App, method: &str, path: &str, body: Vec<u8>) -> (StatusCode, String, Vec<u8>) {
+    use axum::body::Body;
+    use axum::http::Request;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+    let request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", "127.0.0.1:4747")
+        .header("origin", "tauri://localhost")
+        .header("content-type", "image/png")
+        .body(Body::from(body))
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let kind = response
+        .headers()
+        .get("content-type")
+        .map(|v| v.to_str().unwrap().to_string())
+        .unwrap_or_default();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
+    (status, kind, bytes)
+}
+
+/// The start of a PNG, which is all the core checks, and some bytes after it.
+fn png(fill: u8, len: usize) -> Vec<u8> {
+    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+    bytes.resize(len, fill);
+    bytes
+}
+
+#[tokio::test]
+async fn a_project_takes_a_png_for_its_avatar_which_its_reviews_carry_and_the_sweep_keeps() {
+    let app = app();
+    let review = send(&app, review("forgeplane/pinrail", "s-1", "Schema")).await;
+    let project = create(
+        &app,
+        json!({"name": "Pinrail", "repos": ["forgeplane/pinrail"]}),
+    )
+    .await;
+    let id = project["id"].as_str().unwrap();
+    let path = format!("/api/v1/projects/{id}/image");
+
+    let image = png(7, 4096);
+    let (status, _, answer) = raw(&app, "PUT", &path, image.clone()).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&answer)
+    );
+    let set: Value = serde_json::from_slice(&answer).unwrap();
+    let sha = set["image"].as_str().unwrap().to_string();
+    assert_eq!(sha.len(), 64);
+
+    // served as a PNG and nothing else
+    let (status, kind, served) = raw(&app, "GET", &path, Vec::new()).await;
+    assert_eq!((status, kind.as_str()), (StatusCode::OK, "image/png"));
+    assert_eq!(served, image);
+    // a review in the project names it
+    let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{review}"), None).await;
+    assert_eq!(read["project"]["image"], sha);
+
+    // the sweep of unreferenced files leaves it, however old
+    let later = chrono::Utc::now() + chrono::Duration::hours(2);
+    app.state.attachments().sweep(later).unwrap();
+    assert_eq!(raw(&app, "GET", &path, Vec::new()).await.0, StatusCode::OK);
+
+    // removed, the avatar shows the letter again, and the sweep may take the file
+    let (status, _, answer) = raw(&app, "DELETE", &path, Vec::new()).await;
+    assert_eq!(status, StatusCode::OK);
+    let removed: Value = serde_json::from_slice(&answer).unwrap();
+    assert_eq!(removed["image"], Value::Null);
+    assert_eq!(
+        raw(&app, "GET", &path, Vec::new()).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 1);
+}
+
+#[tokio::test]
+async fn an_avatar_image_must_be_a_png_of_at_most_512_kb() {
+    let app = app();
+    let project = create(&app, json!({"name": "Pinrail"})).await;
+    let path = format!("/api/v1/projects/{}/image", project["id"].as_str().unwrap());
+    for (body, said) in [
+        (b"GIF89a not a png".to_vec(), "is not a PNG"),
+        (png(1, 512 * 1024 + 1), "larger than 512 KB"),
+    ] {
+        let (status, _, answer) = raw(&app, "PUT", &path, body).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(
+            String::from_utf8_lossy(&answer).contains(said),
+            "{}",
+            String::from_utf8_lossy(&answer)
+        );
+    }
+    assert_eq!(
+        raw(&app, "PUT", "/api/v1/projects/p_unknown/image", png(1, 100))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
 }

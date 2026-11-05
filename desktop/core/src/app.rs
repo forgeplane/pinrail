@@ -168,7 +168,7 @@ impl Pinrail {
             db.clone(),
             config.max_attachment_bytes,
         )?;
-        let projects = Projects::new(db.clone(), events.bus());
+        let projects = Projects::new(db.clone(), events.bus(), attachments.clone());
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),

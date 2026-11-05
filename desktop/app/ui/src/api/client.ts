@@ -114,6 +114,16 @@ export const api = {
   /** changes what is given of a project; an empty description, colour or emoji removes it */
   updateProject: (id: string, change: { name?: string; description?: string; color?: string; emoji?: string }) =>
     request<Project>("PATCH", `/api/v1/projects/${seg(id)}`, change),
+  /** sets the PNG a project's avatar shows, or removes it with null */
+  setProjectImage: async (id: string, png: Blob | null) => {
+    const response = await fetch(`${await serverUrl()}/api/v1/projects/${seg(id)}/image`, {
+      method: png ? "PUT" : "DELETE",
+      headers: png ? { "content-type": "image/png" } : {},
+      body: png ?? undefined,
+    });
+    if (!response.ok) throw new ApiError(response.status, await errorBody(response));
+    return (await response.json()) as Project;
+  },
   /** deletes a project; its repositories are in none after it */
   deleteProject: (id: string) => request<void>("DELETE", `/api/v1/projects/${seg(id)}`),
   /** puts a repository in a project, out of the one it was in, or in none with null */
