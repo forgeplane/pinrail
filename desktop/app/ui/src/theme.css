@@ -4075,7 +4075,8 @@ body.is-resizing iframe {
 /* where the agent sent a later round of a review shown further up */
 .thread-items > .thread-revised {
   width: auto;
-  max-width: calc(100% - 38px);
+  /* no wider than the cards, so a long reason wraps at their right edge */
+  max-width: min(calc(100% - 38px), calc(900px - 38px));
   margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
   margin-right: auto;
 }
@@ -4104,8 +4105,16 @@ body.is-resizing iframe {
   white-space: nowrap;
 }
 /* a withdrawn review's reason is the point of its line */
+.thread-withdrawn {
+  align-items: flex-start;
+}
 .thread-withdrawn .thread-revised-text {
   white-space: normal;
+}
+/* the icons stay beside the first line of a wrapped reason */
+.thread-withdrawn .thread-revised-icon,
+.thread-withdrawn .thread-revised-up {
+  margin-top: calc((1lh - 13px) / 2);
 }
 .thread-revised-title {
   color: var(--text);

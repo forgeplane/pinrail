@@ -103,6 +103,28 @@ test("a withdrawn review adds a line with the reason, which leads to its card", 
   await expect(page.locator(`#review-${spec}`)).toHaveAttribute("data-flashed", "true");
 });
 
+test("a long withdrawal reason wraps within the cards' width", async ({ page }) => {
+  const session = fresh();
+  const spec = await submit(page.request, session, "Rounds: long reason");
+  const withdrawn = await page.request.post(`${core}/api/v1/reviews/${spec}/withdraw`, {
+    data: { reason: "the account these comments were for is suspended, ".repeat(6).trim(), session, by: "claude-code" },
+    headers: { "x-pinrail-client": "cli" },
+  });
+  expect(withdrawn.status(), await withdrawn.text()).toBe(200);
+
+  // a window wider than the thread's reading column
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const line = thread(page).getByTestId("withdrawn");
+  const card = thread(page).getByTestId("thread-review");
+  await expect(line).toBeVisible();
+  const lineBox = (await line.boundingBox())!;
+  const cardBox = (await card.boundingBox())!;
+  expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5);
+  // the reason takes more than one line
+  expect(lineBox.height).toBeGreaterThan(30);
+});
+
 test("a new round of a withdrawn review keeps the line and adds a Revised line", async ({ page }) => {
   const session = fresh();
   const spec = await submit(page.request, session, "Rounds: back again");
