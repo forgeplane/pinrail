@@ -11,10 +11,35 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ## [Unreleased]
 
+### Added
+
+- Projects. Group repositories into a project on the new Projects page,
+  by dragging them under it. A project has a name, an optional
+  description, and an avatar with a colour and an emoji or up to three
+  letters. Agents need no change: a review or a session names its
+  repository, and shows under the project that repository is in.
+- Group the inbox and the sidebar's sessions by project. A repository in
+  no project is a group of its own.
+- Filter the inbox, the history and the Sessions page by a project or a
+  repository, from one menu that you can type in.
+- Go to the projects, create one, or show a project's reviews from the
+  command palette.
+
+### Changed
+
+- The inbox's layout is kept in the settings, so every window shows the
+  same one.
+- Where the inbox, the history and the Sessions page said "project" for
+  a repository, they now say "repository".
+- The inbox's Pending and New rounds tabs count what the filters show,
+  and its title reads "3 of 11" while a filter is set.
+
 ### Fixed
 
 - A long reason for a withdrawn review now wraps at the width of the
   review cards in a session's thread.
+- At the large interface size, menus, selects and tooltips open next to
+  their button rather than off to the side.
 
 ## [0.5.0]
 
