@@ -7,6 +7,8 @@
 import {
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   FolderGit2,
   GripVertical,
   Inbox,
@@ -23,6 +25,7 @@ import { useLocation, useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
+import { Tooltip } from "../components/Tooltip";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
 import { iconInput } from "../lib/projectAvatar";
 import { squarePng } from "../lib/projectImage";
@@ -174,6 +177,9 @@ export function Projects() {
 
   const toggle = (key: string) =>
     setFolded((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
+  // every group on the page, the repositories in no project included
+  const groupKeys = [...shown.map((p) => p.id), ...(shownLoose.length ? [LOOSE] : [])];
+  const allFolded = groupKeys.length > 0 && groupKeys.every((key) => folded.includes(key));
 
   const repoRow = (repo: ProjectRepo) => (
     <li
@@ -275,6 +281,17 @@ export function Projects() {
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
           />
+          <Tooltip label={allFolded ? "Expand all" : "Collapse all"} side="bottom">
+            <button
+              type="button"
+              className="chrome-button"
+              aria-label={allFolded ? "Expand all" : "Collapse all"}
+              disabled={groupKeys.length === 0}
+              onClick={() => setFolded(allFolded ? [] : groupKeys)}
+            >
+              {allFolded ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+            </button>
+          </Tooltip>
           <button
             type="button"
             className="chrome-button button-primary"

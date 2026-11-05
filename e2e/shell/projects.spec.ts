@@ -462,3 +462,22 @@ test("the Sessions page groups the sessions by project or by repository", async 
   await expect(group(`grp-app/${run}`).locator(".review-row-project")).toHaveCount(0);
   await settingSaved(request, (s) => s.sessions.layout, "repository");
 });
+
+test("Collapse all folds every group on the Projects page, and Expand all opens them", async ({ page, request }) => {
+  await createReview(request, { title: "Fold: one", origin: { repo: "fold-all/one" } });
+  await createReview(request, { title: "Fold: loose", origin: { repo: "fold-all/loose" } });
+  await request.post(`${core}/api/v1/projects`, { data: { name: "Folding", repos: ["fold-all/one"] } });
+  await page.goto("/#/projects");
+  const rows = page.getByTestId("project-repo");
+  await expect(rows.first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Collapse all" }).click();
+  await expect(rows).toHaveCount(0);
+  // the repositories in no project fold with the projects
+  await expect(page.getByRole("button", { name: "Unfold In no project" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Expand all" }).click();
+  await expect(card(page, "Folding").getByTestId("project-repo")).toHaveText([/fold-all\/one/]);
+  await expect(loose(page)).toContainText("fold-all/loose");
+  await expect(page.getByRole("button", { name: "Collapse all" })).toBeVisible();
+});
