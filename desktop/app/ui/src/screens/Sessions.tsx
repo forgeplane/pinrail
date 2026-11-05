@@ -272,6 +272,8 @@ export function Sessions() {
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
               <input
+                autoCorrect="off"
+                autoCapitalize="off"
                 type="search"
                 autoComplete="off"
                 spellCheck={false}

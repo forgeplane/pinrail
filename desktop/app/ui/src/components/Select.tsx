@@ -198,6 +198,8 @@ export function Select({ value, options: all, onChange, label, icon, id, searcha
             >
               {searchable ? (
                 <input
+                  autoCorrect="off"
+                  autoCapitalize="off"
                   ref={field}
                   className="select-search"
                   type="text"

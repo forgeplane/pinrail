@@ -275,6 +275,10 @@ export function Projects() {
         </div>
         <div className="inbox-controls">
           <input
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             type="search"
             aria-label="Filter projects and repositories"
             placeholder="Filter projects and repositories"

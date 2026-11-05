@@ -63,6 +63,9 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus }: Props
         value={query}
         placeholder="Find in the view"
         aria-label="Find in the view"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
         spellCheck={false}
         onChange={(e) => change(e.target.value)}
         onKeyDown={(e) => {

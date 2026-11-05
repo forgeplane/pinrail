@@ -481,3 +481,21 @@ test("Collapse all folds every group on the Projects page, and Expand all opens 
   await expect(loose(page)).toContainText("fold-all/loose");
   await expect(page.getByRole("button", { name: "Collapse all" })).toBeVisible();
 });
+
+test("search fields neither complete, correct, capitalise nor spell-check what is typed", async ({ page }) => {
+  const plain = { autocomplete: "off", autocorrect: "off", autocapitalize: "off", spellcheck: "false" };
+  const check = async (field: import("@playwright/test").Locator) => {
+    for (const [name, value] of Object.entries(plain)) await expect(field).toHaveAttribute(name, value);
+  };
+  await page.goto("/#/projects");
+  await check(page.getByLabel("Filter projects and repositories"));
+  await page.goto("/#/");
+  await check(page.getByLabel("Search inbox"));
+  await page.getByRole("button", { name: "Project or repository" }).click();
+  await check(page.getByRole("textbox", { name: "Filter project or repository" }));
+  await page.keyboard.press("Escape");
+  await page.goto("/#/sessions");
+  await check(page.getByLabel("Search sessions"));
+  await page.keyboard.press("ControlOrMeta+k");
+  await check(page.getByRole("dialog", { name: "Search" }).getByRole("textbox"));
+});

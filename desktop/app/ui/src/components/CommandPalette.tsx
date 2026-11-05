@@ -293,6 +293,8 @@ export function CommandPalette({
         <label className="palette-field">
           <Search size={16} aria-hidden="true" />
           <input
+            autoCorrect="off"
+            autoCapitalize="off"
             ref={input}
             type="text"
             value={query}
