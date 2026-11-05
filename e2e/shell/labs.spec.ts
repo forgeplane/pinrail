@@ -24,13 +24,13 @@ test("with sessions off the sidebar lists what waits and the projects, and nothi
   const sidebar = page.getByRole("complementary", { name: "Workspace" });
   const waiting = sidebar.getByRole("region", { name: "Waiting" });
   await expect(waiting.getByTestId("waiting-review")).toHaveText(["Labs: in api", "Labs: in web"]);
-  const projects = sidebar.getByRole("region", { name: "Projects" });
+  const projects = sidebar.getByRole("region", { name: "Repositories" });
   await expect(projects.getByRole("link", { name: /acme\/api/ })).toContainText("1");
   await projects.getByRole("link", { name: /acme\/web/ }).click();
   await expect(page).toHaveURL(/repo=acme%2Fweb/);
 
   await expect(sidebar.getByRole("link", { name: "Sessions" })).toHaveCount(0);
-  await expect(sidebar.getByRole("region", { name: "Repositories" })).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: "Sessions options" })).toHaveCount(0);
   await expect(sidebar.getByRole("button", { name: /Search/ })).toBeVisible();
 
   // the Sessions page leads to the inbox
@@ -59,8 +59,9 @@ test("turning sessions on in Settings › Labs brings them back, and the core ke
   await page.keyboard.press("Escape");
 
   await expect(sidebar.getByRole("link", { name: "Sessions" })).toBeVisible();
-  await expect(sidebar.getByRole("region", { name: "Repositories" })).toBeVisible();
-  await expect(sidebar.getByRole("region", { name: "Projects" })).toHaveCount(0);
+  // the sessions, grouped by repository, in place of the waiting reviews
+  await expect(sidebar.getByRole("button", { name: "Sessions options" })).toBeVisible();
+  await expect(sidebar.getByRole("region", { name: "Waiting" })).toHaveCount(0);
   const saved = await (await page.request.get(`${core}/api/v1/settings`)).json();
   expect(saved.labs.sessions).toBe(true);
 });

@@ -4,7 +4,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, subscribe } from "../api/client";
-import type { Notice, Plugin, Review } from "../api/types";
+import type { Notice, Plugin, ProjectRef, Review } from "../api/types";
 import { ENDINGS, applyNotice } from "./pending";
 
 /** The most pending reviews the app loads; the server has the rest. */
@@ -27,6 +27,8 @@ type Live = {
   /** advances when a project changes: what names or groups by projects
    *  must read them again */
   projectsVersion: number;
+  /** the person's projects, by name, for the filters */
+  namedProjects: ProjectRef[];
   lastNotice: Notice | null;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
@@ -47,6 +49,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [unloaded, setUnloaded] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [projectsVersion, setProjectsVersion] = useState(0);
+  const [namedProjects, setNamedProjects] = useState<ProjectRef[]>([]);
   const [lastNotice, setLastNotice] = useState<Notice | null>(null);
   const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
 
@@ -85,6 +88,18 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       fetching.current.delete(missed);
     }
   }, []);
+
+  // the projects, read again whenever one changes
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .projects()
+      .then((l) => !cancelled && setNamedProjects(l.projects.map(({ id, name }) => ({ id, name }))))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [projectsVersion, connected]);
 
   useEffect(() => {
     refresh();
@@ -141,6 +156,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       unassigned,
       historyVersion,
       projectsVersion,
+      namedProjects,
       lastNotice,
       plugins,
       pluginIcon,
@@ -153,6 +169,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       unassigned,
       historyVersion,
       projectsVersion,
+      namedProjects,
       lastNotice,
       plugins,
       pluginIcon,

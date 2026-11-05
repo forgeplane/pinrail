@@ -654,7 +654,7 @@ test("the Sessions page filters the sessions by project", async ({ page }) => {
   await page.goto("/#/sessions");
   const rows = page.getByTestId("session-row");
   const choose = async (name: string) => {
-    await page.getByRole("main").getByRole("button", { name: "Project" }).click();
+    await page.getByRole("main").getByRole("button", { name: "Project or repository" }).click();
     await page.getByRole("option", { name, exact: true }).click();
   };
 
@@ -664,11 +664,11 @@ test("the Sessions page filters the sessions by project", async ({ page }) => {
   await expect(rows.filter({ hasText: inApi })).toHaveCount(0);
   await expect(rows.filter({ hasText: nowhere })).toHaveCount(0);
 
-  await choose("No project");
+  await choose("No repository");
   await expect(rows.filter({ hasText: nowhere })).toHaveCount(1);
   await expect(rows.filter({ hasText: inWeb })).toHaveCount(0);
 
-  await choose("All projects");
+  await choose("All projects and repositories");
   await expect(rows.filter({ hasText: inApi })).toHaveCount(1);
   await expect(rows.filter({ hasText: inWeb })).toHaveCount(1);
 });

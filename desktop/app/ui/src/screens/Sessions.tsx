@@ -2,7 +2,7 @@
 // person first, and one session's thread: in the side panel beside the list,
 // or on a page of its own.
 
-import { Archive, FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
+import { Archive, FolderGit2, LayoutGrid, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
@@ -17,7 +17,7 @@ import { Thread, sessionPath, statusLine } from "../components/Thread";
 import { Tooltip } from "../components/Tooltip";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
-import { NO_PROJECT, useUrlParams } from "../lib/url";
+import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
@@ -50,9 +50,11 @@ export function Sessions() {
   const [q, setQ] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
   const repo = params.get("repo") ?? "";
+  const project = params.get("project") ?? "";
+  const scope = scopeOf(params);
   // with the archived sessions among the others
   const withArchived = params.get("archived") === "1";
-  const filtered = !!(query || repo);
+  const filtered = !!(query || repo || project);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
   const [data, setData] = useState<Awaited<ReturnType<typeof api.sessions>> | null>(null);
@@ -70,6 +72,7 @@ export function Sessions() {
       .sessions({
         q: debounced,
         repo,
+        project,
         include_archived: withArchived ? "true" : undefined,
         limit: String(size),
         offset: String((page - 1) * size),
@@ -79,7 +82,7 @@ export function Sessions() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, repo, withArchived, page, size, live.lastNotice]);
+  }, [debounced, repo, project, withArchived, page, size, live.lastNotice]);
 
   const sessions = useMemo(() => data?.sessions ?? [], [data]);
   const total = data?.total ?? 0;
@@ -215,17 +218,25 @@ export function Sessions() {
             </label>
             <Select
               id="sessions-repo"
-              label="Project"
+              label="Project or repository"
               icon={<FolderGit2 size={14} />}
-              value={repo}
-              onChange={(v) => setParam("repo", v)}
-              options={[
-                { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
-                ...(data?.facets.repos ?? []).map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-                ...(data?.facets.unassigned || repo === NO_PROJECT
-                  ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
-                  : []),
-              ]}
+              value={scope}
+              onChange={(v) =>
+                updateParams(
+                  (next) => {
+                    setScope(next, v);
+                    next.delete("page");
+                  },
+                  { replace: true },
+                )
+              }
+              options={scopeOptions(live.namedProjects, data?.facets.repos ?? [], !!data?.facets.unassigned, scope).map(
+                (o) => ({
+                  value: o.value,
+                  label: o.label,
+                  icon: o.kind === "project" ? <LayoutGrid size={14} /> : <FolderGit2 size={14} />,
+                }),
+              )}
             />
             <Tooltip label={withArchived ? "Hide the archived sessions" : "Show the archived sessions"} side="bottom">
               <button

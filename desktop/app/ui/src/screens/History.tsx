@@ -47,13 +47,14 @@ export function History() {
   const status = params.get("status") ?? "";
   const plugin = params.get("plugin") ?? "";
   const repo = params.get("repo") ?? "";
+  const project = params.get("project") ?? "";
   const starred = params.get("starred") === "1";
   // the search box keeps its own text; see the inbox for why
   const [q, setQ] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
-  const filtered = !!(q || status || plugin || repo || starred);
+  const filtered = !!(q || status || plugin || repo || project || starred);
   // with the side panel, as the inbox opens reviews, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
   const openId = panelMode ? params.get("open") : null;
@@ -74,6 +75,7 @@ export function History() {
         q: debounced,
         plugin,
         repo,
+        project,
         starred: starred ? "true" : undefined,
         offset: String((page - 1) * size),
         limit: String(size),
@@ -84,7 +86,7 @@ export function History() {
     return () => {
       cancelled = true;
     };
-  }, [status, debounced, plugin, repo, starred, page, size, live.historyVersion]);
+  }, [status, debounced, plugin, repo, project, starred, page, size, live.historyVersion]);
 
   const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;
@@ -275,7 +277,7 @@ export function History() {
                       {r.origin.ref ? <span className="review-row-ref">{r.origin.ref}</span> : null}
                     </span>
                     <span className="review-row-meta">
-                      <span className="review-row-project">{r.origin.repo ?? "No project"}</span>
+                      <span className="review-row-project">{r.origin.repo ?? "No repository"}</span>
                       {r.requested_by ? (
                         <>
                           <span>·</span>

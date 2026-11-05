@@ -9,7 +9,9 @@ import {
   ChevronRight,
   FolderGit2,
   GripVertical,
+  Inbox,
   LayoutGrid,
+  MessagesSquare,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -17,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
@@ -43,6 +46,7 @@ type Dialog =
 export function Projects() {
   const live = useLive();
   const toast = useToast();
+  const navigate = useNavigate();
   const { settings: prefs } = useSettings();
   const sessionsOn = prefs.labs.sessions;
   const [listing, setListing] = useState<ProjectsListing | null>(null);
@@ -117,6 +121,21 @@ export function Projects() {
       label: project.name,
       align: "right",
       entries: [
+        {
+          label: "Open in the inbox",
+          icon: Inbox,
+          onPick: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
+        },
+        ...(sessionsOn
+          ? [
+              {
+                label: "Open its sessions",
+                icon: MessagesSquare,
+                onPick: () => navigate(`/sessions?project=${encodeURIComponent(project.id)}`),
+              } as MenuEntry,
+            ]
+          : []),
+        { kind: "separator" },
         { label: "Rename…", icon: Pencil, onPick: () => setDialog({ kind: "rename", project }) },
         { kind: "separator" },
         { label: "Delete project…", icon: Trash2, danger: true, onPick: () => setDialog({ kind: "delete", project }) },

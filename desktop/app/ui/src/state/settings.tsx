@@ -24,7 +24,7 @@ export type Settings = {
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** where the inbox opens a review: in the side panel, or on its own page */
-  inbox: { open_in: "panel" | "page" };
+  inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
   /** each plugin's permission to open links without asking */
@@ -129,7 +129,7 @@ const fromServer = (s: ServerSettings): Served => ({
     muted_plugins: s.notifications.muted_plugins,
   },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
-  inbox: { open_in: s.inbox?.open_in ?? "panel" },
+  inbox: { open_in: s.inbox?.open_in ?? "panel", layout: s.inbox?.layout ?? "repository" },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
   port: s.port,
@@ -168,7 +168,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     menu_bar_icon: true,
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
-    inbox: { open_in: "panel" },
+    inbox: { open_in: "panel", layout: "repository" },
     plugins: {},
     links: {},
     port: 4747,

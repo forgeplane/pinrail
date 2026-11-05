@@ -2,7 +2,7 @@
 // each with its repositories, and the repositories in no project last.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, createReview } from "./helpers";
+import { clearInbox, core, createReview, settingSaved } from "./helpers";
 
 /** Deletes every project, so each test starts with none. */
 async function noProjects(request: APIRequestContext) {
@@ -15,6 +15,11 @@ const loose = (page: Page) => page.getByRole("region", { name: "Repositories in 
 
 test.beforeEach(({ request }) => noProjects(request));
 test.afterAll(({ request }) => noProjects(request));
+// the inbox's layout is a setting the core keeps: each test leaves the default
+test.afterEach(async ({ request }) => {
+  await request.patch(`${core}/api/v1/settings`, { data: { inbox: { layout: "repository" } } });
+  await settingSaved(request, (s) => s.inbox.layout, "repository");
+});
 
 test("a project is created with repositories, renamed and deleted", async ({ page }) => {
   await createReview(page.request, { title: "Projects: app", origin: { repo: "proj/app" } });
@@ -26,7 +31,7 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
   await page.getByRole("button", { name: "New project" }).click();
 
   const dialog = page.getByRole("dialog", { name: "New project" });
-  await dialog.getByLabel("Name").fill("Proj");
+  await dialog.getByLabel("Name", { exact: true }).fill("Proj");
   await dialog.getByRole("checkbox", { name: "proj/app" }).check();
   await dialog.getByRole("checkbox", { name: "proj/infra" }).check();
   await dialog.getByRole("button", { name: "Create project" }).click();
@@ -38,7 +43,7 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
 
   // a name another project has is refused, whatever its case
   await page.getByRole("button", { name: "New project" }).click();
-  await dialog.getByLabel("Name").fill("proj");
+  await dialog.getByLabel("Name", { exact: true }).fill("proj");
   await dialog.getByRole("button", { name: "Create project" }).click();
   await expect(dialog).toContainText("another project has this name");
   await page.keyboard.press("Escape");
@@ -47,7 +52,7 @@ test("a project is created with repositories, renamed and deleted", async ({ pag
   await card(page, "Proj").getByRole("button", { name: "Proj actions" }).click();
   await page.getByRole("menuitem", { name: "Rename…" }).click();
   const rename = page.getByRole("dialog", { name: "Rename project" });
-  await rename.getByLabel("Name").fill("Proj app");
+  await rename.getByLabel("Name", { exact: true }).fill("Proj app");
   await rename.getByRole("button", { name: "Rename" }).click();
   await expect(card(page, "Proj app")).toBeVisible();
 
@@ -126,4 +131,56 @@ test("the projects are listed by name, and stay in place while repositories move
   await page.getByLabel("Filter projects and repositories").fill("keep/b");
   await expect(page.getByTestId("project-repo")).toHaveText([/keep\/b/]);
   await expect(names).toHaveText(["Busy"]);
+});
+
+test("the inbox groups and filters by project, and names each review's repository in a mixed one", async ({
+  page,
+  request,
+}) => {
+  await clearInbox(request);
+  await createReview(request, { title: "Inbox: app", origin: { repo: "mix/app" } });
+  await createReview(request, { title: "Inbox: infra", origin: { repo: "mix/infra" } });
+  await createReview(request, { title: "Inbox: elsewhere", origin: { repo: "mix/elsewhere" } });
+  const created = await request.post(`${core}/api/v1/projects`, {
+    data: { name: "Mix", repos: ["mix/app", "mix/infra"] },
+  });
+  const { id } = (await created.json()) as { id: string };
+
+  await page.goto("/#/");
+  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  const groups = page.getByTestId("inbox-group-name");
+  await expect(groups).toHaveText(["mix/elsewhere", "Mix"]);
+  const mixed = page.getByTestId("inbox-group").filter({ has: page.getByText("Mix", { exact: true }) });
+  await expect(mixed.getByTestId("review-row-project")).toHaveText(["mix/infra", "mix/app"]);
+  // each heading's icon is centred on its name's capital letters
+  for (const heading of await page.getByTestId("inbox-group-heading").all()) {
+    const offset = await heading.evaluate((h) => {
+      const name = h.querySelector("strong")!;
+      const icon = h.querySelector("svg")!.getBoundingClientRect();
+      // the baseline, where an empty inline block sits, and the capitals' height
+      const probe = document.createElement("span");
+      probe.style.cssText = "display: inline-block; width: 0; height: 0";
+      name.appendChild(probe);
+      const baseline = probe.getBoundingClientRect().bottom;
+      probe.remove();
+      const context = document.createElement("canvas").getContext("2d")!;
+      context.font = getComputedStyle(name).font;
+      const cap = context.measureText("P").actualBoundingBoxAscent;
+      return icon.top + icon.height / 2 - (baseline - cap / 2);
+    });
+    expect(Math.abs(offset)).toBeLessThan(0.3);
+  }
+
+  // the filter takes the project, and the address keeps it
+  await page.getByRole("button", { name: "Project or repository" }).click();
+  await page.getByRole("option", { name: "Mix", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`project=${id}`));
+  await expect(page.getByTestId("review-row")).toHaveCount(2);
+
+  // the history filters by it too
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page).toHaveURL(new RegExp(`project=${id}`));
+
+  // the layout is kept in the settings
+  await settingSaved(request, (s) => s.inbox.layout, "project");
 });

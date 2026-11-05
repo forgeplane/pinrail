@@ -17,9 +17,11 @@ On the *Pending* tab, each row shows the title, the plugin, where it came from a
 
 The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a code review or *3 drafts* for emails, colored by importance. Each plugin decides what it counts, and a plugin that counts nothing shows no summary. The same counts appear in the notification for a new review and at the top of the review while it waits.
 
+The buttons at the right of the tabs choose how *Pending* and *New rounds* list the reviews: grouped by project, grouped by repository, or in one list, newest first. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository. The app remembers your choice.
+
 The filters above the tabs apply to every tab, and keep their values when you switch tabs.
 
-- **Filter by project or plugin.** The sidebar lists your repositories. Click one, or choose a project or a plugin from the menus above the list, to see only those reviews.
+- **Filter by project, repository or plugin.** The sidebar lists your projects or repositories. Click one, or choose one or a plugin from the menus above the list, to see only those reviews. Choosing a project shows the reviews from all of its repositories.
 - **Show the starred reviews.** Turn on the star filter beside the menus. See [Stars](#stars).
 - **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched.
 - **Jump to what waits.** The sidebar lists what waits under the session that sent it, one click away on every screen. See [Sessions in the sidebar](/docs/using/sessions/#sessions-in-the-sidebar). <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting, oldest first.
@@ -67,7 +69,7 @@ Each decided review shows what was decided, as its plugin counts it: for example
 
 ![The History tab: ended reviews with their outcome and what was decided, their project, and when they ended.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
 
-To search the history, press <kbd>/</kbd> on the *History* tab and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. The *Outcome* menu shows on the *History* tab only.
+To search the history, press <kbd>/</kbd> on the *History* tab and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, repository, plugin or outcome. The *Outcome* menu shows on the *History* tab only.
 
 To choose how long history is kept, see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 

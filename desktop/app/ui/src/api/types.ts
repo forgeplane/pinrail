@@ -411,7 +411,7 @@ export type ServerSettings = {
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
-  inbox?: { open_in: "panel" | "page" };
+  inbox?: { open_in: "panel" | "page"; layout?: "project" | "repository" | "list" };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;

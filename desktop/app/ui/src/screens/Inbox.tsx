@@ -1,4 +1,4 @@
-import { Ban, CheckCheck, MessageCircleQuestion, SearchX } from "lucide-react";
+import { Ban, CheckCheck, FolderGit2, LayoutGrid, MessageCircleQuestion, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
@@ -10,27 +10,19 @@ import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
-import { clearAll, useUrlParams } from "../lib/url";
+import { clearAll, inScope, scopeOf, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { inProject } from "../lib/url";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
 import { StarButton } from "../components/StarButton";
 import { History } from "./History";
-import { InboxHead, tabOf } from "./InboxHead";
+import { InboxHead, tabOf, type Layout } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 
-/** How the inbox is laid out, remembered on this machine. */
-type Layout = "projects" | "list";
-const LAYOUT = "pinrail.inbox.layout";
-function savedLayout(): Layout {
-  try {
-    return localStorage.getItem(LAYOUT) === "list" ? "list" : "projects";
-  } catch {
-    return "projects";
-  }
-}
+/** Where an earlier version kept the layout on this machine; the settings
+ *  keep it now, and the old choice is moved there once. */
+const OLD_LAYOUT = "pinrail.inbox.layout";
 
 function matches(review: Review, q: string) {
   if (!q) return true;
@@ -58,28 +50,35 @@ function Waiting() {
   const live = useLive();
   const navigate = useNavigate();
   const [params, updateParams, currentParams] = useUrlParams();
-  const { settings: prefs } = useSettings();
+  const { settings: prefs, update, loaded } = useSettings();
   // with the side panel, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
   const openId = panelMode ? params.get("open") : null;
   // The search box keeps its own text: a router navigation per keystroke is
   // deferred, and a controlled input bound to the URL would snap back.
   const [q, setQ] = useState(params.get("q") ?? "");
-  const repo = params.get("repo") ?? "";
+  const scope = scopeOf(params);
   const plugin = params.get("plugin") ?? "";
   const rounds = params.get("rounds") ?? "";
   const starred = params.get("starred") === "1";
   const [focused, setFocused] = useState(0);
-  const [layout, setLayoutState] = useState<Layout>(savedLayout);
+  const layout: Layout = prefs.inbox.layout;
   const setLayout = (next: Layout) => {
-    setLayoutState(next);
-    try {
-      localStorage.setItem(LAYOUT, next);
-    } catch {
-      // private mode or no storage: the choice lasts until the app restarts
-    }
+    void update({ inbox: { layout: next } });
     setFocused(0);
   };
+  // "list" chosen in an earlier version, on this machine, is kept
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      const old = localStorage.getItem(OLD_LAYOUT);
+      if (old === null) return;
+      localStorage.removeItem(OLD_LAYOUT);
+      if (old === "list") void update({ inbox: { layout: "list" } });
+    } catch {
+      // no storage: nothing was kept
+    }
+  }, [loaded, update]);
   const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
   // While the keyboard moves the focus the list scrolls under a still
@@ -124,29 +123,34 @@ function Waiting() {
       live.pending.filter(
         (r) =>
           matches(r, q) &&
-          inProject(r.origin.repo, repo) &&
+          inScope(r.origin.repo, r.project, scope) &&
           (!plugin || r.plugin === plugin) &&
           (rounds !== "new" || !!r.revises) &&
           (!starred || !!r.starred),
       ),
-    [live.pending, q, repo, plugin, rounds, starred],
+    [live.pending, q, scope, plugin, rounds, starred],
   );
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 
-  // In the order the rows are drawn. By project: the project with the
-  // newest review first, and newest first within one; the reviews come
-  // newest first, so a project's place is where its newest one falls. As a
-  // list: newest first, as they come. J, K and Enter walk this order, so
-  // the row they open is the row lit.
+  // In the order the rows are drawn. Grouped: the group with the newest
+  // review first, and newest first within one; the reviews come newest
+  // first, so a group's place is where its newest one falls. A project's
+  // group holds every repository in it, and a repository in no project is
+  // a group of its own. As a list: newest first, as they come. J, K and
+  // Enter walk this order, so the row they open is the row lit.
+  const groupOf = useCallback(
+    (r: Review) => (layout === "project" && r.project ? `project:${r.project.id}` : (r.origin.repo ?? "")),
+    [layout],
+  );
   const ordered = useMemo(() => {
     if (layout === "list") return reviews;
-    const byRepo = new Map<string, Review[]>();
+    const byGroup = new Map<string, Review[]>();
     for (const r of reviews) {
-      const key = r.origin.repo ?? "";
-      byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
+      const key = groupOf(r);
+      byGroup.set(key, [...(byGroup.get(key) ?? []), r]);
     }
-    return [...byRepo.entries()].flatMap(([, items]) => items);
-  }, [reviews, layout]);
+    return [...byGroup.entries()].flatMap(([, items]) => items);
+  }, [reviews, layout, groupOf]);
 
   // a page past the end, after reviews were decided: the last page there is
   const pages = Math.max(1, Math.ceil(ordered.length / size));
@@ -154,13 +158,24 @@ function Waiting() {
   const shown = useMemo(() => ordered.slice((current - 1) * size, current * size), [ordered, current, size]);
 
   const groups = useMemo(() => {
-    const byRepo = new Map<string, Review[]>();
+    const byGroup = new Map<string, Review[]>();
     for (const r of shown) {
-      const key = r.origin.repo ?? "";
-      byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
+      const key = groupOf(r);
+      byGroup.set(key, [...(byGroup.get(key) ?? []), r]);
     }
-    return [...byRepo.entries()];
-  }, [shown]);
+    return [...byGroup.entries()];
+  }, [shown, groupOf]);
+  // a project's group whose reviews come from more than one repository
+  // names the repository on each row
+  const mixed = useMemo(() => {
+    const repos = new Map<string, Set<string>>();
+    for (const r of reviews) {
+      const key = groupOf(r);
+      if (!key.startsWith("project:")) continue;
+      repos.set(key, (repos.get(key) ?? new Set()).add(r.origin.repo ?? ""));
+    }
+    return new Set([...repos].filter(([, set]) => set.size > 1).map(([key]) => key));
+  }, [reviews, groupOf]);
 
   useEffect(() => {
     setFocused((f) => Math.min(f, Math.max(0, shown.length - 1)));
@@ -322,12 +337,14 @@ function Waiting() {
           {review.origin.ref ? <span className="review-row-ref">{review.origin.ref}</span> : null}
         </span>
         <span className="review-row-meta">
-          {layout === "list" ? (
+          {layout === "list" || mixed.has(groupOf(review)) ? (
             <span className="review-row-project" data-testid="review-row-project">
-              {review.origin.repo ?? "No project"}
+              {review.origin.repo ?? "No repository"}
             </span>
           ) : null}
-          {layout === "list" && (review.requested_by || review.origin.workflow) ? <span>·</span> : null}
+          {(layout === "list" || mixed.has(groupOf(review))) && (review.requested_by || review.origin.workflow) ? (
+            <span>·</span>
+          ) : null}
           {review.requested_by ? (
             <span className="requester">
               <AgentIcon requestedBy={review.requested_by} />
@@ -376,7 +393,7 @@ function Waiting() {
     </Link>
   );
 
-  const filtered = !!(q || repo || plugin || rounds || starred);
+  const filtered = !!(q || scope || plugin || rounds || starred);
   const now = Date.now();
   let index = -1;
 
@@ -391,7 +408,7 @@ function Waiting() {
           projects={live.projects}
           unassigned={live.unassigned > 0}
           plugins={plugins}
-          filtered={!!(q || repo || plugin || starred)}
+          filtered={!!(q || scope || plugin || starred)}
           onClear={() => setQ("")}
           layout={{ value: layout, set: setLayout }}
         />
@@ -432,11 +449,18 @@ function Waiting() {
           <div className="inbox-list">{shown.map((review, i) => row(review, i))}</div>
         ) : (
           <div className="inbox-groups">
-            {groups.map(([repoName, items]) => (
-              <details key={repoName || "none"} className="inbox-repo" open data-testid="inbox-group">
+            {groups.map(([key, items]) => (
+              <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                 <summary data-testid="inbox-group-heading">
-                  <strong data-testid="inbox-group-name">{repoName || "No project"}</strong>
-                  <span>{reviews.filter((r) => (r.origin.repo ?? "") === repoName).length}</span>
+                  {key.startsWith("project:") ? (
+                    <LayoutGrid size={13} className="inbox-group-icon" aria-label="Project" />
+                  ) : (
+                    <FolderGit2 size={13} className="inbox-group-icon" aria-label="Repository" />
+                  )}
+                  <strong data-testid="inbox-group-name">
+                    {key.startsWith("project:") ? items[0].project?.name : key || "No repository"}
+                  </strong>
+                  <span>{reviews.filter((r) => groupOf(r) === key).length}</span>
                 </summary>
                 {items.map((review) => {
                   index += 1;

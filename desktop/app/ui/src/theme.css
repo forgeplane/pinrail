@@ -5906,3 +5906,12 @@ body.is-resizing iframe {
   font-size: 10.5px;
   color: var(--faint);
 }
+/* an icon has no baseline: its bottom edge sits on the text's baseline, and
+   it moves down so that its middle meets the middle of the capital letters,
+   whatever the font */
+.inbox-group-icon {
+  flex: none;
+  position: relative;
+  top: calc(6.5px - 0.5cap);
+  color: var(--dim);
+}

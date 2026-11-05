@@ -86,6 +86,12 @@ const LEAVES: &[Leaf] = &[
         "Where the inbox opens a review: in a panel beside the list, or as a page of its own.",
     ),
     (
+        "/inbox/layout",
+        Kind::Enum(&["project", "repository", "list"]),
+        || json!("repository"),
+        "How the inbox lists what waits: grouped by project, grouped by repository, or in one list, newest first.",
+    ),
+    (
         "/menu_bar_icon",
         Kind::Bool,
         || json!(true),

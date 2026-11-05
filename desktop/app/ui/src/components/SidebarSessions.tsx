@@ -211,12 +211,15 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           <Chevron size={12} />
         </button>
         {group.kind === "project" ? (
-          <button type="button" className="sidebar-group-name" onClick={() => toggleGroup(group)}>
+          <NavLink
+            to={`/?project=${encodeURIComponent(group.key.slice("project:".length))}`}
+            className="sidebar-group-name"
+          >
             <LayoutGrid size={14} strokeWidth={1.75} />
             <span className="sidebar-review-title" data-testid="sidebar-group-name">
               {group.label}
             </span>
-          </button>
+          </NavLink>
         ) : group.kind === "repository" ? (
           <NavLink to={`/?repo=${encodeURIComponent(group.key || NO_PROJECT)}`} className="sidebar-group-name">
             <FolderGit2 size={14} strokeWidth={1.75} className={group.key ? "" : "is-faint"} />

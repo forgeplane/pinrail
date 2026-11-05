@@ -57,8 +57,8 @@ export function SidebarProjects({ shown, openIn }: { shown: string | null; openI
         </section>
       ) : null}
       {live.projects.length > 0 || live.unassigned > 0 ? (
-        <section className="sidebar-repositories" aria-label="Projects">
-          <h2>Projects</h2>
+        <section className="sidebar-repositories" aria-label="Repositories">
+          <h2>Repositories</h2>
           {live.projects.map((project) => (
             <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} />
@@ -69,7 +69,7 @@ export function SidebarProjects({ shown, openIn }: { shown: string | null; openI
           {live.unassigned > 0 ? (
             <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
-              <span className="sidebar-review-title">No project</span>
+              <span className="sidebar-review-title">No repository</span>
               <span className="nav-count">{live.unassigned}</span>
             </NavLink>
           ) : null}

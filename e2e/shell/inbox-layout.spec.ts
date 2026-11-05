@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { clearInbox, createReview, settingsDialog } from "./helpers";
+import { clearInbox, core, createReview, settingSaved, settingsDialog } from "./helpers";
+
+// the layout is a setting the core keeps: each test leaves the default
+test.afterEach(async ({ request }) => {
+  await request.patch(`${core}/api/v1/settings`, { data: { inbox: { layout: "repository" } } });
+  await settingSaved(request, (s) => s.inbox.layout, "repository");
+});
 
 test("the inbox is grouped by project or one list, newest first, and remembers which", async ({ page }) => {
   await clearInbox(page.request);
@@ -34,7 +40,7 @@ test("the inbox is grouped by project or one list, newest first, and remembers w
   await expect(page.getByRole("radio", { name: "One list" })).toHaveAttribute("aria-checked", "true");
   await expect(rows).toHaveText([/Layout three/, /Layout two/, /Layout one/]);
 
-  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await page.getByRole("radio", { name: "Grouped by repository" }).click();
   await expect(page.getByTestId("inbox-group")).toHaveCount(2);
 });
 
@@ -128,7 +134,7 @@ test("the row under the pointer keeps its outline off the open row beside it", a
   await page.setViewportSize({ width: 1400, height: 700 });
   await page.goto("/#/");
   const rows = page.getByTestId("review-row");
-  for (const layout of ["One list", "Grouped by project"]) {
+  for (const layout of ["One list", "Grouped by repository"]) {
     await page.getByRole("radio", { name: layout }).click();
     await rows.nth(1).click();
     await expect(page.getByTestId("review-panel")).toBeVisible();

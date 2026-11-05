@@ -59,9 +59,50 @@ export function reviewShown(pathname: string, search: string): string | null {
   return pathname === "/" ? new URLSearchParams(search).get("open") : null;
 }
 
-/** The `repo` filter's value for the reviews that name no project. */
+/** The `repo` filter's value for the reviews that name no repository. */
 export const NO_PROJECT = "-";
 
-/** Whether a review passes the project filter: none, a project, or `NO_PROJECT`. */
+/** Whether a review passes the repository filter: none, a repository, or `NO_PROJECT`. */
 export const inProject = (repo: string | null | undefined, filter: string) =>
   !filter || (filter === NO_PROJECT ? !repo : repo === filter);
+
+/** The prefix a project takes in the combined project or repository filter. */
+const PROJECT = "project:";
+
+/** The combined filter's value from the address: `project:<id>` for
+ *  `?project=`, otherwise the `?repo=` value. */
+export const scopeOf = (params: URLSearchParams) => {
+  const project = params.get("project");
+  return project ? `${PROJECT}${project}` : (params.get("repo") ?? "");
+};
+
+/** Sets the combined filter in the address: a project as `?project=`, a
+ *  repository as `?repo=`, and nothing for every one. */
+export function setScope(params: URLSearchParams, value: string) {
+  params.delete("project");
+  params.delete("repo");
+  if (value.startsWith(PROJECT)) params.set("project", value.slice(PROJECT.length));
+  else if (value) params.set("repo", value);
+}
+
+/** Whether something in a repository and a project passes the combined filter. */
+export const inScope = (repo: string | null | undefined, project: { id: string } | null | undefined, scope: string) =>
+  scope.startsWith(PROJECT) ? project?.id === scope.slice(PROJECT.length) : inProject(repo, scope);
+
+/** The combined filter's choices: every project, then the repositories, then
+ *  none when some have none. */
+export function scopeOptions(
+  projects: { id: string; name: string }[],
+  repos: string[],
+  unassigned: boolean,
+  current: string,
+): { value: string; label: string; kind: "all" | "project" | "repository" }[] {
+  return [
+    { value: "", label: "All projects and repositories", kind: "all" },
+    ...projects.map((p) => ({ value: `${PROJECT}${p.id}`, label: p.name, kind: "project" as const })),
+    ...repos.map((r) => ({ value: r, label: r, kind: "repository" as const })),
+    ...(unassigned || current === NO_PROJECT
+      ? [{ value: NO_PROJECT, label: "No repository", kind: "repository" as const }]
+      : []),
+  ];
+}

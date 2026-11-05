@@ -2,12 +2,12 @@
 // History. The filters keep their values from tab to tab; Outcome applies to
 // the History tab only, and the layout to the waiting tabs.
 
-import { Blocks, CircleDot, FolderGit2, List, Search, Star } from "lucide-react";
+import { Blocks, CircleDot, FolderGit2, LayoutGrid, List, Search, Star } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
-import { NO_PROJECT, clearAll, useUrlParams } from "../lib/url";
+import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 
 export type InboxTab = "pending" | "new" | "history";
@@ -18,8 +18,10 @@ export function tabOf(params: URLSearchParams): InboxTab {
   return params.get("rounds") === "new" ? "new" : "pending";
 }
 
+/** How the waiting tabs are laid out: grouped by project or by repository, or one list. */
+export type Layout = "project" | "repository" | "list";
 /** The layout of the waiting tabs, and how to change it. */
-export type LayoutChoice = { value: "projects" | "list"; set: (next: "projects" | "list") => void };
+export type LayoutChoice = { value: Layout; set: (next: Layout) => void };
 
 export function InboxHead({
   tab,
@@ -38,8 +40,9 @@ export function InboxHead({
   /** the search box's text, which it keeps apart from the address */
   q: string;
   onSearch: (q: string) => void;
+  /** the repositories among the reviews */
   projects: string[];
-  /** whether some reviews have no project */
+  /** whether some reviews have no repository */
   unassigned: boolean;
   plugins: string[];
   filtered: boolean;
@@ -48,7 +51,7 @@ export function InboxHead({
 }) {
   const live = useLive();
   const [params, updateParams] = useUrlParams();
-  const repo = params.get("repo") ?? "";
+  const scope = scopeOf(params);
   const plugin = params.get("plugin") ?? "";
   const status = params.get("status") ?? "";
   const starred = params.get("starred") === "1";
@@ -139,17 +142,23 @@ export function InboxHead({
           ) : null}
           <Select
             id="inbox-repo"
-            label="Project"
+            label="Project or repository"
             icon={<FolderGit2 size={14} />}
-            value={repo}
-            onChange={(v) => setParam("repo", v)}
-            options={[
-              { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
-              ...projects.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-              ...(unassigned || repo === NO_PROJECT
-                ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
-                : []),
-            ]}
+            value={scope}
+            onChange={(v) =>
+              updateParams(
+                (next) => {
+                  setScope(next, v);
+                  next.delete("page");
+                },
+                { replace: true },
+              )
+            }
+            options={scopeOptions(live.namedProjects, projects, unassigned, scope).map((o) => ({
+              value: o.value,
+              label: o.label,
+              icon: o.kind === "project" ? <LayoutGrid size={14} /> : <FolderGit2 size={14} />,
+            }))}
           />
           <Select
             id="inbox-plugin"
@@ -210,10 +219,22 @@ export function InboxHead({
               <button
                 type="button"
                 role="radio"
-                aria-checked={layout.value === "projects"}
+                aria-checked={layout.value === "project"}
                 aria-label="Grouped by project"
-                className={layout.value === "projects" ? "is-on" : ""}
-                onClick={() => layout.set("projects")}
+                className={layout.value === "project" ? "is-on" : ""}
+                onClick={() => layout.set("project")}
+              >
+                <LayoutGrid size={13} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Grouped by repository" side="top">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={layout.value === "repository"}
+                aria-label="Grouped by repository"
+                className={layout.value === "repository" ? "is-on" : ""}
+                onClick={() => layout.set("repository")}
               >
                 <FolderGit2 size={13} />
               </button>
