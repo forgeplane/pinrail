@@ -525,8 +525,8 @@ impl Db {
     }
 
     /// Changes an item as `change` says, whole or not at all, recording each
-    /// part on its timeline. An agent marks an item done only when nothing
-    /// of it waits on the person and its sub-items are closed.
+    /// part on its timeline. No one marks an item done while a sub-item is
+    /// open, and an agent only when nothing of it waits on the person.
     pub fn edit_item(
         &self,
         item: &ItemRef,
@@ -688,8 +688,15 @@ impl Db {
                         }
                     }
                     _ => {
-                        if status == Status::Done && matches!(actor, Actor::Agent { .. }) {
-                            let waiting = waiting_on(&tx, &id, at)?;
+                        // no one marks an item done while a sub-item is
+                        // open; an agent waits for the person's answers too,
+                        // which the person can give at any time
+                        if status == Status::Done {
+                            let waiting = if matches!(actor, Actor::Agent { .. }) {
+                                waiting_on(&tx, &id, at)?
+                            } else {
+                                Vec::new()
+                            };
                             let open = open_sub_items(&tx, &id)?;
                             if !waiting.is_empty() || !open.is_empty() {
                                 return Ok(Err(Refused::NotDone {

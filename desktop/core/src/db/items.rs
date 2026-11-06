@@ -254,8 +254,10 @@ impl std::fmt::Display for Refused {
                 if !waiting.is_empty() {
                     why.push(format!("{} still waits on the person", waiting.join(", ")));
                 }
-                if !open.is_empty() {
-                    why.push(format!("its sub-items {} are still open", open.join(", ")));
+                match open.as_slice() {
+                    [] => {}
+                    [one] => why.push(format!("its sub-item {one} is still open")),
+                    _ => why.push(format!("its sub-items {} are still open", open.join(", "))),
                 }
                 write!(f, "{key} is not done: {}", why.join("; "))
             }

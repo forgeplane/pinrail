@@ -557,7 +557,7 @@ async fn an_agent_cannot_mark_done_an_item_with_a_pending_question() {
 }
 
 #[tokio::test]
-async fn an_agent_cannot_mark_done_an_item_with_open_or_in_progress_sub_items() {
+async fn no_one_can_mark_done_an_item_with_open_or_in_progress_sub_items() {
     let app = app();
     for t in ["Parent", "Open part", "Going part", "Done part"] {
         add(&app, t).await;
@@ -573,10 +573,33 @@ async fn an_agent_cannot_mark_done_an_item_with_open_or_in_progress_sub_items() 
         refused["message"],
         "PIN-1 is not done: its sub-items PIN-2, PIN-3 are still open"
     );
-    // the person can, at any time, and the sub-items stay as they are
+    // nor the person, from the done button or from the status menu
+    let (code, refused) = call(&app, "POST", "/api/v1/items/PIN-1/done", Some(json!({}))).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+    assert_eq!(
+        refused["message"],
+        "PIN-1 is not done: its sub-items PIN-2, PIN-3 are still open"
+    );
+    let (code, _) = call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        Some(json!({"status": "done"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT);
+    assert_eq!(item(&app, "PIN-1").await["status"], "open");
+    // once each is done or cancelled, it can be
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-2",
+        Some(json!({"status": "cancelled"})),
+    )
+    .await;
+    call(&app, "POST", "/api/v1/items/PIN-3/done", Some(json!({}))).await;
     let (code, closed) = call(&app, "POST", "/api/v1/items/PIN-1/done", Some(json!({}))).await;
     assert_eq!(code, StatusCode::OK, "{closed}");
-    assert_eq!(item(&app, "PIN-2").await["status"], "open");
 }
 
 #[tokio::test]

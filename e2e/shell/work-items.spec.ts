@@ -593,3 +593,24 @@ test("the panel asks too before cancelling an item with open sub-items", async (
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&status=all&open=${a.key}`);
   await expect(panel.getByTestId("item-event").last()).toContainText(`cancelled it with ${parent.key}`);
 });
+
+test("an item with an open sub-item cannot be marked done, and says which", async ({ page, request }) => {
+  const repo = fresh("notdone");
+  const parent = await add(request, repo, "Release");
+  const child = await add(request, repo, "Notes", { parent: parent.key });
+  await open(page, repo);
+  await row(page, parent.key).hover();
+  await expect(row(page, parent.key)).toHaveClass(/is-focused/);
+  await page.keyboard.press("d");
+  await expect(page.locator(".toast").last()).toContainText(
+    `${parent.key} is not done: its sub-item ${child.key} is still open`,
+  );
+  await expect(row(page, parent.key).getByRole("img", { name: "Open" })).toBeVisible();
+  // once the sub-item is done, the parent can be
+  await row(page, child.key).hover();
+  await page.keyboard.press("d");
+  await expect(row(page, child.key)).toHaveCount(0);
+  await row(page, parent.key).hover();
+  await page.keyboard.press("d");
+  await expect(row(page, parent.key)).toHaveCount(0);
+});
