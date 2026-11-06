@@ -6217,6 +6217,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: var(--accent-bg);
   border-left-color: var(--accent);
 }
+.item-row.is-drop {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+  background: var(--accent-bg);
+}
 .item-row.is-closed {
   opacity: 0.55;
 }

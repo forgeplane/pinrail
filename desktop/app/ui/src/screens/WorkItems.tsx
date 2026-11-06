@@ -73,6 +73,9 @@ function statusIcon(value: string) {
   return <ListChecks size={13} aria-hidden="true" />;
 }
 
+/** What a dragged row carries: its item's key. */
+const DRAGGED = "application/x-pinrail-item";
+
 /** An item in the order J and K walk, at its depth in the tree. */
 type Shown = { item: WorkItem; depth: number; folded: boolean; children: number; parentTitle?: string };
 
@@ -238,6 +241,21 @@ export function WorkItems() {
     [toast, reload],
   );
 
+  // an item dragged onto another becomes its sub-item
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const putUnder = useCallback(
+    async (key: string, parent: string) => {
+      try {
+        await api.editItem(key, { parent });
+        toast(`${key} is now part of ${parent}`);
+      } catch (error) {
+        toast(reason(error), "danger");
+      }
+      reload();
+    },
+    [toast, reload],
+  );
+
   // the quick add's field, opened by C or a click
   const [adding, setAdding] = useState(false);
 
@@ -293,10 +311,33 @@ export function WorkItems() {
         data-row={index}
         data-testid="item-row"
         data-key={item.key}
-        className={`item-row ${index === focused ? "is-focused" : ""} ${item.key === openKey ? "is-open" : ""} ${closed ? "is-closed" : ""}`}
+        className={`item-row ${index === focused ? "is-focused" : ""} ${item.key === openKey ? "is-open" : ""} ${closed ? "is-closed" : ""} ${dropOn === item.key ? "is-drop" : ""}`}
         style={{ paddingLeft: 10 + depth * 22 }}
         onMouseEnter={() => setFocused(index)}
         onClick={() => open(item)}
+        draggable
+        onDragStart={(event) => {
+          event.dataTransfer.setData(DRAGGED, item.key);
+          event.dataTransfer.effectAllowed = "move";
+        }}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes(DRAGGED)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          if (dropOn !== item.key) setDropOn(item.key);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDropOn(null);
+          const dragged = event.dataTransfer.getData(DRAGGED);
+          if (!dragged || dragged === item.key) return;
+          // dropped on another item, it becomes its sub-item
+          void putUnder(dragged, item.key);
+        }}
+        onDragEnd={() => setDropOn(null)}
       >
         <span className="item-fold">
           {children ? (

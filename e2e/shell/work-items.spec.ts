@@ -453,3 +453,39 @@ test("each choice of the status filter shows its status's icon, and the trigger 
   await listbox.getByRole("option", { name: "Done", exact: true }).click();
   await expect(trigger.locator(".select-icon .item-status.is-done")).toBeVisible();
 });
+
+test("an item dragged onto another becomes its sub-item, unless that closes a cycle", async ({ page, request }) => {
+  const repo = fresh("drag");
+  const parent = await add(request, repo, "Release");
+  const child = await add(request, repo, "Notes");
+  await open(page, repo);
+  const drag = async (from: string, to: string, drop = true) => {
+    const transfer = await page.evaluateHandle(() => new DataTransfer());
+    await row(page, from).dispatchEvent("dragstart", { dataTransfer: transfer });
+    await row(page, to).dispatchEvent("dragenter", { dataTransfer: transfer });
+    await row(page, to).dispatchEvent("dragover", { dataTransfer: transfer });
+    if (drop) await row(page, to).dispatchEvent("drop", { dataTransfer: transfer });
+    await row(page, from).dispatchEvent("dragend", { dataTransfer: transfer });
+  };
+  // the row it would go under is marked while it is over it
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, child.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  await row(page, parent.key).dispatchEvent("dragover", { dataTransfer: transfer });
+  await expect(row(page, parent.key)).toHaveClass(/is-drop/);
+  await row(page, child.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(row(page, parent.key)).not.toHaveClass(/is-drop/);
+
+  await drag(child.key, parent.key);
+  await expect(page.locator(".toast")).toContainText(`${child.key} is now part of ${parent.key}`);
+  await expect(page.getByRole("button", { name: `Hide the sub-items of ${parent.key}`, exact: true })).toBeVisible();
+  const item = (await (await request.get(`${core}/api/v1/items/${child.key}`)).json()) as { parent: string };
+  expect(item.parent).toBe(parent.key);
+
+  // the parent onto its own sub-item would make it wait for itself
+  await drag(parent.key, child.key);
+  await expect(page.locator(".toast").last()).toContainText(
+    `this would make ${child.key} wait for itself: ${child.key} → ${parent.key} → ${child.key}`,
+  );
+  const unchanged = (await (await request.get(`${core}/api/v1/items/${parent.key}`)).json()) as { parent: unknown };
+  expect(unchanged.parent).toBeNull();
+});
