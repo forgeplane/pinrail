@@ -208,7 +208,9 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await choose("Created by", "Created by anyone");
   await page.getByRole("button", { name: "Waiting on you" }).click();
   await expect(page.getByText("No matching work items")).toBeVisible();
-  await page.getByRole("button", { name: "Clear filters" }).click();
+  const clear = page.getByRole("button", { name: "Clear filters" });
+  await expect(clear.locator("svg")).toBeVisible();
+  await clear.click();
   // clearing drops the repository too; the list holds others' items now
   await expect(page).not.toHaveURL(/repo=/);
   await open(page, repo);

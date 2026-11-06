@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  FilterX,
   FolderGit2,
   ListChecks,
   ListTree,
@@ -476,7 +477,7 @@ export function WorkItems() {
                 )
               }
             >
-              Clear filters
+              <FilterX size={13} aria-hidden="true" /> Clear filters
             </button>
           ) : null}
         </div>
