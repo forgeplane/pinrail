@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -308,17 +309,20 @@ export function Projects() {
           {projects.length ? <span className="inbox-total">{projects.length}</span> : null}
         </div>
         <div className="inbox-controls">
-          <input
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            type="search"
-            aria-label="Filter projects and repositories"
-            placeholder="Filter projects and repositories"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-          />
+          <label className="search-field">
+            <Search size={14} aria-hidden="true" />
+            <input
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              type="search"
+              aria-label="Filter projects and repositories"
+              placeholder="Filter projects and repositories…"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </label>
           <Tooltip label={allFolded ? "Expand all" : "Collapse all"} side="bottom">
             <button
               type="button"
