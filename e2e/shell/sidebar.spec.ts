@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { clearInbox, core, createReview, decide, settingsDialog, onReviewPages } from "./helpers";
+import { clearInbox, core, createReview, decide, settingSaved, settingsDialog, onReviewPages } from "./helpers";
 
 // these tests open a review from the inbox or the sidebar on a page of its own
 onReviewPages();
@@ -102,6 +102,9 @@ test("⌘B hides the sidebar and shows it again", async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
   await page.keyboard.press("ControlOrMeta+b");
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // the save of the second press reaches the core before the next test
+  // reads it, or that test opens with the sidebar the first press closed
+  await settingSaved(page.request, (s) => s.sidebar.open, true);
 });
 
 test("two ⌘B presses before the app redraws hide the sidebar and show it again", async ({ page }) => {
@@ -185,6 +188,7 @@ test("a quick second ⌘B is not undone by the reload the first one caused", asy
   }
   expect([...seen]).toEqual(["Hide sidebar"]);
   await page.unroute(`${core}/api/v1/settings`);
+  await settingSaved(page.request, (s) => s.sidebar.open, true);
 });
 
 test("the app's own text cannot be selected, as in a desktop app, but fields and messages can", async ({ page }) => {
