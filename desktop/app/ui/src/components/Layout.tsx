@@ -108,13 +108,14 @@ function isTyping(target: EventTarget | null) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
-  // how many work items are ready, beside their entry, as anything changes
-  const [readyItems, setReadyItems] = useState(0);
+  // how many work items are open or in progress, beside their entry, as
+  // anything changes: what the page lists when it opens
+  const [openItems, setOpenItems] = useState(0);
   useEffect(() => {
     let cancelled = false;
     api
-      .items({ status: "ready" })
-      .then((d) => !cancelled && setReadyItems(d.items.length))
+      .items()
+      .then((d) => !cancelled && setOpenItems(d.items.length))
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -515,10 +516,10 @@ export function Layout({ children }: { children: ReactNode }) {
                           {live.pendingCount}
                         </span>
                       ) : null}
-                      {key === "items" && readyItems ? (
-                        <Tooltip label={`${readyItems} ready to work on`} side="bottom">
-                          <span className="nav-count is-quiet" data-testid="items-ready-count">
-                            {readyItems}
+                      {key === "items" && openItems ? (
+                        <Tooltip label={`${openItems} open or in progress`} side="bottom">
+                          <span className="nav-count is-quiet" data-testid="items-count">
+                            {openItems}
                           </span>
                         </Tooltip>
                       ) : null}

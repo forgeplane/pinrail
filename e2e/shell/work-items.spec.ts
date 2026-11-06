@@ -352,23 +352,30 @@ test("the page shows its own changes without waiting for their event", async ({ 
   await expect(rows(page).filter({ hasText: "Added quietly" })).toBeVisible();
 });
 
-test("the sidebar leads to the page and counts the ready items as they change", async ({ page, request }) => {
-  const ready = async () =>
-    ((await (await request.get(`${core}/api/v1/items?status=ready`)).json()) as { items: unknown[] }).items.length;
-  const before = await ready();
+test("the sidebar counts the items the page lists when it opens, as they change", async ({ page, request }) => {
+  const notClosed = async () =>
+    ((await (await request.get(`${core}/api/v1/items`)).json()) as { items: unknown[] }).items.length;
+  const before = await notClosed();
   await page.goto("/#/");
-  const count = page.getByTestId("items-ready-count");
-  if (before) await expect(count).toHaveText(String(before));
+  const count = page.getByTestId("items-count");
+  const shown = async () => Number((await count.count()) ? await count.textContent() : 0);
+  await expect.poll(shown).toBe(before);
   const repo = fresh("count");
   const item = await add(request, repo, "Counted");
-  await expect(count).toHaveText(String(before + 1));
+  await expect.poll(shown).toBe(before + 1);
+  // in progress is still not closed
   await edit(request, item.key, { claim: "claim" });
-  await expect.poll(async () => Number((await count.count()) ? await count.textContent() : 0)).toBe(before);
+  await page.waitForTimeout(300);
+  expect(await shown()).toBe(before + 1);
+  await edit(request, item.key, { status: "done" });
+  await expect.poll(shown).toBe(before);
+  // and the page, opened from it, lists as many
   await page
     .getByRole("navigation", { name: "Main" })
     .getByRole("link", { name: /Work items/ })
     .click();
   await expect(page.getByRole("heading", { name: "Work items", level: 1 })).toBeVisible();
+  await expect(page.locator(".page-head .inbox-total")).toHaveText(String(await shown()));
 });
 
 test("with no items, the page says how to add one", async ({ page }) => {
