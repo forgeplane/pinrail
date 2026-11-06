@@ -190,6 +190,8 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await open(page, repo);
   expect(await keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
 
+  // by default the list shows the items open or in progress, which it calls open
+  await expect(page.getByRole("button", { name: "Status", exact: true })).toHaveText("Open");
   const choose = async (label: string, option: string) => {
     await page.getByRole("button", { name: label, exact: true }).click();
     await page.getByRole("option", { name: option, exact: true }).click();
@@ -200,7 +202,7 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await expect.poll(() => keys(page)).toEqual([blocked.key]);
   await choose("Status", "Done");
   await expect.poll(() => keys(page)).toEqual([done.key]);
-  await choose("Status", "Not closed");
+  await choose("Status", "Open");
   await choose("Created by", "Created by you");
   await expect.poll(() => keys(page)).toEqual([personKey]);
   await choose("Created by", "Created by anyone");
@@ -438,7 +440,7 @@ test("each choice of the status filter shows its status's icon, and the trigger 
     ["Ready", ".item-status.is-open"],
     ["Blocked", ".item-status-blocked"],
     ["In progress", ".item-status.is-in_progress"],
-    ["Open", ".item-status.is-open"],
+    ["Not started", ".item-status.is-open"],
     ["Done", ".item-status.is-done"],
     ["Cancelled", ".item-status.is-cancelled"],
   ]) {

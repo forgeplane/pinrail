@@ -52,11 +52,11 @@ const SEARCH_DELAY_MS = 250;
 
 /** The choices of the status filter, and what each asks the core for. */
 const STATUSES: { value: string; label: string; query?: string }[] = [
-  { value: "", label: "Not closed" },
+  { value: "", label: "Open" },
   { value: "ready", label: "Ready", query: "ready" },
   { value: "blocked", label: "Blocked", query: "blocked" },
   { value: "in_progress", label: "In progress", query: "in_progress" },
-  { value: "open", label: "Open", query: "open" },
+  { value: "open", label: "Not started", query: "open" },
   { value: "done", label: "Done", query: "done" },
   { value: "cancelled", label: "Cancelled", query: "cancelled" },
   { value: "all", label: "All", query: "open,in_progress,done,cancelled" },
