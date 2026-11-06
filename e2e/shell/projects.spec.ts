@@ -500,6 +500,33 @@ test("search fields neither complete, correct, capitalise nor spell-check what i
   await check(page.getByRole("dialog", { name: "Search" }).getByRole("textbox"));
 });
 
+test("the / key focuses the search field of every page that has one", async ({ page }) => {
+  const slash = async (field: import("@playwright/test").Locator) => {
+    await expect(field).toBeVisible();
+    await page.locator("body").click({ position: { x: 600, y: 5 } });
+    await expect(field).not.toBeFocused();
+    await page.keyboard.press("/");
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue("");
+  };
+  await page.goto("/#/projects");
+  await slash(page.getByLabel("Filter projects and repositories"));
+  await page.goto("/#/");
+  await slash(page.getByLabel("Search inbox"));
+  await page.goto("/#/?tab=history");
+  await slash(page.getByRole("searchbox"));
+  await page.goto("/#/sessions");
+  await slash(page.getByLabel("Search sessions"));
+  await page.goto("/#/plugins");
+  const source = page.getByTestId("install-panel").getByLabel("Source");
+  await expect(source).toBeEnabled();
+  await page.getByTestId("install-panel").click({ position: { x: 2, y: 60 } });
+  await source.blur();
+  await page.keyboard.press("/");
+  await expect(source).toBeFocused();
+  await expect(source).toHaveValue("");
+});
+
 test("a repository's menu opens it in the inbox, its sessions and the history", async ({ page, request }) => {
   const run = Date.now();
   const waiting = `open-menu/waiting-${run}`;

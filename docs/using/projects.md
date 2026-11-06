@@ -17,7 +17,7 @@ Open **Projects** in the sidebar. The page lists the projects by name. Each proj
 - **Add a repository** by dragging it under a project. Drag it under **In no project** to take it out again. The **…** button at the end of a repository's row also moves it, or starts a new project with it.
 - **Change a project** with **Edit…** in the **…** menu of its heading. **Delete project…** removes the project and nothing else: its repositories are in no project again, and their reviews and sessions stay as they are.
 - **Delete a repository** with **Delete repository…** in its **…** menu. This deletes all of its reviews, questions and sessions, including those in the history, and cannot be undone. Reviews and questions that still wait are discarded first, so the agents waiting on them are told to stop. A repository appears again if an agent later sends a review or a session from it.
-- **Fold a project** with the arrow before its name, and **filter** the page by a project's or a repository's name.
+- **Fold a project** with the arrow before its name, and **filter** the page by a project's or a repository's name. Press <kbd>/</kbd> to go to the filter.
 
 From a project's **…** menu, **Open in the inbox** shows the reviews of all its repositories, and **Open its sessions** shows their sessions. A repository's **…** menu opens that repository in the inbox, when something waits in it, in the Sessions page or in the history.
 

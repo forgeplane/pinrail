@@ -104,7 +104,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 | <kbd>⌥↓</kbd> / <kbd>⌥↑</kbd> | Next / previous waiting review |
 | <kbd>Esc</kbd> | Close the review panel |
 | <kbd>⌘D</kbd> | Discard the focused or open review |
-| <kbd>/</kbd> | Search the inbox |
+| <kbd>/</kbd> | Search the page |
 | <kbd>⌘K</kbd> | Search everything |
 | <kbd>⌘I</kbd> | Inbox |
 | <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | The inbox's History tab / Plugins |

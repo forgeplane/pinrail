@@ -34,6 +34,7 @@ import { squarePng } from "../lib/projectImage";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
+import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
 
 /** The type of a repository's name on a drag. */
@@ -67,6 +68,8 @@ export function Projects() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [folded, setFolded] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  useSlashSearch(search);
   // bumped after a change made here, so the page shows it without waiting
   // for the event that announces it
   const [reloads, setReloads] = useState(0);
@@ -312,6 +315,7 @@ export function Projects() {
           <label className="search-field">
             <Search size={14} aria-hidden="true" />
             <input
+              ref={search}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"

@@ -32,6 +32,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Delete a repository from the Projects page. Its reviews, questions and
   sessions are deleted, and what still waits is discarded first, so the
   agents waiting on it stop.
+- Press `/` to search the Projects page and the official plugins in
+  Settings, as in the inbox and the Sessions page.
 
 ### Changed
 

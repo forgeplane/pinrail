@@ -11,6 +11,7 @@ import type { CatalogEntry, Inspection, Plugin } from "../../api/types";
 import { takes } from "../../lib/format";
 import { isPath, matching } from "../../lib/catalog";
 import { PluginIcon } from "../PluginIcon";
+import { useSlashSearch } from "../../lib/useSlashSearch";
 
 type Stage =
   | { at: "empty" }
@@ -240,6 +241,7 @@ export function InstallPanel({
   const [stage, setStage] = useState<Stage>({ at: "empty" });
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
+  useSlashSearch(field, { inDialog: true });
   const panel = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   // only the latest look counts: an earlier one may answer after it

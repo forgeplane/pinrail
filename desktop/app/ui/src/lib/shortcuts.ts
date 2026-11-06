@@ -12,7 +12,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
     ],
   },
   { what: "Discard the focused or open review", keys: [[MOD, "D"]] },
-  { what: "Search the inbox", keys: [["/"]] },
+  { what: "Search the page", keys: [["/"]] },
   { what: "Search everything", keys: [[MOD, "K"]] },
   { what: "Inbox", keys: [[MOD, "I"]] },
   {
