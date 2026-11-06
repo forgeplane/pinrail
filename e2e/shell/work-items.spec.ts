@@ -490,6 +490,60 @@ test("an item dragged onto another becomes its sub-item, unless that closes a cy
   expect(unchanged.parent).toBeNull();
 });
 
+test("a sub-item dragged to the top of the list leaves its parent", async ({ page, request }) => {
+  const repo = fresh("unparent");
+  const parent = await add(request, repo, "Release");
+  const child = await add(request, repo, "Notes", { parent: parent.key });
+  const alone = await add(request, repo, "Alone");
+  await open(page, repo);
+  const top = page.getByTestId("item-top-drop");
+  // only a sub-item, while it is dragged, can go to the top level
+  await expect(top).toHaveCount(0);
+  let transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, alone.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  await expect(top).toHaveCount(0);
+  await row(page, alone.key).dispatchEvent("dragend", { dataTransfer: transfer });
+
+  transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, child.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  await expect(top).toHaveText("Drop here to move it to the top level");
+  await top.dispatchEvent("dragover", { dataTransfer: transfer });
+  await expect(top).toHaveClass(/is-drop/);
+  await top.dispatchEvent("drop", { dataTransfer: transfer });
+  await row(page, child.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(top).toHaveCount(0);
+  await expect(page.locator(".toast")).toContainText(`${child.key} is no longer part of ${parent.key}`);
+  const item = (await (await request.get(`${core}/api/v1/items/${child.key}`)).json()) as { parent: unknown };
+  expect(item.parent).toBeNull();
+  await expect(page.getByRole("button", { name: `Hide the sub-items of ${parent.key}`, exact: true })).toHaveCount(0);
+});
+
+test("a sub-item drags with the mouse, onto another item and to the top level", async ({ page, request }) => {
+  const repo = fresh("mouse");
+  const parent = await add(request, repo, "Release");
+  const child = await add(request, repo, "Notes", { parent: parent.key });
+  const other = await add(request, repo, "Other");
+  await open(page, repo);
+  /** Drags a row with the mouse, as a person does, and drops it on what `to` finds once the drag is on. */
+  const drag = async (from: string, to: () => ReturnType<typeof row>) => {
+    const start = (await row(page, from).boundingBox())!;
+    await page.mouse.move(start.x + 40, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 60, start.y + start.height / 2 + 10, { steps: 5 });
+    const target = (await to().boundingBox())!;
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 10 });
+    await page.mouse.up();
+  };
+  await drag(child.key, () => row(page, other.key));
+  await expect(page.locator(".toast")).toContainText(`${child.key} is now part of ${other.key}`);
+  // the list shows it under its new parent before it is dragged again
+  await expect(page.getByRole("button", { name: `Hide the sub-items of ${other.key}`, exact: true })).toBeVisible();
+  await drag(child.key, () => page.getByTestId("item-top-drop"));
+  await expect(page.locator(".toast").last()).toContainText(`${child.key} is no longer part of ${other.key}`);
+  const item = (await (await request.get(`${core}/api/v1/items/${child.key}`)).json()) as { parent: unknown };
+  expect(item.parent).toBeNull();
+});
+
 test("cancelling an item with open sub-items asks first, and cancels them with it", async ({ page, request }) => {
   const repo = fresh("cancel");
   const parent = await add(request, repo, "Release");

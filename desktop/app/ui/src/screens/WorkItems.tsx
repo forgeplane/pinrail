@@ -244,13 +244,16 @@ export function WorkItems() {
 
   // an item with open sub-items waiting for the person to confirm its cancel
   const [cancelling, setCancelling] = useState<WorkItem | null>(null);
-  // an item dragged onto another becomes its sub-item
+  // an item dragged onto another becomes its sub-item, and a sub-item
+  // dragged to the top of the list leaves its parent
   const [dropOn, setDropOn] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<WorkItem | null>(null);
+  const dragTimer = useRef(0);
   const putUnder = useCallback(
-    async (key: string, parent: string) => {
+    async (key: string, parent: string | null, from?: string | null) => {
       try {
         await api.editItem(key, { parent });
-        toast(`${key} is now part of ${parent}`);
+        toast(parent ? `${key} is now part of ${parent}` : `${key} is no longer part of ${from}`);
       } catch (error) {
         toast(reason(error), "danger");
       }
@@ -326,6 +329,9 @@ export function WorkItems() {
         onDragStart={(event) => {
           event.dataTransfer.setData(DRAGGED, item.key);
           event.dataTransfer.effectAllowed = "move";
+          // after the drag has begun: a change to the page during
+          // dragstart cancels the drag
+          dragTimer.current = window.setTimeout(() => setDragging(item), 0);
         }}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes(DRAGGED)) return;
@@ -344,7 +350,11 @@ export function WorkItems() {
           // dropped on another item, it becomes its sub-item
           void putUnder(dragged, item.key);
         }}
-        onDragEnd={() => setDropOn(null)}
+        onDragEnd={() => {
+          window.clearTimeout(dragTimer.current);
+          setDropOn(null);
+          setDragging(null);
+        }}
       >
         <span className="item-fold">
           {children ? (
@@ -560,6 +570,27 @@ export function WorkItems() {
           </EmptyState>
         ) : (
           <div className="inbox-groups item-groups" ref={list}>
+            {dragging?.parent ? (
+              <div
+                className={`item-top-drop ${dropOn === "" ? "is-drop" : ""}`}
+                data-testid="item-top-drop"
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes(DRAGGED)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (dropOn !== "") setDropOn("");
+                }}
+                onDragLeave={() => setDropOn(null)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDropOn(null);
+                  const dragged = event.dataTransfer.getData(DRAGGED);
+                  if (dragged) void putUnder(dragged, null, dragging.parent);
+                }}
+              >
+                Drop here to move it to the top level
+              </div>
+            ) : null}
             {shownGroups.map(([key, shown]) =>
               layout === "list" ? (
                 <div key="list" className="inbox-list">
