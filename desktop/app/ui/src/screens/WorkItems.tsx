@@ -59,6 +59,16 @@ const STATUSES: { value: string; label: string; query?: string }[] = [
   { value: "all", label: "All", query: "open,in_progress,done,cancelled" },
 ];
 
+/** The icon of a choice of the status filter: the status's own, or what
+ *  marks a blocked item. */
+function statusIcon(value: string) {
+  if (value === "blocked") return <Lock size={13} className="item-status-blocked" aria-hidden="true" />;
+  if (value === "ready" || value === "open") return <ItemStatusIcon status="open" decorative />;
+  if (value === "in_progress" || value === "done" || value === "cancelled")
+    return <ItemStatusIcon status={value} decorative />;
+  return <ListChecks size={13} aria-hidden="true" />;
+}
+
 /** An item in the order J and K walk, at its depth in the tree. */
 type Shown = { item: WorkItem; depth: number; folded: boolean; children: number; parentTitle?: string };
 
@@ -392,7 +402,7 @@ export function WorkItems() {
           label="Status"
           value={status}
           onChange={(v) => setParam("status", v || null)}
-          options={STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+          options={STATUSES.map((s) => ({ value: s.value, label: s.label, icon: statusIcon(s.value) }))}
         />
         <Select
           id="items-scope"

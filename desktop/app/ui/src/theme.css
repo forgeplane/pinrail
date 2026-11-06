@@ -6237,6 +6237,9 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-status.is-cancelled {
   color: var(--faint);
 }
+.item-status-blocked {
+  color: var(--danger);
+}
 .item-key {
   font-size: 11.5px;
   color: var(--faint);

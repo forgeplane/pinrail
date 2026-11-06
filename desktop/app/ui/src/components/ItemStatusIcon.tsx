@@ -11,15 +11,25 @@ export const STATUS_LABEL: Record<ItemStatus, string> = {
   cancelled: "Cancelled",
 };
 
-export function ItemStatusIcon({ status, size = 14 }: { status: ItemStatus; size?: number }) {
+export function ItemStatusIcon({
+  status,
+  size = 14,
+  decorative = false,
+}: {
+  status: ItemStatus;
+  size?: number;
+  /** beside words that say the status already: no name of its own */
+  decorative?: boolean;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 16 16"
       className={`item-status is-${status}`}
-      role="img"
-      aria-label={STATUS_LABEL[status]}
+      role={decorative ? undefined : "img"}
+      aria-label={decorative ? undefined : STATUS_LABEL[status]}
+      aria-hidden={decorative || undefined}
     >
       {status === "done" ? (
         <>

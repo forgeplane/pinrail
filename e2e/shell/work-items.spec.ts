@@ -419,3 +419,24 @@ test("what is typed as soon as the quick add opens is kept", async ({ page, requ
   }
   await request.patch(`${core}/api/v1/settings`, { data: { appearance: { theme } } });
 });
+
+test("each choice of the status filter shows its status's icon, and the trigger the chosen one's", async ({ page }) => {
+  await open(page, fresh("icons"));
+  const trigger = page.getByRole("button", { name: "Status", exact: true });
+  await trigger.click();
+  const listbox = page.getByRole("listbox", { name: "Status" });
+  for (const [name, mark] of [
+    ["Ready", ".item-status.is-open"],
+    ["Blocked", ".item-status-blocked"],
+    ["In progress", ".item-status.is-in_progress"],
+    ["Open", ".item-status.is-open"],
+    ["Done", ".item-status.is-done"],
+    ["Cancelled", ".item-status.is-cancelled"],
+  ]) {
+    // the icon says nothing the name does not: the option keeps its plain name
+    const option = listbox.getByRole("option", { name, exact: true });
+    await expect(option.locator(`.select-option-icon ${mark}`)).toBeVisible();
+  }
+  await listbox.getByRole("option", { name: "Done", exact: true }).click();
+  await expect(trigger.locator(".select-icon .item-status.is-done")).toBeVisible();
+});
