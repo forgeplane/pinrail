@@ -21,7 +21,7 @@ function invocation(args: string[]) {
 }
 
 /** Runs the CLI to completion, with `env` added to its environment. */
-export function pinrail(args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv } = {}): Run {
+export function pinrail(args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv; cwd?: string } = {}): Run {
   const state = loadState();
   const run = invocation(args);
   const env = { ...run.env, ...opts.env };
@@ -34,7 +34,7 @@ export function pinrail(args: string[], opts: { input?: string; env?: NodeJS.Pro
   const stderr = fs.openSync(err, "w");
   // a command that does not finish fails its test, instead of blocking the worker
   const r = spawnSync(state.cli, run.args, {
-    cwd,
+    cwd: opts.cwd ?? cwd,
     env,
     input: opts.input,
     stdio: ["pipe", stdout, stderr],
@@ -47,7 +47,7 @@ export function pinrail(args: string[], opts: { input?: string; env?: NodeJS.Pro
 }
 
 /** Runs the CLI and parses its stdout as JSON, failing loudly otherwise. */
-export function pinrailJson(args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv } = {}): any {
+export function pinrailJson(args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv; cwd?: string } = {}): any {
   const r = pinrail(args, opts);
   if (r.code !== 0) throw new Error(`pinrail ${args.join(" ")} exited ${r.code}\n${r.stderr}`);
   return JSON.parse(r.stdout);

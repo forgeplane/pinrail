@@ -10,6 +10,7 @@ mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod items;
 mod md;
 mod origin;
 mod out;
@@ -263,6 +264,21 @@ enum Command {
     #[command(verbatim_doc_comment)]
     #[command(after_help = exit_codes())]
     Submit(SubmitArgs),
+    /// Add, take, change and close work items: tasks recorded in Pinrail,
+    /// with sub-items and dependencies
+    ///
+    /// A work item belongs to a repository, which numbers it under a prefix:
+    /// its key, such as PIN-42. Inside the repository's git checkout, the
+    /// number alone names it too.
+    ///
+    ///     pinrail items next --claim
+    ///     pinrail items show PIN-42
+    ///     pinrail items done PIN-42 --comment "Loader in core/src/themes.rs"
+    ///
+    /// While a session holds an item, the reviews and questions it sends
+    /// belong to that item, unless --item or --no-item says otherwise.
+    #[command(verbatim_doc_comment)]
+    Items(items::ItemsArgs),
     /// Wait until a review ends, then print its decision as Markdown, or the
     /// whole review as JSON with --json
     #[command(after_help = exit_codes())]
@@ -437,6 +453,13 @@ struct SubmitArgs {
     /// review is decided. pinrail show <id> shows the decision at any time
     #[arg(long, value_name = "FILE", requires = "wait")]
     decision_out: Option<PathBuf>,
+    /// The work item this is for, by its key or its number in the
+    /// checkout [default: the one item the session holds, if it holds one]
+    #[arg(long, value_name = "ITEM", conflicts_with = "no_item")]
+    item: Option<String>,
+    /// Belong to no work item, whatever the session holds
+    #[arg(long)]
+    no_item: bool,
     /// Do not start the server when it is not running
     #[arg(long)]
     no_start: bool,
@@ -494,6 +517,9 @@ struct ListArgs {
     /// The most reviews to list. Use --cursor to list the next page
     #[arg(long)]
     limit: Option<u32>,
+    /// List only the reviews and questions of this work item, by its key
+    #[arg(long, value_name = "ITEM")]
+    item: Option<String>,
     /// List every review, of any status and project unless --status or
     /// --repo limits them, and every page unless --limit caps the number
     #[arg(long)]
@@ -944,6 +970,7 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Submit(args) => !args.no_start,
         Command::Ask(args) => !args.no_start,
         Command::Status(args) => !args.no_start,
+        Command::Items(_) => true,
         Command::Plugins(args) => {
             matches!(
                 args.command,
@@ -966,6 +993,7 @@ fn run(cli: Cli) -> Result<u8> {
             },
         ),
         Command::Status(args) => status(&client, args),
+        Command::Items(args) => items::run(&client, args, output),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
@@ -1076,6 +1104,7 @@ fn run(cli: Cli) -> Result<u8> {
                 ("run_id", args.run_id),
                 ("plugin", args.plugin),
                 ("q", args.q),
+                ("item", args.item),
                 ("cursor", args.cursor),
                 ("limit", args.limit.map(|n| n.to_string())),
             ] {
@@ -1393,6 +1422,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if let Some(id) = &args.revises {
         body["revises"] = json!(id);
     }
+    for_item(&mut body, args.item.as_deref(), args.no_item);
     if let Some(at) = &args.expires_at {
         body["expires_at"] = json!(at);
     }
@@ -1528,6 +1558,16 @@ fn with_session(body: &mut Value) {
     }
 }
 
+/// The work item a review or a question is for: the one named, none with
+/// --no-item, or, left out, the one the session holds, which the app finds.
+fn for_item(body: &mut Value, item: Option<&str>, none: bool) {
+    if let Some(item) = item {
+        body["item"] = json!(item);
+    } else if none {
+        body["item"] = Value::Null;
+    }
+}
+
 fn requester(given: Option<&str>) -> String {
     if let Some(by) = given {
         return by.to_string();
@@ -1652,6 +1692,7 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
         "requested_by": requester(args.requested_by.as_deref()),
     });
     with_session(&mut body);
+    for_item(&mut body, args.item.as_deref(), args.no_item);
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }

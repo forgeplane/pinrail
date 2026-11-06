@@ -377,7 +377,7 @@ impl Client {
         std::io::copy(&mut resp.body_mut().as_reader(), out).context("reading the file")
     }
 
-    fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {
+    pub(crate) fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {
         let mut req = self.agent.get(format!("{}{path}", self.base));
         for (k, v) in query {
             req = req.query(*k, v);
@@ -386,8 +386,18 @@ impl Client {
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
-    fn post(&self, path: &str, body: Option<&Value>) -> Result<Value> {
+    pub(crate) fn post(&self, path: &str, body: Option<&Value>) -> Result<Value> {
         self.post_with(&self.agent, path, body)
+    }
+
+    pub(crate) fn patch(&self, path: &str, body: &Value) -> Result<Value> {
+        let mut resp = self
+            .agent
+            .patch(format!("{}{path}", self.base))
+            .header(CLIENT_HEADER, "cli")
+            .send_json(body)
+            .map_err(|e| self.failed(e))?;
+        Self::body(resp.status().as_u16(), &mut resp)
     }
 
     fn post_with(&self, agent: &Agent, path: &str, body: Option<&Value>) -> Result<Value> {
@@ -447,7 +457,7 @@ impl Client {
 
 /// A value as one path segment: an id or a name, whatever it holds, never
 /// a query or another route.
-fn segment(value: &str) -> String {
+pub(crate) fn segment(value: &str) -> String {
     value
         .bytes()
         .map(|b| match b {

@@ -3544,3 +3544,507 @@ fn status_prints_the_open_stage_above_the_messages() {
          Message from pnezis, sent 2026-11-02 10:04:\nUse v2.\n"
     );
 }
+
+// --- work items
+
+/// Each request the server saw: its method, its path and its JSON body.
+type Recorded = Arc<Mutex<Vec<(String, String, serde_json::Value)>>>;
+
+/// A server that records each request with its body, and answers with
+/// what `answer` gives for the method and path.
+fn items_server(
+    answer: impl Fn(&str, &str) -> (u16, String) + Send + 'static,
+) -> (MockServer, Recorded) {
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        let body = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+        seen.lock()
+            .unwrap()
+            .push((method.to_string(), path.to_string(), body));
+        answer(method, path)
+    }));
+    (server, sent)
+}
+
+/// An item as the app answers it.
+fn work_item(key: &str, title: &str, extra: serde_json::Value) -> String {
+    let mut item = serde_json::json!({
+        "id": format!("w_{key}"), "key": key, "title": title, "repo": "forgeplane/pinrail",
+        "status": "open", "body": "", "parent": null, "link": null, "claim": null,
+        "ready": true, "blocked_by": [], "sub_items": {"total": 0, "closed": 0},
+        "ancestors": [], "depends_on": [], "blocks": [], "sub_items_list": [], "files": [],
+        "reviews": [], "sessions": [], "timeline": [],
+    });
+    for (k, v) in extra.as_object().unwrap() {
+        item[k] = v.clone();
+    }
+    item.to_string()
+}
+
+fn items_run(server: &MockServer, args: &[&str]) -> (i32, String, String) {
+    let mut cmd = pinrail();
+    cmd.env_remove("PINRAIL_JSON")
+        .args(args)
+        .current_dir(std::env::temp_dir())
+        .env("PINRAIL_URL", &server.url)
+        .env("CLAUDECODE", "1")
+        .env("CLAUDE_CODE_SESSION_ID", "c-1");
+    let out = cmd.output().unwrap();
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).to_string(),
+        String::from_utf8_lossy(&out.stderr).to_string(),
+    )
+}
+
+#[test]
+fn items_add_sends_the_item_signed_and_prints_its_key() {
+    let (server, sent) = items_server(|_, _| {
+        (
+            201,
+            work_item("PIN-7", "Load themes", serde_json::json!({})),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "add",
+            "Load themes",
+            "--body",
+            "Read the files.",
+            "--parent",
+            "PIN-1",
+            "--depends-on",
+            "PIN-2,PIN-3",
+            "--link",
+            "https://x/9",
+            "--repo",
+            "forgeplane/pinrail",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out, "Added PIN-7 Load themes.\n");
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0].0, "POST");
+    assert_eq!(sent[0].1, "/api/v1/items");
+    assert_eq!(
+        sent[0].2,
+        serde_json::json!({
+            "repo": "forgeplane/pinrail", "title": "Load themes", "body": "Read the files.",
+            "parent": "PIN-1", "depends_on": ["PIN-2", "PIN-3"], "link": "https://x/9",
+            "by": "claude-code", "session": "c-1",
+        })
+    );
+}
+
+#[test]
+fn items_that_need_a_repository_say_so_outside_a_checkout() {
+    let (server, sent) = items_server(|_, _| (500, "{}".into()));
+    for args in [&["items", "add", "Orphan"][..], &["items", "next"][..]] {
+        let (code, _, err) = items_run(&server, args);
+        assert_eq!(code, 1, "{args:?}");
+        assert!(err.contains("--repo"), "{err}");
+    }
+    assert!(sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn items_add_with_a_file_sends_the_breakdown_and_lists_each_ref_with_its_key() {
+    let (server, sent) = items_server(|_, _| {
+        let item = |key: &str, title: &str, extra| {
+            serde_json::from_str::<serde_json::Value>(&work_item(key, title, extra)).unwrap()
+        };
+        (
+            201,
+            serde_json::json!({"items": [
+                {"ref": "themes", "item": item("PIN-40", "Custom themes", serde_json::json!({}))},
+                {"ref": "load", "item": item("PIN-41", "Load themes",
+                    serde_json::json!({"parent": "PIN-40", "blocked_by": ["PIN-38"]}))},
+            ]})
+            .to_string(),
+        )
+    });
+    let plan = std::env::temp_dir().join(format!("plan-{}.json", std::process::id()));
+    std::fs::write(
+        &plan,
+        r#"{"items": [{"ref": "themes", "title": "Custom themes"},
+                      {"ref": "load", "parent": "themes", "title": "Load themes", "depends_on": ["PIN-38"]}]}"#,
+    )
+    .unwrap();
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "add",
+            "--file",
+            plan.to_str().unwrap(),
+            "--repo",
+            "forgeplane/pinrail",
+            "--parent",
+            "PIN-1",
+        ],
+    );
+    std::fs::remove_file(&plan).ok();
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "Added 2 work items in forgeplane/pinrail:\n\
+         - themes: PIN-40 Custom themes\n\
+         - load: PIN-41 Load themes · depends on PIN-38 · part of PIN-40\n"
+    );
+    let body = &sent.lock().unwrap()[0].2;
+    assert_eq!(body["parent"], "PIN-1");
+    assert_eq!(
+        body["items"][1]["depends_on"],
+        serde_json::json!(["PIN-38"])
+    );
+}
+
+#[test]
+fn items_list_asks_for_the_states_and_prints_a_line_each() {
+    let (server, sent) = items_server(|_, _| {
+        let row = |key: &str, title: &str, extra| {
+            serde_json::from_str::<serde_json::Value>(&work_item(key, title, extra)).unwrap()
+        };
+        (
+            200,
+            serde_json::json!({"items": [
+                row("PIN-1", "Ready one", serde_json::json!({})),
+                row("PIN-2", "Waiting", serde_json::json!({"ready": false, "blocked_by": ["PIN-1"], "parent": "PIN-9"})),
+                row("PIN-3", "Going", serde_json::json!({"ready": false, "status": "in_progress",
+                    "claim": {"agent": "codex", "session": "x"}, "sub_items": {"total": 3, "closed": 1}})),
+            ]})
+            .to_string(),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "list",
+            "--ready",
+            "--blocked",
+            "--search",
+            "theme",
+            "--repo",
+            "forgeplane/pinrail",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "- PIN-1 Ready one · open · ready\n\
+         - PIN-2 Waiting · open · blocked by PIN-1 · part of PIN-9\n\
+         - PIN-3 Going · in progress by codex · 1 of 3 sub-items closed\n"
+    );
+    assert_eq!(
+        sent.lock().unwrap()[0].1,
+        "/api/v1/items?status=ready%2Cblocked&repo=forgeplane%2Fpinrail&q=theme"
+    );
+    // nothing to list says so
+    let (server, _) = items_server(|_, _| (200, r#"{"items": []}"#.into()));
+    let (_, out, _) = items_run(&server, &["items", "list"]);
+    assert_eq!(out, "No work items match.\n");
+}
+
+#[test]
+fn items_next_claims_and_prints_the_item_with_what_its_session_now_holds() {
+    let (server, sent) = items_server(|_, path| {
+        if path.starts_with("/api/v1/items/next") {
+            let item = work_item(
+                "PIN-42",
+                "Load themes",
+                serde_json::json!({"status": "in_progress", "claim": {"agent": "claude-code", "session": "c-1"},
+                                   "body": "Read the theme files.", "ready": false}),
+            );
+            (200, format!(r#"{{"item": {item}}}"#))
+        } else {
+            (404, "{}".into())
+        }
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &["items", "next", "--claim", "--repo", "forgeplane/pinrail"],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "PIN-42 Load themes\n\
+         in progress · claimed by claude-code (session c-1) · forgeplane/pinrail\n\
+         \n## Description\nRead the theme files.\n\
+         \nYou hold PIN-42 now: the reviews and questions you send belong to it until you mark it done or release it.\n"
+    );
+    assert_eq!(
+        sent.lock().unwrap()[0].2,
+        serde_json::json!({"repo": "forgeplane/pinrail", "claim": true, "by": "claude-code", "session": "c-1"})
+    );
+    let (server, _) = items_server(|_, _| (200, r#"{"item": null}"#.into()));
+    let (code, out, _) = items_run(&server, &["items", "next", "--repo", "forgeplane/pinrail"]);
+    assert_eq!(code, 0);
+    assert_eq!(out, "No work item is ready in forgeplane/pinrail.\n");
+}
+
+#[test]
+fn items_show_prints_what_an_agent_needs_including_a_dependencys_closing_comment() {
+    let (server, _) = items_server(|_, path| {
+        if path.starts_with("/api/v1/items/w_PIN-41") {
+            let closed = work_item(
+                "PIN-41",
+                "Theme file format",
+                serde_json::json!({"status": "done", "timeline": [
+                    {"type": "event", "kind": "status", "actor": "codex", "at": "2026-11-05T10:00:00Z",
+                     "attrs": {"from": "in_progress", "to": "done"}},
+                    {"type": "comment", "author": "codex", "body": "TOML with a [colors] table.",
+                     "created_at": "2026-11-05T10:00:00Z"},
+                ]}),
+            );
+            return (200, closed);
+        }
+        if path.starts_with("/api/v1/items/PIN-40") {
+            return (
+                200,
+                work_item(
+                    "PIN-40",
+                    "Custom themes",
+                    serde_json::json!({"sub_items": {"total": 3, "closed": 1}}),
+                ),
+            );
+        }
+        (
+            200,
+            work_item(
+                "PIN-42",
+                "Load themes",
+                serde_json::json!({
+                    "parent": "PIN-40", "ancestors": [{"key": "PIN-40", "title": "Custom themes"}],
+                    "body": "Read the theme files.",
+                    "depends_on": [{"id": "w_PIN-41", "key": "PIN-41", "title": "Theme file format", "status": "done"},
+                                   {"id": "w_PIN-37", "key": "PIN-37", "title": "Old schema", "status": "cancelled"}],
+                    "blocks": [{"id": "w_PIN-43", "key": "PIN-43", "title": "Picker", "status": "open"}],
+                    "reviews": [{"id": "r_9", "title": "Theme loader", "plugin": "code-review", "kind": "review", "status": "pending"}],
+                    "timeline": [{"type": "comment", "author": "person", "body": "Prefer a watcher.",
+                                  "created_at": "2026-11-05T11:00:00Z"}],
+                    "sessions": [{"agent": "claude-code", "session": "c-1", "status": "Running the tests"}],
+                }),
+            ),
+        )
+    });
+    let (code, out, err) = items_run(&server, &["items", "show", "PIN-42"]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "PIN-42 Load themes\n\
+         open · ready · forgeplane/pinrail\n\
+         part of PIN-40 Custom themes (1 of 3 done)\n\
+         \n## Description\nRead the theme files.\n\
+         \n## Depends on\n\
+         - PIN-41 Theme file format, done by codex: \"TOML with a [colors] table.\"\n\
+         - PIN-37 Old schema, cancelled: the work it was to do will not happen\n\
+         \n## Blocks\n- PIN-43 Picker, open\n\
+         \n## Reviews\n- r_9 \"Theme loader\" (code-review), pending\n\
+         \n## Comments\n- the person, 2026-11-05: Prefer a watcher.\n\
+         \n## Sessions\n- claude-code c-1: \"Running the tests\"\n"
+    );
+}
+
+#[test]
+fn items_edit_turns_each_flag_into_the_change() {
+    let (server, sent) = items_server(|_, _| {
+        let item = work_item("PIN-5", "Renamed", serde_json::json!({}));
+        (
+            200,
+            format!(r#"{{"item": {item}, "now_ready": [], "parent_left_open": null}}"#),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "edit",
+            "5",
+            "--repo",
+            "forgeplane/pinrail",
+            "--title",
+            "Renamed",
+            "--status",
+            "open",
+            "--claim",
+            "--take",
+            "--no-parent",
+            "--depends-on",
+            "PIN-1",
+            "--no-depends-on",
+            "PIN-2",
+            "--no-link",
+            "--move-to",
+            "acme/api",
+            "--detach",
+            "old.png",
+            "--comment",
+            "Moved",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out, "Changed PIN-5 Renamed.\n");
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0].0, "PATCH");
+    // a number alone is looked up in the repository
+    assert_eq!(sent[0].1, "/api/v1/items/5?repo=forgeplane%2Fpinrail");
+    assert_eq!(
+        sent[0].2,
+        serde_json::json!({
+            "title": "Renamed", "status": "open", "claim": "take", "parent": null,
+            "depends_on": ["PIN-1"], "no_depends_on": ["PIN-2"], "link": null,
+            "repo": "acme/api", "detach": ["old.png"], "comment": "Moved",
+            "by": "claude-code", "session": "c-1",
+        })
+    );
+    drop(sent);
+    // with nothing to change, it says what it takes
+    let (code, _, err) = items_run(&server, &["items", "edit", "PIN-5"]);
+    assert_eq!(code, 1);
+    assert!(err.contains("--title"), "{err}");
+    let (code, _, _) = items_run(&server, &["items", "edit", "PIN-5", "--release", "--claim"]);
+    assert_eq!(code, 1);
+}
+
+#[test]
+fn items_comment_sends_the_text_given_or_read_from_a_file() {
+    let (server, sent) = items_server(|_, _| (201, r#"{"id": "c_1", "body": "x"}"#.into()));
+    let (code, out, err) = items_run(&server, &["items", "comment", "PIN-5", "Prefer a watcher."]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out, "Commented on PIN-5.\n");
+    let file = std::env::temp_dir().join(format!("comment-{}.md", std::process::id()));
+    std::fs::write(&file, "From a file.").unwrap();
+    items_run(
+        &server,
+        &[
+            "items",
+            "comment",
+            "PIN-5",
+            "--file",
+            file.to_str().unwrap(),
+        ],
+    );
+    std::fs::remove_file(&file).ok();
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0].1, "/api/v1/items/PIN-5/comments");
+    assert_eq!(sent[0].2["body"], "Prefer a watcher.");
+    assert_eq!(sent[1].2["body"], "From a file.");
+}
+
+#[test]
+fn items_done_prints_what_became_ready_and_a_parent_left_open() {
+    let (server, sent) = items_server(|_, _| {
+        let item = work_item(
+            "PIN-42",
+            "Load themes",
+            serde_json::json!({"status": "done"}),
+        );
+        (
+            200,
+            format!(
+                r#"{{"item": {item}, "now_ready": [{{"key": "PIN-43", "title": "Theme picker"}}],
+                    "parent_left_open": {{"key": "PIN-40", "title": "Custom themes"}}}}"#
+            ),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "done",
+            "PIN-42",
+            "--comment",
+            "In core/src/themes.rs",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "Done: PIN-42 Load themes.\n\
+         Now ready: PIN-43 Theme picker\n\
+         PIN-40 Custom themes has no open sub-item left but stays open: mark it done when its work is complete.\n"
+    );
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0].1, "/api/v1/items/PIN-42/done");
+    assert_eq!(sent[0].2["comment"], "In core/src/themes.rs");
+}
+
+#[test]
+fn items_done_refused_while_a_review_waits_exits_2_and_says_to_wait() {
+    let (server, _) = items_server(|_, _| {
+        (
+            409,
+            r#"{"error": "conflict", "message": "PIN-42 is not done: \"Theme loader\" (r_9) still waits on the person", "violations": []}"#.into(),
+        )
+    });
+    let (code, out, err) = items_run(&server, &["items", "done", "PIN-42"]);
+    assert_eq!(code, 2);
+    assert!(out.is_empty());
+    assert_eq!(
+        err,
+        "pinrail: refused: PIN-42 is not done: \"Theme loader\" (r_9) still waits on the person\n\
+         Wait for each one with pinrail wait <id>, then mark the item done.\n"
+    );
+}
+
+#[test]
+fn submit_ask_and_list_name_a_work_item_or_none() {
+    let (server, sent) = items_server(|method, _| {
+        if method == "GET" {
+            (
+                200,
+                r#"{"reviews": [], "total": 0, "has_more": false, "next_cursor": null}"#.into(),
+            )
+        } else {
+            (201, review("pending"))
+        }
+    });
+    let run = |args: &[&str]| {
+        let (code, _, err) = items_run(&server, args);
+        assert_eq!(code, 0, "{args:?} {err}");
+    };
+    run(&["submit", "list", "--title", "t", "--item", "PIN-4"]);
+    run(&["submit", "list", "--title", "t", "--no-item"]);
+    run(&["submit", "list", "--title", "t"]);
+    // ask then waits for the answers, which this server does not give
+    items_run(
+        &server,
+        &["ask", "Watch or poll?", "--item", "PIN-4", "--timeout", "1"],
+    );
+    run(&["list", "--item", "PIN-4", "--all"]);
+    let sent = sent.lock().unwrap();
+    let posted: Vec<&serde_json::Value> = sent
+        .iter()
+        .filter(|(m, p, _)| m == "POST" && p == "/api/v1/reviews")
+        .map(|(_, _, b)| b)
+        .collect();
+    assert_eq!(posted[0]["item"], "PIN-4");
+    assert_eq!(posted[1]["item"], serde_json::Value::Null);
+    assert!(posted[1].as_object().unwrap().contains_key("item"));
+    assert!(!posted[2].as_object().unwrap().contains_key("item"));
+    assert_eq!(posted[3]["kind"], "question");
+    assert_eq!(posted[3]["item"], "PIN-4");
+    let listed = sent
+        .iter()
+        .find(|(m, p, _)| m == "GET" && p.starts_with("/api/v1/reviews?"))
+        .unwrap();
+    assert!(listed.1.contains("item=PIN-4"), "{}", listed.1);
+    drop(sent);
+    let (code, _, _) = items_run(
+        &server,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--item",
+            "PIN-4",
+            "--no-item",
+        ],
+    );
+    assert_eq!(code, 1);
+}
