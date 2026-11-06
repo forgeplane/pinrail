@@ -47,12 +47,10 @@ export function newestRounds(items: Review[]): Review[] {
 }
 
 /** The items, the statuses, the comments on work items and the person's
- *  messages, oldest first. A comment goes as a message does. A
- *  message goes after the status the core says was the newest when it was
- *  sent, and by its time among the items. A status goes after the
- *  review the core says it came after, which the times, in whole seconds,
- *  do not always tell. A status without one goes by its time, after a
- *  review of the same second.
+ *  messages, oldest first, by their times, which the core keeps to the
+ *  microsecond. Within one time, a withdrawn review's line goes first, then
+ *  a review, a status, a comment and a message: older times, kept to the
+ *  second, share one often.
  *
  *  A review shows once, by its newest round, where its first round was
  *  sent. A later round adds a line where it was sent, unless only
@@ -65,92 +63,40 @@ export function timeline(
   comments: SessionComment[] = [],
 ): Entry[] {
   const rounds = roundsOf(items);
-  const index = new Map(items.map((review, i) => [review.id, i]));
-  /** The last item sent at or before a time, or -1 before them all. */
-  const slotAt = (at: string) => {
-    let slot = -1;
-    items.forEach((review, i) => {
-      if (Date.parse(review.created_at) <= Date.parse(at)) slot = i;
-    });
-    return slot;
-  };
-  // the messages after each item, by its index, as the statuses below;
-  // filled once the statuses have theirs, which a message can follow
-  const said = new Map<number, SessionMessage[]>();
-  const statusSlot = new Map<number, number>();
-  // the statuses after each item, by its index; -1 is before them all
-  const slots = new Map<number, SessionStatus[]>();
-  for (const status of statuses) {
-    let slot: number;
-    if (status.after === null) slot = -1;
-    else if (status.after !== undefined && index.has(status.after)) slot = index.get(status.after)!;
-    else slot = slotAt(status.at);
-    slots.set(slot, [...(slots.get(slot) ?? []), status]);
-    statusSlot.set(status.id, slot);
-  }
-  for (const message of messages) {
-    const after = message.after_status != null ? statusSlot.get(message.after_status) : undefined;
-    const slot = Math.max(slotAt(message.sent_at), after ?? -1);
-    said.set(slot, [...(said.get(slot) ?? []), message]);
-  }
-  // the comments on work items after each item, as the messages: after
-  // the status the core says was the newest when each was written
-  const commented = new Map<number, SessionComment[]>();
-  for (const comment of comments) {
-    const after = comment.after_status != null ? statusSlot.get(comment.after_status) : undefined;
-    const slot = Math.max(slotAt(comment.created_at), after ?? -1);
-    commented.set(slot, [...(commented.get(slot) ?? []), comment]);
-  }
-  // the reviews the agent withdrew after each item. A new round withdraws
-  // the one it replaces, which needs no line, and a question says so itself
-  const withdrawn = new Map<number, Review[]>();
+  type Happened =
+    | { kind: "withdrawn"; review: Review }
+    | { kind: "review"; review: Review }
+    | { kind: "status"; status: SessionStatus }
+    | { kind: "comment"; comment: SessionComment }
+    | { kind: "message"; message: SessionMessage };
+  const RANK = { withdrawn: 0, review: 1, status: 2, comment: 3, message: 4 } as const;
+  const all: { at: number; happened: Happened }[] = [];
   for (const review of items) {
+    all.push({ at: Date.parse(review.created_at), happened: { kind: "review", review } });
+    // a line where the agent withdrew it. A new round withdraws the one it
+    // replaces, which needs no line, and a question says so itself
     if (review.status !== "withdrawn" || !review.withdrawn_at || review.kind === "question") continue;
     const chain = rounds.get(review.id)!;
     const next = chain[chain.indexOf(review) + 1];
     if (next && review.withdrawn_reason === `superseded by ${next.id}`) continue;
-    // times are in whole seconds: a later round came after it either way
-    const at = slotAt(review.withdrawn_at);
-    const slot = next ? Math.min(at, index.get(next.id)! - 1) : at;
-    withdrawn.set(slot, [...(withdrawn.get(slot) ?? []), review]);
+    all.push({ at: Date.parse(review.withdrawn_at), happened: { kind: "withdrawn", review } });
   }
+  for (const status of statuses) all.push({ at: Date.parse(status.at), happened: { kind: "status", status } });
+  for (const comment of comments)
+    all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
+  for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
+  // a stable sort keeps each list's own order within one time
+  all.sort((a, b) => a.at - b.at || RANK[a.happened.kind] - RANK[b.happened.kind]);
+
   const entries: Entry[] = [];
-  const place = (slot: number) => {
-    let group: SessionStatus[] = [];
-    const close = () => {
-      if (group.length) entries.push({ kind: "statuses", statuses: group });
-      group = [];
-    };
-    const queue = [...(said.get(slot) ?? [])];
-    const ended = [...(withdrawn.get(slot) ?? [])].sort(
-      (a, b) => Date.parse(a.withdrawn_at!) - Date.parse(b.withdrawn_at!),
-    );
-    const endUntil = (at: number) => {
-      while (ended.length && Date.parse(ended[0].withdrawn_at!) <= at) {
-        close();
-        const review = ended.shift()!;
-        entries.push({ kind: "withdrawn", review, card: rounds.get(review.id)!.at(-1)! });
-      }
-    };
-    const notes = [...(commented.get(slot) ?? [])];
-    // the comments written before a status, each on its own
-    const commentUntil = (status: number) => {
-      while (notes.length && (notes[0].after_status ?? -1) < status) {
-        close();
-        entries.push({ kind: "comment", comment: notes.shift()! });
-      }
-    };
-    // the messages sent before a status, each a message of its own
-    const sayUntil = (status: number) => {
-      while (queue.length && (queue[0].after_status ?? -1) < status) {
-        close();
-        entries.push({ kind: "message", message: queue.shift()! });
-      }
-    };
-    for (const status of slots.get(slot) ?? []) {
-      endUntil(Date.parse(status.at));
-      commentUntil(status.id);
-      sayUntil(status.id);
+  let group: SessionStatus[] = [];
+  const close = () => {
+    if (group.length) entries.push({ kind: "statuses", statuses: group });
+    group = [];
+  };
+  for (const { happened } of all) {
+    if (happened.kind === "status") {
+      const status = happened.status;
       if (status.kind === "step") group.push(status);
       else {
         close();
@@ -159,31 +105,35 @@ export function timeline(
           status,
         });
       }
+      continue;
     }
     close();
-    commentUntil(Infinity);
-    sayUntil(Infinity);
-    endUntil(Infinity);
-  };
-  place(-1);
-  items.forEach((review, i) => {
-    const chain = rounds.get(review.id)!;
-    const [first, newest] = [chain[0], chain[chain.length - 1]];
-    // the rounds are counted only from the first, which they are not when
-    // it revises one from elsewhere
-    const counted = !first.revises;
-    const n = chain.indexOf(review) + 1;
-    if (n === 1) {
-      const round = counted && chain.length > 1 ? { n: chain.length, of: chain.length } : undefined;
-      entries.push({ kind: "item", review: newest, round });
+    if (happened.kind === "comment") entries.push({ kind: "comment", comment: happened.comment });
+    else if (happened.kind === "message") entries.push({ kind: "message", message: happened.message });
+    else if (happened.kind === "withdrawn") {
+      const review = happened.review;
+      entries.push({ kind: "withdrawn", review, card: rounds.get(review.id)!.at(-1)! });
     } else {
-      const before = [...entries].reverse().find((e) => e.kind !== "statuses");
-      const follows =
-        (before?.kind === "item" && before.review === newest) || (before?.kind === "revised" && before.card === newest);
-      if (!follows) entries.push({ kind: "revised", review, round: counted ? n : null, card: newest });
+      const review = happened.review;
+      const chain = rounds.get(review.id)!;
+      const [first, newest] = [chain[0], chain[chain.length - 1]];
+      // the rounds are counted only from the first, which they are not when
+      // it revises one from elsewhere
+      const counted = !first.revises;
+      const n = chain.indexOf(review) + 1;
+      if (n === 1) {
+        const round = counted && chain.length > 1 ? { n: chain.length, of: chain.length } : undefined;
+        entries.push({ kind: "item", review: newest, round });
+      } else {
+        const before = [...entries].reverse().find((e) => e.kind !== "statuses");
+        const follows =
+          (before?.kind === "item" && before.review === newest) ||
+          (before?.kind === "revised" && before.card === newest);
+        if (!follows) entries.push({ kind: "revised", review, round: counted ? n : null, card: newest });
+      }
     }
-    place(i);
-  });
+  }
+  close();
   return entries;
 }
 

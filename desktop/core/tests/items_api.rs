@@ -1484,12 +1484,6 @@ async fn a_sessions_thread_lists_the_comments_its_agent_wrote_on_items() {
     );
     assert!(comments[0]["created_at"].is_string());
     assert_eq!(comments[0]["files"], json!([]));
-    // each comes after the newest status of its session when it was
-    // written, which the times, in whole seconds, do not always tell
-    let working = thread["statuses"][0]["id"].clone();
-    assert!(working.is_i64(), "{thread}");
-    assert_eq!(comments[0]["after_status"], working);
-    assert_eq!(comments[1]["after_status"], working);
 
     // a deleted comment, or one of a deleted item, leaves the thread
     let id = comments[1]["id"].as_str().unwrap().to_string();
@@ -1504,4 +1498,46 @@ async fn a_sessions_thread_lists_the_comments_its_agent_wrote_on_items() {
     call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
     assert_eq!(thread["comments"], json!([]));
+}
+
+#[tokio::test]
+async fn times_order_a_thread_written_within_one_second() {
+    let app = app();
+    add(&app, "Work").await;
+    let report = |text: &'static str| {
+        let app = &app;
+        async move {
+            agent(
+                app,
+                "POST",
+                "/api/v1/sessions/claude-code/s-1/status",
+                "s-1",
+                json!({"text": text}),
+            )
+            .await;
+        }
+    };
+    report("Reading").await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        "s-1",
+        json!({"body": "Found it."}),
+    )
+    .await;
+    report("Testing").await;
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let at = |v: &Value| v.as_str().unwrap().to_string();
+    let reading = at(&thread["statuses"][0]["at"]);
+    let comment = at(&thread["comments"][0]["created_at"]);
+    let testing = at(&thread["statuses"][1]["at"]);
+    // to the microsecond, as text that sorts as the times do
+    for time in [&reading, &comment, &testing] {
+        assert_eq!(time.len(), "2026-11-07T10:00:00.000000Z".len(), "{time}");
+    }
+    assert!(
+        reading < comment && comment < testing,
+        "{reading} {comment} {testing}"
+    );
 }

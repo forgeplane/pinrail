@@ -345,7 +345,7 @@ async fn the_history_sweep_deletes_idle_sessions_with_nothing_left() {
 }
 
 #[tokio::test]
-async fn a_status_names_the_review_it_came_after_within_the_same_second() {
+async fn statuses_and_reviews_sent_within_one_second_have_times_in_their_order() {
     let app = app();
     status(&app, "claude-code", "s-1", json!({"text": "Starting"})).await;
     let question = send(&app, question("claude-code", Some("s-1"), "Use SQLite?")).await;
@@ -360,13 +360,27 @@ async fn a_status_names_the_review_it_came_after_within_the_same_second() {
     status(&app, "claude-code", "s-1", json!({"text": "Sent a review"})).await;
 
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
-    let after: Vec<Value> = thread["statuses"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["after"].clone())
-        .collect();
-    assert_eq!(after, [Value::Null, json!(question), json!(review)]);
+    let status_at = |i: usize| thread["statuses"][i]["at"].as_str().unwrap().to_string();
+    let review_at = |id: &str| {
+        thread["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == id)
+            .unwrap()["created_at"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    // as text, as the thread sorts them
+    let times = [
+        status_at(0),
+        review_at(&question),
+        status_at(1),
+        review_at(&review),
+        status_at(2),
+    ];
+    assert!(times.windows(2).all(|w| w[0] < w[1]), "{times:?}");
 }
 
 #[tokio::test]
@@ -827,16 +841,19 @@ async fn a_queued_message_keeps_its_session_from_the_sweep() {
 }
 
 #[tokio::test]
-async fn a_message_names_the_newest_status_when_it_was_sent() {
+async fn a_message_sent_between_two_statuses_has_a_time_between_theirs() {
     let app = app();
     status(&app, "claude-code", "s-1", json!({"text": "Reading"})).await;
     let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
     status(&app, "claude-code", "s-1", json!({"text": "Switching"})).await;
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
-    assert_eq!(sent["after_status"], thread["statuses"][0]["id"]);
-    assert_eq!(
-        thread["messages"][0]["after_status"],
-        thread["statuses"][0]["id"]
+    let reading = thread["statuses"][0]["at"].as_str().unwrap();
+    let switching = thread["statuses"][1]["at"].as_str().unwrap();
+    let sent = sent["sent_at"].as_str().unwrap();
+    assert_eq!(thread["messages"][0]["sent_at"], sent);
+    assert!(
+        reading < sent && sent < switching,
+        "{reading} {sent} {switching}"
     );
 }
 

@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use chrono::{SecondsFormat, Utc};
+use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
 
 use super::Db;
@@ -21,7 +21,7 @@ pub struct BundleRecord {
 }
 
 fn now() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+    crate::reviews::iso(Utc::now())
 }
 
 impl Db {
@@ -120,10 +120,7 @@ impl Db {
                                    WHERE r.plugin_bundle = plugin_bundles.hash)
                  RETURNING hash",
             )?
-            .query_map(
-                params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
-                |r| r.get(0),
-            )?
+            .query_map(params![crate::reviews::iso(before)], |r| r.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         tx.commit()?;
         Ok(gone)

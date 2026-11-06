@@ -109,9 +109,6 @@ pub struct StatusRow {
     pub text: String,
     pub kind: StatusKind,
     pub at: DateTime<Utc>,
-    /// in a session's thread, the review the status came after, which the
-    /// times, in whole seconds, do not always tell
-    pub after: Option<String>,
     /// the files a note carries, by name
     pub attachments: Vec<ReviewAttachment>,
 }
@@ -123,7 +120,6 @@ impl StatusRow {
             "text": self.text,
             "kind": self.kind.as_str(),
             "at": crate::reviews::iso(self.at),
-            "after": self.after,
         });
         if self.kind == StatusKind::Note {
             json["attachments"] = self
@@ -221,12 +217,11 @@ pub struct SessionFilters {
     pub offset: usize,
 }
 
-/// A session's latest activity, to the microsecond, which orders the
-/// sessions where the times of reviews, in whole seconds, would not, and
-/// where two requests in a row can share a millisecond. The migration wrote
-/// the earlier times to the millisecond; as text, they sort with these.
+/// A session's latest activity, as every time is stored: to the
+/// microsecond, which orders the sessions where two requests in a row can
+/// share a millisecond.
 pub(super) fn activity(at: DateTime<Utc>) -> String {
-    at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+    crate::reviews::iso(at)
 }
 
 /// Creates the session, or records what it reports now: the project, the
@@ -472,7 +467,6 @@ impl Db {
             text: text.to_string(),
             kind,
             at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
-            after: None,
             attachments: attachments.to_vec(),
         };
         let event_id = insert_event(
@@ -541,45 +535,22 @@ impl Db {
         rows.collect()
     }
 
-    /// The session's statuses, oldest first, each with the review it came
-    /// after: the events' ids give the order in which a status and the
-    /// session's reviews were recorded.
+    /// The session's statuses, oldest first.
     pub fn statuses(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<StatusRow>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "WITH announced AS (
-               SELECT e.id AS event, json_extract(e.attrs, '$.status.id') AS status FROM events e
-               WHERE e.review_id IS NULL AND e.kind = ?3
-                 AND json_extract(e.attrs, '$.agent') = ?1 AND json_extract(e.attrs, '$.id') = ?2
-             ),
-             created AS (
-               SELECT r.id AS review, e.id AS event FROM reviews r
-               JOIN events e ON e.review_id = r.id AND e.kind = ?4
-               WHERE r.requested_by = ?1 AND r.session = ?2
-             )
-             SELECT t.id, t.text, t.kind, t.created_at,
-               (SELECT c.review FROM created c WHERE c.event < a.event ORDER BY c.event DESC LIMIT 1)
-             FROM session_statuses t LEFT JOIN announced a ON a.status = t.id
+            "SELECT t.id, t.text, t.kind, t.created_at FROM session_statuses t
              WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.id",
         )?;
-        let rows = stmt.query_map(
-            params![
-                agent,
-                id,
-                crate::events::SESSION_STATUS,
-                crate::events::CREATED
-            ],
-            |row| {
-                Ok(StatusRow {
-                    id: row.get(0)?,
-                    text: row.get(1)?,
-                    kind: kind_of(row.get::<_, String>(2)?),
-                    at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
-                    after: row.get(4)?,
-                    attachments: Vec::new(),
-                })
-            },
-        )?;
+        let rows = stmt.query_map(params![agent, id], |row| {
+            Ok(StatusRow {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                kind: kind_of(row.get::<_, String>(2)?),
+                at: parse_datetime(&row.get::<_, String>(3)?).unwrap_or_default(),
+                attachments: Vec::new(),
+            })
+        })?;
         let mut statuses: Vec<StatusRow> = rows.collect::<rusqlite::Result<_>>()?;
         // the files of the session's notes, by name
         let mut stmt = conn.prepare(
@@ -687,7 +658,6 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
             text: row.get(12)?,
             kind: kind_of(row.get::<_, String>(13)?),
             at: time(14)?,
-            after: None,
             attachments: Vec::new(),
         }),
         None => None,

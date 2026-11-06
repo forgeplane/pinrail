@@ -19,9 +19,6 @@ pub struct MessageRow {
     pub sent_at: DateTime<Utc>,
     /// when a status handed it to the agent; `None` while it is queued
     pub delivered_at: Option<DateTime<Utc>>,
-    /// the session's newest status when it was sent, which places it among
-    /// the statuses of the same second
-    pub after_status: Option<i64>,
 }
 
 impl MessageRow {
@@ -32,7 +29,6 @@ impl MessageRow {
             "sent_by": self.sent_by,
             "sent_at": crate::reviews::iso(self.sent_at),
             "delivered_at": self.delivered_at.map(crate::reviews::iso),
-            "after_status": self.after_status,
         })
     }
 }
@@ -53,7 +49,7 @@ pub enum Deleted {
     Missing,
 }
 
-const COLUMNS: &str = "id, text, sent_by, sent_at, delivered_at, after_status";
+const COLUMNS: &str = "id, text, sent_by, sent_at, delivered_at";
 
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageRow> {
     let time = |s: String| parse_datetime(&s).unwrap_or_default();
@@ -63,7 +59,6 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageRow> {
         sent_by: row.get(2)?,
         sent_at: time(row.get(3)?),
         delivered_at: row.get::<_, Option<String>>(4)?.map(time),
-        after_status: row.get(5)?,
     })
 }
 
@@ -107,22 +102,10 @@ impl Db {
         if changed == 0 {
             return Ok(None);
         }
-        let after_status: Option<i64> = tx.query_row(
-            "SELECT MAX(id) FROM session_statuses WHERE agent = ?1 AND session = ?2",
-            params![agent, id],
-            |row| row.get(0),
-        )?;
         tx.execute(
-            "INSERT INTO session_messages (agent, session, text, sent_by, sent_at, after_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                agent,
-                id,
-                text,
-                sent_by,
-                crate::reviews::iso(now),
-                after_status
-            ],
+            "INSERT INTO session_messages (agent, session, text, sent_by, sent_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![agent, id, text, sent_by, crate::reviews::iso(now)],
         )?;
         let message = MessageRow {
             id: tx.last_insert_rowid(),
@@ -130,7 +113,6 @@ impl Db {
             sent_by: sent_by.to_string(),
             sent_at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
             delivered_at: None,
-            after_status,
         };
         let event_id = insert_event(
             &tx,

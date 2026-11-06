@@ -1,7 +1,7 @@
 //! Blobs: a file's bytes stored once by their SHA-256, whatever reviews
 //! carry them.
 
-use chrono::{SecondsFormat, Utc};
+use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
 
 use super::Db;
@@ -26,11 +26,7 @@ impl Db {
         conn.execute(
             "INSERT INTO blobs (sha256, size, created_at) VALUES (?1, ?2, ?3)
              ON CONFLICT(sha256) DO UPDATE SET created_at = excluded.created_at",
-            params![
-                sha256,
-                size as i64,
-                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
-            ],
+            params![sha256, size as i64, crate::reviews::iso(Utc::now())],
         )?;
         Ok(())
     }
@@ -41,10 +37,7 @@ impl Db {
         let conn = self.conn();
         let touched = conn.execute(
             "UPDATE blobs SET created_at = ?2 WHERE sha256 = ?1",
-            params![
-                sha256,
-                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
-            ],
+            params![sha256, crate::reviews::iso(Utc::now())],
         )?;
         Ok(touched > 0)
     }
@@ -65,10 +58,7 @@ impl Db {
                AND NOT EXISTS (SELECT 1 FROM work_item_files f WHERE f.sha256 = blobs.sha256)
              RETURNING sha256",
         )?
-        .query_map(
-            params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
-            |r| r.get(0),
-        )?
+        .query_map(params![crate::reviews::iso(before)], |r| r.get(0))?
         .collect()
     }
 

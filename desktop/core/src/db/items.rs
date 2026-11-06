@@ -287,7 +287,7 @@ pub(super) fn select() -> String {
            {project},
            (SELECT COUNT(*) FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
              WHERE r.item_id = i.id AND o.review_id IS NULL
-               AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+               AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id))
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
         ready = READY,

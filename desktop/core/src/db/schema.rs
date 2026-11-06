@@ -15,7 +15,7 @@
 //!
 //! Never edit a migration once it is merged: add another.
 
-use chrono::{SecondsFormat, Utc};
+use chrono::Utc;
 use rusqlite::{Connection, params};
 
 /// A migration: its version, its name and its SQL.
@@ -62,10 +62,7 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
         tx.execute_batch(sql)?;
         tx.execute(
             "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
-            params![
-                version,
-                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
-            ],
+            params![version, crate::reviews::iso(Utc::now())],
         )?;
         tx.commit()?;
         if !fresh {
@@ -301,8 +298,8 @@ mod tests {
         assert_eq!(
             rows,
             [
-                "claude-code s1 acme/api fix - 2026-10-01T10:00:00Z 2026-10-05T10:00:00.000Z",
-                "codex s1 - - - 2026-10-03T10:00:00Z 2026-10-03T10:00:00.000Z",
+                "claude-code s1 acme/api fix - 2026-10-01T10:00:00.000000Z 2026-10-05T10:00:00.000000Z",
+                "codex s1 - - - 2026-10-03T10:00:00.000000Z 2026-10-03T10:00:00.000000Z",
             ]
         );
     }
@@ -348,9 +345,9 @@ mod tests {
                   || IFNULL(project_id, '-') || ' ' || IFNULL(prefix, '-') FROM repos ORDER BY name"
             ),
             [
-                "acme/api 2026-09-30T10:00:00Z 0 - -",
-                "acme/docs 2026-10-06T10:00:00Z 0 - -",
-                "acme/web 2026-10-03T10:00:00Z 0 - -",
+                "acme/api 2026-09-30T10:00:00.000000Z 0 - -",
+                "acme/docs 2026-10-06T10:00:00.000000Z 0 - -",
+                "acme/web 2026-10-03T10:00:00.000000Z 0 - -",
             ]
         );
         assert_eq!(

@@ -72,9 +72,6 @@ pub struct Comment {
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
     pub files: Vec<ReviewAttachment>,
-    /// for an agent's comment, the newest status of its session when it
-    /// was written, which places it in the session's thread
-    pub after_status: Option<i64>,
 }
 
 impl Comment {
@@ -87,7 +84,6 @@ impl Comment {
             "created_at": iso(self.created_at),
             "edited_at": self.edited_at.map(iso),
             "files": self.files.iter().map(file_json).collect::<Vec<_>>(),
-            "after_status": self.after_status,
         })
     }
 }
@@ -422,7 +418,7 @@ pub(super) fn review_ended(
 fn comment_row(conn: &Connection, id: &str) -> rusqlite::Result<Option<Comment>> {
     let comment = conn
         .query_row(
-            "SELECT id, body, author, session, created_at, edited_at, after_status
+            "SELECT id, body, author, session, created_at, edited_at
                FROM work_item_comments WHERE id = ?1",
             params![id],
             |r| {
@@ -436,7 +432,6 @@ fn comment_row(conn: &Connection, id: &str) -> rusqlite::Result<Option<Comment>>
                         .get::<_, Option<String>>(5)?
                         .and_then(|t| parse_datetime(&t)),
                     files: Vec::new(),
-                    after_status: r.get(6)?,
                 })
             },
         )
@@ -1134,9 +1129,8 @@ fn insert_comment(
 ) -> rusqlite::Result<Comment> {
     let id = crate::id::next_comment();
     conn.execute(
-        "INSERT INTO work_item_comments (id, item_id, body, author, session, created_at, after_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-           (SELECT MAX(id) FROM session_statuses WHERE agent = ?4 AND session = ?5))",
+        "INSERT INTO work_item_comments (id, item_id, body, author, session, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![id, item, body, actor.name(), actor.session(), iso(at)],
     )?;
     add_files(conn, item, Some(&id), files)?;

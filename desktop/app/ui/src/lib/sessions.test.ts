@@ -51,15 +51,11 @@ describe("timeline", () => {
     expect(entries.map((e) => e.kind)).toEqual(["item", "statuses"]);
   });
 
-  test("puts a status after the review the core says it came after", () => {
-    const at = "2026-10-30T10:00:00Z";
+  test("orders what was sent within one second by its microseconds", () => {
+    const at = (us: number) => `2026-10-30T10:00:00.${String(us).padStart(6, "0")}Z`;
     const entries = timeline(
-      [review("q1", at), review("r1", at)],
-      [
-        { ...status(1, at, "Starting"), after: null },
-        { ...status(2, at, "Sent a question"), after: "q1" },
-        { ...status(3, at, "Sent a review"), after: "r1" },
-      ],
+      [review("q1", at(2000)), review("r1", at(4000))],
+      [status(1, at(1000), "Starting"), status(2, at(3000), "Sent a question"), status(3, at(5000), "Sent a review")],
     );
     expect(
       entries.map((e) => (e.kind === "item" ? e.review.id : e.kind === "statuses" ? e.statuses[0].text : e.kind)),
@@ -227,13 +223,12 @@ describe("withdrawn reviews", () => {
 });
 
 describe("messages", () => {
-  const message = (id: number, at: string, after: number | null = null): SessionMessage => ({
+  const message = (id: number, at: string): SessionMessage => ({
     id,
     text: `m${id}`,
     sent_by: "pnezis",
     sent_at: at,
     delivered_at: null,
-    after_status: after,
   });
   const show = (entries: ReturnType<typeof timeline>) =>
     entries.map((e) =>
@@ -254,17 +249,17 @@ describe("messages", () => {
         status(2, "2026-10-30T10:01:00Z", "Building"),
         status(3, "2026-10-30T10:03:00Z", "Testing"),
       ],
-      [message(1, "2026-10-30T10:00:30Z", 1), message(2, "2026-10-30T10:04:00Z", 3)],
+      [message(1, "2026-10-30T10:00:30Z"), message(2, "2026-10-30T10:04:00Z")],
     );
     // a message between two steps splits them
     expect(show(entries)).toEqual([["Planning"], "m1", ["Building"], "r1", ["Testing"], "m2"]);
   });
 
-  test("puts a message after the status that was the newest, though they share a second", () => {
+  test("puts a message between the statuses it was sent between, within one second", () => {
     const entries = timeline(
       [],
-      [status(1, "2026-10-30T10:00:00Z", "Reading"), status(2, "2026-10-30T10:00:00Z", "Switching")],
-      [message(1, "2026-10-30T10:00:00Z", 1)],
+      [status(1, "2026-10-30T10:00:00.100000Z", "Reading"), status(2, "2026-10-30T10:00:00.300000Z", "Switching")],
+      [message(1, "2026-10-30T10:00:00.200000Z")],
     );
     expect(show(entries)).toEqual([["Reading"], "m1", ["Switching"]]);
   });
@@ -276,7 +271,7 @@ describe("messages", () => {
 });
 
 describe("comments on work items", () => {
-  const comment = (id: string, at: string, body: string, after: number | null): SessionComment => ({
+  const comment = (id: string, at: string, body: string): SessionComment => ({
     id,
     body,
     author: "claude-code",
@@ -284,7 +279,6 @@ describe("comments on work items", () => {
     created_at: at,
     edited_at: null,
     files: [],
-    after_status: after,
     item: { id: `w-${id}`, key: "PIN-1", title: "Work" },
   });
 
@@ -298,9 +292,9 @@ describe("comments on work items", () => {
       ],
       [],
       [
-        comment("c1", "2026-10-30T10:02:00Z", "Found the cause.", 1),
-        comment("c2", "2026-10-30T10:05:30Z", "Fixed.", 2),
-        comment("c3", "2026-10-30T10:08:00Z", "Shipped.", 3),
+        comment("c1", "2026-10-30T10:02:00Z", "Found the cause."),
+        comment("c2", "2026-10-30T10:05:30Z", "Fixed."),
+        comment("c3", "2026-10-30T10:08:00Z", "Shipped."),
       ],
     );
     expect(
@@ -316,13 +310,13 @@ describe("comments on work items", () => {
     ).toEqual([["Planning"], "Found the cause.", ["Building"], "r1", "Fixed.", ["Testing"], "Shipped."]);
   });
 
-  test("go after the status the core says came before them, within one second", () => {
-    const at = "2026-10-30T10:00:00Z";
+  test("go between the statuses they were written between, within one second", () => {
+    const at = (ms: number) => `2026-10-30T10:00:00.${String(ms * 1000).padStart(6, "0")}Z`;
     const entries = timeline(
       [],
-      [status(1, at, "Reading"), status(2, at, "Testing"), status(3, at, "Done reading", "note")],
+      [status(1, at(100), "Reading"), status(2, at(300), "Testing"), status(3, at(400), "Done reading", "note")],
       [],
-      [comment("c1", at, "Before any.", null), comment("c2", at, "After reading.", 1)],
+      [comment("c1", at(50), "Before any."), comment("c2", at(200), "After reading.")],
     );
     expect(
       entries.map((e) =>

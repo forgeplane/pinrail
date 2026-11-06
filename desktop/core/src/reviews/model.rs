@@ -298,10 +298,12 @@ impl Review {
     }
 }
 
-/// ISO 8601 at second precision, `Z` suffixed, as every timestamp in the API is written.
+/// ISO 8601 to the microsecond, always with six digits and `Z` suffixed, as
+/// every time is stored and written in the API: as text, times sort as
+/// they happened, also within one second.
 pub fn iso(dt: DateTime<Utc>) -> String {
-    dt.trunc_subsecs(0)
-        .to_rfc3339_opts(SecondsFormat::Secs, true)
+    dt.trunc_subsecs(6)
+        .to_rfc3339_opts(SecondsFormat::Micros, true)
 }
 
 pub fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
@@ -392,6 +394,9 @@ mod tests {
         let r = review();
         assert!(r.to_json(true).get("payload").is_some());
         assert!(r.to_json(false).get("payload").is_none());
-        assert_eq!(r.to_json(false)["created_at"], "2026-09-11T10:00:00Z");
+        assert_eq!(
+            r.to_json(false)["created_at"],
+            "2026-09-11T10:00:00.000000Z"
+        );
     }
 }

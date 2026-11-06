@@ -158,7 +158,8 @@ export function reviewId(ms, n) {
   return `r_${out}`;
 }
 
-const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, ".000Z");
+// as the core stores times: to the microsecond, with six digits
+const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, ".000000Z");
 
 /**
  * `plan` maps each seeded review id to `{ created, outcome }`, both in
@@ -240,10 +241,10 @@ function pinDatabase(file, plan, statuses, items) {
     first_at = (SELECT MIN(at) FROM (
       SELECT created_at AS at FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id
       UNION ALL SELECT created_at FROM session_statuses t WHERE t.agent = sessions.agent AND t.session = sessions.id)),
-    last_at = strftime('%Y-%m-%dT%H:%M:%fZ', (SELECT MAX(at) FROM (
+    last_at = strftime('%Y-%m-%dT%H:%M:%f', (SELECT MAX(at) FROM (
       SELECT e.at AS at FROM events e JOIN reviews r ON r.id = e.review_id
         WHERE r.requested_by = sessions.agent AND r.session = sessions.id AND e.kind <> 'viewed'
-      UNION ALL SELECT created_at FROM session_statuses t WHERE t.agent = sessions.agent AND t.session = sessions.id)))`);
+      UNION ALL SELECT created_at FROM session_statuses t WHERE t.agent = sessions.agent AND t.session = sessions.id))) || '000Z'`);
   db.exec("COMMIT");
   db.close();
   return ids;

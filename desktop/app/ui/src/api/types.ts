@@ -382,9 +382,6 @@ export type SessionStatus = {
    *  session, the end of its work, or a note, whose text is Markdown */
   kind: "step" | "start" | "done" | "note";
   at: string;
-  /** in a session's thread, the review it came after, or null for one
-   *  before them all */
-  after?: string | null;
   /** the files a note carries, by name */
   attachments?: NoteAttachment[];
 };
@@ -398,9 +395,6 @@ export type SessionMessage = {
   sent_at: string;
   /** when a status handed it to the agent; null while it is queued */
   delivered_at: string | null;
-  /** the session's newest status when it was sent, which places it among
-   *  the statuses: their times, in whole seconds, do not always tell */
-  after_status?: number | null;
 };
 
 /** The web origins a plugin may open without asking, while it stays
@@ -521,9 +515,6 @@ export type ItemComment = {
 /** A comment a session's agent wrote on a work item, which its thread shows. */
 export type SessionComment = ItemComment & {
   item: ItemTag;
-  /** the newest status of the session when the agent wrote it, or null
-   *  before any: where it goes in the thread */
-  after_status: number | null;
 };
 
 /** What happened to an item, oldest first: changes, and the comments among them. */
