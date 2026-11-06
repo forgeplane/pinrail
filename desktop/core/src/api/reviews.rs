@@ -116,7 +116,15 @@ async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let filters = filters(&params)?;
+    let mut filters = filters(&params)?;
+    // the reviews of a work item, by its key, or its number in `repo`
+    if let Some(item) = params.get("item").filter(|i| !i.is_empty()) {
+        let item = crate::items::ItemRef::parse(item).map_err(|e| Error::invalid("/item", e))?;
+        let found = state
+            .items()
+            .get(&item, params.get("repo").map(String::as_str))?;
+        filters.item = Some(found.id);
+    }
     let mut facets = false;
     if let Some(include) = params.get("include") {
         for name in include.split(',').map(str::trim).filter(|n| !n.is_empty()) {
@@ -463,6 +471,7 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         workflow: text("workflow"),
         reference: text("ref"),
         run_id: text("run_id"),
+        item: None,
         text: text("q"),
         include_revised: params.get("include_revised").is_some_and(|v| v == "true"),
         starred: params.get("starred").is_some_and(|v| v == "true"),

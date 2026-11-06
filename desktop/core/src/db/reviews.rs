@@ -24,6 +24,8 @@ pub struct Filters {
     pub workflow: Option<String>,
     pub reference: Option<String>,
     pub run_id: Option<String>,
+    /// the reviews of a work item, by its id
+    pub item: Option<String>,
     pub text: Option<String>,
     pub include_revised: bool,
     /// Only starred reviews: with `include_revised`, the rounds that are
@@ -472,6 +474,10 @@ impl Db {
                 " AND {}",
                 super::projects::in_project("r.repo_id", n)
             ));
+        }
+        if let Some(item) = &filters.item {
+            let n = push(item);
+            sql.push_str(&format!(" AND r.item_id = ?{n}"));
         }
         if let Some(kind) = filters.kind {
             let n = push(kind.as_str());

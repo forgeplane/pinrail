@@ -1209,3 +1209,24 @@ async fn an_items_body_carries_files_added_and_removed_by_name() {
     let (code, _) = call(&app, "GET", "/api/v1/items/PIN-1/files/dialog.png", None).await;
     assert_eq!(code, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn the_review_list_narrows_to_a_work_items_reviews() {
+    let app = app();
+    add(&app, "Work").await;
+    add(&app, "Other").await;
+    submit(&app, review("s-1", "For the work", Some(json!("PIN-1")))).await;
+    submit(&app, review("s-1", "For the other", Some(json!("PIN-2")))).await;
+    submit(&app, review("s-1", "For nothing", Some(Value::Null))).await;
+    let (code, listed) = call(&app, "GET", "/api/v1/reviews?item=PIN-1", None).await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    let titles: Vec<&str> = listed["reviews"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["For the work"]);
+    let (code, _) = call(&app, "GET", "/api/v1/reviews?item=PIN-9", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+}
