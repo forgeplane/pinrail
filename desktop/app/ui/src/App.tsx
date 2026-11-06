@@ -5,6 +5,7 @@ import { useExternalLinks, useNativeRoutes } from "./lib/native";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
+import { WorkItems } from "./screens/WorkItems";
 import { LiveProvider } from "./state/live";
 import { SettingsProvider, useSettings } from "./state/settings";
 import { ToastProvider } from "./state/toasts";
@@ -30,6 +31,7 @@ function Shell() {
         <Route path="/sessions" element={<SessionsPage />} />
         <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
         <Route path="/projects" element={<Projects />} />
+        <Route path="/items" element={<WorkItems />} />
         <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />
       </Routes>
     </Layout>

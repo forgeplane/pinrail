@@ -21,6 +21,7 @@ import type {
   SessionStatus,
   Stage,
   Violation,
+  WorkItem,
 } from "./types";
 
 export class ApiError extends Error {
@@ -102,6 +103,19 @@ export const api = {
     request<{ sessions: Session[]; total: number; facets: { repos: string[]; unassigned: boolean } }>(
       "GET",
       `/api/v1/sessions${query(params)}`,
+    ),
+  /** the work items the filters keep: by default those open or in progress */
+  items: (params: { status?: string; repo?: string; project?: string; q?: string } = {}) =>
+    request<{ items: WorkItem[] }>("GET", `/api/v1/items${query(params)}`),
+  /** adds a work item, as the person */
+  addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
+    request<WorkItem>("POST", "/api/v1/items", item),
+  /** changes a work item, whole or not at all, as the person */
+  editItem: (key: string, change: Record<string, unknown>) =>
+    request<{ item: WorkItem; now_ready: { key: string; title: string }[] }>(
+      "PATCH",
+      `/api/v1/items/${seg(key)}`,
+      change,
     ),
   /** the projects by name, and the repositories in none */
   projects: () => request<ProjectsListing>("GET", "/api/v1/projects"),

@@ -8,6 +8,7 @@ import {
   Inbox,
   Keyboard,
   LayoutGrid,
+  ListChecks,
   MessageSquare,
   MessagesSquare,
   Moon,
@@ -64,6 +65,7 @@ const NAV = [
     shift: true,
     keys: [MOD, SHIFT, "H"],
   },
+  { key: "items", label: "Work items", to: "/items", Icon: ListChecks, letter: "", shift: false, keys: [] },
   { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, letter: "", shift: false, keys: [] },
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
@@ -93,7 +95,9 @@ const pageTitle = (path: string) =>
         ? "Sessions"
         : path.startsWith("/projects")
           ? "Projects"
-          : "Review";
+          : path.startsWith("/items")
+            ? "Work items"
+            : "Review";
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -104,6 +108,18 @@ function isTyping(target: EventTarget | null) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
+  // how many work items are ready, beside their entry, as anything changes
+  const [readyItems, setReadyItems] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .items({ status: "ready" })
+      .then((d) => !cancelled && setReadyItems(d.items.length))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [live.lastNotice, live.connected]);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -187,6 +203,7 @@ export function Layout({ children }: { children: ReactNode }) {
       },
     },
     { id: "history", label: "Go to history", keys: NAV[2].keys, icon: History, run: () => navigate(NAV[2].to) },
+    { id: "items", label: "Go to work items", icon: ListChecks, run: () => navigate("/items") },
     { id: "projects", label: "Go to projects", icon: LayoutGrid, run: () => navigate("/projects") },
     {
       id: "new-project",
@@ -497,6 +514,13 @@ export function Layout({ children }: { children: ReactNode }) {
                         <span className="nav-count" data-testid="inbox-count">
                           {live.pendingCount}
                         </span>
+                      ) : null}
+                      {key === "items" && readyItems ? (
+                        <Tooltip label={`${readyItems} ready to work on`} side="bottom">
+                          <span className="nav-count is-quiet" data-testid="items-ready-count">
+                            {readyItems}
+                          </span>
+                        </Tooltip>
                       ) : null}
                     </NavLink>
                   </Tooltip>

@@ -427,6 +427,7 @@ export type ServerSettings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   inbox?: { open_in: "panel" | "page"; layout?: "project" | "repository" | "list" };
   sessions?: { layout?: "project" | "repository" | "list" };
+  items?: { layout?: "project" | "repository" | "list"; nesting?: "nested" | "flat" };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
@@ -457,3 +458,40 @@ export type Info = {
   /** the files stored beside reviews */
   attachments?: { count: number; bytes: number };
 };
+
+/** Where a work item stands; blocked and ready are derived from its relations. */
+export type ItemStatus = "open" | "in_progress" | "done" | "cancelled";
+
+/** A work item as the lists give it. */
+export type WorkItem = {
+  id: string;
+  /** its repository's prefix and its number, such as PIN-42 */
+  key: string;
+  number: number;
+  repo: string;
+  title: string;
+  body: string;
+  status: ItemStatus;
+  /** the parent's key */
+  parent: string | null;
+  link: string | null;
+  /** the agent and session holding it, while it is in progress */
+  claim: { agent: string; session: string | null } | null;
+  /** `person`, or the agent's name */
+  created_by: string;
+  created_session: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  sub_items: { total: number; closed: number };
+  /** the keys of what it waits for */
+  blocked_by: string[];
+  blocked: boolean;
+  ready: boolean;
+  project: ProjectRef | null;
+  /** how many of its reviews and questions wait on the person */
+  waiting: number;
+};
+
+/** An item another is related to. */
+export type RelatedItem = { id: string; key: string; title: string; status: ItemStatus };

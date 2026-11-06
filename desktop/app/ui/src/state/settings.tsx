@@ -26,6 +26,8 @@ export type Settings = {
   /** where the inbox opens a review: in the side panel, or on its own page */
   inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
   sessions: { layout: "project" | "repository" | "list" };
+  /** how the Work items page lists the items, and shows sub-items */
+  items: { layout: "project" | "repository" | "list"; nesting: "nested" | "flat" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
   /** each plugin's permission to open links without asking */
@@ -57,6 +59,7 @@ type Patch = {
   shortcut?: Partial<Settings["shortcut"]>;
   inbox?: Partial<Settings["inbox"]>;
   sessions?: Partial<Settings["sessions"]>;
+  items?: Partial<Settings["items"]>;
   /** a change to one or more plugins' settings, merged key by key */
   plugins?: Record<string, Record<string, unknown>>;
   /** a plugin's link permission replaced, or null to forget it */
@@ -102,6 +105,7 @@ type Served = Pick<
   | "shortcut"
   | "inbox"
   | "sessions"
+  | "items"
   | "plugins"
   | "links"
   | "port"
@@ -134,6 +138,7 @@ const fromServer = (s: ServerSettings): Served => ({
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   inbox: { open_in: s.inbox?.open_in ?? "panel", layout: s.inbox?.layout ?? "repository" },
   sessions: { layout: s.sessions?.layout ?? "list" },
+  items: { layout: s.items?.layout ?? "project", nesting: s.items?.nesting ?? "nested" },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
   port: s.port,
@@ -174,6 +179,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     inbox: { open_in: "panel", layout: "repository" },
     sessions: { layout: "list" },
+    items: { layout: "project", nesting: "nested" },
     plugins: {},
     links: {},
     port: 4747,
@@ -297,6 +303,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         patch.shortcut ||
         patch.inbox ||
         patch.sessions ||
+        patch.items ||
         patch.plugins ||
         patch.links ||
         patch.port !== undefined ||
@@ -320,6 +327,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           shortcut: { ...base.shortcut, ...patch.shortcut },
           inbox: { ...base.inbox, ...patch.inbox },
           sessions: { ...base.sessions, ...patch.sessions },
+          items: { ...base.items, ...patch.items },
           plugins: mergePlugins(base.plugins, patch.plugins),
           links: mergeLinks(base.links, patch.links),
           port: patch.port ?? base.port,
@@ -342,6 +350,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.shortcut) body.shortcut = patch.shortcut;
         if (patch.inbox) body.inbox = patch.inbox;
         if (patch.sessions) body.sessions = patch.sessions;
+        if (patch.items) body.items = patch.items;
         if (patch.plugins) body.plugins = patch.plugins;
         if (patch.links) body.links = patch.links;
         if (patch.port !== undefined) body.port = patch.port;
