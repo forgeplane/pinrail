@@ -1,7 +1,7 @@
 // The Projects page: projects made and changed in the app, listed by name,
 // each with its repositories, and the repositories in no project last.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { clearInbox, core, createReview, settingSaved } from "./helpers";
 
 /** Deletes every project, so each test starts with none. */
@@ -11,6 +11,19 @@ async function noProjects(request: APIRequestContext) {
 }
 
 const card = (page: Page, name: string) => page.getByRole("region", { name, exact: true });
+
+/** Drags a repository's row onto a project, as the browser's drag and drop
+ *  does, with the page's own handlers. A drag with the mouse picks up the
+ *  row under the pointer after the page scrolls to the target, which in a
+ *  long list is another row. */
+async function drag(source: Locator, target: Locator) {
+  const transfer = await source.page().evaluateHandle(() => new DataTransfer());
+  await source.dispatchEvent("dragstart", { dataTransfer: transfer });
+  await target.dispatchEvent("dragenter", { dataTransfer: transfer });
+  await target.dispatchEvent("dragover", { dataTransfer: transfer });
+  await target.dispatchEvent("drop", { dataTransfer: transfer });
+  await source.dispatchEvent("dragend", { dataTransfer: transfer });
+}
 const loose = (page: Page) => page.getByRole("region", { name: "Repositories in no project" });
 
 test.beforeEach(({ request }) => noProjects(request));
@@ -43,7 +56,7 @@ test("a project is created with a description, edited, and deleted", async ({ pa
   await expect(card(page, "Proj")).toContainText("Drop a repository here");
 
   for (const repo of ["proj/app", "proj/infra"])
-    await loose(page).getByTestId("project-repo").filter({ hasText: repo }).dragTo(card(page, "Proj"));
+    await drag(loose(page).getByTestId("project-repo").filter({ hasText: repo }), card(page, "Proj"));
   await expect(card(page, "Proj").getByTestId("project-repo")).toHaveText([/proj\/app/, /proj\/infra/]);
   await expect(card(page, "Proj")).toContainText("2 waiting");
 
@@ -98,7 +111,7 @@ test("a repository moves between projects by dragging and from its menu, and onl
   const web = loose(page).getByTestId("project-repo").filter({ hasText: "proj/web" });
 
   // dragged onto a card, it goes in that project
-  await web.dragTo(card(page, "One"));
+  await drag(web, card(page, "One"));
   await expect(card(page, "One")).toContainText("proj/web");
   await expect(loose(page).getByText("proj/web")).toHaveCount(0);
 
@@ -141,7 +154,7 @@ test("the projects are listed by name, and stay in place while repositories move
   await expect(card(page, "quiet")).toContainText("Drop a repository here");
 
   // the newest activity moving into the last project leaves it where it was
-  await loose(page).getByTestId("project-repo").filter({ hasText: "keep/c" }).dragTo(card(page, "quiet"));
+  await drag(loose(page).getByTestId("project-repo").filter({ hasText: "keep/c" }), card(page, "quiet"));
   await expect(card(page, "quiet")).toContainText("keep/c");
   await expect(names).toHaveText(["Busy", "quiet"]);
 
