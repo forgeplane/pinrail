@@ -657,7 +657,8 @@ async fn stages(
 
 /// One session as a thread: the session, its questions and reviews oldest
 /// first, the questions with their payloads, its statuses, the comments its
-/// agent wrote on work items, and the person's messages to the agent.
+/// agent wrote on work items and what it did to them, and the person's
+/// messages to the agent.
 async fn session(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
@@ -677,10 +678,22 @@ async fn session(
             json
         })
         .collect::<Vec<_>>();
+    // what it did to work items, which the thread shows as short lines
+    let item_events = state
+        .items()
+        .session_item_events(&agent, &id)?
+        .into_iter()
+        .map(|(event, item)| {
+            let mut json = event.to_json();
+            json["item"] = item.to_json();
+            json
+        })
+        .collect::<Vec<_>>();
     Ok(Json(json!({
         "session": session_json(&session),
         "statuses": statuses.iter().map(|s| s.to_json()).collect::<Vec<_>>(),
         "comments": comments,
+        "item_events": item_events,
         "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
         "items": items
             .iter()

@@ -3,7 +3,7 @@
 // row with nothing between them are one group, and the agent saying it
 // starts a stage, or has finished, is a line of its own.
 
-import type { Review, SessionComment, SessionMessage, SessionStatus } from "../api/types";
+import type { Review, SessionComment, SessionItemEvent, SessionMessage, SessionStatus } from "../api/types";
 
 /** The router state of a review opened from a session: its breadcrumb
  *  names the session, and its decision leads back to the session. */
@@ -26,7 +26,8 @@ export type Entry =
   | { kind: "finished"; status: SessionStatus }
   | { kind: "note"; status: SessionStatus }
   | { kind: "message"; message: SessionMessage }
-  | { kind: "comment"; comment: SessionComment };
+  | { kind: "comment"; comment: SessionComment }
+  | { kind: "itemEvents"; events: SessionItemEvent[] };
 
 /** Each review's rounds among the items, oldest first, by the id of each
  *  of its rounds. A round that revises one from elsewhere starts a review. */
@@ -46,11 +47,12 @@ export function newestRounds(items: Review[]): Review[] {
   return items.filter((review) => rounds.get(review.id)!.at(-1) === review);
 }
 
-/** The items, the statuses, the comments on work items and the person's
- *  messages, oldest first, by their times, which the core keeps to the
- *  microsecond. Within one time, a withdrawn review's line goes first, then
- *  a review, a status, a comment and a message: older times, kept to the
- *  second, share one often.
+/** The items, the statuses, what the agent did to work items and its
+ *  comments on them, and the person's messages, oldest first, by their
+ *  times, which the core keeps to the microsecond. Within one time, a
+ *  withdrawn review's line goes first, then a review, a status, a work item
+ *  change, a comment and a message: older times, kept to the second, share
+ *  one often.
  *
  *  A review shows once, by its newest round, where its first round was
  *  sent. A later round adds a line where it was sent, unless only
@@ -61,15 +63,17 @@ export function timeline(
   statuses: SessionStatus[],
   messages: SessionMessage[] = [],
   comments: SessionComment[] = [],
+  itemEvents: SessionItemEvent[] = [],
 ): Entry[] {
   const rounds = roundsOf(items);
   type Happened =
     | { kind: "withdrawn"; review: Review }
     | { kind: "review"; review: Review }
     | { kind: "status"; status: SessionStatus }
+    | { kind: "itemEvent"; event: SessionItemEvent }
     | { kind: "comment"; comment: SessionComment }
     | { kind: "message"; message: SessionMessage };
-  const RANK = { withdrawn: 0, review: 1, status: 2, comment: 3, message: 4 } as const;
+  const RANK = { withdrawn: 0, review: 1, status: 2, itemEvent: 3, comment: 4, message: 5 } as const;
   const all: { at: number; happened: Happened }[] = [];
   for (const review of items) {
     all.push({ at: Date.parse(review.created_at), happened: { kind: "review", review } });
@@ -82,6 +86,7 @@ export function timeline(
     all.push({ at: Date.parse(review.withdrawn_at), happened: { kind: "withdrawn", review } });
   }
   for (const status of statuses) all.push({ at: Date.parse(status.at), happened: { kind: "status", status } });
+  for (const event of itemEvents) all.push({ at: Date.parse(event.at), happened: { kind: "itemEvent", event } });
   for (const comment of comments)
     all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
   for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
@@ -109,7 +114,13 @@ export function timeline(
     }
     close();
     if (happened.kind === "comment") entries.push({ kind: "comment", comment: happened.comment });
-    else if (happened.kind === "message") entries.push({ kind: "message", message: happened.message });
+    else if (happened.kind === "itemEvent") {
+      // the same change to several items in a row is one line
+      const last = entries[entries.length - 1];
+      const same = (e: SessionItemEvent) => e.kind === happened.event.kind && e.attrs?.to === happened.event.attrs?.to;
+      if (last?.kind === "itemEvents" && same(last.events[0])) last.events.push(happened.event);
+      else entries.push({ kind: "itemEvents", events: [happened.event] });
+    } else if (happened.kind === "message") entries.push({ kind: "message", message: happened.message });
     else if (happened.kind === "withdrawn") {
       const review = happened.review;
       entries.push({ kind: "withdrawn", review, card: rounds.get(review.id)!.at(-1)! });

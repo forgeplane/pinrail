@@ -517,10 +517,15 @@ export type SessionComment = ItemComment & {
   item: ItemTag;
 };
 
+/** What a session's agent did to a work item, which its thread shows as a
+ *  line: added it, claimed or released it, or changed its status. */
+export type SessionItemEvent = Extract<ItemEntry, { type: "event" }> & { item: ItemTag };
+
 /** What happened to an item, oldest first: changes, and the comments among them. */
 export type ItemEntry =
   | {
       type: "event";
+      id: number;
       kind: string;
       actor: string;
       session: string | null;

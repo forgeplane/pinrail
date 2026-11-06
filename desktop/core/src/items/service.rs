@@ -159,6 +159,16 @@ impl Items {
         self.db.item(item, repo)?.map_err(refused)
     }
 
+    /// What an agent's session did to work items, with their items,
+    /// oldest first.
+    pub fn session_item_events(
+        &self,
+        agent: &str,
+        session: &str,
+    ) -> Result<Vec<(crate::db::Entry, crate::db::ItemTag)>, Error> {
+        Ok(self.db.session_item_events(agent, session)?)
+    }
+
     /// The comments an agent's session wrote on work items, with their
     /// items, oldest first.
     pub fn session_comments(

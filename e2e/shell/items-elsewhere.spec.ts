@@ -229,3 +229,31 @@ test("a comment the session's agent writes on an item shows in its thread", asyn
   await expect(panelKey(page)).toHaveText(item.key);
   await expect(page.getByTestId("item-panel").getByTestId("item-comment")).toHaveCount(3);
 });
+
+test("a session's thread shows a line for each change its agent made to a work item", async ({ page, request }) => {
+  const repo = fresh("events");
+  const session = `s-events-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Loading themes", kind: "start", origin: { repo } },
+  });
+  const item = await add(request, repo, "Load themes", { session });
+  await request.patch(`${core}/api/v1/items/${item.key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const lines = page.getByTestId("item-event");
+  await expect(lines).toHaveText([/^Added.*Load themes/, /^Started working on.*Load themes/]);
+  // each line's icon is centred on its text
+  const offsets = await lines.evaluateAll((all) =>
+    all.map((line) => {
+      const icon = line.querySelector("svg.item-status")!.getBoundingClientRect();
+      const text = line.querySelector(".thread-item-event")!.getBoundingClientRect();
+      return Math.abs(icon.top + icon.height / 2 - (text.top + text.height / 2));
+    }),
+  );
+  expect(Math.max(...offsets)).toBeLessThan(1);
+  // one made while the thread is open shows at once
+  await request.post(`${core}/api/v1/items/${item.key}/done`, { data: { by: "claude-code", session } });
+  await expect(lines).toHaveCount(3);
+  await expect(lines.last()).toContainText("Marked done");
+  await lines.last().getByTestId("item-chip").click();
+  await expect(panelKey(page)).toHaveText(item.key);
+});

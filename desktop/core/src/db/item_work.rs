@@ -118,14 +118,14 @@ impl Entry {
     pub fn to_json(&self) -> Value {
         match self {
             Entry::Event {
+                id,
                 kind,
                 actor,
                 session,
                 at,
                 attrs,
-                ..
             } => json!({
-                "type": "event", "kind": kind, "actor": actor, "session": session,
+                "type": "event", "id": id, "kind": kind, "actor": actor, "session": session,
                 "at": iso(*at), "attrs": attrs,
             }),
             Entry::Comment(c) => {
@@ -905,6 +905,49 @@ impl Db {
         // in order of time; a stable sort keeps the events' own order
         entries.sort_by_key(Entry::at);
         Ok(entries)
+    }
+
+    /// What an agent's session did to work items, oldest first, for its
+    /// thread: the items it added, claimed and released, and the statuses
+    /// it gave them, without the sub-items a cancel took along.
+    pub fn session_item_events(
+        &self,
+        agent: &str,
+        session: &str,
+    ) -> rusqlite::Result<Vec<(Entry, super::ItemTag)>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT e.id, e.kind, e.actor, e.session, e.at, e.attrs,
+                    w.id, g.prefix || '-' || w.number, w.title
+               FROM work_item_events e
+               JOIN work_items w ON w.id = e.item_id
+               JOIN repos g ON g.id = w.repo_id
+              WHERE e.actor = ?1 AND e.session = ?2
+                AND e.kind IN ('created', 'claimed', 'released', 'status')
+                AND json_extract(e.attrs, '$.with') IS NULL
+              ORDER BY e.id",
+        )?;
+        stmt.query_map(params![agent, session], |r| {
+            Ok((
+                Entry::Event {
+                    id: r.get(0)?,
+                    kind: r.get(1)?,
+                    actor: r.get(2)?,
+                    session: r.get(3)?,
+                    at: parse_datetime(&r.get::<_, String>(4)?).unwrap_or_default(),
+                    attrs: r
+                        .get::<_, Option<String>>(5)?
+                        .and_then(|a| serde_json::from_str(&a).ok())
+                        .unwrap_or(Value::Null),
+                },
+                super::ItemTag {
+                    id: r.get(6)?,
+                    key: r.get(7)?,
+                    title: r.get(8)?,
+                },
+            ))
+        })?
+        .collect()
     }
 
     /// The comments an agent's session wrote on work items, oldest first,

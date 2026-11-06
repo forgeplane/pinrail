@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Review, SessionComment, SessionMessage, SessionStatus } from "../api/types";
+import type { Review, SessionComment, SessionItemEvent, SessionMessage, SessionStatus } from "../api/types";
 import { newestRounds, stageReviews, stages, timeline } from "./sessions";
 
 const review = (id: string, at: string, revises: string | null = null) =>
@@ -323,5 +323,53 @@ describe("comments on work items", () => {
         e.kind === "comment" ? e.comment.body : e.kind === "statuses" ? e.statuses.map((s) => s.text) : e.kind,
       ),
     ).toEqual(["Before any.", ["Reading"], "After reading.", ["Testing"], "note"]);
+  });
+});
+
+describe("what the agent did to work items", () => {
+  const event = (id: number, at: string, kind: string): SessionItemEvent => ({
+    type: "event",
+    id,
+    kind,
+    actor: "claude-code",
+    session: "s-1",
+    at,
+    attrs: null,
+    item: { id: "w-1", key: "PIN-1", title: "Work" },
+  });
+
+  test("shows each change as a line of its own, by its time, which splits a group of steps", () => {
+    const entries = timeline(
+      [],
+      [status(1, "2026-10-30T10:01:00Z", "Planning"), status(2, "2026-10-30T10:03:00Z", "Building")],
+      [],
+      [],
+      [event(1, "2026-10-30T10:02:00Z", "claimed"), event(2, "2026-10-30T10:04:00Z", "status")],
+    );
+    expect(
+      entries.map((e) =>
+        e.kind === "itemEvents"
+          ? e.events.map((x) => x.kind)
+          : e.kind === "statuses"
+            ? e.statuses.map((s) => s.text)
+            : e.kind,
+      ),
+    ).toEqual([["Planning"], ["claimed"], ["Building"], ["status"]]);
+  });
+
+  test("puts the same change to several items in a row on one line", () => {
+    const at = (s: number) => `2026-10-30T10:00:0${s}.000000Z`;
+    const entries = timeline(
+      [],
+      [],
+      [],
+      [],
+      [event(1, at(1), "created"), event(2, at(2), "created"), event(3, at(3), "claimed"), event(4, at(4), "created")],
+    );
+    expect(entries.map((e) => (e.kind === "itemEvents" ? e.events.map((x) => x.id) : e.kind))).toEqual([
+      [1, 2],
+      [3],
+      [4],
+    ]);
   });
 });

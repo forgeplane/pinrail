@@ -35,10 +35,12 @@ import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import type {
   Answer,
+  ItemStatus,
   Question,
   Review,
   Session,
   SessionComment,
+  SessionItemEvent,
   SessionMessage,
   SessionStatus,
   WorkItem,
@@ -229,6 +231,7 @@ export function Thread({
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [comments, setComments] = useState<SessionComment[]>([]);
+  const [itemEvents, setItemEvents] = useState<SessionItemEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -241,6 +244,7 @@ export function Thread({
         setStatuses(thread.statuses);
         setMessages(thread.messages ?? []);
         setComments(thread.comments ?? []);
+        setItemEvents(thread.item_events ?? []);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -343,7 +347,10 @@ export function Thread({
   const atEarlier = !!stage && started.slice(0, earlier).some((s) => s.start.id === stage);
   const stagesShown = allStages || atEarlier ? started : started.slice(earlier);
   // the reviews each stage sent, for its tooltip
-  const entries = useMemo(() => entriesOf(items, statuses, messages, comments), [items, statuses, messages, comments]);
+  const entries = useMemo(
+    () => entriesOf(items, statuses, messages, comments, itemEvents),
+    [items, statuses, messages, comments, itemEvents],
+  );
   const sentBy = useMemo(() => stageReviews(entries), [entries]);
   // the person's messages the agent has not received yet
   const queued = messages.filter((m) => !m.delivered_at);
@@ -558,6 +565,8 @@ export function Thread({
                 return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
               if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
+              if (entry.kind === "itemEvents")
+                return <ItemEventLine key={`e-${entry.events[0].id}`} events={entry.events} />;
               if (entry.kind === "comment")
                 return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
               if (entry.kind === "note")
@@ -1023,9 +1032,47 @@ function StartedLine({ status }: { status: SessionStatus }) {
 /** How tall a note is before it folds, about 12 lines. */
 const NOTE_FOLDED = 230;
 
-/** A note the agent sent: a message under the agent's icon, as a question
- *  is, with its Markdown folded when long and its files under it. Its links
- *  open in the browser, and a link to one of its files saves it. */
+/** What the session's agent did to work items, as a line among its
+ *  statuses: the verb, and the chip of each item it did it to. */
+function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
+  const event = events[events.length - 1];
+  const a = (event.attrs ?? {}) as Record<string, unknown>;
+  const to = a.to as ItemStatus | undefined;
+  const did =
+    event.kind === "created"
+      ? "Added"
+      : event.kind === "claimed"
+        ? a.from
+          ? "Took over"
+          : "Started working on"
+        : event.kind === "released"
+          ? "Stopped working on"
+          : to === "done"
+            ? "Marked done"
+            : to === "cancelled"
+              ? "Cancelled"
+              : to === "open"
+                ? "Opened again"
+                : `Set ${STATUS_LABEL[to ?? "open"].toLowerCase()}`;
+  const icon: ItemStatus = event.kind === "claimed" ? "in_progress" : event.kind === "status" && to ? to : "open";
+  return (
+    <div className="thread-statuses" data-testid="item-event">
+      <div className="thread-status-line is-item-event">
+        <ItemStatusIcon status={icon} size={13} decorative />
+        <span className="thread-status-text thread-item-event">
+          {did}
+          {events.map((e) => (
+            <ItemChip key={e.id} item={e.item} />
+          ))}
+        </span>
+        <span className="faint" title={stamp(event.at)}>
+          {age(event.at)} ago
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** A comment the session's agent wrote on a work item: the item's chip,
  *  and the comment's Markdown as the item's panel shows it. */
 function CommentMessage({ comment }: { comment: SessionComment }) {
@@ -1066,6 +1113,9 @@ function CommentMessage({ comment }: { comment: SessionComment }) {
   );
 }
 
+/** A note the agent sent: a message under the agent's icon, as a question
+ *  is, with its Markdown folded when long and its files under it. Its links
+ *  open in the browser, and a link to one of its files saves it. */
 function NoteMessage({
   status,
   agent,

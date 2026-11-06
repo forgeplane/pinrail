@@ -1541,3 +1541,81 @@ async fn times_order_a_thread_written_within_one_second() {
         "{reading} {comment} {testing}"
     );
 }
+
+#[tokio::test]
+async fn a_sessions_thread_lists_what_its_agent_did_to_work_items() {
+    let app = app();
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        "s-1",
+        json!({"text": "Working"}),
+    )
+    .await;
+    // added by this session, claimed, released, claimed again and done
+    add(&app, "Work").await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "release"})).await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    let (code, answer) = done(&app, "PIN-1", "s-1", "Shipped").await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    // a parent cancelled with comment, and the sub-item it takes with it
+    add(&app, "Parent").await;
+    let (code, answer) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "title": "Child", "parent": "PIN-2"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{answer}");
+    edit(
+        &app,
+        "PIN-2",
+        "s-1",
+        json!({"status": "cancelled", "comment": "Not needed"}),
+    )
+    .await;
+    // another session's, and the person's, are not this session's
+    edit(&app, "PIN-1", "s-2", json!({"status": "open"})).await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-3",
+        Some(json!({"title": "Renamed"})),
+    )
+    .await;
+
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let did: Vec<String> = thread["item_events"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no item_events in {thread}"))
+        .iter()
+        .map(|e| {
+            format!(
+                "{} {} {}",
+                e["kind"].as_str().unwrap(),
+                e["item"]["key"].as_str().unwrap(),
+                e["attrs"]["to"].as_str().unwrap_or("-")
+            )
+        })
+        .collect();
+    assert_eq!(
+        did,
+        [
+            "created PIN-1 -",
+            "claimed PIN-1 -",
+            "released PIN-1 -",
+            "claimed PIN-1 -",
+            "status PIN-1 done",
+            "created PIN-2 -",
+            "created PIN-3 -",
+            "status PIN-2 cancelled",
+        ]
+    );
+    let first = &thread["item_events"][0];
+    assert_eq!(first["item"]["title"], "Work");
+    assert!(first["at"].is_string());
+}
