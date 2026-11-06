@@ -114,6 +114,8 @@ export function Projects() {
       } catch (error) {
         toast(reason(error), "danger");
       }
+      // shown at once, whether or not the event stream brings the change
+      setReloads((n) => n + 1);
     },
     [toast],
   );

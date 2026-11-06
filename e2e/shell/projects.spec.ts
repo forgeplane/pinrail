@@ -644,3 +644,18 @@ test("the Projects page drops a deleted repository without waiting for its event
   await dialog.getByRole("button", { name: "Delete repository" }).click();
   await expect(row).toHaveCount(0);
 });
+
+test("the Projects page shows a moved repository without waiting for its event", async ({ page, request }) => {
+  const repo = `move-quiet/repo-${Date.now()}`;
+  await createReview(request, { title: "Quiet move", origin: { repo } });
+  expect((await request.post(`${core}/api/v1/projects`, { data: { name: "Quiet" } })).status()).toBe(201);
+  // a window whose event stream does not carry the move's event
+  await page.route("**/api/v1/events*", (route) => route.abort());
+  await page.goto("/#/projects");
+  const row = loose(page).getByTestId("project-repo").filter({ hasText: repo });
+  await row.hover();
+  await row.getByRole("button", { name: `${repo} actions` }).click();
+  await page.getByRole("menu", { name: repo }).getByRole("menuitem", { name: "Quiet" }).click();
+  await expect(card(page, "Quiet")).toContainText(repo);
+  await expect(row).toHaveCount(0);
+});
