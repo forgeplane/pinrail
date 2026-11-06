@@ -247,6 +247,15 @@ test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, an
     return color;
   });
   await expect.poll(border).toEqual({ width: "1px", color: accent });
+  // the keys it takes, each key or combination in a cap of its own
+  const hints = box.locator(".key-hint");
+  await expect(hints).toHaveText([
+    "EnterAdd and open",
+    /\+EnterAdd and add more$/,
+    /\+TabChange repository$/,
+    "EscCancel",
+  ]);
+  await expect(hints.locator(".key-cap")).toHaveCount(4);
   // it starts in the repository the list is filtered to
   await expect(box.getByRole("button", { name: "Repository", exact: true })).toContainText(repo);
   // an empty title adds nothing

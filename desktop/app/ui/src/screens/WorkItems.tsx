@@ -38,7 +38,8 @@ import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { age, stamp } from "../lib/format";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
-import { modalOpen } from "../lib/keys";
+import { MOD, SHIFT, modalOpen } from "../lib/keys";
+import { KeyHints } from "../components/KeyHints";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -510,8 +511,17 @@ export function WorkItems() {
         </div>
       )}
       <footer className="inbox-footer">
-        <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>C</kbd> add · <kbd>/</kbd> search · <kbd>S</kbd> claim
-        · <kbd>D</kbd> done · <kbd>X</kbd> cancel
+        <KeyHints
+          hints={[
+            { keys: ["J / K"], label: "Move" },
+            { keys: ["Enter"], label: "Open" },
+            { keys: ["C"], label: "Add" },
+            { keys: ["/"], label: "Search" },
+            { keys: ["S"], label: "Claim" },
+            { keys: ["D"], label: "Done" },
+            { keys: ["X"], label: "Cancel" },
+          ]}
+        />
       </footer>
     </div>
   );
@@ -643,9 +653,17 @@ function QuickAddBox({ onClose, repos, items, defaultRepo, defaultParent, onAdde
         </Tooltip>
       </div>
       <div className="item-quick-keys">
-        <kbd>↵</kbd> add and open · <kbd>⌘↵</kbd> add and add more · <kbd>⇧Tab</kbd> change repository · <kbd>Esc</kbd>{" "}
-        cancel
-        {repos.length === 0 ? <span> · name a repository: an item belongs to one</span> : null}
+        <KeyHints
+          hints={[
+            { keys: ["Enter"], label: "Add and open" },
+            { keys: [MOD, "Enter"], label: "Add and add more" },
+            { keys: [SHIFT, "Tab"], label: "Change repository" },
+            { keys: ["Esc"], label: "Cancel" },
+          ]}
+        />
+        {repos.length === 0 ? (
+          <span className="item-quick-note">Name a repository: an item belongs to one.</span>
+        ) : null}
       </div>
     </div>
   );

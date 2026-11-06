@@ -6185,7 +6185,10 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-color: var(--accent);
 }
 .item-quick-keys {
-  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 10px;
   border-top: 1px solid var(--border);
   font-size: 11.5px;
   color: var(--faint);
@@ -6298,5 +6301,29 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .nav-count.is-quiet {
   background: none;
+  color: var(--faint);
+}
+
+/* a line of keyboard hints: each key or combination in a plain cap, in the
+   line's own font, the hints spaced apart */
+.key-hints {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+.key-hint {
+  white-space: nowrap;
+}
+.key-cap {
+  margin-right: 5px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--dim);
+  font: inherit;
+}
+.item-quick-note {
   color: var(--faint);
 }
