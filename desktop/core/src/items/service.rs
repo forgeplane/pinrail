@@ -159,6 +159,16 @@ impl Items {
         self.db.item(item, repo)?.map_err(refused)
     }
 
+    /// The comments an agent's session wrote on work items, with their
+    /// items, oldest first.
+    pub fn session_comments(
+        &self,
+        agent: &str,
+        session: &str,
+    ) -> Result<Vec<(crate::db::Comment, crate::db::ItemTag)>, Error> {
+        Ok(self.db.session_comments(agent, session)?)
+    }
+
     /// An item with everything about it: its relations, sub-items, files,
     /// reviews, sessions and timeline.
     pub fn detail(&self, item: &WorkItem) -> Result<Value, Error> {

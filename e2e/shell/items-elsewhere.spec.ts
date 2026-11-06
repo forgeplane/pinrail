@@ -198,3 +198,34 @@ test("the command palette finds work items by key and title", async ({ page, req
     .click();
   await expect(panelKey(page)).toHaveText(item.key);
 });
+
+test("a comment the session's agent writes on an item shows in its thread", async ({ page, request }) => {
+  const repo = fresh("comment");
+  const item = await add(request, repo, "Load themes");
+  const session = `s-comment-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Loading themes", kind: "start", origin: { repo } },
+  });
+  const comment = (body: string) =>
+    request.post(`${core}/api/v1/items/${item.key}/comments`, { data: { body, by: "claude-code", session } });
+  expect((await comment("Themes load from `~/.pinrail/themes`.")).status()).toBe(201);
+  // the person's comment is not the session's
+  await request.post(`${core}/api/v1/items/${item.key}/comments`, {
+    data: { body: "Prefer a watcher." },
+    headers: { origin: "tauri://localhost" },
+  });
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const cards = page.getByTestId("thread-comment");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText("claude-code commented on");
+  await expect(cards.first().locator("code")).toHaveText("~/.pinrail/themes");
+  // one written while the thread is open shows at once
+  await comment("Done: they reload when a file changes.");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.last()).toContainText("they reload when a file changes");
+
+  await cards.first().getByTestId("item-chip").click();
+  await expect(panelKey(page)).toHaveText(item.key);
+  await expect(page.getByTestId("item-panel").getByTestId("item-comment")).toHaveCount(3);
+});

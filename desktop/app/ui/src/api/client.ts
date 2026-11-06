@@ -6,23 +6,24 @@ import type {
   CatalogEntry,
   Info,
   Inspection,
+  ItemComment,
+  ItemDetail,
   Notice,
   Plugin,
   Project,
   ProjectsListing,
   Review,
   ReviewEvent,
-  ThemeEntry,
   ReviewListing,
   ReviewView,
   ServerSettings,
   Session,
+  SessionComment,
   SessionMessage,
   SessionStatus,
   Stage,
+  ThemeEntry,
   Violation,
-  ItemComment,
-  ItemDetail,
   WorkItem,
 } from "./types";
 
@@ -172,12 +173,16 @@ export const api = {
   /** the stages agents started, newest first, those whose names hold every word of q */
   stages: (params: { q?: string; limit?: string }) =>
     request<{ stages: Stage[] }>("GET", `/api/v1/stages${query(params)}`),
-  /** a session and its questions and reviews, oldest first, its statuses and the person's messages */
+  /** a session and its questions and reviews, oldest first, its statuses, the comments its agent wrote on
+   *  work items, and the person's messages */
   session: (agent: string, id: string) =>
-    request<{ session: Session; items: Review[]; statuses: SessionStatus[]; messages: SessionMessage[] }>(
-      "GET",
-      `/api/v1/sessions/${seg(agent)}/${seg(id)}`,
-    ),
+    request<{
+      session: Session;
+      items: Review[];
+      statuses: SessionStatus[];
+      messages: SessionMessage[];
+      comments?: SessionComment[];
+    }>("GET", `/api/v1/sessions/${seg(agent)}/${seg(id)}`),
   /** sends the agent a message, which it receives with its next status */
   sendMessage: (agent: string, id: string, text: string) =>
     request<SessionMessage>("POST", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages`, { text }),

@@ -518,6 +518,14 @@ export type ItemComment = {
   files: ItemFile[];
 };
 
+/** A comment a session's agent wrote on a work item, which its thread shows. */
+export type SessionComment = ItemComment & {
+  item: ItemTag;
+  /** the newest status of the session when the agent wrote it, or null
+   *  before any: where it goes in the thread */
+  after_status: number | null;
+};
+
 /** What happened to an item, oldest first: changes, and the comments among them. */
 export type ItemEntry =
   | {

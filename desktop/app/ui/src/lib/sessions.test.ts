@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Review, SessionMessage, SessionStatus } from "../api/types";
+import type { Review, SessionComment, SessionMessage, SessionStatus } from "../api/types";
 import { newestRounds, stageReviews, stages, timeline } from "./sessions";
 
 const review = (id: string, at: string, revises: string | null = null) =>
@@ -272,5 +272,62 @@ describe("messages", () => {
   test("shows a message sent before anything else first", () => {
     const entries = timeline([review("r1", "2026-10-30T10:02:00Z")], [], [message(1, "2026-10-30T10:00:00Z")]);
     expect(show(entries)).toEqual(["m1", "r1"]);
+  });
+});
+
+describe("comments on work items", () => {
+  const comment = (id: string, at: string, body: string, after: number | null): SessionComment => ({
+    id,
+    body,
+    author: "claude-code",
+    session: "s-1",
+    created_at: at,
+    edited_at: null,
+    files: [],
+    after_status: after,
+    item: { id: `w-${id}`, key: "PIN-1", title: "Work" },
+  });
+
+  test("go by their time among the reviews and the statuses, and break a group of steps", () => {
+    const entries = timeline(
+      [review("r1", "2026-10-30T10:05:00Z")],
+      [
+        status(1, "2026-10-30T10:01:00Z", "Planning"),
+        status(2, "2026-10-30T10:03:00Z", "Building"),
+        status(3, "2026-10-30T10:06:00Z", "Testing"),
+      ],
+      [],
+      [
+        comment("c1", "2026-10-30T10:02:00Z", "Found the cause.", 1),
+        comment("c2", "2026-10-30T10:05:30Z", "Fixed.", 2),
+        comment("c3", "2026-10-30T10:08:00Z", "Shipped.", 3),
+      ],
+    );
+    expect(
+      entries.map((e) =>
+        e.kind === "item"
+          ? e.review.id
+          : e.kind === "statuses"
+            ? e.statuses.map((s) => s.text)
+            : e.kind === "comment"
+              ? e.comment.body
+              : e.kind,
+      ),
+    ).toEqual([["Planning"], "Found the cause.", ["Building"], "r1", "Fixed.", ["Testing"], "Shipped."]);
+  });
+
+  test("go after the status the core says came before them, within one second", () => {
+    const at = "2026-10-30T10:00:00Z";
+    const entries = timeline(
+      [],
+      [status(1, at, "Reading"), status(2, at, "Testing"), status(3, at, "Done reading", "note")],
+      [],
+      [comment("c1", at, "Before any.", null), comment("c2", at, "After reading.", 1)],
+    );
+    expect(
+      entries.map((e) =>
+        e.kind === "comment" ? e.comment.body : e.kind === "statuses" ? e.statuses.map((s) => s.text) : e.kind,
+      ),
+    ).toEqual(["Before any.", ["Reading"], "After reading.", ["Testing"], "note"]);
   });
 });

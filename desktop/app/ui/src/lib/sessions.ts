@@ -3,7 +3,7 @@
 // row with nothing between them are one group, and the agent saying it
 // starts a stage, or has finished, is a line of its own.
 
-import type { Review, SessionMessage, SessionStatus } from "../api/types";
+import type { Review, SessionComment, SessionMessage, SessionStatus } from "../api/types";
 
 /** The router state of a review opened from a session: its breadcrumb
  *  names the session, and its decision leads back to the session. */
@@ -25,7 +25,8 @@ export type Entry =
   | { kind: "started"; status: SessionStatus }
   | { kind: "finished"; status: SessionStatus }
   | { kind: "note"; status: SessionStatus }
-  | { kind: "message"; message: SessionMessage };
+  | { kind: "message"; message: SessionMessage }
+  | { kind: "comment"; comment: SessionComment };
 
 /** Each review's rounds among the items, oldest first, by the id of each
  *  of its rounds. A round that revises one from elsewhere starts a review. */
@@ -45,7 +46,8 @@ export function newestRounds(items: Review[]): Review[] {
   return items.filter((review) => rounds.get(review.id)!.at(-1) === review);
 }
 
-/** The items, the statuses and the person's messages, oldest first. A
+/** The items, the statuses, the comments on work items and the person's
+ *  messages, oldest first. A comment goes as a message does. A
  *  message goes after the status the core says was the newest when it was
  *  sent, and by its time among the items. A status goes after the
  *  review the core says it came after, which the times, in whole seconds,
@@ -56,7 +58,12 @@ export function newestRounds(items: Review[]): Review[] {
  *  sent. A later round adds a line where it was sent, unless only
  *  statuses came between it and the round before. A review the agent
  *  withdrew adds a line by the time it did. */
-export function timeline(items: Review[], statuses: SessionStatus[], messages: SessionMessage[] = []): Entry[] {
+export function timeline(
+  items: Review[],
+  statuses: SessionStatus[],
+  messages: SessionMessage[] = [],
+  comments: SessionComment[] = [],
+): Entry[] {
   const rounds = roundsOf(items);
   const index = new Map(items.map((review, i) => [review.id, i]));
   /** The last item sent at or before a time, or -1 before them all. */
@@ -85,6 +92,14 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
     const after = message.after_status != null ? statusSlot.get(message.after_status) : undefined;
     const slot = Math.max(slotAt(message.sent_at), after ?? -1);
     said.set(slot, [...(said.get(slot) ?? []), message]);
+  }
+  // the comments on work items after each item, as the messages: after
+  // the status the core says was the newest when each was written
+  const commented = new Map<number, SessionComment[]>();
+  for (const comment of comments) {
+    const after = comment.after_status != null ? statusSlot.get(comment.after_status) : undefined;
+    const slot = Math.max(slotAt(comment.created_at), after ?? -1);
+    commented.set(slot, [...(commented.get(slot) ?? []), comment]);
   }
   // the reviews the agent withdrew after each item. A new round withdraws
   // the one it replaces, which needs no line, and a question says so itself
@@ -117,6 +132,14 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
         entries.push({ kind: "withdrawn", review, card: rounds.get(review.id)!.at(-1)! });
       }
     };
+    const notes = [...(commented.get(slot) ?? [])];
+    // the comments written before a status, each on its own
+    const commentUntil = (status: number) => {
+      while (notes.length && (notes[0].after_status ?? -1) < status) {
+        close();
+        entries.push({ kind: "comment", comment: notes.shift()! });
+      }
+    };
     // the messages sent before a status, each a message of its own
     const sayUntil = (status: number) => {
       while (queue.length && (queue[0].after_status ?? -1) < status) {
@@ -126,6 +149,7 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
     };
     for (const status of slots.get(slot) ?? []) {
       endUntil(Date.parse(status.at));
+      commentUntil(status.id);
       sayUntil(status.id);
       if (status.kind === "step") group.push(status);
       else {
@@ -137,6 +161,7 @@ export function timeline(items: Review[], statuses: SessionStatus[], messages: S
       }
     }
     close();
+    commentUntil(Infinity);
     sayUntil(Infinity);
     endUntil(Infinity);
   };

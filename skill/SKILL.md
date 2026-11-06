@@ -103,7 +103,8 @@ pinrail status --note "Kept the old endpoint: the nightly job still calls it."
 ```
 
 - Keep a note to a few lines, and do not repeat what a review you submit
-  already shows.
+  already shows. Something about a work item is a comment on the item
+  instead: see [Work items](#work-items).
 - `--attach` sends a file with the note, such as a chart, a screenshot or
   a log. Show an image in place with `![p95 latency](attachment:latency.png)`.
   Every file is also listed under the note.
@@ -220,7 +221,8 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
 - **Keep the item current.** Rewrite its description with `pinrail items
   edit <key> --body-file <file>` as the work becomes clearer. Comment on
   your progress, what you found and what you decided, with `pinrail items
-  comment`.
+  comment`. A comment also shows in your session's thread, so write what
+  is about an item as a comment on it, not as a note.
 <!-- sessions -->
 - **Answer the person's comments.** A comment the person adds to an item
   you hold reaches you in the output of `pinrail status`, like a message.

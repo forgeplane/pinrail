@@ -137,6 +137,8 @@ Start each stage of the work with `--start`, and report each step that takes mor
 pinrail status --note --file summary.md --attach latency.png --attach out/run.txt=run.log
 ```
 
+A note is about the session. What the agent found or decided about a [work item](#work-items) is a comment on the item, with `pinrail items comment`: it shows in the item's panel and, with the item's key, in the session's thread.
+
 Send a note for what the person would want to read later in the session: a summary at the end of a stage, a decision taken without asking, or what an investigation found. A note never waits in the inbox, does not start or end a stage, and is not the session's latest status.
 
 The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.

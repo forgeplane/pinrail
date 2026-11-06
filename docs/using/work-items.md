@@ -55,7 +55,7 @@ The buttons in the panel's header copy the item as Markdown, open its link, and 
 ## Work items elsewhere in the app
 
 - **Reviews:** a review that belongs to a work item shows the item's key and title in its inbox row and in its header. In the header, **Change…** puts the review, with all its rounds, under another item or under none.
-- **Sessions:** a session's header names the item it is working on, and its details list every item it worked on.
+- **Sessions:** a session's header names the item it is working on, and its details list every item it worked on. Its thread shows the comments its agent wrote on work items, each with the item's key and title, among its statuses and reviews.
 - **Command palette:** <kbd>⌘K</kbd> finds a work item by its key or its title.
 
 ## How agents use work items

@@ -33,7 +33,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from "react-dom";
 import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
-import type { Answer, Question, Review, Session, SessionMessage, SessionStatus, WorkItem } from "../api/types";
+import type {
+  Answer,
+  Question,
+  Review,
+  Session,
+  SessionComment,
+  SessionMessage,
+  SessionStatus,
+  WorkItem,
+} from "../api/types";
 import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
@@ -55,6 +64,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { ItemChip, itemPath } from "./ItemChip";
+import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
@@ -218,6 +228,7 @@ export function Thread({
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
+  const [comments, setComments] = useState<SessionComment[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -229,6 +240,7 @@ export function Thread({
         setItems(thread.items);
         setStatuses(thread.statuses);
         setMessages(thread.messages ?? []);
+        setComments(thread.comments ?? []);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -250,7 +262,9 @@ export function Thread({
     const ours =
       (notice.review_id && ids.current.has(notice.review_id)) ||
       (named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
-      (named && notice.session?.agent === named.agent && notice.session.id === named.id);
+      (named && notice.session?.agent === named.agent && notice.session.id === named.id) ||
+      // a comment its agent wrote on a work item, or a change to its items
+      (named && notice.kind === "item_changed");
     if (ours) load();
   }, [live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- each notice once
 
@@ -329,7 +343,7 @@ export function Thread({
   const atEarlier = !!stage && started.slice(0, earlier).some((s) => s.start.id === stage);
   const stagesShown = allStages || atEarlier ? started : started.slice(earlier);
   // the reviews each stage sent, for its tooltip
-  const entries = useMemo(() => entriesOf(items, statuses, messages), [items, statuses, messages]);
+  const entries = useMemo(() => entriesOf(items, statuses, messages, comments), [items, statuses, messages, comments]);
   const sentBy = useMemo(() => stageReviews(entries), [entries]);
   // the person's messages the agent has not received yet
   const queued = messages.filter((m) => !m.delivered_at);
@@ -544,6 +558,8 @@ export function Thread({
                 return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
               if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
               if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
+              if (entry.kind === "comment")
+                return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
               if (entry.kind === "note")
                 return (
                   <NoteMessage
@@ -1010,6 +1026,46 @@ const NOTE_FOLDED = 230;
 /** A note the agent sent: a message under the agent's icon, as a question
  *  is, with its Markdown folded when long and its files under it. Its links
  *  open in the browser, and a link to one of its files saves it. */
+/** A comment the session's agent wrote on a work item: the item's chip,
+ *  and the comment's Markdown as the item's panel shows it. */
+function CommentMessage({ comment }: { comment: SessionComment }) {
+  const fileUrl = useFileUrl(comment.item.key);
+  return (
+    <div className="thread-note thread-comment msg" data-testid="thread-comment">
+      <span className="msg-avatar">
+        <AgentIcon requestedBy={comment.author} size={14} />
+      </span>
+      <div className="msg-col">
+        <div className="msg-meta">
+          <span className="text">{comment.author}</span> commented on <ItemChip item={comment.item} /> ·{" "}
+          <span title={stamp(comment.created_at)}>{age(comment.created_at)} ago</span>
+        </div>
+        <div
+          onClick={(e) => {
+            const link = (e.target as HTMLElement).closest("a");
+            if (!link || link.dataset.attachment !== undefined) return;
+            e.preventDefault();
+            followLink(link);
+          }}
+        >
+          <Markdown text={comment.body} files={comment.files} fileUrl={fileUrl} />
+        </div>
+        {comment.files.length ? (
+          <ul className="item-files">
+            {comment.files.map((f) => (
+              <li key={f.name}>
+                <a href={fileUrl(f.name) ?? "#"} target="_blank" rel="noreferrer">
+                  <Paperclip size={12} /> {f.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function NoteMessage({
   status,
   agent,

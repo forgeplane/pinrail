@@ -15,18 +15,18 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Link } from "react-router";
-import { ApiError, api, serverUrl } from "../api/client";
+import { ApiError, api } from "../api/client";
 import type { ItemComment, ItemDetail, ItemEntry, ItemStatus, WorkItem } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
-import { renderNote, useItemPrefixes } from "../lib/markdown";
 import { reviewPath } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
@@ -83,52 +83,6 @@ function said(entry: Extract<ItemEntry, { type: "event" }>): string {
     default:
       return entry.kind.replace(/_/g, " ");
   }
-}
-
-/** The addresses of an item's files, for its description and comments. */
-function useFileUrl(key: string | undefined) {
-  const [base, setBase] = useState<string | null>(null);
-  useEffect(() => {
-    void serverUrl().then(setBase);
-  }, []);
-  return useCallback(
-    (name: string) =>
-      base && key ? `${base}/api/v1/items/${encodeURIComponent(key)}/files/${encodeURIComponent(name)}` : null,
-    [base, key],
-  );
-}
-
-/** Markdown with the item's images shown in place and its other files linked. */
-function Markdown({
-  text,
-  files,
-  fileUrl,
-}: {
-  text: string;
-  files: { name: string; media_type: string }[];
-  fileUrl: (n: string) => string | null;
-}) {
-  const imageUrl = useCallback(
-    (name: string) => (files.some((f) => f.name === name && f.media_type.startsWith("image/")) ? fileUrl(name) : null),
-    [files, fileUrl],
-  );
-  const prefixes = useItemPrefixes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
-  const html = useMemo(() => renderNote(text, imageUrl), [text, imageUrl, prefixes]);
-  return (
-    <div
-      className="item-md thread-note-body"
-      // the renderer keeps no raw HTML and only safe links
-      dangerouslySetInnerHTML={{ __html: html }}
-      onClick={(event) => {
-        const name = (event.target as HTMLElement).closest("a")?.getAttribute("data-attachment");
-        if (!name) return;
-        event.preventDefault();
-        const url = fileUrl(name);
-        if (url) window.open(url, "_blank");
-      }}
-    />
-  );
 }
 
 export function ItemPanel({

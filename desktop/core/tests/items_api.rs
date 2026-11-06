@@ -1418,3 +1418,90 @@ async fn the_projects_listing_gives_each_repository_its_prefix_and_shows_one_wit
         .unwrap();
     assert_eq!(repo["prefix"], "PIN");
 }
+
+// --- a session's comments
+
+#[tokio::test]
+async fn a_sessions_thread_lists_the_comments_its_agent_wrote_on_items() {
+    let app = app();
+    add(&app, "Work").await;
+    add(&app, "Other").await;
+    for session in ["s-1", "s-2"] {
+        agent(
+            &app,
+            "POST",
+            &format!("/api/v1/sessions/claude-code/{session}/status"),
+            session,
+            json!({"text": "Working"}),
+        )
+        .await;
+    }
+    let comment = |key: &'static str, session: &'static str, body: &'static str| {
+        let app = &app;
+        async move {
+            let (code, answer) = agent(
+                app,
+                "POST",
+                &format!("/api/v1/items/{key}/comments"),
+                session,
+                json!({"body": body}),
+            )
+            .await;
+            assert_eq!(code, StatusCode::CREATED, "{answer}");
+        }
+    };
+    comment("PIN-1", "s-1", "Found the **cause**.").await;
+    comment("PIN-2", "s-1", "Not this one.").await;
+    comment("PIN-1", "s-2", "From another session.").await;
+    // the person's comments are not the session's
+    call(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        Some(json!({"body": "Prefer a watcher."})),
+    )
+    .await;
+
+    let (code, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(code, StatusCode::OK, "{thread}");
+    let comments = thread["comments"].as_array().unwrap();
+    let said: Vec<(&str, &str, &str)> = comments
+        .iter()
+        .map(|c| {
+            (
+                c["body"].as_str().unwrap(),
+                c["item"]["key"].as_str().unwrap(),
+                c["item"]["title"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        said,
+        [
+            ("Found the **cause**.", "PIN-1", "Work"),
+            ("Not this one.", "PIN-2", "Other"),
+        ]
+    );
+    assert!(comments[0]["created_at"].is_string());
+    assert_eq!(comments[0]["files"], json!([]));
+    // each comes after the newest status of its session when it was
+    // written, which the times, in whole seconds, do not always tell
+    let working = thread["statuses"][0]["id"].clone();
+    assert!(working.is_i64(), "{thread}");
+    assert_eq!(comments[0]["after_status"], working);
+    assert_eq!(comments[1]["after_status"], working);
+
+    // a deleted comment, or one of a deleted item, leaves the thread
+    let id = comments[1]["id"].as_str().unwrap().to_string();
+    let (code, _) = send(
+        &app,
+        "DELETE",
+        &format!("/api/v1/items/PIN-2/comments/{id}?by=claude-code&session=s-1"),
+        None,
+    )
+    .await;
+    assert!(code.is_success(), "{code}");
+    call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(thread["comments"], json!([]));
+}
