@@ -18,11 +18,14 @@ const card = (page: Page, name: string) => page.getByRole("region", { name, exac
  *  long list is another row. */
 async function drag(source: Locator, target: Locator) {
   const transfer = await source.page().evaluateHandle(() => new DataTransfer());
+  // the row picked up, held on to: after the drop the page shows it in its
+  // new place, and the drag ends on the element that was dragged
+  const dragged = await source.elementHandle();
   await source.dispatchEvent("dragstart", { dataTransfer: transfer });
   await target.dispatchEvent("dragenter", { dataTransfer: transfer });
   await target.dispatchEvent("dragover", { dataTransfer: transfer });
   await target.dispatchEvent("drop", { dataTransfer: transfer });
-  await source.dispatchEvent("dragend", { dataTransfer: transfer });
+  await dragged?.dispatchEvent("dragend", { dataTransfer: transfer });
 }
 const loose = (page: Page) => page.getByRole("region", { name: "Repositories in no project" });
 
