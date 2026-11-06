@@ -899,6 +899,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "libc",
  "pinrail-format",
  "pinrail-runtime",
  "serde_json",

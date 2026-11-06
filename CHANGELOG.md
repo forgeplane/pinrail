@@ -54,6 +54,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- `pinrail` stops quietly when the program reading its output exits,
+  such as `head`, as other command-line tools do.
 - A long reason for a withdrawn review now wraps at the width of the
   review cards in a session's thread.
 - At the large interface size, menus, selects and tooltips open next to

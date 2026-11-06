@@ -773,7 +773,24 @@ fn with_footer(mut command: clap::Command, footer: &str) -> clap::Command {
     command
 }
 
+/// Lets a closed pipe end pinrail, as it ends other command-line tools,
+/// when the program reading its output stops, such as `head`. Rust ignores
+/// SIGPIPE, so the next write fails instead, and a failed `print!` panics.
+///
+/// One call, which Rust has no safe API for. It restores the signal's
+/// default disposition before any other thread exists.
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn end_on_closed_pipe() {
+    // SAFETY: see above
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
 fn main() -> ExitCode {
+    #[cfg(unix)]
+    end_on_closed_pipe();
     // the docs' CLI reference, from this definition; only in a docs build
     #[cfg(feature = "docs")]
     if std::env::args().nth(1).as_deref() == Some("--markdown-help") {

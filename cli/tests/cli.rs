@@ -4083,3 +4083,22 @@ fn items_edit_says_which_sub_items_were_cancelled_with_the_item() {
         "Changed PIN-1 Release.\nCancelled with it: PIN-2 Notes\nCancelled with it: PIN-3 Tag\n"
     );
 }
+
+#[test]
+fn a_closed_output_pipe_stops_pinrail_quietly() {
+    // the reader is gone before pinrail writes, as when it is piped into a
+    // command that exits at once
+    let mut child = pinrail()
+        .arg("docs")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take());
+    let out = child.wait_with_output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!stderr.contains("panicked"), "{stderr}");
+    assert!(stderr.is_empty(), "{stderr}");
+    // ended by the signal, as cat or grep is, and not with a panic's 101
+    assert_ne!(out.status.code(), Some(101));
+}
