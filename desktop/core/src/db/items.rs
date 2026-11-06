@@ -171,6 +171,8 @@ pub struct ItemFilters {
     pub created_by: Option<String>,
     /// words that must all be in the title or the body
     pub text: Option<String>,
+    /// the items a session holds or worked on, by its agent and id
+    pub session: Option<(String, String)>,
 }
 
 /// Why a change to the items was not made.
@@ -692,6 +694,22 @@ impl Db {
         if let Some(by) = &filters.created_by {
             args.push(by.clone());
             wheres.push(format!("i.created_by = ?{}", args.len()));
+        }
+        if let Some((agent, session)) = &filters.session {
+            args.push(agent.clone());
+            let a = args.len();
+            args.push(session.clone());
+            let s = args.len();
+            wheres.push(format!(
+                "((i.claim_agent = ?{a} AND i.claim_session = ?{s})
+                  OR (i.created_by = ?{a} AND i.created_session = ?{s})
+                  OR EXISTS (SELECT 1 FROM work_item_events e WHERE e.item_id = i.id
+                               AND e.actor = ?{a} AND e.session = ?{s})
+                  OR EXISTS (SELECT 1 FROM work_item_comments c WHERE c.item_id = i.id
+                               AND c.author = ?{a} AND c.session = ?{s})
+                  OR EXISTS (SELECT 1 FROM reviews r WHERE r.item_id = i.id
+                               AND r.requested_by = ?{a} AND r.session = ?{s}))"
+            ));
         }
         for word in filters
             .text

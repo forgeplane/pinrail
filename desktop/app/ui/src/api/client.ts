@@ -107,11 +107,16 @@ export const api = {
       `/api/v1/sessions${query(params)}`,
     ),
   /** the work items the filters keep: by default those open or in progress */
-  items: (params: { status?: string; repo?: string; project?: string; q?: string } = {}) =>
-    request<{ items: WorkItem[] }>("GET", `/api/v1/items${query(params)}`),
+  items: (
+    params: { status?: string; repo?: string; project?: string; q?: string; agent?: string; session?: string } = {},
+  ) => request<{ items: WorkItem[] }>("GET", `/api/v1/items${query(params)}`),
   /** adds a work item, as the person */
   addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
     request<WorkItem>("POST", "/api/v1/items", item),
+  /** puts every round of a review under a work item, by its key, or under none */
+  linkReview: (id: string, item: string | null) => request<void>("PUT", `/api/v1/reviews/${seg(id)}/item`, { item }),
+  /** sets a repository's work item key prefix */
+  setPrefix: (repo: string, prefix: string) => request<void>("PATCH", `/api/v1/repos/${seg(repo)}`, { prefix }),
   /** a work item with everything about it */
   item: (key: string) => request<ItemDetail>("GET", `/api/v1/items/${seg(key)}`),
   /** deletes a work item and its sub-items, as the person */

@@ -21,7 +21,7 @@ import { ApiError, api, serverUrl } from "../api/client";
 import type { ItemComment, ItemDetail, ItemEntry, ItemStatus, WorkItem } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
-import { renderNote } from "../lib/markdown";
+import { renderNote, useItemPrefixes } from "../lib/markdown";
 import { reviewPath } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -112,7 +112,9 @@ function Markdown({
     (name: string) => (files.some((f) => f.name === name && f.media_type.startsWith("image/")) ? fileUrl(name) : null),
     [files, fileUrl],
   );
-  const html = useMemo(() => renderNote(text, imageUrl), [text, imageUrl]);
+  const prefixes = useItemPrefixes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
+  const html = useMemo(() => renderNote(text, imageUrl), [text, imageUrl, prefixes]);
   return (
     <div
       className="item-md thread-note-body"

@@ -35,6 +35,7 @@ pub fn routes() -> Router<ApiState> {
             patch(edit_comment).delete(delete_comment),
         )
         .route("/api/v1/items/{item}/files/{name}", get(file))
+        .route("/api/v1/reviews/{id}/item", axum::routing::put(link_review))
 }
 
 /// Who makes the request: the person from the app's window, or the agent
@@ -118,6 +119,9 @@ async fn list(
     filters.project = params.get("project").cloned();
     filters.created_by = params.get("created_by").cloned();
     filters.text = params.get("q").cloned();
+    if let (Some(agent), Some(session)) = (params.get("agent"), params.get("session")) {
+        filters.session = Some((agent.clone(), session.clone()));
+    }
     if let Some(parent) = params.get("parent") {
         let parent = state
             .items()
@@ -413,4 +417,27 @@ async fn file(
         &name,
     )?;
     super::reviews::serve_attachment(&state, &found, &name).await
+}
+
+/// Puts every round of a review under the work item `item` names, by its
+/// key, or under none with null. Answers 204.
+async fn link_review(
+    State(state): State<Arc<Pinrail>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<StatusCode, ApiError> {
+    let body = parse_body(&body)?;
+    let actor = actor(&headers, &body);
+    let item = match body.get("item") {
+        Some(Value::Null) => None,
+        Some(Value::String(named)) => Some(item_ref(named)?),
+        _ => {
+            return Err(
+                Error::invalid("/item", "name the item by its key, or null for none").into(),
+            );
+        }
+    };
+    state.items().link_review(&id, item.as_ref(), &actor)?;
+    Ok(StatusCode::NO_CONTENT)
 }

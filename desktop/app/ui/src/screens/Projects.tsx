@@ -12,6 +12,7 @@ import {
   FolderGit2,
   GripVertical,
   History,
+  KeyRound,
   Inbox,
   LayoutGrid,
   MessagesSquare,
@@ -53,7 +54,8 @@ type Dialog =
   | { kind: "new"; repos: string[] }
   | { kind: "edit"; project: Project }
   | { kind: "delete"; project: Project }
-  | { kind: "delete-repo"; repo: ProjectRepo };
+  | { kind: "delete-repo"; repo: ProjectRepo }
+  | { kind: "prefix"; repo: ProjectRepo };
 
 export function Projects() {
   const live = useLive();
@@ -158,6 +160,11 @@ export function Projects() {
           ? [{ label: `Remove from ${current.name}`, icon: X, onPick: () => move(repo, null) } as MenuEntry]
           : []),
         { kind: "separator" },
+        {
+          label: "Change key prefix…",
+          icon: KeyRound,
+          onPick: () => setDialog({ kind: "prefix", repo: row }),
+        },
         {
           label: "Delete repository…",
           icon: Trash2,
@@ -440,6 +447,18 @@ export function Projects() {
           onClose={() => setDialog(null)}
         />
       ) : null}
+      {dialog?.kind === "prefix" ? (
+        <PrefixDialog
+          repo={dialog.repo}
+          onSave={async (prefix) => {
+            await api.setPrefix(dialog.repo.repo, prefix);
+            setReloads((n) => n + 1);
+            toast(`${dialog.repo.repo}'s work items are keyed ${prefix} now`);
+            setDialog(null);
+          }}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
       {dialog?.kind === "delete-repo" ? (
         <DeleteRepoDialog
           repo={dialog.repo}
@@ -698,6 +717,99 @@ function ProjectDialog({
 }
 
 /** Asks before a project is deleted, saying what stays. */
+/** Changes the prefix of a repository's work item keys. Its old keys still
+ *  find its items, so links and commit messages that name them keep working. */
+function PrefixDialog({
+  repo,
+  onSave,
+  onClose,
+}: {
+  repo: ProjectRepo;
+  onSave: (prefix: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const field = useRef<HTMLInputElement>(null);
+  const [prefix, setPrefix] = useState(repo.prefix ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fieldId = useId();
+  const valid = /^[A-Z]{2,5}$/.test(prefix);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return (
+    <div className="app-dialog-backdrop" onMouseDown={onClose}>
+      <div
+        className="app-dialog project-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="repo-prefix-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-head">
+          <h2 id="repo-prefix-title">Key prefix of {repo.repo}</h2>
+        </div>
+        <p className="dim">
+          {repo.prefix
+            ? `Its work items are keyed ${repo.prefix}, such as ${repo.prefix}-1. Their old keys still find them after a change.`
+            : "Its first work item will take a prefix from its name; you can choose one now."}
+        </p>
+        <form
+          className="repo-delete-confirm"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!valid || busy) return;
+            setBusy(true);
+            setError(null);
+            try {
+              await onSave(prefix);
+            } catch (e) {
+              setError(reason(e));
+              setBusy(false);
+            }
+          }}
+        >
+          <label htmlFor={fieldId}>Two to five capital letters</label>
+          <input
+            ref={field}
+            id={fieldId}
+            className="settings-input"
+            value={prefix}
+            maxLength={5}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            onChange={(e) => setPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+          />
+          {error ? <p className="notice notice-danger">{error}</p> : null}
+          <div className="dialog-actions">
+            <button type="button" className="chrome-button" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="chrome-button button-primary"
+              disabled={!valid || busy || prefix === repo.prefix}
+            >
+              Change prefix
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DeleteRepoDialog({
   repo,
   onDelete,
@@ -735,8 +847,8 @@ function DeleteRepoDialog({
           <h2 id="repo-delete-title">Delete {repo.repo}?</h2>
         </div>
         <p className="dim">
-          All of its reviews, questions and sessions will be deleted from Pinrail, including the history. This cannot be
-          undone.
+          All of its work items, reviews, questions and sessions will be deleted from Pinrail, including the history.
+          This cannot be undone.
         </p>
         {repo.waiting ? (
           <p className="dim" data-testid="repo-delete-waiting">

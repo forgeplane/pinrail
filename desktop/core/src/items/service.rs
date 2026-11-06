@@ -500,6 +500,27 @@ impl Items {
         Ok(count)
     }
 
+    /// Puts every round of a review under an item, or under none.
+    pub fn link_review(
+        &self,
+        review: &str,
+        item: Option<&ItemRef>,
+        actor: &Actor,
+    ) -> Result<(), Error> {
+        let rounds: Vec<String> = self.db.rounds(review)?.into_iter().map(|r| r.id).collect();
+        if rounds.is_empty() {
+            return Err(Error::NotFound(format!("review {review}")));
+        }
+        let linked = self
+            .db
+            .set_review_item(&rounds, item, actor, Utc::now())?
+            .map_err(refused)?;
+        if let Some(id) = linked {
+            self.announce(events::ITEM_CHANGED, &self.get(&ItemRef::Id(id), None)?)?;
+        }
+        Ok(())
+    }
+
     /// Sets a repository's key prefix.
     pub fn set_prefix(&self, repo: &str, prefix: &str) -> Result<(), Error> {
         self.db

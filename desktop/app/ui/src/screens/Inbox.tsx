@@ -7,6 +7,7 @@ import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
 import { Tooltip } from "../components/Tooltip";
+import { ItemChip } from "../components/ItemChip";
 import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
@@ -307,6 +308,7 @@ function Waiting() {
               {review.requested_by}
             </span>
           ) : null}
+          {review.item ? <ItemChip item={review.item} inLink /> : null}
           {review.requested_by && review.origin.workflow ? <span>·</span> : null}
           {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
           {review.revises ? <span>· New round</span> : null}

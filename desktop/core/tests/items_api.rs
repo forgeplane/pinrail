@@ -1313,3 +1313,108 @@ async fn cancelling_an_item_cancels_its_open_sub_items_at_any_depth() {
     assert_eq!(code, StatusCode::OK);
     assert_eq!(item(&app, "PIN-7").await["status"], "cancelled");
 }
+
+#[tokio::test]
+async fn a_reviews_item_is_set_and_changed_on_every_round() {
+    let app = app();
+    add(&app, "First").await;
+    add(&app, "Second").await;
+    let (_, one) = submit(&app, review("s-1", "Theme loader", Some(Value::Null))).await;
+    let mut next = review("s-1", "Theme loader", Some(Value::Null));
+    next["revises"] = one["id"].clone();
+    let (_, two) = submit(&app, next).await;
+    let path = format!("/api/v1/reviews/{}/item", two["id"].as_str().unwrap());
+    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": "PIN-2"}))).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    for id in [&one["id"], &two["id"]] {
+        let (_, read) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/reviews/{}", id.as_str().unwrap()),
+            None,
+        )
+        .await;
+        assert_eq!(read["item"]["key"], "PIN-2", "{id}");
+    }
+    let second = item(&app, "PIN-2").await;
+    assert_eq!(second["reviews"][0]["title"], "Theme loader");
+    assert_eq!(timeline_kinds(&second).last().unwrap(), "review_linked");
+    // and to none
+    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": null}))).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    assert!(
+        item(&app, "PIN-2").await["reviews"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    // an unknown item or review is not found
+    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": "PIN-9"}))).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+    let (code, _) = call(
+        &app,
+        "PUT",
+        "/api/v1/reviews/r_none/item",
+        Some(json!({"item": "PIN-1"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_list_narrows_to_the_items_a_session_holds_or_worked_on() {
+    let app = app();
+    for t in [
+        "Added by s-1",
+        "Held by s-2",
+        "Commented by s-2",
+        "Reviewed by s-2",
+        "Untouched",
+    ] {
+        add(&app, t).await;
+    }
+    edit(&app, "PIN-2", "s-2", json!({"claim": "claim"})).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-3/comments",
+        "s-2",
+        json!({"body": "Noted"}),
+    )
+    .await;
+    submit(&app, review("s-2", "For it", Some(json!("PIN-4")))).await;
+    let (_, listed) = call(
+        &app,
+        "GET",
+        "/api/v1/items?agent=claude-code&session=s-2",
+        None,
+    )
+    .await;
+    assert_eq!(keys(&listed["items"]), ["PIN-2", "PIN-3", "PIN-4"]);
+    let (_, listed) = call(
+        &app,
+        "GET",
+        "/api/v1/items?agent=claude-code&session=s-1",
+        None,
+    )
+    .await;
+    assert_eq!(
+        keys(&listed["items"]),
+        ["PIN-1", "PIN-2", "PIN-3", "PIN-4", "PIN-5"]
+    );
+}
+
+#[tokio::test]
+async fn the_projects_listing_gives_each_repository_its_prefix_and_shows_one_with_items_alone() {
+    let app = app();
+    add(&app, "Work").await;
+    let (_, listing) = call(&app, "GET", "/api/v1/projects", None).await;
+    let repo = listing["loose"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["repo"] == REPO)
+        .cloned()
+        .unwrap();
+    assert_eq!(repo["prefix"], "PIN");
+}

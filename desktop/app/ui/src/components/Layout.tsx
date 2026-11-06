@@ -36,6 +36,7 @@ import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
+import { setItemPrefixes } from "../lib/markdown";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { chooseTheme, chosenTheme } from "../lib/themes";
 import { SidebarProjects } from "./SidebarProjects";
@@ -108,6 +109,19 @@ function isTyping(target: EventTarget | null) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
+  // the repositories' key prefixes, for the links to work items in what
+  // the app shows, as projects and items change
+  const prefixNotice = live.lastNotice?.kind === "item_changed" ? live.lastNotice.event_id : 0;
+  useEffect(() => {
+    api
+      .projects()
+      .then((l) =>
+        setItemPrefixes(
+          [...l.projects.flatMap((p) => p.repos), ...l.loose].map((r) => r.prefix).filter((p): p is string => !!p),
+        ),
+      )
+      .catch(() => {});
+  }, [live.projectsVersion, live.connected, prefixNotice]);
   // how many work items are open or in progress, beside their entry, as
   // anything changes: what the page lists when it opens
   const [openItems, setOpenItems] = useState(0);

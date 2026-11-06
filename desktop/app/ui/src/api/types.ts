@@ -85,7 +85,12 @@ export type Review = {
   starred?: boolean;
   /** the project its repository is in */
   project?: ProjectRef | null;
+  /** the work item it belongs to */
+  item?: ItemTag | null;
 };
+
+/** The work item a review belongs to, as the review carries it. */
+export type ItemTag = { id: string; key: string; title: string };
 
 /** A project as a review or a session names it. */
 export type ProjectRef = {
@@ -107,6 +112,8 @@ export type ProjectRepo = {
   waiting: number;
   /** its latest session activity or review */
   last_at: string | null;
+  /** the prefix of its work items' keys, once it has one */
+  prefix?: string | null;
 };
 
 /** A named set of repositories the inbox and the sidebar can group by. */

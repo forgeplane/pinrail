@@ -61,12 +61,15 @@ pub struct RepoRow {
     pub waiting: usize,
     /// its latest session activity or review
     pub last_at: Option<DateTime<Utc>>,
+    /// the prefix of its work items' keys, once it has one
+    pub prefix: Option<String>,
 }
 
 impl RepoRow {
     pub fn to_json(&self) -> Value {
         json!({
             "repo": self.repo,
+            "prefix": self.prefix,
             "sessions": self.sessions,
             "waiting": self.waiting,
             "last_at": self.last_at.map(crate::reviews::iso),
@@ -183,11 +186,13 @@ impl Db {
                   AND (r.expires_at IS NULL OR r.expires_at > ?1)
                   AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
                (SELECT MAX(s.last_at) FROM sessions s WHERE s.repo_id = g.id),
-               (SELECT MAX(r.created_at) FROM reviews r WHERE r.repo_id = g.id)
+               (SELECT MAX(r.created_at) FROM reviews r WHERE r.repo_id = g.id),
+               g.prefix
              FROM repos g
              WHERE g.project_id IS NOT NULL
                 OR EXISTS (SELECT 1 FROM sessions s WHERE s.repo_id = g.id)
                 OR EXISTS (SELECT 1 FROM reviews r WHERE r.repo_id = g.id)
+                OR EXISTS (SELECT 1 FROM work_items w WHERE w.repo_id = g.id)
              ORDER BY g.name",
         )?;
         let repos = stmt
@@ -203,6 +208,7 @@ impl Db {
                     sessions: row.get::<_, i64>(2)? as usize,
                     waiting: row.get::<_, i64>(3)? as usize,
                     last_at: time(4)?.max(time(5)?),
+                    prefix: row.get(6)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;

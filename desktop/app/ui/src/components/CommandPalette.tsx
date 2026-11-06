@@ -1,15 +1,17 @@
-// Search across the app: pending reviews, decided ones, the stages agents
-// started, plugins and the shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
+// Search across the app: pending reviews, decided ones, work items, the
+// stages agents started, plugins and the shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
 // Tab cycles the filter, Escape closes.
 
 import { GitCommitHorizontal, Search, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
-import type { Plugin, Review, Stage } from "../api/types";
+import type { Plugin, Review, Stage, WorkItem } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
 import { AgentIcon } from "./AgentIcon";
+import { itemPath } from "./ItemChip";
+import { ItemStatusIcon } from "./ItemStatusIcon";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { OutcomeBadge } from "./Badges";
@@ -25,11 +27,12 @@ export type PaletteAction = {
   run: () => void;
 };
 
-type Filter = "all" | "inbox" | "history" | "stages" | "plugins" | "actions";
+type Filter = "all" | "inbox" | "history" | "items" | "stages" | "plugins" | "actions";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "inbox", label: "Inbox" },
   { key: "history", label: "History" },
+  { key: "items", label: "Work items" },
   { key: "stages", label: "Stages" },
   { key: "plugins", label: "Plugins" },
   { key: "actions", label: "Actions" },
@@ -40,6 +43,7 @@ type Item = { key: string; group: Filter; title: ReactNode; meta?: ReactNode; ic
 const GROUP_TITLES: Record<Exclude<Filter, "all">, [string, string]> = {
   inbox: ["Pending reviews", "Pending reviews"],
   history: ["Recent decisions", "Decisions"],
+  items: ["Work items", "Work items"],
   stages: ["Stages", "Stages"],
   plugins: ["Plugins", "Plugins"],
   actions: ["Actions", "Actions"],
@@ -71,6 +75,7 @@ export function CommandPalette({
   const [history, setHistory] = useState<Review[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
@@ -85,6 +90,11 @@ export function CommandPalette({
       .plugins()
       .then(({ plugins }) => setPlugins(plugins))
       .catch(() => setPlugins([]));
+    // every work item, found by its key or its title as the person types
+    api
+      .items({ status: "open,in_progress,done,cancelled" })
+      .then(({ items }) => setWorkItems(items))
+      .catch(() => setWorkItems([]));
     const focus = window.setTimeout(() => input.current?.focus(), 0);
     return () => window.clearTimeout(focus);
   }, [open]);
@@ -176,6 +186,33 @@ export function CommandPalette({
         });
       }
     }
+    if (want("items") && (q || filter === "items")) {
+      // what is not closed first, then by key
+      const found = workItems
+        .filter((i) => matches(q, i.key.toLowerCase(), i.title))
+        .sort(
+          (a, b) =>
+            Number(a.status === "done" || a.status === "cancelled") -
+              Number(b.status === "done" || b.status === "cancelled") ||
+            a.repo.localeCompare(b.repo) ||
+            a.number - b.number,
+        );
+      for (const i of all ? found.slice(0, 5) : found) {
+        out.push({
+          key: `item:${i.id}`,
+          group: "items",
+          icon: <ItemStatusIcon status={i.status} />,
+          title: i.title,
+          meta: (
+            <>
+              <span className="mono">{i.key}</span>
+              <span>{i.repo}</span>
+            </>
+          ),
+          run: () => navigate(itemPath(i.key)),
+        });
+      }
+    }
     if (labs.sessions && want("stages")) {
       for (const s of stages) {
         out.push({
@@ -234,7 +271,7 @@ export function CommandPalette({
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, stages, plugins, actions, navigate, openIn, labs.sessions]);
+  }, [all, filter, q, waiting, history, workItems, stages, plugins, actions, navigate, openIn, labs.sessions]);
 
   useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {

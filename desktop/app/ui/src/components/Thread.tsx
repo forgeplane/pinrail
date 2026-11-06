@@ -33,11 +33,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from "react-dom";
 import { Link, useNavigate, type To } from "react-router";
 import { ApiError, api } from "../api/client";
-import type { Answer, Question, Review, Session, SessionMessage, SessionStatus } from "../api/types";
+import type { Answer, Question, Review, Session, SessionMessage, SessionStatus, WorkItem } from "../api/types";
 import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
-import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote } from "../lib/markdown";
+import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote, useItemPrefixes } from "../lib/markdown";
 import { openAgentLink } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
 import { useUrlParams } from "../lib/url";
@@ -54,6 +54,8 @@ import {
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
+import { ItemChip, itemPath } from "./ItemChip";
+import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { ComposeField } from "./ComposeField";
@@ -187,6 +189,28 @@ export function Thread({
   };
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
+  // the work items the session holds or worked on, with what changes them
+  const [sessionItems, setSessionItems] = useState<WorkItem[]>([]);
+  useEffect(() => {
+    if (!named) return;
+    let cancelled = false;
+    api
+      .items({ agent: named.agent, session: named.id, status: "open,in_progress,done,cancelled" })
+      .then((d) => !cancelled && setSessionItems(d.items))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [named?.agent, named?.id, live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- the session's names, not the object
+  // what the session holds now, in its header; every item it worked on, in
+  // its details, those in progress first and the closed ones last
+  const held = sessionItems.filter(
+    (i) => i.status === "in_progress" && i.claim?.agent === named?.agent && i.claim?.session === named?.id,
+  );
+  const STANDING = { in_progress: 0, open: 1, done: 2, cancelled: 3 } as const;
+  const workedOn = [...sessionItems].sort(
+    (a, b) => STANDING[a.status] - STANDING[b.status] || a.repo.localeCompare(b.repo) || a.number - b.number,
+  );
   const navigate = useNavigate();
   // a side panel has details only for a question asked in a session
   const hasDetails = !inPanel || !!named;
@@ -444,6 +468,11 @@ export function Thread({
               )
             ) : null}
             {named ? <CopySessionId id={named.id} /> : null}
+            {held.map((item) => (
+              <span key={item.key} className="thread-meta-item" data-testid="thread-held-item">
+                working on <ItemChip item={item} />
+              </span>
+            ))}
           </div>
         </div>
         <span className="thread-head-end">
@@ -657,6 +686,27 @@ export function Thread({
                       </span>
                     </span>
                   </a>
+                ))}
+              </section>
+            ) : null}
+            {workedOn.length > 0 ? (
+              <section aria-label="Work items" data-testid="thread-work-items">
+                <h2>Work items · {workedOn.length}</h2>
+                {workedOn.map((item) => (
+                  <Link
+                    key={item.key}
+                    to={itemPath(item.key)}
+                    className={`thread-waiting-item ${item.status === "done" || item.status === "cancelled" ? "is-ended" : ""}`}
+                    data-testid="thread-work-item"
+                  >
+                    <ItemStatusIcon status={item.status} />
+                    <span className="thread-waiting-item-text">
+                      <span className="text">{item.title}</span>
+                      <span className="faint">
+                        <span className="mono">{item.key}</span> · {STATUS_LABEL[item.status].toLowerCase()}
+                      </span>
+                    </span>
+                  </Link>
                 ))}
               </section>
             ) : null}
@@ -885,6 +935,13 @@ export function statusLine(status: SessionStatus): string {
 }
 
 /** Text the agent reported, with its links opened in the browser. */
+/** Follows a link in what an agent wrote: a work item's key opens the item
+ *  in the app, and any other link opens in the browser. */
+function followLink(link: HTMLAnchorElement) {
+  if (link.dataset.item) window.location.hash = itemPath(link.dataset.item);
+  else openAgentLink(link.href);
+}
+
 function Linked({ text }: { text: string }) {
   const html = useMemo(() => renderLinks(text), [text]);
   return (
@@ -893,7 +950,7 @@ function Linked({ text }: { text: string }) {
         const link = (e.target as HTMLElement).closest("a");
         if (!link) return;
         e.preventDefault();
-        openAgentLink(link.href);
+        followLink(link);
       }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -974,7 +1031,9 @@ function NoteMessage({
     (name: string) => (files.some((f) => f.name === name && f.media_type.startsWith("image/")) ? url(name) : null),
     [files, url],
   );
-  const html = useMemo(() => renderNote(status.text, imageUrl), [status.text, imageUrl]);
+  const prefixes = useItemPrefixes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
+  const html = useMemo(() => renderNote(status.text, imageUrl), [status.text, imageUrl, prefixes]);
   const body = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
@@ -1007,7 +1066,7 @@ function NoteMessage({
             e.preventDefault();
             const file = link.dataset.attachment;
             if (file !== undefined) void save(file);
-            else openAgentLink(link.href);
+            else followLink(link);
           }}
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -1516,7 +1575,7 @@ function QuestionMessage({
                 const link = (e.target as HTMLElement).closest("a");
                 if (!link) return;
                 e.preventDefault();
-                openAgentLink(link.href);
+                followLink(link);
               }}
               dangerouslySetInnerHTML={{ __html: renderInline(question.question) }}
             />
@@ -1874,7 +1933,9 @@ function AnswerLine({ question, answer, review }: { question: Question; answer?:
 
 /** A question's context, as Markdown, with its links opened in the browser. */
 function Context({ text }: { text: string }) {
-  const html = useMemo(() => renderMarkdown(text), [text]);
+  const prefixes = useItemPrefixes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
+  const html = useMemo(() => renderMarkdown(text), [text, prefixes]);
   return (
     <div
       className="msg-context"
@@ -1882,7 +1943,7 @@ function Context({ text }: { text: string }) {
         const link = (e.target as HTMLElement).closest("a");
         if (!link) return;
         e.preventDefault();
-        openAgentLink(link.href);
+        followLink(link);
       }}
       dangerouslySetInnerHTML={{ __html: html }}
     />

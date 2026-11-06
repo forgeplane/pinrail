@@ -6745,3 +6745,58 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .dep-node-remove:focus-visible {
   display: inline-flex;
 }
+
+/* a work item named where something belongs to it */
+.item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 260px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 11.5px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.item-chip:hover {
+  text-decoration: none;
+  filter: brightness(1.15);
+}
+.item-chip .mono {
+  flex: none;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.item-chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.review-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.review-item .select-trigger {
+  padding: 1px 7px;
+  font-size: 11.5px;
+}
+.thread-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* a work item's key in Markdown, linking to it */
+a.item-ref {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.92em;
+  text-decoration: none;
+}

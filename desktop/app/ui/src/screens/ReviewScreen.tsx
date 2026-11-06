@@ -31,6 +31,7 @@ import { DeleteReviewDialog } from "../components/DeleteReviewDialog";
 import { FindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
 import { StarButton, useToggleStar } from "../components/StarButton";
+import { ReviewItem } from "../components/ReviewItem";
 import { Thread, sessionOf, sessionPath } from "../components/Thread";
 import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
@@ -816,6 +817,7 @@ export function ReviewView({
             </span>
           ) : null}
           <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+          <ReviewItem review={review} onChanged={() => void load()} />
           {review.expires_at ? (
             <span className="with-icon" title={stamp(review.expires_at)}>
               <Clock size={13} /> expires {stamp(review.expires_at)}

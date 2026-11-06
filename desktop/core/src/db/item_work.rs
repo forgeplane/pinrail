@@ -1024,6 +1024,51 @@ impl Db {
             .map(Option::flatten)
     }
 
+    /// Puts every round of a review under an item, or under none, with an
+    /// entry on the item's timeline. `rounds` are the review's rounds,
+    /// oldest first.
+    pub fn set_review_item(
+        &self,
+        rounds: &[String],
+        item: Option<&ItemRef>,
+        actor: &Actor,
+        at: DateTime<Utc>,
+    ) -> Outcome<Option<String>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let id = match item {
+            Some(item) => match resolve(&tx, item, None)? {
+                Ok(id) => Some(id),
+                Err(refused) => return Ok(Err(refused)),
+            },
+            None => None,
+        };
+        for round in rounds {
+            tx.execute(
+                "UPDATE reviews SET item_id = ?2 WHERE id = ?1",
+                params![round, id],
+            )?;
+        }
+        if let (Some(id), Some(newest)) = (&id, rounds.last()) {
+            let (title, kind): (String, String) = tx.query_row(
+                "SELECT title, kind FROM reviews WHERE id = ?1",
+                params![newest],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            item_event(
+                &tx,
+                id,
+                "review_linked",
+                actor,
+                json!({"review": newest, "title": title, "kind": kind}),
+                at,
+            )?;
+            touch(&tx, id, at)?;
+        }
+        tx.commit()?;
+        Ok(Ok(id))
+    }
+
     /// Records a change made outside `edit_item`, such as an item added.
     pub fn record_item_event(
         &self,
