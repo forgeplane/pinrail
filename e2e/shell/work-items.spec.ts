@@ -37,6 +37,15 @@ const rows = (page: Page) => page.getByTestId("item-row");
 const row = (page: Page, key: string) => page.locator(`[data-testid="item-row"][data-key="${key}"]`);
 const keys = (page: Page) => rows(page).evaluateAll((els) => els.map((e) => e.getAttribute("data-key")));
 
+/** Chooses `option` in a submenu of the Filter or the Display menu, and
+ *  closes the menu. */
+async function pick(page: Page, menu: "Filter" | "Display options", submenu: string, option: string) {
+  await page.getByRole("button", { name: menu, exact: true }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${submenu}`) }).click();
+  await page.getByRole("menuitemradio", { name: option, exact: true }).click();
+  await page.keyboard.press("Escape");
+}
+
 /** The page, filtered to one repository, or to a project with `project:`. */
 async function open(page: Page, scope: string, extra = "") {
   const param = scope.startsWith("project:") ? `project=${scope.slice(8)}` : `repo=${encodeURIComponent(scope)}`;
@@ -117,13 +126,15 @@ test("sub-items are nested under their parent and fold with it, or flat, naming 
   await page.getByRole("button", { name: `Show the sub-items of ${parent.key}`, exact: true }).click();
   expect(await keys(page)).toEqual([parent.key, child.key, grandchild.key]);
 
-  await page.getByRole("radio", { name: "Flat" }).click();
+  await pick(page, "Display options", "Sub-items", "Flat");
   await settingSaved(request, (s) => s.items.nesting, "flat");
   await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
   expect(await indent(child.key)).toBe(await indent(parent.key));
   // the choice is kept
   await page.reload();
-  await expect(page.getByRole("radio", { name: "Flat" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Display options" }).click();
+  await expect(page.getByRole("menuitem", { name: /^Sub-items/ })).toContainText("Flat");
+  await page.keyboard.press("Escape");
   await expect(row(page, grandchild.key).locator(".item-parent")).toHaveText(`in ${child.key}`);
 });
 
@@ -157,17 +168,19 @@ test("the items are grouped by project, by repository or in one list, and the ch
   // in a project of several repositories, each row names its repository
   await expect(row(page, a.key).locator(".item-repo")).toHaveText(api);
 
-  await page.getByRole("radio", { name: "Grouped by repository" }).click();
+  await pick(page, "Display options", "Grouping", "Repository");
   await settingSaved(request, (s) => s.items.layout, "repository");
   await expect(headings).toHaveCount(2);
   await expect(row(page, a.key).locator(".item-repo")).toHaveCount(0);
 
-  await page.getByRole("radio", { name: "One list" }).click();
+  await pick(page, "Display options", "Grouping", "None");
   await settingSaved(request, (s) => s.items.layout, "list");
   await expect(headings).toHaveCount(0);
   await expect(row(page, w.key).locator(".item-repo")).toHaveText(web);
   await page.reload();
-  await expect(page.getByRole("radio", { name: "One list" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Display options" }).click();
+  await expect(page.getByRole("menuitem", { name: /^Grouping/ })).toContainText("None");
+  await page.keyboard.press("Escape");
   await request.delete(`${core}/api/v1/projects/${project.id}`);
 });
 
@@ -190,27 +203,35 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await open(page, repo);
   expect(await keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
 
-  // by default the list shows the items open or in progress, which it calls open
-  await expect(page.getByRole("button", { name: "Status", exact: true })).toHaveText("Open");
-  const choose = async (label: string, option: string) => {
-    await page.getByRole("button", { name: label, exact: true }).click();
-    await page.getByRole("option", { name: option, exact: true }).click();
-  };
+  // by default the list shows the items open or in progress, which it calls
+  // open, and no chip says so: only the repository is a filter
+  const chips = page.getByTestId("filter-chip");
+  await expect(chips).toHaveCount(1);
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: /^Status/ })).toContainText("Open");
+  await page.keyboard.press("Escape");
+  const choose = (label: string, option: string) => pick(page, "Filter", label, option);
   await choose("Status", "Ready");
+  await expect(chips.filter({ hasText: "Status" })).toHaveText("Status: Ready");
   await expect.poll(() => keys(page)).toEqual([ready.key, mine.key, personKey]);
   await choose("Status", "Blocked");
   await expect.poll(() => keys(page)).toEqual([blocked.key]);
   await choose("Status", "Done");
   await expect.poll(() => keys(page)).toEqual([done.key]);
   await choose("Status", "Open");
-  await choose("Created by", "Created by you");
+  // back to the default, the status chip goes
+  await expect(chips.filter({ hasText: "Status" })).toHaveCount(0);
+  await choose("Created by", "You");
   await expect.poll(() => keys(page)).toEqual([personKey]);
-  await choose("Created by", "Created by anyone");
-  await page.getByRole("button", { name: "Waiting on you" }).click();
+  // a chip removes its filter
+  await chips.filter({ hasText: "Created by" }).getByRole("button", { name: "Remove the Created by filter" }).click();
+  await expect.poll(() => keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Waiting on you" }).click();
+  await page.keyboard.press("Escape");
   await expect(page.getByText("No matching work items")).toBeVisible();
-  const clear = page.getByRole("button", { name: "Clear filters" });
-  await expect(clear.locator("svg")).toBeVisible();
-  await clear.click();
+  await expect(chips).toHaveText(["Project or repository: " + repo, "Waiting on you"]);
+  await page.getByRole("button", { name: "Clear filters" }).click();
   // clearing drops the repository too; the list holds others' items now
   await expect(page).not.toHaveURL(/repo=/);
   await open(page, repo);
@@ -420,9 +441,9 @@ test("what is typed as soon as the quick add opens is kept", async ({ page, requ
     await open(page, repo);
     await expect(rows(page).first()).toBeVisible();
     await page.waitForTimeout(300);
-    await page.getByRole("radio", { name: "Flat" }).click();
+    await request.patch(`${core}/api/v1/settings`, { data: { items: { nesting: "flat" } } });
     await page.waitForTimeout(300);
-    await page.getByRole("radio", { name: "Nested" }).click();
+    await request.patch(`${core}/api/v1/settings`, { data: { items: { nesting: "nested" } } });
     await page.keyboard.press("c");
     const field = page.getByLabel("What needs to be done?");
     await field.fill(`Round ${round}`);
@@ -433,11 +454,11 @@ test("what is typed as soon as the quick add opens is kept", async ({ page, requ
   await request.patch(`${core}/api/v1/settings`, { data: { appearance: { theme } } });
 });
 
-test("each choice of the status filter shows its status's icon, and the trigger the chosen one's", async ({ page }) => {
+test("each choice of the status filter shows its status's icon, and its chip the chosen one's", async ({ page }) => {
   await open(page, fresh("icons"));
-  const trigger = page.getByRole("button", { name: "Status", exact: true });
-  await trigger.click();
-  const listbox = page.getByRole("listbox", { name: "Status" });
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Status/ }).click();
+  const listbox = page.getByRole("menu", { name: "Status" });
   for (const [name, mark] of [
     ["Ready", ".item-status.is-open"],
     ["Blocked", ".item-status-blocked"],
@@ -447,11 +468,14 @@ test("each choice of the status filter shows its status's icon, and the trigger 
     ["Cancelled", ".item-status.is-cancelled"],
   ]) {
     // the icon says nothing the name does not: the option keeps its plain name
-    const option = listbox.getByRole("option", { name, exact: true });
-    await expect(option.locator(`.select-option-icon ${mark}`)).toBeVisible();
+    const option = listbox.getByRole("menuitemradio", { name, exact: true });
+    await expect(option.locator(`.menu-mark ${mark}`)).toBeVisible();
   }
-  await listbox.getByRole("option", { name: "Done", exact: true }).click();
-  await expect(trigger.locator(".select-icon .item-status.is-done")).toBeVisible();
+  await listbox.getByRole("menuitemradio", { name: "Done", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByTestId("filter-chip").filter({ hasText: "Status" }).locator(".item-status.is-done"),
+  ).toBeVisible();
 });
 
 test("an item dragged onto another becomes its sub-item, unless that closes a cycle", async ({ page, request }) => {

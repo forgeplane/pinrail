@@ -1,12 +1,11 @@
 // The menu of the sidebar's sessions heading: how the sessions are grouped,
-// ordered and shown, and which are listed. Items with a submenu open it to
-// the right on hover or click. The menu is drawn at the end of the body, so
-// the sidebar's scrolling cannot clip it.
+// ordered and shown, and which are listed, from the parts of an options
+// menu.
 
-import { Check, ChevronRight, CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { viewportRect } from "../lib/viewport";
+import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
 import {
   type Choices,
   type Detail,
@@ -52,28 +51,6 @@ const STATES: [State, string][] = [
 /** A project or a repository the sessions can be filtered by. */
 export type ScopeChoice = { value: string; label: string; icon: ReactNode };
 
-type Option = {
-  value: string;
-  label: string;
-  checked: boolean;
-  onPick: () => void;
-  radio?: boolean;
-  icon?: LucideIcon;
-  /** a picture in place of the icon, such as a project's avatar */
-  mark?: ReactNode;
-  /** why the option does not apply now, when it does not */
-  disabled?: string;
-};
-
-/** Moves a submenu up, beside its item, as far as it runs past the
- *  window's bottom. */
-function fitInWindow(node: HTMLElement | null) {
-  if (!node) return;
-  node.style.top = "";
-  const over = node.getBoundingClientRect().bottom - (window.innerHeight - 8);
-  if (over > 0) node.style.top = `${parseFloat(getComputedStyle(node).top) - over}px`;
-}
-
 /** A list of strings with one value turned on or off. */
 const toggled = <T extends string>(list: T[], value: T) =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -99,40 +76,8 @@ export function SidebarSessionsMenu({
   onCollapseAll: (collapse: boolean) => void;
   onClose: () => void;
 }) {
-  const menu = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<string | null>(null);
-  // what is typed in a searchable submenu
-  const [query, setQuery] = useState("");
-  useEffect(() => setQuery(""), [open]);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    const box = viewportRect(anchor);
-    setPos({ top: box.bottom + 4, left: box.left });
-  }, [anchor]);
-
-  // a click outside, Escape or a scroll closes the menu
-  useEffect(() => {
-    const onDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!menu.current?.contains(target) && !anchor.contains(target)) onClose();
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      anchor.focus();
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey, true);
-    };
-  }, [anchor, onClose]);
-
-  const radios = <T extends string>(list: [T, string][], value: T, pick: (v: T) => void): Option[] =>
+  const { menu, pos, setOpen, submenu, toggle } = useOptionsMenu(anchor, onClose);
+  const radios = <T extends string>(list: [T, string][], value: T, pick: (v: T) => void): MenuOption[] =>
     list.map(([v, label]) => ({
       value: v,
       label,
@@ -141,89 +86,10 @@ export function SidebarSessionsMenu({
       radio: true,
       icon: ICONS[v as Grouping],
     }));
-  const checks = <T extends string>(list: [T, string][], values: T[], pick: (v: T) => void): Option[] =>
+  const checks = <T extends string>(list: [T, string][], values: T[], pick: (v: T) => void): MenuOption[] =>
     list.map(([v, label]) => ({ value: v, label, checked: values.includes(v), onPick: () => pick(v) }));
   const named = (values: string[], all: string) => (values.length ? values.join(", ") : all);
   const label = (list: [string, string][], value: string) => list.find(([v]) => v === value)?.[1] ?? "";
-
-  const submenu = (key: string, text: string, value: string, all: Option[], searchable = false) => {
-    const words = query.trim().toLowerCase();
-    const options = searchable && words ? all.filter((o) => o.label.toLowerCase().includes(words)) : all;
-    return (
-      <div className="menu-sub" onMouseEnter={() => setOpen(key)}>
-        <button
-          type="button"
-          role="menuitem"
-          aria-haspopup="menu"
-          aria-expanded={open === key}
-          className={`menu-item ${open === key ? "is-open" : ""}`}
-          // the pointer opened it already on its way to the click
-          onClick={() => setOpen(key)}
-        >
-          {text}
-          <span className="menu-value">{value}</span>
-          <ChevronRight size={13} className="menu-chevron" />
-        </button>
-        {open === key ? (
-          <div
-            ref={fitInWindow}
-            className={`menu-popup menu-submenu ${searchable ? "is-searchable" : ""}`}
-            role="menu"
-            aria-label={text}
-          >
-            {searchable && all.length ? (
-              <input
-                autoFocus
-                className="select-search"
-                type="text"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder="Type to filter"
-                aria-label={`Filter ${text.toLowerCase()}`}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            ) : null}
-            {all.length === 0 ? <div className="menu-note">None yet</div> : null}
-            {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
-            {options.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
-                aria-checked={o.checked}
-                className="menu-item"
-                disabled={!!o.disabled}
-                title={o.disabled}
-                onClick={o.onPick}
-              >
-                {o.mark ? <span className="menu-icon menu-mark">{o.mark}</span> : null}
-                {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
-                <span className="menu-label">{o.label}</span>
-                {o.checked ? <Check size={13} className="menu-check" /> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-  const toggle = (text: string, checked: boolean, onPick: () => void, extra?: ReactNode) => (
-    <button
-      type="button"
-      role="menuitemcheckbox"
-      aria-checked={checked}
-      className="menu-item"
-      onMouseEnter={() => setOpen(null)}
-      onClick={onPick}
-    >
-      {text}
-      {extra}
-      {checked ? <Check size={13} className="menu-check" /> : null}
-    </button>
-  );
 
   if (!pos) return null;
   return createPortal(

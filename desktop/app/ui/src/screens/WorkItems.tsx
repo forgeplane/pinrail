@@ -6,11 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  FilterX,
   FolderGit2,
   ListChecks,
-  ListTree,
-  List as ListIcon,
   Lock,
   Plus,
   Search,
@@ -33,7 +30,7 @@ import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { GroupHeading } from "../components/GroupHeading";
 import { ItemStatusIcon } from "../components/ItemStatusIcon";
-import { LayoutSwitch } from "../components/LayoutSwitch";
+import { FilterChips, ItemMenuButtons, type Filter, type Toggle } from "../components/WorkItemsMenus";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
@@ -420,6 +417,58 @@ export function WorkItems() {
     );
   };
 
+  // the page's filters, in the Filter menu and as chips while they are on
+  const clearFilters = () =>
+    updateParams(
+      (next) => {
+        for (const key of ["q", "status", "repo", "project", "by", "waiting"]) next.delete(key);
+      },
+      { replace: true },
+    );
+  const filters: Filter[] = [
+    {
+      key: "status",
+      label: "Status",
+      value: status,
+      off: "",
+      choices: STATUSES.map((s) => ({ value: s.value, label: s.label, mark: statusIcon(s.value) })),
+      onChange: (v) => setParam("status", v || null),
+    },
+    {
+      key: "scope",
+      label: "Project or repository",
+      value: scope,
+      off: "",
+      searchable: true,
+      choices: scopeOptions(
+        live.namedProjects,
+        [...new Set((items ?? []).map((i) => i.repo))].sort(),
+        false,
+        scope,
+      ).map((o) => ({
+        value: o.value,
+        label: o.label,
+        mark: o.project ? <ProjectAvatar project={o.project} size={14} /> : <FolderGit2 size={13} />,
+      })),
+      onChange: (v) => updateParams((next) => setScope(next, v), { replace: true }),
+    },
+    {
+      key: "by",
+      label: "Created by",
+      value: by,
+      off: "",
+      choices: [
+        { value: "", label: "Anyone" },
+        { value: "person", label: "You" },
+        ...agents.map((a) => ({ value: a, label: a, mark: <AgentIcon requestedBy={a} size={13} /> })),
+      ],
+      onChange: (v) => setParam("by", v || null),
+    },
+  ];
+  const toggles: Toggle[] = [
+    { key: "waiting", label: "Waiting on you", on: waiting, onChange: (on) => setParam("waiting", on ? "1" : null) },
+  ];
+
   let index = -1;
   return (
     <div className={`work-items ${openKey ? "has-panel" : ""}`} ref={split}>
@@ -447,98 +496,18 @@ export function WorkItems() {
                 }}
               />
             </label>
-            <LayoutSwitch
-              value={layout}
-              onChange={(next) => void update({ items: { layout: next } })}
-              label="Work items layout"
+            <ItemMenuButtons
+              filters={filters}
+              toggles={toggles}
+              onReset={clearFilters}
+              layout={layout}
+              nesting={prefs.items.nesting}
+              onLayout={(next) => void update({ items: { layout: next } })}
+              onNesting={(next) => void update({ items: { nesting: next } })}
             />
-            <span className="segmented" role="radiogroup" aria-label="Sub-items">
-              {(
-                [
-                  { value: "nested", label: "Nested", Icon: ListTree },
-                  { value: "flat", label: "Flat", Icon: ListIcon },
-                ] as const
-              ).map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={prefs.items.nesting === value}
-                  className={`segmented-text ${prefs.items.nesting === value ? "is-on" : ""}`}
-                  onClick={() => void update({ items: { nesting: value } })}
-                >
-                  <Icon size={13} aria-hidden="true" /> {label}
-                </button>
-              ))}
-            </span>
           </div>
         </header>
-        <div className="item-filters">
-          <Select
-            id="items-status"
-            label="Status"
-            value={status}
-            onChange={(v) => setParam("status", v || null)}
-            options={STATUSES.map((s) => ({ value: s.value, label: s.label, icon: statusIcon(s.value) }))}
-          />
-          <Select
-            id="items-scope"
-            searchable
-            label="Project or repository"
-            icon={<FolderGit2 size={14} />}
-            value={scope}
-            onChange={(v) => updateParams((next) => setScope(next, v), { replace: true })}
-            options={scopeOptions(
-              live.namedProjects,
-              [...new Set((items ?? []).map((i) => i.repo))].sort(),
-              false,
-              scope,
-            ).map((o) => ({
-              value: o.value,
-              label: o.label,
-              icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
-            }))}
-          />
-          <Select
-            id="items-by"
-            label="Created by"
-            value={by}
-            onChange={(v) => setParam("by", v || null)}
-            options={[
-              { value: "", label: "Created by anyone" },
-              { value: "person", label: "Created by you" },
-              ...agents.map((a) => ({
-                value: a,
-                label: `Created by ${a}`,
-                icon: <AgentIcon requestedBy={a} size={14} />,
-              })),
-            ]}
-          />
-          <button
-            type="button"
-            className={`chrome-button item-waiting-filter ${waiting ? "is-active" : ""}`}
-            aria-pressed={waiting}
-            onClick={() => setParam("waiting", waiting ? null : "1")}
-          >
-            <Clock size={13} aria-hidden="true" /> Waiting on you
-          </button>
-          {filtered ? (
-            <button
-              type="button"
-              className="chrome-button item-clear"
-              onClick={() =>
-                updateParams(
-                  (next) => {
-                    for (const key of ["q", "status", "repo", "project", "by", "waiting"]) next.delete(key);
-                  },
-                  { replace: true },
-                )
-              }
-            >
-              <FilterX size={13} aria-hidden="true" /> Clear filters
-            </button>
-          ) : null}
-        </div>
+        <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
         <QuickAdd
           open={adding}
           onOpen={() => setAdding(true)}

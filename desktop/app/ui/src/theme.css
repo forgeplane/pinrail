@@ -6121,31 +6121,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 
 /* work items: a list of rows, nested under their parents or flat */
-.item-filters {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.item-waiting-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12.5px;
-}
-.item-clear {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--faint);
-}
-.segmented .segmented-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
 .item-quick-add {
   display: flex;
   align-items: center;
@@ -6835,4 +6810,74 @@ a.item-ref {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* a menu at the right of the window opens its submenus to its left */
+.menu-popup.opens-left .menu-submenu {
+  left: auto;
+  right: calc(100% + 4px);
+}
+.item-menu {
+  min-width: 210px;
+}
+.item-menu-button {
+  width: 30px;
+  height: 30px;
+}
+.item-menu-button.is-on {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+/* the filters that are on, each a chip that removes it */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised, var(--bg));
+  color: var(--dim);
+  font-size: 12px;
+}
+.filter-chip-value {
+  color: var(--text);
+}
+.filter-chip-mark {
+  display: inline-flex;
+}
+.filter-chip-remove {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.filter-chip-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.filter-chips-clear {
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter-chips-clear:hover {
+  color: var(--text);
+}
+
+.menu-popup.opens-left .menu-chevron {
+  transform: rotate(180deg);
 }
