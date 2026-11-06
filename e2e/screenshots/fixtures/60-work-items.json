@@ -1,0 +1,91 @@
+{
+  "work_items": [
+    {
+      "ref": "limits",
+      "repo": "acme/api",
+      "title": "Rate limit the public API",
+      "body": "Each API key gets a number of requests a minute. Requests over the limit get a `429` at once, with `Retry-After`.",
+      "by": "claude-code",
+      "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+      "age": "30m",
+      "updated": "4m"
+    },
+    {
+      "ref": "bucket",
+      "parent": "limits",
+      "title": "Token bucket for each API key",
+      "by": "claude-code",
+      "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+      "age": "30m",
+      "updated": "20m",
+      "state": "done",
+      "comment": "The bucket is in `api/limits/bucket.ts`, refilled once a second."
+    },
+    {
+      "ref": "reply",
+      "parent": "limits",
+      "depends_on": ["bucket"],
+      "title": "Answer 429 with Retry-After over the limit",
+      "body": "When a key's bucket is empty, answer `429 Too Many Requests` at once, with `Retry-After` set to the seconds until the next token.\n\nDone means the integration tests cover a key over its limit.",
+      "by": "claude-code",
+      "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+      "age": "30m",
+      "updated": "9m",
+      "state": "claim"
+    },
+    {
+      "ref": "load",
+      "parent": "limits",
+      "depends_on": ["reply"],
+      "title": "Load test the limiter",
+      "by": "claude-code",
+      "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+      "age": "30m",
+      "updated": "30m"
+    },
+    {
+      "ref": "docs",
+      "parent": "limits",
+      "depends_on": ["reply"],
+      "title": "Document the limits for API users",
+      "by": "claude-code",
+      "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+      "age": "30m",
+      "updated": "30m"
+    },
+    {
+      "ref": "sessions",
+      "repo": "acme/api",
+      "title": "Expire idle sessions after 30 days",
+      "age": "1d",
+      "updated": "1d"
+    },
+    {
+      "ref": "v1",
+      "repo": "acme/api",
+      "title": "Remove the v1 endpoints",
+      "age": "3d",
+      "updated": "2d",
+      "state": "cancelled",
+      "comment": "The nightly export still calls them."
+    },
+    {
+      "ref": "node",
+      "repo": "acme/web",
+      "title": "Pin the Node version that CI tests against",
+      "by": "codex",
+      "session": "019a2b3c-8e1f-7d20-b5c4-6a9e0f3d2c18",
+      "age": "15m",
+      "updated": "12m",
+      "state": "claim"
+    },
+    {
+      "ref": "flicker",
+      "repo": "acme/web",
+      "title": "Dark mode flickers on the first load",
+      "body": "The page renders light for a moment before the theme loads.",
+      "age": "2d",
+      "updated": "2d"
+    }
+  ]
+}

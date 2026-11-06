@@ -13,6 +13,12 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Work items. Record tasks in Pinrail, with sub-items and dependencies,
+  on the new Work items page. Each repository numbers its items under a
+  key prefix, such as `PIN-42`. Agents add, take and close them with
+  `pinrail items`, and the reviews and questions an agent sends while it
+  works on an item belong to that item.
+
 - Projects. Group repositories into a project on the new Projects page,
   by dragging them under it. A project has a name, an optional
   description, and an avatar with a colour and an emoji or up to three

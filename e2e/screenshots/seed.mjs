@@ -17,6 +17,13 @@
 // ones the app carries by their ids, and the rest from a checkout of
 // forgeplane/pinrail-plugins beside this repository, or from
 // PINRAIL_PLUGINS_DIR, with artifact and model built.
+//
+// A fixture with `work_items` lists work items, added in order. Each has a
+// `ref` the later ones name it by as `parent` or in `depends_on`, a `repo`
+// unless it has a parent, a `title` and a `body`; `by` and `session` when
+// an agent added it, and the person otherwise; `age` and `updated`; and
+// `state`, `claim`, `done` or `cancelled`, with an optional `comment`, which
+// the agent that added it, or the person, does.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -119,7 +126,12 @@ export async function seed(app) {
   const plan = {};
   const created = {};
   const statuses = [];
+  const items = [];
   for (const f of fixtures()) {
+    if (f.work_items) {
+      await addItems(app, f.work_items, items);
+      continue;
+    }
     if (f.status !== undefined) {
       await app.api("POST", `/api/v1/sessions/${f.requested_by}/${f.session}/status`, {
         text: f.status,
@@ -157,6 +169,38 @@ export async function seed(app) {
       await app.api("POST", `/api/v1/reviews/${review.id}/withdraw`, { reason: f.withdraw, by: f.requested_by }, "cli");
     plan[review.id] = { created: ms(f.age), ...(f.decided ? { outcome: ms(f.decided) } : {}) };
   }
-  const ids = await app.pin(plan, statuses);
+  const ids = await app.pin(plan, statuses, items);
   return Object.fromEntries(Object.entries(created).map(([key, id]) => [key, ids.get(id)]));
+}
+
+/** Adds a fixture's work items and puts them in their state; `pinned`
+ *  gets each item's id with its times, for the pin. */
+async function addItems(app, list, pinned) {
+  const keys = {};
+  for (const w of list) {
+    const agent = w.by ? { by: w.by, session: w.session } : {};
+    const client = w.by ? "cli" : "app";
+    const parent = w.parent ? keys[w.parent] : undefined;
+    const item = await app.api(
+      "POST",
+      "/api/v1/items",
+      {
+        repo: parent ? parent.repo : w.repo,
+        title: w.title,
+        ...(w.body ? { body: w.body } : {}),
+        ...(parent ? { parent: parent.key } : {}),
+        ...(w.depends_on ? { depends_on: w.depends_on.map((ref) => keys[ref].key) } : {}),
+        ...agent,
+      },
+      client,
+    );
+    keys[w.ref] = { key: item.key, repo: item.repo };
+    const comment = w.comment ? { comment: w.comment } : {};
+    if (w.state === "claim") await app.api("PATCH", `/api/v1/items/${item.key}`, { claim: "claim", ...agent }, client);
+    else if (w.state === "done")
+      await app.api("POST", `/api/v1/items/${item.key}/done`, { ...comment, ...agent }, client);
+    else if (w.state === "cancelled")
+      await app.api("PATCH", `/api/v1/items/${item.key}`, { status: "cancelled", ...comment, ...agent }, client);
+    pinned.push({ id: item.id, created: ms(w.age), updated: ms(w.updated ?? w.age) });
+  }
 }

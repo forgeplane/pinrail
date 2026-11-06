@@ -128,11 +128,11 @@ export async function startApp({ build = true } = {}) {
     ui,
     data,
     api,
-    /** Stops the core, rewrites times and ids to `plan` and the statuses'
-     *  times to `statuses`, starts it again. */
-    async pin(plan, statuses = []) {
+    /** Stops the core, rewrites times and ids to `plan`, the statuses'
+     *  times to `statuses` and the work items' to `items`, starts it again. */
+    async pin(plan, statuses = [], items = []) {
       await stopCore();
-      const ids = pinDatabase(path.join(data, "pinrail.db"), plan, statuses);
+      const ids = pinDatabase(path.join(data, "pinrail.db"), plan, statuses, items);
       await startCore();
       return ids;
     },
@@ -169,9 +169,12 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, ".000Z");
  * attributed to PERSON. `statuses` gives each status an agent reported, in
  * the order they were sent, in milliseconds before NOW; the sessions then
  * take their first and last activity from their reviews and statuses.
+ * `items` gives each work item's `created` and `updated` times: its first
+ * event takes the first, and its later events, its comments and its
+ * closing the second.
  * Returns the map of old ids to new ids.
  */
-function pinDatabase(file, plan, statuses) {
+function pinDatabase(file, plan, statuses, items) {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA foreign_keys = OFF; BEGIN");
   const ids = new Map();
@@ -222,6 +225,17 @@ function pinDatabase(file, plan, statuses) {
     .forEach((row, i) =>
       db.prepare("UPDATE session_statuses SET created_at = ? WHERE id = ?").run(iso(NOW - statuses[i]), row.id),
     );
+  for (const { id, created, updated } of items) {
+    const [first, last] = [iso(NOW - created), iso(NOW - updated)];
+    db.prepare(
+      "UPDATE work_items SET created_at = ?, updated_at = ?, closed_at = CASE WHEN closed_at IS NULL THEN NULL ELSE ? END WHERE id = ?",
+    ).run(first, last, last, id);
+    db.prepare("UPDATE work_item_events SET at = ? WHERE item_id = ?").run(last, id);
+    db.prepare(
+      "UPDATE work_item_events SET at = ? WHERE id = (SELECT MIN(id) FROM work_item_events WHERE item_id = ?)",
+    ).run(first, id);
+    db.prepare("UPDATE work_item_comments SET created_at = ? WHERE item_id = ?").run(last, id);
+  }
   db.exec(`UPDATE sessions SET
     first_at = (SELECT MIN(at) FROM (
       SELECT created_at AS at FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id

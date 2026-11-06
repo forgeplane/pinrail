@@ -1019,6 +1019,24 @@ export const scenes = [
     },
   },
   {
+    // the Work items page: a plan nested under its item, with one step done,
+    // one in progress and two waiting for it, and the step in progress open
+    // in the panel with its dependencies
+    name: "work-items",
+    async run({ page, app, shot }) {
+      await page.goto(`${app.ui}/#/items`);
+      await page.getByTestId("item-row").first().waitFor();
+      const key = (await app.api("GET", "/api/v1/items?repo=acme/api")).items.find((i) =>
+        i.title.startsWith("Answer 429"),
+      ).key;
+      await page.goto(`${app.ui}/#/items?open=${key}`);
+      await page.getByTestId("item-panel").waitFor();
+      await page.mouse.move(5, 600);
+      await settle(page, 500);
+      await shot("work-items");
+    },
+  },
+  {
     // the Projects page: two projects of several repositories, and the
     // repositories in no project below them
     name: "projects",

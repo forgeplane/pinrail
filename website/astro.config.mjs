@@ -137,6 +137,7 @@ export default defineConfig({
           items: [
             "docs/using/inbox",
             "docs/using/sessions",
+            "docs/using/work-items",
             "docs/using/projects",
             "docs/using/installing-plugins",
             "docs/using/settings",

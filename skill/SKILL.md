@@ -190,6 +190,51 @@ If the plugin takes several items in one review, send them together. Otherwise s
 --reason "<why>"` withdraws one you no longer need. `pinrail list` prints
 what is waiting on the person in this project.
 
+## Work items
+
+A work item is a task recorded in Pinrail, such as a feature, a bug or a
+step of a plan. It belongs to a repository, which gives it a key such as
+`PIN-42`. Inside the repository's checkout, the number alone, `42`, names
+it too. An item can have sub-items, and can depend on other items, which
+must be done before it is ready.
+
+```sh
+pinrail items next --claim          # take the next ready item
+pinrail items show PIN-42           # read it before you work on it
+pinrail items comment PIN-42 "Found the cause: the cache is per process."
+pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
+```
+
+- **Read before you work.** Run `pinrail items show <key>` before you
+  start or continue an item. Read its description, its comments, the
+  decisions of its reviews, and the closing comments of the items it
+  depends on.
+- **Record a plan of several steps as a breakdown.** Write the steps to a
+  JSON file and add them in one request with `pinrail items add --file`.
+  Give each step a `ref`, and list in `depends_on` the steps it needs
+  first. `pinrail items add --help` shows the file's format.
+- **Take the next item** with `pinrail items next --claim` when the
+  person asks you to work through the items. Claim a given item with
+  `pinrail items edit <key> --claim`. While you hold an item, the reviews
+  and questions you send belong to it.
+- **Keep the item current.** Rewrite its description with `pinrail items
+  edit <key> --body-file <file>` as the work becomes clearer. Comment on
+  your progress, what you found and what you decided, with `pinrail items
+  comment`.
+<!-- sessions -->
+- **Answer the person's comments.** A comment the person adds to an item
+  you hold reaches you in the output of `pinrail status`, like a message.
+<!-- end sessions -->
+- **Mark it done** with `pinrail items done <key> --comment "…"` once its
+  work is approved and committed or delivered. The comment says what
+  changed and where, for whoever continues from it. Pinrail refuses while
+  a review or question of the item waits, or while a sub-item is open,
+  and says what is still open. If you stop before the end, give the item
+  back with `pinrail items edit <key> --release`.
+- **Leave the order to the person.** Do not reorder or reprioritise work
+  you were not asked to. When one item must wait for another, add the
+  dependency with `--depends-on`.
+
 ## Choosing a plugin
 
 ```sh

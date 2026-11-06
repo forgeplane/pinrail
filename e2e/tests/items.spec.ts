@@ -245,3 +245,34 @@ test("the JSON of each command is the app's", async () => {
   expect(done.item.status).toBe("done");
   expect(done.now_ready).toEqual([]);
 });
+
+/** The commands of a page's first `sh` block of work items, each as its arguments,
+ *  with `PIN-42` standing for `key`. */
+function examples(page: string, key: string): string[][] {
+  const text = fs.readFileSync(path.join(__dirname, "..", "..", page), "utf8");
+  const block =
+    [...text.matchAll(/```sh\n([\s\S]*?)```/g)].map((m) => m[1]).find((b) => b.includes("pinrail items ")) ?? "";
+  return block
+    .split("\n")
+    .map((line) => line.replace(/\s+#.*$/, "").trim())
+    .filter((line) => line.startsWith("pinrail items "))
+    .map((line) =>
+      [...line.slice("pinrail ".length).matchAll(/"([^"]*)"|(\S+)/g)].map((m) => (m[1] ?? m[2]).replace("PIN-42", key)),
+    );
+}
+
+for (const page of ["docs/using/work-items.md", "skill/SKILL.md"]) {
+  test(`the examples in ${page} run as written`, async () => {
+    const { dir } = checkout();
+    const env = session(`examples-${page.length}`);
+    const added = pinrailJson(["items", "add", "Fix the cache"], { cwd: dir, env });
+    const commands = examples(page, added.key);
+    expect(commands.map((c) => c[1])).toEqual(expect.arrayContaining(["next", "show", "done"]));
+    for (const args of commands) ok(pinrail(args, { cwd: dir, env }));
+    const item = pinrailJson(["items", "show", added.key], { cwd: dir });
+    expect(item.status).toBe("done");
+    // the closing comment says what was done
+    const comments = item.timeline.filter((e: { type: string }) => e.type === "comment");
+    expect(comments.at(-1).body).toBe(commands.find((c) => c[1] === "done")?.at(-1));
+  });
+}

@@ -166,6 +166,21 @@ Use the v2 endpoint, the v1 one is going away.
 
 The agent should act on a message before it goes on, and say what it did in its next status.
 
+## Work items
+
+`pinrail items` keeps track of the [work items](/docs/using/work-items/) of the repository the agent works in: tasks with sub-items and dependencies, each with a key such as `PIN-42`. Inside the repository's checkout, the number alone, `42`, names an item too.
+
+```sh
+pinrail items next --claim     # take the next item that is ready
+pinrail items show PIN-42      # read it before working on it
+pinrail items comment PIN-42 "The cache is per process, which is why it misses."
+pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
+```
+
+`items add` adds one item, or with `--file` a whole breakdown of items that name each other by a `ref` of their own. `items edit` changes an item's title, description, status, parent, dependencies, link, repository or files, and claims or releases it. `items list` lists the items that are open or in progress, and `--ready` the ones an agent can start.
+
+While a session holds an item, the reviews and questions it sends belong to the item. `--item` on `submit` and `ask` names another item, and `--no-item` none. A command that Pinrail refuses, such as a dependency that would make two items wait for each other, or `done` while a review of the item still waits, exits with `2` and says why.
+
 ## Submitting a review
 
 ```sh
@@ -311,6 +326,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
 | `pinrail status <text>` | Say what the agent is doing in its session's thread, and receive the person's messages: `--start` for a new stage of work, which names the session, `--done` when it has finished, and `--note` for a message in Markdown, with files. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
+| `pinrail items <command>` | Add, take, change and close [work items](/docs/using/work-items/): `add`, `list`, `next`, `show`, `edit`, `comment` and `done`. See [Work items](#work-items). |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
 | `pinrail list` | The pending reviews of the project you are in, newest first; `--all` for every review. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |
