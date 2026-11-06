@@ -495,3 +495,50 @@ export type WorkItem = {
 
 /** An item another is related to. */
 export type RelatedItem = { id: string; key: string; title: string; status: ItemStatus };
+
+/** A file of an item's description or of a comment. */
+export type ItemFile = { name: string; sha256: string; size: number; media_type: string };
+
+/** A comment on a work item, by the person or an agent. */
+export type ItemComment = {
+  id: string;
+  body: string;
+  /** `person`, or the agent's name */
+  author: string;
+  session: string | null;
+  created_at: string;
+  edited_at: string | null;
+  files: ItemFile[];
+};
+
+/** What happened to an item, oldest first: changes, and the comments among them. */
+export type ItemEntry =
+  | {
+      type: "event";
+      kind: string;
+      actor: string;
+      session: string | null;
+      at: string;
+      attrs: Record<string, unknown> | null;
+    }
+  | (ItemComment & { type: "comment" });
+
+/** A work item with everything about it, as its panel shows it. */
+export type ItemDetail = WorkItem & {
+  ancestors: { key: string; title: string }[];
+  depends_on: RelatedItem[];
+  blocks: RelatedItem[];
+  sub_items_list: RelatedItem[];
+  files: ItemFile[];
+  reviews: {
+    id: string;
+    title: string;
+    plugin: string;
+    kind: "review" | "question";
+    status: string;
+    requested_by: string | null;
+    created_at: string;
+  }[];
+  sessions: { agent: string; session: string; status: string | null; last_at: string | null }[];
+  timeline: ItemEntry[];
+};

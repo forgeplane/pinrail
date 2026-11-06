@@ -40,6 +40,8 @@ import { age, stamp } from "../lib/format";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { MOD, SHIFT, modalOpen } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
+import { ItemPanel } from "../components/ItemPanel";
+import { SidePanel } from "../components/SidePanel";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -78,7 +80,7 @@ const reason = (error: unknown) => (error instanceof ApiError ? error.message : 
 export function WorkItems() {
   const live = useLive();
   const toast = useToast();
-  const [params, updateParams] = useUrlParams();
+  const [params, updateParams, currentParams] = useUrlParams();
   const { settings: prefs, update } = useSettings();
   const layout = prefs.items.layout;
   const nested = prefs.items.nesting === "nested";
@@ -193,13 +195,27 @@ export function WorkItems() {
     [items],
   );
 
-  const open = useCallback(
-    (item: WorkItem) =>
+  /** Opens an item in the side panel, by its key. */
+  const openKeyed = useCallback(
+    (key: string) =>
+      updateParams(
+        (next) => {
+          next.set("open", key);
+        },
+        { replace: !!currentParams().get("open") },
+      ),
+    [updateParams, currentParams],
+  );
+  const open = useCallback((item: WorkItem) => openKeyed(item.key), [openKeyed]);
+  const closePanel = useCallback(
+    () =>
       updateParams((next) => {
-        next.set("open", item.key);
+        next.delete("open");
       }),
     [updateParams],
   );
+  // the element that holds the list and the side panel
+  const split = useRef<HTMLDivElement>(null);
   const toggleFold = (key: string) =>
     setFolded((f) => {
       const next = new Set(f);
@@ -347,182 +363,197 @@ export function WorkItems() {
 
   let index = -1;
   return (
-    <div className="work-items">
-      <header className="page-head">
-        <div className="heading-inline">
-          <h1>Work items</h1>
-          {items ? <span className="inbox-total">{kept.length}</span> : null}
-        </div>
-        <div className="inbox-controls">
-          <label className="search-field">
-            <Search size={14} aria-hidden="true" />
-            <input
-              autoCorrect="off"
-              autoCapitalize="off"
-              type="search"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Search work items…"
-              aria-label="Search work items"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setParam("q", e.target.value);
-              }}
+    <div className={`work-items ${openKey ? "has-panel" : ""}`} ref={split}>
+      <div className="work-items-side split-side">
+        <header className="page-head">
+          <div className="heading-inline">
+            <h1>Work items</h1>
+            {items ? <span className="inbox-total">{kept.length}</span> : null}
+          </div>
+          <div className="inbox-controls">
+            <label className="search-field">
+              <Search size={14} aria-hidden="true" />
+              <input
+                autoCorrect="off"
+                autoCapitalize="off"
+                type="search"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Search work items…"
+                aria-label="Search work items"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setParam("q", e.target.value);
+                }}
+              />
+            </label>
+            <LayoutSwitch
+              value={layout}
+              onChange={(next) => void update({ items: { layout: next } })}
+              label="Work items layout"
             />
-          </label>
-          <LayoutSwitch
-            value={layout}
-            onChange={(next) => void update({ items: { layout: next } })}
-            label="Work items layout"
+            <span className="segmented" role="radiogroup" aria-label="Sub-items">
+              {(
+                [
+                  { value: "nested", label: "Nested", Icon: ListTree },
+                  { value: "flat", label: "Flat", Icon: ListIcon },
+                ] as const
+              ).map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={prefs.items.nesting === value}
+                  className={`segmented-text ${prefs.items.nesting === value ? "is-on" : ""}`}
+                  onClick={() => void update({ items: { nesting: value } })}
+                >
+                  <Icon size={13} aria-hidden="true" /> {label}
+                </button>
+              ))}
+            </span>
+          </div>
+        </header>
+        <div className="item-filters">
+          <Select
+            id="items-status"
+            label="Status"
+            value={status}
+            onChange={(v) => setParam("status", v || null)}
+            options={STATUSES.map((s) => ({ value: s.value, label: s.label, icon: statusIcon(s.value) }))}
           />
-          <span className="segmented" role="radiogroup" aria-label="Sub-items">
-            {(
-              [
-                { value: "nested", label: "Nested", Icon: ListTree },
-                { value: "flat", label: "Flat", Icon: ListIcon },
-              ] as const
-            ).map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={prefs.items.nesting === value}
-                className={`segmented-text ${prefs.items.nesting === value ? "is-on" : ""}`}
-                onClick={() => void update({ items: { nesting: value } })}
-              >
-                <Icon size={13} aria-hidden="true" /> {label}
-              </button>
-            ))}
-          </span>
-        </div>
-      </header>
-      <div className="item-filters">
-        <Select
-          id="items-status"
-          label="Status"
-          value={status}
-          onChange={(v) => setParam("status", v || null)}
-          options={STATUSES.map((s) => ({ value: s.value, label: s.label, icon: statusIcon(s.value) }))}
-        />
-        <Select
-          id="items-scope"
-          searchable
-          label="Project or repository"
-          icon={<FolderGit2 size={14} />}
-          value={scope}
-          onChange={(v) => updateParams((next) => setScope(next, v), { replace: true })}
-          options={scopeOptions(
-            live.namedProjects,
-            [...new Set((items ?? []).map((i) => i.repo))].sort(),
-            false,
-            scope,
-          ).map((o) => ({
-            value: o.value,
-            label: o.label,
-            icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
-          }))}
-        />
-        <Select
-          id="items-by"
-          label="Created by"
-          value={by}
-          onChange={(v) => setParam("by", v || null)}
-          options={[
-            { value: "", label: "Created by anyone" },
-            { value: "person", label: "Created by you" },
-            ...agents.map((a) => ({
-              value: a,
-              label: `Created by ${a}`,
-              icon: <AgentIcon requestedBy={a} size={14} />,
-            })),
-          ]}
-        />
-        <button
-          type="button"
-          className={`chrome-button item-waiting-filter ${waiting ? "is-active" : ""}`}
-          aria-pressed={waiting}
-          onClick={() => setParam("waiting", waiting ? null : "1")}
-        >
-          <Clock size={13} aria-hidden="true" /> Waiting on you
-        </button>
-        {filtered ? (
+          <Select
+            id="items-scope"
+            searchable
+            label="Project or repository"
+            icon={<FolderGit2 size={14} />}
+            value={scope}
+            onChange={(v) => updateParams((next) => setScope(next, v), { replace: true })}
+            options={scopeOptions(
+              live.namedProjects,
+              [...new Set((items ?? []).map((i) => i.repo))].sort(),
+              false,
+              scope,
+            ).map((o) => ({
+              value: o.value,
+              label: o.label,
+              icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
+            }))}
+          />
+          <Select
+            id="items-by"
+            label="Created by"
+            value={by}
+            onChange={(v) => setParam("by", v || null)}
+            options={[
+              { value: "", label: "Created by anyone" },
+              { value: "person", label: "Created by you" },
+              ...agents.map((a) => ({
+                value: a,
+                label: `Created by ${a}`,
+                icon: <AgentIcon requestedBy={a} size={14} />,
+              })),
+            ]}
+          />
           <button
             type="button"
-            className="chrome-button item-clear"
-            onClick={() =>
-              updateParams(
-                (next) => {
-                  for (const key of ["q", "status", "repo", "project", "by", "waiting"]) next.delete(key);
-                },
-                { replace: true },
-              )
-            }
+            className={`chrome-button item-waiting-filter ${waiting ? "is-active" : ""}`}
+            aria-pressed={waiting}
+            onClick={() => setParam("waiting", waiting ? null : "1")}
           >
-            Clear filters
+            <Clock size={13} aria-hidden="true" /> Waiting on you
           </button>
-        ) : null}
-      </div>
-      <QuickAdd
-        open={adding}
-        onOpen={() => setAdding(true)}
-        onClose={() => setAdding(false)}
-        repos={[...new Set([...repos, ...(items ?? []).map((i) => i.repo)])]}
-        items={items ?? []}
-        defaultRepo={params.get("repo") ?? focusedItem?.repo ?? null}
-        defaultParent={focusedItem?.parent ?? null}
-        onAdded={(item, more) => {
-          reload();
-          if (!more) {
-            setAdding(false);
-            open(item);
-          }
-        }}
-      />
-      {!items ? null : kept.length === 0 ? (
-        <EmptyState
-          title={filtered ? "No matching work items" : "No work items yet"}
-          icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <ListChecks size={28} strokeWidth={1.5} />}
-        >
           {filtered ? (
-            "Try a different search or clear the filters."
-          ) : (
-            <>
-              Press <kbd>C</kbd> to add one, or ask an agent to plan a task with <code>pinrail items add</code>.
-            </>
-          )}
-        </EmptyState>
-      ) : (
-        <div className="inbox-groups item-groups" ref={list}>
-          {shownGroups.map(([key, shown]) =>
-            layout === "list" ? (
-              <div key="list" className="inbox-list">
-                {shown.map((s) => row(s, ++index, key))}
-              </div>
-            ) : (
-              <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
-                <summary data-testid="inbox-group-heading">
-                  <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />
-                </summary>
-                {shown.map((s) => row(s, ++index, key))}
-              </details>
-            ),
-          )}
+            <button
+              type="button"
+              className="chrome-button item-clear"
+              onClick={() =>
+                updateParams(
+                  (next) => {
+                    for (const key of ["q", "status", "repo", "project", "by", "waiting"]) next.delete(key);
+                  },
+                  { replace: true },
+                )
+              }
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
-      )}
-      <footer className="inbox-footer">
-        <KeyHints
-          hints={[
-            { keys: ["J / K"], label: "Move" },
-            { keys: ["Enter"], label: "Open" },
-            { keys: ["C"], label: "Add" },
-            { keys: ["/"], label: "Search" },
-            { keys: ["S"], label: "Claim" },
-            { keys: ["D"], label: "Done" },
-            { keys: ["X"], label: "Cancel" },
-          ]}
+        <QuickAdd
+          open={adding}
+          onOpen={() => setAdding(true)}
+          onClose={() => setAdding(false)}
+          repos={[...new Set([...repos, ...(items ?? []).map((i) => i.repo)])]}
+          items={items ?? []}
+          defaultRepo={params.get("repo") ?? focusedItem?.repo ?? null}
+          defaultParent={focusedItem?.parent ?? null}
+          onAdded={(item, more) => {
+            reload();
+            if (!more) {
+              setAdding(false);
+              open(item);
+            }
+          }}
         />
-      </footer>
+        {!items ? null : kept.length === 0 ? (
+          <EmptyState
+            title={filtered ? "No matching work items" : "No work items yet"}
+            icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <ListChecks size={28} strokeWidth={1.5} />}
+          >
+            {filtered ? (
+              "Try a different search or clear the filters."
+            ) : (
+              <>
+                Press <kbd>C</kbd> to add one, or ask an agent to plan a task with <code>pinrail items add</code>.
+              </>
+            )}
+          </EmptyState>
+        ) : (
+          <div className="inbox-groups item-groups" ref={list}>
+            {shownGroups.map(([key, shown]) =>
+              layout === "list" ? (
+                <div key="list" className="inbox-list">
+                  {shown.map((s) => row(s, ++index, key))}
+                </div>
+              ) : (
+                <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
+                  <summary data-testid="inbox-group-heading">
+                    <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />
+                  </summary>
+                  {shown.map((s) => row(s, ++index, key))}
+                </details>
+              ),
+            )}
+          </div>
+        )}
+        <footer className="inbox-footer">
+          <KeyHints
+            hints={[
+              { keys: ["J / K"], label: "Move" },
+              { keys: ["Enter"], label: "Open" },
+              { keys: ["C"], label: "Add" },
+              { keys: ["/"], label: "Search" },
+              { keys: ["S"], label: "Claim" },
+              { keys: ["D"], label: "Done" },
+              { keys: ["X"], label: "Cancel" },
+            ]}
+          />
+        </footer>
+      </div>
+      {openKey ? (
+        <SidePanel split={split} label="Work item">
+          <ItemPanel
+            key={openKey}
+            itemKey={openKey}
+            items={items ?? []}
+            repos={[...new Set([...repos, ...(items ?? []).map((i) => i.repo)])]}
+            onOpen={openKeyed}
+            onClose={closePanel}
+            onChanged={reload}
+          />
+        </SidePanel>
+      ) : null}
     </div>
   );
 }

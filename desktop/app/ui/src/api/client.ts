@@ -21,6 +21,8 @@ import type {
   SessionStatus,
   Stage,
   Violation,
+  ItemComment,
+  ItemDetail,
   WorkItem,
 } from "./types";
 
@@ -110,9 +112,20 @@ export const api = {
   /** adds a work item, as the person */
   addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
     request<WorkItem>("POST", "/api/v1/items", item),
+  /** a work item with everything about it */
+  item: (key: string) => request<ItemDetail>("GET", `/api/v1/items/${seg(key)}`),
+  /** deletes a work item and its sub-items, as the person */
+  deleteItem: (key: string) => request<{ deleted: number }>("DELETE", `/api/v1/items/${seg(key)}`),
+  /** comments on a work item, as the person */
+  commentItem: (key: string, body: string) =>
+    request<ItemComment>("POST", `/api/v1/items/${seg(key)}/comments`, { body }),
+  /** changes the text of the person's own comment */
+  editComment: (key: string, id: string, body: string) =>
+    request<ItemComment>("PATCH", `/api/v1/items/${seg(key)}/comments/${seg(id)}`, { body }),
+  deleteComment: (key: string, id: string) => request<void>("DELETE", `/api/v1/items/${seg(key)}/comments/${seg(id)}`),
   /** changes a work item, whole or not at all, as the person */
   editItem: (key: string, change: Record<string, unknown>) =>
-    request<{ item: WorkItem; now_ready: { key: string; title: string }[] }>(
+    request<{ item: ItemDetail; now_ready: { key: string; title: string }[] }>(
       "PATCH",
       `/api/v1/items/${seg(key)}`,
       change,
