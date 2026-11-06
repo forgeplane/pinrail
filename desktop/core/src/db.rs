@@ -10,6 +10,7 @@
 mod blobs;
 mod bundles;
 mod events;
+mod items;
 mod messages;
 mod outcomes;
 mod plugins;
@@ -21,6 +22,7 @@ mod sessions;
 
 pub use bundles::BundleRecord;
 pub use events::Event;
+pub use items::{ItemFilters, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};

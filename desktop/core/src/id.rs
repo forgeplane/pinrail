@@ -30,6 +30,16 @@ pub fn next_project() -> String {
     format!("p_{}", &next()[PREFIX.len()..])
 }
 
+/// The next work item id: `w_` and a ULID from the same sequence.
+pub fn next_item() -> String {
+    format!("w_{}", &next()[PREFIX.len()..])
+}
+
+/// The next comment id: `c_` and a ULID from the same sequence.
+pub fn next_comment() -> String {
+    format!("c_{}", &next()[PREFIX.len()..])
+}
+
 /// The next id for a clock that reads `ms`.
 fn next_at(ms: u64) -> String {
     let ms = ms & ((1 << 48) - 1);
