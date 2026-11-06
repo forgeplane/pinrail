@@ -433,8 +433,14 @@ h1 {
   margin: 0 0 4px;
   padding: 0 4px 0 10px;
 }
-.sidebar-sessions-button {
+/* the heading's buttons, together at its end */
+.sidebar-sessions-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   margin-left: auto;
+}
+.sidebar-sessions-button {
   width: 22px;
   height: 22px;
 }

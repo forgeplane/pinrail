@@ -381,3 +381,30 @@ test("a submenu near the window's bottom moves up to fit in it", async ({ page }
   await menu.getByRole("menuitem", { name: /Project or repository/ }).click();
   await expect(page.getByRole("menu", { name: "Project or repository" })).toBeInViewport({ ratio: 1 });
 });
+
+test("a Clear filters button shows in the heading while a filter is on, and clears them", async ({ page }) => {
+  await page.goto("/#/");
+  // the heading names what the sessions are grouped by
+  const heading = page.locator(".sidebar-sessions > h2");
+  const clear = heading.getByRole("button", { name: "Clear the sidebar's filters" });
+  await expect(heading).toBeVisible();
+  await expect(clear).toHaveCount(0);
+
+  for (const filter of [{ agents: ["codex"] }, { states: ["working"] }, { archived: true }]) {
+    await setChoices(page.request, { ...DEFAULTS, ...filter });
+    await expect(clear).toBeVisible();
+    await clear.click();
+    await expect(clear).toHaveCount(0);
+    await settingSaved(page.request, (s) => s.sidebar.sessions.agents.length + s.sidebar.sessions.states.length, 0);
+    await settingSaved(page.request, (s) => s.sidebar.sessions.archived, false);
+  }
+  // the grouping and the details are not filters, and stay as they are
+  await setChoices(page.request, { ...DEFAULTS, grouping: "status", agents: ["codex"] });
+  await clear.click();
+  await settingSaved(page.request, (s) => s.sidebar.sessions.grouping, "status");
+  // beside the options button, at the heading's end
+  await setChoices(page.request, { ...DEFAULTS, agents: ["codex"] });
+  const options = heading.getByRole("button", { name: "Sessions options" });
+  const [a, b] = [await clear.boundingBox(), await options.boundingBox()];
+  expect(b!.x - (a!.x + a!.width)).toBeLessThan(6);
+});

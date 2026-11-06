@@ -47,6 +47,14 @@ export const DEFAULT_CHOICES: Choices = {
 };
 
 /** How many filters are set, for the menu's Reset. */
+/** The choices that clear every filter, and keep the grouping and details. */
+export const NO_FILTERS = {
+  agents: DEFAULT_CHOICES.agents,
+  repos: DEFAULT_CHOICES.repos,
+  states: DEFAULT_CHOICES.states,
+  archived: DEFAULT_CHOICES.archived,
+} satisfies Partial<Choices>;
+
 export const filtersSet = (c: Choices) =>
   (c.agents.length ? 1 : 0) + (c.repos.length ? 1 : 0) + (c.states.length ? 1 : 0) + (c.archived ? 1 : 0);
 

@@ -4,14 +4,23 @@
 // lib/sidebarSessions; this draws them and keeps the choices in the
 // settings.
 
-import { ChevronDown, ChevronRight, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, FilterX, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { fromSession } from "../lib/sessions";
-import { type Choices, type Group, type Row, DETAILS, HEADINGS, arrange } from "../lib/sidebarSessions";
+import {
+  type Choices,
+  type Group,
+  type Row,
+  DETAILS,
+  HEADINGS,
+  NO_FILTERS,
+  arrange,
+  filtersSet,
+} from "../lib/sidebarSessions";
 import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -261,19 +270,34 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     <section className="sidebar-sessions" aria-label={HEADINGS[choices.grouping]}>
       <h2>
         {HEADINGS[choices.grouping]}
-        <Tooltip label="Grouping, ordering and filters" side="bottom">
-          <button
-            ref={button}
-            type="button"
-            className={`bar-button sidebar-sessions-button ${menu ? "is-on" : ""}`}
-            aria-label="Sessions options"
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            onClick={() => setMenu((m) => !m)}
-          >
-            <SlidersHorizontal size={13} />
-          </button>
-        </Tooltip>
+        <span className="sidebar-sessions-actions">
+          {/* while a filter hides sessions, a way to show them all again */}
+          {filtersSet(choices) ? (
+            <Tooltip label="Clear filters" side="bottom">
+              <button
+                type="button"
+                className="bar-button sidebar-sessions-button sidebar-sessions-clear"
+                aria-label="Clear the sidebar's filters"
+                onClick={() => change(NO_FILTERS)}
+              >
+                <FilterX size={13} />
+              </button>
+            </Tooltip>
+          ) : null}
+          <Tooltip label="Grouping, ordering and filters" side="bottom">
+            <button
+              ref={button}
+              type="button"
+              className={`bar-button sidebar-sessions-button ${menu ? "is-on" : ""}`}
+              aria-label="Sessions options"
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              onClick={() => setMenu((m) => !m)}
+            >
+              <SlidersHorizontal size={13} />
+            </button>
+          </Tooltip>
+        </span>
       </h2>
       {groups.length === 0 ? <p className="sidebar-empty">No sessions yet</p> : null}
       {groups.map((group) => {

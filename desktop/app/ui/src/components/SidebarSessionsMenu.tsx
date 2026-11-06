@@ -13,7 +13,7 @@ import {
   type Grouping,
   type Ordering,
   type State,
-  DEFAULT_CHOICES,
+  NO_FILTERS,
   filtersSet,
 } from "../lib/sidebarSessions";
 
@@ -267,14 +267,7 @@ export function SidebarSessionsMenu({
           type="button"
           className="menu-reset"
           disabled={filtersSet(choices) === 0}
-          onClick={() =>
-            onChange({
-              agents: DEFAULT_CHOICES.agents,
-              repos: DEFAULT_CHOICES.repos,
-              states: DEFAULT_CHOICES.states,
-              archived: DEFAULT_CHOICES.archived,
-            })
-          }
+          onClick={() => onChange(NO_FILTERS)}
         >
           Reset
         </button>
