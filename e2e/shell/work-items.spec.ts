@@ -489,3 +489,53 @@ test("an item dragged onto another becomes its sub-item, unless that closes a cy
   const unchanged = (await (await request.get(`${core}/api/v1/items/${parent.key}`)).json()) as { parent: unknown };
   expect(unchanged.parent).toBeNull();
 });
+
+test("cancelling an item with open sub-items asks first, and cancels them with it", async ({ page, request }) => {
+  const repo = fresh("cancel");
+  const parent = await add(request, repo, "Release");
+  const open1 = await add(request, repo, "Notes", { parent: parent.key });
+  const finished = await add(request, repo, "Changelog", { parent: parent.key });
+  await edit(request, finished.key, { status: "done" });
+  const alone = await add(request, repo, "Alone");
+  await open(page, repo);
+
+  // an item with no open sub-item is cancelled at once
+  await row(page, alone.key).hover();
+  await page.keyboard.press("x");
+  await expect(row(page, alone.key)).toHaveCount(0);
+
+  await row(page, parent.key).hover();
+  await page.keyboard.press("x");
+  const dialog = page.getByRole("dialog", { name: `Cancel ${parent.key}?` });
+  await expect(dialog.getByTestId("cancel-item-subs")).toContainText("Its open sub-item is cancelled with it");
+  await dialog.getByRole("button", { name: "Keep it" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(row(page, parent.key)).toBeVisible();
+
+  await page.keyboard.press("x");
+  await dialog.getByRole("button", { name: "Cancel both" }).click();
+  await expect(row(page, parent.key)).toHaveCount(0);
+  await expect(row(page, open1.key)).toHaveCount(0);
+  const status = async (key: string) =>
+    ((await (await request.get(`${core}/api/v1/items/${key}`)).json()) as { status: string }).status;
+  expect(await status(open1.key)).toBe("cancelled");
+  expect(await status(finished.key)).toBe("done");
+});
+
+test("the panel asks too before cancelling an item with open sub-items", async ({ page, request }) => {
+  const repo = fresh("cancel-panel");
+  const parent = await add(request, repo, "Release");
+  const a = await add(request, repo, "Notes", { parent: parent.key });
+  await add(request, repo, "Tag", { parent: parent.key });
+  await open(page, repo, `&open=${parent.key}`);
+  const panel = page.getByTestId("item-panel");
+  await panel.getByRole("button", { name: "Status", exact: true }).click();
+  await page.getByRole("option", { name: "Cancelled", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: `Cancel ${parent.key}?` });
+  await expect(dialog.getByTestId("cancel-item-subs")).toContainText("Its 2 open sub-items are cancelled with it");
+  await dialog.getByRole("button", { name: "Cancel them all" }).click();
+  await expect(panel.getByRole("button", { name: "Status", exact: true })).toHaveText("Cancelled");
+  // a sub-item's timeline says what took it
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&status=all&open=${a.key}`);
+  await expect(panel.getByTestId("item-event").last()).toContainText(`cancelled it with ${parent.key}`);
+});

@@ -42,6 +42,7 @@ import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { MOD, SHIFT, modalOpen } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
 import { ItemPanel } from "../components/ItemPanel";
+import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { SidePanel } from "../components/SidePanel";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
@@ -241,6 +242,8 @@ export function WorkItems() {
     [toast, reload],
   );
 
+  // an item with open sub-items waiting for the person to confirm its cancel
+  const [cancelling, setCancelling] = useState<WorkItem | null>(null);
   // an item dragged onto another becomes its sub-item
   const [dropOn, setDropOn] = useState<string | null>(null);
   const putUnder = useCallback(
@@ -292,7 +295,11 @@ export function WorkItems() {
         setAdding(true);
       } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
       else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
-      else if (key === "x" && at) void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
+      else if (key === "x" && at) {
+        // its open sub-items go with it: the person is asked first
+        if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
+        else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -583,6 +590,16 @@ export function WorkItems() {
           />
         </footer>
       </div>
+      {cancelling ? (
+        <CancelItemDialog
+          item={cancelling}
+          onClose={() => setCancelling(null)}
+          onConfirm={() => {
+            void change(cancelling, { status: "cancelled" });
+            setCancelling(null);
+          }}
+        />
+      ) : null}
       {openKey ? (
         <SidePanel split={split} label="Work item">
           <ItemPanel

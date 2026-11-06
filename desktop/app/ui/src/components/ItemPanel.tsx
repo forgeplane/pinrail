@@ -27,6 +27,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
@@ -71,7 +72,7 @@ function said(entry: Extract<ItemEntry, { type: "event" }>): string {
     case "status": {
       const to = a.to as ItemStatus;
       if (to === "done") return "marked it done";
-      if (to === "cancelled") return "cancelled it";
+      if (to === "cancelled") return a.with ? `cancelled it with ${a.with}` : "cancelled it";
       if (to === "open") return "opened it again";
       return `set it ${STATUS_LABEL[to]?.toLowerCase() ?? to}`;
     }
@@ -155,6 +156,7 @@ export function ItemPanel({
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingBody, setEditingBody] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const fileUrl = useFileUrl(item?.key);
 
   useEffect(() => {
@@ -281,7 +283,9 @@ export function ItemPanel({
             id="item-status"
             label="Status"
             value={item.status}
-            onChange={(v) => void change({ status: v })}
+            onChange={(v) =>
+              v === "cancelled" && openSubItems(item) > 0 ? setCancelling(true) : void change({ status: v })
+            }
             options={(["open", "in_progress", "done", "cancelled"] as ItemStatus[]).map((s) => ({
               value: s,
               label: STATUS_LABEL[s],
@@ -535,6 +539,16 @@ export function ItemPanel({
         />
       </section>
 
+      {cancelling ? (
+        <CancelItemDialog
+          item={item}
+          onClose={() => setCancelling(false)}
+          onConfirm={() => {
+            setCancelling(false);
+            void change({ status: "cancelled" });
+          }}
+        />
+      ) : null}
       {deleting ? (
         <DeleteItemDialog
           item={item}

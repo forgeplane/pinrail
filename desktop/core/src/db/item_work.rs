@@ -58,6 +58,8 @@ pub struct Edited {
     /// its parent, when it closed the parent's last open sub-item: the
     /// parent stays open until someone says it is done
     pub parent_left_open: Option<Related>,
+    /// the sub-items, at any depth, that were cancelled with it
+    pub cancelled_with: Vec<Related>,
 }
 
 /// A comment on an item.
@@ -309,6 +311,45 @@ fn open_sub_items(conn: &Connection, id: &str) -> rusqlite::Result<Vec<String>> 
           WHERE c.parent = ?1 AND c.status IN {OPEN} ORDER BY g.prefix, c.number"
     ))?;
     stmt.query_map(params![id], |r| r.get(0))?.collect()
+}
+
+/// Cancels the sub-items of `id` at any depth that are open or in progress,
+/// with their claims, each with an entry that says which item took it with
+/// it. Done and cancelled ones stay as they are.
+fn cancel_sub_items(
+    conn: &Connection,
+    id: &str,
+    actor: &Actor,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<Vec<Related>> {
+    let key = key_of(conn, id)?;
+    let mut stmt = conn.prepare(&format!(
+        "WITH RECURSIVE tree(id) AS (
+           SELECT id FROM work_items WHERE parent = ?1
+           UNION SELECT w.id FROM work_items w JOIN tree ON w.parent = tree.id
+         )
+         SELECT w.id, w.status FROM work_items w JOIN tree ON tree.id = w.id
+          WHERE w.status IN {OPEN}"
+    ))?;
+    let open: Vec<(String, String)> = stmt
+        .query_map(params![id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    drop(stmt);
+    let mut cancelled = Vec::new();
+    for (sub, from) in open {
+        status_in(conn, &sub, Status::Cancelled, at)?;
+        item_event(
+            conn,
+            &sub,
+            "status",
+            actor,
+            json!({"from": from, "to": "cancelled", "with": key}),
+            at,
+        )?;
+        cancelled.push(related(conn, &sub)?);
+    }
+    cancelled.sort_by_key(|r| super::items::sort_key(&r.key));
+    Ok(cancelled)
 }
 
 /// Gives up every claim the session holds, for when it is archived.
@@ -631,6 +672,7 @@ impl Db {
             None => {}
         }
         let mut closed_now = false;
+        let mut cancelled_with = Vec::new();
         if let Some(status) = change.status {
             let current = item_row(&tx, &id)?;
             if status != current.status {
@@ -667,6 +709,9 @@ impl Db {
                             at,
                         )?;
                         closed_now = status.is_closed() && !current.status.is_closed();
+                        if status == Status::Cancelled {
+                            cancelled_with = cancel_sub_items(&tx, &id, actor, at)?;
+                        }
                     }
                 }
             }
@@ -709,6 +754,7 @@ impl Db {
             item,
             now_ready,
             parent_left_open,
+            cancelled_with,
         }))
     }
 

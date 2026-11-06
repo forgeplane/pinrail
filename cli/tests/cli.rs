@@ -4048,3 +4048,38 @@ fn submit_ask_and_list_name_a_work_item_or_none() {
     );
     assert_eq!(code, 1);
 }
+
+#[test]
+fn items_edit_says_which_sub_items_were_cancelled_with_the_item() {
+    let (server, _) = items_server(|_, _| {
+        let item = work_item(
+            "PIN-1",
+            "Release",
+            serde_json::json!({"status": "cancelled"}),
+        );
+        (
+            200,
+            format!(
+                r#"{{"item": {item}, "now_ready": [], "parent_left_open": null,
+                    "cancelled_with": [{{"key": "PIN-2", "title": "Notes"}}, {{"key": "PIN-3", "title": "Tag"}}]}}"#
+            ),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "edit",
+            "PIN-1",
+            "--status",
+            "cancelled",
+            "--comment",
+            "Not this release",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "Changed PIN-1 Release.\nCancelled with it: PIN-2 Notes\nCancelled with it: PIN-3 Tag\n"
+    );
+}

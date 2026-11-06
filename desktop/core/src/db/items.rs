@@ -347,7 +347,7 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
 }
 
 /// Keys in order: by prefix, then by number, not as text.
-fn sort_key(key: &str) -> (String, i64) {
+pub(super) fn sort_key(key: &str) -> (String, i64) {
     match key.parse::<Key>() {
         Ok(k) => (k.prefix, k.number),
         Err(_) => (key.to_string(), 0),

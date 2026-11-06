@@ -91,6 +91,7 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
         "item": state.items().detail(&edited.item)?,
         "now_ready": edited.now_ready.iter().map(|r| r.to_json()).collect::<Vec<_>>(),
         "parent_left_open": edited.parent_left_open.as_ref().map(|r| r.to_json()),
+        "cancelled_with": edited.cancelled_with.iter().map(|r| r.to_json()).collect::<Vec<_>>(),
     }))
 }
 

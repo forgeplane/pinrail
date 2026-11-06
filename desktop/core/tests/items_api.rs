@@ -1257,3 +1257,59 @@ async fn an_item_says_how_much_of_it_waits_and_what_project_it_is_in() {
     assert_eq!(read["project"]["id"], project["id"]);
     assert_eq!(read["project"]["name"], "Pinrail");
 }
+
+#[tokio::test]
+async fn cancelling_an_item_cancels_its_open_sub_items_at_any_depth() {
+    let app = app();
+    for t in [
+        "Parent",
+        "Open part",
+        "Held part",
+        "Done part",
+        "Grandchild",
+    ] {
+        add(&app, t).await;
+    }
+    for k in ["PIN-2", "PIN-3", "PIN-4"] {
+        edit(&app, k, "s-1", json!({"parent": "PIN-1"})).await;
+    }
+    edit(&app, "PIN-5", "s-1", json!({"parent": "PIN-2"})).await;
+    edit(&app, "PIN-3", "s-2", json!({"claim": "claim"})).await;
+    done(&app, "PIN-4", "s-1", "Finished").await;
+
+    let (code, cancelled) = call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        Some(json!({"status": "cancelled"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{cancelled}");
+    assert_eq!(
+        keys(&cancelled["cancelled_with"]),
+        ["PIN-2", "PIN-3", "PIN-5"]
+    );
+    for k in ["PIN-2", "PIN-3", "PIN-5"] {
+        let read = item(&app, k).await;
+        assert_eq!(read["status"], "cancelled", "{k}");
+        assert_eq!(read["claim"], Value::Null, "{k}");
+        let last = read["timeline"].as_array().unwrap().last().unwrap().clone();
+        assert_eq!(last["kind"], "status", "{k}");
+        assert_eq!(last["attrs"]["with"], "PIN-1", "{k}");
+    }
+    // what was done stays done
+    assert_eq!(item(&app, "PIN-4").await["status"], "done");
+    // an agent cancels its sub-items with it too, with its reason
+    add(&app, "Another").await;
+    add(&app, "Its part").await;
+    edit(&app, "PIN-7", "s-1", json!({"parent": "PIN-6"})).await;
+    let (code, _) = edit(
+        &app,
+        "PIN-6",
+        "s-1",
+        json!({"status": "cancelled", "comment": "A duplicate"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(item(&app, "PIN-7").await["status"], "cancelled");
+}

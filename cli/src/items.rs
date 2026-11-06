@@ -652,6 +652,17 @@ fn breakdown_md(added: &Value, repo: &str) -> String {
 fn edited_md(verb: &str, edited: &Value) -> String {
     let item = &edited["item"];
     let mut out = format!("{verb} {} {}.\n", s(&item["key"]), s(&item["title"]));
+    for gone in edited["cancelled_with"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        out.push_str(&format!(
+            "Cancelled with it: {} {}\n",
+            s(&gone["key"]),
+            s(&gone["title"])
+        ));
+    }
     for ready in edited["now_ready"]
         .as_array()
         .map(Vec::as_slice)
