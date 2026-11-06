@@ -239,11 +239,12 @@ pub(super) fn touch(
     at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
     let field = |key: &str| origin.get(key).and_then(Value::as_str);
+    let repo_id = super::repos::ensure(conn, field("repo"), at)?;
     conn.execute(
-        "INSERT INTO sessions (agent, id, repo, ref, folder, first_at, last_at)
+        "INSERT INTO sessions (agent, id, repo_id, ref, folder, first_at, last_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT (agent, id) DO UPDATE SET
-           repo = COALESCE(excluded.repo, repo),
+           repo_id = COALESCE(excluded.repo_id, repo_id),
            ref = COALESCE(excluded.ref, ref),
            folder = COALESCE(excluded.folder, folder),
            last_at = MAX(last_at, excluded.last_at),
@@ -251,7 +252,7 @@ pub(super) fn touch(
         params![
             agent,
             id,
-            field("repo"),
+            repo_id,
             field("ref"),
             field("folder"),
             crate::reviews::iso(at),
@@ -307,13 +308,13 @@ impl Db {
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT DISTINCT repo FROM sessions WHERE COALESCE(repo, '') <> '' ORDER BY 1",
+            "SELECT DISTINCT g.name FROM sessions s JOIN repos g ON g.id = s.repo_id ORDER BY 1",
         )?;
         let repos = stmt
             .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         let unassigned = conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM sessions WHERE COALESCE(repo, '') = '')",
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE repo_id IS NULL)",
             [],
             |row| row.get(0),
         )?;
@@ -334,16 +335,16 @@ impl Db {
             wheres.push(format!("s.agent = ?{}", args.len()));
         }
         match filters.repo.as_deref() {
-            Some(super::NO_PROJECT) => wheres.push("COALESCE(s.repo, '') = ''".to_string()),
+            Some(super::NO_PROJECT) => wheres.push("s.repo_id IS NULL".to_string()),
             Some(repo) => {
                 args.push(repo.to_string());
-                wheres.push(format!("s.repo = ?{}", args.len()));
+                wheres.push(super::repos::named("s.repo_id", args.len()));
             }
             None => {}
         }
         if let Some(project) = &filters.project {
             args.push(project.clone());
-            wheres.push(super::projects::in_project("s.repo", args.len()));
+            wheres.push(super::projects::in_project("s.repo_id", args.len()));
         }
         if !filters.include_archived {
             wheres.push("s.archived_at IS NULL".to_string());
@@ -507,9 +508,10 @@ impl Db {
     pub fn stages(&self, text: Option<&str>, limit: usize) -> rusqlite::Result<Vec<StageRow>> {
         let mut args: Vec<String> = Vec::new();
         let mut sql = String::from(
-            "SELECT st.id, st.agent, st.session, st.text, st.created_at, s.repo
+            "SELECT st.id, st.agent, st.session, st.text, st.created_at, g.name
              FROM session_statuses st
              JOIN sessions s ON s.agent = st.agent AND s.id = st.session
+             LEFT JOIN repos g ON g.id = s.repo_id
              WHERE st.kind = 'start'",
         );
         for word in text.unwrap_or_default().split_whitespace() {
@@ -636,7 +638,7 @@ fn select() -> String {
         )
     };
     format!(
-        "SELECT s.agent, s.id, s.repo, s.ref, s.folder, s.first_at, s.last_at,
+        "SELECT s.agent, s.id, {repo} AS repo, s.ref, s.folder, s.first_at, s.last_at,
     COALESCE(SUM(r.kind = 'question'), 0) AS questions,
     COALESCE(SUM(r.kind = 'review' AND {newest}), 0) AS reviews,
     COALESCE(SUM(r.kind = 'question' AND {pending}), 0) AS waiting_questions,
@@ -655,7 +657,8 @@ fn select() -> String {
         kind = status("kind"),
         at = status("created_at"),
         title = title(),
-        project = super::projects::project_json("s.repo"),
+        project = super::projects::project_json("s.repo_id"),
+        repo = super::repos::name_of("s.repo_id"),
     )
 }
 

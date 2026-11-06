@@ -200,9 +200,14 @@ fn insert_in(
         }
     }
     {
+        let repo_id = super::repos::ensure(
+            tx,
+            review.origin.get("repo").and_then(Value::as_str),
+            review.created_at,
+        )?;
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind)
-             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13)",
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind, repo_id)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13, ?14)",
             params![
                 review.id,
                 review.plugin,
@@ -218,6 +223,7 @@ fn insert_in(
                 Some(&review.plugin_version).filter(|v| !v.is_empty()),
                 review.session,
                 review.kind.as_str(),
+                repo_id,
             ],
         )?;
         tx.execute(
@@ -411,15 +417,15 @@ impl Db {
                 .collect())
         };
         let plugins = strings("SELECT DISTINCT r.plugin")?;
-        let repos = strings("SELECT DISTINCT json_extract(r.origin, '$.repo')")?;
-        let unassigned = conn
-            .query_row(
-                &format!(
-                    "SELECT EXISTS (SELECT 1 {from} AND COALESCE(json_extract(r.origin, '$.repo'), '') = '')"
-                ),
-                params.as_slice(),
-                |row| row.get::<_, bool>(0),
-            )?;
+        let repos = strings(&format!(
+            "SELECT DISTINCT {}",
+            super::repos::name_of("r.repo_id")
+        ))?;
+        let unassigned = conn.query_row(
+            &format!("SELECT EXISTS (SELECT 1 {from} AND r.repo_id IS NULL)"),
+            params.as_slice(),
+            |row| row.get::<_, bool>(0),
+        )?;
         Ok(Facets {
             plugins,
             repos,
@@ -437,14 +443,13 @@ impl Db {
         };
         let no_project = filters.repo.as_deref() == Some(NO_PROJECT);
         if no_project {
-            sql.push_str(" AND COALESCE(json_extract(r.origin, '$.repo'), '') = ''");
+            sql.push_str(" AND r.repo_id IS NULL");
         }
         let repo = if no_project { &None } else { &filters.repo };
         let exact = [
             ("r.plugin", &filters.plugin),
             ("r.requested_by", &filters.agent),
             ("r.session", &filters.session),
-            ("json_extract(r.origin, '$.repo')", repo),
             ("json_extract(r.origin, '$.workflow')", &filters.workflow),
             ("json_extract(r.origin, '$.ref')", &filters.reference),
             ("json_extract(r.origin, '$.run_id')", &filters.run_id),
@@ -455,11 +460,15 @@ impl Db {
                 sql.push_str(&format!(" AND {column} = ?{n}"));
             }
         }
+        if let Some(repo) = repo {
+            let n = push(repo);
+            sql.push_str(&format!(" AND {}", super::repos::named("r.repo_id", n)));
+        }
         if let Some(project) = &filters.project {
             let n = push(project);
             sql.push_str(&format!(
                 " AND {}",
-                super::projects::in_project("json_extract(r.origin, '$.repo')", n)
+                super::projects::in_project("r.repo_id", n)
             ));
         }
         if let Some(kind) = filters.kind {
@@ -682,8 +691,8 @@ fn select(with_payload: bool) -> String {
     )
 }
 
-/// A review's repository, in SQL.
-const REPO: &str = "json_extract(r.origin, '$.repo')";
+/// A review's repository's id, in SQL.
+const REPO: &str = "r.repo_id";
 
 /// What `Review::status` says, as SQL over the same columns, so a listing
 /// and a count read only the rows they answer with. `?now` is the caller's

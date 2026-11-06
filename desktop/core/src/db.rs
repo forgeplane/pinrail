@@ -14,6 +14,7 @@ mod messages;
 mod outcomes;
 mod plugins;
 mod projects;
+mod repos;
 mod reviews;
 mod schema;
 mod sessions;

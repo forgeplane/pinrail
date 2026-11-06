@@ -133,20 +133,21 @@ pub enum NotChanged {
     NoProject,
 }
 
-/// The SQL for the project of a repository given as `repo`, as a JSON
-/// object that `ProjectRef::from_column` reads, or NULL.
-pub(super) fn project_json(repo: &str) -> String {
+/// The SQL for the project of the repository whose id is the column
+/// `repo_id`, as a JSON object that `ProjectRef::from_column` reads, or
+/// NULL.
+pub(super) fn project_json(repo_id: &str) -> String {
     format!(
         "(SELECT json_object('id', p.id, 'name', p.name, 'color', p.color, 'emoji', p.emoji, \
          'image', p.image) \
-         FROM project_repos pr JOIN projects p ON p.id = pr.project_id WHERE pr.repo = {repo})"
+         FROM repos g JOIN projects p ON p.id = g.project_id WHERE g.id = {repo_id})"
     )
 }
 
-/// The SQL that keeps rows whose repository, given as `repo`, is in the
-/// project given as the parameter `?n`.
-pub(super) fn in_project(repo: &str, n: usize) -> String {
-    format!("{repo} IN (SELECT pr.repo FROM project_repos pr WHERE pr.project_id = ?{n})")
+/// The SQL that keeps rows whose repository id, the column `repo_id`, is a
+/// repository of the project given as the parameter `?n`.
+pub(super) fn in_project(repo_id: &str, n: usize) -> String {
+    format!("{repo_id} IN (SELECT g.id FROM repos g WHERE g.project_id = ?{n})")
 }
 
 /// Records that the projects changed, for the live updates.
@@ -173,23 +174,21 @@ impl Db {
         now: DateTime<Utc>,
     ) -> rusqlite::Result<(Vec<ProjectRow>, Vec<RepoRow>)> {
         let conn = self.conn();
+        // a repository with nothing left in it and in no project is not shown
         let mut stmt = conn.prepare(
-            "WITH known AS (
-               SELECT repo FROM sessions WHERE COALESCE(repo, '') <> ''
-               UNION SELECT json_extract(origin, '$.repo') FROM reviews
-                 WHERE COALESCE(json_extract(origin, '$.repo'), '') <> ''
-               UNION SELECT repo FROM project_repos
-             )
-             SELECT k.repo, pr.project_id,
-               (SELECT COUNT(*) FROM sessions s WHERE s.repo = k.repo AND s.archived_at IS NULL),
+            "SELECT g.name, g.project_id,
+               (SELECT COUNT(*) FROM sessions s WHERE s.repo_id = g.id AND s.archived_at IS NULL),
                (SELECT COUNT(*) FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
-                WHERE json_extract(r.origin, '$.repo') = k.repo AND o.review_id IS NULL
+                WHERE r.repo_id = g.id AND o.review_id IS NULL
                   AND (r.expires_at IS NULL OR r.expires_at > ?1)
                   AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
-               (SELECT MAX(s.last_at) FROM sessions s WHERE s.repo = k.repo),
-               (SELECT MAX(r.created_at) FROM reviews r WHERE json_extract(r.origin, '$.repo') = k.repo)
-             FROM known k LEFT JOIN project_repos pr ON pr.repo = k.repo
-             ORDER BY k.repo",
+               (SELECT MAX(s.last_at) FROM sessions s WHERE s.repo_id = g.id),
+               (SELECT MAX(r.created_at) FROM reviews r WHERE r.repo_id = g.id)
+             FROM repos g
+             WHERE g.project_id IS NOT NULL
+                OR EXISTS (SELECT 1 FROM sessions s WHERE s.repo_id = g.id)
+                OR EXISTS (SELECT 1 FROM reviews r WHERE r.repo_id = g.id)
+             ORDER BY g.name",
         )?;
         let repos = stmt
             .query_map(params![crate::reviews::iso(now)], |row| {
@@ -242,7 +241,10 @@ impl Db {
         let conn = self.conn();
         let json: Option<Option<String>> = conn
             .query_row(
-                &format!("SELECT {}", project_json("?1")),
+                &format!(
+                    "SELECT {}",
+                    project_json("(SELECT id FROM repos WHERE name = ?1)")
+                ),
                 params![repo],
                 |row| row.get(0),
             )
@@ -262,7 +264,6 @@ impl Db {
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let at = crate::reviews::iso(at);
         match tx.execute(
             "INSERT INTO projects (id, name, description, color, emoji, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -272,14 +273,14 @@ impl Db {
                 details.description,
                 details.color,
                 details.emoji,
-                at
+                crate::reviews::iso(at)
             ],
         ) {
             Err(error) if is_unique_violation(&error) => return Ok(Err(NotChanged::NameTaken)),
             inserted => inserted?,
         };
         for repo in repos {
-            move_repo(&tx, repo, Some(id), &at)?;
+            move_repo(&tx, repo, Some(id), at)?;
         }
         let event_id = changed(&tx)?;
         tx.commit()?;
@@ -386,7 +387,7 @@ impl Db {
                 return Ok(Err(NotChanged::NoProject));
             }
         }
-        move_repo(&tx, repo, project, &crate::reviews::iso(at))?;
+        move_repo(&tx, repo, project, at)?;
         let event_id = changed(&tx)?;
         tx.commit()?;
         Ok(Ok(event_id))
@@ -400,7 +401,7 @@ impl Db {
         let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT r.id FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
-             WHERE json_extract(r.origin, '$.repo') = ?1 AND o.review_id IS NULL
+             WHERE r.repo_id = (SELECT id FROM repos WHERE name = ?1) AND o.review_id IS NULL
                AND (r.expires_at IS NULL OR r.expires_at > ?2)
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)",
         )?;
@@ -408,19 +409,26 @@ impl Db {
             .collect()
     }
 
-    /// Deletes a repository from the app: every round of its reviews, with
-    /// what cascades from them, its sessions, with their statuses and
-    /// messages, and its place in a project. Returns how many reviews and
-    /// sessions went, and the event's id.
+    /// Deletes a repository from the app: its row, and through the schema's
+    /// cascades every round of its reviews, with what cascades from them,
+    /// and its sessions, with their statuses and messages. Returns how many
+    /// reviews and sessions went, and the event's id.
     pub fn delete_repo(&self, repo: &str) -> rusqlite::Result<(usize, usize, i64)> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let reviews = tx.execute(
-            "DELETE FROM reviews WHERE json_extract(origin, '$.repo') = ?1",
-            params![repo],
-        )?;
-        let sessions = tx.execute("DELETE FROM sessions WHERE repo = ?1", params![repo])?;
-        tx.execute("DELETE FROM project_repos WHERE repo = ?1", params![repo])?;
+        let count = |table: &str| -> rusqlite::Result<usize> {
+            tx.query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM {table} WHERE repo_id = (SELECT id FROM repos WHERE name = ?1)"
+                ),
+                params![repo],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n as usize)
+        };
+        let reviews = count("reviews")?;
+        let sessions = count("sessions")?;
+        tx.execute("DELETE FROM repos WHERE name = ?1", params![repo])?;
         let event_id = insert_event(
             &tx,
             None,
@@ -433,22 +441,20 @@ impl Db {
     }
 }
 
-/// Puts `repo` in `project`, or in none.
+/// Puts `repo` in `project`, or in none, adding the repository's row if it
+/// has none.
 fn move_repo(
     conn: &Connection,
     repo: &str,
     project: Option<&str>,
-    at: &str,
+    at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
-    match project {
-        Some(project) => conn.execute(
-            "INSERT INTO project_repos (repo, project_id, added_at) VALUES (?1, ?2, ?3)
-             ON CONFLICT (repo) DO UPDATE SET project_id = excluded.project_id,
-               added_at = CASE WHEN project_id = excluded.project_id THEN added_at
-                 ELSE excluded.added_at END",
-            params![repo, project, at],
-        )?,
-        None => conn.execute("DELETE FROM project_repos WHERE repo = ?1", params![repo])?,
+    let Some(id) = super::repos::ensure(conn, Some(repo), at)? else {
+        return Ok(());
     };
+    conn.execute(
+        "UPDATE repos SET project_id = ?2 WHERE id = ?1",
+        params![id, project],
+    )?;
     Ok(())
 }

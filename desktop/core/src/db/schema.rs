@@ -289,9 +289,9 @@ mod tests {
 
         let rows: Vec<String> = conn
             .prepare(
-                "SELECT agent || ' ' || id || ' ' || IFNULL(repo, '-') || ' ' || IFNULL(ref, '-') \
+                "SELECT agent || ' ' || s.id || ' ' || IFNULL(p.name, '-') || ' ' || IFNULL(ref, '-') \
                  || ' ' || IFNULL(folder, '-') || ' ' || first_at || ' ' || last_at \
-                 FROM sessions ORDER BY agent",
+                 FROM sessions s LEFT JOIN repos p ON p.id = s.repo_id ORDER BY agent",
             )
             .unwrap()
             .query_map([], |r| r.get(0))
@@ -305,6 +305,80 @@ mod tests {
                 "codex s1 - - - 2026-10-03T10:00:00Z 2026-10-03T10:00:00.000Z",
             ]
         );
+    }
+
+    /// Every repository the reviews and the sessions name gets a row, from
+    /// the first time it was named, and each review and session refers to
+    /// it; a review or a session that names none refers to none.
+    #[test]
+    fn the_repositories_are_filled_from_the_reviews_and_sessions() {
+        let conn = Connection::open_in_memory().unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.0 < 20261105120000)
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        conn.execute_batch(
+            r#"INSERT INTO reviews (id, plugin, title, origin, created_at) VALUES
+                 ('r1', 'list', 't', '{"repo":"acme/api","ref":"main"}', '2026-10-02T10:00:00Z'),
+                 ('r2', 'list', 't', '{"repo":"acme/api","ref":"fix"}', '2026-10-01T10:00:00Z'),
+                 ('r3', 'list', 't', '{"repo":"acme/web"}', '2026-10-03T10:00:00Z'),
+                 ('r4', 'list', 't', '{}', '2026-10-04T10:00:00Z'),
+                 ('r5', 'list', 't', '{"repo":""}', '2026-10-05T10:00:00Z');
+               INSERT INTO sessions (agent, id, repo, first_at, last_at) VALUES
+                 ('claude-code', 's1', 'acme/api', '2026-09-30T10:00:00Z', '2026-10-01T00:00:00.000Z'),
+                 ('codex', 's2', 'acme/docs', '2026-10-06T10:00:00Z', '2026-10-06T00:00:00.000Z'),
+                 ('codex', 's3', NULL, '2026-10-07T10:00:00Z', '2026-10-07T00:00:00.000Z');"#,
+        )
+        .unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+
+        let rows = |sql: &str| -> Vec<String> {
+            conn.prepare(sql)
+                .unwrap()
+                .query_map([], |r| r.get(0))
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap()
+        };
+        assert_eq!(
+            rows(
+                "SELECT name || ' ' || created_at || ' ' || last_item || ' ' \
+                  || IFNULL(project_id, '-') || ' ' || IFNULL(prefix, '-') FROM repos ORDER BY name"
+            ),
+            [
+                "acme/api 2026-09-30T10:00:00Z 0 - -",
+                "acme/docs 2026-10-06T10:00:00Z 0 - -",
+                "acme/web 2026-10-03T10:00:00Z 0 - -",
+            ]
+        );
+        assert_eq!(
+            rows(
+                "SELECT r.id || ' ' || IFNULL(p.name, '-') FROM reviews r \
+                  LEFT JOIN repos p ON p.id = r.repo_id ORDER BY r.id"
+            ),
+            ["r1 acme/api", "r2 acme/api", "r3 acme/web", "r4 -", "r5 -"]
+        );
+        assert_eq!(
+            rows(
+                "SELECT s.id || ' ' || IFNULL(p.name, '-') FROM sessions s \
+                  LEFT JOIN repos p ON p.id = s.repo_id ORDER BY s.id"
+            ),
+            ["s1 acme/api", "s2 acme/docs", "s3 -"]
+        );
+        // the name lives only in the repository's row now
+        let columns = rows("SELECT name FROM pragma_table_info('sessions')");
+        assert!(!columns.contains(&"repo".to_string()), "{columns:?}");
+        // deleting a repository deletes its reviews and sessions
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        conn.execute("DELETE FROM repos WHERE name = 'acme/api'", [])
+            .unwrap();
+        assert_eq!(
+            rows("SELECT id FROM reviews ORDER BY id"),
+            ["r3", "r4", "r5"]
+        );
+        assert_eq!(rows("SELECT id FROM sessions ORDER BY id"), ["s2", "s3"]);
     }
 
     /// A status of the first sessions table keeps its id and text, and
