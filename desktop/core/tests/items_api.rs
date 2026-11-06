@@ -1230,3 +1230,30 @@ async fn the_review_list_narrows_to_a_work_items_reviews() {
     let (code, _) = call(&app, "GET", "/api/v1/reviews?item=PIN-9", None).await;
     assert_eq!(code, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn an_item_says_how_much_of_it_waits_and_what_project_it_is_in() {
+    let app = app();
+    add(&app, "Work").await;
+    assert_eq!(item(&app, "PIN-1").await["waiting"], 0);
+    assert_eq!(item(&app, "PIN-1").await["project"], Value::Null);
+    let (_, first) = submit(&app, review("s-1", "One", Some(json!("PIN-1")))).await;
+    submit(&app, review("s-1", "Two", Some(json!("PIN-1")))).await;
+    // a newer round counts once
+    let mut round = review("s-1", "One", None);
+    round["revises"] = first["id"].clone();
+    submit(&app, round).await;
+    assert_eq!(item(&app, "PIN-1").await["waiting"], 2);
+    let (_, listed) = call(&app, "GET", "/api/v1/items", None).await;
+    assert_eq!(listed["items"][0]["waiting"], 2);
+    let (_, project) = call(
+        &app,
+        "POST",
+        "/api/v1/projects",
+        Some(json!({"name": "Pinrail", "repos": [REPO]})),
+    )
+    .await;
+    let read = item(&app, "PIN-1").await;
+    assert_eq!(read["project"]["id"], project["id"]);
+    assert_eq!(read["project"]["name"], "Pinrail");
+}

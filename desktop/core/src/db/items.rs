@@ -46,6 +46,10 @@ pub struct WorkItem {
     pub blocked_by: Vec<String>,
     /// open, not blocked, and with no open sub-item
     pub ready: bool,
+    /// the project its repository is in
+    pub project: Option<super::ProjectRef>,
+    /// how many of its reviews and questions wait on the person
+    pub waiting: usize,
 }
 
 impl WorkItem {
@@ -74,6 +78,8 @@ impl WorkItem {
             "blocked_by": self.blocked_by,
             "blocked": self.blocked(),
             "ready": self.ready,
+            "project": self.project.as_ref().map(super::ProjectRef::to_json),
+            "waiting": self.waiting,
         })
     }
 }
@@ -275,9 +281,15 @@ pub(super) fn select() -> String {
               FROM work_item_deps x JOIN work_items d ON d.id = x.depends_on
               JOIN repos dg ON dg.id = d.repo_id
              WHERE x.item_id = i.id AND d.status IN {OPEN}),
-           {ready}
+           {ready},
+           {project},
+           (SELECT COUNT(*) FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+             WHERE r.item_id = i.id AND o.review_id IS NULL
+               AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+               AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id))
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
-        ready = READY
+        ready = READY,
+        project = super::projects::project_json("i.repo_id"),
     )
 }
 
@@ -329,6 +341,8 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
         sub_items_closed: row.get::<_, i64>(17)? as usize,
         blocked_by,
         ready: row.get(19)?,
+        project: super::ProjectRef::from_column(row.get(20)?),
+        waiting: row.get::<_, i64>(21)? as usize,
     })
 }
 

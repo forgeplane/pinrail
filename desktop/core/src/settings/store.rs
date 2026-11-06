@@ -98,6 +98,18 @@ const LEAVES: &[Leaf] = &[
         "How the Sessions page lists the sessions: grouped by project, grouped by repository, or in one list.",
     ),
     (
+        "/items/layout",
+        Kind::Enum(&["project", "repository", "list"]),
+        || json!("project"),
+        "How the Work items page lists the items: grouped by project, grouped by repository, or in one list.",
+    ),
+    (
+        "/items/nesting",
+        Kind::Enum(&["nested", "flat"]),
+        || json!("nested"),
+        "How the Work items page shows sub-items: nested under their parent, or each as a row of its own.",
+    ),
+    (
         "/menu_bar_icon",
         Kind::Bool,
         || json!(true),
