@@ -2036,7 +2036,7 @@ body.is-resizing iframe {
 }
 .inbox-groups {
   display: grid;
-  gap: 10px;
+  gap: 2px;
 }
 /* the heading's texts are trimmed to their capital letters, so that the
    row centres the arrow, the icon or avatar and the name on one line */
@@ -2045,10 +2045,15 @@ body.is-resizing iframe {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 11px 4px;
+  padding: 8px 4px;
   font-size: 12.5px;
   color: var(--dim);
   list-style: none;
+}
+/* a group's rows are indented under its heading, their marks under the
+   avatar and their titles in line with the group's name */
+.inbox-repo > .review-row {
+  margin-left: 21px;
 }
 .inbox-repo summary::-webkit-details-marker {
   display: none;
