@@ -5,6 +5,7 @@ mod attachments;
 mod error;
 mod files;
 mod guard;
+mod items;
 mod plugins;
 mod projects;
 mod reviews;
@@ -77,6 +78,7 @@ fn router_with(state: ApiState) -> Router {
         .route("/api/v1/info", get(info))
         .merge(reviews::routes())
         .merge(projects::routes())
+        .merge(items::routes())
         .merge(attachments::routes())
         .merge(plugins::routes())
         .merge(sse::routes())

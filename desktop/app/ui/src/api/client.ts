@@ -281,6 +281,8 @@ export function subscribe(handlers: {
       "projects_changed",
       "repository_deleted",
       "review_deleted",
+      "item_changed",
+      "item_deleted",
       "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {

@@ -26,7 +26,10 @@ pub fn routes() -> Router<ApiState> {
             put(set_image).get(image).delete(remove_image),
         )
         .route("/api/v1/repos/{repo}/project", put(set_repo))
-        .route("/api/v1/repos/{repo}", axum::routing::delete(delete_repo))
+        .route(
+            "/api/v1/repos/{repo}",
+            axum::routing::delete(delete_repo).patch(set_prefix),
+        )
 }
 
 /// Every project with its repositories, by name, and the repositories in
@@ -211,4 +214,18 @@ fn text(body: &Value, key: &str) -> Result<String, Error> {
         None | Some(Value::Null) => Err(Error::invalid(format!("/{key}"), "is required")),
         Some(_) => Err(Error::invalid(format!("/{key}"), "is not a string")),
     }
+}
+
+/// Sets the repository's work item key `prefix`, two to five capital
+/// letters that no other repository has or had: its items' old keys still
+/// find them. Answers 204.
+async fn set_prefix(
+    State(state): State<Arc<Pinrail>>,
+    Path(repo): Path<String>,
+    body: Bytes,
+) -> Result<StatusCode, ApiError> {
+    let body = parse_body(&body)?;
+    let prefix = text(&body, "prefix")?;
+    state.items().set_prefix(&repo, &prefix)?;
+    Ok(StatusCode::NO_CONTENT)
 }

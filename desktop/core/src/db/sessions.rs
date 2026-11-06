@@ -293,6 +293,9 @@ impl Db {
         if changed == 0 {
             return Ok(None);
         }
+        if let Some(at) = at {
+            super::item_work::release_session_claims(&tx, agent, id, at)?;
+        }
         let kind = if at.is_some() {
             crate::events::SESSION_ARCHIVED
         } else {

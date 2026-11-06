@@ -521,7 +521,7 @@ async fn note_attachment(
 
 /// A stored file as a download under `name`: never sniffed, never rendered
 /// in this origin.
-async fn serve_attachment(
+pub(super) async fn serve_attachment(
     state: &Pinrail,
     carried: &crate::attachments::ReviewAttachment,
     name: &str,

@@ -78,6 +78,35 @@ impl WorkItem {
     }
 }
 
+/// The item a review belongs to, as the review carries it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemTag {
+    pub id: String,
+    pub key: String,
+    pub title: String,
+}
+
+impl ItemTag {
+    pub fn to_json(&self) -> Value {
+        json!({"id": self.id, "key": self.key, "title": self.title})
+    }
+
+    /// The tag as `ITEM_JSON` gives it, or `None` for a review of no item.
+    pub(super) fn from_column(json: Option<String>) -> Option<Self> {
+        let value: Value = serde_json::from_str(&json?).ok()?;
+        let text = |k: &str| value.get(k).and_then(Value::as_str).map(str::to_string);
+        Some(ItemTag {
+            id: text("id")?,
+            key: text("key")?,
+            title: text("title")?,
+        })
+    }
+}
+
+/// The SQL for the item of the review `r`, as a JSON object, or NULL.
+pub(super) const ITEM_JSON: &str = "(SELECT json_object('id', w.id, 'key', wg.prefix || '-' || w.number,
+     'title', w.title) FROM work_items w JOIN repos wg ON wg.id = w.repo_id WHERE w.id = r.item_id)";
+
 /// An item another one is related to: by key, with its title and status.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Related {
@@ -158,6 +187,22 @@ pub enum Refused {
     DuplicateRef(String),
     /// a breakdown names a `ref` none of its items has, nor an item
     UnknownRef(String),
+    /// another session holds the item's claim: its key, the agent and the
+    /// session
+    ClaimedBy(String, String, Option<String>),
+    /// the item is done or cancelled: open it again to work on it
+    Closed(String, Status),
+    /// an agent cannot mark the item done yet: the reviews and questions
+    /// that wait on the person, and the sub-items still open, by key
+    NotDone {
+        key: String,
+        waiting: Vec<String>,
+        open: Vec<String>,
+    },
+    /// a claim, or a comment, that belongs to another agent or session
+    NotYours(String),
+    /// no comment of the item has this id
+    NoComment(String),
 }
 
 impl std::fmt::Display for Refused {
@@ -187,16 +232,37 @@ impl std::fmt::Display for Refused {
                 f,
                 "`{r}` is neither the ref of an item in the breakdown nor an item's key"
             ),
+            Refused::ClaimedBy(key, agent, session) => match session {
+                Some(session) => write!(f, "{key} is claimed by {agent} (session {session})"),
+                None => write!(f, "{key} is claimed by {agent}"),
+            },
+            Refused::Closed(key, status) => write!(
+                f,
+                "{key} is {}: open it again to work on it",
+                status.as_str().replace('_', " ")
+            ),
+            Refused::NotDone { key, waiting, open } => {
+                let mut why = Vec::new();
+                if !waiting.is_empty() {
+                    why.push(format!("{} still waits on the person", waiting.join(", ")));
+                }
+                if !open.is_empty() {
+                    why.push(format!("its sub-items {} are still open", open.join(", ")));
+                }
+                write!(f, "{key} is not done: {}", why.join("; "))
+            }
+            Refused::NotYours(what) => write!(f, "{what} belongs to another agent or session"),
+            Refused::NoComment(id) => write!(f, "no comment of the item is {id}"),
         }
     }
 }
 
-type Outcome<T> = rusqlite::Result<Result<T, Refused>>;
+pub(super) type Outcome<T> = rusqlite::Result<Result<T, Refused>>;
 
 /// The SQL for whether the item `i` waits for an item it depends on.
-const OPEN: &str = "('open', 'in_progress')";
+pub(super) const OPEN: &str = "('open', 'in_progress')";
 
-fn select() -> String {
+pub(super) fn select() -> String {
     format!(
         "SELECT i.id, g.prefix, i.number, g.name, i.title, i.body, i.status,
            (SELECT pg.prefix || '-' || p.number FROM work_items p JOIN repos pg ON pg.id = p.repo_id
@@ -217,7 +283,7 @@ fn select() -> String {
 
 /// The SQL for whether the item `i` is ready: open, waiting for no item it
 /// depends on, and with no open sub-item.
-const READY: &str = "(i.status = 'open'
+pub(super) const READY: &str = "(i.status = 'open'
    AND NOT EXISTS (SELECT 1 FROM work_item_deps x JOIN work_items d ON d.id = x.depends_on
                     WHERE x.item_id = i.id AND d.status IN ('open', 'in_progress'))
    AND NOT EXISTS (SELECT 1 FROM work_items c WHERE c.parent = i.id
@@ -227,7 +293,7 @@ const BLOCKED: &str =
     "EXISTS (SELECT 1 FROM work_item_deps x JOIN work_items d ON d.id = x.depends_on
    WHERE x.item_id = i.id AND d.status IN ('open', 'in_progress'))";
 
-fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem> {
+pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem> {
     let time = |i: usize| -> rusqlite::Result<DateTime<Utc>> {
         Ok(parse_datetime(&row.get::<_, String>(i)?).unwrap_or_default())
     };
@@ -275,7 +341,7 @@ fn sort_key(key: &str) -> (String, i64) {
 }
 
 /// The id of the item `item` names, in the repository `repo` for a number.
-fn resolve(conn: &Connection, item: &ItemRef, repo: Option<&str>) -> Outcome<String> {
+pub(super) fn resolve(conn: &Connection, item: &ItemRef, repo: Option<&str>) -> Outcome<String> {
     let found: Option<String> = match item {
         ItemRef::Id(id) => conn
             .query_row(
@@ -334,7 +400,7 @@ fn describe(item: &ItemRef) -> String {
 }
 
 /// The key of an item, by its id.
-fn key_of(conn: &Connection, id: &str) -> rusqlite::Result<String> {
+pub(super) fn key_of(conn: &Connection, id: &str) -> rusqlite::Result<String> {
     conn.query_row(
         "SELECT g.prefix || '-' || i.number FROM work_items i JOIN repos g ON g.id = i.repo_id
           WHERE i.id = ?1",
@@ -382,7 +448,7 @@ fn chain(conn: &Connection, from: &str, to: &str) -> rusqlite::Result<Option<Vec
 
 /// Whether `waiter` may wait for `on`: refused when `on` already waits for
 /// `waiter`, with the circle it would close, as keys.
-fn may_wait(conn: &Connection, waiter: &str, on: &str) -> Outcome<()> {
+pub(super) fn may_wait(conn: &Connection, waiter: &str, on: &str) -> Outcome<()> {
     if waiter == on {
         let key = key_of(conn, waiter)?;
         return Ok(Err(Refused::Cycle(vec![key.clone(), key])));
@@ -401,7 +467,11 @@ fn may_wait(conn: &Connection, waiter: &str, on: &str) -> Outcome<()> {
 
 /// The repository named `repo`, with the next number it gives an item,
 /// adding the repository and giving it its prefix with its first item.
-fn next_number(conn: &Connection, repo: &str, at: DateTime<Utc>) -> rusqlite::Result<(i64, i64)> {
+pub(super) fn next_number(
+    conn: &Connection,
+    repo: &str,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<(i64, i64)> {
     let repo_id =
         super::repos::ensure(conn, Some(repo), at)?.expect("an item's repository has a name");
     let prefix: Option<String> = conn.query_row(
@@ -445,6 +515,7 @@ fn insert(
 ) -> rusqlite::Result<String> {
     let (repo_id, number) = next_number(conn, repo, at)?;
     let id = crate::id::next_item();
+    let created = at;
     let at = iso(at);
     conn.execute(
         "INSERT INTO work_items (id, repo_id, number, title, body, status, link, created_by,
@@ -462,11 +533,12 @@ fn insert(
             at
         ],
     )?;
+    super::item_work::item_event(conn, &id, "created", actor, Value::Null, created)?;
     Ok(id)
 }
 
 /// Puts `item` under `parent`, or under none.
-fn set_parent_in(conn: &Connection, item: &str, parent: Option<&str>) -> Outcome<()> {
+pub(super) fn set_parent_in(conn: &Connection, item: &str, parent: Option<&str>) -> Outcome<()> {
     if let Some(parent) = parent
         && let Err(refused) = may_wait(conn, parent, item)?
     {
@@ -480,7 +552,7 @@ fn set_parent_in(conn: &Connection, item: &str, parent: Option<&str>) -> Outcome
 }
 
 /// Makes `item` depend on `on`.
-fn depend_in(conn: &Connection, item: &str, on: &str) -> Outcome<()> {
+pub(super) fn depend_in(conn: &Connection, item: &str, on: &str) -> Outcome<()> {
     if let Err(refused) = may_wait(conn, item, on)? {
         return Ok(Err(refused));
     }
@@ -492,12 +564,66 @@ fn depend_in(conn: &Connection, item: &str, on: &str) -> Outcome<()> {
     Ok(Ok(()))
 }
 
-fn touch(conn: &Connection, item: &str, at: DateTime<Utc>) -> rusqlite::Result<()> {
+pub(super) fn touch(conn: &Connection, item: &str, at: DateTime<Utc>) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE work_items SET updated_at = ?2 WHERE id = ?1",
         params![item, iso(at)],
     )?;
     Ok(())
+}
+
+/// Sets an item's status, recording when it closed, or clearing that when
+/// it opens again; leaving progress ends its claim.
+pub(super) fn status_in(
+    conn: &Connection,
+    id: &str,
+    status: Status,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE work_items SET status = ?2, updated_at = ?3,
+           closed_at = CASE WHEN ?2 IN ('done', 'cancelled') THEN COALESCE(closed_at, ?3) END,
+           claim_agent = CASE WHEN ?2 = 'in_progress' THEN claim_agent END,
+           claim_session = CASE WHEN ?2 = 'in_progress' THEN claim_session END
+         WHERE id = ?1",
+        params![id, status.as_str(), iso(at)],
+    )?;
+    Ok(())
+}
+
+/// Moves an item to the repository `to`: the next number there, and its
+/// old number kept as an alias. Nothing happens if it is there already.
+pub(super) fn move_in(
+    conn: &Connection,
+    id: &str,
+    to: &str,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<bool> {
+    let (from_repo, from_number, from_name): (i64, i64, String) = conn.query_row(
+        "SELECT i.repo_id, i.number, g.name FROM work_items i JOIN repos g ON g.id = i.repo_id
+          WHERE i.id = ?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    if from_name == to {
+        return Ok(false);
+    }
+    let (to_repo, number) = next_number(conn, to, at)?;
+    conn.execute(
+        "INSERT INTO work_item_aliases (repo_id, number, item_id) VALUES (?1, ?2, ?3)",
+        params![from_repo, from_number, id],
+    )?;
+    // moving back to a repository it was in, its alias there goes
+    conn.execute(
+        "DELETE FROM work_item_aliases WHERE repo_id = ?1 AND item_id = ?2",
+        params![to_repo, id],
+    )?;
+    conn.execute(
+        "UPDATE work_items SET repo_id = ?2, number = ?3 WHERE id = ?1",
+        params![id, to_repo, number],
+    )?;
+    touch(conn, id, at)?;
+    Ok(true)
 }
 
 impl Db {
@@ -813,17 +939,7 @@ impl Db {
         status: Status,
         at: DateTime<Utc>,
     ) -> rusqlite::Result<()> {
-        let conn = self.conn();
-        let at = iso(at);
-        conn.execute(
-            "UPDATE work_items SET status = ?2, updated_at = ?3,
-               closed_at = CASE WHEN ?2 IN ('done', 'cancelled') THEN COALESCE(closed_at, ?3) END,
-               claim_agent = CASE WHEN ?2 = 'in_progress' THEN claim_agent END,
-               claim_session = CASE WHEN ?2 = 'in_progress' THEN claim_session END
-             WHERE id = ?1",
-            params![id, status.as_str(), at],
-        )?;
-        Ok(())
+        status_in(&self.conn(), id, status, at)
     }
 
     /// Moves an item to another repository: the next number there, its old
@@ -841,29 +957,7 @@ impl Db {
             Ok(id) => id,
             Err(refused) => return Ok(Err(refused)),
         };
-        let (from_repo, from_number, from_name): (i64, i64, String) = tx.query_row(
-            "SELECT i.repo_id, i.number, g.name FROM work_items i JOIN repos g ON g.id = i.repo_id
-              WHERE i.id = ?1",
-            params![id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )?;
-        if from_name != to {
-            let (to_repo, number) = next_number(&tx, to, at)?;
-            tx.execute(
-                "INSERT INTO work_item_aliases (repo_id, number, item_id) VALUES (?1, ?2, ?3)",
-                params![from_repo, from_number, id],
-            )?;
-            // moving back to a repository it was in, its alias there goes
-            tx.execute(
-                "DELETE FROM work_item_aliases WHERE repo_id = ?1 AND item_id = ?2",
-                params![to_repo, id],
-            )?;
-            tx.execute(
-                "UPDATE work_items SET repo_id = ?2, number = ?3 WHERE id = ?1",
-                params![id, to_repo, number],
-            )?;
-            touch(&tx, &id, at)?;
-        }
+        move_in(&tx, &id, to, at)?;
         let moved = tx.query_row(
             &format!("{} WHERE i.id = ?1", select()),
             params![id],

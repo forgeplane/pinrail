@@ -33,7 +33,7 @@ fn status(error: &Error) -> StatusCode {
         Error::Internal(_) | Error::Database(_) | Error::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
         Error::InUse(_) => StatusCode::CONFLICT,
         Error::Unavailable(_) => StatusCode::BAD_GATEWAY,
-        Error::Off(_) => StatusCode::FORBIDDEN,
+        Error::Off(_) | Error::Forbidden(_) => StatusCode::FORBIDDEN,
     }
 }
 
@@ -68,6 +68,11 @@ mod tests {
             )])),
             StatusCode::UNPROCESSABLE_ENTITY
         );
+        assert_eq!(
+            status(&Error::Forbidden("only the person deletes an item".into())),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(Error::Forbidden("x".into()).to_json()["error"], "forbidden");
         assert_eq!(
             status(&Error::Internal("disk on fire".into())),
             StatusCode::INTERNAL_SERVER_ERROR

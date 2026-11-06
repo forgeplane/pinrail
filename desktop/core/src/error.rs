@@ -34,6 +34,8 @@ pub enum Error {
     Unavailable(String),
     /// A feature the person has turned off, as the message says
     Off(String),
+    /// Only the person may do this, as the message says
+    Forbidden(String),
 }
 
 impl Error {
@@ -60,6 +62,7 @@ impl Error {
             Error::InUse(message) => message.clone(),
             Error::Unavailable(message) => message.clone(),
             Error::Off(message) => message.clone(),
+            Error::Forbidden(message) => message.clone(),
         }
     }
 
@@ -73,6 +76,7 @@ impl Error {
             Error::InUse(_) => ("in_use", Vec::new()),
             Error::Unavailable(_) => ("unavailable", Vec::new()),
             Error::Off(_) => ("off", Vec::new()),
+            Error::Forbidden(_) => ("forbidden", Vec::new()),
         };
         json!({ "error": kind, "message": self.message(), "violations": violations })
     }

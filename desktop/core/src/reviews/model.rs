@@ -190,6 +190,8 @@ pub struct Review {
     pub starred: bool,
     /// The project its repository is in, looked up when it is read.
     pub project: Option<crate::db::ProjectRef>,
+    /// The work item it belongs to, if any.
+    pub item: Option<crate::db::ItemTag>,
 }
 
 impl Review {
@@ -251,6 +253,7 @@ impl Review {
             "starred_at": self.starred_at.map(iso),
             "starred": self.starred,
             "project": self.project.as_ref().map(crate::db::ProjectRef::to_json),
+            "item": self.item.as_ref().map(crate::db::ItemTag::to_json),
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
@@ -318,6 +321,7 @@ mod tests {
             starred_at: None,
             starred: false,
             project: None,
+            item: None,
             id: "r_1".into(),
             kind: Kind::Review,
             plugin: "list".into(),

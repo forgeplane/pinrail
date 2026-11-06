@@ -43,6 +43,10 @@ pub const REVIEW_DELETED: &str = "review_deleted";
 /// The person deleted a repository: its reviews, its sessions and its
 /// place in a project.
 pub const REPOSITORY_DELETED: &str = "repository_deleted";
+/// A work item was added or changed, or commented on.
+pub const ITEM_CHANGED: &str = "item_changed";
+/// The person deleted a work item, with its sub-items.
+pub const ITEM_DELETED: &str = "item_deleted";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 

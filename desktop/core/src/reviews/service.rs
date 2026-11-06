@@ -109,6 +109,72 @@ impl Reviews {
         self.submit_once(body, actor).map(|(review, _)| review)
     }
 
+    /// The work item a new review belongs to: the one `item` names, by its
+    /// key or its number in the origin's repository; none when `item` is
+    /// null; else the item of the round it revises, or the one item the
+    /// session holds a claim of.
+    fn item_for(
+        &self,
+        attrs: &Map<String, Value>,
+        _kind: Kind,
+    ) -> Result<Option<crate::db::ItemTag>, Error> {
+        let id = match attrs.get("item") {
+            Some(Value::Null) => return Ok(None),
+            Some(Value::String(named)) => {
+                let item =
+                    crate::items::ItemRef::parse(named).map_err(|e| Error::invalid("/item", e))?;
+                let repo = attrs
+                    .get("origin")
+                    .and_then(|o| o.get("repo"))
+                    .and_then(Value::as_str);
+                match self.db.item(&item, repo)? {
+                    Ok(found) => found.id,
+                    Err(refused) => return Err(Error::invalid("/item", refused.to_string())),
+                }
+            }
+            Some(_) => {
+                return Err(Error::invalid(
+                    "/item",
+                    "must be an item's key, such as PIN-42",
+                ));
+            }
+            None => {
+                let revised = attrs.get("revises").and_then(Value::as_str);
+                let agent = attrs.get("requested_by").and_then(Value::as_str);
+                let session = attrs.get("session").and_then(Value::as_str);
+                if let Some(revised) = revised {
+                    match self.db.item_of_review(revised)? {
+                        Some(id) => id,
+                        None => return Ok(None),
+                    }
+                } else if let (Some(agent), Some(session)) = (agent, session) {
+                    let held = self.db.session_claims(agent, session)?;
+                    match held.as_slice() {
+                        [] => return Ok(None),
+                        [one] => one.clone(),
+                        _ => {
+                            return Err(Error::invalid(
+                                "/item",
+                                "the session holds several work items: name the one this is for",
+                            ));
+                        }
+                    }
+                } else {
+                    return Ok(None);
+                }
+            }
+        };
+        Ok(self
+            .db
+            .item(&crate::items::ItemRef::Id(id), None)?
+            .ok()
+            .map(|w| crate::db::ItemTag {
+                id: w.id,
+                key: w.key.to_string(),
+                title: w.title,
+            }))
+    }
+
     /// The bundle a new review records: the installed one, which for a
     /// linked plugin is its folder as it was captured when it was fetched.
     fn bundle_of(&self, plugin: &crate::plugins::Plugin) -> Result<String, Error> {
@@ -194,6 +260,7 @@ impl Reviews {
                 None => false,
             },
             project: None,
+            item: self.item_for(attrs, kind)?,
         };
         // the notice and the answer name the project as a read would
         let mut review = review;
@@ -874,6 +941,8 @@ impl Reviews {
             let event_id =
                 self.db
                     .append_event(Some(&review.id), events::EXPIRED, None, &Value::Null)?;
+            self.db
+                .item_review_expired(&review.id, review.expires_at.unwrap_or_else(Utc::now))?;
             self.publish(event_id, events::EXPIRED, review);
         }
         Ok(expired)

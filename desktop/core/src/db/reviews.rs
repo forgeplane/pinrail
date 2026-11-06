@@ -206,8 +206,8 @@ fn insert_in(
             review.created_at,
         )?;
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind, repo_id)
-             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13, ?14)",
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind, repo_id, item_id)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13, ?14, ?15)",
             params![
                 review.id,
                 review.plugin,
@@ -224,8 +224,10 @@ fn insert_in(
                 review.session,
                 review.kind.as_str(),
                 repo_id,
+                review.item.as_ref().map(|i| i.id.as_str()),
             ],
         )?;
+        super::item_work::review_sent(tx, &review.id)?;
         tx.execute(
             "INSERT INTO review_payloads (review_id, payload) VALUES (?1, ?2)",
             params![
@@ -684,10 +686,12 @@ fn select(with_payload: bool) -> String {
     r.kind,
     r.starred_at,
     r.id IN ({STARRED_ROUNDS}),
-    {project}
+    {project},
+    {item}
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}",
         project = super::projects::project_json(REPO),
+        item = super::items::ITEM_JSON,
     )
 }
 
@@ -787,6 +791,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .and_then(|s| parse_datetime(&s)),
         starred: row.get(26)?,
         project: super::ProjectRef::from_column(row.get(27)?),
+        item: super::ItemTag::from_column(row.get(28)?),
         id: row.get(0)?,
         kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,

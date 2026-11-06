@@ -14,6 +14,7 @@ use crate::attachments::{Attachments, UploadError};
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
+use crate::items::Items;
 use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Registry};
 use crate::projects::Projects;
 use crate::reviews::Reviews;
@@ -33,6 +34,7 @@ pub struct Pinrail {
     plugins: PluginService,
     reviews: Reviews,
     projects: Projects,
+    items: Items,
     attachments: Attachments,
     bundles: Bundles,
     /// The data directory's lock, held until the application is dropped
@@ -59,6 +61,11 @@ impl Pinrail {
     /// The person's projects: named sets of repositories.
     pub fn projects(&self) -> &Projects {
         &self.projects
+    }
+
+    /// Work items: what the person and agents record and work through.
+    pub fn items(&self) -> &Items {
+        &self.items
     }
 
     /// The plugin bundles the app holds, by hash.
@@ -169,6 +176,12 @@ impl Pinrail {
             config.max_attachment_bytes,
         )?;
         let projects = Projects::new(db.clone(), events.bus(), attachments.clone());
+        let items = Items::new(
+            db.clone(),
+            events.bus(),
+            config.user.clone(),
+            attachments.clone(),
+        );
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),
@@ -184,6 +197,7 @@ impl Pinrail {
             plugins,
             reviews,
             projects,
+            items,
             attachments,
             bundles,
             _lock: lock,

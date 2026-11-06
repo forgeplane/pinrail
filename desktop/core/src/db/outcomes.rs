@@ -158,6 +158,14 @@ impl Db {
             return Ok(None);
         }
         let event_id = insert_event(&tx, Some(id), event, actor, &attrs)?;
+        super::item_work::review_ended(
+            &tx,
+            id,
+            outcome.kind,
+            outcome.by,
+            &serde_json::json!({"summary": outcome.summary, "reason": outcome.reason}),
+            outcome.at,
+        )?;
         tx.commit()?;
         Ok(Some(event_id))
     }

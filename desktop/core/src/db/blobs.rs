@@ -62,6 +62,7 @@ impl Db {
                AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = blobs.sha256)
                AND NOT EXISTS (SELECT 1 FROM status_attachments a WHERE a.sha256 = blobs.sha256)
                AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.image = blobs.sha256)
+               AND NOT EXISTS (SELECT 1 FROM work_item_files f WHERE f.sha256 = blobs.sha256)
              RETURNING sha256",
         )?
         .query_map(

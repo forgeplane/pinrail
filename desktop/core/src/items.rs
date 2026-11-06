@@ -4,6 +4,8 @@
 
 pub mod keys;
 mod model;
+mod service;
 
 pub use keys::{Key, derive_prefix, valid_prefix};
 pub use model::{Actor, Breakdown, BreakdownItem, ItemRef, NewItem, Status};
+pub use service::Items;
