@@ -77,7 +77,7 @@ export function SidebarSessionsMenu({
   onCollapseAll: (collapse: boolean) => void;
   onClose: () => void;
 }) {
-  const { menu, pos, setOpen, submenu, toggle } = useOptionsMenu(anchor, onClose);
+  const { menu, pos, hover, submenu, toggle } = useOptionsMenu(anchor, onClose);
   const radios = <T extends string>(list: [T, string][], value: T, pick: (v: T) => void): MenuOption[] =>
     list.map(([v, label]) => ({
       value: v,
@@ -139,7 +139,7 @@ export function SidebarSessionsMenu({
       )}
       {toggle("Show waiting reviews", choices.show_reviews, () => onChange({ show_reviews: !choices.show_reviews }))}
       <hr className="menu-separator" />
-      <div className="menu-heading" onMouseEnter={() => setOpen(null)}>
+      <div className="menu-heading" onMouseEnter={() => hover(null)}>
         Filters
         <button
           type="button"
@@ -195,7 +195,7 @@ export function SidebarSessionsMenu({
         type="button"
         role="menuitem"
         className="menu-item"
-        onMouseEnter={() => setOpen(null)}
+        onMouseEnter={() => hover(null)}
         onClick={() => {
           onCollapseAll(!collapsedAll);
           onClose();

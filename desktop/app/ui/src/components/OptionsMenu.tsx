@@ -2,12 +2,18 @@
 // Work items page use them: a popup under its button, closed by a click
 // outside it or by Escape, whose items open submenus of radio or checkbox
 // options to the right on hover or click, some with a field to search them,
-// or toggle a choice. The popup is drawn at the end of the body, so a
+// or toggle a choice. While the pointer heads for an open submenu, a row it
+// crosses waits before it takes the submenu's place (menu aim). The popup is drawn at the end of the body, so a
 // scrolling container cannot clip it.
 
 import { Check, ChevronRight, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { headsFor, type Point } from "../lib/menuAim";
 import { viewportRect } from "../lib/viewport";
+
+/** How long a row the pointer crossed on its way to a submenu waits before
+ *  it opens its own, if the pointer stays on it. */
+const AIM_DELAY = 300;
 
 /** An option of a submenu. */
 export type MenuOption = {
@@ -41,6 +47,47 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   // in a searchable submenu, the match the arrow keys move to and Enter picks
   const [active, setActive] = useState(0);
   useEffect(() => setQuery(""), [open]);
+
+  // the pointer's last positions, the oldest first, to tell where it heads
+  const trail = useRef<Point[]>([]);
+  // the row the pointer is over while it heads for the open submenu
+  const waiting = useRef<{ key: string | null; timer: number } | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const heading = () => {
+    const sub = menu.current?.querySelector<HTMLElement>(".menu-submenu");
+    const points = trail.current;
+    if (!sub || points.length < 2) return false;
+    return headsFor(points[0], points[points.length - 1], sub.getBoundingClientRect());
+  };
+  const settle = () => {
+    if (!waiting.current) return;
+    window.clearTimeout(waiting.current.timer);
+    const { key } = waiting.current;
+    waiting.current = null;
+    setOpen(key);
+  };
+  /** The pointer is over a row: open its submenu, or none, unless the
+   *  pointer is on its way to the open one. */
+  const hover = (key: string | null) => {
+    if (waiting.current) window.clearTimeout(waiting.current.timer);
+    waiting.current = null;
+    if (key === openRef.current) return;
+    if (openRef.current === null || !heading()) return setOpen(key);
+    waiting.current = { key, timer: window.setTimeout(settle, AIM_DELAY) };
+  };
+  useEffect(() => {
+    const onMove = (event: MouseEvent) => {
+      trail.current = [...trail.current.slice(-2), { x: event.clientX, y: event.clientY }];
+      // turned away from the submenu: the row it is over takes over now
+      if (waiting.current && !heading()) settle();
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      if (waiting.current) window.clearTimeout(waiting.current.timer);
+    };
+  }, []);
   useEffect(() => setActive(0), [open, query]);
   // under the button: its left edge, or its right edge for a menu that
   // opens to the left
@@ -76,7 +123,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     const words = query.trim().toLowerCase();
     const options = searchable && words ? all.filter((o) => o.label.toLowerCase().includes(words)) : all;
     return (
-      <div className="menu-sub" onMouseEnter={() => setOpen(key)}>
+      <div className="menu-sub" onMouseEnter={() => hover(key)}>
         <button
           type="button"
           role="menuitem"
@@ -84,7 +131,11 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
           aria-expanded={open === key}
           className={`menu-item ${open === key ? "is-open" : ""}`}
           // the pointer opened it already on its way to the click
-          onClick={() => setOpen(key)}
+          onClick={() => {
+            if (waiting.current) window.clearTimeout(waiting.current.timer);
+            waiting.current = null;
+            setOpen(key);
+          }}
         >
           {text}
           <span className="menu-value">{value}</span>
@@ -152,7 +203,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       role="menuitemcheckbox"
       aria-checked={checked}
       className="menu-item"
-      onMouseEnter={() => setOpen(null)}
+      onMouseEnter={() => hover(null)}
       onClick={onPick}
     >
       {Icon ? <Icon size={14} className="menu-icon" aria-hidden /> : null}
@@ -162,5 +213,5 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     </button>
   );
 
-  return { menu, pos, setOpen, submenu, toggle };
+  return { menu, pos, hover, submenu, toggle };
 }

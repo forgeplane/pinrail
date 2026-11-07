@@ -122,7 +122,7 @@ function FilterMenu({
   onReset: () => void;
   onClose: () => void;
 }) {
-  const { menu, pos, setOpen, submenu, toggle } = useOptionsMenu(anchor, onClose);
+  const { menu, pos, hover, submenu, toggle } = useOptionsMenu(anchor, onClose);
   if (!pos) return null;
   return createPortal(
     <div
@@ -133,7 +133,7 @@ function FilterMenu({
       style={{ top: pos.top, right: window.innerWidth - pos.right }}
       data-testid="filter-menu"
     >
-      <div className="menu-heading" onMouseEnter={() => setOpen(null)}>
+      <div className="menu-heading" onMouseEnter={() => hover(null)}>
         Filters
         <button type="button" className="menu-reset" disabled={filtersOn(filters, toggles) === 0} onClick={onReset}>
           Reset

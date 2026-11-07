@@ -666,3 +666,33 @@ test("the items are ordered as Display options says, sub-items under their paren
   await page.getByRole("button", { name: "Display options" }).click();
   await expect(page.getByRole("menuitem", { name: /^Ordering/ })).toContainText("Status");
 });
+
+test("a submenu stays open while the pointer crosses another row on its way to it", async ({ page }) => {
+  await page.goto("/#/items");
+  await page.getByRole("button", { name: "Display options", exact: true }).click();
+  const grouping = page.getByRole("menuitem", { name: /^Grouping/ });
+  const ordering = page.getByRole("menuitem", { name: /^Ordering/ });
+  await grouping.hover();
+  const none = page.getByRole("menuitemradio", { name: "None", exact: true });
+  await expect(none).toBeVisible();
+  // from the right of the Grouping row to the submenu's last option, on
+  // the left and below, the pointer crosses the Ordering row
+  const [from, over, to] = [await grouping.boundingBox(), await ordering.boundingBox(), await none.boundingBox()];
+  const start = { x: from!.x + from!.width - 8, y: from!.y + from!.height / 2 };
+  const end = { x: to!.x + to!.width / 2, y: to!.y + to!.height / 2 };
+  const crossesAt = start.x + ((over!.y + over!.height / 2 - start.y) / (end.y - start.y)) * (end.x - start.x);
+  expect(crossesAt).toBeGreaterThan(over!.x);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await expect(none).toBeVisible();
+  await none.click();
+  await settingSaved(page.request, (s) => s.items.layout, "list");
+  await page.keyboard.press("Escape");
+
+  // a pointer that stops on the row it crossed opens that row's submenu
+  await page.getByRole("button", { name: "Display options", exact: true }).click();
+  await grouping.hover();
+  await expect(none).toBeVisible();
+  await ordering.hover();
+  await expect(page.getByRole("menuitemradio", { name: "Newest first", exact: true })).toBeVisible();
+});
