@@ -6182,6 +6182,10 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-row.is-focused {
   background: var(--bg-hover);
 }
+/* J and K show where they are with is-focused: a clicked row draws no ring */
+.item-row:focus-visible {
+  box-shadow: none;
+}
 .item-row.is-open {
   background: var(--accent-bg);
   border-left-color: var(--accent);

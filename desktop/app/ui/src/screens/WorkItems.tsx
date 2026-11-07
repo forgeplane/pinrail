@@ -274,8 +274,19 @@ export function WorkItems() {
   useEffect(() => {
     if (focused >= rows.length && rows.length) setFocused(rows.length - 1);
   }, [rows.length, focused]);
+  // the open item is focused, however it was opened, so J and K move on from
+  // it; once per item, so a live update does not take the focus from a hovered row
+  const focusedOpen = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openKey) focusedOpen.current = null;
+    if (!openKey || focusedOpen.current === openKey) return;
+    const at = rows.findIndex((r) => r.item.key === openKey);
+    if (at < 0) return;
+    focusedOpen.current = openKey;
+    setFocused(at);
+  }, [openKey, rows]);
 
-  // J and K move, Enter opens, / searches, C adds; S, D and X change the
+  // J and K move, and open what they reach while the panel is open; Enter opens, / searches, C adds; S, D and X change the
   // focused item: claimed or released, done, cancelled
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -291,9 +302,12 @@ export function WorkItems() {
       if (event.key === "/") {
         event.preventDefault();
         document.querySelector<HTMLInputElement>(".work-items input[type=search]")?.focus();
-      } else if (key === "j") setFocused((f) => Math.min(f + 1, rows.length - 1));
-      else if (key === "k") setFocused((f) => Math.max(f - 1, 0));
-      else if (event.key === "Enter" && at) open(at);
+      } else if ((key === "j" || key === "k") && rows.length) {
+        const next = key === "j" ? Math.min(focused + 1, rows.length - 1) : Math.max(focused - 1, 0);
+        setFocused(next);
+        // the open panel follows, showing the item moved to
+        if (openKey && next !== focused) openKeyed(rows[next].item.key);
+      } else if (event.key === "Enter" && at) open(at);
       else if (key === "c" && !event.shiftKey) {
         event.preventDefault();
         setAdding(true);
@@ -307,7 +321,7 @@ export function WorkItems() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, focused, open, change]);
+  }, [rows, focused, open, openKey, openKeyed, change]);
 
   const focusedItem = rows[focused]?.item;
   const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => {

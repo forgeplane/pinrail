@@ -57,6 +57,37 @@ test("an item opens in the panel from a click, Enter or its address, and Esc clo
   await expect(panel(page).getByRole("heading", { name: "First" })).toBeVisible();
 });
 
+test("with the panel open, J and K open the item they move to", async ({ page, request }) => {
+  const repo = fresh("walk");
+  const first = await add(request, repo, "First");
+  const second = await add(request, repo, "Second");
+  const third = await add(request, repo, "Third");
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  // with the panel closed, J only moves
+  await page.locator("body").press("j");
+  await expect(row(page, second.key)).toHaveClass(/is-focused/);
+  await expect(panel(page)).toHaveCount(0);
+
+  await row(page, first.key).click();
+  await expect(panel(page).getByRole("heading", { name: "First" })).toBeVisible();
+  await page.keyboard.press("j");
+  await expect(panel(page).getByRole("heading", { name: "Second" })).toBeVisible();
+  await expect(row(page, second.key)).toHaveClass(/is-open/);
+  // the clicked row draws no focus ring once the keys have moved on
+  await expect(row(page, first.key)).toHaveCSS("box-shadow", "none");
+  await page.locator("body").press("j");
+  await expect(panel(page).getByRole("heading", { name: "Third" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`open=${third.key}`));
+  await page.locator("body").press("k");
+  await expect(panel(page).getByRole("heading", { name: "Second" })).toBeVisible();
+
+  // an item opened from its address is where they move from
+  await page.goto("/#/");
+  await openItem(page, repo, third.key);
+  await page.locator("body").press("k");
+  await expect(panel(page).getByRole("heading", { name: "Second" })).toBeVisible();
+});
+
 test("the title and the description are edited in place, saved or left", async ({ page, request }) => {
   const repo = fresh("edit");
   const item = await add(request, repo, "Load themes", { body: "Read the files." });
