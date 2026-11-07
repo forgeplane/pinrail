@@ -43,6 +43,8 @@ test("an item opens in the panel from a click, Enter or its address, and Esc clo
   await row(page, first.key).click();
   await expect(panel(page).getByRole("heading", { name: "First" })).toBeVisible();
   await expect(row(page, first.key)).toHaveClass(/is-open/);
+  // marked by its background alone, as the inbox marks its open review
+  await expect(row(page, first.key)).toHaveCSS("border-left-width", "0px");
   await expect(page).toHaveURL(new RegExp(`open=${first.key}`));
 
   await page.keyboard.press("Escape");

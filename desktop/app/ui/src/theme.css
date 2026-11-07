@@ -6172,7 +6172,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 9px;
   padding: 7px 10px;
   border-radius: 6px;
-  border-left: 2px solid transparent;
   color: var(--text);
   cursor: pointer;
 }
@@ -6188,7 +6187,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-row.is-open {
   background: var(--accent-bg);
-  border-left-color: var(--accent);
 }
 .item-row.is-drop {
   outline: 1px dashed var(--accent);
