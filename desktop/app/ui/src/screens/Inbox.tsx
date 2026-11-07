@@ -366,7 +366,6 @@ function Waiting() {
           projects={live.projects}
           unassigned={live.unassigned > 0}
           plugins={plugins}
-          filtered={!!(q || scope || plugin || starred)}
           onClear={() => setQ("")}
           layout={{ value: layout, set: setLayout }}
         />

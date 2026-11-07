@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { clearInbox, core, openReviewsIn, onePayload } from "./helpers";
+import { clearInbox, core, onePayload, openReviewsIn, pickIn } from "./helpers";
 
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
 const thread = (page: Page) => page.getByTestId("thread");
@@ -653,10 +653,7 @@ test("the Sessions page filters the sessions by project", async ({ page }) => {
   await send(page.request, { ...asked(nowhere, "Project: none"), origin: {} });
   await page.goto("/#/sessions");
   const rows = page.getByTestId("session-row");
-  const choose = async (name: string) => {
-    await page.getByRole("main").getByRole("button", { name: "Project or repository" }).click();
-    await page.getByRole("option", { name, exact: true }).click();
-  };
+  const choose = (name: string) => pickIn(page, "Filter", "Project or repository", name);
 
   await choose("acme/web");
   await expect(page).toHaveURL(/repo=acme%2Fweb/);

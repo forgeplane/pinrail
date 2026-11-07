@@ -38,7 +38,10 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   const [open, setOpen] = useState<string | null>(null);
   // what is typed in a searchable submenu
   const [query, setQuery] = useState("");
+  // in a searchable submenu, the match the arrow keys move to and Enter picks
+  const [active, setActive] = useState(0);
   useEffect(() => setQuery(""), [open]);
+  useEffect(() => setActive(0), [open, query]);
   // under the button: its left edge, or its right edge for a menu that
   // opens to the left
   const [pos, setPos] = useState<{ top: number; left: number; right: number } | null>(null);
@@ -107,17 +110,27 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
                 aria-label={`Filter ${text.toLowerCase()}`}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    event.preventDefault();
+                    const step = event.key === "ArrowDown" ? 1 : -1;
+                    setActive((a) => Math.min(Math.max(a + step, 0), Math.max(options.length - 1, 0)));
+                  } else if (event.key === "Enter" && options[active]) {
+                    event.preventDefault();
+                    options[active].onPick();
+                  }
+                }}
               />
             ) : null}
             {all.length === 0 ? <div className="menu-note">None yet</div> : null}
             {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
-            {options.map((o) => (
+            {options.map((o, i) => (
               <button
                 key={o.value}
                 type="button"
                 role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
                 aria-checked={o.checked}
-                className="menu-item"
+                className={`menu-item ${searchable && i === active ? "is-active" : ""}`}
                 disabled={!!o.disabled}
                 title={o.disabled}
                 onClick={o.onPick}

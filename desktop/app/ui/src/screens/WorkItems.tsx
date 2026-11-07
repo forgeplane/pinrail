@@ -30,7 +30,8 @@ import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { GroupHeading } from "../components/GroupHeading";
 import { ItemStatusIcon } from "../components/ItemStatusIcon";
-import { FilterChips, ItemMenuButtons, type Filter, type Toggle } from "../components/WorkItemsMenus";
+import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
+import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
@@ -496,14 +497,24 @@ export function WorkItems() {
                 }}
               />
             </label>
-            <ItemMenuButtons
+            <ListMenuButtons
+              label="work items"
               filters={filters}
               toggles={toggles}
               onReset={clearFilters}
-              layout={layout}
-              nesting={prefs.items.nesting}
-              onLayout={(next) => void update({ items: { layout: next } })}
-              onNesting={(next) => void update({ items: { nesting: next } })}
+              displays={[
+                groupingDisplay(layout, (next) => void update({ items: { layout: next } })),
+                {
+                  key: "nesting",
+                  label: "Sub-items",
+                  value: prefs.items.nesting,
+                  choices: [
+                    { value: "nested", label: "Nested", icon: ListTree },
+                    { value: "flat", label: "Flat", icon: ListIcon },
+                  ],
+                  onChange: (next) => void update({ items: { nesting: next as "nested" | "flat" } }),
+                },
+              ]}
             />
           </div>
         </header>

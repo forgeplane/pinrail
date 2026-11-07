@@ -3,7 +3,7 @@
 // history, and with the history's filter.
 
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { clearInbox, core, createReview, decide, onePayload, openReviewsIn } from "./helpers";
+import { clearInbox, core, createReview, decide, onePayload, openReviewsIn, toggleFilter } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
 
@@ -58,7 +58,7 @@ test("the history lists the starred reviews with its filter", async ({ page }) =
   await page.goto("/#/history");
   const rows = page.getByTestId("history-row");
   await expect(rows.filter({ hasText: "Stars: not kept" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Starred" }).click();
+  await toggleFilter(page, "Starred");
   await expect(page).toHaveURL(/starred=1/);
   await expect(rows.filter({ hasText: "Stars: kept" })).toHaveCount(1);
   await expect(rows.filter({ hasText: "Stars: not kept" })).toHaveCount(0);

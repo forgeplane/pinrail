@@ -717,6 +717,7 @@ h1 {
 }
 .menu-item:hover,
 .menu-item.is-open,
+.menu-item.is-active,
 .menu-item:focus-visible {
   background: var(--bg-hover);
   outline: none;
@@ -2002,14 +2003,6 @@ body.is-resizing iframe {
   font-size: 11.5px;
   color: var(--faint);
 }
-.inbox-layout {
-  margin-left: 8px;
-}
-.inbox-layout button {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 7px;
-}
 /* the rows a little apart, so that two highlighted rows never touch */
 .inbox-list,
 .inbox-repo[open] {
@@ -2194,9 +2187,7 @@ body.is-resizing iframe {
   color: var(--sev-major);
 }
 /* the star: amber when starred, and shown on every starred row */
-.star-button.is-starred,
-.star-filter.is-starred,
-.star-filter.is-starred svg {
+.star-button.is-starred {
   color: var(--sev-major);
 }
 .review-row-end .star-button.is-starred {
@@ -2224,9 +2215,6 @@ body.is-resizing iframe {
   .review-row-summary,
   .list-sort {
     display: none;
-  }
-  .inbox-layout {
-    margin-left: auto;
   }
 }
 .discard-dialog {

@@ -251,7 +251,6 @@ export function History() {
           projects={repos}
           unassigned={!!data?.facets?.unassigned}
           plugins={plugins}
-          filtered={filtered}
           onClear={() => setQ("")}
         />
         {!data ? null : total === 0 ? (

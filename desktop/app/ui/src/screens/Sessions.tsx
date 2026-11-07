@@ -2,7 +2,7 @@
 // person first, and one session's thread: in the side panel beside the list,
 // or on a page of its own.
 
-import { Archive, FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
+import { FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
@@ -11,14 +11,12 @@ import { AgentIcon } from "../components/AgentIcon";
 import { ArchiveButton, useToggleArchive } from "../components/ArchiveButton";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
-import { Select } from "../components/Select";
 import { GroupHeading } from "../components/GroupHeading";
-import { LayoutSwitch } from "../components/LayoutSwitch";
+import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath, statusLine } from "../components/Thread";
-import { Tooltip } from "../components/Tooltip";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
 import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
@@ -263,6 +261,47 @@ export function Sessions() {
     );
   };
 
+  // the filters, in the Filter menu and as chips while they are on
+  const clearFilters = () =>
+    updateParams(
+      (next) => {
+        for (const key of ["q", "repo", "project", "archived", "page"]) next.delete(key);
+      },
+      { replace: true },
+    );
+  const filters: Filter[] = [
+    {
+      key: "scope",
+      label: "Project or repository",
+      value: scope,
+      off: "",
+      searchable: true,
+      choices: scopeOptions(live.namedProjects, data?.facets.repos ?? [], !!data?.facets.unassigned, scope).map(
+        (o) => ({
+          value: o.value,
+          label: o.label,
+          mark: o.project ? <ProjectAvatar project={o.project} size={14} /> : <FolderGit2 size={13} />,
+        }),
+      ),
+      onChange: (v) =>
+        updateParams(
+          (next) => {
+            setScope(next, v);
+            next.delete("page");
+          },
+          { replace: true },
+        ),
+    },
+  ];
+  const toggles: Toggle[] = [
+    {
+      key: "archived",
+      label: "Show archived",
+      on: withArchived,
+      onChange: (on) => setParam("archived", on ? "1" : null),
+    },
+  ];
+
   return (
     <div className={`sessions ${opened ? "has-panel" : ""}`} ref={split}>
       <div className="sessions-side split-side">
@@ -286,50 +325,21 @@ export function Sessions() {
                 }}
               />
             </label>
-            <Select
-              id="sessions-repo"
-              searchable
-              label="Project or repository"
-              icon={<FolderGit2 size={14} />}
-              value={scope}
-              onChange={(v) =>
-                updateParams(
-                  (next) => {
-                    setScope(next, v);
-                    next.delete("page");
-                  },
-                  { replace: true },
-                )
-              }
-              options={scopeOptions(live.namedProjects, data?.facets.repos ?? [], !!data?.facets.unassigned, scope).map(
-                (o) => ({
-                  value: o.value,
-                  label: o.label,
-                  icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
+            <ListMenuButtons
+              label="sessions"
+              filters={filters}
+              toggles={toggles}
+              onReset={clearFilters}
+              displays={[
+                groupingDisplay(layout, (next) => {
+                  void update({ sessions: { layout: next } });
+                  setFocused(0);
                 }),
-              )}
-            />
-            <Tooltip label={withArchived ? "Hide the archived sessions" : "Show the archived sessions"} side="bottom">
-              <button
-                type="button"
-                className={`chrome-button ${withArchived ? "is-active" : ""}`}
-                aria-label="Show archived"
-                aria-pressed={withArchived}
-                onClick={() => setParam("archived", withArchived ? null : "1")}
-              >
-                <Archive size={14} />
-              </button>
-            </Tooltip>
-            <LayoutSwitch
-              value={layout}
-              onChange={(next) => {
-                void update({ sessions: { layout: next } });
-                setFocused(0);
-              }}
-              label="Sessions layout"
+              ]}
             />
           </div>
         </header>
+        <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
         {!data ? null : total === 0 ? (
           <EmptyState
             title={filtered ? "No matching sessions" : "Agents' sessions belong here"}

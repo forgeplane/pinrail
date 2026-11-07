@@ -115,3 +115,30 @@ export function layout(dir: string, decisionSchema: unknown = {}) {
   fs.writeFileSync(path.join(dir, "schemas", "payload.schema.json"), "{}");
   fs.writeFileSync(path.join(dir, "schemas", "decision.schema.json"), JSON.stringify(decisionSchema));
 }
+
+/** Chooses `option` in a submenu of a list page's Filter or Display options
+ *  menu, and closes the menu. */
+export async function pickIn(page: Page, menu: "Filter" | "Display options", submenu: string, option: string) {
+  await page.getByRole("button", { name: menu, exact: true }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${submenu}`) }).click();
+  await page.getByRole("menuitemradio", { name: option, exact: true }).click();
+  await page.keyboard.press("Escape");
+}
+
+/** Turns a filter of a list page's Filter menu on or off, such as Starred. */
+export async function toggleFilter(page: Page, label: string) {
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: label }).click();
+  await page.keyboard.press("Escape");
+}
+
+/** The value a submenu of a list page's Filter or Display options menu shows. */
+export async function shownIn(page: Page, menu: "Filter" | "Display options", submenu: string) {
+  await page.getByRole("button", { name: menu, exact: true }).click();
+  const value = await page
+    .getByRole("menuitem", { name: new RegExp(`^${submenu}`) })
+    .locator(".menu-value")
+    .innerText();
+  await page.keyboard.press("Escape");
+  return value;
+}

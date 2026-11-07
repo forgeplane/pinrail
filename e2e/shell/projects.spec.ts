@@ -2,7 +2,7 @@
 // each with its repositories, and the repositories in no project last.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { clearInbox, core, createReview, settingSaved } from "./helpers";
+import { clearInbox, core, createReview, pickIn, settingSaved } from "./helpers";
 
 /** Deletes every project, so each test starts with none. */
 async function noProjects(request: APIRequestContext) {
@@ -184,7 +184,7 @@ test("the inbox groups and filters by project, and names each review's repositor
   const { id } = (await created.json()) as { id: string };
 
   await page.goto("/#/");
-  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await pickIn(page, "Display options", "Grouping", "Project");
   const groups = page.getByTestId("inbox-group-name");
   await expect(groups).toHaveText(["mix/elsewhere", "Mix"]);
   const mixed = page.getByTestId("inbox-group").filter({ has: page.getByText("Mix", { exact: true }) });
@@ -212,8 +212,7 @@ test("the inbox groups and filters by project, and names each review's repositor
   }
 
   // the filter takes the project, and the address keeps it
-  await page.getByRole("button", { name: "Project or repository" }).click();
-  await page.getByRole("option", { name: "Mix", exact: true }).click();
+  await pickIn(page, "Filter", "Project or repository", "Mix");
   await expect(page).toHaveURL(new RegExp(`project=${id}`));
   await expect(page.getByTestId("review-row")).toHaveCount(2);
 
@@ -231,35 +230,37 @@ test("the project or repository filter narrows its choices to what is typed", as
   await createReview(request, { title: "Type: web", origin: { repo: "typed/web" } });
   await request.post(`${core}/api/v1/projects`, { data: { name: "Typed", repos: ["typed/app"] } });
   await page.goto("/#/");
-  const filter = page.getByRole("button", { name: "Project or repository" });
+  const filter = page.getByRole("button", { name: "Filter", exact: true });
+  const openScope = async () => {
+    await filter.click();
+    await page.getByRole("menuitem", { name: /^Project or repository/ }).click();
+  };
+  const choices = page.getByRole("menu", { name: "Project or repository" }).getByRole("menuitemradio");
 
-  // typing on the closed filter opens it with a search for what was typed
-  await filter.focus();
-  await page.keyboard.type("we");
+  // the submenu opens with its search focused, and narrows to what is typed
+  await openScope();
   const search = page.getByRole("textbox", { name: "Filter project or repository" });
   await expect(search).toBeFocused();
-  await expect(search).toHaveValue("we");
-  await expect(page.getByRole("option").locator(".select-option-label")).toHaveText(["typed/web"]);
+  await search.fill("we");
+  await expect(choices.locator(".menu-label")).toHaveText(["typed/web"]);
 
   // the projects match by their names too; the arrow keys and Enter pick a match
   await search.fill("TYPED");
-  await expect(page.getByRole("option").locator(".select-option-label")).toHaveText([
-    "Typed",
-    "typed/app",
-    "typed/web",
-  ]);
+  await expect(choices.locator(".menu-label")).toHaveText(["Typed", "typed/app", "typed/web"]);
   await search.press("ArrowDown");
   await search.press("Enter");
   await expect(page).toHaveURL(/repo=typed%2Fapp/);
   await expect(page.getByTestId("review-row")).toHaveText([/Type: app/]);
 
+  // a pick leaves the menu open for another filter, until Escape
+  await page.keyboard.press("Escape");
   // nothing matching says so, and Escape leaves the choice as it was
-  await filter.click();
+  await openScope();
   await expect(search).toHaveValue("");
   await search.fill("nothing like it");
-  await expect(page.getByRole("listbox")).toContainText("No matches");
+  await expect(page.getByRole("menu", { name: "Project or repository" })).toContainText("No matches");
   await search.press("Escape");
-  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.getByRole("menu", { name: "Project or repository" })).toHaveCount(0);
   await expect(filter).toBeFocused();
   await expect(page).toHaveURL(/repo=typed%2Fapp/);
 });
@@ -328,7 +329,7 @@ test("a project's avatar takes a colour and an icon, and shows where the project
   // the inbox's group shows it too, at the size the Projects page does
   const onPage = (await group.locator(".project-avatar").boundingBox())!;
   await page.goto("/#/");
-  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await pickIn(page, "Display options", "Grouping", "Project");
   const inInbox = page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar");
   await expect(inInbox).toHaveAttribute("data-color", "green");
   const inbox = (await inInbox.boundingBox())!;
@@ -429,7 +430,7 @@ test("a project's avatar takes a PNG, cropped to its middle square, and gives it
   });
   expect(size).toEqual([256, 256]);
   await page.goto("/#/");
-  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await pickIn(page, "Display options", "Grouping", "Project");
   await expect(
     page.getByTestId("inbox-group").filter({ hasText: "Pictured" }).locator(".project-avatar img"),
   ).toBeVisible();
@@ -462,7 +463,7 @@ test("the Sessions page groups the sessions by project or by repository", async 
   await page.goto(`/#/sessions?q=${run}`);
   await expect(page.getByTestId("session-row")).toHaveCount(3);
   await expect(page.getByTestId("inbox-group")).toHaveCount(0);
-  await page.getByRole("radio", { name: "Grouped by project" }).click();
+  await pickIn(page, "Display options", "Grouping", "Project");
   const group = (title: string) =>
     page
       .getByTestId("inbox-group")
@@ -473,7 +474,7 @@ test("the Sessions page groups the sessions by project or by repository", async 
   await expect(group(`grp-other/${run}`).getByTestId("session-row")).toHaveCount(1);
 
   // by repository, each has its group, and the rows leave the repository out
-  await page.getByRole("radio", { name: "Grouped by repository" }).click();
+  await pickIn(page, "Display options", "Grouping", "Repository");
   await expect(group(`grp-app/${run}`).getByTestId("session-row")).toHaveCount(1);
   await expect(group(`grp-app/${run}`).locator(".review-row-project")).toHaveCount(0);
   await settingSaved(request, (s) => s.sessions.layout, "repository");
@@ -507,7 +508,8 @@ test("search fields neither complete, correct, capitalise nor spell-check what i
   await check(page.getByLabel("Filter projects and repositories"));
   await page.goto("/#/");
   await check(page.getByLabel("Search inbox"));
-  await page.getByRole("button", { name: "Project or repository" }).click();
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Project or repository/ }).click();
   await check(page.getByRole("textbox", { name: "Filter project or repository" }));
   await page.keyboard.press("Escape");
   await page.goto("/#/sessions");

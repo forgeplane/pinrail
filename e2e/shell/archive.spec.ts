@@ -3,7 +3,7 @@
 // bringing an archived session back.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { clearInbox, core, openReviewsIn } from "./helpers";
+import { clearInbox, core, openReviewsIn, toggleFilter } from "./helpers";
 
 let n = 0;
 const fresh = () => `s-archive-${Date.now()}-${++n}`;
@@ -70,13 +70,13 @@ test("a row is archived with its button and with E, and Show archived brings it 
   await expect(row(page, second)).toHaveCount(0);
 
   // Show archived lists them with the others, marked, and they come back from there
-  await page.getByRole("button", { name: "Show archived" }).click();
+  await toggleFilter(page, "Show archived");
   await expect(page).toHaveURL(/archived=1/);
   await expect(row(page, first).getByText("Archived", { exact: true })).toBeVisible();
   await expect(row(page, second).getByText("Archived", { exact: true })).toBeVisible();
   await row(page, first).getByRole("button", { name: "Unarchive" }).click();
   await expect(row(page, first).getByText("Archived", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Show archived" }).click();
+  await toggleFilter(page, "Show archived");
   await expect(row(page, first)).toHaveCount(1);
   await expect(row(page, second)).toHaveCount(0);
 });

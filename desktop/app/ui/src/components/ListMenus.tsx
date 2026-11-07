@@ -1,7 +1,9 @@
-// The Work items page's Filter and Display buttons, their menus, and the row
-// of chips that names each filter that is on, with a button to remove it.
+// A list page's Filter and Display buttons, their menus, and the row of
+// chips that names each filter that is on, with a button to remove it: the
+// Work items page, the inbox and the Sessions page use them.
 
-import { FolderGit2, LayoutGrid, List, ListFilter, ListTree, SlidersHorizontal, X } from "lucide-react";
+import { FolderGit2, LayoutGrid, List, ListFilter, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
+import type { Layout } from "../lib/grouping";
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
@@ -26,35 +28,33 @@ export type Filter = {
 /** A filter that is on or off, such as Waiting on you. */
 export type Toggle = { key: string; label: string; on: boolean; onChange: (on: boolean) => void };
 
-type Layout = "project" | "repository" | "list";
-type Nesting = "nested" | "flat";
-
-const LAYOUTS: { value: Layout; label: string; icon: typeof List }[] = [
-  { value: "project", label: "Project", icon: LayoutGrid },
-  { value: "repository", label: "Repository", icon: FolderGit2 },
-  { value: "list", label: "None", icon: List },
-];
+/** A choice of how the list is shown, such as its grouping. */
+export type Display = {
+  key: string;
+  label: string;
+  value: string;
+  choices: { value: string; label: string; icon?: LucideIcon }[];
+  onChange: (value: string) => void;
+};
 
 const filtersOn = (filters: Filter[], toggles: Toggle[]) =>
   filters.filter((f) => f.value !== f.off).length + toggles.filter((t) => t.on).length;
 
-/** The Filter and Display buttons, each opening its menu. */
-export function ItemMenuButtons({
+/** The Filter and Display buttons, each opening its menu; no Display
+ *  button without a choice of how to show the list. */
+export function ListMenuButtons({
+  label,
   filters,
   toggles,
   onReset,
-  layout,
-  nesting,
-  onLayout,
-  onNesting,
+  displays = [],
 }: {
+  /** what the list holds, such as "work items", for the menus' names */
+  label: string;
   filters: Filter[];
   toggles: Toggle[];
   onReset: () => void;
-  layout: Layout;
-  nesting: Nesting;
-  onLayout: (layout: Layout) => void;
-  onNesting: (nesting: Nesting) => void;
+  displays?: Display[];
 }) {
   const filterButton = useRef<HTMLButtonElement>(null);
   const displayButton = useRef<HTMLButtonElement>(null);
@@ -75,21 +75,24 @@ export function ItemMenuButtons({
           <ListFilter size={15} />
         </button>
       </Tooltip>
-      <Tooltip label="Display options" side="bottom">
-        <button
-          ref={displayButton}
-          type="button"
-          className={`bar-button item-menu-button ${open === "display" ? "is-on" : ""}`}
-          aria-label="Display options"
-          aria-haspopup="menu"
-          aria-expanded={open === "display"}
-          onClick={() => setOpen((o) => (o === "display" ? null : "display"))}
-        >
-          <SlidersHorizontal size={15} />
-        </button>
-      </Tooltip>
+      {displays.length ? (
+        <Tooltip label="Display options" side="bottom">
+          <button
+            ref={displayButton}
+            type="button"
+            className={`bar-button item-menu-button ${open === "display" ? "is-on" : ""}`}
+            aria-label="Display options"
+            aria-haspopup="menu"
+            aria-expanded={open === "display"}
+            onClick={() => setOpen((o) => (o === "display" ? null : "display"))}
+          >
+            <SlidersHorizontal size={15} />
+          </button>
+        </Tooltip>
+      ) : null}
       {open === "filter" && filterButton.current ? (
         <FilterMenu
+          label={label}
           anchor={filterButton.current}
           filters={filters}
           toggles={toggles}
@@ -98,26 +101,21 @@ export function ItemMenuButtons({
         />
       ) : null}
       {open === "display" && displayButton.current ? (
-        <DisplayMenu
-          anchor={displayButton.current}
-          layout={layout}
-          nesting={nesting}
-          onLayout={onLayout}
-          onNesting={onNesting}
-          onClose={() => setOpen(null)}
-        />
+        <DisplayMenu anchor={displayButton.current} displays={displays} onClose={() => setOpen(null)} />
       ) : null}
     </>
   );
 }
 
 function FilterMenu({
+  label,
   anchor,
   filters,
   toggles,
   onReset,
   onClose,
 }: {
+  label: string;
   anchor: HTMLElement;
   filters: Filter[];
   toggles: Toggle[];
@@ -131,9 +129,9 @@ function FilterMenu({
       ref={menu}
       className="menu-popup item-menu opens-left"
       role="menu"
-      aria-label="Filter work items"
+      aria-label={`Filter ${label}`}
       style={{ top: pos.top, right: window.innerWidth - pos.right }}
-      data-testid="items-filter-menu"
+      data-testid="filter-menu"
     >
       <div className="menu-heading" onMouseEnter={() => setOpen(null)}>
         Filters
@@ -165,21 +163,7 @@ function FilterMenu({
   );
 }
 
-function DisplayMenu({
-  anchor,
-  layout,
-  nesting,
-  onLayout,
-  onNesting,
-  onClose,
-}: {
-  anchor: HTMLElement;
-  layout: Layout;
-  nesting: Nesting;
-  onLayout: (layout: Layout) => void;
-  onNesting: (nesting: Nesting) => void;
-  onClose: () => void;
-}) {
+function DisplayMenu({ anchor, displays, onClose }: { anchor: HTMLElement; displays: Display[]; onClose: () => void }) {
   const { menu, pos, submenu } = useOptionsMenu(anchor, onClose);
   if (!pos) return null;
   return createPortal(
@@ -189,38 +173,22 @@ function DisplayMenu({
       role="menu"
       aria-label="Display options"
       style={{ top: pos.top, right: window.innerWidth - pos.right }}
-      data-testid="items-display-menu"
+      data-testid="display-menu"
     >
-      {submenu(
-        "grouping",
-        "Grouping",
-        LAYOUTS.find((l) => l.value === layout)?.label ?? "",
-        LAYOUTS.map<MenuOption>((l) => ({
-          value: l.value,
-          label: l.label,
-          checked: l.value === layout,
-          radio: true,
-          icon: l.icon,
-          onPick: () => onLayout(l.value),
-        })),
-      )}
-      {submenu(
-        "nesting",
-        "Sub-items",
-        nesting === "nested" ? "Nested" : "Flat",
-        (
-          [
-            { value: "nested", label: "Nested", icon: ListTree },
-            { value: "flat", label: "Flat", icon: List },
-          ] as const
-        ).map<MenuOption>((n) => ({
-          value: n.value,
-          label: n.label,
-          checked: n.value === nesting,
-          radio: true,
-          icon: n.icon,
-          onPick: () => onNesting(n.value),
-        })),
+      {displays.map((d) =>
+        submenu(
+          d.key,
+          d.label,
+          d.choices.find((c) => c.value === d.value)?.label ?? "",
+          d.choices.map<MenuOption>((c) => ({
+            value: c.value,
+            label: c.label,
+            checked: c.value === d.value,
+            radio: true,
+            icon: c.icon,
+            onPick: () => d.onChange(c.value),
+          })),
+        ),
       )}
     </div>,
     document.body,
@@ -280,4 +248,19 @@ export function FilterChips({
       ) : null}
     </div>
   );
+}
+
+/** The choice of grouping a list by project, by repository, or none. */
+export function groupingDisplay(value: Layout, onChange: (layout: Layout) => void): Display {
+  return {
+    key: "grouping",
+    label: "Grouping",
+    value,
+    choices: [
+      { value: "project", label: "Project", icon: LayoutGrid },
+      { value: "repository", label: "Repository", icon: FolderGit2 },
+      { value: "list", label: "None", icon: List },
+    ],
+    onChange: (next) => onChange(next as Layout),
+  };
 }

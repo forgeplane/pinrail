@@ -1,12 +1,13 @@
-// The inbox's header: one filter bar above its tabs, Pending, New rounds and
-// History. The filters keep their values from tab to tab; Outcome applies to
-// the History tab only, and the layout to the waiting tabs.
+// The inbox's header: the search and the Filter and Display buttons above
+// its tabs, Pending, New rounds and History, with a chip under the tabs for
+// each filter that is on. The filters keep their values from tab to tab;
+// Outcome applies to the History tab only, and the layout to the waiting
+// tabs.
 
-import { Blocks, CircleDot, FolderGit2, Search, Star } from "lucide-react";
+import { FolderGit2, Search } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
+import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { PluginIcon } from "../components/PluginIcon";
-import { Select } from "../components/Select";
-import { LayoutSwitch } from "../components/LayoutSwitch";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Tooltip } from "../components/Tooltip";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
@@ -35,7 +36,6 @@ export function InboxHead({
   projects,
   unassigned,
   plugins,
-  filtered,
   onClear,
   layout,
 }: {
@@ -49,7 +49,6 @@ export function InboxHead({
   /** whether some reviews have no repository */
   unassigned: boolean;
   plugins: string[];
-  filtered: boolean;
   onClear: () => void;
   layout?: LayoutChoice;
 }) {
@@ -98,6 +97,75 @@ export function InboxHead({
     </button>
   );
 
+  // the filters, in the Filter menu and as chips while they are on; a
+  // search clears with them, and the tab stays
+  const clear = () => {
+    onClear();
+    updateParams(
+      (next) => {
+        const tabs = ["tab", "rounds"].map((key) => [key, next.get(key)] as const);
+        clearAll(next);
+        for (const [key, value] of tabs) if (value) next.set(key, value);
+      },
+      { replace: true },
+    );
+  };
+  const filters: Filter[] = [
+    ...(history
+      ? [
+          {
+            key: "status",
+            label: "Outcome",
+            value: status,
+            off: "",
+            choices: [
+              { value: "", label: "All outcomes" },
+              { value: "decided", label: "Decided" },
+              { value: "withdrawn", label: "Withdrawn" },
+              { value: "discarded", label: "Discarded" },
+              { value: "expired", label: "Expired" },
+            ],
+            onChange: (v: string) => setParam("status", v),
+          },
+        ]
+      : []),
+    {
+      key: "scope",
+      label: "Project or repository",
+      value: scope,
+      off: "",
+      searchable: true,
+      choices: scopeOptions(live.namedProjects, projects, unassigned, scope).map((o) => ({
+        value: o.value,
+        label: o.label,
+        mark: o.project ? <ProjectAvatar project={o.project} size={14} /> : <FolderGit2 size={13} />,
+      })),
+      onChange: (v) =>
+        updateParams(
+          (next) => {
+            setScope(next, v);
+            next.delete("page");
+          },
+          { replace: true },
+        ),
+    },
+    {
+      key: "plugin",
+      label: "Plugin",
+      value: plugin,
+      off: "",
+      searchable: plugins.length > 8,
+      choices: [
+        { value: "", label: "All plugins" },
+        ...plugins.map((p) => ({ value: p, label: p, mark: <PluginIcon icon={live.pluginIcon(p)} size={13} /> })),
+      ],
+      onChange: (v) => setParam("plugin", v),
+    },
+  ];
+  const toggles: Toggle[] = [
+    { key: "starred", label: "Starred", on: starred, onChange: (on) => setParam("starred", on ? "1" : "") },
+  ];
+
   return (
     <>
       <header className="page-head">
@@ -134,88 +202,13 @@ export function InboxHead({
               />
             </label>
           </Tooltip>
-          {history ? (
-            <Select
-              label="Outcome"
-              icon={<CircleDot size={14} />}
-              value={status}
-              onChange={(v) => setParam("status", v)}
-              options={[
-                { value: "", label: "All outcomes", icon: <CircleDot size={14} /> },
-                { value: "decided", label: "Decided" },
-                { value: "withdrawn", label: "Withdrawn" },
-                { value: "discarded", label: "Discarded" },
-                { value: "expired", label: "Expired" },
-              ]}
-            />
-          ) : null}
-          <Select
-            id="inbox-repo"
-            searchable
-            label="Project or repository"
-            icon={<FolderGit2 size={14} />}
-            value={scope}
-            onChange={(v) =>
-              updateParams(
-                (next) => {
-                  setScope(next, v);
-                  next.delete("page");
-                },
-                { replace: true },
-              )
-            }
-            options={scopeOptions(live.namedProjects, projects, unassigned, scope).map((o) => ({
-              value: o.value,
-              label: o.label,
-              icon: o.project ? <ProjectAvatar project={o.project} size={16} /> : <FolderGit2 size={14} />,
-            }))}
+          <ListMenuButtons
+            label="reviews"
+            filters={filters}
+            toggles={toggles}
+            onReset={clear}
+            displays={layout && !history ? [groupingDisplay(layout.value, layout.set)] : []}
           />
-          <Select
-            id="inbox-plugin"
-            label="Plugin"
-            icon={<Blocks size={14} />}
-            value={plugin}
-            onChange={(v) => setParam("plugin", v)}
-            options={[
-              { value: "", label: "All plugins", icon: <Blocks size={14} /> },
-              ...plugins.map((p) => ({
-                value: p,
-                label: p,
-                icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
-              })),
-            ]}
-          />
-          <Tooltip label={starred ? "Show every review" : "Show only the starred reviews"} side="bottom">
-            <button
-              type="button"
-              className={`chrome-button star-filter ${starred ? "is-starred" : ""}`}
-              aria-label="Starred"
-              aria-pressed={starred}
-              onClick={() => setParam("starred", starred ? "" : "1")}
-            >
-              <Star size={14} fill={starred ? "currentColor" : "none"} />
-            </button>
-          </Tooltip>
-          {filtered ? (
-            <button
-              type="button"
-              className="chrome-button"
-              onClick={() => {
-                onClear();
-                updateParams(
-                  (next) => {
-                    // the filters go, and the tab stays
-                    const tabs = ["tab", "rounds"].map((key) => [key, next.get(key)] as const);
-                    clearAll(next);
-                    for (const [key, value] of tabs) if (value) next.set(key, value);
-                  },
-                  { replace: true },
-                );
-              }}
-            >
-              Clear
-            </button>
-          ) : null}
         </div>
       </header>
       <nav className="list-tabs" role="tablist" aria-label="Inbox views">
@@ -223,15 +216,8 @@ export function InboxHead({
         {tabButton("new", "New rounds", newRounds)}
         {tabButton("history", "History")}
         <span className="list-sort">Newest first</span>
-        {layout ? (
-          <LayoutSwitch
-            value={layout.value}
-            onChange={layout.set}
-            label="Inbox layout"
-            listTip="One list, newest first"
-          />
-        ) : null}
       </nav>
+      <FilterChips filters={filters} toggles={toggles} onReset={clear} />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { clearInbox, core, createReview, settingSaved, settingsDialog } from "./helpers";
+import { clearInbox, core, createReview, pickIn, settingSaved, settingsDialog, shownIn } from "./helpers";
 
 // the layout is a setting the core keeps: each test leaves the default
 test.afterEach(async ({ request }) => {
@@ -20,7 +20,7 @@ test("the inbox is grouped by project or one list, newest first, and remembers w
   await expect(page.getByTestId("inbox-group-name")).toHaveText(["zeta/app", "acme/api"]);
   await expect(rows).toHaveText([/Layout three/, /Layout one/, /Layout two/]);
 
-  await page.getByRole("radio", { name: "One list" }).click();
+  await pickIn(page, "Display options", "Grouping", "None");
   await expect(page.getByTestId("inbox-group")).toHaveCount(0);
   await expect(rows).toHaveText([/Layout three/, /Layout two/, /Layout one/]);
   // with no project headings, each row says its project
@@ -37,10 +37,10 @@ test("the inbox is grouped by project or one list, newest first, and remembers w
 
   // the choice outlasts a reload
   await page.reload();
-  await expect(page.getByRole("radio", { name: "One list" })).toHaveAttribute("aria-checked", "true");
+  expect(await shownIn(page, "Display options", "Grouping")).toBe("None");
   await expect(rows).toHaveText([/Layout three/, /Layout two/, /Layout one/]);
 
-  await page.getByRole("radio", { name: "Grouped by repository" }).click();
+  await pickIn(page, "Display options", "Grouping", "Repository");
   await expect(page.getByTestId("inbox-group")).toHaveCount(2);
 });
 
@@ -73,7 +73,7 @@ test("a row's details stay on one line beside the panel, and only the project sh
   });
   await page.setViewportSize({ width: 1100, height: 600 });
   await page.goto("/#/");
-  await page.getByRole("radio", { name: "One list" }).click();
+  await pickIn(page, "Display options", "Grouping", "None");
   const row = page.getByTestId("review-row");
   await row.click();
   await expect(page.getByTestId("review-panel")).toBeVisible();
@@ -93,7 +93,7 @@ test("a row beside the panel keeps its details clear of the plugin, at any width
   });
   await page.setViewportSize({ width: 1500, height: 700 });
   await page.goto("/#/");
-  await page.getByRole("radio", { name: "One list" }).click();
+  await pickIn(page, "Display options", "Grouping", "None");
   const row = page.getByTestId("review-row");
   await row.click();
   const panel = page.getByTestId("review-panel");
@@ -134,8 +134,8 @@ test("the row under the pointer keeps its outline off the open row beside it", a
   await page.setViewportSize({ width: 1400, height: 700 });
   await page.goto("/#/");
   const rows = page.getByTestId("review-row");
-  for (const layout of ["One list", "Grouped by repository"]) {
-    await page.getByRole("radio", { name: layout }).click();
+  for (const layout of ["None", "Repository"]) {
+    await pickIn(page, "Display options", "Grouping", layout);
     await rows.nth(1).click();
     await expect(page.getByTestId("review-panel")).toBeVisible();
     // the pointer moving onto a row puts the focus on it, once it has moved
@@ -163,7 +163,7 @@ for (const from of ["the review", "its row in the inbox"])
       await createReview(page.request, { title, origin: { repo: "acme/api" } });
     await page.setViewportSize({ width: 1400, height: 800 });
     await page.goto("/#/");
-    await page.getByRole("radio", { name: "One list" }).click();
+    await pickIn(page, "Display options", "Grouping", "None");
     const rows = page.getByTestId("review-row");
     await rows.filter({ hasText: "Discard two" }).click();
     const panel = page.getByTestId("review-panel");

@@ -1,7 +1,7 @@
 // The inbox's tabs: Pending, New rounds and History, under one filter bar.
 
 import { expect, test } from "@playwright/test";
-import { clearInbox, core, createReview, decide } from "./helpers";
+import { clearInbox, core, createReview, decide, shownIn, toggleFilter } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
 const tab = (page: import("@playwright/test").Page, name: string) =>
@@ -37,9 +37,9 @@ test("switching tabs keeps the search and the project, and leaves the outcome be
   await tab(page, "History").click();
   await expect(page.getByRole("searchbox", { name: "Search history" })).toHaveValue(String(run));
   await expect(page.getByTestId("history-row")).toHaveText([new RegExp(`Tabs: ended ${run}`)]);
-  await expect(page.getByRole("button", { name: /Outcome/ })).toBeVisible();
+  expect(await shownIn(page, "Filter", "Outcome")).toBe("All outcomes");
   // the layout applies to the waiting tabs only
-  await expect(page.getByRole("radiogroup", { name: "Inbox layout" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Display options" })).toHaveCount(0);
 
   await page.goto(`/#/?tab=history&q=${run}&status=withdrawn`);
   await expect(page.getByTestId("history-row")).toHaveCount(0);
@@ -56,7 +56,7 @@ test("the star filter lists the starred waiting reviews", async ({ page }) => {
 
   await page.goto("/#/");
   await expect(page.getByTestId("review-row")).toHaveCount(2);
-  await page.getByRole("button", { name: "Starred", exact: true }).click();
+  await toggleFilter(page, "Starred");
   await expect(page).toHaveURL(/starred=1/);
   await expect(page.getByTestId("review-row")).toHaveText([/Tabs: starred and waiting/]);
 });
