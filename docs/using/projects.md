@@ -24,9 +24,9 @@ From a project's **…** menu, **Open in the inbox** shows the reviews of all it
 
 ## Grouping by project
 
-- **Inbox:** the buttons at the right of the tabs group the waiting reviews by project, by repository, or show them in one list. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository.
+- **Inbox:** **Display options**, at the right of the header, groups the waiting reviews by project, by repository, or shows them in one list. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository.
 - **Sidebar:** the button at the right of the sessions heading opens its menu. Under **Grouping**, choose **Project**.
-- **Sessions page:** the buttons at the right of its header group the sessions by project, by repository, or show them in one list.
-- **Filters:** the **Project or repository** menu in the inbox, the history and the Sessions page lists the projects first. Choosing a project shows the reviews or sessions of all its repositories. Type in the menu to find a project or a repository by name. In the sidebar, the **Project or repository** filter of the sessions heading's menu works the same way, and you can choose several projects and repositories there.
+- **Sessions page:** **Display options** groups the sessions by project, by repository, or shows them in one list.
+- **Filters:** *Project or repository*, in the **Filter** menu of the inbox, the history and the Sessions page, lists the projects first. Choosing a project shows the reviews or sessions of all its repositories. Type in it to find a project or a repository by name. In the sidebar, the **Project or repository** filter of the sessions heading's menu works the same way, and you can choose several projects and repositories there.
 
 The command palette, <kbd>⌘K</kbd>, has **Go to projects**, **New project…**, and **Show** followed by a project's name, which opens the inbox filtered to that project.
