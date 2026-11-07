@@ -114,7 +114,9 @@ textarea,
 pre,
 code,
 .notice,
-.copyable {
+.copyable,
+.item-panel-key,
+.item-md {
   user-select: text;
   -webkit-user-select: text;
 }

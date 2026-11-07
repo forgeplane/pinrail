@@ -339,6 +339,22 @@ test("the comment field is the chat box: Enter starts a new line, it is dictated
   await expect(field).toHaveValue("");
 });
 
+test("the key, description and comments are text that can be selected and copied", async ({ page, request }) => {
+  const repo = fresh("select");
+  const item = await add(request, repo, "Selectable title", { body: "A description to copy." });
+  await request.post(`${core}/api/v1/items/${item.key}/comments`, {
+    data: { body: "A comment to copy.", by: "claude-code", session: "s-panel" },
+  });
+  await openItem(page, repo, item.key);
+  const selected = async (target: ReturnType<typeof panel>) => {
+    await target.click({ clickCount: 3 });
+    return page.evaluate(() => window.getSelection()?.toString().trim());
+  };
+  await expect.poll(() => selected(panel(page).locator(".item-panel-key"))).toBe(item.key);
+  await expect.poll(() => selected(panel(page).getByText("A description to copy."))).toBe("A description to copy.");
+  await expect.poll(() => selected(panel(page).getByText("A comment to copy."))).toBe("A comment to copy.");
+});
+
 test("an image a comment carries is shown in place", async ({ page, request }) => {
   const repo = fresh("image");
   const item = await add(request, repo, "The dialog");
