@@ -60,6 +60,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   review cards in a session's thread.
 - At the large interface size, menus, selects and tooltips open next to
   their button rather than off to the side.
+- The app shows a setting changed from the command line or another
+  window while it is saving a change of its own.
 
 ## [0.5.0]
 

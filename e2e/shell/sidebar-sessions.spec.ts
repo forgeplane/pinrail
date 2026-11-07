@@ -382,6 +382,35 @@ test("a submenu near the window's bottom moves up to fit in it", async ({ page }
   await expect(page.getByRole("menu", { name: "Project or repository" })).toBeInViewport({ ratio: 1 });
 });
 
+test("a change made elsewhere while the app saves its own is shown once the save is answered", async ({ page }) => {
+  await setChoices(page.request, { ...DEFAULTS, agents: ["codex"] });
+  await page.goto("/#/");
+  const clear = page.locator(".sidebar-sessions > h2").getByRole("button", { name: "Clear the sidebar's filters" });
+  await expect(clear).toBeVisible();
+
+  // the core stores the app's save of the cleared filters, and its answer is held
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(`${core}/api/v1/settings`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const response = await route.fetch();
+    await held;
+    await route.fulfill({ response });
+  });
+  const saved = page.waitForResponse((r) => r.url() === `${core}/api/v1/settings` && r.request().method() === "PATCH");
+  await clear.click();
+  await expect(clear).toHaveCount(0);
+  await settingSaved(page.request, (s) => s.sidebar.sessions.agents.length, 0);
+
+  // meanwhile the CLI or another window shows the archived sessions; its
+  // notice has time to arrive while the save waits
+  await setChoices(page.request, { ...DEFAULTS, archived: true });
+  await page.waitForTimeout(500);
+  release();
+  await saved;
+  await expect(clear).toBeVisible();
+});
+
 test("a Clear filters button shows in the heading while a filter is on, and clears them", async ({ page }) => {
   await page.goto("/#/");
   // the heading names what the sessions are grouped by
@@ -401,9 +430,11 @@ test("a Clear filters button shows in the heading while a filter is on, and clea
   // the grouping and the details are not filters, and stay as they are
   await setChoices(page.request, { ...DEFAULTS, grouping: "status", agents: ["codex"] });
   await clear.click();
+  await settingSaved(page.request, (s) => s.sidebar.sessions.agents.length, 0);
   await settingSaved(page.request, (s) => s.sidebar.sessions.grouping, "status");
   // beside the options button, at the heading's end
   await setChoices(page.request, { ...DEFAULTS, agents: ["codex"] });
+  await expect(clear).toBeVisible();
   const options = heading.getByRole("button", { name: "Sessions options" });
   const [a, b] = [await clear.boundingBox(), await options.boundingBox()];
   expect(b!.x - (a!.x + a!.width)).toBeLessThan(6);

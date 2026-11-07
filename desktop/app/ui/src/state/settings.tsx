@@ -207,6 +207,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const sent = useRef(0);
   // the changes sent and not yet answered
   const unanswered = useRef(0);
+  // a reload was skipped while a change was unanswered: the core may have
+  // taken a change from elsewhere after it answered ours
+  const stale = useRef(false);
   // the last change sent: each waits for the one before it, so the core
   // stores them in the order they were made
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -221,14 +224,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     // A reload that overlaps a change of ours may have read the settings
-    // from before it, and would undo it; the change's answer carries the
-    // server's settings instead.
+    // from before it, and would undo it; it runs again once every change
+    // is answered.
     const before = sent.current;
     const overlapped = () => unanswered.current > 0 || sent.current !== before;
     try {
-      if (overlapped()) return;
+      if (overlapped()) {
+        stale.current = true;
+        return;
+      }
       const s = fromServer(await api.settings());
-      if (overlapped()) return;
+      if (overlapped()) {
+        // a change sent and answered meanwhile has nothing left to rerun it
+        if (unanswered.current === 0) void load();
+        else stale.current = true;
+        return;
+      }
       apply(s);
       // a change made before the next redraw builds on these, not on the
       // defaults the provider started with
@@ -372,13 +383,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           queue.current = request.catch(() => {});
           const s = fromServer(await request);
           unanswered.current--;
-          if (mine !== sent.current) return;
-          apply(s);
-          current.current = { ...current.current, ...s };
-          setSettings((prev) => ({ ...prev, ...s }));
+          if (mine === sent.current) {
+            apply(s);
+            current.current = { ...current.current, ...s };
+            setSettings((prev) => ({ ...prev, ...s }));
+          }
         } catch {
           unanswered.current--;
           // refused or the server is away: what was applied stays for this session
+        }
+        if (unanswered.current === 0 && stale.current) {
+          stale.current = false;
+          void load();
         }
       }
       if (native && patch.autostart !== undefined) {
@@ -392,7 +408,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [native, apply],
+    [native, apply, load],
   );
 
   const value = useMemo(
