@@ -6879,16 +6879,33 @@ a.item-ref {
 
 /* a line for what the session's agent did to a work item: its icon, its
    chips and its time centred on one line */
+/* a line of 20px each: the icon and the time stay with the first one when
+   the chips wrap */
 .thread-status-line.is-item-event {
-  align-items: center;
+  align-items: flex-start;
+  line-height: 20px;
 }
 .thread-status-line.is-item-event .item-status {
   flex: none;
+  margin-top: 3.5px;
 }
-.thread-item-event {
-  display: inline-flex;
+/* the words and the time keep to one line each; the chips wrap under the
+   words where they do not fit beside them */
+.thread-status-text.thread-item-event {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 6px;
+  overflow: visible;
+  white-space: normal;
+}
+.thread-item-event .item-chip {
+  line-height: 18px;
+}
+.thread-item-event-did,
+.thread-item-event-age {
+  flex: none;
+  white-space: nowrap;
 }
 
 /* a menu at the right of the window opens its submenus to its left */

@@ -304,3 +304,40 @@ test("a session's thread shows a line for each change its agent made to a work i
   await lines.last().getByTestId("item-chip").click();
   await expect(panelKey(page)).toHaveText(item.key);
 });
+
+test("a line for several work items keeps its words and its time on one line each", async ({ page, request }) => {
+  const repo = fresh("wrap");
+  const session = `s-wrap-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Three at once", kind: "start", origin: { repo } },
+  });
+  const keys = [];
+  for (const title of [
+    "Show agent icons in the sidebar menu's Agent filter",
+    "Show state marks in the sidebar menu's Status filter",
+    "Rename Show reviews and Archived in the sidebar's session menu",
+  ])
+    keys.push((await add(request, repo, title)).key);
+  for (const key of keys)
+    await request.patch(`${core}/api/v1/items/${key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const line = page.getByTestId("item-event").filter({ hasText: "Started working on" });
+  await expect(line.getByTestId("item-chip")).toHaveCount(3);
+  // how many lines a piece of its text takes
+  const lines = (text: string) =>
+    line.evaluate((el, text) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.includes(text)) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      }
+      return 0;
+    }, text);
+  expect(await lines("Started working on")).toBe(1);
+  expect(await lines("ago")).toBe(1);
+  // every chip is shown, wrapped under the words where they do not fit
+  for (const chip of await line.getByTestId("item-chip").all()) await expect(chip).toBeVisible();
+});

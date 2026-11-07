@@ -1106,12 +1106,12 @@ function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
       <div className="thread-status-line is-item-event">
         <ItemStatusIcon status={icon} size={13} decorative />
         <span className="thread-status-text thread-item-event">
-          {did}
+          <span className="thread-item-event-did">{did}</span>
           {events.map((e) => (
             <ItemChip key={e.id} item={e.item} />
           ))}
         </span>
-        <span className="faint" title={stamp(event.at)}>
+        <span className="faint thread-item-event-age" title={stamp(event.at)}>
           {age(event.at)} ago
         </span>
       </div>
