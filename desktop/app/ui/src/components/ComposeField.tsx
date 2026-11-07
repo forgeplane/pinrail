@@ -2,7 +2,8 @@
 // .pinrail-compose is in plugin views: one line with the text and small
 // buttons at its end. Once the text wraps or has a new line, the text takes
 // the whole width and the buttons a row under it, with the keys on their
-// left. Enter submits, Shift+Enter starts a new line, and Esc stops the
+// left. Enter submits (or ⌘Enter, with submitKey), Shift+Enter starts a new
+// line, and Esc stops the
 // dictation first, then leaves the field.
 
 import { ArrowUp, Mic } from "lucide-react";
@@ -31,6 +32,8 @@ type Props = {
   placeholder: string;
   /** Enter without Shift; without it, Enter starts a new line */
   onSubmit?: () => void;
+  /** "mod-enter": ⌘Enter submits and Enter starts a new line */
+  submitKey?: "enter" | "mod-enter";
   /** the keys, shown on the left of the buttons once the field is wide */
   keys?: string;
   /** buttons before the send button */
@@ -54,6 +57,7 @@ export function ComposeField({
   label,
   placeholder,
   onSubmit,
+  submitKey = "enter",
   keys,
   tools,
   send,
@@ -107,7 +111,9 @@ export function ComposeField({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && onSubmit) {
+    const mod = e.metaKey || e.ctrlKey;
+    const submits = submitKey === "enter" ? !mod && !e.shiftKey : mod;
+    if (e.key === "Enter" && submits && !e.altKey && onSubmit) {
       e.preventDefault();
       if (!send?.disabled) onSubmit();
       return;

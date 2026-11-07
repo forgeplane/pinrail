@@ -1,42 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
-import { clearInbox, createReview, openReviewsIn } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { clearInbox, createReview, fakeRecognition, listening, openReviewsIn, speak } from "./helpers";
 
 // Dictation, with the browser's speech recognition replaced by a fake that
 // the test controls. It covers the note box's microphone and a field of a
 // plugin view, for which the app runs dictation and shows it in the composer.
-
-/** Replaces speech recognition with a fake, driven by `window.__speak(text)` and `window.__silence()`. */
-async function fakeRecognition(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as any;
-    class FakeRecognition {
-      continuous = false;
-      interimResults = false;
-      lang = "";
-      onresult: ((e: unknown) => void) | null = null;
-      onerror: ((e: unknown) => void) | null = null;
-      onend: (() => void) | null = null;
-      start() {
-        w.__recognition = this;
-      }
-      stop() {
-        if (w.__recognition === this) w.__recognition = null;
-        this.onend?.();
-      }
-      abort() {
-        this.stop();
-      }
-    }
-    w.webkitSpeechRecognition = FakeRecognition;
-    w.SpeechRecognition = undefined;
-    w.__speak = (text: string) =>
-      w.__recognition?.onresult?.({ results: [{ 0: { transcript: text }, isFinal: true }] });
-    w.__listening = () => !!w.__recognition;
-  });
-}
-
-const speak = (page: Page, text: string) => page.evaluate((t) => (window as any).__speak(t), text);
-const listening = (page: Page) => page.evaluate(() => (window as any).__listening());
 
 test("a field of the view is dictated into, and the composer says the app is listening for it", async ({ page }) => {
   await fakeRecognition(page);

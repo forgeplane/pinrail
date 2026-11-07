@@ -48,7 +48,7 @@ An item opens in a panel beside the list. The panel shows:
 - its reviews and questions, and the sessions that worked on it;
 - its comments and activity: every change, with who made it and when.
 
-Add a comment in the field at the end of the panel. When a session holds the item, your comment reaches the agent the next time it runs `pinrail status`, like a message.
+Add a comment in the field at the end of the panel, and post it with ⌘Enter or the arrow. Enter starts a new line, and in the macOS app you can dictate the comment with the microphone. When a session holds the item, your comment reaches the agent the next time it runs `pinrail status`, like a message.
 
 The buttons in the panel's header copy the item as Markdown, open its link, and delete it. Deleting an item also deletes its sub-items, and cannot be undone. Its reviews stay in Pinrail.
 

@@ -210,24 +210,18 @@ export function Activity({
       else runs.push({ kind: "changes", items: [entry] });
     }
   }
-  const endsWithComments = runs[runs.length - 1]?.kind === "comments";
   return (
     <div className="activity">
-      {runs.map((run, i) =>
+      {runs.map((run) =>
         run.kind === "changes" ? (
           <Changes key={`c${run.items[0].id}`} changes={run.items} />
         ) : (
           <div key={`m${run.items[0].id}`} className="activity-card">
             {run.items.map((c) => renderComment(c))}
-            {i === runs.length - 1 ? <div className="activity-field">{field}</div> : null}
           </div>
         ),
       )}
-      {endsWithComments ? null : (
-        <div className="activity-card">
-          <div className="activity-field">{field}</div>
-        </div>
-      )}
+      {field}
     </div>
   );
 }

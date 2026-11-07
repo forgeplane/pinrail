@@ -4,7 +4,6 @@
 // comments with what happened around them, in one timeline.
 
 import {
-  ArrowUp,
   Check,
   Copy,
   ExternalLink,
@@ -27,6 +26,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { ComposeField } from "./ComposeField";
 import { Activity, who } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
@@ -755,31 +755,16 @@ function CommentField({ onPost }: { onPost: (body: string) => Promise<boolean> }
     if (draft.trim() && (await onPost(draft.trim()))) setDraft("");
   };
   return (
-    <div className="item-comment-field">
-      <textarea
-        aria-label="Add a comment"
-        placeholder="Add a comment…"
-        rows={2}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            void post();
-          }
-        }}
-      />
-      <Tooltip label="Comment" keys={[MOD, "Enter"]} side="top">
-        <button
-          type="button"
-          className="item-comment-send"
-          aria-label="Comment"
-          disabled={!draft.trim()}
-          onClick={() => void post()}
-        >
-          <ArrowUp size={14} />
-        </button>
-      </Tooltip>
-    </div>
+    <ComposeField
+      className="item-comment-field"
+      value={draft}
+      onChange={setDraft}
+      label="Add a comment"
+      placeholder="Add a comment…"
+      onSubmit={() => void post()}
+      submitKey="mod-enter"
+      keys={`${MOD === "⌘" ? "⌘" : "Ctrl+"}Enter to comment`}
+      send={{ label: "Comment", keys: [MOD, "Enter"], disabled: !draft.trim() }}
+    />
   );
 }

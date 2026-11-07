@@ -6517,8 +6517,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-sub-field {
   margin-top: 6px;
 }
-.item-body-edit textarea,
-.item-comment-field textarea {
+.item-body-edit textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -6529,12 +6528,8 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   resize: vertical;
   outline: none;
 }
-.item-body-edit textarea:focus,
-.item-comment-field textarea:focus {
+.item-body-edit textarea:focus {
   border-color: var(--accent);
-}
-.item-comment-field textarea {
-  font-family: var(--font);
 }
 .item-edit-actions {
   display: flex;
@@ -6619,45 +6614,34 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-comment {
   padding: 10px 12px;
 }
-.item-comment + .item-comment,
-.activity-field {
+.item-comment + .item-comment {
   border-top: 1px solid var(--border);
 }
-.activity-field {
-  padding: 8px 12px;
+/* the comment field: the thread's chat box, sized to the cards above it */
+.item-comment-field.compose {
+  min-height: 40px;
+  padding: 5px 6px 5px 6px;
+  border-radius: 10px;
+  background: var(--bg-raised);
 }
-.activity-card > .activity-field:first-child {
-  border-top: 0;
+.item-comment-field.compose.is-wide {
+  padding: 7px 6px 5px 6px;
 }
-.activity-field .item-comment-field {
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 8px;
-  margin-top: 0;
+.item-comment-field textarea {
+  font-size: 13px;
+  line-height: 20px;
 }
-.activity-field .item-comment-field textarea {
-  padding: 4px 0;
-  border: 0;
-  background: none;
-  resize: none;
-}
-.item-comment-send {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
+.item-comment-field .compose-icon {
   width: 26px;
   height: 26px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--button-bg);
-  color: var(--button-text);
-  cursor: pointer;
+  border-radius: 7px;
 }
-.item-comment-send:disabled {
-  background: var(--bg-hover);
-  color: var(--faint);
-  cursor: default;
+.item-comment-field .compose-send,
+.item-comment-field .compose-send:hover:not(:disabled) {
+  width: 26px;
+  height: 26px;
+  margin: 0 0 0 2px;
+  border-radius: 50%;
 }
 .item-comment-head {
   display: flex;
@@ -6683,13 +6667,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-me::before {
   content: "Y";
   font-size: 9px;
-}
-.item-comment-field {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  margin-top: 10px;
 }
 .item-add-picker .select-trigger {
   padding: 1px 6px;

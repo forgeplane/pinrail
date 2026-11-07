@@ -142,3 +142,36 @@ export async function shownIn(page: Page, menu: "Filter" | "Display options", su
   await page.keyboard.press("Escape");
   return value;
 }
+
+/** Replaces speech recognition with a fake, driven by `window.__speak(text)` and `window.__silence()`. */
+export async function fakeRecognition(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as any;
+    class FakeRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = "";
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        w.__recognition = this;
+      }
+      stop() {
+        if (w.__recognition === this) w.__recognition = null;
+        this.onend?.();
+      }
+      abort() {
+        this.stop();
+      }
+    }
+    w.webkitSpeechRecognition = FakeRecognition;
+    w.SpeechRecognition = undefined;
+    w.__speak = (text: string) =>
+      w.__recognition?.onresult?.({ results: [{ 0: { transcript: text }, isFinal: true }] });
+    w.__listening = () => !!w.__recognition;
+  });
+}
+
+export const speak = (page: Page, text: string) => page.evaluate((t) => (window as any).__speak(t), text);
+export const listening = (page: Page) => page.evaluate(() => (window as any).__listening());

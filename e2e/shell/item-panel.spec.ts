@@ -4,7 +4,7 @@
 // repository of its own, since the shard's core is shared.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, shellOrigin } from "./helpers";
+import { core, fakeRecognition, listening, shellOrigin, speak } from "./helpers";
 
 let counter = 0;
 const fresh = (name = "repo") => `ip-${Date.now()}-${++counter}/${name}`;
@@ -264,6 +264,41 @@ test("the person comments, an agent's comment shows live, and the activity reads
   await comments.first().getByRole("button", { name: "Delete" }).click();
   await expect(comments).toHaveCount(1);
   await expect(comments.first()).toContainText("Renames are missed on Linux.");
+});
+
+test("the comment field is the chat box: Enter starts a new line, it is dictated into, and its arrow posts", async ({
+  page,
+  request,
+}) => {
+  await fakeRecognition(page);
+  const repo = fresh("compose");
+  const item = await add(request, repo, "Dictated comment");
+  await openItem(page, repo, item.key);
+  const field = panel(page).getByLabel("Add a comment");
+  // one box, as in a session's thread, with no frame of the text's own
+  const box = panel(page)
+    .locator(".compose")
+    .filter({ has: page.getByLabel("Add a comment") });
+  await expect(box).toBeVisible();
+  await expect(field).toHaveCSS("border-top-width", "0px");
+
+  await field.fill("First line");
+  await field.press("Enter");
+  await field.pressSequentially("then ");
+  await expect(field).toHaveValue("First line\nthen ");
+  await expect(panel(page).getByTestId("item-comment")).toHaveCount(0);
+
+  await box.getByRole("button", { name: "Dictate" }).click();
+  await expect.poll(() => listening(page)).toBe(true);
+  await speak(page, "the second");
+  await expect(field).toHaveValue("First line\nthen the second");
+  await box.getByRole("button", { name: "Stop dictating" }).click();
+
+  await box.getByRole("button", { name: "Comment" }).click();
+  const comments = panel(page).getByTestId("item-comment");
+  await expect(comments).toHaveCount(1);
+  await expect(comments.first()).toContainText("then the second");
+  await expect(field).toHaveValue("");
 });
 
 test("an image a comment carries is shown in place", async ({ page, request }) => {
