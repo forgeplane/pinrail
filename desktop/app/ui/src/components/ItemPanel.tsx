@@ -361,7 +361,14 @@ export function ItemPanel({
           <ul className="item-related">
             {item.reviews.map((r) => (
               <li key={r.id}>
-                <Link to={reviewPath(r.id, settings.inbox.open_in)}>
+                <Link
+                  to={
+                    // a question opens in its session, where it is answered
+                    r.kind === "question" && r.requested_by && r.session
+                      ? sessionPath({ agent: r.requested_by, id: r.session })
+                      : reviewPath(r.id, settings.inbox.open_in)
+                  }
+                >
                   {r.kind === "question" ? <MessageCircleQuestion size={13} /> : <Check size={13} />}
                   <span className="item-related-title">{r.title}</span>
                   <span className={`item-review-status is-${r.status}`}>{r.status}</span>

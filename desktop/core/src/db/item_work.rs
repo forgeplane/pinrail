@@ -148,6 +148,8 @@ pub struct ItemReview {
     pub status: String,
     pub summary: Option<Value>,
     pub requested_by: Option<String>,
+    /// the agent's session it was sent from, where a question is answered
+    pub session: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -156,7 +158,7 @@ impl ItemReview {
         json!({
             "id": self.id, "title": self.title, "plugin": self.plugin, "kind": self.kind,
             "status": self.status, "summary": self.summary, "requested_by": self.requested_by,
-            "created_at": iso(self.created_at),
+            "session": self.session, "created_at": iso(self.created_at),
         })
     }
 }
@@ -1015,7 +1017,7 @@ impl Db {
                CASE WHEN o.kind IS NOT NULL THEN o.kind
                     WHEN r.expires_at IS NOT NULL AND r.expires_at <= ?2 THEN 'expired'
                     ELSE 'pending' END,
-               o.summary, r.requested_by, r.created_at
+               o.summary, r.requested_by, r.created_at, r.session
              FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
             WHERE r.item_id = ?1 AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)
             ORDER BY r.id",
@@ -1031,6 +1033,7 @@ impl Db {
                     .get::<_, Option<String>>(5)?
                     .and_then(|s| serde_json::from_str(&s).ok()),
                 requested_by: r.get(6)?,
+                session: r.get(8)?,
                 created_at: parse_datetime(&r.get::<_, String>(7)?).unwrap_or_default(),
             })
         })?

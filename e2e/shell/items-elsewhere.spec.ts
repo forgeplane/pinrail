@@ -58,6 +58,35 @@ test("a review's chip in its inbox row and its header opens its item", async ({ 
   await discard(request, sent.id);
 });
 
+test("an item's question opens in its session, and a review where reviews open", async ({ page, request }) => {
+  const repo = fresh("asks");
+  const item = await add(request, repo, "Load themes");
+  const session = `s-asks-${Date.now()}`;
+  const asked = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Watch the folder?",
+      origin: { repo },
+      requested_by: "claude-code",
+      session,
+      item: item.key,
+      payload: { questions: [{ id: "q1", question: "Watch the folder?", answer: "yes-no" }] },
+    },
+  });
+  expect(asked.status(), await asked.text()).toBe(201);
+  const sent = await review(request, repo, "Theme loader", item.key);
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&open=${item.key}`);
+  const reviews = page.getByTestId("item-panel").getByRole("region", { name: "Reviews" });
+  await reviews.getByRole("link", { name: /Watch the folder/ }).click();
+  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${session}`));
+
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&open=${item.key}`);
+  await reviews.getByRole("link", { name: /Theme loader/ }).click();
+  await expect(page).toHaveURL(new RegExp(`#/reviews/${sent.id}`));
+  await discard(request, sent.id);
+  await discard(request, (await asked.json()).id);
+});
+
 test("a review is put under an item from its header, moved to another, and taken out", async ({ page, request }) => {
   const repo = fresh("link");
   const first = await add(request, repo, "First");

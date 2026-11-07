@@ -552,6 +552,8 @@ export type ItemDetail = WorkItem & {
     kind: "review" | "question";
     status: string;
     requested_by: string | null;
+    /** the agent's session it was sent from */
+    session: string | null;
     created_at: string;
   }[];
   sessions: { agent: string; session: string; status: string | null; last_at: string | null }[];
