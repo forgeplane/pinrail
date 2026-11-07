@@ -45,6 +45,8 @@ A question's thread links to its session's page with *session* and the id in its
 
 On a session's page, a review you click opens in a side panel beside the thread, in place of the session's details, and its card in the thread is marked. Deciding or discarding the review closes the panel, and the thread stays where you scrolled. Press <kbd>Esc</kbd> or click the close button to close the panel, and drag its edge to resize it. *Open as a page* opens the review on its own page.
 
+A work item you click in a session, in its header, its thread or its details, opens in the same side panel, where you can read and change it as on the **Work items** page. When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), the item opens on the **Work items** page instead.
+
 When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), a review opens on its own page instead. When you open a review that way from its session's thread, or from under its session in the sidebar, the breadcrumb at the top reads *Sessions › <session> › <review>*. Click the session's name to return to its thread. Deciding or discarding the review also returns you to the thread.
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")

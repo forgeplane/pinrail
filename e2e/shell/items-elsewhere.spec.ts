@@ -3,7 +3,7 @@
 // repository's key prefix on the Projects page, and the command palette.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, onReviewPages } from "./helpers";
+import { core, onReviewPages, openReviewsIn } from "./helpers";
 
 // a review opens on a page of its own, where its header is
 onReviewPages();
@@ -94,6 +94,8 @@ test("a session's thread names the items it holds and worked on", async ({ page,
   await add(request, repo, "Someone else's");
   await request.patch(`${core}/api/v1/items/${held.key}`, { data: { by: "claude-code", session, claim: "claim" } });
   await request.post(`${core}/api/v1/items/${done.key}/done`, { data: { by: "claude-code", session } });
+  // reviews, and so items, open beside the thread
+  await openReviewsIn(request, "panel");
   await page.goto(`/#/sessions/claude-code/${session}`);
   // the header names what it holds now
   await expect(page.getByTestId("thread-held-item")).toHaveText([`working on ${held.key}Held`]);
@@ -104,7 +106,23 @@ test("a session's thread names the items it holds and worked on", async ({ page,
     new RegExp(`Held${held.key} · in progress`),
     new RegExp(`Finished${done.key} · done`),
   ]);
+  // an item opens beside the thread, in place of its details, as a review does
   await items.getByTestId("thread-work-item").first().click();
+  await expect(panelKey(page)).toHaveText(held.key);
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?item=${held.key}`));
+  await expect(items).toHaveCount(0);
+  // and a chip in the header, in place of the one shown
+  await page.getByTestId("thread-held-item").getByTestId("item-chip").click();
+  await expect(panelKey(page)).toHaveText(held.key);
+  await page.getByTestId("item-panel").getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("item-panel")).toHaveCount(0);
+  await expect(items).toBeVisible();
+
+  // with reviews opening on their own page, the item opens on the Work items page
+  await openReviewsIn(request, "page");
+  await page.reload();
+  await items.getByTestId("thread-work-item").first().click();
+  await expect(page).toHaveURL(new RegExp(`/items\\?open=${held.key}`));
   await expect(panelKey(page)).toHaveText(held.key);
 });
 

@@ -65,7 +65,7 @@ import {
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
-import { ItemChip, itemPath } from "./ItemChip";
+import { ItemChip, ItemOpener, itemPath, useOpenItem } from "./ItemChip";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { AgentIcon } from "./AgentIcon";
@@ -75,6 +75,7 @@ import { OutcomeBadge, SummaryCounts, outcomeOf } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
 import { NoteFiles, filesOf, useNoteFileUrl, useSaveNoteFile } from "./NoteFiles";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
+import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
 import { Tooltip } from "./Tooltip";
 
@@ -170,19 +171,43 @@ export function Thread({
   // the thread, in place of the session's details
   const panelMode = !!reviewPanel && prefs.inbox.open_in === "panel";
   const openReview = panelMode ? params.get("review") : null;
+  // and ?item= the work item shown there, as a review is
+  const openItem = panelMode ? params.get("item") : null;
   /** Shows a review beside the thread, or closes the panel with null. A
-   *  review shown in place of another replaces its history entry. */
+   *  review shown in place of another, or of an item, replaces its history
+   *  entry. */
   const showReview = useCallback(
     (id: string | null, options?: { replace?: boolean }) =>
       updateParams(
         (next) => {
+          next.delete("item");
           if (id) next.set("review", id);
           else next.delete("review");
         },
-        { replace: options?.replace ?? (!!id && currentParams().has("review")) },
+        {
+          replace: options?.replace ?? (!!id && (currentParams().has("review") || currentParams().has("item"))),
+        },
       ),
     [updateParams, currentParams],
   );
+  /** Shows a work item beside the thread, or closes the panel with null. */
+  const showItem = useCallback(
+    (key: string | null) =>
+      updateParams(
+        (next) => {
+          next.delete("review");
+          if (key) next.set("item", key);
+          else next.delete("item");
+        },
+        { replace: !!key && (currentParams().has("review") || currentParams().has("item")) },
+      ),
+    [updateParams, currentParams],
+  );
+  const onItemLink = (event: React.MouseEvent, key: string) => {
+    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    showItem(key);
+  };
   /** Where a link to a review goes: the panel, or the review's page. */
   const reviewTo = useCallback(
     (id: string): To => {
@@ -444,489 +469,503 @@ export function Thread({
   const ref = session?.ref ?? focus?.origin.ref ?? null;
 
   return (
-    <div className={`thread ${inPanel ? "in-panel" : ""}`} data-testid="thread">
-      <header className="thread-head">
-        <span className="thread-avatar">
-          <AgentIcon requestedBy={agent} size={18} />
-        </span>
-        <div className="thread-title">
-          {/* the stage the agent works on names the session, with the agent
+    <ItemOpener.Provider value={panelMode ? showItem : null}>
+      <div className={`thread ${inPanel ? "in-panel" : ""}`} data-testid="thread">
+        <header className="thread-head">
+          <span className="thread-avatar">
+            <AgentIcon requestedBy={agent} size={18} />
+          </span>
+          <div className="thread-title">
+            {/* the stage the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}
-          <div className="thread-title-row">
-            <h1 className={session?.title ? "thread-stage" : undefined}>
-              {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
-            </h1>
-            {waiting.length > 0 ? (
-              <span className="thread-waiting">
-                <span className="thread-waiting-dot" aria-hidden />
-                Waiting for you · {waiting.length}
-              </span>
-            ) : session?.status?.kind === "done" ? (
-              <span className="thread-done" data-testid="head-finished">
-                <CheckCircle2 size={12} aria-hidden /> Finished
-              </span>
-            ) : null}
-            {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
-          </div>
-          <div className="thread-meta">
-            {session?.title ? (
-              <span className="thread-meta-where">
-                <Where agent={agent} repo={repo} reference={ref} />
-              </span>
-            ) : null}
-            {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
-            {named ? (
-              // from a question or a side panel, the session's own page; on
-              // it, the id alone
-              focus || inPanel ? (
-                <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
-                  session {named.id}
-                </Link>
-              ) : (
-                <span className="thread-session" title={named.id}>
-                  session {named.id}
+            <div className="thread-title-row">
+              <h1 className={session?.title ? "thread-stage" : undefined}>
+                {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
+              </h1>
+              {waiting.length > 0 ? (
+                <span className="thread-waiting">
+                  <span className="thread-waiting-dot" aria-hidden />
+                  Waiting for you · {waiting.length}
                 </span>
-              )
-            ) : null}
-            {named ? <CopySessionId id={named.id} /> : null}
-            {held.map((item) => (
-              <span key={item.key} className="thread-meta-item" data-testid="thread-held-item">
-                working on <ItemChip item={item} />
+              ) : session?.status?.kind === "done" ? (
+                <span className="thread-done" data-testid="head-finished">
+                  <CheckCircle2 size={12} aria-hidden /> Finished
+                </span>
+              ) : null}
+              {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
+            </div>
+            <div className="thread-meta">
+              {session?.title ? (
+                <span className="thread-meta-where">
+                  <Where agent={agent} repo={repo} reference={ref} />
+                </span>
+              ) : null}
+              {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
+              {named ? (
+                // from a question or a side panel, the session's own page; on
+                // it, the id alone
+                focus || inPanel ? (
+                  <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
+                    session {named.id}
+                  </Link>
+                ) : (
+                  <span className="thread-session" title={named.id}>
+                    session {named.id}
+                  </span>
+                )
+              ) : null}
+              {named ? <CopySessionId id={named.id} /> : null}
+              {held.map((item) => (
+                <span key={item.key} className="thread-meta-item" data-testid="thread-held-item">
+                  working on <ItemChip item={item} />
+                </span>
+              ))}
+            </div>
+          </div>
+          <span className="thread-head-end">
+            {items.length > 0 ? (
+              <span className="thread-counts">
+                {[
+                  reviews ? `${reviews} ${reviews === 1 ? "review" : "reviews"}` : null,
+                  questions ? `${questions} ${questions === 1 ? "question" : "questions"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
-            ))}
-          </div>
-        </div>
-        <span className="thread-head-end">
-          {items.length > 0 ? (
-            <span className="thread-counts">
-              {[
-                reviews ? `${reviews} ${reviews === 1 ? "review" : "reviews"}` : null,
-                questions ? `${questions} ${questions === 1 ? "question" : "questions"}` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          ) : null}
-          {named && !focus ? <ArchiveButton session={{ ...named, archived_at: session?.archived_at }} /> : null}
-          {inPanel && named ? (
-            <Tooltip label="Open as a page" side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                onClick={() => navigate(sessionPath(named))}
-                aria-label="Open as a page"
-              >
-                <Expand size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-          {hasDetails ? (
-            <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                aria-label={details ? "Hide the session's details" : "Show the session's details"}
-                aria-pressed={details}
-                onClick={toggleDetails}
-              >
-                {details ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
-              </button>
-            </Tooltip>
-          ) : null}
-          {inPanel && onClose ? (
-            <Tooltip label="Close" keys={["Esc"]} side="bottom">
-              <button type="button" className="bar-button" onClick={onClose} aria-label="Close the panel">
-                <X size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-        </span>
-      </header>
-      {error ? <p className="notice notice-danger">{error}</p> : null}
-      <div className="thread-body" ref={body}>
-        <div className="thread-main">
-          <div className="thread-items" ref={timeline}>
-            {session ? (
-              <div className="thread-divider">
-                <span>Session started {stamp(session.first_at)}</span>
-              </div>
             ) : null}
-            {entries.map((entry) => {
-              if (entry.kind === "message")
-                return (
-                  <MessageBubble
-                    key={`m-${entry.message.id}`}
-                    message={entry.message}
-                    session={named!}
-                    onDeleted={load}
+            {named && !focus ? <ArchiveButton session={{ ...named, archived_at: session?.archived_at }} /> : null}
+            {inPanel && named ? (
+              <Tooltip label="Open as a page" side="bottom">
+                <button
+                  type="button"
+                  className="bar-button"
+                  onClick={() => navigate(sessionPath(named))}
+                  aria-label="Open as a page"
+                >
+                  <Expand size={15} />
+                </button>
+              </Tooltip>
+            ) : null}
+            {hasDetails ? (
+              <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
+                <button
+                  type="button"
+                  className="bar-button"
+                  aria-label={details ? "Hide the session's details" : "Show the session's details"}
+                  aria-pressed={details}
+                  onClick={toggleDetails}
+                >
+                  {details ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+                </button>
+              </Tooltip>
+            ) : null}
+            {inPanel && onClose ? (
+              <Tooltip label="Close" keys={["Esc"]} side="bottom">
+                <button type="button" className="bar-button" onClick={onClose} aria-label="Close the panel">
+                  <X size={15} />
+                </button>
+              </Tooltip>
+            ) : null}
+          </span>
+        </header>
+        {error ? <p className="notice notice-danger">{error}</p> : null}
+        <div className="thread-body" ref={body}>
+          <div className="thread-main">
+            <div className="thread-items" ref={timeline}>
+              {session ? (
+                <div className="thread-divider">
+                  <span>Session started {stamp(session.first_at)}</span>
+                </div>
+              ) : null}
+              {entries.map((entry) => {
+                if (entry.kind === "message")
+                  return (
+                    <MessageBubble
+                      key={`m-${entry.message.id}`}
+                      message={entry.message}
+                      session={named!}
+                      onDeleted={load}
+                    />
+                  );
+                if (entry.kind === "statuses")
+                  return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
+                if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
+                if (entry.kind === "finished")
+                  return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
+                if (entry.kind === "itemEvents")
+                  return <ItemEventLine key={`e-${entry.events[0].id}`} events={entry.events} />;
+                if (entry.kind === "comment")
+                  return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
+                if (entry.kind === "note")
+                  return (
+                    <NoteMessage
+                      key={`s-${entry.status.id}`}
+                      status={entry.status}
+                      agent={agent}
+                      session={named?.id ?? null}
+                    />
+                  );
+                if (entry.kind === "revised")
+                  return (
+                    <RevisedLine
+                      key={`v-${entry.review.id}`}
+                      entry={entry}
+                      onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
+                    />
+                  );
+                if (entry.kind === "withdrawn")
+                  return (
+                    <WithdrawnLine
+                      key={`w-${entry.review.id}`}
+                      entry={entry}
+                      onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
+                    />
+                  );
+                const item = entry.review;
+                return item.kind === "question" ? (
+                  <QuestionSet
+                    key={item.id}
+                    review={item}
+                    active={item.id === active}
+                    footer={item.id === active ? footer : null}
+                    onActivate={() => setPicked(item.id)}
+                    onDone={load}
+                  />
+                ) : (
+                  <ReviewCard
+                    key={item.id}
+                    review={item}
+                    round={entry.round}
+                    to={reviewTo(item.id)}
+                    state={panelMode ? undefined : from}
+                    open={item.id === openReview}
+                    onClick={(e) => openFromLink(e, item.id)}
                   />
                 );
-              if (entry.kind === "statuses")
-                return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
-              if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
-              if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
-              if (entry.kind === "itemEvents")
-                return <ItemEventLine key={`e-${entry.events[0].id}`} events={entry.events} />;
-              if (entry.kind === "comment")
-                return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
-              if (entry.kind === "note")
-                return (
-                  <NoteMessage
-                    key={`s-${entry.status.id}`}
-                    status={entry.status}
-                    agent={agent}
-                    session={named?.id ?? null}
-                  />
-                );
-              if (entry.kind === "revised")
-                return (
-                  <RevisedLine
-                    key={`v-${entry.review.id}`}
-                    entry={entry}
-                    onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
-                  />
-                );
-              if (entry.kind === "withdrawn")
-                return (
-                  <WithdrawnLine
-                    key={`w-${entry.review.id}`}
-                    entry={entry}
-                    onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
-                  />
-                );
-              const item = entry.review;
-              return item.kind === "question" ? (
-                <QuestionSet
-                  key={item.id}
-                  review={item}
-                  active={item.id === active}
-                  footer={item.id === active ? footer : null}
-                  onActivate={() => setPicked(item.id)}
-                  onDone={load}
-                />
-              ) : (
-                <ReviewCard
-                  key={item.id}
-                  review={item}
-                  round={entry.round}
-                  to={reviewTo(item.id)}
-                  state={panelMode ? undefined : from}
-                  open={item.id === openReview}
-                  onClick={(e) => openFromLink(e, item.id)}
-                />
-              );
-            })}
-          </div>
-          <div className="thread-footer" ref={setFooter}>
-            {atEnd ? null : (
-              <button
-                type="button"
-                className="thread-to-end"
-                aria-label="Scroll to the newest message"
-                onClick={() => {
-                  const el = timeline.current;
-                  el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-                }}
-              >
-                <ArrowDown size={15} />
-              </button>
-            )}
-            {active ? null : MESSAGES && named ? <MessageComposer session={named} onSent={load} /> : <IdleComposer />}
-          </div>
-        </div>
-        {openReview && reviewPanel ? (
-          <SidePanel split={body}>
-            {reviewPanel({
-              id: openReview,
-              linkTo: reviewTo,
-              onEnded: () => showReview(null, { replace: true }),
-              onClose: () => showReview(null),
-            })}
-          </SidePanel>
-        ) : null}
-        {!hasDetails || !details || openReview ? null : (
-          <div
-            className="panel-resizer thread-aside-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize the session's details"
-            aria-valuenow={detailsWidth}
-            aria-valuemin={DETAILS_MIN}
-            aria-valuemax={DETAILS_MAX}
-            tabIndex={0}
-            onPointerDown={resizeDetails}
-            onKeyDown={resizeDetailsBy}
-          />
-        )}
-        {!hasDetails || !details || openReview ? null : (
-          <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
-            <section>
-              <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
-              {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}
-              {waiting.map((r) => (
-                <a
-                  key={r.id}
-                  href={r.kind === "question" ? `#set-${r.id}` : `#/reviews/${r.id}`}
-                  className="thread-waiting-item"
-                  data-testid="waiting-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (r.kind !== "question" && panelMode) showReview(r.id);
-                    else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
-                    else document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+              })}
+            </div>
+            <div className="thread-footer" ref={setFooter}>
+              {atEnd ? null : (
+                <button
+                  type="button"
+                  className="thread-to-end"
+                  aria-label="Scroll to the newest message"
+                  onClick={() => {
+                    const el = timeline.current;
+                    el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
                   }}
                 >
-                  <ReviewIcon review={r} size={14} />
-                  <span className="thread-waiting-item-text">
-                    <span className="text">{r.title}</span>
-                    <span className="faint" title={stamp(r.created_at)}>
-                      {r.kind === "question" ? "questions" : reviewLabel(r)} · {age(r.created_at)} ago
-                    </span>
-                  </span>
-                  <StarMark review={r} />
-                </a>
-              ))}
-            </section>
-            {queued.length > 0 ? (
-              <section aria-label="Waiting on the agent">
-                <h2>Waiting on the agent · {queued.length}</h2>
-                {queued.map((m) => (
+                  <ArrowDown size={15} />
+                </button>
+              )}
+              {active ? null : MESSAGES && named ? <MessageComposer session={named} onSent={load} /> : <IdleComposer />}
+            </div>
+          </div>
+          {openReview && reviewPanel ? (
+            <SidePanel split={body}>
+              {reviewPanel({
+                id: openReview,
+                linkTo: reviewTo,
+                onEnded: () => showReview(null, { replace: true }),
+                onClose: () => showReview(null),
+              })}
+            </SidePanel>
+          ) : null}
+          {openItem && !openReview ? (
+            <SidePanel split={body} label="Work item">
+              <SessionItemPanel key={openItem} itemKey={openItem} onOpen={showItem} onClose={() => showItem(null)} />
+            </SidePanel>
+          ) : null}
+          {!hasDetails || !details || openReview || openItem ? null : (
+            <div
+              className="panel-resizer thread-aside-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the session's details"
+              aria-valuenow={detailsWidth}
+              aria-valuemin={DETAILS_MIN}
+              aria-valuemax={DETAILS_MAX}
+              tabIndex={0}
+              onPointerDown={resizeDetails}
+              onKeyDown={resizeDetailsBy}
+            />
+          )}
+          {!hasDetails || !details || openReview || openItem ? null : (
+            <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
+              <section>
+                <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
+                {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}
+                {waiting.map((r) => (
                   <a
-                    key={m.id}
-                    href={`#message-${m.id}`}
+                    key={r.id}
+                    href={r.kind === "question" ? `#set-${r.id}` : `#/reviews/${r.id}`}
                     className="thread-waiting-item"
-                    data-testid="queued-message"
+                    data-testid="waiting-item"
                     onClick={(e) => {
                       e.preventDefault();
-                      document
-                        .getElementById(`message-${m.id}`)
-                        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                      if (r.kind !== "question" && panelMode) showReview(r.id);
+                      else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
+                      else
+                        document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
                     }}
                   >
-                    <Clock size={14} className="thread-queued-icon" aria-hidden />
+                    <ReviewIcon review={r} size={14} />
                     <span className="thread-waiting-item-text">
-                      <span className="text">{m.text}</span>
-                      <span className="faint" title={stamp(m.sent_at)}>
-                        queued · {age(m.sent_at)} ago
+                      <span className="text">{r.title}</span>
+                      <span className="faint" title={stamp(r.created_at)}>
+                        {r.kind === "question" ? "questions" : reviewLabel(r)} · {age(r.created_at)} ago
                       </span>
                     </span>
+                    <StarMark review={r} />
                   </a>
                 ))}
               </section>
-            ) : null}
-            {workedOn.length > 0 ? (
-              <section aria-label="Work items" data-testid="thread-work-items">
-                <h2>Work items · {workedOn.length}</h2>
-                {workedOn.map((item) => (
-                  <Link
-                    key={item.key}
-                    to={itemPath(item.key)}
-                    className={`thread-waiting-item ${item.status === "done" || item.status === "cancelled" ? "is-ended" : ""}`}
-                    data-testid="thread-work-item"
-                  >
-                    <ItemStatusIcon status={item.status} />
-                    <span className="thread-waiting-item-text">
-                      <span className="text">{item.title}</span>
-                      <span className="faint">
-                        <span className="mono">{item.key}</span> · {STATUS_LABEL[item.status].toLowerCase()}
-                      </span>
-                    </span>
-                  </Link>
-                ))}
-              </section>
-            ) : null}
-            {starred.length > 0 ? (
-              <section aria-label="Starred">
-                <h2>Starred · {starred.length}</h2>
-                {starred.map((r) => {
-                  const outcome = outcomeOf(r);
-                  return (
-                    <Link
-                      key={r.id}
-                      to={reviewTo(r.id)}
-                      state={panelMode ? undefined : from}
-                      onClick={(e) => openFromLink(e, r.id)}
-                      className={`thread-waiting-item ${r.status === "pending" ? "" : `is-ended tone-${outcome.tone}`}`}
-                      data-testid="starred-review"
+              {queued.length > 0 ? (
+                <section aria-label="Waiting on the agent">
+                  <h2>Waiting on the agent · {queued.length}</h2>
+                  {queued.map((m) => (
+                    <a
+                      key={m.id}
+                      href={`#message-${m.id}`}
+                      className="thread-waiting-item"
+                      data-testid="queued-message"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document
+                          .getElementById(`message-${m.id}`)
+                          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                      }}
                     >
-                      <ReviewIcon review={r} size={14} />
+                      <Clock size={14} className="thread-queued-icon" aria-hidden />
                       <span className="thread-waiting-item-text">
-                        <span className="text">{r.title}</span>
-                        <span className="faint" title={stamp(r.created_at)}>
-                          {r.status === "pending" ? "waiting" : <span className="thread-outcome">{outcome.label}</span>}{" "}
-                          · {r.plugin} · {age(r.created_at)} ago
+                        <span className="text">{m.text}</span>
+                        <span className="faint" title={stamp(m.sent_at)}>
+                          queued · {age(m.sent_at)} ago
                         </span>
                       </span>
-                      <StarMark review={r} />
+                    </a>
+                  ))}
+                </section>
+              ) : null}
+              {workedOn.length > 0 ? (
+                <section aria-label="Work items" data-testid="thread-work-items">
+                  <h2>Work items · {workedOn.length}</h2>
+                  {workedOn.map((item) => (
+                    <Link
+                      key={item.key}
+                      to={itemPath(item.key)}
+                      onClick={(e) => onItemLink(e, item.key)}
+                      className={`thread-waiting-item ${item.status === "done" || item.status === "cancelled" ? "is-ended" : ""}`}
+                      data-testid="thread-work-item"
+                    >
+                      <ItemStatusIcon status={item.status} />
+                      <span className="thread-waiting-item-text">
+                        <span className="text">{item.title}</span>
+                        <span className="faint">
+                          <span className="mono">{item.key}</span> · {STATUS_LABEL[item.status].toLowerCase()}
+                        </span>
+                      </span>
                     </Link>
-                  );
-                })}
-              </section>
-            ) : null}
-            {started.length > 0 ? (
-              <section aria-label="Stages">
-                <h2>Stages</h2>
-                {earlier > 0 && !atEarlier ? (
-                  <button
-                    type="button"
-                    className="thread-status-more thread-rail-more"
-                    aria-expanded={allStages}
-                    onClick={() => setAllStages((all) => !all)}
-                  >
-                    {allStages ? "Show only the latest" : `${earlier} earlier ${earlier === 1 ? "stage" : "stages"}`}
-                  </button>
-                ) : null}
-                <ol className="thread-rail">
-                  {stagesShown.map((stage) => {
-                    const i = started.indexOf(stage);
-                    const last = i === started.length - 1;
-                    const state = stage.done ? "is-done" : last ? "is-last" : "is-left";
-                    // until it finished, until the next stage began for one left
-                    // open, or until now for the one in progress
-                    const end = stage.done?.at ?? (last ? null : started[i + 1].start.at);
-                    const took = age(stage.start.at, end ? Date.parse(end) : Date.now());
-                    const length = stage.current
-                      ? `In progress for ${took}`
-                      : stage.done
-                        ? `Finished in ${took}`
-                        : `Took ${took}`;
-                    const about = [stage.start.text, length, `Started ${stamp(stage.start.at)}`].join(" · ");
+                  ))}
+                </section>
+              ) : null}
+              {starred.length > 0 ? (
+                <section aria-label="Starred">
+                  <h2>Starred · {starred.length}</h2>
+                  {starred.map((r) => {
+                    const outcome = outcomeOf(r);
                     return (
-                      <li key={stage.start.id} className={`thread-rail-stop ${state}`}>
-                        <Tooltip
-                          side="top"
-                          label={
-                            <span className="stage-tip">
-                              <strong>{stage.start.text}</strong>
-                              <span>{length}</span>
-                              <span className="faint">Started {stamp(stage.start.at)}</span>
-                              {(sentBy.get(stage.start.id) ?? []).length > 0 ? (
-                                <span className="stage-tip-reviews">
-                                  {sentBy
-                                    .get(stage.start.id)!
-                                    .slice(0, STAGE_REVIEWS)
-                                    .map((r) => (
-                                      <span key={r.id} className="stage-tip-review">
-                                        <ReviewIcon review={r} size={12} />
-                                        <span className="stage-tip-title">{r.title}</span>
-                                        <span className="faint">
-                                          {r.status === "pending" ? "waiting" : outcomeOf(r).label}
-                                        </span>
-                                      </span>
-                                    ))}
-                                  {sentBy.get(stage.start.id)!.length > STAGE_REVIEWS ? (
-                                    <span className="faint">
-                                      {sentBy.get(stage.start.id)!.length - STAGE_REVIEWS} more
-                                    </span>
-                                  ) : null}
-                                </span>
-                              ) : null}
-                            </span>
-                          }
-                        >
-                          <a
-                            href={`#status-${stage.start.id}`}
-                            className="thread-rail-link"
-                            data-testid="stage"
-                            aria-label={about}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              document
-                                .getElementById(`status-${stage.start.id}`)
-                                ?.scrollIntoView({ block: "center", behavior: "smooth" });
-                            }}
-                          >
-                            <span className="thread-rail-dot" aria-hidden>
-                              {stage.done ? <Check size={9} strokeWidth={3} /> : null}
-                            </span>
-                            <span className="thread-rail-text">{stage.start.text}</span>
-                            <span className="faint thread-rail-when">{took}</span>
-                          </a>
-                        </Tooltip>
-                      </li>
+                      <Link
+                        key={r.id}
+                        to={reviewTo(r.id)}
+                        state={panelMode ? undefined : from}
+                        onClick={(e) => openFromLink(e, r.id)}
+                        className={`thread-waiting-item ${r.status === "pending" ? "" : `is-ended tone-${outcome.tone}`}`}
+                        data-testid="starred-review"
+                      >
+                        <ReviewIcon review={r} size={14} />
+                        <span className="thread-waiting-item-text">
+                          <span className="text">{r.title}</span>
+                          <span className="faint" title={stamp(r.created_at)}>
+                            {r.status === "pending" ? (
+                              "waiting"
+                            ) : (
+                              <span className="thread-outcome">{outcome.label}</span>
+                            )}{" "}
+                            · {r.plugin} · {age(r.created_at)} ago
+                          </span>
+                        </span>
+                        <StarMark review={r} />
+                      </Link>
                     );
                   })}
-                </ol>
-              </section>
-            ) : null}
-            {handled.length > 0 ? (
-              <section aria-label="Reviews">
-                <h2>
-                  <button
-                    type="button"
-                    className="thread-aside-fold"
-                    aria-expanded={showHandled}
-                    onClick={toggleHandled}
-                  >
-                    <ChevronRight size={12} className="thread-aside-fold-icon" aria-hidden />
-                    Reviews · {handled.length}
-                  </button>
-                </h2>
-                {showHandled
-                  ? handled.map((r) => {
-                      // the icon and the outcome in the colour of the outcome's badge
-                      const outcome = outcomeOf(r);
+                </section>
+              ) : null}
+              {started.length > 0 ? (
+                <section aria-label="Stages">
+                  <h2>Stages</h2>
+                  {earlier > 0 && !atEarlier ? (
+                    <button
+                      type="button"
+                      className="thread-status-more thread-rail-more"
+                      aria-expanded={allStages}
+                      onClick={() => setAllStages((all) => !all)}
+                    >
+                      {allStages ? "Show only the latest" : `${earlier} earlier ${earlier === 1 ? "stage" : "stages"}`}
+                    </button>
+                  ) : null}
+                  <ol className="thread-rail">
+                    {stagesShown.map((stage) => {
+                      const i = started.indexOf(stage);
+                      const last = i === started.length - 1;
+                      const state = stage.done ? "is-done" : last ? "is-last" : "is-left";
+                      // until it finished, until the next stage began for one left
+                      // open, or until now for the one in progress
+                      const end = stage.done?.at ?? (last ? null : started[i + 1].start.at);
+                      const took = age(stage.start.at, end ? Date.parse(end) : Date.now());
+                      const length = stage.current
+                        ? `In progress for ${took}`
+                        : stage.done
+                          ? `Finished in ${took}`
+                          : `Took ${took}`;
+                      const about = [stage.start.text, length, `Started ${stamp(stage.start.at)}`].join(" · ");
                       return (
-                        <Link
-                          key={r.id}
-                          to={reviewTo(r.id)}
-                          state={panelMode ? undefined : from}
-                          onClick={(e) => openFromLink(e, r.id)}
-                          className={`thread-waiting-item is-ended tone-${outcome.tone}`}
-                          data-testid="handled-review"
-                        >
-                          <ReviewIcon review={r} size={14} />
-                          <span className="thread-waiting-item-text">
-                            <span className="text">{r.title}</span>
-                            <span className="faint" title={stamp(r.created_at)}>
-                              <span className="thread-outcome">{outcome.label}</span> · {r.plugin} · {age(r.created_at)}{" "}
-                              ago
-                            </span>
-                          </span>
-                          <StarMark review={r} />
-                        </Link>
+                        <li key={stage.start.id} className={`thread-rail-stop ${state}`}>
+                          <Tooltip
+                            side="top"
+                            label={
+                              <span className="stage-tip">
+                                <strong>{stage.start.text}</strong>
+                                <span>{length}</span>
+                                <span className="faint">Started {stamp(stage.start.at)}</span>
+                                {(sentBy.get(stage.start.id) ?? []).length > 0 ? (
+                                  <span className="stage-tip-reviews">
+                                    {sentBy
+                                      .get(stage.start.id)!
+                                      .slice(0, STAGE_REVIEWS)
+                                      .map((r) => (
+                                        <span key={r.id} className="stage-tip-review">
+                                          <ReviewIcon review={r} size={12} />
+                                          <span className="stage-tip-title">{r.title}</span>
+                                          <span className="faint">
+                                            {r.status === "pending" ? "waiting" : outcomeOf(r).label}
+                                          </span>
+                                        </span>
+                                      ))}
+                                    {sentBy.get(stage.start.id)!.length > STAGE_REVIEWS ? (
+                                      <span className="faint">
+                                        {sentBy.get(stage.start.id)!.length - STAGE_REVIEWS} more
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                ) : null}
+                              </span>
+                            }
+                          >
+                            <a
+                              href={`#status-${stage.start.id}`}
+                              className="thread-rail-link"
+                              data-testid="stage"
+                              aria-label={about}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                document
+                                  .getElementById(`status-${stage.start.id}`)
+                                  ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                              }}
+                            >
+                              <span className="thread-rail-dot" aria-hidden>
+                                {stage.done ? <Check size={9} strokeWidth={3} /> : null}
+                              </span>
+                              <span className="thread-rail-text">{stage.start.text}</span>
+                              <span className="faint thread-rail-when">{took}</span>
+                            </a>
+                          </Tooltip>
+                        </li>
                       );
-                    })
-                  : null}
-              </section>
-            ) : null}
-            {session ? (
-              <section>
-                <h2>Session</h2>
-                <dl className="thread-facts">
-                  <dt>Agent</dt>
-                  <dd>{session.agent}</dd>
-                  <dt>Id</dt>
-                  <dd className="mono">{session.id}</dd>
-                  {session.repo ? (
-                    <>
-                      <dt>Project</dt>
-                      <dd>{session.repo}</dd>
-                    </>
-                  ) : null}
-                  {session.ref ? (
-                    <>
-                      <dt>Branch</dt>
-                      <dd className="mono">{session.ref}</dd>
-                    </>
-                  ) : null}
-                  {session.folder ? (
-                    <>
-                      <dt>Folder</dt>
-                      <dd className="mono" title={session.folder}>
-                        {session.folder}
-                      </dd>
-                    </>
-                  ) : null}
-                  <dt>Last activity</dt>
-                  <dd title={stamp(session.last_at)}>{age(session.last_at)} ago</dd>
-                </dl>
-              </section>
-            ) : null}
-          </aside>
-        )}
+                    })}
+                  </ol>
+                </section>
+              ) : null}
+              {handled.length > 0 ? (
+                <section aria-label="Reviews">
+                  <h2>
+                    <button
+                      type="button"
+                      className="thread-aside-fold"
+                      aria-expanded={showHandled}
+                      onClick={toggleHandled}
+                    >
+                      <ChevronRight size={12} className="thread-aside-fold-icon" aria-hidden />
+                      Reviews · {handled.length}
+                    </button>
+                  </h2>
+                  {showHandled
+                    ? handled.map((r) => {
+                        // the icon and the outcome in the colour of the outcome's badge
+                        const outcome = outcomeOf(r);
+                        return (
+                          <Link
+                            key={r.id}
+                            to={reviewTo(r.id)}
+                            state={panelMode ? undefined : from}
+                            onClick={(e) => openFromLink(e, r.id)}
+                            className={`thread-waiting-item is-ended tone-${outcome.tone}`}
+                            data-testid="handled-review"
+                          >
+                            <ReviewIcon review={r} size={14} />
+                            <span className="thread-waiting-item-text">
+                              <span className="text">{r.title}</span>
+                              <span className="faint" title={stamp(r.created_at)}>
+                                <span className="thread-outcome">{outcome.label}</span> · {r.plugin} ·{" "}
+                                {age(r.created_at)} ago
+                              </span>
+                            </span>
+                            <StarMark review={r} />
+                          </Link>
+                        );
+                      })
+                    : null}
+                </section>
+              ) : null}
+              {session ? (
+                <section>
+                  <h2>Session</h2>
+                  <dl className="thread-facts">
+                    <dt>Agent</dt>
+                    <dd>{session.agent}</dd>
+                    <dt>Id</dt>
+                    <dd className="mono">{session.id}</dd>
+                    {session.repo ? (
+                      <>
+                        <dt>Project</dt>
+                        <dd>{session.repo}</dd>
+                      </>
+                    ) : null}
+                    {session.ref ? (
+                      <>
+                        <dt>Branch</dt>
+                        <dd className="mono">{session.ref}</dd>
+                      </>
+                    ) : null}
+                    {session.folder ? (
+                      <>
+                        <dt>Folder</dt>
+                        <dd className="mono" title={session.folder}>
+                          {session.folder}
+                        </dd>
+                      </>
+                    ) : null}
+                    <dt>Last activity</dt>
+                    <dd title={stamp(session.last_at)}>{age(session.last_at)} ago</dd>
+                  </dl>
+                </section>
+              ) : null}
+            </aside>
+          )}
+        </div>
       </div>
-    </div>
+    </ItemOpener.Provider>
   );
 }
 
@@ -962,12 +1001,19 @@ export function statusLine(status: SessionStatus): string {
 /** Text the agent reported, with its links opened in the browser. */
 /** Follows a link in what an agent wrote: a work item's key opens the item
  *  in the app, and any other link opens in the browser. */
-function followLink(link: HTMLAnchorElement) {
-  if (link.dataset.item) window.location.hash = itemPath(link.dataset.item);
-  else openAgentLink(link.href);
+function useFollowLink() {
+  const openItem = useOpenItem();
+  return useCallback(
+    (link: HTMLAnchorElement) => {
+      if (link.dataset.item) openItem(link.dataset.item);
+      else openAgentLink(link.href);
+    },
+    [openItem],
+  );
 }
 
 function Linked({ text }: { text: string }) {
+  const followLink = useFollowLink();
   const html = useMemo(() => renderLinks(text), [text]);
   return (
     <span
@@ -1076,6 +1122,7 @@ function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
 /** A comment the session's agent wrote on a work item: the item's chip,
  *  and the comment's Markdown as the item's panel shows it. */
 function CommentMessage({ comment }: { comment: SessionComment }) {
+  const followLink = useFollowLink();
   const fileUrl = useFileUrl(comment.item.key);
   return (
     <div className="thread-note thread-comment msg" data-testid="thread-comment">
@@ -1125,6 +1172,7 @@ function NoteMessage({
   agent: string | null;
   session: string | null;
 }) {
+  const followLink = useFollowLink();
   const files = filesOf(status);
   const note = useMemo(
     () => (agent && session ? { agent, session, status: status.id } : null),
@@ -1644,6 +1692,7 @@ function QuestionMessage({
   onEdit,
   index,
 }: MessageProps) {
+  const followLink = useFollowLink();
   const pending = review.status === "pending";
   // the question as it reads, for the labels of what answers it
   const asked = useMemo(() => plainInline(question.question), [question.question]);
@@ -2039,6 +2088,7 @@ function AnswerLine({ question, answer, review }: { question: Question; answer?:
 
 /** A question's context, as Markdown, with its links opened in the browser. */
 function Context({ text }: { text: string }) {
+  const followLink = useFollowLink();
   const prefixes = useItemPrefixes();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
   const html = useMemo(() => renderMarkdown(text), [text, prefixes]);
