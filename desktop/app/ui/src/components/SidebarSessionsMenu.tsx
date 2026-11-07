@@ -2,7 +2,7 @@
 // ordered and shown, and which are listed, from the parts of an options
 // menu.
 
-import { CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
+import { Archive, CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
@@ -125,7 +125,7 @@ export function SidebarSessionsMenu({
             : o,
         ),
       )}
-      {toggle("Show reviews", choices.show_reviews, () => onChange({ show_reviews: !choices.show_reviews }))}
+      {toggle("Show waiting reviews", choices.show_reviews, () => onChange({ show_reviews: !choices.show_reviews }))}
       <hr className="menu-separator" />
       <div className="menu-heading" onMouseEnter={() => setOpen(null)}>
         Filters
@@ -170,7 +170,7 @@ export function SidebarSessionsMenu({
         ),
         checks(STATES, choices.states, (s) => onChange({ states: toggled(choices.states, s) })),
       )}
-      {toggle("Archived", choices.archived, () => onChange({ archived: !choices.archived }))}
+      {toggle("Include archived", choices.archived, () => onChange({ archived: !choices.archived }), null, Archive)}
       <hr className="menu-separator" />
       <button
         type="button"

@@ -159,7 +159,10 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
     .filter({ hasText: `the menu? ${run}` });
   await expect(question).toBeVisible();
   menu = await openMenu(page);
-  await menu.getByRole("menuitemcheckbox", { name: "Show reviews" }).click();
+  // the archived sessions are a filter, named for what it adds
+  const archived = menu.getByRole("menuitemcheckbox", { name: "Include archived" });
+  await expect(archived.locator("svg.lucide-archive")).toBeVisible();
+  await menu.getByRole("menuitemcheckbox", { name: "Show waiting reviews" }).click();
   await expect(question).toHaveCount(0);
 
   // a second line of details

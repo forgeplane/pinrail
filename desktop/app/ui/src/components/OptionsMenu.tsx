@@ -146,7 +146,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       </div>
     );
   };
-  const toggle = (text: string, checked: boolean, onPick: () => void, extra?: ReactNode) => (
+  const toggle = (text: string, checked: boolean, onPick: () => void, extra?: ReactNode, Icon?: LucideIcon) => (
     <button
       type="button"
       role="menuitemcheckbox"
@@ -155,6 +155,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       onMouseEnter={() => setOpen(null)}
       onClick={onPick}
     >
+      {Icon ? <Icon size={14} className="menu-icon" aria-hidden /> : null}
       {text}
       {extra}
       {checked ? <Check size={13} className="menu-check" /> : null}
