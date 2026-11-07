@@ -696,3 +696,100 @@ test("a submenu stays open while the pointer crosses another row on its way to i
   await ordering.hover();
   await expect(page.getByRole("menuitemradio", { name: "Newest first", exact: true })).toBeVisible();
 });
+
+test("an item dragged to another group's heading moves to its repository", async ({ page, request }) => {
+  const api = fresh("api");
+  const web = api.replace("/api", "/web");
+  const created = await request.post(`${core}/api/v1/projects`, {
+    data: { name: `Moves ${Date.now()}`, repos: [api, web] },
+  });
+  const project = (await created.json()) as { id: string };
+  const moved = await add(request, api, "Moves to the site");
+  await add(request, web, "Stays in the site");
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { layout: "repository" } } });
+  await open(page, `project:${project.id}`);
+  const heading = (repo: string) => page.getByTestId("inbox-group-heading").filter({ hasText: repo });
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, moved.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  // the other group's heading lights up, and its own does not
+  await expect(heading(web)).toHaveClass(/is-drop-target/);
+  await expect(heading(api)).not.toHaveClass(/is-drop-target/);
+  await heading(web).dispatchEvent("dragover", { dataTransfer: transfer });
+  await expect(heading(web)).toHaveClass(/is-drop/);
+  await heading(web).dispatchEvent("drop", { dataTransfer: transfer });
+  await row(page, moved.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(page.locator(".toast").last()).toContainText(`${moved.key} moved to ${web}`);
+  const item = (await (await request.get(`${core}/api/v1/items/${moved.key}`)).json()) as { repo: string };
+  expect(item.repo).toBe(web);
+});
+
+test("grouped by project, a drop asks which repository of a project with several", async ({ page, request }) => {
+  const run = `${Date.now()}`;
+  const one = fresh("one");
+  const [api, web] = [fresh("api"), fresh("web")];
+  const single = (await (
+    await request.post(`${core}/api/v1/projects`, { data: { name: `Single ${run}`, repos: [one] } })
+  ).json()) as { id: string };
+  const several = (await (
+    await request.post(`${core}/api/v1/projects`, { data: { name: `Several ${run}`, repos: [api, web] } })
+  ).json()) as { id: string };
+  const moved = await add(request, one, `Moves ${run}`);
+  await add(request, one, `Stays in one ${run}`);
+  await add(request, api, `Stays ${run}`);
+  await page.goto(`/#/items`);
+  await page.locator(".work-items input[type=search]").fill(run);
+  const heading = (name: string) => page.getByTestId("inbox-group-heading").filter({ hasText: name });
+  await expect(heading(`Several ${run}`)).toBeVisible();
+
+  let transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, moved.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  // a person drops on a heading they can see
+  await heading(`Several ${run}`).scrollIntoViewIfNeeded();
+  await heading(`Several ${run}`).dispatchEvent("drop", { dataTransfer: transfer });
+  await row(page, moved.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  const menu = page.getByRole("menu", { name: "Move to which repository?" });
+  await expect(menu.getByRole("menuitem")).toHaveText([api, web]);
+  await expect(menu).toBeInViewport({ ratio: 1 });
+  await menu.getByRole("menuitem", { name: web }).click();
+  await expect(page.locator(".toast").last()).toContainText(`${moved.key} moved to ${web}`);
+  let item = (await (await request.get(`${core}/api/v1/items/${moved.key}`)).json()) as { repo: string; key: string };
+  expect(item.repo).toBe(web);
+
+  // a project with one repository takes it there at once
+  transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, item.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  await heading(`Single ${run}`).dispatchEvent("drop", { dataTransfer: transfer });
+  await row(page, item.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(page.locator(".toast").last()).toContainText(`moved to ${one}`);
+  // back in its first repository it has a new number; its key in the second still finds it
+  item = (await (await request.get(`${core}/api/v1/items/${item.key}`)).json()) as { repo: string; key: string };
+  expect(item.repo).toBe(one);
+  expect(single.id).toBeTruthy();
+  expect(several.id).toBeTruthy();
+});
+
+test("an item dropped on an item of another repository moves there and becomes its sub-item", async ({
+  page,
+  request,
+}) => {
+  const api = fresh("api");
+  const web = api.replace("/api", "/web");
+  const created = await request.post(`${core}/api/v1/projects`, {
+    data: { name: `Nests ${Date.now()}`, repos: [api, web] },
+  });
+  const project = (await created.json()) as { id: string };
+  const moved = await add(request, api, "Nests in the site");
+  const parent = await add(request, web, "The site's release");
+  await open(page, `project:${project.id}`);
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row(page, moved.key).dispatchEvent("dragstart", { dataTransfer: transfer });
+  await row(page, parent.key).dispatchEvent("drop", { dataTransfer: transfer });
+  await row(page, moved.key).dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(page.locator(".toast").last()).toContainText(`is now part of ${parent.key}`);
+  const item = (await (await request.get(`${core}/api/v1/items/${moved.key}`)).json()) as {
+    repo: string;
+    parent: string | null;
+  };
+  expect(item.repo).toBe(web);
+  expect(item.parent).toBe(parent.key);
+});

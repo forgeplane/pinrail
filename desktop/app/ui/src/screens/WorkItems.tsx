@@ -24,6 +24,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { ApiError, api } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
@@ -43,6 +44,7 @@ import { KeyHints } from "../components/KeyHints";
 import { ItemPanel } from "../components/ItemPanel";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { SidePanel } from "../components/SidePanel";
+import { useOptionsMenu } from "../components/OptionsMenu";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -98,6 +100,8 @@ export function WorkItems() {
   const filtered = !!(query || status || scope || by || waiting);
   const [items, setItems] = useState<WorkItem[] | null>(null);
   const [repos, setRepos] = useState<string[]>([]);
+  // each project's repositories, by its id: where an item dropped on it goes
+  const [projectRepos, setProjectRepos] = useState<Record<string, string[]>>({});
   const [focused, setFocused] = useState(0);
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
@@ -125,13 +129,13 @@ export function WorkItems() {
     let cancelled = false;
     api
       .projects()
-      .then(
-        (l) =>
-          !cancelled &&
-          setRepos([
-            ...new Set([...l.projects.flatMap((p) => p.repos.map((r) => r.repo)), ...l.loose.map((r) => r.repo)]),
-          ]),
-      )
+      .then((l) => {
+        if (cancelled) return;
+        setRepos([
+          ...new Set([...l.projects.flatMap((p) => p.repos.map((r) => r.repo)), ...l.loose.map((r) => r.repo)]),
+        ]);
+        setProjectRepos(Object.fromEntries(l.projects.map((p) => [p.id, p.repos.map((r) => r.repo)])));
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -263,6 +267,35 @@ export function WorkItems() {
     [toast, reload],
   );
 
+  /** Moves an item to another repository, where it takes the next number. */
+  const moveTo = useCallback(
+    async (key: string, repo: string) => {
+      try {
+        const { item } = await api.editItem(key, { repo });
+        toast(`${key} moved to ${repo} as ${item.key}`);
+        return true;
+      } catch (error) {
+        toast(reason(error), "danger");
+        return false;
+      } finally {
+        reload();
+      }
+    },
+    [toast, reload],
+  );
+  // the group the dragged row is in, which is no place to drop it
+  const draggedGroup = useRef<string | null>(null);
+  /** The repositories a group takes a dropped item to. */
+  const reposOf = (group: string) =>
+    group.startsWith("project:") ? (projectRepos[group.slice(8)] ?? []) : group ? [group] : [];
+  // a project of several repositories asks which one, in a menu at its heading
+  const [choosing, setChoosing] = useState<{ key: string; repos: string[]; anchor: HTMLElement } | null>(null);
+  const dropOnGroup = (group: string, anchor: HTMLElement, key: string) => {
+    const to = reposOf(group);
+    if (to.length === 1) void moveTo(key, to[0]);
+    else if (to.length > 1) setChoosing({ key, repos: to, anchor });
+  };
+
   // the quick add's field, opened by C or a click
   const [adding, setAdding] = useState(false);
 
@@ -346,6 +379,7 @@ export function WorkItems() {
         draggable
         onDragStart={(event) => {
           event.dataTransfer.setData(DRAGGED, item.key);
+          draggedGroup.current = group;
           event.dataTransfer.effectAllowed = "move";
           // after the drag has begun: a change to the page during
           // dragstart cancels the drag
@@ -365,11 +399,16 @@ export function WorkItems() {
           setDropOn(null);
           const dragged = event.dataTransfer.getData(DRAGGED);
           if (!dragged || dragged === item.key) return;
-          // dropped on another item, it becomes its sub-item
-          void putUnder(dragged, item.key);
+          // dropped on another item, it becomes its sub-item, in its repository
+          const from = items?.find((i) => i.key === dragged);
+          void (async () => {
+            if (from && from.repo !== item.repo && !(await moveTo(dragged, item.repo))) return;
+            await putUnder(dragged, item.key);
+          })();
         }}
         onDragEnd={() => {
           window.clearTimeout(dragTimer.current);
+          draggedGroup.current = null;
           setDropOn(null);
           setDragging(null);
         }}
@@ -605,7 +644,30 @@ export function WorkItems() {
                 </div>
               ) : (
                 <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
-                  <summary data-testid="inbox-group-heading">
+                  <summary
+                    data-testid="inbox-group-heading"
+                    className={
+                      dragging && key !== draggedGroup.current && reposOf(key).length
+                        ? `is-drop-target ${dropOn === `group:${key}` ? "is-drop" : ""}`
+                        : undefined
+                    }
+                    onDragOver={(event) => {
+                      if (!event.dataTransfer.types.includes(DRAGGED)) return;
+                      if (key === draggedGroup.current || !reposOf(key).length) return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      if (dropOn !== `group:${key}`) setDropOn(`group:${key}`);
+                    }}
+                    onDragLeave={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDropOn(null);
+                      const dragged = event.dataTransfer.getData(DRAGGED);
+                      if (dragged && key !== draggedGroup.current) dropOnGroup(key, event.currentTarget, dragged);
+                    }}
+                  >
                     <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />
                   </summary>
                   {shown.map((s) => row(s, ++index, key))}
@@ -628,6 +690,17 @@ export function WorkItems() {
           />
         </footer>
       </div>
+      {choosing ? (
+        <RepoChoiceMenu
+          anchor={choosing.anchor}
+          repos={choosing.repos}
+          onPick={(repo) => {
+            void moveTo(choosing.key, repo);
+            setChoosing(null);
+          }}
+          onClose={() => setChoosing(null)}
+        />
+      ) : null}
       {cancelling ? (
         <CancelItemDialog
           item={cancelling}
@@ -794,5 +867,48 @@ function QuickAddBox({ onClose, repos, items, defaultRepo, defaultParent, onAdde
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** The repositories of a project an item was dropped on, to pick the one
+ *  it moves to. */
+function RepoChoiceMenu({
+  anchor,
+  repos,
+  onPick,
+  onClose,
+}: {
+  anchor: HTMLElement;
+  repos: string[];
+  onPick: (repo: string) => void;
+  onClose: () => void;
+}) {
+  const { menu, pos } = useOptionsMenu(anchor, onClose);
+  // above the heading when it does not fit under it
+  const [above, setAbove] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = menu.current;
+    if (!el || !pos) return;
+    const height = el.getBoundingClientRect().height;
+    if (pos.top + height > window.innerHeight - 8) setAbove(Math.max(8, pos.top - height - 8 - anchor.offsetHeight));
+  }, [menu, pos, anchor]);
+  if (!pos) return null;
+  return createPortal(
+    <div
+      ref={menu}
+      className="menu-popup"
+      role="menu"
+      aria-label="Move to which repository?"
+      style={{ top: above ?? pos.top, left: pos.left }}
+    >
+      <div className="menu-heading">Move to which repository?</div>
+      {repos.map((repo) => (
+        <button key={repo} type="button" role="menuitem" className="menu-item" onClick={() => onPick(repo)}>
+          <FolderGit2 size={14} className="menu-icon" aria-hidden />
+          {repo}
+        </button>
+      ))}
+    </div>,
+    document.body,
   );
 }

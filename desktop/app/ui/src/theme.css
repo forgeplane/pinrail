@@ -6211,6 +6211,17 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-row.is-open {
   background: var(--accent-bg);
 }
+/* while a row is dragged, the other groups' headings take it to their
+   repository */
+.inbox-repo > summary.is-drop-target {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -1px;
+  border-radius: 6px;
+}
+.inbox-repo > summary.is-drop-target.is-drop {
+  outline-color: var(--accent);
+  background: var(--accent-bg);
+}
 .item-row.is-drop {
   outline: 1px dashed var(--accent);
   outline-offset: -1px;
