@@ -5,6 +5,7 @@
 import { Archive, CircleDot, Clock, FolderGit2, LayoutGrid, List, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { AgentIcon } from "./AgentIcon";
 import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
 import {
   type Choices,
@@ -86,8 +87,19 @@ export function SidebarSessionsMenu({
       radio: true,
       icon: ICONS[v as Grouping],
     }));
-  const checks = <T extends string>(list: [T, string][], values: T[], pick: (v: T) => void): MenuOption[] =>
-    list.map(([v, label]) => ({ value: v, label, checked: values.includes(v), onPick: () => pick(v) }));
+  const checks = <T extends string>(
+    list: [T, string][],
+    values: T[],
+    pick: (v: T) => void,
+    mark?: (v: T) => ReactNode,
+  ): MenuOption[] =>
+    list.map(([v, label]) => ({
+      value: v,
+      label,
+      checked: values.includes(v),
+      onPick: () => pick(v),
+      mark: mark?.(v),
+    }));
   const named = (values: string[], all: string) => (values.length ? values.join(", ") : all);
   const label = (list: [string, string][], value: string) => list.find(([v]) => v === value)?.[1] ?? "";
 
@@ -146,6 +158,7 @@ export function SidebarSessionsMenu({
           agents.map((a) => [a, a]),
           choices.agents,
           (a) => onChange({ agents: toggled(choices.agents, a) }),
+          (a) => <AgentIcon requestedBy={a} size={14} />,
         ),
       )}
       {submenu(
@@ -168,7 +181,13 @@ export function SidebarSessionsMenu({
           choices.states.map((s) => label(STATES, s)),
           "All",
         ),
-        checks(STATES, choices.states, (s) => onChange({ states: toggled(choices.states, s) })),
+        checks(
+          STATES,
+          choices.states,
+          (s) => onChange({ states: toggled(choices.states, s) }),
+          // the mark its sessions show on their agent's icon
+          (s) => <span className={`state-mark is-${s}`} aria-hidden />,
+        ),
       )}
       {toggle("Include archived", choices.archived, () => onChange({ archived: !choices.archived }), null, Archive)}
       <hr className="menu-separator" />

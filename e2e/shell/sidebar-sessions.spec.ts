@@ -178,11 +178,20 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
 
   // an agent filter, and Reset
   await menu.getByRole("menuitem", { name: /Agent/ }).click();
+  // each agent with its icon, as on its sessions
+  await expect(menu.getByRole("menuitemcheckbox", { name: "codex" }).locator(".agent-icon")).toBeVisible();
   await menu.getByRole("menuitemcheckbox", { name: "codex" }).click();
   await expect(sessionRow(page, "claude-code", mine)).toHaveCount(0);
   await expect(sessionRow(page, "codex", theirs)).toBeVisible();
   await menu.getByRole("button", { name: "Reset" }).click();
   await expect(sessionRow(page, "claude-code", mine)).toBeVisible();
+
+  // each state with the mark its sessions show
+  await menu.getByRole("menuitem", { name: /^Status/ }).click();
+  for (const state of ["working", "quiet", "done"]) {
+    const option = menu.getByRole("menuitemcheckbox", { name: state[0].toUpperCase() + state.slice(1) });
+    await expect(option.locator(`.state-mark.is-${state}`)).toBeVisible();
+  }
 });
 
 test("grouped by project, a project's repositories share a group, and each session names its own", async ({ page }) => {
