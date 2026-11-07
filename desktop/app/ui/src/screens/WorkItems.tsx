@@ -303,10 +303,13 @@ export function WorkItems() {
         event.preventDefault();
         document.querySelector<HTMLInputElement>(".work-items input[type=search]")?.focus();
       } else if ((key === "j" || key === "k") && rows.length) {
-        const next = key === "j" ? Math.min(focused + 1, rows.length - 1) : Math.max(focused - 1, 0);
+        // with the panel open they step from the open item, wherever the
+        // pointer has moved the highlight, and the panel follows
+        const opened = openKey ? rows.findIndex((r) => r.item.key === openKey) : -1;
+        const from = opened >= 0 ? opened : focused;
+        const next = key === "j" ? Math.min(from + 1, rows.length - 1) : Math.max(from - 1, 0);
         setFocused(next);
-        // the open panel follows, showing the item moved to
-        if (openKey && next !== focused) openKeyed(rows[next].item.key);
+        if (openKey && rows[next].item.key !== openKey) openKeyed(rows[next].item.key);
       } else if (event.key === "Enter" && at) open(at);
       else if (key === "c" && !event.shiftKey) {
         event.preventDefault();

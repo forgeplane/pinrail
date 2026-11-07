@@ -81,6 +81,11 @@ test("with the panel open, J and K open the item they move to", async ({ page, r
   await page.locator("body").press("k");
   await expect(panel(page).getByRole("heading", { name: "Second" })).toBeVisible();
 
+  // a hovered row does not change where they move from
+  await row(page, first.key).hover();
+  await page.keyboard.press("j");
+  await expect(panel(page).getByRole("heading", { name: "Third" })).toBeVisible();
+
   // an item opened from its address is where they move from
   await page.goto("/#/");
   await openItem(page, repo, third.key);
