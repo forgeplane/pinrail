@@ -4,6 +4,7 @@
 // comments with what happened around them, in one timeline.
 
 import {
+  ArrowUp,
   Check,
   Copy,
   ExternalLink,
@@ -18,14 +19,15 @@ import {
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
-import type { ItemComment, ItemDetail, ItemEntry, ItemStatus, WorkItem } from "../api/types";
+import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { modalOpen } from "../lib/keys";
+import { MOD, modalOpen } from "../lib/keys";
 import { reviewPath } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
+import { Activity, who } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
@@ -36,54 +38,6 @@ import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 
 const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
-
-/** Who did something: you, or the agent by its name. */
-const who = (actor: string) => (actor === "person" ? "You" : actor);
-
-/** A change on the timeline, in words. */
-function said(entry: Extract<ItemEntry, { type: "event" }>): string {
-  const a = (entry.attrs ?? {}) as Record<string, unknown>;
-  const list = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
-  switch (entry.kind) {
-    case "created":
-      return "added it";
-    case "edited":
-      return `changed its ${list(a.fields).join(", ")}`;
-    case "files": {
-      const parts = [];
-      if (list(a.added).length) parts.push(`attached ${list(a.added).join(", ")}`);
-      if (list(a.removed).length) parts.push(`removed ${list(a.removed).join(", ")}`);
-      return parts.join(" and ") || "changed its files";
-    }
-    case "parent":
-      return a.to ? `put it under ${a.to}` : "took it out from under its parent";
-    case "depends": {
-      const parts = [];
-      if (list(a.added).length) parts.push(`made it depend on ${list(a.added).join(", ")}`);
-      if (list(a.removed).length) parts.push(`made it no longer depend on ${list(a.removed).join(", ")}`);
-      return parts.join(" and ");
-    }
-    case "moved":
-      return `moved it from ${a.from} to ${a.to}`;
-    case "claimed":
-      return a.from ? "took it over" : "started working on it";
-    case "released":
-      return a.because === "archived" ? `released it when session ${a.session} was archived` : "stopped working on it";
-    case "status": {
-      const to = a.to as ItemStatus;
-      if (to === "done") return "marked it done";
-      if (to === "cancelled") return a.with ? `cancelled it with ${a.with}` : "cancelled it";
-      if (to === "open") return "opened it again";
-      return `set it ${STATUS_LABEL[to]?.toLowerCase() ?? to}`;
-    }
-    case "review_sent":
-      return `sent the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
-    case "review_ended":
-      return `“${a.title}” ended: ${String(a.outcome)}`;
-    default:
-      return entry.kind.replace(/_/g, " ");
-  }
-}
 
 export function ItemPanel({
   itemKey,
@@ -440,58 +394,49 @@ export function ItemPanel({
         <h3>
           <MessagesSquare size={12} /> Comments and activity
         </h3>
-        <ol className="item-timeline">
-          {item.timeline.map((entry, i) =>
-            entry.type === "comment" ? (
-              <CommentCard
-                key={entry.id}
-                comment={entry}
-                files={item.files}
-                fileUrl={fileUrl}
-                onEdit={async (body) => {
-                  try {
-                    await api.editComment(item.key, entry.id, body);
-                    setReloads((n) => n + 1);
-                    return true;
-                  } catch (error) {
-                    toast(reason(error), "danger");
-                    return false;
-                  }
-                }}
-                onDelete={async () => {
-                  try {
-                    await api.deleteComment(item.key, entry.id);
-                    setReloads((n) => n + 1);
-                  } catch (error) {
-                    toast(reason(error), "danger");
-                  }
-                }}
-              />
-            ) : (
-              <li key={`e${i}`} className="item-event" data-testid="item-event">
-                {entry.actor === "person" ? null : <AgentIcon requestedBy={entry.actor} size={12} />}
-                <span>
-                  <b>{who(entry.actor)}</b> {said(entry)}
-                </span>
-                <time dateTime={entry.at} title={stamp(entry.at)}>
-                  {age(entry.at)}
-                </time>
-              </li>
-            ),
+        <Activity
+          entries={item.timeline}
+          renderComment={(entry) => (
+            <CommentCard
+              key={entry.id}
+              comment={entry}
+              files={item.files}
+              fileUrl={fileUrl}
+              onEdit={async (body) => {
+                try {
+                  await api.editComment(item.key, entry.id, body);
+                  setReloads((n) => n + 1);
+                  return true;
+                } catch (error) {
+                  toast(reason(error), "danger");
+                  return false;
+                }
+              }}
+              onDelete={async () => {
+                try {
+                  await api.deleteComment(item.key, entry.id);
+                  setReloads((n) => n + 1);
+                } catch (error) {
+                  toast(reason(error), "danger");
+                }
+              }}
+            />
           )}
-        </ol>
-        <CommentField
-          onPost={async (body) => {
-            try {
-              await api.commentItem(item.key, body);
-              setReloads((n) => n + 1);
-              onChanged();
-              return true;
-            } catch (error) {
-              toast(reason(error), "danger");
-              return false;
-            }
-          }}
+          field={
+            <CommentField
+              onPost={async (body) => {
+                try {
+                  await api.commentItem(item.key, body);
+                  setReloads((n) => n + 1);
+                  onChanged();
+                  return true;
+                } catch (error) {
+                  toast(reason(error), "danger");
+                  return false;
+                }
+              }}
+            />
+          }
         />
       </section>
 
@@ -745,12 +690,12 @@ function CommentCard({
   const [draft, setDraft] = useState(comment.body);
   const mine = comment.author === "person";
   return (
-    <li className={`item-comment ${mine ? "is-mine" : ""}`} data-testid="item-comment">
+    <div className={`item-comment ${mine ? "is-mine" : ""}`} data-testid="item-comment">
       <div className="item-comment-head">
         {mine ? <span className="item-me">You</span> : <AgentIcon requestedBy={comment.author} size={13} />}
         <b>{mine ? "You" : comment.author}</b>
         <time dateTime={comment.created_at} title={stamp(comment.created_at)}>
-          {age(comment.created_at)}
+          {age(comment.created_at)} ago
         </time>
         {comment.edited_at ? <span className="dim">edited</span> : null}
         <span className="grow" />
@@ -799,7 +744,7 @@ function CommentCard({
           ))}
         </ul>
       ) : null}
-    </li>
+    </div>
   );
 }
 
@@ -824,9 +769,17 @@ function CommentField({ onPost }: { onPost: (body: string) => Promise<boolean> }
           }
         }}
       />
-      <button type="button" className="chrome-button" disabled={!draft.trim()} onClick={() => void post()}>
-        Comment
-      </button>
+      <Tooltip label="Comment" keys={[MOD, "Enter"]} side="top">
+        <button
+          type="button"
+          className="item-comment-send"
+          aria-label="Comment"
+          disabled={!draft.trim()}
+          onClick={() => void post()}
+        >
+          <ArrowUp size={14} />
+        </button>
+      </Tooltip>
     </div>
   );
 }

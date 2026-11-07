@@ -6453,8 +6453,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   margin-left: 0;
 }
 .item-files,
-.item-related,
-.item-timeline {
+.item-related {
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
@@ -6543,32 +6542,122 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 6px;
   margin-top: 6px;
 }
-.item-timeline {
+/* an item's activity: changes on a rail, comments in cards */
+.activity {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 8px;
 }
-.item-event {
+.activity-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.activity-line {
+  position: relative;
   display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+/* the rail: one thin line down a run of changes, behind its icons */
+.activity-changes {
+  position: relative;
+}
+.activity-changes:has(> .activity-line + .activity-line)::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 8px;
+  width: 1px;
+  background: var(--border-strong);
+}
+.activity-icon {
+  position: relative;
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 6px;
-  padding-left: 2px;
-  font-size: 12px;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--bg);
   color: var(--faint);
 }
-.item-event b {
-  color: var(--dim);
+.activity-text {
+  min-width: 0;
+  line-height: 17px;
+}
+.activity-text b {
+  color: var(--text);
   font-weight: 500;
 }
-.item-event time {
-  margin-left: auto;
-  flex: none;
+.activity-age {
+  color: var(--faint);
+}
+.activity-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  line-height: 17px;
+  cursor: pointer;
+}
+.activity-more:hover {
+  color: var(--text);
+}
+.activity-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-raised);
 }
 .item-comment {
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-raised);
+  padding: 10px 12px;
+}
+.item-comment + .item-comment,
+.activity-field {
+  border-top: 1px solid var(--border);
+}
+.activity-field {
+  padding: 8px 12px;
+}
+.activity-card > .activity-field:first-child {
+  border-top: 0;
+}
+.activity-field .item-comment-field {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 0;
+}
+.activity-field .item-comment-field textarea {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  resize: none;
+}
+.item-comment-send {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--button-bg);
+  color: var(--button-text);
+  cursor: pointer;
+}
+.item-comment-send:disabled {
+  background: var(--bg-hover);
+  color: var(--faint);
+  cursor: default;
 }
 .item-comment-head {
   display: flex;
