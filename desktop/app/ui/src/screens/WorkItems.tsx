@@ -31,6 +31,7 @@ import { EmptyState } from "../components/EmptyState";
 import { GroupHeading } from "../components/GroupHeading";
 import { ItemStatusIcon } from "../components/ItemStatusIcon";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
+import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Select } from "../components/Select";
@@ -155,12 +156,14 @@ export function WorkItems() {
       ),
     [items, scope, by, waiting],
   );
+  // in the order chosen; the groups and the sub-items keep it
+  const ordered = useMemo(() => orderItems(kept, prefs.items.ordering), [kept, prefs.items.ordering]);
   const groups = useMemo(
     () =>
       layout === "list"
-        ? [["", kept] as [string, WorkItem[]]]
-        : grouped(kept, (i) => groupKey(layout, i.repo, i.project)),
-    [kept, layout],
+        ? [["", ordered] as [string, WorkItem[]]]
+        : grouped(ordered, (i) => groupKey(layout, i.repo, i.project)),
+    [ordered, layout],
   );
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
@@ -504,6 +507,13 @@ export function WorkItems() {
               onReset={clearFilters}
               displays={[
                 groupingDisplay(layout, (next) => void update({ items: { layout: next } })),
+                {
+                  key: "ordering",
+                  label: "Ordering",
+                  value: prefs.items.ordering,
+                  choices: ORDERINGS,
+                  onChange: (next) => void update({ items: { ordering: next as Ordering } }),
+                },
                 {
                   key: "nesting",
                   label: "Sub-items",

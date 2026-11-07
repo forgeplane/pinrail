@@ -56,7 +56,9 @@ async function open(page: Page, scope: string, extra = "") {
 // the layout and the nesting are settings the core keeps: each test leaves
 // the defaults for the next
 test.afterEach(async ({ request }) => {
-  await request.patch(`${core}/api/v1/settings`, { data: { items: { layout: "project", nesting: "nested" } } });
+  await request.patch(`${core}/api/v1/settings`, {
+    data: { items: { layout: "project", nesting: "nested", ordering: "oldest" } },
+  });
 });
 
 test("a row shows the status, key, title, what waits, what blocks it, its progress and who holds it", async ({
@@ -637,4 +639,30 @@ test("an item with an open sub-item cannot be marked done, and says which", asyn
   await row(page, parent.key).hover();
   await page.keyboard.press("d");
   await expect(row(page, parent.key)).toHaveCount(0);
+});
+
+test("the items are ordered as Display options says, sub-items under their parent too, and the choice is kept", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("order");
+  const zulu = await add(request, repo, "Zulu");
+  const alpha = await add(request, repo, "Alpha");
+  const child2 = await add(request, repo, "Yankee", { parent: alpha.key });
+  const child1 = await add(request, repo, "Bravo", { parent: alpha.key });
+  await edit(request, zulu.key, { claim: "claim" });
+  await open(page, repo);
+  expect(await keys(page)).toEqual([zulu.key, alpha.key, child2.key, child1.key]);
+
+  await pick(page, "Display options", "Ordering", "Title");
+  await settingSaved(request, (s) => s.items.ordering, "title");
+  await expect.poll(() => keys(page)).toEqual([alpha.key, child1.key, child2.key, zulu.key]);
+  await pick(page, "Display options", "Ordering", "Newest first");
+  await expect.poll(() => keys(page)).toEqual([alpha.key, child1.key, child2.key, zulu.key]);
+  await pick(page, "Display options", "Ordering", "Status");
+  // in progress first
+  await expect.poll(() => keys(page)).toEqual([zulu.key, alpha.key, child2.key, child1.key]);
+  await page.reload();
+  await page.getByRole("button", { name: "Display options" }).click();
+  await expect(page.getByRole("menuitem", { name: /^Ordering/ })).toContainText("Status");
 });

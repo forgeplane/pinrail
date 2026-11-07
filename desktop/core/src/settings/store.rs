@@ -110,6 +110,12 @@ const LEAVES: &[Leaf] = &[
         "How the Work items page shows sub-items: nested under their parent, or each as a row of its own.",
     ),
     (
+        "/items/ordering",
+        Kind::Enum(&["oldest", "newest", "updated", "status", "title"]),
+        || json!("oldest"),
+        "The order of the Work items page within each group, and of sub-items under their parent: oldest or newest first, recently updated first, by status, or by title.",
+    ),
+    (
         "/menu_bar_icon",
         Kind::Bool,
         || json!(true),

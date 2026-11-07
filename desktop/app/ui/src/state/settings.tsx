@@ -4,6 +4,7 @@
 // last appearance is cached in localStorage for the first paint only.
 // Launch-at-login is the app's own, through a command.
 
+import type { Ordering } from "../lib/itemOrder";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, inTauri } from "../api/client";
 import type { LinkPermission, ServerSettings, ThemeEntry } from "../api/types";
@@ -27,7 +28,7 @@ export type Settings = {
   inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
   sessions: { layout: "project" | "repository" | "list" };
   /** how the Work items page lists the items, and shows sub-items */
-  items: { layout: "project" | "repository" | "list"; nesting: "nested" | "flat" };
+  items: { layout: "project" | "repository" | "list"; nesting: "nested" | "flat"; ordering: Ordering };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
   /** each plugin's permission to open links without asking */
@@ -138,7 +139,11 @@ const fromServer = (s: ServerSettings): Served => ({
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   inbox: { open_in: s.inbox?.open_in ?? "panel", layout: s.inbox?.layout ?? "repository" },
   sessions: { layout: s.sessions?.layout ?? "list" },
-  items: { layout: s.items?.layout ?? "project", nesting: s.items?.nesting ?? "nested" },
+  items: {
+    layout: s.items?.layout ?? "project",
+    nesting: s.items?.nesting ?? "nested",
+    ordering: s.items?.ordering ?? "oldest",
+  },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
   port: s.port,
@@ -179,7 +184,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     inbox: { open_in: "panel", layout: "repository" },
     sessions: { layout: "list" },
-    items: { layout: "project", nesting: "nested" },
+    items: { layout: "project", nesting: "nested", ordering: "oldest" },
     plugins: {},
     links: {},
     port: 4747,

@@ -428,7 +428,11 @@ export type ServerSettings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   inbox?: { open_in: "panel" | "page"; layout?: "project" | "repository" | "list" };
   sessions?: { layout?: "project" | "repository" | "list" };
-  items?: { layout?: "project" | "repository" | "list"; nesting?: "nested" | "flat" };
+  items?: {
+    layout?: "project" | "repository" | "list";
+    nesting?: "nested" | "flat";
+    ordering?: "oldest" | "newest" | "updated" | "status" | "title";
+  };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;

@@ -31,8 +31,8 @@ Open **Work items** in the sidebar. The count beside it is the number of items t
 ![The Work items page: a plan nested under its item, with one step done, one in progress and two waiting for it, and the step in progress open in the panel beside the list.](screenshot:work-items "Work items, with one open in the panel.")
 
 - **Add an item** with the field at the top of the page, or press <kbd>C</kbd>. Type its title, and choose its repository and, if you like, its parent. Press <kbd>Enter</kbd> to add it.
-- **Filter** the list by status, by a project or a repository, and by who created the item. *Open* shows the items that are open or in progress. **Waiting on you** shows the items with a review or a question that waits for you. Search titles and descriptions with the search field, or press <kbd>/</kbd> to go to it. **Clear filters** removes every filter.
-- **Group** the list by project or by repository, or show it as one list, with the buttons at the right of the header. **Nested** shows sub-items under their parent, and **Flat** shows every item at the same level.
+- **Filter** the list with the **Filter** menu at the right of the header: by status, by a project or a repository, and by who created the item. *Open* shows the items that are open or in progress. **Waiting on you** shows the items with a review or a question that waits for you. Each filter that is on shows as a chip under the header: click its × to remove it, or **Clear filters** to remove them all. Search titles and descriptions with the search field, or press <kbd>/</kbd> to go to it.
+- **Display** the list as **Display options** says. *Grouping* groups the items by project or by repository, or shows them as one list. *Ordering* lists them oldest or newest first, recently updated first, by status, or by title, and orders sub-items under their parent the same way. *Sub-items* shows them nested under their parent, or each as a row of its own.
 - **Make an item a sub-item** by dragging it onto another item.
 - **Move** through the list with <kbd>J</kbd> and <kbd>K</kbd>, and open the selected item with <kbd>Enter</kbd>.
 
