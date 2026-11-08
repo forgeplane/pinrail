@@ -77,6 +77,35 @@ const PNG = Buffer.from(
   "base64",
 );
 
+test("a thread opened at its end stays there as a note's image loads", async ({ page }) => {
+  const session = fresh();
+  for (let i = 1; i <= 30; i++) await report(page, session, { text: `Stage ${i}`, kind: "start" });
+  const chart = await upload(page, PNG);
+  await report(page, session, {
+    kind: "note",
+    text: "The chart:\n\n![chart](attachment:chart.png)",
+    attachments: { "chart.png": { sha256: chart, size: PNG.length, media_type: "image/png" } },
+  });
+  // the image arrives late, and tall
+  let served = false;
+  await page.route("**/attachments/chart.png", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    served = true;
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="200"></svg>',
+    });
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const items = page.locator(".thread-items");
+  await expect(page.getByTestId("note")).toBeVisible();
+  await expect.poll(() => served).toBe(true);
+  await expect
+    .poll(() => page.getByRole("img", { name: "chart" }).evaluate((img: HTMLImageElement) => img.naturalHeight))
+    .toBe(200);
+  await expect.poll(() => items.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
+});
+
 test("a note's image shows in place, and its files are chips that save", async ({ page }) => {
   const session = fresh();
   const chart = await upload(page, PNG);

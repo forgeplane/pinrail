@@ -15,6 +15,8 @@ export function useThreadScroll(
   // for the session alone, the stage asked for or its newest message,
   // before the thread is first painted
   const scrolled = useRef(false);
+  // whether the newest message is to stay in view as the thread grows
+  const pinned = useRef(false);
   useLayoutEffect(() => {
     if (scrolled.current) return;
     if (focus) {
@@ -25,9 +27,29 @@ export function useThreadScroll(
       scrolled.current = true;
       const started = stage ? document.getElementById(`status-${stage}`) : null;
       if (started) started.scrollIntoView({ block: "center" });
-      else timeline.current.scrollTop = timeline.current.scrollHeight;
+      else {
+        timeline.current.scrollTop = timeline.current.scrollHeight;
+        pinned.current = true;
+      }
     }
   }, [timeline, items, focus, session, stage]);
+
+  // While the newest message is in view, it stays there as an image loads
+  // and makes the thread taller. Scrolling away from it ends that.
+  useEffect(() => {
+    const el = timeline.current;
+    if (!el) return;
+    const onScroll = () => (pinned.current = el.scrollHeight - el.clientHeight - el.scrollTop < 40);
+    const onLoad = () => {
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("load", onLoad, true);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("load", onLoad, true);
+    };
+  }, [timeline]);
 
   // the timeline keeps room under its last message for the chat box over it
   useEffect(() => {
