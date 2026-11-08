@@ -110,8 +110,22 @@ export const api = {
     ),
   /** the work items the filters keep: by default those open or in progress */
   items: (
-    params: { status?: string; repo?: string; project?: string; q?: string; agent?: string; session?: string } = {},
+    params: {
+      status?: string;
+      repo?: string;
+      project?: string;
+      q?: string;
+      agent?: string;
+      session?: string;
+      queued?: "true";
+    } = {},
   ) => request<{ items: WorkItem[] }>("GET", `/api/v1/items${query(params)}`),
+  /** puts an item in the person's queue, or moves it: at the end, or
+   *  before or after a queued item; answers the queue in order */
+  queueItem: (key: string, place: { before?: string; after?: string } = {}) =>
+    request<{ items: WorkItem[] }>("PUT", `/api/v1/items/${seg(key)}/queue`, place),
+  /** takes an item out of the person's queue; answers the queue in order */
+  unqueueItem: (key: string) => request<{ items: WorkItem[] }>("DELETE", `/api/v1/items/${seg(key)}/queue`),
   /** adds a work item, as the person */
   addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
     request<WorkItem>("POST", "/api/v1/items", item),

@@ -23,7 +23,7 @@ mod sessions;
 
 pub use bundles::BundleRecord;
 pub use events::Event;
-pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemSession};
+pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemSession, Place};
 pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;

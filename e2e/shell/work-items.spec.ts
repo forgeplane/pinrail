@@ -900,3 +900,64 @@ test("H puts the focused item on hold and takes it off, and the status filter ha
   await page.getByRole("option", { name: "On hold", exact: true }).click();
   await expect(page.getByTestId("item-panel").getByTestId("item-event").last()).toContainText("put it on hold");
 });
+
+test("Q queues the focused item, its row shows its place, and ⇧↑ and ⇧↓ move it", async ({ page, request }) => {
+  const repo = fresh("queue");
+  const first = await add(request, repo, "First");
+  const second = await add(request, repo, "Second");
+  const third = await add(request, repo, "Third");
+  // the queue is one for all repositories: start from an empty one
+  const before = (await (await request.get(`${core}/api/v1/items?queued=true`)).json()) as {
+    items: { key: string }[];
+  };
+  for (const i of before.items)
+    await request.delete(`${core}/api/v1/items/${i.key}/queue`, { headers: { origin: shellOrigin } });
+  // a review waits, so that the keys that go to waiting reviews would act
+  const waiting = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      plugin: "list",
+      title: "Waits while the queue is changed",
+      origin: { repo },
+      requested_by: "claude-code",
+      payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
+    },
+  });
+  expect(waiting.status()).toBe(201);
+  const review = ((await waiting.json()) as { id: string }).id;
+  await open(page, repo);
+  const place = (key: string) => row(page, key).getByTestId("item-queued");
+  await expect(page.getByTestId("item-queued")).toHaveCount(0);
+
+  await row(page, first.key).hover();
+  await page.keyboard.press("q");
+  await row(page, third.key).hover();
+  await page.keyboard.press("q");
+  await expect(place(first.key)).toHaveText("1");
+  await expect(place(third.key)).toHaveText("2");
+  await expect(place(second.key)).toHaveCount(0);
+  // the rows keep their places in the list
+  expect(await keys(page)).toEqual([first.key, second.key, third.key]);
+
+  // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ stay the
+  // keys that go to the waiting reviews
+  await page.keyboard.press("Shift+ArrowUp");
+  await expect(place(third.key)).toHaveText("1");
+  await expect(place(first.key)).toHaveText("2");
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(place(third.key)).toHaveText("2");
+
+  // Q again takes it out
+  await row(page, first.key).hover();
+  await page.keyboard.press("q");
+  await expect(place(first.key)).toHaveCount(0);
+  await expect(place(third.key)).toHaveText("1");
+
+  // the panel's pill queues the open item and names its place
+  await open(page, repo, `&open=${second.key}`);
+  const pill = page.getByTestId("item-panel").getByRole("button", { name: /^Queue/ });
+  await expect(pill).toHaveText("Queue");
+  await pill.click();
+  await expect(pill).toHaveText("Queued · 2nd");
+  await expect(place(second.key)).toHaveText("2");
+  await request.post(`${core}/api/v1/reviews/${review}/discard`, { data: { reason: "spec cleanup" } });
+});

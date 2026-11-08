@@ -67,6 +67,10 @@ export function said(entry: Extract<ItemEntry, { type: "event" }>): string {
       return `sent the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
     case "review_ended":
       return `“${a.title}” ended: ${String(a.outcome)}`;
+    case "queued":
+      return "queued it";
+    case "unqueued":
+      return "took it out of the queue";
     case "review_added":
     case "review_linked":
       return `added the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
@@ -95,6 +99,8 @@ const KIND_WORDS: Record<string, string> = {
   review_ended: "reviews",
   review_linked: "reviews",
   review_added: "reviews",
+  queued: "queue",
+  unqueued: "queue",
   review_removed: "reviews",
 };
 

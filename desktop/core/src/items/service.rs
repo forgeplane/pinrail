@@ -40,6 +40,7 @@ fn refused(refused: Refused) -> Error {
             Error::NotFound(refused.to_string().replacen("no ", "", 1))
         }
         Refused::NumberWithoutRepo(_)
+        | Refused::NotQueued(_)
         | Refused::PrefixInvalid(_)
         | Refused::DuplicateRef(_)
         | Refused::UnknownRef(_) => Error::invalid("", refused.to_string()),
@@ -50,6 +51,13 @@ fn refused(refused: Refused) -> Error {
         | Refused::OnHold(_)
         | Refused::Closed(..)
         | Refused::NotDone { .. } => Error::Conflict(refused.to_string()),
+    }
+}
+
+fn only_the_person(actor: &Actor) -> Result<(), Error> {
+    match actor {
+        Actor::Person => Ok(()),
+        Actor::Agent { .. } => Err(Error::Forbidden("only the person changes the queue".into())),
     }
 }
 
@@ -465,6 +473,38 @@ impl Items {
         }
         self.announce(events::ITEM_CHANGED, &item)?;
         Ok(comment)
+    }
+
+    /// Puts an item in the person's queue, or moves it there. Only the
+    /// person changes the queue. Answers the queue, in order.
+    pub fn queue(
+        &self,
+        item: &ItemRef,
+        place: &crate::db::Place,
+        actor: &Actor,
+    ) -> Result<Vec<WorkItem>, Error> {
+        only_the_person(actor)?;
+        self.db
+            .queue_item(item, place, Utc::now())?
+            .map_err(refused)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, None)?)?;
+        self.queued()
+    }
+
+    /// Takes an item out of the person's queue. Answers the queue.
+    pub fn unqueue(&self, item: &ItemRef, actor: &Actor) -> Result<Vec<WorkItem>, Error> {
+        only_the_person(actor)?;
+        self.db.unqueue_item(item, Utc::now())?.map_err(refused)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, None)?)?;
+        self.queued()
+    }
+
+    /// The person's queue, in order.
+    pub fn queued(&self) -> Result<Vec<WorkItem>, Error> {
+        Ok(self.db.items(&crate::db::ItemFilters {
+            queued: true,
+            ..Default::default()
+        })?)
     }
 
     /// Queues `text` for the session that holds `claim`, which reads it in

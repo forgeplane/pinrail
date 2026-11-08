@@ -48,3 +48,9 @@ export function settledAt(
 ): string | null | undefined {
   return review.decision?.decided_at ?? review.withdrawn_at ?? review.discarded_at ?? review.expires_at;
 }
+
+/** A place in a list as words: 1st, 2nd, 3rd, 11th, 22nd. */
+export function ordinal(n: number): string {
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+}

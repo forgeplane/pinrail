@@ -11,6 +11,7 @@ import {
   FileText,
   FolderGit2,
   Link2,
+  ListOrdered,
   MessageCircleQuestion,
   MessagesSquare,
   Pencil,
@@ -21,7 +22,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
-import { age, stamp } from "../lib/format";
+import { age, ordinal, stamp } from "../lib/format";
 import { MOD, modalOpen } from "../lib/keys";
 import { reviewPath } from "../lib/url";
 import { useLive } from "../state/live";
@@ -249,6 +250,25 @@ export function ItemPanel({
           ]}
         />
         <EditableLink link={item.link} onSave={(link) => change({ link })} />
+        {item.status !== "done" && item.status !== "cancelled" ? (
+          <button
+            type="button"
+            className={`item-pill ${item.queue ? "is-queued" : ""}`}
+            title={item.queue ? "Take it out of the queue (Q)" : "Queue it: agents take it first (Q)"}
+            onClick={async () => {
+              try {
+                await (item.queue ? api.unqueueItem(item.key) : api.queueItem(item.key));
+                setReloads((n) => n + 1);
+                onChanged();
+              } catch (error) {
+                toast(reason(error), "danger");
+              }
+            }}
+          >
+            <ListOrdered size={13} aria-hidden="true" />
+            {item.queue ? `Queued · ${ordinal(item.queue)}` : "Queue"}
+          </button>
+        ) : null}
       </div>
       <p className="item-created" data-testid="item-created" title={stamp(item.created_at)}>
         {item.created_by === "person" ? null : <AgentIcon requestedBy={item.created_by} size={12} />}

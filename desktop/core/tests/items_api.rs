@@ -1909,3 +1909,145 @@ async fn putting_an_item_in_progress_on_hold_releases_it_and_tells_the_session()
         "PIN-1 Work is on hold now: stop working on it, and take another item."
     );
 }
+
+// --- the queue
+
+async fn queue(app: &App, key: &str, place: Value) -> (StatusCode, Value) {
+    call(
+        app,
+        "PUT",
+        &format!("/api/v1/items/{key}/queue"),
+        Some(place),
+    )
+    .await
+}
+
+async fn queued(app: &App) -> Vec<String> {
+    let (code, list) = call(app, "GET", "/api/v1/items?queued=true", None).await;
+    assert_eq!(code, StatusCode::OK, "{list}");
+    keys(&list["items"])
+}
+
+#[tokio::test]
+async fn the_queue_is_ordered_by_the_person_and_next_takes_it_first() {
+    let app = app();
+    for t in ["One", "Two", "Three", "Four"] {
+        add(&app, t).await;
+    }
+    assert_eq!(next(&app, "s-1", false).await["key"], "PIN-1");
+    let (code, answer) = queue(&app, "PIN-3", json!({})).await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    queue(&app, "PIN-2", json!({})).await;
+    queue(&app, "PIN-4", json!({"before": "PIN-3"})).await;
+    assert_eq!(queued(&app).await, ["PIN-4", "PIN-3", "PIN-2"]);
+    assert_eq!(item(&app, "PIN-3").await["queue"], 2);
+    assert_eq!(item(&app, "PIN-1").await["queue"], Value::Null);
+    assert_eq!(next(&app, "s-1", false).await["key"], "PIN-4");
+    // moved after another
+    queue(&app, "PIN-4", json!({"after": "PIN-2"})).await;
+    assert_eq!(queued(&app).await, ["PIN-3", "PIN-2", "PIN-4"]);
+    assert_eq!(next(&app, "s-1", false).await["key"], "PIN-3");
+    // taken out
+    let (code, _) = call(&app, "DELETE", "/api/v1/items/PIN-3/queue", None).await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(queued(&app).await, ["PIN-2", "PIN-4"]);
+    assert!(timeline_kinds(&item(&app, "PIN-3").await).contains(&"unqueued".to_string()));
+    assert!(timeline_kinds(&item(&app, "PIN-2").await).contains(&"queued".to_string()));
+}
+
+#[tokio::test]
+async fn next_offers_the_sessions_sub_items_before_the_queue_and_passes_over_what_is_not_ready() {
+    let app = app();
+    add(&app, "Held by the session").await;
+    let sub = |title: &'static str, parent: &'static str| json!({"repo": REPO, "title": title, "parent": parent});
+    call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(sub("Its sub-item", "PIN-1")),
+    )
+    .await;
+    add(&app, "Queued, blocked").await;
+    add(&app, "Blocker").await;
+    edit(&app, "PIN-3", "s-x", json!({"depends_on": ["PIN-4"]})).await;
+    add(&app, "Queued parent").await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(sub("Under the queued parent", "PIN-5")),
+    )
+    .await;
+    queue(&app, "PIN-3", json!({})).await;
+    queue(&app, "PIN-5", json!({})).await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    // the session's own breakdown first
+    assert_eq!(next(&app, "s-1", false).await["key"], "PIN-2");
+    // another session: the blocked item is passed over, and the queued
+    // parent offers its sub-item in its place
+    assert_eq!(next(&app, "s-2", false).await["key"], "PIN-6");
+}
+
+#[tokio::test]
+async fn an_item_leaves_the_queue_when_it_closes_or_waits_but_not_when_claimed() {
+    let app = app();
+    for t in ["Claimed", "Done", "Cancelled", "Held", "Deleted"] {
+        add(&app, t).await;
+    }
+    for key in ["PIN-1", "PIN-2", "PIN-3", "PIN-4", "PIN-5"] {
+        queue(&app, key, json!({})).await;
+    }
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "release"})).await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-2",
+        Some(json!({"status": "done"})),
+    )
+    .await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-3",
+        Some(json!({"status": "cancelled"})),
+    )
+    .await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-4",
+        Some(json!({"status": "on_hold"})),
+    )
+    .await;
+    call(&app, "DELETE", "/api/v1/items/PIN-5", None).await;
+    assert_eq!(queued(&app).await, ["PIN-1"]);
+    // queuing an item on hold takes it off hold
+    queue(&app, "PIN-4", json!({})).await;
+    assert_eq!(item(&app, "PIN-4").await["status"], "open");
+    assert_eq!(queued(&app).await, ["PIN-1", "PIN-4"]);
+    // a closed item is not queued
+    let (code, refused) = queue(&app, "PIN-2", json!({})).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+}
+
+#[tokio::test]
+async fn only_the_person_changes_the_queue() {
+    let app = app();
+    add(&app, "Work").await;
+    let (code, refused) = agent(&app, "PUT", "/api/v1/items/PIN-1/queue", "s-1", json!({})).await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{refused}");
+    assert_eq!(refused["message"], "only the person changes the queue");
+    queue(&app, "PIN-1", json!({})).await;
+    let (code, _) = agent(
+        &app,
+        "DELETE",
+        "/api/v1/items/PIN-1/queue",
+        "s-1",
+        json!({}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN);
+    assert_eq!(queued(&app).await, ["PIN-1"]);
+}

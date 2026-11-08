@@ -4120,3 +4120,27 @@ fn a_closed_output_pipe_stops_pinrail_quietly() {
     // ended by the signal, as cat or grep is, and not with a panic's 101
     assert_ne!(out.status.code(), Some(101));
 }
+
+#[test]
+fn items_list_queued_asks_for_the_queue_and_show_names_the_place() {
+    let (server, sent) = items_server(|_, path| {
+        if path.starts_with("/api/v1/items?") {
+            let first = work_item("PIN-4", "Theme picker", serde_json::json!({"queue": 1}));
+            (200, format!(r#"{{"items": [{first}]}}"#))
+        } else {
+            (
+                200,
+                work_item("PIN-4", "Theme picker", serde_json::json!({"queue": 2})),
+            )
+        }
+    });
+    let (code, out, err) = items_run(&server, &["items", "list", "--queued"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("queued 1st"), "{out}");
+    let sent = sent.lock().unwrap();
+    assert!(sent[0].1.contains("queued=true"), "{}", sent[0].1);
+    drop(sent);
+    let (code, out, err) = items_run(&server, &["items", "show", "PIN-4"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("queued 2nd"), "{out}");
+}

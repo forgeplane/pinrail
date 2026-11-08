@@ -7215,3 +7215,24 @@ a.item-ref {
   margin: 0;
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
 }
+
+/* a queued item's place in the queue, in its row */
+.item-mark.is-queued {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.item-pill.is-queued {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.item-pill.is-queued svg {
+  color: var(--accent);
+}

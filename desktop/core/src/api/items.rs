@@ -18,7 +18,7 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{Claim, Edited, ItemChange, ItemFilters, State as ItemState};
+use crate::db::{Claim, Edited, ItemChange, ItemFilters, Place, State as ItemState, WorkItem};
 use crate::error::Error;
 use crate::items::{Actor, Breakdown, BreakdownItem, ItemRef, NewItem, Status};
 use crate::reviews::Via;
@@ -35,6 +35,10 @@ pub fn routes() -> Router<ApiState> {
             patch(edit_comment).delete(delete_comment),
         )
         .route("/api/v1/items/{item}/files/{name}", get(file))
+        .route(
+            "/api/v1/items/{item}/queue",
+            axum::routing::put(queue).delete(unqueue),
+        )
         .route(
             "/api/v1/reviews/{id}/items",
             axum::routing::put(set_review_items),
@@ -119,6 +123,7 @@ async fn list(
         }
     }
     filters.repo = params.get("repo").cloned();
+    filters.queued = params.get("queued").is_some_and(|v| v == "true");
     filters.project = params.get("project").cloned();
     filters.created_by = params.get("created_by").cloned();
     filters.text = params.get("q").cloned();
@@ -444,4 +449,52 @@ async fn set_review_items(
         .collect::<Result<Vec<_>, _>>()?;
     state.items().set_review_items(&id, &items, &actor)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Puts an item in the person's queue, or moves it: at the end, or
+/// `before` or `after` a queued item, by key. Answers the queue in order,
+/// as `items`. Only the person changes the queue.
+async fn queue(
+    State(state): State<Arc<Pinrail>>,
+    headers: HeaderMap,
+    Path(item): Path<String>,
+    body: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let body = if body.is_empty() {
+        json!({})
+    } else {
+        parse_body(&body)?
+    };
+    let actor = actor(&headers, &body);
+    let place = match (text(&body, "before")?, text(&body, "after")?) {
+        (Some(before), None) => Place::Before(item_ref(&before)?),
+        (None, Some(after)) => Place::After(item_ref(&after)?),
+        (None, None) => Place::End,
+        (Some(_), Some(_)) => {
+            return Err(Error::invalid("/before", "give before or after, not both").into());
+        }
+    };
+    let queued = state.items().queue(&item_ref(&item)?, &place, &actor)?;
+    Ok(Json(json!({
+        "items": queued.iter().map(WorkItem::to_json).collect::<Vec<_>>()
+    })))
+}
+
+/// Takes an item out of the person's queue. Answers the queue in order.
+async fn unqueue(
+    State(state): State<Arc<Pinrail>>,
+    headers: HeaderMap,
+    Path(item): Path<String>,
+    body: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let body = if body.is_empty() {
+        Value::Null
+    } else {
+        parse_body(&body)?
+    };
+    let actor = actor(&headers, &body);
+    let queued = state.items().unqueue(&item_ref(&item)?, &actor)?;
+    Ok(Json(json!({
+        "items": queued.iter().map(WorkItem::to_json).collect::<Vec<_>>()
+    })))
 }

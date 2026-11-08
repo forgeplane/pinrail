@@ -496,6 +496,8 @@ export type WorkItem = {
   project: ProjectRef | null;
   /** how many of its reviews and questions wait on the person */
   waiting: number;
+  /** its place in the person's queue, from 1, or null when it is not queued */
+  queue: number | null;
 };
 
 /** An item another is related to. */

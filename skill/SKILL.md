@@ -222,6 +222,9 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
   PIN-36`. The line `submit` and `ask` print on stderr names the items a
   review went under: if they are wrong, send the next round with the
   right `--item`.
+- **Follow the person's queue.** `next` offers the items the person
+  queued first, in their order; `pinrail items list --queued` shows the
+  queue. Only the person changes it.
 - **Leave an item on hold alone.** The person puts an item on hold when it
   should wait. `next` never offers it or its sub-items, and claiming one
   is refused. Do not work on it; if you think it should go ahead, ask the

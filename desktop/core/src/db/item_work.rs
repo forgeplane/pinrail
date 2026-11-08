@@ -230,6 +230,22 @@ fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
     )
 }
 
+/// The SQL for where the item `i` is in the queue: its own place, or that
+/// of the nearest of its parents that is queued, for a queued parent
+/// offers its sub-items in its place. NULL when neither is queued.
+const QUEUED_AT: &str = "(WITH RECURSIVE up(id) AS (
+     SELECT i.id UNION SELECT a.parent FROM work_items a JOIN up ON a.id = up.id
+      WHERE a.parent IS NOT NULL
+   ) SELECT MIN(q.position) FROM up JOIN work_item_queue q ON q.item_id = up.id)";
+
+/// Where an item goes in the queue.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Place {
+    End,
+    Before(ItemRef),
+    After(ItemRef),
+}
+
 /// The key of the item on hold that holds `id` back: itself, or the
 /// nearest of its parents that is on hold.
 fn held_key(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
@@ -578,11 +594,13 @@ impl Db {
                      SELECT i.id FROM work_items i JOIN repos g ON g.id = i.repo_id
                       WHERE g.name = ?1 AND {ready}
                       ORDER BY i.id IN mine DESC,
+                        {queued} IS NULL, {queued},
                         (SELECT COUNT(*) FROM work_item_deps x JOIN work_items d ON d.id = x.item_id
                           WHERE x.depends_on = i.id AND d.status IN {OPEN}) DESC,
                         i.number
                       LIMIT 1",
-                    ready = super::items::READY
+                    ready = super::items::READY,
+                    queued = QUEUED_AT,
                 ),
                 params![repo, actor.name(), actor.session()],
                 |r| r.get(0),
@@ -1254,6 +1272,109 @@ impl Db {
         }
         tx.commit()?;
         Ok(Ok(changed))
+    }
+
+    /// Puts an item in the person's queue, or moves it there: at the end,
+    /// or before or after a queued item. An item on hold comes off hold;
+    /// a closed one is refused.
+    pub fn queue_item(&self, item: &ItemRef, place: &Place, at: DateTime<Utc>) -> Outcome<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let id = match resolve(&tx, item, None)? {
+            Ok(id) => id,
+            Err(refused) => return Ok(Err(refused)),
+        };
+        let current = item_row(&tx, &id)?;
+        if current.status.is_closed() {
+            return Ok(Err(Refused::Closed(
+                current.key.to_string(),
+                current.status,
+            )));
+        }
+        let person = Actor::Person;
+        if current.status == Status::OnHold {
+            status_in(&tx, &id, Status::Open, at)?;
+            item_event(
+                &tx,
+                &id,
+                "status",
+                &person,
+                json!({"from": "on_hold", "to": "open"}),
+                at,
+            )?;
+        }
+        // the others, numbered 1, 2, 3… in their order, so that there is
+        // always room between two of them
+        let others: Vec<String> = tx
+            .prepare("SELECT item_id FROM work_item_queue WHERE item_id <> ?1 ORDER BY position")?
+            .query_map(params![id], |r| r.get(0))?
+            .collect::<Result<_, _>>()?;
+        for (n, other) in others.iter().enumerate() {
+            tx.execute(
+                "UPDATE work_item_queue SET position = ?2 WHERE item_id = ?1",
+                params![other, (n + 1) as f64],
+            )?;
+        }
+        let at_of = |key: &ItemRef| -> rusqlite::Result<Result<usize, Refused>> {
+            let other = match resolve(&tx, key, None)? {
+                Ok(other) => other,
+                Err(refused) => return Ok(Err(refused)),
+            };
+            match others.iter().position(|o| *o == other) {
+                Some(n) => Ok(Ok(n + 1)),
+                None => Ok(Err(Refused::NotQueued(key_of(&tx, &other)?))),
+            }
+        };
+        let position = match place {
+            Place::End => others.len() as f64 + 1.0,
+            Place::Before(key) => match at_of(key)? {
+                Ok(n) => n as f64 - 0.5,
+                Err(refused) => return Ok(Err(refused)),
+            },
+            Place::After(key) => match at_of(key)? {
+                Ok(n) => n as f64 + 0.5,
+                Err(refused) => return Ok(Err(refused)),
+            },
+        };
+        let was = tx
+            .query_row(
+                "SELECT 1 FROM work_item_queue WHERE item_id = ?1",
+                params![id],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some();
+        tx.execute(
+            "INSERT INTO work_item_queue (item_id, position) VALUES (?1, ?2)
+             ON CONFLICT (item_id) DO UPDATE SET position = excluded.position",
+            params![id, position],
+        )?;
+        if !was {
+            item_event(&tx, &id, "queued", &person, json!({}), at)?;
+        }
+        touch(&tx, &id, at)?;
+        tx.commit()?;
+        Ok(Ok(()))
+    }
+
+    /// Takes an item out of the person's queue.
+    pub fn unqueue_item(&self, item: &ItemRef, at: DateTime<Utc>) -> Outcome<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let id = match resolve(&tx, item, None)? {
+            Ok(id) => id,
+            Err(refused) => return Ok(Err(refused)),
+        };
+        let removed = tx.execute(
+            "DELETE FROM work_item_queue WHERE item_id = ?1",
+            params![id],
+        )?;
+        if removed > 0 {
+            item_event(&tx, &id, "unqueued", &Actor::Person, json!({}), at)?;
+            touch(&tx, &id, at)?;
+        }
+        tx.commit()?;
+        Ok(Ok(()))
     }
 
     /// Records a change made outside `edit_item`, such as an item added.

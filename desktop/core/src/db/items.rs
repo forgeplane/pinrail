@@ -50,6 +50,8 @@ pub struct WorkItem {
     pub project: Option<super::ProjectRef>,
     /// how many of its reviews and questions wait on the person
     pub waiting: usize,
+    /// its place in the person's queue, from 1, if it is queued
+    pub queue: Option<usize>,
 }
 
 impl WorkItem {
@@ -80,6 +82,7 @@ impl WorkItem {
             "ready": self.ready,
             "project": self.project.as_ref().map(super::ProjectRef::to_json),
             "waiting": self.waiting,
+            "queue": self.queue,
         })
     }
 }
@@ -183,6 +186,8 @@ pub struct ItemFilters {
     pub text: Option<String>,
     /// the items a session holds or worked on, by its agent and id
     pub session: Option<(String, String)>,
+    /// only the queued items, in the queue's order
+    pub queued: bool,
 }
 
 /// Why a change to the items was not made.
@@ -222,6 +227,8 @@ pub enum Refused {
     /// an agent cannot work on an item on hold, nor on one under it, nor
     /// change the hold: the key of the item on hold
     OnHold(String),
+    /// a place in the queue named by an item that is not in it
+    NotQueued(String),
     /// no comment of the item has this id
     NoComment(String),
 }
@@ -253,6 +260,7 @@ impl std::fmt::Display for Refused {
                 f,
                 "`{r}` is neither the ref of an item in the breakdown nor an item's key"
             ),
+            Refused::NotQueued(key) => write!(f, "{key} is not in the queue"),
             Refused::OnHold(key) => {
                 write!(f, "{key} is on hold: ask the person to take it off hold")
             }
@@ -307,7 +315,9 @@ pub(super) fn select() -> String {
              JOIN review_items x ON x.review_id = r.id
              WHERE x.item_id = i.id AND o.review_id IS NULL
                AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
-               AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id))
+               AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
+           (SELECT (SELECT COUNT(*) FROM work_item_queue b WHERE b.position <= q.position)
+              FROM work_item_queue q WHERE q.item_id = i.id)
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
         status = status_of("i"),
         ready = READY,
@@ -374,6 +384,7 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
         ready: row.get(19)?,
         project: super::ProjectRef::from_column(row.get(20)?),
         waiting: row.get::<_, i64>(21)? as usize,
+        queue: row.get::<_, Option<i64>>(22)?.map(|n| n as usize),
     })
 }
 
@@ -639,6 +650,13 @@ pub(super) fn status_in(
          WHERE id = ?1",
         params![id, stored, iso(at), held],
     )?;
+    // what is closed or waits leaves the queue; a claim does not
+    if status.is_closed() || status == Status::OnHold {
+        conn.execute(
+            "DELETE FROM work_item_queue WHERE item_id = ?1",
+            params![id],
+        )?;
+    }
     Ok(())
 }
 
@@ -763,8 +781,14 @@ impl Db {
                 "(i.title LIKE ?{n} ESCAPE '\\' OR i.body LIKE ?{n} ESCAPE '\\')"
             ));
         }
+        let order = if filters.queued {
+            wheres.push("EXISTS (SELECT 1 FROM work_item_queue q WHERE q.item_id = i.id)".into());
+            "(SELECT q.position FROM work_item_queue q WHERE q.item_id = i.id)"
+        } else {
+            "g.name, i.number"
+        };
         let sql = format!(
-            "{} WHERE {} ORDER BY g.name, i.number",
+            "{} WHERE {} ORDER BY {order}",
             select(),
             wheres.join(" AND ")
         );

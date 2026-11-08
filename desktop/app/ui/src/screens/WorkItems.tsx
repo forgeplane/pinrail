@@ -8,6 +8,7 @@ import {
   Clock,
   FolderGit2,
   ListChecks,
+  ListOrdered,
   Lock,
   Plus,
   Search,
@@ -27,7 +28,7 @@ import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { Tooltip } from "../components/Tooltip";
-import { age, stamp } from "../lib/format";
+import { age, ordinal, stamp } from "../lib/format";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { modalOpen } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
@@ -116,6 +117,18 @@ export function WorkItems() {
       cancelled = true;
     };
   }, [status, debounced, live.lastNotice, reloads]);
+  // the person's queue, in its order: the items agents take first
+  const [queue, setQueue] = useState<WorkItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .items({ queued: "true" })
+      .then((d) => !cancelled && setQueue(d.items))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [live.lastNotice, reloads]);
   // the repositories an item can be added to: every one the app knows
   useEffect(() => {
     let cancelled = false;
@@ -239,6 +252,33 @@ export function WorkItems() {
     [toast, reload],
   );
 
+  /** Changes the queue, and shows the order the core answers. */
+  const changeQueue = useCallback(
+    async (run: () => Promise<{ items: WorkItem[] }>) => {
+      try {
+        setQueue((await run()).items);
+      } catch (error) {
+        toast(reason(error), "danger");
+      }
+      reload();
+    },
+    [toast, reload],
+  );
+  const toggleQueue = useCallback(
+    (item: WorkItem) => void changeQueue(() => (item.queue ? api.unqueueItem(item.key) : api.queueItem(item.key))),
+    [changeQueue],
+  );
+  /** Moves a queued item one place up, or down. */
+  const moveInQueue = useCallback(
+    (item: WorkItem, by: -1 | 1) => {
+      const at = queue.findIndex((q) => q.key === item.key);
+      const other = at < 0 ? undefined : queue[at + by];
+      if (!other) return;
+      void changeQueue(() => api.queueItem(item.key, by < 0 ? { before: other.key } : { after: other.key }));
+    },
+    [queue, changeQueue],
+  );
+
   // an item with open sub-items waiting for the person to confirm its cancel
   const [cancelling, setCancelling] = useState<WorkItem | null>(null);
   // an item dragged onto another becomes its sub-item, and a sub-item
@@ -315,6 +355,27 @@ export function WorkItems() {
   // focused item: claimed or released, done, cancelled
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const typing = (el: HTMLElement | null) =>
+        !!el &&
+        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+      // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
+      // waiting reviews, everywhere
+      if (
+        event.shiftKey &&
+        !event.altKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+        !modalOpen() &&
+        !typing(event.target as HTMLElement | null)
+      ) {
+        const at = rows[focused]?.item;
+        if (at?.queue) {
+          event.preventDefault();
+          moveInQueue(at, event.key === "ArrowUp" ? -1 : 1);
+        }
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
       if (
@@ -341,6 +402,7 @@ export function WorkItems() {
         setAdding(true);
       } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
       else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
+      else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
       else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled")
         void change(at, { status: at.status === "on_hold" ? "open" : "on_hold" });
       else if (key === "x" && at) {
@@ -351,7 +413,7 @@ export function WorkItems() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, focused, open, openKey, openKeyed, change]);
+  }, [rows, focused, open, openKey, openKeyed, change, toggleQueue, moveInQueue]);
   // ⌘⇧C, which elsewhere opens the quick add dialog, opens this page's own
   useEffect(() => {
     const onQuickAdd = () => setAdding(true);
@@ -439,6 +501,12 @@ export function WorkItems() {
           ) : null}
         </span>
         <span className="item-marks">
+          {item.queue ? (
+            <span className="item-mark is-queued" data-testid="item-queued" title={`Queued, ${ordinal(item.queue)}`}>
+              <ListOrdered size={11} aria-hidden="true" />
+              {item.queue}
+            </span>
+          ) : null}
           {item.waiting ? (
             <span className="item-mark is-waiting" data-testid="item-waiting">
               <Clock size={11} aria-hidden="true" /> waiting on you
@@ -688,6 +756,7 @@ export function WorkItems() {
               { keys: ["D"], label: "Done" },
               { keys: ["X"], label: "Cancel" },
               { keys: ["H"], label: "Hold" },
+              { keys: ["Q"], label: "Queue" },
             ]}
           />
         </footer>

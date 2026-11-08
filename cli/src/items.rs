@@ -46,9 +46,11 @@ enum ItemsCommand {
     /// Print the next work item that is ready, and claim it with --claim
     ///
     /// Ready means open, not on hold nor under an item on hold, waiting for
-    /// no item it depends on, and with no open sub-item. The next is a sub-item of an item the session holds,
-    /// if any, then the item that unblocks the most others, then the
-    /// oldest. --claim takes it for this session: it is in progress, and
+    /// no item it depends on, and with no open sub-item. The next is a
+    /// sub-item of an item the session holds, if any, then the first ready
+    /// item of the person's queue, then the item that unblocks the most
+    /// others, then the oldest. --claim takes it for this session: it is
+    /// in progress, and
     /// the reviews and questions the session sends belong to it.
     #[command(verbatim_doc_comment)]
     Next(NextArgs),
@@ -129,6 +131,9 @@ struct ListArgs {
     /// Words that must all be in the title or the description
     #[arg(long, value_name = "WORDS")]
     search: Option<String>,
+    /// Only the person's queue, in its order: the items next offers first
+    #[arg(long)]
+    queued: bool,
     #[command(flatten)]
     common: Common,
 }
@@ -406,6 +411,9 @@ fn list(client: &Client, args: ListArgs, output: Output) -> Result<u8> {
     if let Some(words) = &args.search {
         query.push(("q", words.clone()));
     }
+    if args.queued {
+        query.push(("queued", "true".into()));
+    }
     let listed = client.get("/api/v1/items", &query)?;
     let everywhere = cx.repo.is_none();
     output.data(&listed, |v| list_md(&v["items"], everywhere));
@@ -555,6 +563,18 @@ fn s(v: &Value) -> &str {
     v.as_str().unwrap_or_default()
 }
 
+/// A place in the queue as words: `1st`, `2nd`, `11th`.
+fn ordinal(n: u64) -> String {
+    let suffix = match (n % 10, n % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{n}{suffix}")
+}
+
 /// A status as words: `in progress`.
 fn status_words(v: &Value) -> String {
     s(v).replace('_', " ")
@@ -586,6 +606,9 @@ fn list_md(items: &Value, everywhere: bool) -> String {
         }
         if item["ready"] == true {
             parts.push("ready".into());
+        }
+        if let Some(place) = item["queue"].as_u64() {
+            parts.push(format!("queued {}", ordinal(place)));
         }
         let blocked: Vec<&str> = item["blocked_by"]
             .as_array()
@@ -714,6 +737,9 @@ pub fn show(client: &Client, item: &Value) -> String {
     }
     if item["ready"] == true {
         line.push("ready".into());
+    }
+    if let Some(place) = item["queue"].as_u64() {
+        line.push(format!("queued {}", ordinal(place)));
     }
     line.push(s(&item["repo"]).to_string());
     out.push_str(&line.join(" · "));

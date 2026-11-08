@@ -41,6 +41,8 @@ On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd
 
 Put an item on hold to keep it without starting it. No agent takes it, nor any of its sub-items: `pinrail items next` passes over them, and an agent that tries to claim one is told to ask you. An item on hold still blocks the items that depend on it. It is listed with the open items, dimmed; choose *On hold* in the status filter to list only the items on hold. Putting an item that an agent is working on on hold releases it, and the agent is told to stop the next time it runs `pinrail status`. Only you put an item on hold or take it off.
 
+Queue the items you want done first, in the order you want them. Press <kbd>Q</kbd> on an item, or click *Queue* in its panel, to add it to the end of the queue, and press <kbd>Q</kbd> again to take it out. Each queued item shows the queue icon and its place in its row: press <kbd>⇧↑</kbd> and <kbd>⇧↓</kbd> on a queued item to move it up or down the queue. `pinrail items next` offers the first ready item of the queue in the agent's repository before any other, after the sub-items of what the agent already holds. An item stays queued while an agent works on it, and leaves the queue when it is done, cancelled or put on hold. There is one queue across all your repositories, and only you change it.
+
 ## An item's panel
 
 An item opens in a panel beside the list. The panel shows:
@@ -73,7 +75,7 @@ pinrail items show PIN-42
 pinrail items done PIN-42 --comment "Loader in core/src/themes.rs, commit 3f2a1c."
 ```
 
-`pinrail items next` chooses among the ready items of the current repository. A sub-item of an item the session already holds comes first. After that, the item that unblocks the most other items comes first, then the oldest. There is no priority field: to change the order, add a dependency, or tell the agent which item to take.
+`pinrail items next` chooses among the ready items of the current repository. A sub-item of an item the session already holds comes first, then the first ready item of your queue. After that, the item that unblocks the most other items comes first, then the oldest. There is no priority field: to choose what comes next, queue it.
 
 While a session holds items, the reviews and questions it sends belong to all of them, unless the agent names the ones they are for with `--item`. A review can belong to several items, and every round of it belongs to the same ones. In the review's header, the × on an item's chip takes the review out of that item, and **Add to a work item…** adds it to another. An item can be marked done only when each of its sub-items is done or cancelled, by you or by an agent. An agent must also wait until no review or question of the item waits for you.
 

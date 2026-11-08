@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { age, settledAt, size, stamp, takes } from "./format";
+import { age, ordinal, settledAt, size, stamp, takes } from "./format";
 
 const now = Date.parse("2026-09-28T12:00:00Z");
 const ago = (seconds: number) => new Date(now - seconds * 1000).toISOString();
@@ -67,5 +67,24 @@ describe("stamp", () => {
   test("leaves what is not a date as it is, and nothing empty", () => {
     expect(stamp("not a date")).toBe("not a date");
     expect(stamp(null)).toBe("");
+  });
+});
+
+describe("ordinal", () => {
+  test("names a place in a list as words", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal)).toEqual([
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "23rd",
+      "101st",
+      "111th",
+    ]);
   });
 });
