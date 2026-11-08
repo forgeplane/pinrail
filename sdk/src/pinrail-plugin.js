@@ -877,8 +877,11 @@
       const walker = doc.createTreeWalker(doc.body, win.NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         const parent = node.parentElement;
-        if (!parent || FIND_SKIP.has(parent.tagName) || !node.data.trim() || !isShown(parent)) continue;
+        if (!parent || FIND_SKIP.has(parent.tagName) || !isShown(parent)) continue;
         const here = blockOf(parent);
+        // white space alone is the space between two inline elements of the
+        // block being read, and only layout between blocks
+        if (!node.data.trim() && here !== block) continue;
         if (here !== block) {
           flush();
           block = here;

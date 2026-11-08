@@ -18,6 +18,7 @@ function view(): string {
 <p id="ready">waiting</p>
 <p id="one">A Pivot table</p>
 <p id="two">The <a href="#">piv</a>ot of it</p>
+<p id="styled"><strong>Quokka</strong> <em>loader</em></p>
 <p hidden>pivot, hidden</p>
 <p style="visibility: hidden">pivot, invisible</p>
 <div style="height: 3000px"></div>
@@ -126,4 +127,15 @@ test("a longer query leaves nothing painted from the shorter one", async ({ page
   await expect.poll(() => found(2)).toBe(true);
   await page.waitForTimeout(100);
   expect((await other.screenshot()).equals(before)).toBe(true);
+});
+
+test("the view finds text across the space between two inline elements", async ({ page }) => {
+  const plugin = await mountPlugin(page, view(), { review: { payload: {} } });
+  await expect(plugin.frame.locator("#ready")).toHaveText("ready");
+  const count = async (req: number) =>
+    (await plugin.messages()).filter((m: any) => m.type === "found" && m.req === req).map((m: any) => m.count);
+  await plugin.send({ type: "find", req: 1, query: "Quokka loader", backwards: false });
+  await expect.poll(() => count(1)).toEqual([1]);
+  await plugin.send({ type: "find", req: 2, query: "Quokkaloader", backwards: false });
+  await expect.poll(() => count(2)).toEqual([0]);
 });

@@ -99,3 +99,15 @@ test("with the focus in a review beside the thread, ⌘F finds in the review", a
   await page.keyboard.press("ControlOrMeta+f");
   await expect(field(page)).toBeFocused();
 });
+
+test("⌘F finds text across the space between two inline elements", async ({ page }) => {
+  const session = fresh();
+  await note(page.request, session, "The **Quokka** *loader* reads each theme.");
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByText("reads each theme")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+f");
+  await field(page).fill("Quokka loader");
+  await expect(bar(page).getByRole("status")).toHaveText("1 of 1");
+  await field(page).fill("Quokkaloader");
+  await expect.poll(() => highlighted(page, "pinrail-find")).toBe(0);
+});

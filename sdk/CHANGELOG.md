@@ -4,6 +4,14 @@ The package's version is the SDK's, and its major is the protocol's:
 `1.x` speaks protocol 1, served by the app at `/sdk/v1`. A breaking
 change to the protocol is a new major and a new path.
 
+## [Unreleased]
+
+### Fixed
+
+- Find in a view now finds text across the space between two inline
+  elements, such as `<strong>a</strong> <em>b</em>`, and no longer
+  matches the words run together.
+
 ## [1.5.0]
 
 ### Added

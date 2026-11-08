@@ -86,8 +86,11 @@ export function finder(root: HTMLElement, onChange: (found: Found) => void): Fin
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
       const parent = node.parentElement;
-      if (!parent || SKIP.has(parent.tagName) || !node.data.trim()) continue;
+      if (!parent || SKIP.has(parent.tagName)) continue;
       const here = blockOf(parent);
+      // white space alone is the space between two inline elements of the
+      // block being read, and only layout between blocks
+      if (!node.data.trim() && here !== block) continue;
       if (here !== block) {
         flush();
         block = here;

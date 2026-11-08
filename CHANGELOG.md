@@ -79,6 +79,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Esc in the search field of the inbox, the Sessions page or the
   Projects page leaves the field and keeps the search, so the page's keys
   act on the results.
+- Find in a plugin's view now finds text across the space between two
+  styled words, such as **bold** followed by *italic*.
 
 ## [0.5.0]
 
