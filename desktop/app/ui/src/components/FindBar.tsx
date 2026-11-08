@@ -6,7 +6,7 @@
 // the previous one, and Escape closes the bar.
 
 import { ChevronDown, ChevronUp, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Found } from "../lib/findText";
 import { SHIFT } from "../lib/keys";
 import { Tooltip } from "./Tooltip";
@@ -115,4 +115,19 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus, label =
       </Tooltip>
     </div>
   );
+}
+
+/** What a page keeps for its find bar: whether it is open, the search,
+ *  which outlives the bar, and a count that focuses the field each time
+ *  the bar is asked for. The page does the searching. */
+export function useFindBar() {
+  const [open, setOpen] = useState(false);
+  const [focus, setFocus] = useState(0);
+  const [query, setQuery] = useState("");
+  const show = useCallback(() => {
+    setOpen(true);
+    setFocus((n) => n + 1);
+  }, []);
+  const hide = useCallback(() => setOpen(false), []);
+  return { open, focus, query, setQuery, show, hide };
 }

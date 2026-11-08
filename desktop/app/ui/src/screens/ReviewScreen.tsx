@@ -28,7 +28,7 @@ import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { DeleteReviewDialog } from "../components/DeleteReviewDialog";
-import { FindBar } from "../components/FindBar";
+import { FindBar, useFindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
 import { StarButton, useToggleStar } from "../components/StarButton";
 import { ReviewItem } from "../components/ReviewItem";
@@ -170,9 +170,14 @@ export function ReviewView({
   const noteBox = useRef<HTMLTextAreaElement>(null);
   const [maximized, setMaximized] = useState(false);
   // the find bar, and a count that focuses it each time it is asked for
-  const [finding, setFinding] = useState(false);
-  const [findFocus, setFindFocus] = useState(0);
-  const [findQuery, setFindQuery] = useState("");
+  const {
+    open: finding,
+    focus: findFocus,
+    query: findQuery,
+    setQuery: setFindQuery,
+    show: showFind,
+    hide: hideFind,
+  } = useFindBar();
   const frame = useRef<HTMLIFrameElement>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
@@ -413,10 +418,10 @@ export function ReviewView({
   // to the view
   const findInView = bridge.find;
   const closeFind = useCallback(() => {
-    setFinding(false);
+    hideFind();
     findInView("");
     frame.current?.focus();
-  }, [findInView]);
+  }, [findInView, hideFind]);
 
   // only a review that is still waiting can be discarded
   const pending = review?.status === "pending";
@@ -458,8 +463,7 @@ export function ReviewView({
       if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "f" || event.key === "F")) {
         event.preventDefault();
         if (plugin) {
-          setFinding(true);
-          setFindFocus((n) => n + 1);
+          showFind();
         }
         return;
       }
@@ -514,21 +518,21 @@ export function ReviewView({
       window.removeEventListener("pinrail:discard", onDiscard);
       window.removeEventListener("pinrail:delete-review", onDelete);
     };
-  }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo, toggleStar]);
+  }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo, toggleStar, showFind]);
 
   // the view leaves with the review
   // what was said and opened for the last review stays with it: the screen
   // outlives a change of review
   useEffect(() => {
     setMaximized(false);
-    setFinding(false);
+    hideFind();
     setFlash(null);
     setViolations([]);
     setDiscarding(false);
     setDeleting(false);
     setCopied(null);
     setCopiedId(null);
-  }, [id]);
+  }, [id, hideFind]);
 
   // the bar: where this came from, the title, its origin link. The review's
   // outcome leads the page's own strip, and what can be done with it ends it.
