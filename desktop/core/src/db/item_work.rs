@@ -550,12 +550,34 @@ fn files(conn: &Connection, filter: &str, arg: &str) -> rusqlite::Result<Vec<Rev
     .collect()
 }
 
+/// Adds files to the item's description, or to a comment. A file replaces
+/// one of the same name that belongs to the same description or comment;
+/// a name another comment or the description already uses is refused,
+/// since the file would replace that one.
 fn add_files(
     conn: &Connection,
     item: &str,
     comment: Option<&str>,
     added: &[ReviewAttachment],
-) -> rusqlite::Result<()> {
+) -> rusqlite::Result<Result<(), Refused>> {
+    for f in added {
+        let owner: Option<Option<String>> = conn
+            .query_row(
+                "SELECT comment_id FROM work_item_files WHERE item_id = ?1 AND name = ?2",
+                params![item, f.name],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(owner) = owner
+            && owner.as_deref() != comment
+        {
+            return Ok(Err(Refused::FileTaken(
+                key_of(conn, item)?,
+                f.name.clone(),
+                owner.is_none(),
+            )));
+        }
+    }
     for f in added {
         conn.execute(
             "INSERT INTO work_item_files (item_id, comment_id, name, sha256, size, media_type)
@@ -565,7 +587,7 @@ fn add_files(
             params![item, comment, f.name, f.sha256, f.size as i64, f.media_type],
         )?;
     }
-    Ok(())
+    Ok(Ok(()))
 }
 
 impl Db {
@@ -678,7 +700,9 @@ impl Db {
                     params![id, name],
                 )?;
             }
-            add_files(&tx, &id, None, &change.files)?;
+            if let Err(refused) = add_files(&tx, &id, None, &change.files)? {
+                return Ok(Err(refused));
+            }
             let added: Vec<&str> = change.files.iter().map(|f| f.name.as_str()).collect();
             item_event(
                 &tx,
@@ -826,7 +850,8 @@ impl Db {
             }
         }
         if let Some(text) = &change.comment {
-            insert_comment(&tx, &id, text, actor, &[], at)?;
+            insert_comment(&tx, &id, text, actor, &[], at)?
+                .expect("a comment without files is not refused");
         }
         touch(&tx, &id, at)?;
 
@@ -895,7 +920,10 @@ impl Db {
             Ok(id) => id,
             Err(refused) => return Ok(Err(refused)),
         };
-        let comment = insert_comment(&tx, &id, body, actor, files, at)?;
+        let comment = match insert_comment(&tx, &id, body, actor, files, at)? {
+            Ok(comment) => comment,
+            Err(refused) => return Ok(Err(refused)),
+        };
         touch(&tx, &id, at)?;
         let item = item_row(&tx, &id)?;
         tx.commit()?;
@@ -1400,13 +1428,17 @@ fn insert_comment(
     actor: &Actor,
     files: &[ReviewAttachment],
     at: DateTime<Utc>,
-) -> rusqlite::Result<Comment> {
+) -> rusqlite::Result<Result<Comment, Refused>> {
     let id = crate::id::next_comment();
     conn.execute(
         "INSERT INTO work_item_comments (id, item_id, body, author, session, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![id, item, body, actor.name(), actor.session(), iso(at)],
     )?;
-    add_files(conn, item, Some(&id), files)?;
-    Ok(comment_row(conn, &id)?.expect("the comment was just added"))
+    if let Err(refused) = add_files(conn, item, Some(&id), files)? {
+        return Ok(Err(refused));
+    }
+    Ok(Ok(
+        comment_row(conn, &id)?.expect("the comment was just added")
+    ))
 }

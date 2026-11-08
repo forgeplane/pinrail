@@ -148,6 +148,12 @@ export function ItemPanel({
   if (!item) return <div className="item-panel" data-testid="item-panel" />;
 
   const others = items.filter((i) => i.key !== item.key);
+  // every file name the item uses, in its description and its comments: a
+  // new file takes another, since the core refuses a name in use elsewhere
+  const fileNames = [
+    ...item.files.map((f) => f.name),
+    ...item.timeline.flatMap((e) => (e.type === "comment" ? e.files.map((f) => f.name) : [])),
+  ];
   const copy = async () => {
     const text = `# ${item.key} ${item.title}\n\n${item.body}`.trim() + "\n";
     try {
@@ -287,7 +293,7 @@ export function ItemPanel({
         {editingBody ? (
           <EditableBody
             body={item.body}
-            taken={item.files.map((f) => f.name)}
+            taken={fileNames}
             onCancel={() => setEditingBody(false)}
             onSave={async (body, attachments) => {
               const files = Object.keys(attachments).length ? { attachments } : {};
@@ -455,6 +461,7 @@ export function ItemPanel({
           )}
           field={
             <CommentField
+              taken={fileNames}
               onPost={async (body, attachments) => {
                 try {
                   await api.commentItem(item.key, body, attachments);
@@ -793,14 +800,17 @@ function CommentCard({
 
 /** The field at the end of the timeline: ⌘Enter posts the comment. */
 function CommentField({
+  taken,
   onPost,
 }: {
+  /** the names the item's files already have */
+  taken: string[];
   onPost: (body: string, attachments: Record<string, Attached>) => Promise<boolean>;
 }) {
   const toast = useToast();
   const [draft, setDraft] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
-  const files = useAttach({ box, onChange: setDraft, onError: (m) => toast(m, "danger") });
+  const files = useAttach({ box, onChange: setDraft, taken, onError: (m) => toast(m, "danger") });
   const post = async () => {
     const text = draft.trim();
     if (!text || files.busy) return;

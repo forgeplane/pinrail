@@ -4,6 +4,7 @@
 // repository of its own, since the shard's core is shared.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { core, fakeRecognition, listening, shellOrigin, speak } from "./helpers";
 
 let counter = 0;
@@ -363,7 +364,6 @@ test("an image a comment carries is shown in place", async ({ page, request }) =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
     "base64",
   );
-  const { createHash } = await import("node:crypto");
   const hash = createHash("sha256").update(png).digest("hex");
   await request.put(`${core}/api/v1/attachments/${hash}`, {
     data: png,
@@ -514,4 +514,29 @@ test("a file is attached to a comment, dropped on its field", async ({ page, req
   const stored = await read(request, item.key);
   const comment = stored.timeline.find((e: { type: string }) => e.type === "comment");
   expect(comment.files.map((f: { name: string }) => f.name)).toEqual(["run.log"]);
+});
+
+test("a file attached to a comment takes a name no file of the item has", async ({ page, request }) => {
+  const repo = fresh("comment-name");
+  const sha256 = createHash("sha256").update(PIXEL).digest("hex");
+  await request.put(`${core}/api/v1/attachments/${sha256}`, {
+    data: PIXEL,
+    headers: { "content-type": "application/octet-stream" },
+  });
+  const item = await add(request, repo, "Item", {
+    body: "![image.png](attachment:image.png)",
+    attachments: { "image.png": { sha256, size: PIXEL.length, media_type: "image/png" } },
+  });
+  await openItem(page, repo, item.key);
+  const field = panel(page).getByLabel("Add a comment");
+  await field.evaluate((el) => {
+    const data = new DataTransfer();
+    data.items.add(new File(["another picture"], "image.png", { type: "image/png" }));
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(field).toHaveValue("![image-2.png](attachment:image-2.png)");
+  await field.press("ControlOrMeta+Enter");
+  await expect(panel(page).getByTestId("item-comment")).toHaveCount(1);
+  const stored = await read(request, item.key);
+  expect(stored.files.map((f: { sha256: string }) => f.sha256)).toEqual([sha256]);
 });

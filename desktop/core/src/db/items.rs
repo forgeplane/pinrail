@@ -231,6 +231,10 @@ pub enum Refused {
     NotQueued(String),
     /// a place in the queue named by the item being placed
     OwnPlace(String),
+    /// a file under a name the item already uses for a file of another
+    /// comment or of its description: the item's key, the name, and
+    /// whether the file is the description's
+    FileTaken(String, String, bool),
     /// no comment of the item has this id
     NoComment(String),
 }
@@ -264,6 +268,15 @@ impl std::fmt::Display for Refused {
             ),
             Refused::NotQueued(key) => write!(f, "{key} is not in the queue"),
             Refused::OwnPlace(key) => write!(f, "{key} cannot be placed next to itself"),
+            Refused::FileTaken(key, name, description) => write!(
+                f,
+                "{key} already has a file named {name}, {}: give this one another name",
+                if *description {
+                    "in its description"
+                } else {
+                    "in a comment"
+                }
+            ),
             Refused::OnHold(key) => {
                 write!(f, "{key} is on hold: ask the person to take it off hold")
             }

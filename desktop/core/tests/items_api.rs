@@ -1315,6 +1315,98 @@ async fn an_items_body_carries_files_added_and_removed_by_name() {
     assert_eq!(code, StatusCode::NOT_FOUND);
 }
 
+/// Stores `bytes` in the blob store, and answers their hash.
+async fn upload(app: &App, bytes: &[u8]) -> String {
+    let hash = {
+        use sha2::Digest;
+        format!("{:x}", sha2::Sha256::digest(bytes))
+    };
+    let request = Request::builder()
+        .method("PUT")
+        .uri(format!("/api/v1/attachments/{hash}"))
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", "application/octet-stream")
+        .header("content-length", bytes.len().to_string())
+        .body(Body::from(bytes.to_vec()))
+        .unwrap();
+    let status = app.router.clone().oneshot(request).await.unwrap().status();
+    assert!(status.is_success(), "{status}");
+    hash
+}
+
+#[tokio::test]
+async fn a_file_keeps_its_name_against_a_file_of_another_comment_or_the_description() {
+    let app = app();
+    let first = upload(&app, b"the first picture").await;
+    let second = upload(&app, b"the second picture").await;
+    let file = |hash: &str, size: usize| json!({"image.png": {"sha256": hash, "size": size}});
+    let (code, added) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "title": "The dialog", "body": "![before](attachment:image.png)",
+               "attachments": file(&first, 17)}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{added}");
+
+    // a comment's file under the description's file's name
+    let (code, answer) = agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        "s-1",
+        json!({"body": "![after](attachment:image.png)", "attachments": file(&second, 18)}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{answer}");
+    assert_eq!(
+        answer["message"],
+        "PIN-1 already has a file named image.png, in its description: give this one another name"
+    );
+    let (_, served) = call(&app, "GET", "/api/v1/items/PIN-1/files/image.png", None).await;
+    assert_eq!(served, Value::String("the first picture".into()));
+
+    // a comment's file under another comment's file's name
+    let other = json!({"log.txt": {"sha256": second, "size": 18}});
+    let (code, _) = agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        "s-1",
+        json!({"body": "[log](attachment:log.txt)", "attachments": other}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    let (code, answer) = agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        "s-1",
+        json!({"body": "[log](attachment:log.txt)",
+               "attachments": {"log.txt": {"sha256": first, "size": 17}}}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{answer}");
+    assert_eq!(
+        answer["message"],
+        "PIN-1 already has a file named log.txt, in a comment: give this one another name"
+    );
+
+    // the description's own file is replaced by its new version
+    let (code, edited) = edit(
+        &app,
+        "PIN-1",
+        "s-1",
+        json!({"attachments": file(&second, 18)}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{edited}");
+    let (_, served) = call(&app, "GET", "/api/v1/items/PIN-1/files/image.png", None).await;
+    assert_eq!(served, Value::String("the second picture".into()));
+}
+
 #[tokio::test]
 async fn the_review_list_narrows_to_a_work_items_reviews() {
     let app = app();
