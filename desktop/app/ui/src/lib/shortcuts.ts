@@ -37,6 +37,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Star or remove the star of the review", keys: [[MOD, SHIFT, "S"]] },
   { what: "Archive or unarchive the session", keys: [["E"]] },
   { what: "Add a work item", keys: [["C"]] },
+  { what: "Add a work item from any page", keys: [[MOD, SHIFT, "C"]] },
   { what: "Claim or release the work item", keys: [["S"]] },
   { what: "Mark the work item done, or open it again", keys: [["D"]] },
   { what: "Cancel the work item, or open it again", keys: [["X"]] },
@@ -158,7 +159,7 @@ const PRIMARY = isMac ? "cmd" : "ctrl";
  */
 export const APP_KEYS = new Set([
   ...["k", ",", "i", "b", "d", "f", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) => combo(k, PRIMARY)),
-  ...["h", "p", "m", "l", "z"].map((k) => combo(k, PRIMARY, "shift")),
+  ...["h", "p", "m", "l", "z", "c"].map((k) => combo(k, PRIMARY, "shift")),
   ...(isMac ? [combo("h", "cmd"), combo("h", "alt", "cmd"), combo("f", "ctrl", "cmd")] : []),
   // the review screen: help, rounds, closing, and handing over. J and K
   // move through the inbox while a review is open in its side panel

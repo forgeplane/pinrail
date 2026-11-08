@@ -13,17 +13,8 @@ import {
   Search,
   SearchX,
   User,
-  X,
 } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, api } from "../api/client";
 import type { WorkItem } from "../api/types";
@@ -35,12 +26,12 @@ import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle
 import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
-import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { age, stamp } from "../lib/format";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
-import { MOD, SHIFT, modalOpen } from "../lib/keys";
+import { modalOpen } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
+import { QuickAddBox, type QuickAddBoxProps } from "../components/QuickAddBox";
 import { ItemPanel } from "../components/ItemPanel";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { SidePanel } from "../components/SidePanel";
@@ -358,6 +349,12 @@ export function WorkItems() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [rows, focused, open, openKey, openKeyed, change]);
+  // ⌘⇧C, which elsewhere opens the quick add dialog, opens this page's own
+  useEffect(() => {
+    const onQuickAdd = () => setAdding(true);
+    window.addEventListener("pinrail:quick-add", onQuickAdd);
+    return () => window.removeEventListener("pinrail:quick-add", onQuickAdd);
+  }, []);
 
   const focusedItem = rows[focused]?.item;
   const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => {
@@ -730,7 +727,7 @@ export function WorkItems() {
 
 /** The one quick-add control at the top of the list: a row that opens into
  *  a field with the repository and the parent the item goes in. */
-function QuickAdd({ open, onOpen, ...box }: { open: boolean; onOpen: () => void } & BoxProps) {
+function QuickAdd({ open, onOpen, ...box }: { open: boolean; onOpen: () => void } & QuickAddBoxProps) {
   if (!open)
     return (
       <button type="button" className="item-quick-add" onClick={onOpen} data-testid="item-quick-add">
@@ -738,140 +735,6 @@ function QuickAdd({ open, onOpen, ...box }: { open: boolean; onOpen: () => void 
       </button>
     );
   return <QuickAddBox {...box} />;
-}
-
-type BoxProps = {
-  onClose: () => void;
-  repos: string[];
-  items: WorkItem[];
-  defaultRepo: string | null;
-  defaultParent: string | null;
-  onAdded: (item: WorkItem, more: boolean) => void;
-};
-
-/** The open quick add. It is made each time it opens, starting from the
- *  list's current place, so nothing resets it after the person starts typing. */
-function QuickAddBox({ onClose, repos, items, defaultRepo, defaultParent, onAdded }: BoxProps) {
-  const toast = useToast();
-  const sorted = useMemo(() => [...repos].sort(), [repos]);
-  const [title, setTitle] = useState("");
-  const [repo, setRepo] = useState(() => defaultRepo ?? [...repos].sort()[0] ?? "");
-  const [parent, setParent] = useState(() => defaultParent ?? "");
-  const [busy, setBusy] = useState(false);
-  const field = useRef<HTMLInputElement>(null);
-  // focused before it is shown, so no key typed after C goes elsewhere
-  useLayoutEffect(() => {
-    field.current?.focus();
-  }, []);
-
-  const parents = items.filter((i) => i.repo === repo && i.status !== "done" && i.status !== "cancelled");
-
-  const add = async (more: boolean) => {
-    if (!title.trim() || !repo || busy) return;
-    setBusy(true);
-    try {
-      const item = await api.addItem({ repo, title: title.trim(), ...(parent ? { parent } : {}) });
-      setTitle("");
-      onAdded(item, more);
-    } catch (error) {
-      toast(reason(error), "danger");
-    } finally {
-      setBusy(false);
-      field.current?.focus();
-    }
-  };
-
-  const onKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void add(event.metaKey || event.ctrlKey);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-    } else if (event.key === "Tab" && event.shiftKey && sorted.length) {
-      event.preventDefault();
-      setRepo(sorted[(sorted.indexOf(repo) + 1) % sorted.length]);
-      setParent("");
-    }
-  };
-
-  return (
-    <div className="item-quick-box" data-testid="item-quick-box">
-      <div className="item-quick-line">
-        <div className="item-quick-main">
-          <ItemStatusIcon status="open" />
-          <input
-            ref={field}
-            className="item-quick-title"
-            aria-label="What needs to be done?"
-            placeholder="What needs to be done?"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onKey}
-          />
-        </div>
-        <div className="item-quick-controls">
-          <Select
-            id="item-quick-repo"
-            searchable
-            label="Repository"
-            icon={<FolderGit2 size={13} />}
-            value={repo}
-            onChange={(v) => {
-              setRepo(v);
-              setParent("");
-            }}
-            options={sorted.map((r) => ({ value: r, label: r }))}
-          />
-          <Select
-            id="item-quick-parent"
-            searchable
-            label="Parent"
-            value={parent}
-            onChange={setParent}
-            options={[
-              { value: "", label: "No parent" },
-              ...parents.map((p) => ({ value: p.key, label: `${p.key} ${p.title}` })),
-            ]}
-          />
-          <Tooltip label="Add it" side="bottom">
-            <button
-              type="button"
-              className="item-quick-action is-add"
-              aria-label="Add it"
-              disabled={!title.trim() || !repo || busy}
-              onClick={() => void add(false)}
-            >
-              <Plus size={14} />
-            </button>
-          </Tooltip>
-          <Tooltip label="Cancel" side="bottom">
-            <button type="button" className="item-quick-action" aria-label="Cancel" onClick={onClose}>
-              <X size={14} />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-      <div className="item-quick-keys">
-        <KeyHints
-          hints={[
-            { keys: ["Enter"], label: "Add and open" },
-            { keys: [MOD, "Enter"], label: "Add and add more" },
-            { keys: [SHIFT, "Tab"], label: "Change repository" },
-            { keys: ["Esc"], label: "Cancel" },
-          ]}
-        />
-        {repos.length === 0 ? (
-          <span className="item-quick-note">Name a repository: an item belongs to one.</span>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 /** The repositories of a project an item was dropped on, to pick the one

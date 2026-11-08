@@ -9,6 +9,7 @@ import {
   Keyboard,
   LayoutGrid,
   ListChecks,
+  ListPlus,
   MessageSquare,
   MessagesSquare,
   Moon,
@@ -30,7 +31,8 @@ import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog"
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
-import { MOD, SHIFT, hasMod } from "../lib/keys";
+import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
+import { QuickAddDialog } from "./QuickAddDialog";
 import { reviewPath, reviewShown } from "../lib/url";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
@@ -71,6 +73,7 @@ const NAV = [
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
+const QUICK_ADD_KEYS = [MOD, SHIFT, "C"];
 
 /** The sidebar's width, remembered on this machine, and its bounds. */
 const SIDEBAR_WIDTH = "pinrail.sidebar.width";
@@ -147,6 +150,15 @@ export function Layout({ children }: { children: ReactNode }) {
   feedbackOpen.current = feedback;
   const toast = useToast();
   const [palette, setPalette] = useState(false);
+  // ⌘⇧C adds a work item: in a dialog, or on the Work items page in its own
+  // quick add
+  const [quickAdd, setQuickAdd] = useState(false);
+  const onItemsPage = useRef(false);
+  onItemsPage.current = location.pathname === "/items";
+  const startQuickAdd = useCallback(() => {
+    if (onItemsPage.current) window.dispatchEvent(new CustomEvent("pinrail:quick-add"));
+    else setQuickAdd(true);
+  }, []);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update, loaded } = useSettings();
@@ -219,6 +231,7 @@ export function Layout({ children }: { children: ReactNode }) {
     },
     { id: "history", label: "Go to history", keys: NAV[2].keys, icon: History, run: () => navigate(NAV[2].to) },
     { id: "items", label: "Go to work items", icon: ListChecks, run: () => navigate("/items") },
+    { id: "add-item", label: "Add a work item", keys: QUICK_ADD_KEYS, icon: ListPlus, run: startQuickAdd },
     { id: "projects", label: "Go to projects", icon: LayoutGrid, run: () => navigate("/projects") },
     {
       id: "new-project",
@@ -379,6 +392,11 @@ export function Layout({ children }: { children: ReactNode }) {
           toggleTheme();
           return;
         }
+        if (event.shiftKey && event.key.toLowerCase() === "c") {
+          event.preventDefault();
+          if (!modalOpen()) startQuickAdd();
+          return;
+        }
       }
       if (hasMod(event) && !event.altKey && !event.shiftKey) {
         if (event.key === "k" || event.key === "K") {
@@ -458,7 +476,7 @@ export function Layout({ children }: { children: ReactNode }) {
       window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:theme-toggle", onThemeToggle);
     };
-  }, [navigate, update, toggleSidebar]);
+  }, [navigate, update, toggleSidebar, startQuickAdd]);
 
   // the sidebar's width: dragged by its edge, or with the arrow keys on it
   const [sidebarWidth, setSidebarWidth] = useState(savedSidebarWidth);
@@ -611,6 +629,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
+      {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
       {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}

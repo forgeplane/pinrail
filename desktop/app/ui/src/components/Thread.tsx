@@ -49,6 +49,7 @@ import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { finder, type Finder, type Found } from "../lib/findText";
+import { usePageRepo } from "../lib/pageRepo";
 import { FindBar } from "./FindBar";
 import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote, useItemPrefixes } from "../lib/markdown";
 import { openAgentLink } from "../lib/native";
@@ -539,6 +540,7 @@ export function Thread({
   const questions = items.filter((r) => r.kind === "question").length;
   const reviews = newest.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
+  usePageRepo(repo);
   const ref = session?.ref ?? focus?.origin.ref ?? null;
 
   return (

@@ -7125,3 +7125,21 @@ a.item-ref {
   background-color: #ff9632;
   color: #1c1a17;
 }
+
+/* the quick add from any page: the box alone, near the top, as the
+   command palette opens */
+.app-dialog-backdrop.quick-add-backdrop {
+  align-items: start;
+  padding-top: 14vh;
+}
+.app-dialog.quick-add-dialog {
+  display: block;
+  width: min(720px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.quick-add-dialog .item-quick-box {
+  margin: 0;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+}

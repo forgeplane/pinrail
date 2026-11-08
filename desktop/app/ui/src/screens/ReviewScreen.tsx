@@ -47,6 +47,7 @@ import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import type { FromSession } from "../lib/sessions";
+import { usePageRepo } from "../lib/pageRepo";
 
 const NOTE_PREFIX = "pinrail:draft:";
 
@@ -121,6 +122,7 @@ export function ReviewView({
   // the review the shortcuts act on, read when a key is pressed
   const reviewRef = useRef(review);
   reviewRef.current = review;
+  usePageRepo(review?.origin.repo);
   const toggleStar = useToggleStar();
   const [rounds, setRounds] = useState<Review[]>([]);
   // the whole review this round revises, with its payload, for the view: the
