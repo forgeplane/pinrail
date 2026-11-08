@@ -21,6 +21,7 @@ import {
   SunMoon,
   Palette,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
@@ -31,8 +32,10 @@ import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog"
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
-import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, modalOpen } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { useAppCommands, type CommandRun } from "./useAppCommands";
+import { command, type CommandId } from "../lib/commands";
 import { reviewPath, reviewShown } from "../lib/url";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
@@ -52,56 +55,16 @@ import { RELEASES, compareVersions, latestNotes, releasesToShow, type CardAction
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
 
-// Cmd+1 to Cmd+4 go to the sidebar's pages, in its order, and Cmd+I to the
-// inbox too; History takes the shift, as Cmd+H hides the app. Plugins live
-// in the settings: Cmd+Shift+P opens that section.
+// The sidebar's pages, with the History tab, which has a shortcut and no
+// entry of its own; their keys come from the commands table.
 const NAV = [
-  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", digit: "1", shift: false, keys: [MOD, "I"] },
-  {
-    key: "sessions",
-    label: "Sessions",
-    to: "/sessions",
-    Icon: MessagesSquare,
-    letter: "",
-    digit: "2",
-    shift: false,
-    keys: [MOD, "2"],
-  },
-  // the inbox's History tab, which has a shortcut and no entry of its own
-  {
-    key: "history",
-    label: "History",
-    to: "/?tab=history",
-    Icon: History,
-    letter: "h",
-    digit: "",
-    shift: true,
-    keys: [MOD, SHIFT, "H"],
-  },
-  {
-    key: "items",
-    label: "Work items",
-    to: "/items",
-    Icon: ListChecks,
-    letter: "",
-    digit: "3",
-    shift: false,
-    keys: [MOD, "3"],
-  },
-  {
-    key: "projects",
-    label: "Projects",
-    to: "/projects",
-    Icon: LayoutGrid,
-    letter: "",
-    digit: "4",
-    shift: false,
-    keys: [MOD, "4"],
-  },
+  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, keys: command("go-inbox").keys![0] },
+  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, keys: command("go-sessions").keys![0] },
+  { key: "history", label: "History", to: "/?tab=history", Icon: History, keys: command("go-history").keys![0] },
+  { key: "items", label: "Work items", to: "/items", Icon: ListChecks, keys: command("go-items").keys![0] },
+  { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, keys: command("go-projects").keys![0] },
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
-const PLUGINS_KEYS = [MOD, SHIFT, "P"];
-const QUICK_ADD_KEYS = [MOD, SHIFT, "C"];
 
 /** The sidebar's width, remembered on this machine, and its bounds. */
 const SIDEBAR_WIDTH = "pinrail.sidebar.width";
@@ -248,90 +211,6 @@ export function Layout({ children }: { children: ReactNode }) {
     else if (action.to) navigate(action.to);
   };
 
-  const actions: PaletteAction[] = [
-    { id: "inbox", label: "Go to inbox", keys: NAV[0].keys, icon: Inbox, run: () => navigate("/") },
-    {
-      id: "oldest",
-      label: "Open the oldest pending review",
-      icon: Inbox,
-      run: () => {
-        const oldest = live.pending[live.pending.length - 1];
-        navigate(oldest ? reviewPath(oldest.id, prefs.inbox.open_in) : "/");
-      },
-    },
-    { id: "history", label: "Go to history", keys: NAV[2].keys, icon: History, run: () => navigate(NAV[2].to) },
-    { id: "items", label: "Go to work items", icon: ListChecks, run: () => navigate("/items") },
-    { id: "add-item", label: "Add a work item", keys: QUICK_ADD_KEYS, icon: ListPlus, run: startQuickAdd },
-    { id: "projects", label: "Go to projects", icon: LayoutGrid, run: () => navigate("/projects") },
-    {
-      id: "new-project",
-      label: "New project…",
-      icon: LayoutGrid,
-      run: () => navigate("/projects", { state: { newProject: true } }),
-    },
-    // each project, to see what waits in it
-    ...live.namedProjects.map<PaletteAction>((project) => ({
-      id: `project-${project.id}`,
-      label: `Show ${project.name} in the inbox`,
-      icon: LayoutGrid,
-      run: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
-    })),
-    { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
-    {
-      id: "theme",
-      label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",
-      keys: [MOD, SHIFT, "L"],
-      icon: SunMoon,
-      run: toggleTheme,
-    },
-    ...themes.flatMap((entry) => {
-      const scheme = entry.scheme;
-      if (!scheme || entry.error) return [];
-      const chosen = (of: "dark" | "light") =>
-        chosenTheme(themes, of === "dark" ? prefs.appearance.dark_theme : prefs.appearance.light_theme, of)?.id ?? of;
-      if (entry.id === chosen(theme)) return [];
-      // the action above already switches to the other scheme's built-in theme
-      if (scheme !== theme && entry.id === scheme && chosen(scheme) === scheme) return [];
-      return [
-        {
-          id: `theme-${entry.id}`,
-          label: `Switch to the ${entry.name} theme`,
-          icon: Palette,
-          run: () => void update(chooseTheme(entry.id, scheme, prefs.appearance.theme)),
-        },
-      ];
-    }),
-    {
-      id: "sidebar",
-      label: sidebar ? "Hide the sidebar" : "Show the sidebar",
-      keys: [MOD, "B"],
-      icon: PanelLeft,
-      run: toggleSidebar,
-    },
-    { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
-    { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
-    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
-    ...(latest.length ? [{ id: "whats-new", label: "What's new in Pinrail", icon: Sparkles, run: openWhatsNew }] : []),
-    { id: "feedback", label: "Send feedback…", icon: MessageSquare, run: () => setFeedback(true) },
-    ...(reviewShown(location.pathname, location.search)
-      ? [
-          {
-            id: "discard",
-            label: "Discard this review",
-            keys: [MOD, "D"],
-            icon: Ban,
-            run: () => window.dispatchEvent(new Event("pinrail:discard")),
-          },
-          {
-            id: "delete-review",
-            label: "Delete this review…",
-            icon: Trash2,
-            run: () => window.dispatchEvent(new Event("pinrail:delete-review")),
-          },
-        ]
-      : []),
-  ];
-
   // Pinrail opens the setup until it is finished or skipped; asked once,
   // when the settings first arrive
   const [welcome, setWelcome] = useState<WelcomeAt | null>(null);
@@ -387,73 +266,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // ⌥↓ and ⌥↑ walk the waiting reviews from wherever you are
-      // the inbox handles them itself while a review is open in its side panel
       if (event.defaultPrevented) return;
-      if (event.altKey && !hasMod(event) && !event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-        const list = waitingRef.current;
-        if (!list.length) return;
-        event.preventDefault();
-        const current = shownRef.current;
-        const at = list.findIndex((r) => r.id === current);
-        const next =
-          at < 0
-            ? event.key === "ArrowDown"
-              ? 0
-              : list.length - 1
-            : (at + (event.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
-        navigate(reviewPath(list[next].id, openInRef.current));
-        return;
-      }
-      if (hasMod(event) && !event.altKey) {
-        const page = NAV.find(
-          (n) =>
-            n.shift === event.shiftKey &&
-            ((n.letter && n.letter === event.key.toLowerCase()) ||
-              (!event.shiftKey && n.digit && n.digit === event.key)),
-        );
-        // Sessions is a page only while it is on in Settings › Labs
-        if (page?.key === "sessions" && !sessionsOnRef.current) return;
-        if (page) {
-          event.preventDefault();
-          navigate(page.to);
-          return;
-        }
-        if (event.shiftKey && event.key.toLowerCase() === "p") {
-          event.preventDefault();
-          setSettings("plugins");
-          return;
-        }
-        if (event.shiftKey && event.key.toLowerCase() === "l") {
-          event.preventDefault();
-          toggleTheme();
-          return;
-        }
-        if (event.shiftKey && event.key.toLowerCase() === "c") {
-          event.preventDefault();
-          if (!modalOpen()) startQuickAdd();
-          return;
-        }
-      }
-      if (hasMod(event) && !event.altKey && !event.shiftKey) {
-        if (event.key === "k" || event.key === "K") {
-          event.preventDefault();
-          setPalette((p) => !p);
-        } else if (event.key === ",") {
-          event.preventDefault();
-          setSettings((s) => (s ? null : "general"));
-        } else if (event.key === "b" || event.key === "B") {
-          event.preventDefault();
-          toggleSidebar();
-        } else if (event.key === "[") {
-          event.preventDefault();
-          navigate(-1);
-        } else if (event.key === "]") {
-          event.preventDefault();
-          navigate(1);
-        }
-        return;
-      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape") {
         setHelp(false);
@@ -474,63 +287,130 @@ export function Layout({ children }: { children: ReactNode }) {
         setHelp((h) => !h);
       }
     };
-    const onCommand = (event: Event) => {
-      switch ((event as CustomEvent<string>).detail) {
-        case "search":
-          setPalette((p) => !p);
-          break;
-        case "settings":
-          setSettings((s) => (s ? null : "general"));
-          break;
-        case "go-inbox":
-          navigate("/");
-          break;
-        case "go-history":
-          navigate(NAV[2].to);
-          break;
-        case "go-sessions":
-          if (sessionsOnRef.current) navigate("/sessions");
-          break;
-        case "go-items":
-          navigate("/items");
-          break;
-        case "go-projects":
-          navigate("/projects");
-          break;
-        case "go-plugins":
-          setSettings("plugins");
-          break;
-        case "toggle-sidebar":
-          toggleSidebar();
-          break;
-        case "toggle-theme":
-          toggleTheme();
-          break;
-        case "back":
-          navigate(-1);
-          break;
-        case "forward":
-          navigate(1);
-          break;
-        case "feedback":
-          setFeedback(true);
-          break;
-        case "whats-new":
-          openWhatsNewRef.current();
-          break;
-      }
-    };
     const onThemeToggle = (event: Event) =>
       update({ appearance: { theme: (event as CustomEvent<"dark" | "light">).detail } });
     window.addEventListener("keydown", onKey);
-    window.addEventListener("pinrail:command", onCommand);
     window.addEventListener("pinrail:theme-toggle", onThemeToggle);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:theme-toggle", onThemeToggle);
     };
-  }, [navigate, update, toggleSidebar, startQuickAdd]);
+  }, [update]);
+
+  /** ⌥↓ and ⌥↑ walk the waiting reviews from wherever you are, in a circle;
+   *  the inbox handles them itself while a review is open in its side
+   *  panel. Nothing happens, and the keys keep their use, when none waits. */
+  const walkWaiting = (by: 1 | -1) => {
+    const list = waitingRef.current;
+    if (!list.length) return false;
+    const at = list.findIndex((r) => r.id === shownRef.current);
+    const next = at < 0 ? (by > 0 ? 0 : list.length - 1) : (at + by + list.length) % list.length;
+    navigate(reviewPath(list[next].id, openInRef.current));
+  };
+  const runs: Partial<Record<CommandId, CommandRun>> = {
+    search: () => setPalette((p) => !p),
+    "go-inbox": () => void navigate("/"),
+    // Sessions is a page only while it is on in Settings › Labs
+    "go-sessions": () => (sessionsOn ? void navigate("/sessions") : false),
+    "go-items": () => void navigate("/items"),
+    "go-projects": () => void navigate("/projects"),
+    "go-history": () => void navigate(NAV[2].to),
+    "go-plugins": () => setSettings("plugins"),
+    "next-waiting": () => walkWaiting(1),
+    "previous-waiting": () => walkWaiting(-1),
+    "add-item": () => {
+      if (!modalOpen()) startQuickAdd();
+    },
+    settings: () => setSettings((s) => (s ? null : "general")),
+    "toggle-theme": () => void toggleTheme(),
+    "toggle-sidebar": () => void toggleSidebar(),
+    back: () => void navigate(-1),
+    forward: () => void navigate(1),
+    shortcuts: () => setHelp(true),
+    "whats-new": () => openWhatsNewRef.current(),
+    feedback: () => setFeedback(true),
+  };
+  useAppCommands(runs);
+  /** A palette entry for a command of the table: its label and keys. */
+  const fromCommand = (id: CommandId, icon: LucideIcon): PaletteAction => {
+    const c = command(id);
+    return { id, label: c.label ?? id, keys: c.keys?.[0], icon, run: () => void runs[id]?.() };
+  };
+
+  const actions: PaletteAction[] = [
+    fromCommand("go-inbox", Inbox),
+    {
+      id: "oldest",
+      label: "Open the oldest pending review",
+      icon: Inbox,
+      run: () => {
+        const oldest = live.pending[live.pending.length - 1];
+        navigate(oldest ? reviewPath(oldest.id, prefs.inbox.open_in) : "/");
+      },
+    },
+    fromCommand("go-history", History),
+    fromCommand("go-items", ListChecks),
+    { ...fromCommand("add-item", ListPlus), run: startQuickAdd },
+    fromCommand("go-projects", LayoutGrid),
+    {
+      id: "new-project",
+      label: "New project…",
+      icon: LayoutGrid,
+      run: () => navigate("/projects", { state: { newProject: true } }),
+    },
+    // each project, to see what waits in it
+    ...live.namedProjects.map<PaletteAction>((project) => ({
+      id: `project-${project.id}`,
+      label: `Show ${project.name} in the inbox`,
+      icon: LayoutGrid,
+      run: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
+    })),
+    fromCommand("go-plugins", Blocks),
+    {
+      ...fromCommand("toggle-theme", SunMoon),
+      label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",
+    },
+    ...themes.flatMap((entry) => {
+      const scheme = entry.scheme;
+      if (!scheme || entry.error) return [];
+      const chosen = (of: "dark" | "light") =>
+        chosenTheme(themes, of === "dark" ? prefs.appearance.dark_theme : prefs.appearance.light_theme, of)?.id ?? of;
+      if (entry.id === chosen(theme)) return [];
+      // the action above already switches to the other scheme's built-in theme
+      if (scheme !== theme && entry.id === scheme && chosen(scheme) === scheme) return [];
+      return [
+        {
+          id: `theme-${entry.id}`,
+          label: `Switch to the ${entry.name} theme`,
+          icon: Palette,
+          run: () => void update(chooseTheme(entry.id, scheme, prefs.appearance.theme)),
+        },
+      ];
+    }),
+    { ...fromCommand("toggle-sidebar", PanelLeft), label: sidebar ? "Hide the sidebar" : "Show the sidebar" },
+    fromCommand("shortcuts", Keyboard),
+    fromCommand("settings", Settings),
+    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
+    ...(latest.length ? [fromCommand("whats-new", Sparkles)] : []),
+    fromCommand("feedback", MessageSquare),
+    ...(reviewShown(location.pathname, location.search)
+      ? [
+          {
+            id: "discard",
+            label: "Discard this review",
+            keys: [MOD, "D"],
+            icon: Ban,
+            run: () => window.dispatchEvent(new Event("pinrail:discard")),
+          },
+          {
+            id: "delete-review",
+            label: "Delete this review…",
+            icon: Trash2,
+            run: () => window.dispatchEvent(new Event("pinrail:delete-review")),
+          },
+        ]
+      : []),
+  ];
 
   // the sidebar's width: dragged by its edge, or with the arrow keys on it
   const [sidebarWidth, setSidebarWidth] = useState(savedSidebarWidth);
