@@ -844,3 +844,24 @@ test("a narrow quick add keeps its controls on the second line whatever reposito
     expect(await below(), repo).toBe(true);
   }
 });
+
+test("beside the side panel, the list keeps at least 560px", async ({ page, request }) => {
+  const repo = fresh("wide");
+  const item = await add(request, repo, "Load themes");
+  // a panel dragged wide on another page
+  await page.addInitScript(() => localStorage.setItem("pinrail.inbox.panel", "900"));
+  await page.setViewportSize({ width: 1300, height: 700 });
+  await open(page, repo, `&open=${item.key}`);
+  await expect(page.getByTestId("work item-panel")).toBeVisible();
+  const list = page.locator(".work-items-side");
+  expect((await list.boundingBox())!.width).toBeGreaterThanOrEqual(560);
+
+  // dragging the edge stops there too
+  const edge = page.getByRole("separator", { name: "Resize the work item panel" });
+  const at = (await edge.boundingBox())!;
+  await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(300, at.y + at.height / 2, { steps: 5 });
+  await page.mouse.up();
+  expect((await list.boundingBox())!.width).toBeGreaterThanOrEqual(560);
+});

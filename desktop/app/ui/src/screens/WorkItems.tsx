@@ -709,7 +709,7 @@ export function WorkItems() {
         />
       ) : null}
       {openKey ? (
-        <SidePanel split={split} label="Work item">
+        <SidePanel split={split} label="Work item" listMin={560}>
           <ItemPanel
             key={openKey}
             itemKey={openKey}

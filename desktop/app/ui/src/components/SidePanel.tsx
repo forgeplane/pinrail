@@ -8,8 +8,10 @@ import { useState, type ReactNode, type RefObject } from "react";
 const PANEL_WIDTH = "pinrail.inbox.panel";
 /** The narrowest the side panel gets. */
 const PANEL_MIN = 420;
-/** The narrowest the list beside the side panel gets. */
+/** The narrowest the list beside the side panel gets, unless a page asks for more. */
 const LIST_MIN = 320;
+/** The room the edge between them takes: 5px, less its negative margins. */
+const EDGE = 1;
 
 function savedWidth(): number | null {
   try {
@@ -23,18 +25,21 @@ function savedWidth(): number | null {
 export function SidePanel({
   split,
   label = "Review",
+  listMin = LIST_MIN,
   children,
 }: {
   /** the element that holds the list and the panel, which bounds the width */
   split: RefObject<HTMLDivElement | null>;
   /** what the panel shows, which names it: Review or Session */
   label?: string;
+  /** the narrowest the list beside the panel gets */
+  listMin?: number;
   children: ReactNode;
 }): ReactNode {
   const [width, setWidth] = useState<number | null>(savedWidth);
   const clampWidth = (w: number) => {
     const room = split.current?.clientWidth ?? window.innerWidth;
-    return Math.round(Math.max(PANEL_MIN, Math.min(w, room - LIST_MIN)));
+    return Math.round(Math.max(PANEL_MIN, Math.min(w, room - listMin - EDGE)));
   };
   const keepWidth = (w: number) => {
     setWidth(w);
@@ -83,7 +88,12 @@ export function SidePanel({
         className="review-panel"
         aria-label={label}
         data-testid={`${label.toLowerCase()}-panel`}
-        style={width ? { width: clampWidth(width) } : undefined}
+        // the list keeps its width, unless that would make the panel
+        // narrower than its own minimum
+        style={{
+          ...(width ? { width: clampWidth(width) } : {}),
+          maxWidth: `max(${PANEL_MIN}px, calc(100% - ${listMin + EDGE}px))`,
+        }}
       >
         {children}
       </aside>
