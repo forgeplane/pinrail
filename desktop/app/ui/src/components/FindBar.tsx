@@ -8,7 +8,7 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FIND_LIMIT, type Found } from "../lib/findText";
-import { SHIFT } from "../lib/keys";
+import { SHIFT, composing } from "../lib/keys";
 import { Tooltip } from "./Tooltip";
 
 type Props = {
@@ -69,6 +69,7 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus, label =
         spellCheck={false}
         onChange={(e) => change(e.target.value)}
         onKeyDown={(e) => {
+          if (composing(e)) return;
           if (e.key === "Enter") {
             e.preventDefault();
             step(e.shiftKey);

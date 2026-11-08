@@ -12,7 +12,7 @@ import { Tooltip } from "../components/Tooltip";
 import { age, settledAt, stamp } from "../lib/format";
 import { useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { modalOpen } from "../lib/keys";
+import { modalOpen, composing } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
 import { useToggleStar } from "../components/StarButton";
@@ -216,6 +216,7 @@ export function History() {
         return;
       }
       if (typing) {
+        if (composing(event)) return;
         if (event.key === "Escape") el.blur();
         // Enter leaves the field for the results, so J, K and Enter work on them
         if (event.key === "Enter" && el === search.current) {

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
+import { composing } from "../lib/keys";
 
 export function DiscardDialog({
   review,
@@ -81,6 +82,7 @@ export function DiscardDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           onKeyDown={(e) => {
+            if (composing(e)) return;
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               confirm();

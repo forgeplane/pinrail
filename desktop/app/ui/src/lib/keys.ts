@@ -24,3 +24,11 @@ export const modalOpen = () => document.querySelector('[role="dialog"][aria-moda
 
 /** True when the event carries the platform's primary modifier. */
 export const hasMod = (event: KeyboardEvent) => (isMac ? event.metaKey : event.ctrlKey);
+
+/** Whether a key press belongs to an input method's composition, such as the
+ *  Enter that confirms a Japanese or Chinese candidate: it is the field's,
+ *  not a shortcut. WebKit marks such a press with the key code 229. */
+export function composing(event: KeyboardEvent | { nativeEvent: KeyboardEvent }) {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+  return native.isComposing || native.keyCode === 229;
+}

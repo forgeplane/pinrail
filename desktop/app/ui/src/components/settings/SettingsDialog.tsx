@@ -22,7 +22,7 @@ import { api, inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
 import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
-import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo } from "../../lib/keys";
+import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo, composing } from "../../lib/keys";
 import { reviewPath } from "../../lib/url";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS, SHORTCUT_SECTIONS } from "../../lib/shortcuts";
 import { useSettings } from "../../state/settings";
@@ -72,7 +72,7 @@ function PortField({ value, onChange }: { value: number; onChange: (port: number
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && commit()}
+      onKeyDown={(e) => e.key === "Enter" && !composing(e) && commit()}
     />
   );
 }

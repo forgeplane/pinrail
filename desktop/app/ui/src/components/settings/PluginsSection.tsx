@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { CatalogEntry, Plugin, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
-import { REVEAL } from "../../lib/keys";
+import { REVEAL, composing } from "../../lib/keys";
 import { sourceOf } from "../../lib/links";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
@@ -639,7 +639,7 @@ function SettingRow({
         step={property.type === "integer" ? 1 : "any"}
         onChange={(e) => setText(e.target.value)}
         onBlur={commitText}
-        onKeyDown={(e) => e.key === "Enter" && commitText()}
+        onKeyDown={(e) => e.key === "Enter" && !composing(e) && commitText()}
       />
     );
   }

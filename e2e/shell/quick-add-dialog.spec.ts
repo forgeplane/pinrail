@@ -120,3 +120,28 @@ test("from a session or a review, the dialog starts on its repository", async ({
   await field(page).press("Escape");
   await request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "spec cleanup" } });
 });
+
+test("the Enter that confirms an input method's text does not add the item", async ({ page, request }) => {
+  const repo = fresh("ime");
+  await add(request, repo, "Existing");
+  await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
+  await page.keyboard.press("ControlOrMeta+Shift+C");
+  await field(page).fill("にほんご");
+  // as Chrome reports it, and as WebKit does
+  for (const init of [{ isComposing: true }, { keyCode: 229 }]) {
+    await field(page).evaluate(
+      (el, init) => el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, ...init })),
+      init,
+    );
+  }
+  // time for an add to start, had the Enter started one
+  await page.waitForTimeout(300);
+  await expect(dialog(page)).toBeVisible();
+  expect((await listed(request, repo)).map((i) => i.title)).toEqual(["Existing"]);
+
+  // the next Enter, with the text confirmed, adds it
+  await field(page).press("Enter");
+  await expect
+    .poll(async () => (await listed(request, repo)).map((i) => i.title).sort())
+    .toEqual(["Existing", "にほんご"]);
+});

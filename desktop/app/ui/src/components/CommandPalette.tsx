@@ -18,6 +18,7 @@ import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 import { sessionPath } from "./Thread";
+import { composing } from "../lib/keys";
 
 export type PaletteAction = {
   id: string;
@@ -290,6 +291,7 @@ export function CommandPalette({
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
     event.stopPropagation();
+    if (composing(event)) return;
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();

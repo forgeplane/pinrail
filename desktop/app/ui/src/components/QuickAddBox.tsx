@@ -6,7 +6,7 @@ import { FolderGit2, Plus, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ApiError, api } from "../api/client";
 import type { WorkItem } from "../api/types";
-import { MOD, SHIFT } from "../lib/keys";
+import { MOD, SHIFT, composing } from "../lib/keys";
 import { useToast } from "../state/toasts";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { KeyHints } from "./KeyHints";
@@ -67,6 +67,7 @@ export function QuickAddBox({
   };
 
   const onKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (composing(event)) return;
     if (event.key === "Enter") {
       event.preventDefault();
       void add(event.metaKey || event.ctrlKey);

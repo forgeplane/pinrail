@@ -9,7 +9,7 @@
 import { ArrowUp, Mic } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { canDictate, useDictation } from "../lib/dictation";
-import { modalOpen } from "../lib/keys";
+import { modalOpen, composing } from "../lib/keys";
 import { useToast } from "../state/toasts";
 import { Tooltip } from "./Tooltip";
 
@@ -110,7 +110,7 @@ export function ComposeField({
   }, [value, wide, box]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.nativeEvent.isComposing) return;
+    if (composing(e)) return;
     const mod = e.metaKey || e.ctrlKey;
     const submits = submitKey === "enter" ? !mod && !e.shiftKey : mod;
     if (e.key === "Enter" && submits && !e.altKey && onSubmit) {

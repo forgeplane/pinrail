@@ -12,6 +12,7 @@ import { takes } from "../../lib/format";
 import { isPath, matching } from "../../lib/catalog";
 import { PluginIcon } from "../PluginIcon";
 import { useSlashSearch } from "../../lib/useSlashSearch";
+import { composing } from "../../lib/keys";
 
 type Stage =
   | { at: "empty" }
@@ -370,6 +371,7 @@ export function InstallPanel({
           disabled={busy}
           onChange={(e) => edit(e.target.value)}
           onKeyDown={(e) => {
+            if (composing(e)) return;
             if (e.key === "Enter" && isPath(source.trim())) look(source);
             if (e.key === "Escape" && source) {
               e.stopPropagation();

@@ -23,7 +23,7 @@ import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
 import { age, ordinal, stamp } from "../lib/format";
-import { MOD, modalOpen } from "../lib/keys";
+import { MOD, modalOpen, composing } from "../lib/keys";
 import { reviewPath } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -551,6 +551,7 @@ function EditableTitle({
       spellCheck={false}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
+        if (composing(e)) return;
         if (e.key === "Enter") {
           e.preventDefault();
           void save();
@@ -655,6 +656,7 @@ function EditableLink({ link, onSave }: { link: string | null; onSave: (link: st
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={async (e: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (composing(e)) return;
         if (e.key === "Enter") {
           e.preventDefault();
           if (await onSave(draft.trim() || null)) setEditing(false);
@@ -702,6 +704,7 @@ function AddSubItem({ onAdd }: { onAdd: (title: string) => Promise<boolean> }) {
       spellCheck={false}
       onChange={(e) => setTitle(e.target.value)}
       onKeyDown={async (e) => {
+        if (composing(e)) return;
         if (e.key === "Enter" && title.trim()) {
           e.preventDefault();
           if (await onAdd(title.trim())) setTitle("");
