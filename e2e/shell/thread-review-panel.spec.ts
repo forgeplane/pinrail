@@ -158,3 +158,48 @@ test("a card clicked in a long thread stays in place as the panel opens and clos
   await expect(panel(page)).toHaveCount(0);
   await expect.poll(moved).toBeLessThanOrEqual(1);
 });
+
+test("beside an open review, the thread's lines wrap as text and never break a name or a time", async ({
+  page,
+  request,
+}) => {
+  await openReviewsIn(request, "panel");
+  const session = fresh();
+  const status = (text: string, kind: string) =>
+    request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, { data: { text, kind } });
+  await status("Attach images and files to a work item from the app (PIN-26)", "start");
+  const added = await request.post(`${core}/api/v1/items`, {
+    data: { repo: "acme/api", title: "Show a work item's properties as a row of pills", by: "claude-code", session },
+  });
+  const key = ((await added.json()) as { key: string }).key;
+  await request.post(`${core}/api/v1/items/${key}/comments`, {
+    data: { body: "Committed in 32fa8c4a.", by: "claude-code", session },
+  });
+  await status("Work item properties as a row of pills (PIN-43), committed", "done");
+  await submit(request, session, "Narrow thread");
+  await page.setViewportSize({ width: 1300, height: 900 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await thread(page).getByTestId("thread-review").click();
+  await expect(panel(page)).toBeVisible();
+
+  // one line box each: a name or a time never breaks inside
+  const lines = (el: Element) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+  };
+  const unbroken = page.locator(".msg-meta .text, .thread-age");
+  await expect(unbroken.first()).toBeVisible();
+  for (const el of await unbroken.all()) expect(await el.evaluate(lines), await el.textContent()).toBe(1);
+
+  // the text of Started and Finished starts on the label's line
+  for (const id of ["started", "finished"]) {
+    const line = thread(page).getByTestId(id).first();
+    const tops = await line.evaluate((el) => {
+      const label = el.querySelector(".thread-line-label")!.getBoundingClientRect().top;
+      const text = el.querySelector(".thread-line-text")!.getClientRects()[0].top;
+      return Math.abs(label - text);
+    });
+    expect(tops, id).toBeLessThan(4);
+  }
+});

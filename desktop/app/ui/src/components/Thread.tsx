@@ -1154,8 +1154,16 @@ function StartedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
       <span>
-        <GitCommitHorizontal size={12} aria-hidden /> Started: <Linked text={status.text} /> ·{" "}
-        <span title={stamp(status.at)}>{age(status.at)} ago</span>
+        <span className="thread-line-label">
+          <GitCommitHorizontal size={12} aria-hidden /> Started:
+        </span>{" "}
+        <span className="thread-line-text">
+          <Linked text={status.text} />
+        </span>{" "}
+        ·{" "}
+        <span className="thread-age" title={stamp(status.at)}>
+          {age(status.at)} ago
+        </span>
       </span>
     </div>
   );
@@ -1218,7 +1226,9 @@ function CommentMessage({ comment }: { comment: SessionComment }) {
       <div className="msg-col">
         <div className="msg-meta">
           <span className="text">{comment.author}</span> commented on <ItemChip item={comment.item} /> ·{" "}
-          <span title={stamp(comment.created_at)}>{age(comment.created_at)} ago</span>
+          <span className="thread-age" title={stamp(comment.created_at)}>
+            {age(comment.created_at)} ago
+          </span>
         </div>
         <div
           onClick={(e) => {
@@ -1288,7 +1298,9 @@ function NoteMessage({
       <div className="msg-col">
         <div className="msg-meta">
           <span className="text">{agent ?? "The agent"}</span> wrote ·{" "}
-          <span title={stamp(status.at)}>{age(status.at)} ago</span>
+          <span className="thread-age" title={stamp(status.at)}>
+            {age(status.at)} ago
+          </span>
           {files.length ? (
             <span className="note-file-count">
               <Paperclip size={12} aria-hidden /> {files.length} file{files.length === 1 ? "" : "s"}
@@ -1326,13 +1338,18 @@ function FinishedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-finished" data-testid="finished">
       <span>
-        <CheckCircle2 size={13} aria-hidden /> Finished
+        <span className="thread-line-label">
+          <CheckCircle2 size={13} aria-hidden /> Finished{status.text ? ":" : ""}
+        </span>{" "}
         {status.text ? (
-          <>
-            : <Linked text={status.text} />
-          </>
+          <span className="thread-line-text">
+            <Linked text={status.text} />
+          </span>
         ) : null}{" "}
-        · <span title={stamp(status.at)}>{age(status.at)} ago</span>
+        ·{" "}
+        <span className="thread-age" title={stamp(status.at)}>
+          {age(status.at)} ago
+        </span>
       </span>
     </div>
   );
@@ -1407,7 +1424,10 @@ function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "revised
       <RefreshCw size={13} className="thread-revised-icon" aria-hidden />
       <span className="thread-revised-text">
         Revised <span className="thread-revised-title">{review.title}</span>
-        {round ? ` · round ${round}` : ""} · <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+        {round ? ` · round ${round}` : ""} ·{" "}
+        <span className="thread-age" title={stamp(review.created_at)}>
+          {age(review.created_at)} ago
+        </span>
       </span>
       {waiting ? <span className="thread-revised-waiting">Waiting for you</span> : null}
       <ArrowUp size={12} className="thread-revised-up" aria-hidden />
@@ -1430,7 +1450,9 @@ function WithdrawnLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "withd
       <Undo2 size={13} className="thread-revised-icon" aria-hidden />
       <span className="thread-revised-text">
         {said} <span className="thread-revised-title">{review.title}</span> ·{" "}
-        <span title={stamp(at)}>{age(at)} ago</span>
+        <span className="thread-age" title={stamp(at)}>
+          {age(at)} ago
+        </span>
         {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : ""}
       </span>
       <ArrowUp size={12} className="thread-revised-up" aria-hidden />
@@ -1647,7 +1669,9 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
       <div className="msg-col">
         <div className="msg-meta">
           <span className="text">{review.requested_by ?? "The agent"}</span> {pending ? "asks" : "asked"} ·{" "}
-          <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+          <span className="thread-age" title={stamp(review.created_at)}>
+            {age(review.created_at)} ago
+          </span>
           {pending ? <span className="msg-waiting">waiting for your answer</span> : null}
           {review.items?.length ? (
             <span className="msg-items">

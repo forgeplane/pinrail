@@ -3888,18 +3888,25 @@ body.is-resizing iframe {
 .thread-started {
   color: var(--accent);
 }
-.thread-started > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
+/* Started and Finished run as text: the label, then what the agent said,
+   which wraps under it on a narrow thread, then the time */
+.thread-started > span,
 .thread-finished > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  min-width: 0;
+  text-align: center;
+  line-height: 1.5;
 }
-.thread-finished svg {
-  flex: none;
+.thread-line-label {
+  white-space: nowrap;
+}
+.thread-line-label svg {
+  margin-right: 2px;
+  vertical-align: -2px;
+}
+/* a time never breaks inside, nor a name in a message's header */
+.thread-age,
+.msg-meta .text {
+  white-space: nowrap;
 }
 .thread-aside {
   display: flex;
@@ -4262,8 +4269,9 @@ body.is-resizing iframe {
 }
 .msg-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px 4px;
   font-size: 12px;
   color: var(--dim);
 }
