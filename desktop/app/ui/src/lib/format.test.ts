@@ -68,6 +68,11 @@ describe("stamp", () => {
     expect(stamp("not a date")).toBe("not a date");
     expect(stamp(null)).toBe("");
   });
+  test("is the date and time to the minute, in the person's locale", () => {
+    const iso = "2026-11-09T14:05:30Z";
+    const options = { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" } as const;
+    expect(stamp(iso)).toBe(new Date(iso).toLocaleString(undefined, options));
+  });
 });
 
 describe("ordinal", () => {

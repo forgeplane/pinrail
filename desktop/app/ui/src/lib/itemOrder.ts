@@ -27,6 +27,9 @@ const standing = (i: WorkItem) =>
         ? 4
         : 5;
 
+/** Titles compared whatever their case and accents; one collator for every
+ *  comparison, since making one is slow. */
+const titles = new Intl.Collator(undefined, { sensitivity: "base" });
 const oldest = (a: WorkItem, b: WorkItem) => a.repo.localeCompare(b.repo) || a.number - b.number;
 const newest = (a: WorkItem, b: WorkItem) => b.created_at.localeCompare(a.created_at) || -oldest(a, b);
 
@@ -37,7 +40,7 @@ export function orderItems(items: WorkItem[], ordering: Ordering): WorkItem[] {
     newest,
     updated: (a, b) => b.updated_at.localeCompare(a.updated_at) || newest(a, b),
     status: (a, b) => standing(a) - standing(b) || oldest(a, b),
-    title: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) || oldest(a, b),
+    title: (a, b) => titles.compare(a.title, b.title) || oldest(a, b),
   };
   return [...items].sort(by[ordering]);
 }
