@@ -47,6 +47,7 @@ import { QuestionSet } from "./thread/QuestionSet";
 import { IdleComposer, MessageComposer } from "./thread/composers";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
+import { useNewestFirst } from "./thread/useNewestFirst";
 import { useThreadScroll } from "./thread/useThreadScroll";
 import { store, stored } from "./thread/storage";
 
@@ -258,6 +259,12 @@ export function Thread({
     () => entriesOf(items, statuses, messages, comments, itemEvents),
     [items, statuses, messages, comments, itemEvents],
   );
+  // a long thread draws its newest entries first, unless it opens at one
+  // further up
+  const { shown, whole } = useNewestFirst(entries, timeline, {
+    all: !!focus || !!stage,
+    thread: named ? `${named.agent}/${named.id}` : null,
+  });
 
   // the session's details beside the thread: shown or hidden with the
   // button or ⌘⇧B, and as wide as their edge is dragged; a side panel keeps
@@ -453,12 +460,12 @@ export function Thread({
               />
             ) : null}
             <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
-              {session ? (
+              {session && whole ? (
                 <div className="thread-divider">
                   <span>Session started {stamp(session.first_at)}</span>
                 </div>
               ) : null}
-              {entries.map((entry) => {
+              {shown.map((entry) => {
                 if (entry.kind === "message")
                   return (
                     <MessageBubble

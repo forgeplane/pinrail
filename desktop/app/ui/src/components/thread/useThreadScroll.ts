@@ -3,7 +3,7 @@
 // newest message, and what was clicked kept in place when its width
 // changes.
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Review, Session } from "../../api/types";
 
 export function useThreadScroll(
@@ -12,9 +12,10 @@ export function useThreadScroll(
   { focus, items, session, stage }: { focus?: Review; items: Review[]; session: Session | null; stage?: number },
 ) {
   // once the thread is there, the questions opened are scrolled to, or,
-  // for the session alone, the stage asked for or its newest message
+  // for the session alone, the stage asked for or its newest message,
+  // before the thread is first painted
   const scrolled = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scrolled.current) return;
     if (focus) {
       if (items.length < 2) return;

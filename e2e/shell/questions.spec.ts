@@ -221,6 +221,38 @@ test("a session's thread opens scrolled to its newest message", async ({ page })
   expect(await items.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 });
 
+test("a long session's thread shows its newest entries first, at its end", async ({ page }) => {
+  const session = fresh();
+  for (let i = 1; i <= 100; i++) {
+    await report(page.request, session, { text: `Stage ${i}`, kind: "start" });
+    await report(page.request, session, { text: `Step of stage ${i}` });
+  }
+  // what each frame shows of the thread, from its first entry on
+  await page.addInitScript(() => {
+    const frames: { entries: number; atEnd: boolean }[] = [];
+    (window as unknown as { frames_: typeof frames }).frames_ = frames;
+    const look = () => {
+      const el = document.querySelector(".thread-items");
+      const entries = el?.querySelectorAll(":scope > :not(.thread-divider)").length ?? 0;
+      if (el && entries) frames.push({ entries, atEnd: el.scrollHeight - el.clientHeight - el.scrollTop < 2 });
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const items = thread(page).locator(".thread-items");
+  await expect(items.getByText("Session started")).toBeAttached();
+  await expect(items.getByTestId("status").last()).toContainText("Step of stage 100");
+  await expect.poll(() => items.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
+
+  const frames = await page.evaluate(
+    () => (window as unknown as { frames_: { entries: number; atEnd: boolean }[] }).frames_,
+  );
+  // the first frame shows only the newest entries, and no frame shows the start
+  expect(frames[0].entries).toBeLessThan(frames[frames.length - 1].entries);
+  expect(frames.filter((f) => !f.atEnd)).toEqual([]);
+});
+
 test("a question's thread links to its session's page", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);
