@@ -52,12 +52,21 @@ import { RELEASES, compareVersions, latestNotes, releasesToShow, type CardAction
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
 
-// Cmd+I for the inbox; History takes the shift, as Cmd+H hides the app.
-// Plugins live in the settings: Cmd+Shift+P opens that section.
+// Cmd+1 to Cmd+4 go to the sidebar's pages, in its order, and Cmd+I to the
+// inbox too; History takes the shift, as Cmd+H hides the app. Plugins live
+// in the settings: Cmd+Shift+P opens that section.
 const NAV = [
-  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", shift: false, keys: [MOD, "I"] },
-  // no shortcut of its own, which a plugin's view could no longer have
-  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, letter: "", shift: false, keys: [] },
+  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", digit: "1", shift: false, keys: [MOD, "I"] },
+  {
+    key: "sessions",
+    label: "Sessions",
+    to: "/sessions",
+    Icon: MessagesSquare,
+    letter: "",
+    digit: "2",
+    shift: false,
+    keys: [MOD, "2"],
+  },
   // the inbox's History tab, which has a shortcut and no entry of its own
   {
     key: "history",
@@ -65,11 +74,30 @@ const NAV = [
     to: "/?tab=history",
     Icon: History,
     letter: "h",
+    digit: "",
     shift: true,
     keys: [MOD, SHIFT, "H"],
   },
-  { key: "items", label: "Work items", to: "/items", Icon: ListChecks, letter: "", shift: false, keys: [] },
-  { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, letter: "", shift: false, keys: [] },
+  {
+    key: "items",
+    label: "Work items",
+    to: "/items",
+    Icon: ListChecks,
+    letter: "",
+    digit: "3",
+    shift: false,
+    keys: [MOD, "3"],
+  },
+  {
+    key: "projects",
+    label: "Projects",
+    to: "/projects",
+    Icon: LayoutGrid,
+    letter: "",
+    digit: "4",
+    shift: false,
+    keys: [MOD, "4"],
+  },
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
@@ -165,6 +193,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const sidebar = prefs.sidebar.open;
   // sessions, their page and their list in the sidebar, are in Settings › Labs
   const sessionsOn = prefs.labs.sessions;
+  const sessionsOnRef = useRef(sessionsOn);
+  sessionsOnRef.current = sessionsOn;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
@@ -376,7 +406,14 @@ export function Layout({ children }: { children: ReactNode }) {
         return;
       }
       if (hasMod(event) && !event.altKey) {
-        const page = NAV.find((n) => n.letter === event.key.toLowerCase() && n.shift === event.shiftKey);
+        const page = NAV.find(
+          (n) =>
+            n.shift === event.shiftKey &&
+            ((n.letter && n.letter === event.key.toLowerCase()) ||
+              (!event.shiftKey && n.digit && n.digit === event.key)),
+        );
+        // Sessions is a page only while it is on in Settings › Labs
+        if (page?.key === "sessions" && !sessionsOnRef.current) return;
         if (page) {
           event.preventDefault();
           navigate(page.to);
@@ -450,6 +487,15 @@ export function Layout({ children }: { children: ReactNode }) {
           break;
         case "go-history":
           navigate(NAV[2].to);
+          break;
+        case "go-sessions":
+          if (sessionsOnRef.current) navigate("/sessions");
+          break;
+        case "go-items":
+          navigate("/items");
+          break;
+        case "go-projects":
+          navigate("/projects");
           break;
         case "go-plugins":
           setSettings("plugins");

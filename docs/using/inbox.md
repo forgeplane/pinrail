@@ -106,7 +106,8 @@ Press <kbd>?</kbd> anywhere in the app to see the keys, in sections: those of th
 | <kbd>⌘D</kbd> | Discard the focused or open review |
 | <kbd>/</kbd> | Search the page |
 | <kbd>⌘K</kbd> | Search everything |
-| <kbd>⌘I</kbd> | Inbox |
+| <kbd>⌘1</kbd> or <kbd>⌘I</kbd> | Inbox |
+| <kbd>⌘2</kbd> / <kbd>⌘3</kbd> / <kbd>⌘4</kbd> | Sessions / Work items / Projects |
 | <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | The inbox's History tab / Plugins |
 | <kbd>⌘,</kbd> | Settings |
 | <kbd>⌘⇧L</kbd> | Switch theme |

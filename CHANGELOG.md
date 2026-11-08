@@ -45,6 +45,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Find text in a session's thread with ⌘F, as in a review's view.
 - `pinrail ask --suggest-reply` suggests the reply the agent expects. The
   empty comment box shows it, and Tab takes it.
+- ⌘1 to ⌘4 go to the Inbox, Sessions, Work items and Projects pages.
 
 ### Changed
 

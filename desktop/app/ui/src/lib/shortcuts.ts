@@ -11,7 +11,17 @@ export const SHORTCUTS: Shortcut[] = [
   // anywhere
   { section: "General", what: "Search everything", keys: [[MOD, "K"]] },
   { section: "General", what: "Search the page", keys: [["/"]] },
-  { section: "General", what: "Inbox", keys: [[MOD, "I"]] },
+  {
+    section: "General",
+    what: "Inbox",
+    keys: [
+      [MOD, "1"],
+      [MOD, "I"],
+    ],
+  },
+  { section: "General", what: "Sessions", keys: [[MOD, "2"]] },
+  { section: "General", what: "Work items", keys: [[MOD, "3"]] },
+  { section: "General", what: "Projects", keys: [[MOD, "4"]] },
   {
     section: "General",
     what: "History / Plugins",
@@ -205,7 +215,9 @@ const PRIMARY = isMac ? "cmd" : "ctrl";
  * receives it; every other declared key is forwarded to its view.
  */
 export const APP_KEYS = new Set([
-  ...["k", ",", "i", "b", "d", "f", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) => combo(k, PRIMARY)),
+  ...["k", ",", "i", "b", "d", "f", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a", "1", "2", "3", "4"].map((k) =>
+    combo(k, PRIMARY),
+  ),
   ...["h", "p", "m", "l", "z", "c"].map((k) => combo(k, PRIMARY, "shift")),
   ...(isMac ? [combo("h", "cmd"), combo("h", "alt", "cmd"), combo("f", "ctrl", "cmd")] : []),
   // the review screen: help, rounds, closing, and handing over. J and K

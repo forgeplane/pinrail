@@ -78,6 +78,9 @@ describe("the app's own keys", () => {
     expect(mac.isShadowed("ctrl+k")).toBe(false);
     // modifiers in the order the core writes them too: ctrl, alt, shift, cmd
     expect(mac.isShadowed("shift+cmd+h")).toBe(true);
+    // the pages of the sidebar
+    for (const n of ["1", "2", "3", "4"]) expect(mac.isShadowed(`cmd+${n}`)).toBe(true);
+    expect(mac.isShadowed("1")).toBe(false);
     const linux = await on("Linux x86_64");
     expect(linux.isShadowed("ctrl+k")).toBe(true);
     expect(linux.isShadowed("cmd+k")).toBe(false);
