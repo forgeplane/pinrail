@@ -26,6 +26,7 @@ import type {
   ThemeEntry,
   Violation,
   WorkItem,
+  ItemStatus,
 } from "./types";
 
 export class ApiError extends Error {
@@ -40,6 +41,18 @@ export class ApiError extends Error {
     this.violations = Array.isArray(said.violations) ? said.violations : [];
   }
 }
+
+// every status an item can have, as a record so that a status added to
+// ItemStatus has to be added here too
+const itemStatuses: Record<ItemStatus, true> = {
+  open: true,
+  in_progress: true,
+  on_hold: true,
+  done: true,
+  cancelled: true,
+};
+/** The `status` that lists items whatever their status. */
+export const EVERY_ITEM_STATUS = Object.keys(itemStatuses).join(",");
 
 let baseUrl: Promise<string> | undefined;
 

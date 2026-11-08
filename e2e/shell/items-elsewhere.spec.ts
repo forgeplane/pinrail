@@ -3,7 +3,7 @@
 // repository's key prefix on the Projects page, and the command palette.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, onReviewPages, openReviewsIn } from "./helpers";
+import { core, onReviewPages, openReviewsIn, shellOrigin } from "./helpers";
 
 // a review opens on a page of its own, where its header is
 onReviewPages();
@@ -320,6 +320,30 @@ test("the command palette finds work items by key and title", async ({ page, req
     .first()
     .click();
   await expect(panelKey(page)).toHaveText(item.key);
+});
+
+test("an item on hold stays in its session's details and is found with ⌘K", async ({ page, request }) => {
+  const repo = fresh("held");
+  const session = `s-held-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Load the themes", kind: "start" },
+  });
+  const item = await add(request, repo, `Paused work ${Date.now()}`, { session });
+  await request.patch(`${core}/api/v1/items/${item.key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  // the person puts it on hold in the app
+  const held = await request.patch(`${core}/api/v1/items/${item.key}`, {
+    data: { status: "on_hold" },
+    headers: { origin: shellOrigin },
+  });
+  expect(held.status(), await held.text()).toBe(200);
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByTestId("thread-work-item")).toHaveText([new RegExp(`${item.key} · on hold`)]);
+
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  await palette.getByRole("textbox").fill(item.key);
+  await expect(palette.getByText(/Paused work/).first()).toBeVisible();
 });
 
 test("a comment the session's agent writes on an item shows in its thread", async ({ page, request }) => {

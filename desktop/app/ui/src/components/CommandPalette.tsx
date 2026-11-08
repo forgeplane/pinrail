@@ -5,7 +5,7 @@
 import { GitCommitHorizontal, Search, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { api } from "../api/client";
+import { api, EVERY_ITEM_STATUS } from "../api/client";
 import type { Plugin, Review, Stage, WorkItem } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
@@ -92,7 +92,7 @@ export function CommandPalette({
       .catch(() => setPlugins([]));
     // every work item, found by its key or its title as the person types
     api
-      .items({ status: "open,in_progress,done,cancelled" })
+      .items({ status: EVERY_ITEM_STATUS })
       .then(({ items }) => setWorkItems(items))
       .catch(() => setWorkItems([]));
     const focus = window.setTimeout(() => input.current?.focus(), 0);

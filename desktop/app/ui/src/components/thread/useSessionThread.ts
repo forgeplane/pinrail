@@ -4,7 +4,7 @@
 // notice is about any of them.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api } from "../../api/client";
+import { ApiError, api, EVERY_ITEM_STATUS } from "../../api/client";
 import type {
   Review,
   Session,
@@ -28,7 +28,7 @@ export function useSessionThread(
     if (!named) return;
     let cancelled = false;
     api
-      .items({ agent: named.agent, session: named.id, status: "open,in_progress,done,cancelled" })
+      .items({ agent: named.agent, session: named.id, status: EVERY_ITEM_STATUS })
       .then((d) => !cancelled && setSessionItems(d.items))
       .catch(() => {});
     return () => {

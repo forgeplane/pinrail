@@ -2,7 +2,7 @@
 // panel of the Work items page, with every item for its pickers.
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, EVERY_ITEM_STATUS } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { useLive } from "../state/live";
 import { ItemPanel } from "./ItemPanel";
@@ -20,7 +20,7 @@ export function SessionItemPanel({
   const [items, setItems] = useState<WorkItem[]>([]);
   const load = useCallback(() => {
     api
-      .items({ status: "open,in_progress,done,cancelled" })
+      .items({ status: EVERY_ITEM_STATUS })
       .then((d) => setItems(d.items))
       .catch(() => {});
   }, []);
