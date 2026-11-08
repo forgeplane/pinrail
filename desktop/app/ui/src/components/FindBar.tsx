@@ -7,12 +7,9 @@
 
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Found } from "../lib/findText";
+import { FIND_LIMIT, type Found } from "../lib/findText";
 import { SHIFT } from "../lib/keys";
 import { Tooltip } from "./Tooltip";
-
-/** The most matches a view counts; more show as "1000+". */
-const FIND_LIMIT = 1000;
 
 type Props = {
   /** the search, which outlives the bar: it comes back when the bar opens again */
