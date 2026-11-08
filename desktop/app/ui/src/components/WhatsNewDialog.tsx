@@ -5,7 +5,7 @@
 // the last card closes the dialog.
 
 import { Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pictureOf, type CardAction, type Release } from "../lib/whatsNew";
 import { useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
@@ -34,7 +34,9 @@ export function WhatsNewDialog({
     next.current?.focus();
   }, []);
 
-  useEffect(() => {
+  // added before the dialog is painted, so a key pressed as soon as it
+  // shows is not lost
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape") {
