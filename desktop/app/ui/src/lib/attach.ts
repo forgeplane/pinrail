@@ -2,7 +2,7 @@
 // or a comment: each file is uploaded, given a name the Markdown can link
 // to, and linked at the cursor, an image shown in place.
 
-import { useCallback, useState, type ClipboardEvent, type DragEvent, type RefObject } from "react";
+import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent, type RefObject } from "react";
 import { ApiError, api } from "../api/client";
 
 /** A file the Markdown links to, as the core takes it beside the text. */
@@ -54,6 +54,9 @@ export function useAttach({
 }) {
   const [files, setFiles] = useState<Record<string, Attached>>({});
   const [busy, setBusy] = useState(0);
+  // the names given so far, kept as each is chosen: a file pasted while
+  // another uploads must not take its name
+  const given = useRef(new Set<string>());
 
   const attach = useCallback(
     async (list: File[]) => {
@@ -62,11 +65,20 @@ export function useAttach({
       try {
         const added: Record<string, Attached> = {};
         const links: string[] = [];
-        for (const file of list) {
-          const name = freeName(fileName(file.name || "file"), (n) => taken.includes(n) || n in files || n in added);
-          const stored = await api.uploadFile(file);
-          added[name] = stored;
-          links.push(markdownFor(name, stored.media_type));
+        const names = list.map((file) => {
+          const name = freeName(fileName(file.name || "file"), (n) => taken.includes(n) || given.current.has(n));
+          given.current.add(name);
+          return name;
+        });
+        try {
+          for (const [i, file] of list.entries()) {
+            const stored = await api.uploadFile(file);
+            added[names[i]] = stored;
+            links.push(markdownFor(names[i], stored.media_type));
+          }
+        } finally {
+          // a name whose file was not uploaded is free again
+          for (const name of names) if (!(name in added)) given.current.delete(name);
         }
         setFiles((current) => ({ ...current, ...added }));
         const el = box.current;
@@ -85,7 +97,7 @@ export function useAttach({
         setBusy((n) => n - 1);
       }
     },
-    [box, onChange, taken, files, onError],
+    [box, onChange, taken, onError],
   );
 
   /** what to give the text box's container, so a paste or a drop attaches */
@@ -111,5 +123,10 @@ export function useAttach({
   const linked = (text: string) =>
     Object.fromEntries(Object.entries(files).filter(([name]) => text.includes(`(attachment:${name})`)));
 
-  return { attach, handlers, linked, busy: busy > 0, reset: () => setFiles({}) };
+  const reset = () => {
+    setFiles({});
+    given.current.clear();
+  };
+
+  return { attach, handlers, linked, busy: busy > 0, reset };
 }

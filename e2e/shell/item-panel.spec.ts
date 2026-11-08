@@ -540,3 +540,34 @@ test("a file attached to a comment takes a name no file of the item has", async 
   const stored = await read(request, item.key);
   expect(stored.files.map((f: { sha256: string }) => f.sha256)).toEqual([sha256]);
 });
+
+test("two files pasted before the first is uploaded take names of their own", async ({ page, request }) => {
+  const repo = fresh("quick-paste");
+  const item = await add(request, repo, "Item");
+  await openItem(page, repo, item.key);
+  // the first upload takes a while
+  let first = true;
+  await page.route("**/api/v1/attachments/*", async (route) => {
+    if (first) {
+      first = false;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    await route.continue();
+  });
+  const field = panel(page).getByLabel("Add a comment");
+  const paste = (text: string) =>
+    field.evaluate((el, text) => {
+      const data = new DataTransfer();
+      data.items.add(new File([text], "image.png", { type: "image/png" }));
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }, text);
+  await paste("the first picture");
+  await paste("the second picture");
+  await expect(field).toHaveValue(/attachment:image\.png\)/);
+  await expect(field).toHaveValue(/attachment:image-2\.png\)/);
+  await field.press("ControlOrMeta+Enter");
+  await expect(panel(page).getByTestId("item-comment")).toHaveCount(1);
+  const stored = await read(request, item.key);
+  const comment = stored.timeline.find((e: { type: string }) => e.type === "comment");
+  expect(comment.files.map((f: { name: string }) => f.name).sort()).toEqual(["image-2.png", "image.png"]);
+});
