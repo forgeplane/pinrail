@@ -11,10 +11,8 @@ import {
   ListChecks,
   ListPlus,
   MessageSquare,
-  MessagesSquare,
   Moon,
   PanelLeft,
-  Search,
   Settings,
   Sparkles,
   Sun,
@@ -23,8 +21,8 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { api, sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
@@ -34,6 +32,9 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, modalOpen } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { HISTORY_PATH, Sidebar, useSidebarWidth } from "./Sidebar";
+import { useWelcome } from "./useWelcome";
+import { useWhatsNew } from "./useWhatsNew";
 import { useAppCommands, type CommandRun } from "./useAppCommands";
 import { command, type CommandId } from "../lib/commands";
 import { reviewPath, reviewShown } from "../lib/url";
@@ -44,42 +45,12 @@ import { useTopBarContent } from "../state/topbar";
 import { setItemPrefixes } from "../lib/markdown";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { chooseTheme, chosenTheme } from "../lib/themes";
-import { SidebarProjects } from "./SidebarProjects";
-import { SidebarSessions } from "./SidebarSessions";
 import { Tooltip } from "./Tooltip";
-import { UpdateNotice } from "./UpdateNotice";
-import { FIRST_REVIEW, WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
+import { WelcomeDialog } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
-import { RELEASES, compareVersions, latestNotes, releasesToShow, type CardAction, type Release } from "../lib/whatsNew";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
-
-// The sidebar's pages, with the History tab, which has a shortcut and no
-// entry of its own; their keys come from the commands table.
-const NAV = [
-  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, keys: command("go-inbox").keys![0] },
-  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, keys: command("go-sessions").keys![0] },
-  { key: "history", label: "History", to: "/?tab=history", Icon: History, keys: command("go-history").keys![0] },
-  { key: "items", label: "Work items", to: "/items", Icon: ListChecks, keys: command("go-items").keys![0] },
-  { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, keys: command("go-projects").keys![0] },
-];
-const SIDEBAR = NAV.filter((n) => n.key !== "history");
-
-/** The sidebar's width, remembered on this machine, and its bounds. */
-const SIDEBAR_WIDTH = "pinrail.sidebar.width";
-const SIDEBAR_MIN = 200;
-const SIDEBAR_MAX = 420;
-const SIDEBAR_DEFAULT = 220;
-const clampSidebar = (w: number) => Math.round(Math.max(SIDEBAR_MIN, Math.min(w, SIDEBAR_MAX)));
-function savedSidebarWidth(): number {
-  try {
-    const n = Number(localStorage.getItem(SIDEBAR_WIDTH));
-    return n > 0 ? clampSidebar(n) : SIDEBAR_DEFAULT;
-  } catch {
-    return SIDEBAR_DEFAULT;
-  }
-}
 
 const pageTitle = (path: string) =>
   path === "/"
@@ -152,7 +123,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }, []);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
-  const { settings: prefs, themes, update, loaded } = useSettings();
+  const { settings: prefs, themes, update } = useSettings();
   const sidebar = prefs.sidebar.open;
   // sessions, their page and their list in the sidebar, are in Settings › Labs
   const sessionsOn = prefs.labs.sessions;
@@ -172,72 +143,11 @@ export function Layout({ children }: { children: ReactNode }) {
     </Tooltip>
   );
 
-  // Show What's new once for each release that has notes, when the settings
-  // first load. A fresh install shows nothing and records the installed
-  // release as seen.
-  const [whatsNew, setWhatsNew] = useState<Release[] | null>(null);
-  const [running, setRunning] = useState<string | null>(null);
-  const newsAsked = useRef(false);
-  useEffect(() => {
-    if (!loaded || newsAsked.current) return;
-    newsAsked.current = true;
-    const fresh = !prefs.welcome.seen;
-    const seen = prefs.whats_new.seen;
-    api
-      .info()
-      .then(({ version }) => {
-        setRunning(version);
-        const releases = releasesToShow(RELEASES, version, seen, fresh);
-        if (releases.length) setWhatsNew(releases);
-        // record a release without notes as seen, but never an older one than recorded
-        else if (!seen || compareVersions(seen, version) < 0) void update({ whats_new: { seen: version } });
-      })
-      .catch(() => {});
-  }, [loaded, prefs.welcome.seen, prefs.whats_new.seen, update]);
-  // opened from the menu, the command palette or Settings › About
-  const latest = running ? latestNotes(RELEASES, running, import.meta.env.DEV) : [];
-  const openWhatsNew = () => {
-    if (latest.length) setWhatsNew(latest);
-  };
-  const openWhatsNewRef = useRef(openWhatsNew);
-  openWhatsNewRef.current = openWhatsNew;
-  const closeWhatsNew = () => {
-    const seen = prefs.whats_new.seen;
-    if (running && (!seen || compareVersions(seen, running) < 0)) void update({ whats_new: { seen: running } });
-    setWhatsNew(null);
-  };
-  const openFromWhatsNew = (action: CardAction) => {
-    if (action.settings) setSettings(action.settings as SettingsSection);
-    else if (action.to) navigate(action.to);
-  };
+  const { whatsNew, latest, openWhatsNew, openWhatsNewRef, closeWhatsNew, openFromWhatsNew } = useWhatsNew({
+    onSettings: (section) => setSettings(section),
+  });
 
-  // Pinrail opens the setup until it is finished or skipped; asked once,
-  // when the settings first arrive
-  const [welcome, setWelcome] = useState<WelcomeAt | null>(null);
-  const welcomed = useRef(false);
-  useEffect(() => {
-    if (!loaded || welcomed.current) return;
-    welcomed.current = true;
-    if (!prefs.welcome.seen) setWelcome({ step: 0 });
-  }, [loaded, prefs.welcome.seen]);
-  const closeWelcome = () => {
-    setWelcome(null);
-    setAway(null);
-    if (!prefs.welcome.seen) void update({ welcome: { seen: true } });
-  };
-  // the setup steps aside while its first review is decided, and comes
-  // back on that step once it is
-  const [away, setAway] = useState<string | null>(null);
-  const openFromWelcome = (id: string) => {
-    setAway(id);
-    setWelcome(null);
-    navigate(reviewPath(id, prefs.inbox.open_in));
-  };
-  useEffect(() => {
-    if (!away || !live.connected || live.pending.some((r) => r.id === away)) return;
-    setWelcome({ step: FIRST_REVIEW, sample: away, decided: true });
-    setAway(null);
-  }, [away, live.connected, live.pending]);
+  const { welcome, setWelcome, closeWelcome, openFromWelcome } = useWelcome();
 
   // a link to /plugins lands in the settings section
   useEffect(() => {
@@ -314,7 +224,7 @@ export function Layout({ children }: { children: ReactNode }) {
     "go-sessions": () => (sessionsOn ? void navigate("/sessions") : false),
     "go-items": () => void navigate("/items"),
     "go-projects": () => void navigate("/projects"),
-    "go-history": () => void navigate(NAV[2].to),
+    "go-history": () => void navigate(HISTORY_PATH),
     "go-plugins": () => setSettings("plugins"),
     "next-waiting": () => walkWaiting(1),
     "previous-waiting": () => walkWaiting(-1),
@@ -412,124 +322,25 @@ export function Layout({ children }: { children: ReactNode }) {
       : []),
   ];
 
-  // the sidebar's width: dragged by its edge, or with the arrow keys on it
-  const [sidebarWidth, setSidebarWidth] = useState(savedSidebarWidth);
-  const keepSidebarWidth = (w: number) => {
-    setSidebarWidth(w);
-    try {
-      localStorage.setItem(SIDEBAR_WIDTH, String(w));
-    } catch {
-      // private mode or no storage: the width lasts until the app restarts
-    }
-  };
-  const resizeSidebar = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
-    document.body.classList.add("is-resizing");
-    const onMove = (e: PointerEvent) => setSidebarWidth(clampSidebar(e.clientX - left));
-    const onUp = (e: PointerEvent) => {
-      document.body.classList.remove("is-resizing");
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      keepSidebarWidth(clampSidebar(e.clientX - left));
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const resizeSidebarBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 80 : 20;
-    if (event.key === "ArrowRight") keepSidebarWidth(clampSidebar(sidebarWidth + step));
-    else if (event.key === "ArrowLeft") keepSidebarWidth(clampSidebar(sidebarWidth - step));
-    else return;
-    event.preventDefault();
-  };
+  const sidebarWidth = useSidebarWidth();
 
   return (
     <div
       className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      style={{ "--sidebar-width": `${sidebarWidth.width}px` } as CSSProperties}
     >
       {sidebar ? (
-        <aside className="app-sidebar" aria-label="Workspace">
-          <div
-            className="panel-resizer sidebar-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize the sidebar"
-            aria-valuenow={sidebarWidth}
-            aria-valuemin={SIDEBAR_MIN}
-            aria-valuemax={SIDEBAR_MAX}
-            tabIndex={0}
-            onPointerDown={resizeSidebar}
-            onKeyDown={resizeSidebarBy}
-            onDoubleClick={() => keepSidebarWidth(SIDEBAR_DEFAULT)}
-          />
-          <div className="sidebar-bar" data-tauri-drag-region>
-            {sidebarButton}
-          </div>
-          <div className="sidebar-scroll" data-testid="sidebar-scroll">
-            <nav className="app-nav" aria-label="Main">
-              {SIDEBAR.filter((n) => sessionsOn || n.key !== "sessions").map(({ key, label, to, Icon, keys }) => (
-                <Fragment key={key}>
-                  <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
-                    <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
-                      <span className="nav-label">
-                        <Icon size={15} strokeWidth={1.75} />
-                        {label}
-                      </span>
-                      {key === "inbox" ? (
-                        <span className="nav-count" data-testid="inbox-count">
-                          {live.pendingCount}
-                        </span>
-                      ) : null}
-                      {key === "items" && openItems ? (
-                        <Tooltip label={`${openItems} open or in progress`} side="bottom">
-                          <span className="nav-count is-quiet" data-testid="items-count">
-                            {openItems}
-                          </span>
-                        </Tooltip>
-                      ) : null}
-                    </NavLink>
-                  </Tooltip>
-                </Fragment>
-              ))}
-              <button type="button" className="nav-search" onClick={() => setPalette(true)}>
-                <span className="nav-label">
-                  <Search size={15} strokeWidth={1.75} />
-                  Search
-                </span>
-                <span className="nav-keys">
-                  <kbd>{MOD}</kbd>
-                  <kbd>K</kbd>
-                </span>
-              </button>
-            </nav>
-            {sessionsOn ? (
-              <SidebarSessions shown={shown} />
-            ) : (
-              <SidebarProjects shown={shown} openIn={prefs.inbox.open_in} />
-            )}
-            <UpdateNotice onDetails={() => setSettings("about")} />
-            <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
-              <MessageSquare size={15} strokeWidth={1.75} />
-              Send feedback
-            </button>
-            <div className="sidebar-bottom">
-              <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
-              <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
-              <Tooltip label="Settings" keys={[MOD, ","]} side="top">
-                <button
-                  type="button"
-                  className="bar-button sidebar-gear"
-                  onClick={() => setSettings("general")}
-                  aria-label="Settings"
-                >
-                  <Settings size={15} />
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        </aside>
+        <Sidebar
+          width={sidebarWidth}
+          toggle={sidebarButton}
+          sessionsOn={sessionsOn}
+          shown={shown}
+          openIn={prefs.inbox.open_in}
+          openItems={openItems}
+          onSearch={() => setPalette(true)}
+          onSettings={setSettings}
+          onFeedback={() => setFeedback(true)}
+        />
       ) : null}
       <div className="app-shell">
         <header className="app-topbar" data-tauri-drag-region data-testid="top-bar">
