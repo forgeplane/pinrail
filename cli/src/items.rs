@@ -41,12 +41,12 @@ enum ItemsCommand {
     ///     ]}
     #[command(verbatim_doc_comment)]
     Add(AddArgs),
-    /// List the work items that are open or in progress
+    /// List the work items that are open, in progress or on hold
     List(ListArgs),
     /// Print the next work item that is ready, and claim it with --claim
     ///
-    /// Ready means open, waiting for no item it depends on, and with no
-    /// open sub-item. The next is a sub-item of an item the session holds,
+    /// Ready means open, not on hold nor under an item on hold, waiting for
+    /// no item it depends on, and with no open sub-item. The next is a sub-item of an item the session holds,
     /// if any, then the item that unblocks the most others, then the
     /// oldest. --claim takes it for this session: it is in progress, and
     /// the reviews and questions the session sends belong to it.
@@ -119,8 +119,8 @@ struct ListArgs {
     /// Only the items that wait for an item they depend on
     #[arg(long)]
     blocked: bool,
-    /// Only these: open, in_progress, done, cancelled, ready or blocked,
-    /// separated by commas
+    /// Only these: open, in_progress, on_hold, done, cancelled, ready or
+    /// blocked, separated by commas
     #[arg(long)]
     status: Option<String>,
     /// Only the sub-items of this item
@@ -162,7 +162,9 @@ struct EditArgs {
     /// Read the description from a file, or from stdin with -
     #[arg(long, value_name = "FILE")]
     body_file: Option<PathBuf>,
-    /// open, in_progress, done or cancelled; an agent cancels with --comment
+    /// open, in_progress, done or cancelled; an agent cancels with
+    /// --comment. Only the person puts an item on hold (on_hold) or takes
+    /// it off
     #[arg(long)]
     status: Option<String>,
     /// Claim it for this session

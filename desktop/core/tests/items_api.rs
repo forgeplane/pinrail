@@ -1797,3 +1797,115 @@ async fn an_attachment_link_in_code_is_text_and_a_missing_file_is_named_as_the_i
     let said = refused["violations"][0]["message"].as_str().unwrap();
     assert!(said.contains("which the comment does not carry"), "{said}");
 }
+
+// --- on hold
+
+async fn hold(app: &App, key: &str, status: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "PATCH",
+        &format!("/api/v1/items/{key}"),
+        Some(json!({"status": status})),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn next_skips_an_item_on_hold_and_its_sub_items() {
+    let app = app();
+    add(&app, "Held").await;
+    add(&app, "Parent held").await;
+    let (code, sub) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": REPO, "title": "Sub-item", "parent": "PIN-2"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{sub}");
+    add(&app, "Free").await;
+    let (code, held) = hold(&app, "PIN-1", "on_hold").await;
+    assert_eq!(code, StatusCode::OK, "{held}");
+    assert_eq!(held["item"]["status"], "on_hold");
+    assert_eq!(held["item"]["ready"], false);
+    hold(&app, "PIN-2", "on_hold").await;
+    assert_eq!(next(&app, "s-1", false).await["key"], "PIN-4");
+    // listed on its own, and not with the open items
+    let (_, open) = call(&app, "GET", "/api/v1/items?status=open", None).await;
+    assert_eq!(keys(&open["items"]), ["PIN-3", "PIN-4"]);
+    let (_, on_hold) = call(&app, "GET", "/api/v1/items?status=on_hold", None).await;
+    assert_eq!(keys(&on_hold["items"]), ["PIN-1", "PIN-2"]);
+    // taken off hold, it is ready again
+    let (_, open) = hold(&app, "PIN-1", "open").await;
+    assert_eq!(open["item"]["status"], "open");
+    assert_eq!(open["item"]["ready"], true);
+    assert!(timeline_kinds(&open["item"]).contains(&"status".to_string()));
+}
+
+#[tokio::test]
+async fn only_the_person_puts_an_item_on_hold_or_takes_it_off() {
+    let app = app();
+    add(&app, "Held").await;
+    add(&app, "Free").await;
+    let (code, refused) = edit(&app, "PIN-2", "s-1", json!({"status": "on_hold"})).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+    hold(&app, "PIN-1", "on_hold").await;
+    let (code, refused) = edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+    assert_eq!(
+        refused["message"],
+        "PIN-1 is on hold: ask the person to take it off hold"
+    );
+    let (code, _) = edit(&app, "PIN-1", "s-1", json!({"status": "open"})).await;
+    assert_eq!(code, StatusCode::CONFLICT);
+    assert_eq!(item(&app, "PIN-1").await["status"], "on_hold");
+}
+
+#[tokio::test]
+async fn an_item_on_hold_still_blocks_what_depends_on_it() {
+    let app = app();
+    add(&app, "Held").await;
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": REPO, "title": "Waits", "depends_on": ["PIN-1"]})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    hold(&app, "PIN-1", "on_hold").await;
+    let waits = item(&app, "PIN-2").await;
+    assert_eq!(waits["ready"], false);
+    assert_eq!(waits["blocked_by"], json!(["PIN-1"]));
+}
+
+#[tokio::test]
+async fn putting_an_item_in_progress_on_hold_releases_it_and_tells_the_session() {
+    let app = app();
+    add(&app, "Work").await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        "s-1",
+        json!({"text": "Working"}),
+    )
+    .await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    let (code, held) = hold(&app, "PIN-1", "on_hold").await;
+    assert_eq!(code, StatusCode::OK, "{held}");
+    assert_eq!(held["item"]["status"], "on_hold");
+    assert_eq!(held["item"]["claim"], Value::Null);
+    let (_, answer) = agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        "s-1",
+        json!({"text": "Still working"}),
+    )
+    .await;
+    assert_eq!(
+        answer["messages"][0]["text"],
+        "PIN-1 Work is on hold now: stop working on it, and take another item."
+    );
+}

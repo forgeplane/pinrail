@@ -37,7 +37,9 @@ Open **Work items** in the sidebar. The count beside it is the number of items t
 - **Move an item to another repository** by dragging it onto another group's heading, which is outlined while you drag. Grouped by project, a project with several repositories asks which one. The item takes the next number there, and its old key still finds it.
 - **Move** through the list with <kbd>J</kbd> and <kbd>K</kbd>, and open the selected item with <kbd>Enter</kbd>.
 
-On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd> marks it done or opens it again, and <kbd>X</kbd> cancels it or opens it again.
+On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd> marks it done or opens it again, <kbd>X</kbd> cancels it or opens it again, and <kbd>H</kbd> puts it on hold or takes it off hold.
+
+Put an item on hold to keep it without starting it. No agent takes it, nor any of its sub-items: `pinrail items next` passes over them, and an agent that tries to claim one is told to ask you. An item on hold still blocks the items that depend on it. It is listed with the open items, dimmed; choose *On hold* in the status filter to list only the items on hold. Putting an item that an agent is working on on hold releases it, and the agent is told to stop the next time it runs `pinrail status`. Only you put an item on hold or take it off.
 
 ## An item's panel
 

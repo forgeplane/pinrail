@@ -865,3 +865,38 @@ test("beside the side panel, the list keeps at least 560px", async ({ page, requ
   await page.mouse.up();
   expect((await list.boundingBox())!.width).toBeGreaterThanOrEqual(560);
 });
+
+test("H puts the focused item on hold and takes it off, and the status filter has On hold", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("hold");
+  const first = await add(request, repo, "First");
+  const second = await add(request, repo, "Second");
+  await open(page, repo, "&status=all");
+  await row(page, first.key).hover();
+  await page.keyboard.press("h");
+  await expect(row(page, first.key).getByRole("img", { name: "On hold" })).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        ((await (await request.get(`${core}/api/v1/items/${first.key}`)).json()) as { status: string }).status,
+    )
+    .toBe("on_hold");
+
+  // Open shows it with the others, and On hold shows it alone
+  await open(page, repo);
+  await expect(row(page, first.key).getByRole("img", { name: "On hold" })).toBeVisible();
+  await expect(row(page, second.key)).toBeVisible();
+  await open(page, repo, "&status=on_hold");
+  await expect(rows(page)).toHaveCount(1);
+  await row(page, first.key).hover();
+  await page.keyboard.press("h");
+  await expect(row(page, first.key)).toHaveCount(0);
+
+  // the panel's status menu offers it too, and the activity says so
+  await open(page, repo, `&open=${second.key}`);
+  await page.getByTestId("item-panel").getByRole("button", { name: "Status", exact: true }).click();
+  await page.getByRole("option", { name: "On hold", exact: true }).click();
+  await expect(page.getByTestId("item-panel").getByTestId("item-event").last()).toContainText("put it on hold");
+});

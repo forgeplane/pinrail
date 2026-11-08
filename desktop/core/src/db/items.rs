@@ -144,6 +144,7 @@ pub enum State {
     InProgress,
     Done,
     Cancelled,
+    OnHold,
     /// open, not blocked, with no open sub-item
     Ready,
     /// waiting for an item it depends on
@@ -160,6 +161,7 @@ impl State {
                 Status::InProgress => State::InProgress,
                 Status::Done => State::Done,
                 Status::Cancelled => State::Cancelled,
+                Status::OnHold => State::OnHold,
             }),
         }
     }
@@ -217,6 +219,9 @@ pub enum Refused {
     },
     /// a claim, or a comment, that belongs to another agent or session
     NotYours(String),
+    /// an agent cannot work on an item on hold, nor on one under it, nor
+    /// change the hold: the key of the item on hold
+    OnHold(String),
     /// no comment of the item has this id
     NoComment(String),
 }
@@ -248,6 +253,9 @@ impl std::fmt::Display for Refused {
                 f,
                 "`{r}` is neither the ref of an item in the breakdown nor an item's key"
             ),
+            Refused::OnHold(key) => {
+                write!(f, "{key} is on hold: ask the person to take it off hold")
+            }
             Refused::ClaimedBy(key, agent, session) => match session {
                 Some(session) => write!(f, "{key} is claimed by {agent} (session {session})"),
                 None => write!(f, "{key} is claimed by {agent}"),
@@ -282,7 +290,7 @@ pub(super) const OPEN: &str = "('open', 'in_progress')";
 
 pub(super) fn select() -> String {
     format!(
-        "SELECT i.id, g.prefix, i.number, g.name, i.title, i.body, i.status,
+        "SELECT i.id, g.prefix, i.number, g.name, i.title, i.body, {status},
            (SELECT pg.prefix || '-' || p.number FROM work_items p JOIN repos pg ON pg.id = p.repo_id
              WHERE p.id = i.parent),
            i.link, i.claim_agent, i.claim_session, i.created_by, i.created_session,
@@ -301,14 +309,24 @@ pub(super) fn select() -> String {
                AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id))
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
+        status = status_of("i"),
         ready = READY,
         project = super::projects::project_json("i.repo_id"),
     )
 }
 
+/// The SQL for the status of the item `alias`, as the API gives it: an item
+/// on hold is stored as open, with the time it was put on hold.
+pub(super) fn status_of(alias: &str) -> String {
+    format!("CASE WHEN {alias}.held_at IS NOT NULL THEN 'on_hold' ELSE {alias}.status END")
+}
+
 /// The SQL for whether the item `i` is ready: open, waiting for no item it
 /// depends on, and with no open sub-item.
-pub(super) const READY: &str = "(i.status = 'open'
+pub(super) const READY: &str = "(i.status = 'open' AND i.held_at IS NULL
+   AND NOT EXISTS (WITH RECURSIVE up(id) AS (
+          SELECT i.parent UNION SELECT a.parent FROM work_items a JOIN up ON a.id = up.id
+        ) SELECT 1 FROM up JOIN work_items a ON a.id = up.id WHERE a.held_at IS NOT NULL)
    AND NOT EXISTS (SELECT 1 FROM work_item_deps x JOIN work_items d ON d.id = x.depends_on
                     WHERE x.item_id = i.id AND d.status IN ('open', 'in_progress'))
    AND NOT EXISTS (SELECT 1 FROM work_items c WHERE c.parent = i.id
@@ -607,13 +625,19 @@ pub(super) fn status_in(
     status: Status,
     at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
+    // on hold is stored as open, with the time it was put on hold
+    let (stored, held) = match status {
+        Status::OnHold => ("open", Some(iso(at))),
+        other => (other.as_str(), None),
+    };
     conn.execute(
         "UPDATE work_items SET status = ?2, updated_at = ?3,
            closed_at = CASE WHEN ?2 IN ('done', 'cancelled') THEN COALESCE(closed_at, ?3) END,
            claim_agent = CASE WHEN ?2 = 'in_progress' THEN claim_agent END,
-           claim_session = CASE WHEN ?2 = 'in_progress' THEN claim_session END
+           claim_session = CASE WHEN ?2 = 'in_progress' THEN claim_session END,
+           held_at = ?4
          WHERE id = ?1",
-        params![id, status.as_str(), iso(at)],
+        params![id, stored, iso(at), held],
     )?;
     Ok(())
 }
@@ -674,14 +698,15 @@ impl Db {
         let mut args: Vec<String> = Vec::new();
         let mut wheres: Vec<String> = Vec::new();
         let states: Vec<State> = if filters.states.is_empty() {
-            vec![State::Open, State::InProgress]
+            vec![State::Open, State::InProgress, State::OnHold]
         } else {
             filters.states.clone()
         };
         let any: Vec<String> = states
             .iter()
             .map(|s| match s {
-                State::Open => "i.status = 'open'".to_string(),
+                State::Open => "(i.status = 'open' AND i.held_at IS NULL)".to_string(),
+                State::OnHold => "i.held_at IS NOT NULL".to_string(),
                 State::InProgress => "i.status = 'in_progress'".to_string(),
                 State::Done => "i.status = 'done'".to_string(),
                 State::Cancelled => "i.status = 'cancelled'".to_string(),
@@ -769,12 +794,14 @@ impl Db {
         };
         Ok((
             related(
-                "SELECT d.id, g.prefix || '-' || d.number, d.title, d.status
+                "SELECT d.id, g.prefix || '-' || d.number, d.title,
+                   CASE WHEN d.held_at IS NOT NULL THEN 'on_hold' ELSE d.status END
                    FROM work_item_deps x JOIN work_items d ON d.id = x.depends_on
                    JOIN repos g ON g.id = d.repo_id WHERE x.item_id = ?1",
             )?,
             related(
-                "SELECT d.id, g.prefix || '-' || d.number, d.title, d.status
+                "SELECT d.id, g.prefix || '-' || d.number, d.title,
+                   CASE WHEN d.held_at IS NOT NULL THEN 'on_hold' ELSE d.status END
                    FROM work_item_deps x JOIN work_items d ON d.id = x.item_id
                    JOIN repos g ON g.id = d.repo_id WHERE x.depends_on = ?1",
             )?,

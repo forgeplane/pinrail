@@ -46,14 +46,15 @@ const SEARCH_DELAY_MS = 250;
 
 /** The choices of the status filter, and what each asks the core for. */
 const STATUSES: { value: string; label: string; query?: string }[] = [
-  { value: "", label: "Open" },
+  { value: "", label: "Open", query: "open,in_progress,on_hold" },
   { value: "ready", label: "Ready", query: "ready" },
   { value: "blocked", label: "Blocked", query: "blocked" },
   { value: "in_progress", label: "In progress", query: "in_progress" },
   { value: "open", label: "Not started", query: "open" },
+  { value: "on_hold", label: "On hold", query: "on_hold" },
   { value: "done", label: "Done", query: "done" },
   { value: "cancelled", label: "Cancelled", query: "cancelled" },
-  { value: "all", label: "All", query: "open,in_progress,done,cancelled" },
+  { value: "all", label: "All", query: "open,in_progress,on_hold,done,cancelled" },
 ];
 
 /** The icon of a choice of the status filter: the status's own, or what
@@ -61,7 +62,7 @@ const STATUSES: { value: string; label: string; query?: string }[] = [
 function statusIcon(value: string) {
   if (value === "blocked") return <Lock size={13} className="item-status-blocked" aria-hidden="true" />;
   if (value === "ready" || value === "open") return <ItemStatusIcon status="open" decorative />;
-  if (value === "in_progress" || value === "done" || value === "cancelled")
+  if (value === "in_progress" || value === "on_hold" || value === "done" || value === "cancelled")
     return <ItemStatusIcon status={value} decorative />;
   return <ListChecks size={13} aria-hidden="true" />;
 }
@@ -340,6 +341,8 @@ export function WorkItems() {
         setAdding(true);
       } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
       else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
+      else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled")
+        void change(at, { status: at.status === "on_hold" ? "open" : "on_hold" });
       else if (key === "x" && at) {
         // its open sub-items go with it: the person is asked first
         if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
@@ -358,7 +361,8 @@ export function WorkItems() {
 
   const focusedItem = rows[focused]?.item;
   const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => {
-    const closed = item.status === "done" || item.status === "cancelled";
+    // on hold, it waits: dimmed as a closed item is
+    const closed = item.status === "done" || item.status === "cancelled" || item.status === "on_hold";
     // a sub-item shown without its parent names it
     const orphan = item.parent && (!nested || !rows.some((r) => r.item.key === item.parent));
     return (
@@ -683,6 +687,7 @@ export function WorkItems() {
               { keys: ["S"], label: "Claim" },
               { keys: ["D"], label: "Done" },
               { keys: ["X"], label: "Cancel" },
+              { keys: ["H"], label: "Hold" },
             ]}
           />
         </footer>

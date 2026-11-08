@@ -222,6 +222,10 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
   PIN-36`. The line `submit` and `ask` print on stderr names the items a
   review went under: if they are wrong, send the next round with the
   right `--item`.
+- **Leave an item on hold alone.** The person puts an item on hold when it
+  should wait. `next` never offers it or its sub-items, and claiming one
+  is refused. Do not work on it; if you think it should go ahead, ask the
+  person to take it off hold.
 - **Keep the item current.** Rewrite its description with `pinrail items
   edit <key> --body-file <file>` as the work becomes clearer. Comment on
   your progress, what you found and what you decided, with `pinrail items

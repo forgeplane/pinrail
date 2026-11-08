@@ -465,7 +465,7 @@ export type Info = {
 };
 
 /** Where a work item stands; blocked and ready are derived from its relations. */
-export type ItemStatus = "open" | "in_progress" | "done" | "cancelled";
+export type ItemStatus = "open" | "in_progress" | "on_hold" | "done" | "cancelled";
 
 /** A work item as the lists give it. */
 export type WorkItem = {

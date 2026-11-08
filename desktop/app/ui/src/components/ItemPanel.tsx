@@ -198,7 +198,7 @@ export function ItemPanel({
           onChange={(v) =>
             v === "cancelled" && openSubItems(item) > 0 ? setCancelling(true) : void change({ status: v })
           }
-          options={(["open", "in_progress", "done", "cancelled"] as ItemStatus[]).map((s) => ({
+          options={(["open", "in_progress", "on_hold", "done", "cancelled"] as ItemStatus[]).map((s) => ({
             value: s,
             label: STATUS_LABEL[s],
             icon: <ItemStatusIcon status={s} decorative />,

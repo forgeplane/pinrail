@@ -1,12 +1,13 @@
 // A work item's status as a small icon in its colour: a ring when open, a
-// half-filled ring in progress, a ticked disc when done, a crossed ring
-// when cancelled.
+// half-filled ring in progress, a dashed ring with a pause mark on hold, a
+// ticked disc when done, a crossed ring when cancelled.
 
 import type { ItemStatus } from "../api/types";
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
   open: "Open",
   in_progress: "In progress",
+  on_hold: "On hold",
   done: "Done",
   cancelled: "Cancelled",
 };
@@ -42,6 +43,11 @@ export function ItemStatusIcon({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        </>
+      ) : status === "on_hold" ? (
+        <>
+          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="2.4 1.9" />
+          <path d="M6.6 5.8v4.4M9.4 5.8v4.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </>
       ) : (
         <>

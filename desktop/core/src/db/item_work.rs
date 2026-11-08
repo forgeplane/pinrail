@@ -215,7 +215,8 @@ fn item_row(conn: &Connection, id: &str) -> rusqlite::Result<WorkItem> {
 
 fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
     conn.query_row(
-        "SELECT i.id, g.prefix || '-' || i.number, i.title, i.status FROM work_items i
+        "SELECT i.id, g.prefix || '-' || i.number, i.title,
+           CASE WHEN i.held_at IS NOT NULL THEN 'on_hold' ELSE i.status END FROM work_items i
            JOIN repos g ON g.id = i.repo_id WHERE i.id = ?1",
         params![id],
         |r| {
@@ -227,6 +228,23 @@ fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
             })
         },
     )
+}
+
+/// The key of the item on hold that holds `id` back: itself, or the
+/// nearest of its parents that is on hold.
+fn held_key(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "WITH RECURSIVE up(id, depth) AS (
+           SELECT ?1, 0 UNION SELECT w.parent, up.depth + 1 FROM work_items w JOIN up ON w.id = up.id
+            WHERE w.parent IS NOT NULL
+         )
+         SELECT g.prefix || '-' || a.number FROM up JOIN work_items a ON a.id = up.id
+           JOIN repos g ON g.id = a.repo_id
+          WHERE a.held_at IS NOT NULL ORDER BY up.depth LIMIT 1",
+        params![id],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 /// Whether the holder of the claim, `(agent, session)`, is `actor`.
@@ -248,6 +266,12 @@ fn claim_in(
     if item.status.is_closed() {
         return Ok(Err(Refused::Closed(item.key.to_string(), item.status)));
     }
+    // the person takes it off hold by claiming it; an agent is refused
+    if matches!(actor, Actor::Agent { .. })
+        && let Some(held) = held_key(conn, id)?
+    {
+        return Ok(Err(Refused::OnHold(held)));
+    }
     if holds(&item.claim, actor) {
         return Ok(Ok(()));
     }
@@ -262,7 +286,7 @@ fn claim_in(
     }
     conn.execute(
         "UPDATE work_items SET status = 'in_progress', claim_agent = ?2, claim_session = ?3,
-           updated_at = ?4 WHERE id = ?1",
+           updated_at = ?4, held_at = NULL WHERE id = ?1",
         params![id, actor.name(), actor.session(), iso(at)],
     )?;
     let from = item
@@ -727,6 +751,14 @@ impl Db {
         let mut cancelled_with = Vec::new();
         if let Some(status) = change.status {
             let current = item_row(&tx, &id)?;
+            // the person decides what waits: an agent neither puts an item
+            // on hold nor takes it off
+            if matches!(actor, Actor::Agent { .. })
+                && status != current.status
+                && (status == Status::OnHold || current.status == Status::OnHold)
+            {
+                return Ok(Err(Refused::OnHold(current.key.to_string())));
+            }
             if status != current.status {
                 match status {
                     Status::InProgress => {

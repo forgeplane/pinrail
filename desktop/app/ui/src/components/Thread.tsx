@@ -247,7 +247,7 @@ export function Thread({
   const held = sessionItems.filter(
     (i) => i.status === "in_progress" && i.claim?.agent === named?.agent && i.claim?.session === named?.id,
   );
-  const STANDING = { in_progress: 0, open: 1, done: 2, cancelled: 3 } as const;
+  const STANDING = { in_progress: 0, open: 1, on_hold: 2, done: 3, cancelled: 4 } as const;
   const workedOn = [...sessionItems].sort(
     (a, b) => STANDING[a.status] - STANDING[b.status] || a.repo.localeCompare(b.repo) || a.number - b.number,
   );

@@ -47,6 +47,7 @@ fn refused(refused: Refused) -> Error {
         Refused::Cycle(_)
         | Refused::PrefixTaken(_)
         | Refused::ClaimedBy(..)
+        | Refused::OnHold(_)
         | Refused::Closed(..)
         | Refused::NotDone { .. } => Error::Conflict(refused.to_string()),
     }
@@ -379,10 +380,22 @@ impl Items {
                 "say why the item is cancelled, such as a duplicate of another",
             ));
         }
+        // who held it before, to tell them when the person puts it on hold
+        let held_by = match change.status {
+            Some(Status::OnHold) => self.get(item, repo)?.claim,
+            _ => None,
+        };
         let edited = self
             .db
             .edit_item(item, repo, &change, actor, Utc::now())?
             .map_err(refused)?;
+        if edited.item.status == Status::OnHold {
+            let text = format!(
+                "{} {} is on hold now: stop working on it, and take another item.",
+                edited.item.key, edited.item.title
+            );
+            self.tell_holder(&held_by, &text)?;
+        }
         self.announce(events::ITEM_CHANGED, &edited.item)?;
         Ok(edited)
     }
@@ -443,29 +456,41 @@ impl Items {
             .db
             .add_item_comment(item, repo, &body, &files, actor, Utc::now())?
             .map_err(refused)?;
-        if *actor == Actor::Person
-            && let Some((agent, Some(session))) = &item.claim
-            && agent != "person"
-        {
+        if *actor == Actor::Person {
             let text = format!(
                 "Comment on {} {}:\n\n{}",
                 item.key, item.title, comment.body
             );
-            if let Some((message, event_id)) =
-                self.db.add_message(agent, session, &text, &self.user)?
-            {
-                self.bus.publish(Notice {
-                    event_id,
-                    kind: events::SESSION_MESSAGE_SENT.to_string(),
-                    review_id: None,
-                    review: None,
-                    keys: None,
-                    session: Some(crate::db::message_notice(agent, session, &message)),
-                });
-            }
+            self.tell_holder(&item.claim, &text)?;
         }
         self.announce(events::ITEM_CHANGED, &item)?;
         Ok(comment)
+    }
+
+    /// Queues `text` for the session that holds `claim`, which reads it in
+    /// its next `pinrail status`; nothing for the person's own claim.
+    fn tell_holder(
+        &self,
+        claim: &Option<(String, Option<String>)>,
+        text: &str,
+    ) -> Result<(), Error> {
+        let Some((agent, Some(session))) = claim else {
+            return Ok(());
+        };
+        if agent == "person" {
+            return Ok(());
+        }
+        if let Some((message, event_id)) = self.db.add_message(agent, session, text, &self.user)? {
+            self.bus.publish(Notice {
+                event_id,
+                kind: events::SESSION_MESSAGE_SENT.to_string(),
+                review_id: None,
+                review: None,
+                keys: None,
+                session: Some(crate::db::message_notice(agent, session, &message)),
+            });
+        }
+        Ok(())
     }
 
     /// Changes a comment's text; its author alone can.

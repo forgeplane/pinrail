@@ -41,6 +41,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Claim or release the work item", keys: [["S"]] },
   { what: "Mark the work item done, or open it again", keys: [["D"]] },
   { what: "Cancel the work item, or open it again", keys: [["X"]] },
+  { what: "Put the work item on hold, or take it off hold", keys: [["H"]] },
   { what: "Edit the work item's title", keys: [["T"]] },
   { what: "Edit the work item's description", keys: [["E"]] },
   { what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },

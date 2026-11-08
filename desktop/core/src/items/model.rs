@@ -9,6 +9,9 @@ pub enum Status {
     InProgress,
     Done,
     Cancelled,
+    /// kept, but not to be worked on until the person takes it off hold;
+    /// stored as `open` with `held_at` set
+    OnHold,
 }
 
 impl Status {
@@ -18,6 +21,7 @@ impl Status {
             Status::InProgress => "in_progress",
             Status::Done => "done",
             Status::Cancelled => "cancelled",
+            Status::OnHold => "on_hold",
         }
     }
 
@@ -27,6 +31,7 @@ impl Status {
             "in_progress" => Some(Status::InProgress),
             "done" => Some(Status::Done),
             "cancelled" => Some(Status::Cancelled),
+            "on_hold" => Some(Status::OnHold),
             _ => None,
         }
     }
