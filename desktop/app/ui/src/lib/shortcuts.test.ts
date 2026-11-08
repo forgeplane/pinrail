@@ -103,3 +103,16 @@ describe("the shortcut list", () => {
     expect(shown).toContain("Ctrl");
   });
 });
+
+describe("sectionsOf", () => {
+  test("gives a page's own sections first, and General last", async () => {
+    const { sectionsOf } = await import("./shortcuts");
+    expect(sectionsOf("/", "")).toEqual(["Inbox", "General"]);
+    expect(sectionsOf("/", "?open=r_1")).toEqual(["Inbox", "Review", "General"]);
+    expect(sectionsOf("/history", "")).toEqual(["Inbox", "General"]);
+    expect(sectionsOf("/reviews/r_1", "")).toEqual(["Review", "General"]);
+    expect(sectionsOf("/sessions/claude-code/s-1", "?review=r_1")).toEqual(["Sessions", "Review", "General"]);
+    expect(sectionsOf("/items", "?open=PIN-1")).toEqual(["Work items", "General"]);
+    expect(sectionsOf("/projects", "")).toEqual(["General"]);
+  });
+});

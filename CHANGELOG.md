@@ -48,6 +48,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- The keyboard shortcuts dialog lists the keys in sections, those of the
+  page you are on first. Show all shortcuts lists the others, and a search
+  looks through every section.
 - The inbox's layout is kept in the settings, so every window shows the
   same one.
 - Where the inbox, the history and the Sessions page said "project" for
@@ -71,6 +74,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   the side panel opens or closes beside it.
 - A note that shows `attachment:` links inside code, as an example, is no
   longer refused for files it does not carry.
+- Esc pressed as soon as What's new opens closes it.
 
 ## [0.5.0]
 

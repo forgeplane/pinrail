@@ -24,7 +24,7 @@ import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo } from "../../lib/keys";
 import { reviewPath } from "../../lib/url";
-import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
+import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS, SHORTCUT_SECTIONS } from "../../lib/shortcuts";
 import { useSettings } from "../../state/settings";
 import { describeSystem, useNotificationStatus } from "../../state/notifications";
 import { Tooltip } from "../Tooltip";
@@ -451,13 +451,15 @@ export function SettingsDialog({
                   />
                 </SettingsRow>
               </SettingsGroup>
-              <SettingsGroup caption="In the app">
-                {SHORTCUTS.map((s) => (
-                  <SettingsRow key={s.what} label={s.what}>
-                    <Keys keys={s.keys} />
-                  </SettingsRow>
-                ))}
-              </SettingsGroup>
+              {SHORTCUT_SECTIONS.map((section) => (
+                <SettingsGroup key={section} caption={`In the app: ${section}`}>
+                  {SHORTCUTS.filter((s) => s.section === section).map((s) => (
+                    <SettingsRow key={s.what} label={s.what}>
+                      <Keys keys={s.keys} />
+                    </SettingsRow>
+                  ))}
+                </SettingsGroup>
+              ))}
             </SettingsPage>
           ) : null}
 

@@ -1,12 +1,14 @@
-// The keyboard-shortcuts dialog: the app's keys, and under them the keys
-// of the plugin whose view is open. A search field at the top narrows
-// both by what a key does or by the key itself; Esc clears it, then
-// closes the dialog.
+// The keyboard-shortcuts dialog: the app's keys in sections, those of the
+// page first, and under them the keys of the plugin whose view is open.
+// The other sections show on request. A search field at the top looks
+// through every section by what a key does or by the key itself; Esc
+// clears it, then closes the dialog.
 
 import { Search, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginShortcut } from "../api/types";
-import { SHORTCUTS, isShadowed, shortcutGlyphs } from "../lib/shortcuts";
+import { useLocation } from "react-router";
+import { SHORTCUTS, SHORTCUT_SECTIONS, isShadowed, sectionsOf, shortcutGlyphs } from "../lib/shortcuts";
 import { PluginIcon } from "./PluginIcon";
 import { Tooltip } from "./Tooltip";
 
@@ -32,7 +34,24 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
     field.current?.focus();
   }, []);
 
-  const app = useMemo(() => SHORTCUTS.filter((s) => matches(query, s.what, s.keys)), [query]);
+  const location = useLocation();
+  const [all, setAll] = useState(false);
+  // the page's sections first, then, on request or in a search, the rest
+  const sections = useMemo(() => {
+    const own = sectionsOf(location.pathname, location.search);
+    return all || query ? [...own, ...SHORTCUT_SECTIONS.filter((s) => !own.includes(s))] : own;
+  }, [location.pathname, location.search, all, query]);
+  const app = useMemo(
+    () =>
+      sections
+        .map((section) => ({
+          section,
+          keys: SHORTCUTS.filter((s) => s.section === section && matches(query, s.what, s.keys)),
+        }))
+        .filter((g) => g.keys.length),
+    [sections, query],
+  );
+  const hidden = !all && !query && sections.length < SHORTCUT_SECTIONS.length;
   const own = useMemo(
     () =>
       (plugin?.shortcuts ?? [])
@@ -81,23 +100,31 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
           />
         </label>
         <div className="shortcuts-body">
-          {app.length ? (
-            <dl className="shortcut-list">
-              {app.map((s) => (
-                <Fragment key={s.what}>
-                  <dt>{s.what}</dt>
-                  <dd>
-                    {s.keys.map((combo, i) => (
-                      <span key={i} className="combo">
-                        {combo.map((k, j) => (
-                          <kbd key={j}>{k}</kbd>
-                        ))}
-                      </span>
-                    ))}
-                  </dd>
-                </Fragment>
-              ))}
-            </dl>
+          {app.map((group) => (
+            <Fragment key={group.section}>
+              <h3 className="shortcut-section-title">{group.section}</h3>
+              <dl className="shortcut-list">
+                {group.keys.map((s) => (
+                  <Fragment key={s.what}>
+                    <dt>{s.what}</dt>
+                    <dd>
+                      {s.keys.map((combo, i) => (
+                        <span key={i} className="combo">
+                          {combo.map((k, j) => (
+                            <kbd key={j}>{k}</kbd>
+                          ))}
+                        </span>
+                      ))}
+                    </dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </Fragment>
+          ))}
+          {hidden ? (
+            <button type="button" className="shortcuts-all" onClick={() => setAll(true)}>
+              Show all shortcuts
+            </button>
           ) : null}
           {plugin && own.length ? (
             <>

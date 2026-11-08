@@ -93,7 +93,7 @@ To list the starred reviews, turn on the star filter in the inbox, beside the pr
 
 ## Keys
 
-Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kbd> for <kbd>⌘</kbd> and <kbd>Alt</kbd> for <kbd>⌥</kbd>.
+Press <kbd>?</kbd> anywhere in the app to see the keys, in sections: those of the page you are on first, then the general ones. **Show all shortcuts** lists every section, and a search looks through all of them. On Linux, use <kbd>Ctrl</kbd> for <kbd>⌘</kbd> and <kbd>Alt</kbd> for <kbd>⌥</kbd>.
 
 ![The keyboard shortcuts dialog.](screenshot:shortcuts)
 

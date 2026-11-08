@@ -1718,6 +1718,28 @@ body.is-resizing iframe {
   margin: 0;
   font-size: 12.5px;
 }
+/* a section of the app's keys: the page's own, General, the others */
+.shortcut-section-title {
+  margin: 14px 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.shortcut-section-title:first-child {
+  margin-top: 4px;
+}
+.shortcuts-all {
+  display: block;
+  margin: 14px 0 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  cursor: pointer;
+}
 .shortcut-plugin-title {
   display: flex;
   align-items: center;

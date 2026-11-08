@@ -1,62 +1,100 @@
 import { ALT, MOD, SHIFT, isMac } from "./keys";
 
+/** The sections the shortcuts are listed in, in this order. */
+export const SHORTCUT_SECTIONS = ["General", "Inbox", "Review", "Sessions", "Work items"] as const;
+export type ShortcutSection = (typeof SHORTCUT_SECTIONS)[number];
+
+export type Shortcut = { what: string; keys: string[][]; section: ShortcutSection };
+
 /** The in-app shortcuts, for the ? dialog and the settings. */
-export const SHORTCUTS: { what: string; keys: string[][] }[] = [
-  { what: "Next / previous review", keys: [["J"], ["K"]] },
-  { what: "Open the focused review", keys: [["Enter"]] },
+export const SHORTCUTS: Shortcut[] = [
+  // anywhere
+  { section: "General", what: "Search everything", keys: [[MOD, "K"]] },
+  { section: "General", what: "Search the page", keys: [["/"]] },
+  { section: "General", what: "Inbox", keys: [[MOD, "I"]] },
   {
-    what: "Next / previous waiting review",
-    keys: [
-      [ALT, "↓"],
-      [ALT, "↑"],
-    ],
-  },
-  { what: "Discard the focused or open review", keys: [[MOD, "D"]] },
-  { what: "Search the page", keys: [["/"]] },
-  { what: "Search everything", keys: [[MOD, "K"]] },
-  { what: "Inbox", keys: [[MOD, "I"]] },
-  {
+    section: "General",
     what: "History / Plugins",
     keys: [
       [MOD, SHIFT, "H"],
       [MOD, SHIFT, "P"],
     ],
   },
-  { what: "Settings", keys: [[MOD, ","]] },
-  { what: "Switch theme", keys: [[MOD, SHIFT, "L"]] },
-  { what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
-  { what: "Show or hide a session's details", keys: [[MOD, SHIFT, "B"]] },
   {
+    section: "General",
+    what: "Next / previous waiting review",
+    keys: [
+      [ALT, "↓"],
+      [ALT, "↑"],
+    ],
+  },
+  { section: "General", what: "Add a work item from any page", keys: [[MOD, SHIFT, "C"]] },
+  { section: "General", what: "Settings", keys: [[MOD, ","]] },
+  { section: "General", what: "Switch theme", keys: [[MOD, SHIFT, "L"]] },
+  { section: "General", what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
+  {
+    section: "General",
     what: "Back / forward",
     keys: [
       [MOD, "["],
       [MOD, "]"],
     ],
   },
-  { what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
-  { what: "Star or remove the star of the review", keys: [[MOD, SHIFT, "S"]] },
-  { what: "Archive or unarchive the session", keys: [["E"]] },
-  { what: "Add a work item", keys: [["C"]] },
-  { what: "Add a work item from any page", keys: [[MOD, SHIFT, "C"]] },
-  { what: "Claim or release the work item", keys: [["S"]] },
-  { what: "Mark the work item done, or open it again", keys: [["D"]] },
-  { what: "Cancel the work item, or open it again", keys: [["X"]] },
-  { what: "Put the work item on hold, or take it off hold", keys: [["H"]] },
-  { what: "Queue the work item, or take it out of the queue", keys: [["Q"]] },
+  { section: "General", what: "Keyboard shortcuts", keys: [["?"]] },
+  // the inbox and the history
+  { section: "Inbox", what: "Next / previous review", keys: [["J"], ["K"]] },
+  { section: "Inbox", what: "Open the focused review", keys: [["Enter"]] },
+  { section: "Inbox", what: "Discard the focused or open review", keys: [[MOD, "D"]] },
+  // a review, on its page or in a side panel
+  { section: "Review", what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
+  { section: "Review", what: "Star or remove the star of the review", keys: [[MOD, SHIFT, "S"]] },
+  { section: "Review", what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },
+  { section: "Review", what: "Find in the view", keys: [[MOD, "F"]] },
+  { section: "Review", what: "Previous / next round", keys: [["["], ["]"]] },
+  // sessions and their threads
+  { section: "Sessions", what: "Next / previous session", keys: [["J"], ["K"]] },
+  { section: "Sessions", what: "Archive or unarchive the session", keys: [["E"]] },
+  { section: "Sessions", what: "Pick a choice of the current question", keys: [["1–9"]] },
+  { section: "Sessions", what: "Next / previous question", keys: [["N"], ["P"]] },
+  { section: "Sessions", what: "Add a note to the answer", keys: [["C"]] },
+  { section: "Sessions", what: "Send the answers", keys: [[MOD, "Enter"]] },
+  { section: "Sessions", what: "Decline the questions", keys: [[MOD, "D"]] },
+  { section: "Sessions", what: "Show or hide a session's details", keys: [[MOD, SHIFT, "B"]] },
+  { section: "Sessions", what: "Find in the thread", keys: [[MOD, "F"]] },
+  // work items
+  { section: "Work items", what: "Next / previous work item", keys: [["J"], ["K"]] },
+  { section: "Work items", what: "Open the focused work item", keys: [["Enter"]] },
+  { section: "Work items", what: "Add a work item", keys: [["C"]] },
+  { section: "Work items", what: "Claim or release the work item", keys: [["S"]] },
+  { section: "Work items", what: "Mark the work item done, or open it again", keys: [["D"]] },
+  { section: "Work items", what: "Cancel the work item, or open it again", keys: [["X"]] },
+  { section: "Work items", what: "Put the work item on hold, or take it off hold", keys: [["H"]] },
+  { section: "Work items", what: "Queue the work item, or take it out of the queue", keys: [["Q"]] },
   {
+    section: "Work items",
     what: "Move the work item up or down the queue",
     keys: [
       [SHIFT, "↑"],
       [SHIFT, "↓"],
     ],
   },
-  { what: "Edit the work item's title", keys: [["T"]] },
-  { what: "Edit the work item's description", keys: [["E"]] },
-  { what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },
-  { what: "Find in the view or the thread", keys: [[MOD, "F"]] },
-  { what: "Previous / next round", keys: [["["], ["]"]] },
-  { what: "Keyboard shortcuts", keys: [["?"]] },
+  { section: "Work items", what: "Edit the work item's title", keys: [["T"]] },
+  { section: "Work items", what: "Edit the work item's description", keys: [["E"]] },
 ];
+
+/** The sections of the page at `path`, with `search` its query string,
+ *  its own first and General last. A review open in a side panel adds the
+ *  Review section. */
+export function sectionsOf(path: string, search: string): ShortcutSection[] {
+  const own: ShortcutSection[] = [];
+  if (path === "/" || path.startsWith("/history")) own.push("Inbox");
+  if (path.startsWith("/sessions")) own.push("Sessions");
+  if (path.startsWith("/items")) own.push("Work items");
+  const panel = new URLSearchParams(search);
+  if (path.startsWith("/reviews/") || panel.has("review") || (own.includes("Inbox") && panel.has("open")))
+    own.push("Review");
+  return [...own, "General"];
+}
 
 /** The global shortcut as the core has it when nobody changed it. */
 export const DEFAULT_GLOBAL_SHORTCUT = "alt+shift+w";
