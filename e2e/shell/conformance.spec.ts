@@ -29,11 +29,16 @@ async function viewFrame(page: Page, after?: Frame): Promise<Frame> {
 
 /** Presses the hand-over and answers the request it makes with `data`, as
  *  a view does. */
+/** Answers the app's request for the decision with `data`, and returns what
+ *  the view had received by then: a decision the app accepts closes the
+ *  view, which can no longer be read afterwards. */
 async function answer(page: Page, frame: Frame, press: () => Promise<unknown>, data: unknown) {
   const asked = (await received(frame)).filter((m) => m.type === "collect").length;
   await press();
   await expect.poll(async () => (await received(frame)).filter((m) => m.type === "collect").length).toBe(asked + 1);
-  await send(frame, { type: "submit", req: conformance.lastRequest(await received(frame)), data });
+  const before = await received(frame);
+  await send(frame, { type: "submit", req: conformance.lastRequest(before), data });
+  return before;
 }
 
 /** A review for the conformance view, with the file its payload names. */
@@ -109,8 +114,8 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   await frame.evaluate(() =>
     window.addEventListener("message", (e) => console.log(`view got ${JSON.stringify(e.data)}`)),
   );
-  await answer(page, frame, handover, { ok: true });
-  expect(conformance.collectProblems(await received(frame))).toEqual([]);
+  const collected = await answer(page, frame, handover, { ok: true });
+  expect(conformance.collectProblems(collected)).toEqual([]);
   // the view that handed the review over is told submitted, and not init
   // again, before the app returns to the inbox
   await expect(page).toHaveURL(/#\/$/);
