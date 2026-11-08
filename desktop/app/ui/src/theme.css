@@ -6492,42 +6492,73 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-sub-field:focus {
   border-color: var(--accent);
 }
-.item-props {
-  display: grid;
-  grid-template-columns: 84px 1fr;
+/* a work item's properties: a row of pills under its title, which wraps
+   when the panel is narrow, as the quick add's pills look */
+.item-pills {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px 10px;
-  margin: 0;
-  font-size: 12.5px;
-}
-.item-props dt {
-  color: var(--faint);
-}
-.item-props dd {
-  margin: 0;
+  gap: 6px;
   min-width: 0;
 }
-.item-status-line {
-  display: flex;
+.item-pills .select-trigger,
+.item-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  max-width: 220px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.item-pills .select-trigger:hover,
+.item-pill:hover {
+  border-color: var(--border-strong);
+}
+.item-pills .select-value,
+.item-pill-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-pills .select-icon,
+.item-pill svg {
+  flex: none;
+  color: var(--dim);
+}
+.item-pill.is-empty {
+  border-style: dashed;
+  background: none;
+  color: var(--faint);
 }
 .item-claimant {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--dim);
+  font-size: 12px;
 }
-.item-link {
+.item-link-field {
+  width: 260px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.item-created {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.item-link a {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--faint);
+  font-size: 12px;
 }
 .item-section h3 {
   display: flex;
@@ -6553,8 +6584,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   letter-spacing: 0;
   text-transform: none;
 }
-.item-status-line .item-section-action,
-.item-link .item-section-action,
 .item-comment-head .item-section-action {
   margin-left: 0;
 }

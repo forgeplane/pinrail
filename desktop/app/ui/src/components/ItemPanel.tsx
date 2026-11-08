@@ -6,9 +6,11 @@
 import {
   Check,
   Copy,
+  CornerDownRight,
   ExternalLink,
   FileText,
   FolderGit2,
+  Link2,
   MessageCircleQuestion,
   MessagesSquare,
   Pencil,
@@ -27,7 +29,7 @@ import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
 import { ComposeField } from "./ComposeField";
-import { Activity, who } from "./ItemActivity";
+import { Activity } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
@@ -186,81 +188,70 @@ export function ItemPanel({
         onSave={(title) => change({ title })}
       />
 
-      <dl className="item-props">
-        <dt>Status</dt>
-        <dd className="item-status-line">
-          <Select
-            id="item-status"
-            label="Status"
-            value={item.status}
-            onChange={(v) =>
-              v === "cancelled" && openSubItems(item) > 0 ? setCancelling(true) : void change({ status: v })
-            }
-            options={(["open", "in_progress", "done", "cancelled"] as ItemStatus[]).map((s) => ({
-              value: s,
-              label: STATUS_LABEL[s],
-              icon: <ItemStatusIcon status={s} decorative />,
-            }))}
-          />
-          {item.claim ? (
-            <span className="item-claimant">
-              {item.claim.agent === "person" ? (
-                "by you"
-              ) : (
-                <>
-                  <AgentIcon requestedBy={item.claim.agent} size={13} /> {item.claim.agent}
-                </>
-              )}
-            </span>
-          ) : null}
-          {item.status === "in_progress" ? (
-            <button type="button" className="chrome-button" onClick={() => void change({ claim: "release" })}>
-              Release
-            </button>
-          ) : item.status === "open" ? (
-            <button type="button" className="chrome-button" onClick={() => void change({ claim: "take" })}>
-              Claim
-            </button>
-          ) : null}
-        </dd>
-        <dt>Repository</dt>
-        <dd>
-          <Select
-            id="item-repo"
-            searchable
-            label="Repository"
-            icon={<FolderGit2 size={13} />}
-            value={item.repo}
-            onChange={(v) => void change({ repo: v })}
-            options={[...new Set([item.repo, ...repos])].sort().map((r) => ({ value: r, label: r }))}
-          />
-        </dd>
-        <dt>Parent</dt>
-        <dd>
-          <Select
-            id="item-parent"
-            searchable
-            label="Parent"
-            value={item.parent ?? ""}
-            onChange={(v) => void change({ parent: v || null })}
-            options={[
-              { value: "", label: "No parent" },
-              ...others.map((o) => ({ value: o.key, label: `${o.key} ${o.title}` })),
-              ...(item.parent && !others.some((o) => o.key === item.parent)
-                ? [{ value: item.parent, label: item.parent }]
-                : []),
-            ]}
-          />
-        </dd>
-        <dt>Link</dt>
-        <dd>
-          <EditableLink link={item.link} onSave={(link) => change({ link })} />
-        </dd>
-        <dt>Created</dt>
-        <dd className="dim" title={stamp(item.created_at)}>
-          by {who(item.created_by)} {age(item.created_at)} ago
-        </dd>
-      </dl>
+      <div className="item-pills" role="group" aria-label="Properties">
+        <Select
+          id="item-status"
+          label="Status"
+          value={item.status}
+          onChange={(v) =>
+            v === "cancelled" && openSubItems(item) > 0 ? setCancelling(true) : void change({ status: v })
+          }
+          options={(["open", "in_progress", "done", "cancelled"] as ItemStatus[]).map((s) => ({
+            value: s,
+            label: STATUS_LABEL[s],
+            icon: <ItemStatusIcon status={s} decorative />,
+          }))}
+        />
+        {item.claim ? (
+          <span className="item-claimant">
+            {item.claim.agent === "person" ? (
+              "by you"
+            ) : (
+              <>
+                <AgentIcon requestedBy={item.claim.agent} size={13} /> {item.claim.agent}
+              </>
+            )}
+          </span>
+        ) : null}
+        {item.status === "in_progress" ? (
+          <button type="button" className="item-pill" onClick={() => void change({ claim: "release" })}>
+            Release
+          </button>
+        ) : item.status === "open" ? (
+          <button type="button" className="item-pill" onClick={() => void change({ claim: "take" })}>
+            Claim
+          </button>
+        ) : null}
+        <Select
+          id="item-repo"
+          searchable
+          label="Repository"
+          icon={<FolderGit2 size={13} />}
+          value={item.repo}
+          onChange={(v) => void change({ repo: v })}
+          options={[...new Set([item.repo, ...repos])].sort().map((r) => ({ value: r, label: r }))}
+        />
+        <Select
+          id="item-parent"
+          searchable
+          label="Parent"
+          icon={<CornerDownRight size={13} />}
+          value={item.parent ?? ""}
+          onChange={(v) => void change({ parent: v || null })}
+          options={[
+            { value: "", label: "No parent" },
+            ...others.map((o) => ({ value: o.key, label: `${o.key} ${o.title}` })),
+            ...(item.parent && !others.some((o) => o.key === item.parent)
+              ? [{ value: item.parent, label: item.parent }]
+              : []),
+          ]}
+        />
+        <EditableLink link={item.link} onSave={(link) => change({ link })} />
+      </div>
+      <p className="item-created" data-testid="item-created" title={stamp(item.created_at)}>
+        {item.created_by === "person" ? null : <AgentIcon requestedBy={item.created_by} size={12} />}
+        Added by {item.created_by === "person" ? "you" : item.created_by} · {age(item.created_at)} ago
+      </p>
 
       <section className="item-section">
         <h3>
@@ -591,27 +582,21 @@ function EditableBody({
 function EditableLink({ link, onSave }: { link: string | null; onSave: (link: string | null) => Promise<boolean> }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(link ?? "");
+  const edit = () => {
+    setDraft(link ?? "");
+    setEditing(true);
+  };
   if (!editing)
-    return (
-      <span className="item-link">
-        {link ? (
-          <a href={link} target="_blank" rel="noreferrer">
-            {link}
-          </a>
-        ) : (
-          <span className="dim">None</span>
-        )}
-        <button
-          type="button"
-          className="item-section-action"
-          onClick={() => {
-            setDraft(link ?? "");
-            setEditing(true);
-          }}
-        >
-          <Pencil size={11} /> {link ? "Change" : "Add"}
-        </button>
-      </span>
+    return link ? (
+      <button type="button" className="item-pill item-link" aria-label="Change the link" title={link} onClick={edit}>
+        <Link2 size={13} aria-hidden="true" />
+        <span className="item-pill-text">{link.replace(/^https?:\/\//, "")}</span>
+      </button>
+    ) : (
+      <button type="button" className="item-pill is-empty" onClick={edit}>
+        <Link2 size={13} aria-hidden="true" />
+        Add link
+      </button>
     );
   return (
     <input

@@ -157,14 +157,15 @@ test("status, claim, parent, repository and link are changed from the panel", as
   await expect(panel(page).getByRole("navigation", { name: "Part of" })).toHaveCount(0);
 
   // a link is added, then removed with an empty one
-  await panel(page).getByRole("button", { name: "Add", exact: true }).click();
+  await panel(page).getByRole("button", { name: "Add link", exact: true }).click();
   await panel(page).getByLabel("Link", { exact: true }).fill("https://github.com/forgeplane/pinrail/issues/9");
   await page.keyboard.press("Enter");
-  await expect(panel(page).getByRole("link", { name: "https://github.com/forgeplane/pinrail/issues/9" })).toBeVisible();
-  await panel(page).getByRole("button", { name: "Change" }).click();
+  const change = panel(page).getByRole("button", { name: "Change the link" });
+  await expect(change).toHaveText("github.com/forgeplane/pinrail/issues/9");
+  await change.click();
   await panel(page).getByLabel("Link", { exact: true }).fill("");
   await page.keyboard.press("Enter");
-  await expect(panel(page).locator(".item-link")).toContainText("None");
+  await expect(panel(page).getByRole("button", { name: "Add link", exact: true })).toBeVisible();
 
   // moved to another repository, it takes a new key, and the address follows
   await choose("Repository", elsewhere);
@@ -417,4 +418,27 @@ test("an item deleted elsewhere says so in the panel", async ({ page, request })
   await openItem(page, repo, item.key);
   await request.delete(`${core}/api/v1/items/${item.key}`, { headers: { origin: shellOrigin } });
   await expect(panel(page)).toContainText("This work item is no longer here.");
+});
+
+test("the properties are a row of pills under the title, with the creation line under them", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("pills");
+  const item = await add(request, repo, "Item");
+  await page.setViewportSize({ width: 1500, height: 800 });
+  await openItem(page, repo, item.key);
+  const pills = panel(page).getByRole("group", { name: "Properties" });
+  const title = panel(page).locator(".item-panel-title");
+  const titleBox = (await title.boundingBox())!;
+  const status = (await pills.getByRole("button", { name: "Status", exact: true }).boundingBox())!;
+  expect(status.y).toBeGreaterThan(titleBox.y + titleBox.height - 1);
+  // status, claim, repository, parent and link on one line at this width
+  for (const name of ["Claim", "Repository", "Parent", "Add link"]) {
+    const at = (await pills.getByRole("button", { name, exact: true }).boundingBox())!;
+    expect(Math.abs(at.y + at.height / 2 - (status.y + status.height / 2)), name).toBeLessThan(2);
+  }
+  const created = panel(page).getByTestId("item-created");
+  await expect(created).toHaveText(/Added by claude-code · .+ ago$/);
+  expect((await created.boundingBox())!.y).toBeGreaterThan(status.y + status.height);
 });
