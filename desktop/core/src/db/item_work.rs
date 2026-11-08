@@ -1320,6 +1320,9 @@ impl Db {
                 Ok(other) => other,
                 Err(refused) => return Ok(Err(refused)),
             };
+            if other == id {
+                return Ok(Err(Refused::OwnPlace(key_of(&tx, &other)?)));
+            }
             match others.iter().position(|o| *o == other) {
                 Some(n) => Ok(Ok(n + 1)),
                 None => Ok(Err(Refused::NotQueued(key_of(&tx, &other)?))),

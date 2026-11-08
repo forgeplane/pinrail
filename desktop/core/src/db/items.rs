@@ -229,6 +229,8 @@ pub enum Refused {
     OnHold(String),
     /// a place in the queue named by an item that is not in it
     NotQueued(String),
+    /// a place in the queue named by the item being placed
+    OwnPlace(String),
     /// no comment of the item has this id
     NoComment(String),
 }
@@ -261,6 +263,7 @@ impl std::fmt::Display for Refused {
                 "`{r}` is neither the ref of an item in the breakdown nor an item's key"
             ),
             Refused::NotQueued(key) => write!(f, "{key} is not in the queue"),
+            Refused::OwnPlace(key) => write!(f, "{key} cannot be placed next to itself"),
             Refused::OnHold(key) => {
                 write!(f, "{key} is on hold: ask the person to take it off hold")
             }

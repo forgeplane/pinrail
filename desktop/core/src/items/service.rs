@@ -41,6 +41,7 @@ fn refused(refused: Refused) -> Error {
         }
         Refused::NumberWithoutRepo(_)
         | Refused::NotQueued(_)
+        | Refused::OwnPlace(_)
         | Refused::PrefixInvalid(_)
         | Refused::DuplicateRef(_)
         | Refused::UnknownRef(_) => Error::invalid("", refused.to_string()),

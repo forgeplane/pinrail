@@ -1956,6 +1956,47 @@ async fn the_queue_is_ordered_by_the_person_and_next_takes_it_first() {
 }
 
 #[tokio::test]
+async fn a_move_next_to_an_item_not_in_the_queue_or_to_itself_is_refused() {
+    let app = app();
+    for t in ["One", "Two", "Three", "Four"] {
+        add(&app, t).await;
+    }
+    queue(&app, "PIN-1", json!({})).await;
+    queue(&app, "PIN-2", json!({})).await;
+    queue(&app, "PIN-3", json!({"before": "PIN-2"})).await;
+    let before = [
+        item(&app, "PIN-1").await["queue"].clone(),
+        item(&app, "PIN-3").await["queue"].clone(),
+    ];
+
+    // next to an item that is not queued
+    let (code, answer) = queue(&app, "PIN-1", json!({"before": "PIN-4"})).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert_eq!(
+        answer["violations"][0]["message"],
+        "PIN-4 is not in the queue"
+    );
+    // next to itself
+    let (code, answer) = queue(&app, "PIN-2", json!({"after": "PIN-2"})).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert_eq!(
+        answer["violations"][0]["message"],
+        "PIN-2 cannot be placed next to itself"
+    );
+
+    // nothing moved, nor was numbered again
+    assert_eq!(queued(&app).await, ["PIN-1", "PIN-3", "PIN-2"]);
+    assert_eq!(
+        [
+            item(&app, "PIN-1").await["queue"].clone(),
+            item(&app, "PIN-3").await["queue"].clone()
+        ],
+        before
+    );
+    assert_eq!(item(&app, "PIN-4").await["queue"], Value::Null);
+}
+
+#[tokio::test]
 async fn next_offers_the_sessions_sub_items_before_the_queue_and_passes_over_what_is_not_ready() {
     let app = app();
     add(&app, "Held by the session").await;
