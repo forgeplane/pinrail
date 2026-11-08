@@ -81,6 +81,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   act on the results.
 - Find in a plugin's view now finds text across the space between two
   styled words, such as **bold** followed by *italic*.
+- A long session's thread opens at its newest message at once, and stays
+  there as its images load.
+- The Enter that confirms text typed with an input method, such as
+  Japanese or Chinese, no longer submits the field, such as the command
+  palette or a search.
 
 ## [0.5.0]
 
