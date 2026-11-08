@@ -791,3 +791,26 @@ test("every stage shows how long it took and, in its tooltip, when it started an
   await expect(page.getByRole("tooltip")).toContainText("waiting");
   await expect(page.getByRole("tooltip")).not.toContainText("Stage: a question");
 });
+
+test("the reply the agent suggests shows in the empty comment box, and Tab takes it", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const body = asked(fresh(), "Suggested: deploy");
+  (body.payload as Record<string, unknown>).suggested_reply = "Staging, keep it, and call it /v2/themes";
+  const { id } = await send(page.request, body);
+  await page.goto(`/#/reviews/${id}`);
+  const comment = page.getByRole("textbox", { name: "Comment to the agent" });
+  await expect(comment).toHaveAttribute("placeholder", "Staging, keep it, and call it /v2/themes");
+  await expect(page.getByTestId("suggested-reply")).toContainText("Tab");
+  // typing hides it; emptied, the box offers it again
+  await comment.fill("x");
+  await expect(page.getByTestId("suggested-reply")).toHaveCount(0);
+  await comment.fill("");
+  await comment.press("Tab");
+  await expect(comment).toHaveValue("Staging, keep it, and call it /v2/themes");
+  await expect(comment).toBeFocused();
+  await comment.press("Enter");
+  await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("decided");
+  const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
+  expect(review.agent_note).toBe("Staging, keep it, and call it /v2/themes");
+});

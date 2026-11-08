@@ -51,6 +51,13 @@ static PAYLOAD: LazyLock<Schema> = LazyLock::new(|| {
                         "context": { "type": "string", "maxLength": 20000 }
                     }
                 }
+            },
+            "suggested_reply": {
+                "description": "The reply the agent expects, which the person can send with Tab",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "pattern": "^[^\\n\\r]*$"
             }
         }
     }))

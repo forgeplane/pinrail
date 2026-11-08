@@ -1718,6 +1718,9 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
         "payload": { "questions": questions },
         "requested_by": requester(args.requested_by.as_deref()),
     });
+    if let Some(reply) = &args.suggest_reply {
+        body["payload"]["suggested_reply"] = json!(reply);
+    }
     with_session(&mut body);
     for_items(&mut body, &args.item);
     if let Some(origin) = &args.origin {

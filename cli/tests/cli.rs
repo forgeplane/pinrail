@@ -4144,3 +4144,28 @@ fn items_list_queued_asks_for_the_queue_and_show_names_the_place() {
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("queued 2nd"), "{out}");
 }
+
+#[test]
+fn ask_sends_the_reply_it_suggests() {
+    let (server, sent) = asked(questions(
+        "decided",
+        serde_json::json!([]),
+        serde_json::json!([]),
+    ));
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "Does it work?",
+            "--yes-no",
+            "--suggest-reply",
+            "Yes, commit it and go on to PIN-55",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let body = sent.lock().unwrap()[0].clone();
+    assert_eq!(
+        body["payload"]["suggested_reply"],
+        "Yes, commit it and go on to PIN-55"
+    );
+}

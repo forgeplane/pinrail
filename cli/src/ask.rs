@@ -41,6 +41,11 @@ pub struct AskArgs {
     /// as - for stdin, or as @FILE
     #[arg(long, value_name = "MARKDOWN|-|@FILE", action = ArgAction::Append)]
     context: Vec<String>,
+    /// The reply you expect, one line: the app shows it in the person's
+    /// empty reply box, and Tab accepts it. Such as "Yes, commit it and go
+    /// on to PIN-55"
+    #[arg(long, value_name = "TEXT")]
+    pub suggest_reply: Option<String>,
     /// The title the inbox shows [default: the question, and with several,
     /// the first and how many more]
     #[arg(long)]

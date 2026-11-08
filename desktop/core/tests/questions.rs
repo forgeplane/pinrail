@@ -417,3 +417,29 @@ async fn a_question_is_refused_while_sessions_are_off() {
     .await;
     assert_eq!(code, StatusCode::CREATED, "{body}");
 }
+
+#[tokio::test]
+async fn questions_carry_the_reply_the_agent_suggests() {
+    let app = app();
+    let mut body = questions();
+    body["payload"]["suggested_reply"] = json!("Staging, keep it, and call it /v2/themes.");
+    let asked = ask(&app, body).await;
+    let (_, read) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", asked["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(
+        read["payload"]["suggested_reply"],
+        "Staging, keep it, and call it /v2/themes."
+    );
+    // one line, of 500 characters at most
+    let mut body = questions();
+    body["payload"]["suggested_reply"] = json!("Two\nlines");
+    assert_eq!(refused(&app, body).await, ["/payload/suggested_reply"]);
+    let mut body = questions();
+    body["payload"]["suggested_reply"] = json!("x".repeat(501));
+    assert_eq!(refused(&app, body).await, ["/payload/suggested_reply"]);
+}

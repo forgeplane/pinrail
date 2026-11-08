@@ -61,6 +61,8 @@ pinrail ask "Deploy to staging or production?" \
   answers in words.
 - A question is one line, and can use inline Markdown: put commands,
   paths and endpoints in backticks.
+- `--suggest-reply` gives the reply you expect, such as "Yes, commit it
+  and go on to PIN-55". The person sends it with Tab, or writes their own.
 - Ask up to 10 independent questions at once. A question that depends on
   another's answer goes in a later `pinrail ask`. For questions that
   depend on each other or need long explanations, use the `feedback`

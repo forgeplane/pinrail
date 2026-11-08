@@ -26,7 +26,7 @@ The keys answer the current question, which shows its keys on its choices. A key
 
 ### Sending the answers
 
-The box at the bottom of the thread holds a comment to the agent on all the questions at once. You can dictate it with the microphone in the macOS app.
+The box at the bottom of the thread holds a comment to the agent on all the questions at once. You can dictate it with the microphone in the macOS app. When the agent suggests a reply, the empty box shows it: press <kbd>Tab</kbd> to take it, and edit it or send it as it is.
 
 - **Send** with <kbd>Enter</kbd> in the box, the arrow button, or <kbd>⌘↵</kbd> from anywhere in the thread. A question you left alone goes back as not answered, and the arrow button's tooltip says how many there are.
 - **Decline** with the button in the box, or press <kbd>⌘D</kbd>, when the agent should not have asked. The agent is told to stop and is given your reason.

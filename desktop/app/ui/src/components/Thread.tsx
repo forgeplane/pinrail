@@ -1726,6 +1726,7 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
               connected={live.connected}
               onSend={send}
               onDecline={() => setDeclining(true)}
+              suggestion={(review.payload as { suggested_reply?: string } | undefined)?.suggested_reply}
             />,
             footer,
           )
@@ -2016,20 +2017,37 @@ type ComposerProps = {
   connected: boolean;
   onSend: () => void;
   onDecline: () => void;
+  /** the reply the agent suggests, which Tab puts in the empty box */
+  suggestion?: string;
 };
 
 /** The box under the thread: a comment to the agent on the questions as a
  *  whole, sent with the answers. Enter sends them, and a small button
- *  declines them. */
-function Composer({ comment, onComment, left, busy, connected, onSend, onDecline }: ComposerProps) {
+ *  declines them. The reply the agent suggests shows in the empty box, and
+ *  Tab takes it. */
+function Composer({ comment, onComment, left, busy, connected, onSend, onDecline, suggestion }: ComposerProps) {
   const sendLabel = connected ? "Send the answers to the agent" : "Reconnect to send";
+  const offered = suggestion && !comment ? suggestion : null;
   return (
-    <div className={`thread-composer ${busy ? "is-busy" : ""}`}>
+    <div
+      className={`thread-composer ${busy ? "is-busy" : ""}`}
+      onKeyDown={(e) => {
+        if (offered && e.key === "Tab" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          onComment(offered);
+        }
+      }}
+    >
+      {offered ? (
+        <div className="suggested-reply" data-testid="suggested-reply">
+          <kbd>Tab</kbd> takes the reply the agent suggests
+        </div>
+      ) : null}
       <ComposeField
         value={comment}
         onChange={onComment}
         label="Comment to the agent"
-        placeholder="Add a comment to the agent on these questions…"
+        placeholder={offered ?? "Add a comment to the agent on these questions…"}
         onSubmit={onSend}
         keys={`${left > 0 ? `${left} unanswered · ` : ""}Enter to send · Shift+Enter for a new line`}
         tools={
