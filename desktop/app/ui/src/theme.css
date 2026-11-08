@@ -472,7 +472,7 @@ h1 {
   align-items: center;
   justify-content: center;
   width: 18px;
-  height: 26px;
+  height: 28px;
   margin-left: 2px;
   padding: 0;
   border: 0;
@@ -513,7 +513,8 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px 5px 30px;
+  min-height: 28px;
+  padding: 4px 10px 4px 28px;
   border-radius: 6px;
   color: var(--dim);
   font-size: 12.5px;
@@ -688,11 +689,11 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 .sidebar-review.sidebar-child {
-  padding-left: 52px;
+  padding-left: 50px;
   font-size: 12px;
 }
 .sidebar-group > .sidebar-review.sidebar-child {
-  padding-left: 30px;
+  padding-left: 28px;
 }
 /* under a session outside any group, in line with its title */
 .sidebar-session-item.is-flat > .sidebar-review.sidebar-child {
@@ -2089,7 +2090,8 @@ body.is-resizing iframe {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px 4px;
+  min-height: 28px;
+  padding: 4px;
   font-size: 12.5px;
   color: var(--dim);
   list-style: none;
@@ -2097,7 +2099,12 @@ body.is-resizing iframe {
 /* a group's rows are indented under its heading, their marks under the
    avatar and their titles in line with the group's name */
 .inbox-repo > .review-row {
-  margin-left: 21px;
+  margin-left: 18px;
+}
+/* a group's count: a faint number after its name, as in every tree */
+.inbox-repo summary > span:last-child:not(.project-avatar) {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
 }
 .inbox-repo summary::-webkit-details-marker {
   display: none;
@@ -6293,13 +6300,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   grid-template-columns: 14px 14px auto minmax(0, 1fr) auto 18px 34px;
   align-items: center;
   gap: 9px;
-  padding: 7px 10px;
+  min-height: 28px;
+  padding: 3px 10px 3px 4px;
   border-radius: 6px;
   color: var(--text);
   cursor: pointer;
-}
-.inbox-repo > .item-row {
-  margin-left: 21px;
 }
 .item-row.is-focused {
   background: var(--bg-hover);

@@ -235,7 +235,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           aria-label={`${open ? "Collapse" : "Expand"} ${group.label}`}
           onClick={() => toggleGroup(group)}
         >
-          <Chevron size={12} />
+          <Chevron size={13} />
         </button>
         {group.kind === "project" ? (
           <NavLink

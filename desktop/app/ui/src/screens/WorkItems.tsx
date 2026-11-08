@@ -436,7 +436,9 @@ export function WorkItems() {
         data-testid="item-row"
         data-key={item.key}
         className={`item-row ${index === focused ? "is-focused" : ""} ${item.key === openKey ? "is-open" : ""} ${closed ? "is-closed" : ""} ${dropOn === item.key ? "is-drop" : ""}`}
-        style={{ paddingLeft: 10 + depth * 22 }}
+        // its arrow under the group's, its status under the group's icon,
+        // and each level of sub-items one step in
+        style={{ paddingLeft: 4 + depth * 18 }}
         onMouseEnter={() => setFocused(index)}
         onClick={() => open(item)}
         draggable
@@ -487,7 +489,7 @@ export function WorkItems() {
                 toggleFold(item.key);
               }}
             >
-              {isFolded ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+              {isFolded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
             </button>
           ) : null}
         </span>
