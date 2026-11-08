@@ -115,8 +115,8 @@ export const api = {
   /** adds a work item, as the person */
   addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
     request<WorkItem>("POST", "/api/v1/items", item),
-  /** puts every round of a review under a work item, by its key, or under none */
-  linkReview: (id: string, item: string | null) => request<void>("PUT", `/api/v1/reviews/${seg(id)}/item`, { item }),
+  /** puts every round of a review under exactly these work items, by their keys */
+  setReviewItems: (id: string, items: string[]) => request<void>("PUT", `/api/v1/reviews/${seg(id)}/items`, { items }),
   /** sets a repository's work item key prefix */
   setPrefix: (repo: string, prefix: string) => request<void>("PATCH", `/api/v1/repos/${seg(repo)}`, { prefix }),
   /** a work item with everything about it */

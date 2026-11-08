@@ -19,14 +19,14 @@ async function add(request: APIRequestContext, repo: string, title: string, extr
   return (await response.json()) as { key: string; id: string };
 }
 
-async function review(request: APIRequestContext, repo: string, title: string, item?: string | null) {
+async function review(request: APIRequestContext, repo: string, title: string, items?: string[]) {
   const response = await request.post(`${core}/api/v1/reviews`, {
     data: {
       plugin: "list",
       title,
       origin: { repo },
       requested_by: "claude-code",
-      ...(item !== undefined ? { item } : {}),
+      ...(items !== undefined ? { items } : {}),
       payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
     },
   });
@@ -42,7 +42,7 @@ const panelKey = (page: Page) => page.getByTestId("item-panel").locator(".item-p
 test("a review's chip in its inbox row and its header opens its item", async ({ page, request }) => {
   const repo = fresh("chips");
   const item = await add(request, repo, "Load themes");
-  const sent = await review(request, repo, "Theme loader", item.key);
+  const sent = await review(request, repo, "Theme loader", [item.key]);
   await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
   const row = page.getByTestId("review-row").filter({ hasText: "Theme loader" });
   const chip = row.getByTestId("item-chip");
@@ -58,6 +58,27 @@ test("a review's chip in its inbox row and its header opens its item", async ({ 
   await discard(request, sent.id);
 });
 
+test("a review of several items shows a chip for each, and past two a count", async ({ page, request }) => {
+  const repo = fresh("several");
+  const one = await add(request, repo, "One");
+  const two = await add(request, repo, "Two");
+  const three = await add(request, repo, "Three");
+  const pair = await review(request, repo, "Pair", [one.key, two.key]);
+  const trio = await review(request, repo, "Trio", [one.key, two.key, three.key]);
+  await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
+  const row = (title: string) => page.getByTestId("review-row").filter({ hasText: title });
+  await expect(row("Pair").getByTestId("item-chip")).toHaveText([`${one.key}One`, `${two.key}Two`]);
+  await expect(row("Trio").getByTestId("item-chip")).toHaveCount(2);
+  const more = row("Trio").getByTestId("item-more");
+  await expect(more).toHaveText("+1");
+  await expect(more).toHaveAttribute("title", `${three.key} Three`);
+
+  await page.goto(`/#/reviews/${trio.id}`);
+  await expect(page.getByTestId("review-strip").getByTestId("item-chip")).toHaveCount(3);
+  await discard(request, pair.id);
+  await discard(request, trio.id);
+});
+
 test("an item's question opens in its session, and a review where reviews open", async ({ page, request }) => {
   const repo = fresh("asks");
   const item = await add(request, repo, "Load themes");
@@ -69,12 +90,12 @@ test("an item's question opens in its session, and a review where reviews open",
       origin: { repo },
       requested_by: "claude-code",
       session,
-      item: item.key,
+      items: [item.key],
       payload: { questions: [{ id: "q1", question: "Watch the folder?", answer: "yes-no" }] },
     },
   });
   expect(asked.status(), await asked.text()).toBe(201);
-  const sent = await review(request, repo, "Theme loader", item.key);
+  const sent = await review(request, repo, "Theme loader", [item.key]);
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&open=${item.key}`);
   const reviews = page.getByTestId("item-panel").getByRole("region", { name: "Reviews" });
   await reviews.getByRole("link", { name: /Watch the folder/ }).click();
@@ -87,29 +108,84 @@ test("an item's question opens in its session, and a review where reviews open",
   await discard(request, (await asked.json()).id);
 });
 
-test("a review is put under an item from its header, moved to another, and taken out", async ({ page, request }) => {
+test("a review is added to items from its header, and taken out of each", async ({ page, request }) => {
   const repo = fresh("link");
   const first = await add(request, repo, "First");
   const second = await add(request, repo, "Second");
-  const sent = await review(request, repo, "Unfiled", null);
+  const sent = await review(request, repo, "Unfiled", []);
   await page.goto(`/#/reviews/${sent.id}`);
   const strip = page.getByTestId("review-strip");
-  await expect(strip.getByTestId("item-chip")).toHaveCount(0);
+  const chips = strip.getByTestId("item-chip");
+  await expect(chips).toHaveCount(0);
 
-  await strip.getByRole("button", { name: "Add to a work item", exact: true }).click();
+  const addTo = strip.getByRole("button", { name: "Add to a work item", exact: true });
+  await addTo.click();
   await page.getByRole("option", { name: `${first.key} First` }).click();
-  await expect(strip.getByTestId("item-chip")).toContainText(first.key);
-  await strip.getByRole("button", { name: "Change the work item", exact: true }).click();
+  await expect(chips).toHaveText([`${first.key}First`]);
+  // an item it already belongs to is not offered again
+  await addTo.click();
+  await expect(page.getByRole("option", { name: `${first.key} First` })).toHaveCount(0);
   await page.getByRole("option", { name: `${second.key} Second` }).click();
-  await expect(strip.getByTestId("item-chip")).toContainText(second.key);
+  await expect(chips).toHaveText([`${first.key}First`, `${second.key}Second`]);
   const listed = (await (await request.get(`${core}/api/v1/items/${second.key}`)).json()) as {
     reviews: { id: string }[];
   };
   expect(listed.reviews.map((r) => r.id)).toEqual([sent.id]);
-  await strip.getByRole("button", { name: "Change the work item", exact: true }).click();
-  await page.getByRole("option", { name: "No work item" }).click();
-  await expect(strip.getByTestId("item-chip")).toHaveCount(0);
+
+  await strip.getByRole("button", { name: `Remove from ${first.key}` }).click();
+  await expect(chips).toHaveText([`${second.key}Second`]);
+  const left = (await (await request.get(`${core}/api/v1/items/${first.key}`)).json()) as {
+    reviews: unknown[];
+    timeline: { kind?: string }[];
+  };
+  expect(left.reviews).toEqual([]);
+  expect(left.timeline.at(-1)?.kind).toBe("review_removed");
+  await strip.getByRole("button", { name: `Remove from ${second.key}` }).click();
+  await expect(chips).toHaveCount(0);
   await discard(request, sent.id);
+});
+
+test("a session's review cards and questions show their items", async ({ page, request }) => {
+  const repo = fresh("cards");
+  const session = `s-cards-${Date.now()}`;
+  const one = await add(request, repo, "One");
+  const two = await add(request, repo, "Two");
+  for (const key of [one.key, two.key])
+    await request.patch(`${core}/api/v1/items/${key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  const sent = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      plugin: "list",
+      title: "Loader",
+      origin: { repo },
+      requested_by: "claude-code",
+      session,
+      payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
+    },
+  });
+  expect(sent.status(), await sent.text()).toBe(201);
+  const asked = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Watch the folder?",
+      origin: { repo },
+      requested_by: "claude-code",
+      session,
+      items: [two.key],
+      payload: { questions: [{ id: "q1", question: "Watch the folder?", answer: "yes-no" }] },
+    },
+  });
+  expect(asked.status(), await asked.text()).toBe(201);
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByTestId("thread-review").getByTestId("item-chip")).toHaveText([
+    `${one.key}One`,
+    `${two.key}Two`,
+  ]);
+  await expect(page.getByTestId("question-set").getByTestId("item-chip")).toHaveText([`${two.key}Two`]);
+  // a chip on a card opens the item, not the review
+  await page.getByTestId("thread-review").getByTestId("item-chip").first().click();
+  await expect(panelKey(page)).toHaveText(one.key);
+  await discard(request, (await sent.json()).id);
+  await discard(request, (await asked.json()).id);
 });
 
 test("a session's thread names the items it holds and worked on", async ({ page, request }) => {

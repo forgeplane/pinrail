@@ -84,7 +84,7 @@ impl WorkItem {
     }
 }
 
-/// The item a review belongs to, as the review carries it.
+/// An item a review belongs to, as the review carries it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTag {
     pub id: String,
@@ -97,21 +97,29 @@ impl ItemTag {
         json!({"id": self.id, "key": self.key, "title": self.title})
     }
 
-    /// The tag as `ITEM_JSON` gives it, or `None` for a review of no item.
-    pub(super) fn from_column(json: Option<String>) -> Option<Self> {
-        let value: Value = serde_json::from_str(&json?).ok()?;
-        let text = |k: &str| value.get(k).and_then(Value::as_str).map(str::to_string);
-        Some(ItemTag {
-            id: text("id")?,
-            key: text("key")?,
-            title: text("title")?,
-        })
+    /// The tags as `ITEMS_JSON` gives them.
+    pub(super) fn list_from_column(json: Option<String>) -> Vec<Self> {
+        let Some(Value::Array(list)) = json.and_then(|j| serde_json::from_str(&j).ok()) else {
+            return Vec::new();
+        };
+        list.iter()
+            .filter_map(|value| {
+                let text = |k: &str| value.get(k).and_then(Value::as_str).map(str::to_string);
+                Some(ItemTag {
+                    id: text("id")?,
+                    key: text("key")?,
+                    title: text("title")?,
+                })
+            })
+            .collect()
     }
 }
 
-/// The SQL for the item of the review `r`, as a JSON object, or NULL.
-pub(super) const ITEM_JSON: &str = "(SELECT json_object('id', w.id, 'key', wg.prefix || '-' || w.number,
-     'title', w.title) FROM work_items w JOIN repos wg ON wg.id = w.repo_id WHERE w.id = r.item_id)";
+/// The SQL for the items of the review `r`, as a JSON array by key.
+pub(super) const ITEMS_JSON: &str = "(SELECT json_group_array(json_object('id', w.id,
+     'key', wg.prefix || '-' || w.number, 'title', w.title) ORDER BY wg.prefix, w.number)
+     FROM review_items x JOIN work_items w ON w.id = x.item_id JOIN repos wg ON wg.id = w.repo_id
+     WHERE x.review_id = r.id)";
 
 /// An item another one is related to: by key, with its title and status.
 #[derive(Debug, Clone, PartialEq)]
@@ -288,7 +296,8 @@ pub(super) fn select() -> String {
            {ready},
            {project},
            (SELECT COUNT(*) FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
-             WHERE r.item_id = i.id AND o.review_id IS NULL
+             JOIN review_items x ON x.review_id = r.id
+             WHERE x.item_id = i.id AND o.review_id IS NULL
                AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id))
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
@@ -709,8 +718,8 @@ impl Db {
                                AND e.actor = ?{a} AND e.session = ?{s})
                   OR EXISTS (SELECT 1 FROM work_item_comments c WHERE c.item_id = i.id
                                AND c.author = ?{a} AND c.session = ?{s})
-                  OR EXISTS (SELECT 1 FROM reviews r WHERE r.item_id = i.id
-                               AND r.requested_by = ?{a} AND r.session = ?{s}))"
+                  OR EXISTS (SELECT 1 FROM reviews r JOIN review_items x ON x.review_id = r.id
+                               WHERE x.item_id = i.id AND r.requested_by = ?{a} AND r.session = ?{s}))"
             ));
         }
         for word in filters

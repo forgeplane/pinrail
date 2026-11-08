@@ -65,7 +65,7 @@ import {
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
-import { ItemChip, ItemOpener, itemPath, useOpenItem } from "./ItemChip";
+import { ItemChip, ItemChips, ItemOpener, itemPath, useOpenItem } from "./ItemChip";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { AgentIcon } from "./AgentIcon";
@@ -1281,6 +1281,11 @@ function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
           Review · {review.plugin}
           {round ? ` · round ${round.n} of ${round.of}` : ""} · {age(review.created_at)} ago
         </span>
+        {review.items?.length ? (
+          <span className="thread-card-items">
+            <ItemChips items={review.items} max={3} />
+          </span>
+        ) : null}
         {/* under the title, where many counts cannot squeeze it */}
         <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
       </span>
@@ -1558,6 +1563,11 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
           <span className="text">{review.requested_by ?? "The agent"}</span> {pending ? "asks" : "asked"} ·{" "}
           <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
           {pending ? <span className="msg-waiting">waiting for your answer</span> : null}
+          {review.items?.length ? (
+            <span className="msg-items">
+              <ItemChips items={review.items} max={3} />
+            </span>
+          ) : null}
         </div>
         {questions.map((question, index) => (
           <QuestionMessage

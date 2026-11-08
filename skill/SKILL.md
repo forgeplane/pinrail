@@ -216,8 +216,12 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
   first. `pinrail items add --help` shows the file's format.
 - **Take the next item** with `pinrail items next --claim` when the
   person asks you to work through the items. Claim a given item with
-  `pinrail items edit <key> --claim`. While you hold an item, the reviews
-  and questions you send belong to it.
+  `pinrail items edit <key> --claim`. While you hold items, the reviews
+  and questions you send belong to all of them. When one is about only
+  some of them, name each with `--item`, such as `--item PIN-35 --item
+  PIN-36`. The line `submit` and `ask` print on stderr names the items a
+  review went under: if they are wrong, send the next round with the
+  right `--item`.
 - **Keep the item current.** Rewrite its description with `pinrail items
   edit <key> --body-file <file>` as the work becomes clearer. Comment on
   your progress, what you found and what you decided, with `pinrail items

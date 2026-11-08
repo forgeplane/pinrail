@@ -65,6 +65,11 @@ export function said(entry: Extract<ItemEntry, { type: "event" }>): string {
       return `sent the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
     case "review_ended":
       return `“${a.title}” ended: ${String(a.outcome)}`;
+    case "review_added":
+    case "review_linked":
+      return `added the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
+    case "review_removed":
+      return `removed the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
     default:
       return entry.kind.replace(/_/g, " ");
   }
@@ -87,6 +92,8 @@ const KIND_WORDS: Record<string, string> = {
   review_sent: "reviews",
   review_ended: "reviews",
   review_linked: "reviews",
+  review_added: "reviews",
+  review_removed: "reviews",
 };
 
 /** The kinds of change in a run, as a list in words: "status, parent and claims". */
@@ -132,6 +139,8 @@ function ChangeIcon({ change }: { change: Change }) {
     case "review_sent":
     case "review_ended":
     case "review_linked":
+    case "review_added":
+    case "review_removed":
       return <GitPullRequestArrow size={12} aria-hidden="true" />;
     default:
       return <FileText size={12} aria-hidden="true" />;

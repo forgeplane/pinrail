@@ -3992,7 +3992,7 @@ fn items_done_refused_while_a_review_waits_exits_2_and_says_to_wait() {
 }
 
 #[test]
-fn submit_ask_and_list_name_a_work_item_or_none() {
+fn submit_ask_and_list_name_work_items() {
     let (server, sent) = items_server(|method, _| {
         if method == "GET" {
             (
@@ -4008,7 +4008,9 @@ fn submit_ask_and_list_name_a_work_item_or_none() {
         assert_eq!(code, 0, "{args:?} {err}");
     };
     run(&["submit", "list", "--title", "t", "--item", "PIN-4"]);
-    run(&["submit", "list", "--title", "t", "--no-item"]);
+    run(&[
+        "submit", "list", "--title", "t", "--item", "PIN-4", "--item", "5",
+    ]);
     run(&["submit", "list", "--title", "t"]);
     // ask then waits for the answers, which this server does not give
     items_run(
@@ -4022,31 +4024,47 @@ fn submit_ask_and_list_name_a_work_item_or_none() {
         .filter(|(m, p, _)| m == "POST" && p == "/api/v1/reviews")
         .map(|(_, _, b)| b)
         .collect();
-    assert_eq!(posted[0]["item"], "PIN-4");
-    assert_eq!(posted[1]["item"], serde_json::Value::Null);
-    assert!(posted[1].as_object().unwrap().contains_key("item"));
-    assert!(!posted[2].as_object().unwrap().contains_key("item"));
+    assert_eq!(posted[0]["items"], serde_json::json!(["PIN-4"]));
+    assert_eq!(posted[1]["items"], serde_json::json!(["PIN-4", "5"]));
+    // left out, the app gives the items the session holds
+    assert!(!posted[2].as_object().unwrap().contains_key("items"));
     assert_eq!(posted[3]["kind"], "question");
-    assert_eq!(posted[3]["item"], "PIN-4");
+    assert_eq!(posted[3]["items"], serde_json::json!(["PIN-4"]));
     let listed = sent
         .iter()
         .find(|(m, p, _)| m == "GET" && p.starts_with("/api/v1/reviews?"))
         .unwrap();
     assert!(listed.1.contains("item=PIN-4"), "{}", listed.1);
-    drop(sent);
-    let (code, _, _) = items_run(
-        &server,
-        &[
-            "submit",
-            "list",
-            "--title",
-            "t",
-            "--item",
-            "PIN-4",
-            "--no-item",
-        ],
+}
+
+#[test]
+fn submit_and_ask_say_which_work_items_a_review_went_under() {
+    let answering = |items: &'static str| {
+        items_server(move |_, _| {
+            (
+                201,
+                format!(
+                    r#"{{"id":"r_1","plugin":"list","title":"t","status":"pending","decision":null,"payload":{{}},"items":{items}}}"#
+                ),
+            )
+        })
+    };
+    let (none, _) = answering("[]");
+    let (_, _, err) = items_run(&none, &["submit", "list", "--title", "t"]);
+    assert_eq!(err, "pinrail: review r_1 submitted for no work item\n");
+    let (server, _) = answering(
+        r#"[{"id":"w1","key":"PIN-35","title":"a"},{"id":"w2","key":"PIN-36","title":"b"}]"#,
     );
-    assert_eq!(code, 1);
+    let (code, _, err) = items_run(&server, &["submit", "list", "--title", "t"]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(err, "pinrail: review r_1 submitted for PIN-35, PIN-36\n");
+    let (_, _, err) = items_run(&server, &["ask", "Watch or poll?", "--timeout", "1"]);
+    assert!(
+        err.starts_with(
+            "pinrail: review r_1 submitted for PIN-35, PIN-36; waiting for the answers\n"
+        ),
+        "{err}"
+    );
 }
 
 #[test]

@@ -181,7 +181,7 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
 
 `items add` adds one item, or with `--file` a whole breakdown of items that name each other by a `ref` of their own. `items edit` changes an item's title, description, status, parent, dependencies, link, repository or files, and claims or releases it. `items list` lists the items that are open or in progress, and `--ready` the ones an agent can start.
 
-While a session holds an item, the reviews and questions it sends belong to the item. `--item` on `submit` and `ask` names another item, and `--no-item` none. A command that Pinrail refuses, such as a dependency that would make two items wait for each other, or `done` while a review of the item still waits, exits with `2` and says why.
+While a session holds items, the reviews and questions it sends belong to all of them. `--item` on `submit` and `ask` names the items instead, once per item. The line `submit` and `ask` print on stderr names the items the review went under, or says it went under none. A command that Pinrail refuses, such as a dependency that would make two items wait for each other, or `done` while a review of the item still waits, exits with `2` and says why.
 
 ## Submitting a review
 

@@ -15,7 +15,7 @@ fn review(id: &str, expires_in: Option<Duration>) -> Review {
         starred_at: None,
         starred: false,
         project: None,
-        item: None,
+        items: Vec::new(),
         attachments: Vec::new(),
         attachments_total: (0, 0),
         id: id.into(),

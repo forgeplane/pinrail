@@ -208,8 +208,8 @@ fn insert_in(
             review.created_at,
         )?;
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind, repo_id, item_id)
-             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13, ?14, ?15)",
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind, repo_id)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13, ?14)",
             params![
                 review.id,
                 review.plugin,
@@ -226,9 +226,30 @@ fn insert_in(
                 review.session,
                 review.kind.as_str(),
                 repo_id,
-                review.item.as_ref().map(|i| i.id.as_str()),
             ],
         )?;
+        for item in &review.items {
+            tx.execute(
+                "INSERT INTO review_items (review_id, item_id) VALUES (?1, ?2)",
+                params![review.id, item.id],
+            )?;
+        }
+        if let Some(revised) = &review.revises {
+            let actor = crate::items::Actor::Agent {
+                name: review
+                    .requested_by
+                    .clone()
+                    .unwrap_or_else(|| "agent".into()),
+                session: review.session.clone(),
+            };
+            super::item_work::earlier_rounds_follow(
+                tx,
+                &review.id,
+                revised,
+                &actor,
+                review.created_at,
+            )?;
+        }
         super::item_work::review_sent(tx, &review.id)?;
         tx.execute(
             "INSERT INTO review_payloads (review_id, payload) VALUES (?1, ?2)",
@@ -477,7 +498,9 @@ impl Db {
         }
         if let Some(item) = &filters.item {
             let n = push(item);
-            sql.push_str(&format!(" AND r.item_id = ?{n}"));
+            sql.push_str(&format!(
+                " AND EXISTS (SELECT 1 FROM review_items x WHERE x.review_id = r.id AND x.item_id = ?{n})"
+            ));
         }
         if let Some(kind) = filters.kind {
             let n = push(kind.as_str());
@@ -697,7 +720,7 @@ fn select(with_payload: bool) -> String {
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}",
         project = super::projects::project_json(REPO),
-        item = super::items::ITEM_JSON,
+        item = super::items::ITEMS_JSON,
     )
 }
 
@@ -797,7 +820,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .and_then(|s| parse_datetime(&s)),
         starred: row.get(26)?,
         project: super::ProjectRef::from_column(row.get(27)?),
-        item: super::ItemTag::from_column(row.get(28)?),
+        items: super::ItemTag::list_from_column(row.get(28)?),
         id: row.get(0)?,
         kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,

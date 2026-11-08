@@ -290,8 +290,9 @@ fn release_in(conn: &Connection, id: &str, actor: &Actor, at: DateTime<Utc>) -> 
 /// rounds only, as `"title" (id)`.
 fn waiting_on(conn: &Connection, id: &str, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT r.title, r.id FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
-          WHERE r.item_id = ?1 AND o.review_id IS NULL
+        "SELECT r.title, r.id FROM reviews r JOIN review_items x ON x.review_id = r.id
+           LEFT JOIN outcomes o ON o.review_id = r.id
+          WHERE x.item_id = ?1 AND o.review_id IS NULL
             AND (r.expires_at IS NULL OR r.expires_at > ?2)
             AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)
           ORDER BY r.id",
@@ -383,20 +384,69 @@ pub(super) fn release_session_claims(
     Ok(())
 }
 
-/// Records on its item that a review was sent for it.
+/// Gives the earlier rounds of a new round its items, and records
+/// "review_removed" on each item the review left.
+pub(super) fn earlier_rounds_follow(
+    conn: &Connection,
+    round: &str,
+    revised: &str,
+    actor: &Actor,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<()> {
+    const CHAIN: &str = "WITH RECURSIVE chain(id) AS (
+        VALUES (?2) UNION SELECT r.revises FROM reviews r JOIN chain c ON r.id = c.id
+         WHERE r.revises IS NOT NULL)";
+    let left: Vec<String> = conn
+        .prepare(
+            "SELECT item_id FROM review_items WHERE review_id = ?2
+              AND item_id NOT IN (SELECT item_id FROM review_items WHERE review_id = ?1)",
+        )?
+        .query_map(params![round, revised], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    conn.execute(
+        &format!("{CHAIN} DELETE FROM review_items WHERE review_id IN (SELECT id FROM chain)"),
+        params![round, revised],
+    )?;
+    conn.execute(
+        &format!(
+            "{CHAIN} INSERT INTO review_items (review_id, item_id)
+             SELECT c.id, x.item_id FROM chain c, review_items x WHERE x.review_id = ?1"
+        ),
+        params![round, revised],
+    )?;
+    let (title, kind): (String, String) = conn.query_row(
+        "SELECT title, kind FROM reviews WHERE id = ?1",
+        params![round],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    for id in left {
+        item_event(
+            conn,
+            &id,
+            "review_removed",
+            actor,
+            json!({"review": round, "title": title, "kind": kind}),
+            at,
+        )?;
+        touch(conn, &id, at)?;
+    }
+    Ok(())
+}
+
+/// Records on each of its items that a review was sent for it.
 pub(super) fn review_sent(conn: &Connection, review: &str) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO work_item_events (item_id, kind, actor, session, at, attrs)
-         SELECT r.item_id, 'review_sent', COALESCE(r.requested_by, 'agent'), r.session, r.created_at,
+         SELECT x.item_id, 'review_sent', COALESCE(r.requested_by, 'agent'), r.session, r.created_at,
                 json_object('review', r.id, 'title', r.title, 'plugin', r.plugin, 'kind', r.kind,
                             'revises', r.revises)
-           FROM reviews r WHERE r.id = ?1 AND r.item_id IS NOT NULL",
+           FROM reviews r JOIN review_items x ON x.review_id = r.id WHERE r.id = ?1",
         params![review],
     )?;
     Ok(())
 }
 
-/// Records on its item how a review ended, with the decision's summary or
+/// Records on each of its items how a review ended, with the decision's summary or
 /// the reason, so that the item keeps it after the review is swept.
 pub(super) fn review_ended(
     conn: &Connection,
@@ -408,10 +458,10 @@ pub(super) fn review_ended(
 ) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO work_item_events (item_id, kind, actor, session, at, attrs)
-         SELECT r.item_id, 'review_ended', COALESCE(?3, 'person'), NULL, ?4,
+         SELECT x.item_id, 'review_ended', COALESCE(?3, 'person'), NULL, ?4,
                 json_object('review', r.id, 'title', r.title, 'plugin', r.plugin, 'kind', r.kind,
                             'outcome', ?2, 'detail', json(?5))
-           FROM reviews r WHERE r.id = ?1 AND r.item_id IS NOT NULL",
+           FROM reviews r JOIN review_items x ON x.review_id = r.id WHERE r.id = ?1",
         params![review, outcome, by, iso(at), detail.to_string()],
     )?;
     Ok(())
@@ -1018,8 +1068,9 @@ impl Db {
                     WHEN r.expires_at IS NOT NULL AND r.expires_at <= ?2 THEN 'expired'
                     ELSE 'pending' END,
                o.summary, r.requested_by, r.created_at, r.session
-             FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
-            WHERE r.item_id = ?1 AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)
+             FROM reviews r JOIN review_items x ON x.review_id = r.id
+             LEFT JOIN outcomes o ON o.review_id = r.id
+            WHERE x.item_id = ?1 AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)
             ORDER BY r.id",
         )?;
         stmt.query_map(params![id, iso(now)], |r| {
@@ -1049,8 +1100,9 @@ impl Db {
             "WITH worked(agent, session) AS (
                SELECT actor, session FROM work_item_events WHERE item_id = ?1 AND session IS NOT NULL
                UNION SELECT author, session FROM work_item_comments WHERE item_id = ?1 AND session IS NOT NULL
-               UNION SELECT requested_by, session FROM reviews
-                      WHERE item_id = ?1 AND requested_by IS NOT NULL AND session IS NOT NULL
+               UNION SELECT r.requested_by, r.session FROM reviews r
+                      JOIN review_items x ON x.review_id = r.id
+                      WHERE x.item_id = ?1 AND r.requested_by IS NOT NULL AND r.session IS NOT NULL
                UNION SELECT created_by, created_session FROM work_items
                       WHERE id = ?1 AND created_session IS NOT NULL
              )
@@ -1102,61 +1154,74 @@ impl Db {
         review_ended(&self.conn(), review, "expired", None, &Value::Null, at)
     }
 
-    /// The id of the item a review belongs to, if any.
-    pub fn item_of_review(&self, review: &str) -> rusqlite::Result<Option<String>> {
-        self.conn()
-            .query_row(
-                "SELECT item_id FROM reviews WHERE id = ?1",
-                params![review],
-                |r| r.get(0),
-            )
-            .optional()
-            .map(Option::flatten)
+    /// The ids of the items a review belongs to.
+    pub fn items_of_review(&self, review: &str) -> rusqlite::Result<Vec<String>> {
+        let conn = self.conn();
+        let mut stmt =
+            conn.prepare("SELECT item_id FROM review_items WHERE review_id = ?1 ORDER BY item_id")?;
+        stmt.query_map(params![review], |r| r.get(0))?.collect()
     }
 
-    /// Puts every round of a review under an item, or under none, with an
-    /// entry on the item's timeline. `rounds` are the review's rounds,
-    /// oldest first.
-    pub fn set_review_item(
+    /// Puts every round of a review under exactly `items`, none for an
+    /// empty list. Each item the review joins records "review_added" and
+    /// each it leaves "review_removed". `rounds` are the review's rounds,
+    /// oldest first. Returns the ids of the items it joined or left.
+    pub fn set_review_items(
         &self,
         rounds: &[String],
-        item: Option<&ItemRef>,
+        items: &[ItemRef],
         actor: &Actor,
         at: DateTime<Utc>,
-    ) -> Outcome<Option<String>> {
+    ) -> Outcome<Vec<String>> {
+        let Some(newest) = rounds.last() else {
+            return Ok(Ok(Vec::new()));
+        };
         let mut conn = self.conn();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let id = match item {
-            Some(item) => match resolve(&tx, item, None)? {
-                Ok(id) => Some(id),
+        let mut ids = Vec::new();
+        for item in items {
+            match resolve(&tx, item, None)? {
+                Ok(id) if !ids.contains(&id) => ids.push(id),
+                Ok(_) => {}
                 Err(refused) => return Ok(Err(refused)),
-            },
-            None => None,
-        };
+            }
+        }
+        let before: Vec<String> = tx
+            .prepare("SELECT item_id FROM review_items WHERE review_id = ?1")?
+            .query_map(params![newest], |r| r.get(0))?
+            .collect::<Result<_, _>>()?;
         for round in rounds {
             tx.execute(
-                "UPDATE reviews SET item_id = ?2 WHERE id = ?1",
-                params![round, id],
+                "DELETE FROM review_items WHERE review_id = ?1",
+                params![round],
             )?;
+            for id in &ids {
+                tx.execute(
+                    "INSERT INTO review_items (review_id, item_id) VALUES (?1, ?2)",
+                    params![round, id],
+                )?;
+            }
         }
-        if let (Some(id), Some(newest)) = (&id, rounds.last()) {
-            let (title, kind): (String, String) = tx.query_row(
-                "SELECT title, kind FROM reviews WHERE id = ?1",
-                params![newest],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )?;
-            item_event(
-                &tx,
-                id,
-                "review_linked",
-                actor,
-                json!({"review": newest, "title": title, "kind": kind}),
-                at,
-            )?;
+        let (title, kind): (String, String) = tx.query_row(
+            "SELECT title, kind FROM reviews WHERE id = ?1",
+            params![newest],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let attrs = json!({"review": newest, "title": title, "kind": kind});
+        let mut changed = Vec::new();
+        for id in before.iter().filter(|id| !ids.contains(id)) {
+            item_event(&tx, id, "review_removed", actor, attrs.clone(), at)?;
+            changed.push(id.clone());
+        }
+        for id in ids.iter().filter(|id| !before.contains(id)) {
+            item_event(&tx, id, "review_added", actor, attrs.clone(), at)?;
+            changed.push(id.clone());
+        }
+        for id in &changed {
             touch(&tx, id, at)?;
         }
         tx.commit()?;
-        Ok(Ok(id))
+        Ok(Ok(changed))
     }
 
     /// Records a change made outside `edit_item`, such as an item added.

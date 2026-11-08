@@ -251,7 +251,7 @@ test("the reviews and sessions of an item are listed and lead to them", async ({
       origin: { repo },
       requested_by: "claude-code",
       session: "s-panel",
-      item: item.key,
+      items: [item.key],
       payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
     },
   });

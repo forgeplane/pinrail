@@ -68,6 +68,8 @@ struct Checked<'a> {
     plugin: Option<Arc<Plugin>>,
     payload: Value,
     attachments: Vec<ReviewAttachment>,
+    /// the work items it belongs to
+    items: Vec<crate::db::ItemTag>,
 }
 
 /// The refusal for a round that already has a newer round.
@@ -109,70 +111,69 @@ impl Reviews {
         self.submit_once(body, actor).map(|(review, _)| review)
     }
 
-    /// The work item a new review belongs to: the one `item` names, by its
-    /// key or its number in the origin's repository; none when `item` is
-    /// null; else the item of the round it revises, or the one item the
-    /// session holds a claim of.
-    fn item_for(
-        &self,
-        attrs: &Map<String, Value>,
-        _kind: Kind,
-    ) -> Result<Option<crate::db::ItemTag>, Error> {
-        let id = match attrs.get("item") {
-            Some(Value::Null) => return Ok(None),
-            Some(Value::String(named)) => {
-                let item =
-                    crate::items::ItemRef::parse(named).map_err(|e| Error::invalid("/item", e))?;
+    /// The work items a new review belongs to: those `items` names, by
+    /// their keys or their numbers in the origin's repository, none for an
+    /// empty list; without `items`, those of the round it revises, or else
+    /// every item the session holds a claim of.
+    fn items_for(&self, attrs: &Map<String, Value>) -> Result<Vec<crate::db::ItemTag>, Error> {
+        let ids: Vec<String> = match attrs.get("items") {
+            Some(Value::Array(named)) => {
                 let repo = attrs
                     .get("origin")
                     .and_then(|o| o.get("repo"))
                     .and_then(Value::as_str);
-                match self.db.item(&item, repo)? {
-                    Ok(found) => found.id,
-                    Err(refused) => return Err(Error::invalid("/item", refused.to_string())),
+                let mut ids = Vec::new();
+                for (i, named) in named.iter().enumerate() {
+                    let path = format!("/items/{i}");
+                    let Some(named) = named.as_str() else {
+                        return Err(Error::invalid(
+                            path,
+                            "must be an item's key, such as PIN-42",
+                        ));
+                    };
+                    let item = crate::items::ItemRef::parse(named)
+                        .map_err(|e| Error::invalid(path.clone(), e))?;
+                    match self.db.item(&item, repo)? {
+                        Ok(found) if !ids.contains(&found.id) => ids.push(found.id),
+                        Ok(_) => {}
+                        Err(refused) => return Err(Error::invalid(path, refused.to_string())),
+                    }
                 }
+                ids
             }
             Some(_) => {
                 return Err(Error::invalid(
-                    "/item",
-                    "must be an item's key, such as PIN-42",
+                    "/items",
+                    "must be a list of item keys, such as [\"PIN-42\"]",
                 ));
             }
             None => {
                 let revised = attrs.get("revises").and_then(Value::as_str);
                 let agent = attrs.get("requested_by").and_then(Value::as_str);
                 let session = attrs.get("session").and_then(Value::as_str);
-                if let Some(revised) = revised {
-                    match self.db.item_of_review(revised)? {
-                        Some(id) => id,
-                        None => return Ok(None),
-                    }
-                } else if let (Some(agent), Some(session)) = (agent, session) {
-                    let held = self.db.session_claims(agent, session)?;
-                    match held.as_slice() {
-                        [] => return Ok(None),
-                        [one] => one.clone(),
-                        _ => {
-                            return Err(Error::invalid(
-                                "/item",
-                                "the session holds several work items: name the one this is for",
-                            ));
-                        }
-                    }
-                } else {
-                    return Ok(None);
+                match (revised, agent, session) {
+                    (Some(revised), _, _) => self.db.items_of_review(revised)?,
+                    (None, Some(agent), Some(session)) => self.db.session_claims(agent, session)?,
+                    _ => Vec::new(),
                 }
             }
         };
-        Ok(self
-            .db
-            .item(&crate::items::ItemRef::Id(id), None)?
-            .ok()
+        let mut found = Vec::new();
+        for id in ids {
+            if let Ok(w) = self.db.item(&crate::items::ItemRef::Id(id), None)? {
+                found.push(w);
+            }
+        }
+        // in the order a read gives them
+        found.sort_by(|a, b| (&a.key.prefix, a.key.number).cmp(&(&b.key.prefix, b.key.number)));
+        Ok(found
+            .into_iter()
             .map(|w| crate::db::ItemTag {
                 id: w.id,
                 key: w.key.to_string(),
                 title: w.title,
-            }))
+            })
+            .collect())
     }
 
     /// The bundle a new review records: the installed one, which for a
@@ -197,6 +198,7 @@ impl Reviews {
             plugin,
             payload,
             attachments,
+            items,
         } = self.check(body, Presence::Stored)?;
         let summary = match &plugin {
             Some(plugin) => plugin
@@ -260,7 +262,7 @@ impl Reviews {
                 None => false,
             },
             project: None,
-            item: self.item_for(attrs, kind)?,
+            items,
         };
         // the notice and the answer name the project as a read would
         let mut review = review;
@@ -349,12 +351,14 @@ impl Reviews {
             &payload,
             presence,
         )?;
+        let items = self.items_for(attrs)?;
         Ok(Checked {
             attrs,
             kind,
             plugin,
             payload,
             attachments,
+            items,
         })
     }
 

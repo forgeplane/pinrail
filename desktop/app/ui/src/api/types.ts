@@ -85,11 +85,11 @@ export type Review = {
   starred?: boolean;
   /** the project its repository is in */
   project?: ProjectRef | null;
-  /** the work item it belongs to */
-  item?: ItemTag | null;
+  /** the work items it belongs to, which every round shares */
+  items?: ItemTag[];
 };
 
-/** The work item a review belongs to, as the review carries it. */
+/** A work item a review belongs to, as the review carries it. */
 export type ItemTag = { id: string; key: string; title: string };
 
 /** A project as a review or a session names it. */

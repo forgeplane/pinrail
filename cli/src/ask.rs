@@ -62,12 +62,10 @@ pub struct AskArgs {
     #[arg(long)]
     pub timeout: Option<u64>,
     /// The work item this is for, by its key or its number in the
-    /// checkout [default: the one item the session holds, if it holds one]
-    #[arg(long, value_name = "ITEM", conflicts_with = "no_item")]
-    pub item: Option<String>,
-    /// Belong to no work item, whatever the session holds
-    #[arg(long)]
-    pub no_item: bool,
+    /// checkout. Repeat it for several [default: every item the session
+    /// holds]
+    #[arg(long, value_name = "ITEM")]
+    pub item: Vec<String>,
     /// Do not start the server when it is not running
     #[arg(long)]
     pub no_start: bool,

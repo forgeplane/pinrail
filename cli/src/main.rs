@@ -275,8 +275,8 @@ enum Command {
     ///     pinrail items show PIN-42
     ///     pinrail items done PIN-42 --comment "Loader in core/src/themes.rs"
     ///
-    /// While a session holds an item, the reviews and questions it sends
-    /// belong to that item, unless --item or --no-item says otherwise.
+    /// While a session holds items, the reviews and questions it sends
+    /// belong to all of them, unless --item names the ones they are for.
     #[command(verbatim_doc_comment)]
     Items(items::ItemsArgs),
     /// Wait until a review ends, then print its decision as Markdown, or the
@@ -454,12 +454,10 @@ struct SubmitArgs {
     #[arg(long, value_name = "FILE", requires = "wait")]
     decision_out: Option<PathBuf>,
     /// The work item this is for, by its key or its number in the
-    /// checkout [default: the one item the session holds, if it holds one]
-    #[arg(long, value_name = "ITEM", conflicts_with = "no_item")]
-    item: Option<String>,
-    /// Belong to no work item, whatever the session holds
-    #[arg(long)]
-    no_item: bool,
+    /// checkout. Repeat it for several [default: every item the session
+    /// holds]
+    #[arg(long, value_name = "ITEM")]
+    item: Vec<String>,
     /// Do not start the server when it is not running
     #[arg(long)]
     no_start: bool,
@@ -1439,7 +1437,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if let Some(id) = &args.revises {
         body["revises"] = json!(id);
     }
-    for_item(&mut body, args.item.as_deref(), args.no_item);
+    for_items(&mut body, &args.item);
     if let Some(at) = &args.expires_at {
         body["expires_at"] = json!(at);
     }
@@ -1575,13 +1573,25 @@ fn with_session(body: &mut Value) {
     }
 }
 
-/// The work item a review or a question is for: the one named, none with
-/// --no-item, or, left out, the one the session holds, which the app finds.
-fn for_item(body: &mut Value, item: Option<&str>, none: bool) {
-    if let Some(item) = item {
-        body["item"] = json!(item);
-    } else if none {
-        body["item"] = Value::Null;
+/// The work items a review or a question is for: those named, or, left
+/// out, every one the session holds, which the app finds.
+fn for_items(body: &mut Value, items: &[String]) {
+    if !items.is_empty() {
+        body["items"] = json!(items);
+    }
+}
+
+/// " for PIN-35, PIN-36", or " for no work item", as the app answered the
+/// review's items: what the stderr line adds after "submitted".
+fn went_under(review: &Value) -> String {
+    let Some(items) = review["items"].as_array() else {
+        return String::new();
+    };
+    let keys: Vec<&str> = items.iter().filter_map(|i| i["key"].as_str()).collect();
+    if keys.is_empty() {
+        " for no work item".to_string()
+    } else {
+        format!(" for {}", keys.join(", "))
     }
 }
 
@@ -1709,7 +1719,7 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
         "requested_by": requester(args.requested_by.as_deref()),
     });
     with_session(&mut body);
-    for_item(&mut body, args.item.as_deref(), args.no_item);
+    for_items(&mut body, &args.item);
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
@@ -1720,7 +1730,8 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
         .as_str()
         .context("server returned a review without an id")?
         .to_string();
-    eprintln!("pinrail: review {id} submitted; waiting for the answers");
+    let under = went_under(&review);
+    eprintln!("pinrail: review {id} submitted{under}; waiting for the answers");
     let opts = WaitOpts {
         timeout: args.timeout,
         decision_out: None,
@@ -1735,10 +1746,11 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
         .context("server returned a review without an id")?
         .to_string();
     // said at once, so whoever runs it has the id even while --wait blocks
+    let under = went_under(&review);
     if args.wait {
-        eprintln!("pinrail: review {id} submitted; waiting for a decision");
+        eprintln!("pinrail: review {id} submitted{under}; waiting for a decision");
     } else {
-        eprintln!("pinrail: review {id} submitted");
+        eprintln!("pinrail: review {id} submitted{under}");
     }
 
     if args.wait {

@@ -6856,6 +6856,59 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   padding: 1px 7px;
   font-size: 11.5px;
 }
+/* a chip in a review's header, with its × */
+.review-item-chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 999px;
+  background: var(--accent-bg);
+}
+.review-item-chip .item-chip {
+  padding-right: 4px;
+  background: none;
+}
+.review-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+}
+.review-item-remove:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+/* how many more items a review belongs to than its row shows */
+.item-more {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 11px;
+}
+.thread-card-items,
+.msg-items {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.thread-card-items {
+  margin-top: 4px;
+}
+.msg-items {
+  margin-left: 6px;
+}
 .thread-meta-item {
   display: inline-flex;
   align-items: center;

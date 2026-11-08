@@ -104,7 +104,7 @@ async fn next(app: &App, session: &str, claim: bool) -> Value {
     answer["item"].clone()
 }
 
-fn review(session: &str, title: &str, item: Option<Value>) -> Value {
+fn review(session: &str, title: &str, items: Option<Value>) -> Value {
     let mut body = json!({
         "plugin": "list",
         "title": title,
@@ -113,8 +113,8 @@ fn review(session: &str, title: &str, item: Option<Value>) -> Value {
         "session": session,
         "payload": {"groups": [{"title": "g", "items": [{"id": 1, "title": "x"}]}]}
     });
-    if let Some(item) = item {
-        body["item"] = item;
+    if let Some(items) = items {
+        body["items"] = items;
     }
     body
 }
@@ -539,7 +539,7 @@ async fn an_agent_cannot_mark_done_an_item_with_a_pending_question() {
     let app = app();
     add(&app, "Work").await;
     let mut question = json!({
-        "kind": "question", "title": "Watch or poll?", "item": "PIN-1",
+        "kind": "question", "title": "Watch or poll?", "items": ["PIN-1"],
         "origin": {"repo": REPO}, "requested_by": "claude-code", "session": "s-1",
         "payload": {"questions": [{"id": "q1", "question": "Watch or poll?", "answer": "text"}]}
     });
@@ -941,6 +941,10 @@ async fn a_comment_carries_files_that_the_sweep_keeps_until_the_comment_goes() {
 
 // --- reviews and sessions
 
+fn item_keys(review: &Value) -> Vec<String> {
+    keys(&review["items"])
+}
+
 #[tokio::test]
 async fn a_review_from_the_session_holding_one_item_belongs_to_it() {
     let app = app();
@@ -949,23 +953,24 @@ async fn a_review_from_the_session_holding_one_item_belongs_to_it() {
     edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
     let (code, sent) = submit(&app, review("s-1", "Theme loader", None)).await;
     assert_eq!(code, StatusCode::CREATED, "{sent}");
-    assert_eq!(sent["item"]["key"], "PIN-1");
-    assert_eq!(sent["item"]["title"], "Work");
-    // named explicitly, by key or number, or with null for none
-    let (_, named) = submit(&app, review("s-1", "Other one", Some(json!("2")))).await;
-    assert_eq!(named["item"]["key"], "PIN-2");
-    let (_, none) = submit(&app, review("s-1", "No item", Some(Value::Null))).await;
-    assert_eq!(none["item"], Value::Null);
-    let (code, refused) = submit(&app, review("s-1", "Unknown", Some(json!("PIN-9")))).await;
+    assert_eq!(item_keys(&sent), ["PIN-1"]);
+    assert_eq!(sent["items"][0]["title"], "Work");
+    // named explicitly, by key or number, or an empty list for none
+    let (_, named) = submit(&app, review("s-1", "Other one", Some(json!(["2"])))).await;
+    assert_eq!(item_keys(&named), ["PIN-2"]);
+    let (_, none) = submit(&app, review("s-1", "No item", Some(json!([])))).await;
+    assert_eq!(none["items"], json!([]));
+    let (code, refused) = submit(&app, review("s-1", "Unknown", Some(json!(["PIN-9"])))).await;
     assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["violations"][0]["path"], "/items/0");
     // another session, holding nothing, sends without an item
     let (_, other) = submit(&app, review("s-2", "Elsewhere", None)).await;
-    assert_eq!(other["item"], Value::Null);
-    // a later round keeps its item
+    assert_eq!(other["items"], json!([]));
+    // a later round keeps its items
     let mut round = review("s-9", "Theme loader", None);
     round["revises"] = sent["id"].clone();
     let (_, round) = submit(&app, round).await;
-    assert_eq!(round["item"]["key"], "PIN-1");
+    assert_eq!(item_keys(&round), ["PIN-1"]);
 
     let read = item(&app, "PIN-1").await;
     let titles: Vec<&str> = read["reviews"]
@@ -980,24 +985,96 @@ async fn a_review_from_the_session_holding_one_item_belongs_to_it() {
 }
 
 #[tokio::test]
-async fn a_session_holding_two_items_names_the_one_a_review_is_for() {
+async fn a_review_from_a_session_holding_two_items_belongs_to_both() {
+    let app = app();
+    add(&app, "One").await;
+    add(&app, "Two").await;
+    add(&app, "Three").await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
+    let (code, sent) = submit(&app, review("s-1", "Both", None)).await;
+    assert_eq!(code, StatusCode::CREATED, "{sent}");
+    assert_eq!(item_keys(&sent), ["PIN-1", "PIN-2"]);
+    for key in ["PIN-1", "PIN-2"] {
+        let read = item(&app, key).await;
+        assert_eq!(read["reviews"][0]["title"], "Both", "{key}");
+        assert_eq!(read["waiting"], 1, "{key}");
+        assert!(timeline_kinds(&read).contains(&"review_sent".to_string()));
+    }
+    // named items replace the default
+    let (_, named) = submit(&app, review("s-1", "Only two", Some(json!(["PIN-2"])))).await;
+    assert_eq!(item_keys(&named), ["PIN-2"]);
+    let (_, named) = submit(&app, review("s-1", "Others", Some(json!(["3", "PIN-1"])))).await;
+    assert_eq!(item_keys(&named), ["PIN-1", "PIN-3"]);
+    // a named set on a new round applies to every round
+    let mut round = review("s-1", "Both", Some(json!(["PIN-3"])));
+    round["revises"] = sent["id"].clone();
+    let (_, round) = submit(&app, round).await;
+    assert_eq!(item_keys(&round), ["PIN-3"]);
+    let (_, first) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", sent["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(item_keys(&first), ["PIN-3"]);
+    assert!(
+        item(&app, "PIN-1").await["reviews"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["title"] != "Both")
+    );
+}
+
+#[tokio::test]
+async fn a_dry_run_refuses_an_unknown_item() {
+    let app = app();
+    add(&app, "Work").await;
+    let (code, ok) = call(
+        &app,
+        "POST",
+        "/api/v1/reviews/validate",
+        Some(review("s-1", "Fine", Some(json!(["PIN-1"])))),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{ok}");
+    let (code, refused) = call(
+        &app,
+        "POST",
+        "/api/v1/reviews/validate",
+        Some(review("s-1", "Unknown", Some(json!(["PIN-1", "PIN-9"])))),
+    )
+    .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["violations"][0]["path"], "/items/1");
+}
+
+#[tokio::test]
+async fn an_agent_cannot_mark_done_either_item_of_a_waiting_review() {
     let app = app();
     add(&app, "One").await;
     add(&app, "Two").await;
     edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
     edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
-    let (code, refused) = submit(&app, review("s-1", "Which?", None)).await;
-    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
-    assert_eq!(refused["violations"][0]["path"], "/item");
-    let (code, sent) = submit(&app, review("s-1", "This one", Some(json!("PIN-2")))).await;
-    assert_eq!(code, StatusCode::CREATED, "{sent}");
+    let (_, sent) = submit(&app, review("s-1", "Both", None)).await;
+    for key in ["PIN-1", "PIN-2"] {
+        let (code, refused) = done(&app, key, "s-1", "Shipped").await;
+        assert_eq!(code, StatusCode::CONFLICT, "{key}: {refused}");
+    }
+    decide(&app, sent["id"].as_str().unwrap()).await;
+    for key in ["PIN-1", "PIN-2"] {
+        let (code, closed) = done(&app, key, "s-1", "Shipped").await;
+        assert_eq!(code, StatusCode::OK, "{key}: {closed}");
+    }
 }
 
 #[tokio::test]
 async fn a_reviews_end_stays_on_the_items_timeline_after_the_history_sweep() {
     let app = app();
     add(&app, "Work").await;
-    let (_, sent) = submit(&app, review("s-1", "Theme loader", Some(json!("PIN-1")))).await;
+    let (_, sent) = submit(&app, review("s-1", "Theme loader", Some(json!(["PIN-1"])))).await;
     let id = sent["id"].as_str().unwrap().to_string();
     decide(&app, &id).await;
     let ended = |read: &Value| {
@@ -1024,10 +1101,15 @@ async fn a_reviews_end_stays_on_the_items_timeline_after_the_history_sweep() {
 }
 
 #[tokio::test]
-async fn deleting_an_item_leaves_its_reviews_without_one() {
+async fn deleting_an_item_drops_only_its_link() {
     let app = app();
     add(&app, "Work").await;
-    let (_, sent) = submit(&app, review("s-1", "Theme loader", Some(json!("PIN-1")))).await;
+    add(&app, "Other").await;
+    let (_, sent) = submit(
+        &app,
+        review("s-1", "Theme loader", Some(json!(["PIN-1", "PIN-2"]))),
+    )
+    .await;
     let (code, deleted) = call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
     assert_eq!(code, StatusCode::OK, "{deleted}");
     assert_eq!(deleted["deleted"], 1);
@@ -1038,7 +1120,7 @@ async fn deleting_an_item_leaves_its_reviews_without_one() {
         None,
     )
     .await;
-    assert_eq!(read["item"], Value::Null);
+    assert_eq!(item_keys(&read), ["PIN-2"]);
 }
 
 #[tokio::test]
@@ -1166,7 +1248,7 @@ async fn a_review_that_expires_is_recorded_on_its_item() {
     let app = app();
     add(&app, "Work").await;
     let soon = chrono::Utc::now() + chrono::Duration::seconds(1);
-    let mut body = review("s-1", "Short-lived", Some(json!("PIN-1")));
+    let mut body = review("s-1", "Short-lived", Some(json!(["PIN-1"])));
     body["expires_at"] = json!(soon.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     let (code, sent) = submit(&app, body).await;
     assert_eq!(code, StatusCode::CREATED, "{sent}");
@@ -1238,9 +1320,9 @@ async fn the_review_list_narrows_to_a_work_items_reviews() {
     let app = app();
     add(&app, "Work").await;
     add(&app, "Other").await;
-    submit(&app, review("s-1", "For the work", Some(json!("PIN-1")))).await;
-    submit(&app, review("s-1", "For the other", Some(json!("PIN-2")))).await;
-    submit(&app, review("s-1", "For nothing", Some(Value::Null))).await;
+    submit(&app, review("s-1", "For the work", Some(json!(["PIN-1"])))).await;
+    submit(&app, review("s-1", "For the other", Some(json!(["PIN-2"])))).await;
+    submit(&app, review("s-1", "For nothing", Some(json!([])))).await;
     let (code, listed) = call(&app, "GET", "/api/v1/reviews?item=PIN-1", None).await;
     assert_eq!(code, StatusCode::OK, "{listed}");
     let titles: Vec<&str> = listed["reviews"]
@@ -1260,8 +1342,8 @@ async fn an_item_says_how_much_of_it_waits_and_what_project_it_is_in() {
     add(&app, "Work").await;
     assert_eq!(item(&app, "PIN-1").await["waiting"], 0);
     assert_eq!(item(&app, "PIN-1").await["project"], Value::Null);
-    let (_, first) = submit(&app, review("s-1", "One", Some(json!("PIN-1")))).await;
-    submit(&app, review("s-1", "Two", Some(json!("PIN-1")))).await;
+    let (_, first) = submit(&app, review("s-1", "One", Some(json!(["PIN-1"])))).await;
+    submit(&app, review("s-1", "Two", Some(json!(["PIN-1"])))).await;
     // a newer round counts once
     let mut round = review("s-1", "One", None);
     round["revises"] = first["id"].clone();
@@ -1338,16 +1420,31 @@ async fn cancelling_an_item_cancels_its_open_sub_items_at_any_depth() {
 }
 
 #[tokio::test]
-async fn a_reviews_item_is_set_and_changed_on_every_round() {
+async fn a_reviews_items_are_set_and_changed_on_every_round() {
     let app = app();
     add(&app, "First").await;
     add(&app, "Second").await;
-    let (_, one) = submit(&app, review("s-1", "Theme loader", Some(Value::Null))).await;
-    let mut next = review("s-1", "Theme loader", Some(Value::Null));
+    add(&app, "Third").await;
+    let (_, one) = submit(&app, review("s-1", "Theme loader", Some(json!(["PIN-1"])))).await;
+    let mut next = review("s-1", "Theme loader", None);
     next["revises"] = one["id"].clone();
     let (_, two) = submit(&app, next).await;
-    let path = format!("/api/v1/reviews/{}/item", two["id"].as_str().unwrap());
-    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": "PIN-2"}))).await;
+    let start = app
+        .state
+        .events()
+        .after(0, 10_000)
+        .unwrap()
+        .last()
+        .map(|n| n.event_id)
+        .unwrap_or(0);
+    let path = format!("/api/v1/reviews/{}/items", two["id"].as_str().unwrap());
+    let (code, _) = call(
+        &app,
+        "PUT",
+        &path,
+        Some(json!({"items": ["PIN-2", "PIN-3"]})),
+    )
+    .await;
     assert_eq!(code, StatusCode::NO_CONTENT);
     for id in [&one["id"], &two["id"]] {
         let (_, read) = call(
@@ -1357,13 +1454,28 @@ async fn a_reviews_item_is_set_and_changed_on_every_round() {
             None,
         )
         .await;
-        assert_eq!(read["item"]["key"], "PIN-2", "{id}");
+        assert_eq!(item_keys(&read), ["PIN-2", "PIN-3"], "{id}");
     }
-    let second = item(&app, "PIN-2").await;
-    assert_eq!(second["reviews"][0]["title"], "Theme loader");
-    assert_eq!(timeline_kinds(&second).last().unwrap(), "review_linked");
+    // each item it joined and left records it, and is announced
+    let first = item(&app, "PIN-1").await;
+    assert!(first["reviews"].as_array().unwrap().is_empty());
+    assert_eq!(timeline_kinds(&first).last().unwrap(), "review_removed");
+    for key in ["PIN-2", "PIN-3"] {
+        let read = item(&app, key).await;
+        assert_eq!(read["reviews"][0]["title"], "Theme loader");
+        assert_eq!(timeline_kinds(&read).last().unwrap(), "review_added");
+    }
+    let announced = app
+        .state
+        .events()
+        .after(start, 100)
+        .unwrap()
+        .into_iter()
+        .filter(|n| n.kind == "item_changed")
+        .count();
+    assert_eq!(announced, 3);
     // and to none
-    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": null}))).await;
+    let (code, _) = call(&app, "PUT", &path, Some(json!({"items": []}))).await;
     assert_eq!(code, StatusCode::NO_CONTENT);
     assert!(
         item(&app, "PIN-2").await["reviews"]
@@ -1372,13 +1484,13 @@ async fn a_reviews_item_is_set_and_changed_on_every_round() {
             .is_empty()
     );
     // an unknown item or review is not found
-    let (code, _) = call(&app, "PUT", &path, Some(json!({"item": "PIN-9"}))).await;
+    let (code, _) = call(&app, "PUT", &path, Some(json!({"items": ["PIN-9"]}))).await;
     assert_eq!(code, StatusCode::NOT_FOUND);
     let (code, _) = call(
         &app,
         "PUT",
-        "/api/v1/reviews/r_none/item",
-        Some(json!({"item": "PIN-1"})),
+        "/api/v1/reviews/r_none/items",
+        Some(json!({"items": ["PIN-1"]})),
     )
     .await;
     assert_eq!(code, StatusCode::NOT_FOUND);
@@ -1405,7 +1517,7 @@ async fn the_list_narrows_to_the_items_a_session_holds_or_worked_on() {
         json!({"body": "Noted"}),
     )
     .await;
-    submit(&app, review("s-2", "For it", Some(json!("PIN-4")))).await;
+    submit(&app, review("s-2", "For it", Some(json!(["PIN-4"])))).await;
     let (_, listed) = call(
         &app,
         "GET",

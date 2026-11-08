@@ -71,7 +71,7 @@ pinrail items done PIN-42 --comment "Loader in core/src/themes.rs, commit 3f2a1c
 
 `pinrail items next` chooses among the ready items of the current repository. A sub-item of an item the session already holds comes first. After that, the item that unblocks the most other items comes first, then the oldest. There is no priority field: to change the order, add a dependency, or tell the agent which item to take.
 
-While a session holds an item, the reviews and questions it sends belong to that item. An item can be marked done only when each of its sub-items is done or cancelled, by you or by an agent. An agent must also wait until no review or question of the item waits for you.
+While a session holds items, the reviews and questions it sends belong to all of them, unless the agent names the ones they are for with `--item`. A review can belong to several items, and every round of it belongs to the same ones. In the review's header, the × on an item's chip takes the review out of that item, and **Add to a work item…** adds it to another. An item can be marked done only when each of its sub-items is done or cancelled, by you or by an agent. An agent must also wait until no review or question of the item waits for you.
 
 An agent that plans a larger piece of work can record the plan as a breakdown: a JSON file of items with their parents and dependencies, which `pinrail items add --file` adds in one request. Pinrail adds all of the items or none of them.
 

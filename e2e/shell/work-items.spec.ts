@@ -78,7 +78,7 @@ test("a row shows the status, key, title, what waits, what blocks it, its progre
       title: "Loader",
       origin: { repo },
       requested_by: "claude-code",
-      item: reviewed.key,
+      items: [reviewed.key],
       payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
     },
   });

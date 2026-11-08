@@ -520,22 +520,23 @@ impl Items {
         Ok(count)
     }
 
-    /// Puts every round of a review under an item, or under none.
-    pub fn link_review(
+    /// Puts every round of a review under exactly `items`, and announces
+    /// each item it joined or left.
+    pub fn set_review_items(
         &self,
         review: &str,
-        item: Option<&ItemRef>,
+        items: &[ItemRef],
         actor: &Actor,
     ) -> Result<(), Error> {
         let rounds: Vec<String> = self.db.rounds(review)?.into_iter().map(|r| r.id).collect();
         if rounds.is_empty() {
             return Err(Error::NotFound(format!("review {review}")));
         }
-        let linked = self
+        let changed = self
             .db
-            .set_review_item(&rounds, item, actor, Utc::now())?
+            .set_review_items(&rounds, items, actor, Utc::now())?
             .map_err(refused)?;
-        if let Some(id) = linked {
+        for id in changed {
             self.announce(events::ITEM_CHANGED, &self.get(&ItemRef::Id(id), None)?)?;
         }
         Ok(())

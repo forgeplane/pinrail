@@ -35,7 +35,10 @@ pub fn routes() -> Router<ApiState> {
             patch(edit_comment).delete(delete_comment),
         )
         .route("/api/v1/items/{item}/files/{name}", get(file))
-        .route("/api/v1/reviews/{id}/item", axum::routing::put(link_review))
+        .route(
+            "/api/v1/reviews/{id}/items",
+            axum::routing::put(set_review_items),
+        )
 }
 
 /// Who makes the request: the person from the app's window, or the agent
@@ -419,9 +422,9 @@ async fn file(
     super::reviews::serve_attachment(&state, &found, &name).await
 }
 
-/// Puts every round of a review under the work item `item` names, by its
-/// key, or under none with null. Answers 204.
-async fn link_review(
+/// Puts every round of a review under the work items `items` names, by
+/// their keys, or under none with an empty list. Answers 204.
+async fn set_review_items(
     State(state): State<Arc<Pinrail>>,
     headers: HeaderMap,
     Path(id): Path<String>,
@@ -429,15 +432,16 @@ async fn link_review(
 ) -> Result<StatusCode, ApiError> {
     let body = parse_body(&body)?;
     let actor = actor(&headers, &body);
-    let item = match body.get("item") {
-        Some(Value::Null) => None,
-        Some(Value::String(named)) => Some(item_ref(named)?),
-        _ => {
-            return Err(
-                Error::invalid("/item", "name the item by its key, or null for none").into(),
-            );
-        }
+    let Some(Value::Array(named)) = body.get("items") else {
+        return Err(Error::invalid("/items", "list the items by their keys").into());
     };
-    state.items().link_review(&id, item.as_ref(), &actor)?;
+    let items = named
+        .iter()
+        .map(|n| match n.as_str() {
+            Some(n) => item_ref(n),
+            None => Err(Error::invalid("/items", "list the items by their keys")),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    state.items().set_review_items(&id, &items, &actor)?;
     Ok(StatusCode::NO_CONTENT)
 }

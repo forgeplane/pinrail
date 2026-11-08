@@ -73,3 +73,24 @@ export function ItemChip({ item, inLink = false }: { item: Pick<ItemTag, "key" |
     </Link>
   );
 }
+
+/** The chips of a review's work items inside a link, such as an inbox row
+ *  or a thread's card: the first `max`, then "+N" with the rest in its
+ *  tooltip. */
+export function ItemChips({ items, max = 2 }: { items: ItemTag[]; max?: number }) {
+  if (items.length === 0) return null;
+  const shown = items.length > max ? items.slice(0, max) : items;
+  const rest = items.slice(shown.length);
+  return (
+    <>
+      {shown.map((item) => (
+        <ItemChip key={item.id} item={item} inLink />
+      ))}
+      {rest.length ? (
+        <span className="item-more" data-testid="item-more" title={rest.map((i) => `${i.key} ${i.title}`).join("\n")}>
+          +{rest.length}
+        </span>
+      ) : null}
+    </>
+  );
+}
