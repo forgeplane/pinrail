@@ -121,3 +121,40 @@ test("a thread in the Sessions page's panel opens a review as a page", async ({ 
   await page.getByTestId("session-panel").getByTestId("thread-review").click();
   await expect(page).toHaveURL(new RegExp(`/reviews/${id}$`));
 });
+
+test("a card clicked in a long thread stays in place as the panel opens and closes", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  const session = fresh();
+  // notes long enough to wrap again when the thread gets narrower
+  const words = "The loader reads each theme file and checks it against the schema before it applies it. ";
+  const note = async (i: number) => {
+    const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+      data: { text: `Note ${i}. ${words.repeat(4)}`, kind: "note" },
+    });
+    expect(response.status()).toBe(200);
+  };
+  for (let i = 0; i < 8; i++) await note(i);
+  await submit(request, session, "Theme loader");
+  for (let i = 8; i < 16; i++) await note(i);
+  await page.setViewportSize({ width: 1300, height: 800 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const card = thread(page).getByTestId("thread-review");
+  await expect(card).toBeVisible();
+  // bring the card to the lower part of the timeline, with notes above it
+  await card.evaluate((el) => {
+    const scroller = el.closest(".thread-items")!;
+    scroller.scrollTop += el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 450;
+  });
+  const before = (await card.boundingBox())!.y;
+  // WebKit scrolls by whole pixels
+  const moved = async () => Math.abs((await card.boundingBox())!.y - before);
+
+  await card.click();
+  await expect(panel(page)).toBeVisible();
+  await expect(details(page)).toHaveCount(0);
+  await expect.poll(moved).toBeLessThanOrEqual(1);
+
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  await expect.poll(moved).toBeLessThanOrEqual(1);
+});

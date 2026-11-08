@@ -358,6 +358,38 @@ export function Thread({
   }, [checkEnd]);
   useEffect(checkEnd, [items, checkEnd]);
 
+  // When the timeline's width changes, as the side panel opens, closes or
+  // is resized, its text wraps again and its content moves. What was last
+  // clicked in it is scrolled back to where it was on screen.
+  useEffect(() => {
+    const el = timeline.current;
+    if (!el) return;
+    let width = el.clientWidth;
+    let anchor: { target: Element; top: number } | null = null;
+    const offset = (target: Element) => target.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    const onDown = (event: PointerEvent) => {
+      anchor = event.target instanceof Element ? { target: event.target, top: offset(event.target) } : null;
+    };
+    // a scroll by the person moves the anchor with it; one caused by the
+    // new width, before the observer runs, does not
+    const onScroll = () => {
+      if (anchor?.target.isConnected && el.clientWidth === width) anchor.top = offset(anchor.target);
+    };
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      if (anchor?.target.isConnected) el.scrollTop += offset(anchor.target) - anchor.top;
+    });
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+  }, []);
+
   const agent = named?.agent ?? focus?.requested_by ?? null;
   // a review opened from here names the session in its breadcrumb
   const from = named ? fromSession({ ...named, title: session?.title }) : undefined;

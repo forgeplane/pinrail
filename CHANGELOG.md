@@ -63,6 +63,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   their button rather than off to the side.
 - The app shows a setting changed from the command line or another
   window while it is saving a change of its own.
+- On a session's page, what you click in the thread stays in place when
+  the side panel opens or closes beside it.
 
 ## [0.5.0]
 
