@@ -1,0 +1,695 @@
+// The questions of one `pinrail ask`, as the agent's message: each with its
+// chips or its own answer, the drafts kept until they are sent, and the box
+// under the thread that sends them.
+
+import { Ban, Check, CornerDownRight, MessageSquarePlus, Pencil, Star, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { api } from "../../api/client";
+import type { Answer, Question, Review } from "../../api/types";
+import { age, stamp } from "../../lib/format";
+import { MOD, hasMod, modalOpen } from "../../lib/keys";
+import { plainInline, renderInline, renderMarkdown, useItemPrefixes } from "../../lib/markdown";
+import { answersOf, decisionOf, pick, unanswered, type Draft } from "../../lib/questions";
+import { useLive } from "../../state/live";
+import { useToast } from "../../state/toasts";
+import { ItemChips } from "../ItemChip";
+import { AgentIcon } from "../AgentIcon";
+import { ComposeField } from "../ComposeField";
+import { DiscardDialog } from "../DiscardDialog";
+import { Tooltip } from "../Tooltip";
+import { Linked, useFollowLink } from "./messages";
+
+/** Where the answers being written are kept, per question set, until they are sent. */
+const DRAFTS = "pinrail:answers:";
+
+function loadDrafts(id: string): Record<string, Draft> {
+  try {
+    return JSON.parse(sessionStorage.getItem(DRAFTS + id) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+/** A focus handler that runs `then` when a text box takes the focus. The
+ *  questions are made current on a click, not on the press: the keys they
+ *  then show widen the chips, and a press that moved the chips would lose
+ *  its click. */
+const onTyping = (then: () => void) => (e: React.FocusEvent) => {
+  if ((e.target as HTMLElement).tagName === "TEXTAREA") then();
+};
+
+/** The values a question's chips pick, in their order. */
+const optionsOf = (question: Question) =>
+  question.answer === "yes-no" ? ["yes", "no"] : question.answer === "text" ? [] : (question.choices ?? []);
+
+/** The field open in a question: a note on the answer, or an answer in the
+ *  person's own words. */
+type Editing = { index: number; kind: "note" | "own" };
+
+type SetProps = {
+  review: Review;
+  /** the questions the keys and the chat box answer */
+  active: boolean;
+  /** where the chat box goes while they are active */
+  footer: HTMLElement | null;
+  onActivate: () => void;
+  onDone: () => void;
+};
+
+/** The questions of one `pinrail ask`: the agent's message, with each
+ *  question below it, answered together while they wait. */
+export function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
+  const live = useLive();
+  const toast = useToast();
+  const questions = useMemo(
+    () => (review.payload as { questions?: Question[] } | undefined)?.questions ?? [],
+    [review.payload],
+  );
+  const pending = review.status === "pending";
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(() => loadDrafts(review.id));
+  const [comment, setComment] = useState(() => {
+    try {
+      return sessionStorage.getItem(DRAFTS + review.id + ":comment") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const onComment = useCallback(
+    (text: string) => {
+      setComment(text);
+      try {
+        sessionStorage.setItem(DRAFTS + review.id + ":comment", text);
+      } catch {
+        // no storage
+      }
+    },
+    [review.id],
+  );
+  const [current, setCurrent] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [declining, setDeclining] = useState(false);
+  const answers = useMemo(() => answersOf(review.decision?.data), [review.decision]);
+
+  const change = useCallback(
+    (id: string, next: Draft) => {
+      setDrafts((all) => {
+        const drafted = { ...all, [id]: next };
+        try {
+          sessionStorage.setItem(DRAFTS + review.id, JSON.stringify(drafted));
+        } catch {
+          // no storage
+        }
+        return drafted;
+      });
+    },
+    [review.id],
+  );
+  const left = unanswered(questions, drafts);
+
+  const send = useCallback(async () => {
+    if (busy || !pending) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      await api.decide(review.id, decisionOf(questions, drafts), comment.trim());
+      try {
+        sessionStorage.removeItem(DRAFTS + review.id);
+        sessionStorage.removeItem(DRAFTS + review.id + ":comment");
+      } catch {
+        // ignore
+      }
+      toast(questions.length === 1 ? "Answer sent" : "Answers sent");
+      onDone();
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : "The answers were not sent.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, pending, review.id, questions, drafts, comment, toast, onDone]);
+
+  // a pick from the keyboard moves on to the next question still
+  // unanswered; one with the pointer keeps the question selected
+  const picked = useCallback(
+    (index: number, value: string, advance: boolean) => {
+      const question = questions[index];
+      const next = pick(question, drafts[question.id], value);
+      change(question.id, next);
+      // an unpick stays on the question
+      const answered = unanswered([question], { [question.id]: next }) === 0;
+      if (!advance || !answered || question.answer === "choices") return;
+      const after = questions.findIndex((q, i) => i > index && unanswered([q], { [q.id]: drafts[q.id] ?? {} }) === 1);
+      if (after >= 0) setCurrent(after);
+    },
+    [questions, drafts, change],
+  );
+
+  // the note or the answer in their own words being written, in its field
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const replyBox = useCallback(
+    (index: number) =>
+      document.getElementById(`set-${review.id}`)?.querySelector<HTMLTextAreaElement>(`[data-reply="${index}"]`) ??
+      null,
+    [review.id],
+  );
+  // N and P, and Enter in a text answer: on to another question, into its
+  // box if it is answered in words
+  const goTo = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= questions.length) return;
+      setCurrent(index);
+      const set = document.getElementById(`set-${review.id}`);
+      const block = set?.querySelectorAll<HTMLElement>("[data-testid=question]")[index];
+      block?.scrollIntoView({ block: "nearest" });
+      if (questions[index].answer === "text") replyBox(index)?.focus();
+      else (document.activeElement as HTMLElement | null)?.blur();
+    },
+    [questions, review.id, replyBox],
+  );
+
+  useEffect(() => {
+    if (!active || !pending) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (modalOpen()) return;
+      if (hasMod(event) && !event.shiftKey && !event.altKey && event.key === "Enter") {
+        event.preventDefault();
+        send();
+        return;
+      }
+      if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "d" || event.key === "D")) {
+        event.preventDefault();
+        setDeclining(true);
+        return;
+      }
+      const el = event.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const question = questions[current];
+      if (!question) return;
+      const key = event.key.toLowerCase();
+      if (key === "n" || key === "p") {
+        event.preventDefault();
+        goTo(key === "n" ? current + 1 : current - 1);
+        return;
+      }
+      if (key === "c") {
+        event.preventDefault();
+        if (question.answer === "text") replyBox(current)?.focus();
+        else setEditing({ index: current, kind: "note" });
+        return;
+      }
+      const n = Number(event.key);
+      const choice = optionsOf(question)[n - 1];
+      if (Number.isInteger(n) && n >= 1 && choice !== undefined) {
+        event.preventDefault();
+        picked(current, choice, true);
+      }
+    };
+    // the palette's "Discard this review"
+    const onDiscard = () => setDeclining(true);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pinrail:discard", onDiscard);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pinrail:discard", onDiscard);
+    };
+  }, [active, pending, current, questions, picked, send, goTo, replyBox]);
+
+  const several = questions.length > 1;
+  return (
+    <section
+      id={`set-${review.id}`}
+      className={`question-set msg ${pending ? "is-pending" : ""} ${active ? "is-active" : ""}`}
+      aria-label={review.title}
+      data-testid="question-set"
+      onClick={pending ? onActivate : undefined}
+      onFocus={pending ? onTyping(onActivate) : undefined}
+    >
+      <span className="msg-avatar">
+        <AgentIcon requestedBy={review.requested_by} size={14} />
+      </span>
+      <div className="msg-col">
+        <div className="msg-meta">
+          <span className="text">{review.requested_by ?? "The agent"}</span> {pending ? "asks" : "asked"} ·{" "}
+          <span className="thread-age" title={stamp(review.created_at)}>
+            {age(review.created_at)} ago
+          </span>
+          {pending ? <span className="msg-waiting">waiting for your answer</span> : null}
+          {review.items?.length ? (
+            <span className="msg-items">
+              <ItemChips items={review.items} max={3} />
+            </span>
+          ) : null}
+        </div>
+        {questions.map((question, index) => (
+          <QuestionMessage
+            key={question.id}
+            review={review}
+            number={several ? `${index + 1}/${questions.length}` : null}
+            question={question}
+            draft={drafts[question.id]}
+            answer={answers.get(question.id)}
+            current={active && pending && index === current}
+            onFocus={() => {
+              onActivate();
+              setCurrent(index);
+            }}
+            onPick={(value) => picked(index, value, false)}
+            onChange={(next) => change(question.id, next)}
+            onNext={() => {
+              // from the last question, on to the comment on them all
+              if (index + 1 < questions.length) goTo(index + 1);
+              else document.querySelector<HTMLTextAreaElement>(".thread-composer textarea")?.focus();
+            }}
+            editing={editing?.index === index ? editing.kind : null}
+            onEdit={(kind) => {
+              setCurrent(index);
+              setEditing(kind ? { index, kind } : null);
+            }}
+            index={index}
+          />
+        ))}
+        {review.status === "decided" && review.agent_note ? (
+          <div className="msg-answer set-comment" data-testid="set-comment">
+            <span>{review.decision?.decided_by ?? "You"} commented</span>
+            <span className="msg-answer-text">{review.agent_note}</span>
+          </div>
+        ) : null}
+        <SetFooter review={review} />
+        {problem ? <p className="notice notice-danger">{problem}</p> : null}
+      </div>
+      {active && pending && footer
+        ? createPortal(
+            <Composer
+              comment={comment}
+              onComment={onComment}
+              left={several ? left : 0}
+              busy={busy}
+              connected={live.connected}
+              onSend={send}
+              onDecline={() => setDeclining(true)}
+              suggestion={(review.payload as { suggested_reply?: string } | undefined)?.suggested_reply}
+            />,
+            footer,
+          )
+        : null}
+      {declining && pending ? (
+        <DiscardDialog
+          review={review}
+          onClose={() => setDeclining(false)}
+          onDone={() => {
+            setDeclining(false);
+            toast("Declined. The agent was told to stop.");
+            onDone();
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+/** How questions that were not answered ended. */
+function SetFooter({ review }: { review: Review }) {
+  switch (review.status) {
+    case "discarded":
+      return (
+        <p className="set-ended dim">
+          {review.discarded_by ?? "The person"} declined to answer {age(review.discarded_at)} ago
+          {review.discarded_reason ? `: ${review.discarded_reason}` : "."}
+        </p>
+      );
+    case "withdrawn":
+      return (
+        <p className="set-ended dim">
+          {review.withdrawn_by ?? "The agent"} withdrew the questions {age(review.withdrawn_at)} ago
+          {review.withdrawn_reason ? (
+            <>
+              : <Linked text={review.withdrawn_reason} />
+            </>
+          ) : (
+            "."
+          )}
+        </p>
+      );
+    case "expired":
+      return <p className="set-ended dim">The questions expired at {stamp(review.expires_at)} without an answer.</p>;
+    default:
+      return null;
+  }
+}
+
+type MessageProps = {
+  review: Review;
+  /** "2/3" among several questions */
+  number: string | null;
+  question: Question;
+  draft: Draft | undefined;
+  answer: Answer | undefined;
+  /** the question the keys and the chat box answer */
+  current: boolean;
+  onFocus: () => void;
+  onPick: (value: string) => void;
+  onChange: (next: Draft) => void;
+  /** Enter in a text answer: on to the next question */
+  onNext: () => void;
+  /** which field is open to write in, if any */
+  editing: Editing["kind"] | null;
+  onEdit: (kind: Editing["kind"] | null) => void;
+  index: number;
+};
+
+/** One question in its bubble, with its choices while it waits, what the
+ *  person has written for it so far, and once sent, the answer. */
+function QuestionMessage({
+  review,
+  number,
+  question,
+  draft,
+  answer,
+  current,
+  onFocus,
+  onPick,
+  onChange,
+  onNext,
+  editing,
+  onEdit,
+  index,
+}: MessageProps) {
+  const followLink = useFollowLink();
+  const pending = review.status === "pending";
+  // the question as it reads, for the labels of what answers it
+  const asked = useMemo(() => plainInline(question.question), [question.question]);
+  const options = optionsOf(question);
+  const isPicked = (value: string) =>
+    !draft?.own &&
+    (question.answer === "yes-no"
+      ? draft?.yes === (value === "yes")
+      : question.answer === "choices"
+        ? !!draft?.choices?.includes(value)
+        : draft?.choice === value);
+  const own = !!draft?.own && !!draft.text?.trim();
+  const note = draft?.note?.trim() ?? "";
+  // a field closed with nothing in it leaves nothing behind
+  const close = () => {
+    if (editing === "own" && !draft?.text?.trim()) onChange({ ...draft, text: undefined, own: false });
+    if (editing === "note" && !note) onChange({ ...draft, note: undefined });
+    onEdit(null);
+  };
+  return (
+    <div
+      className={`msg-question-block ${pending ? "is-pending" : ""} ${current ? "is-current" : ""}`}
+      onClick={pending ? onFocus : undefined}
+      onFocus={pending ? onTyping(onFocus) : undefined}
+      data-testid="question"
+    >
+      <div className="msg-body">
+        <div className="msg-question-row">
+          <p className="msg-question">
+            {number ? <span className="msg-number">{number}</span> : null}
+            <span
+              className="markdown-inline"
+              onClick={(e) => {
+                // its links open in the browser, as the context's do
+                const link = (e.target as HTMLElement).closest("a");
+                if (!link) return;
+                e.preventDefault();
+                followLink(link);
+              }}
+              dangerouslySetInnerHTML={{ __html: renderInline(question.question) }}
+            />
+          </p>
+          {pending && question.answer !== "text" && !note && editing !== "note" ? (
+            <Tooltip label="Add a note to this answer" keys={["C"]} side="top">
+              <button
+                type="button"
+                className="compose-icon msg-note-add"
+                aria-label={`Add a note to ${asked}`}
+                onClick={() => onEdit("note")}
+              >
+                <MessageSquarePlus size={14} />
+              </button>
+            </Tooltip>
+          ) : null}
+        </div>
+        {question.context ? <Context text={question.context} /> : null}
+        {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
+        {pending && options.length > 0 ? (
+          <div className="chips">
+            <span
+              className="chips-group"
+              role={question.answer === "choices" ? "group" : "radiogroup"}
+              aria-label={asked}
+            >
+              {options.map((value, i) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`chip ${isPicked(value) ? "is-picked" : ""}`}
+                  role={question.answer === "choices" ? "checkbox" : "radio"}
+                  aria-checked={isPicked(value)}
+                  onClick={() => onPick(value)}
+                >
+                  {current && i < 9 ? <kbd className="chip-key">{i + 1}</kbd> : null}
+                  {question.answer === "yes-no" ? (value === "yes" ? "Yes" : "No") : value}
+                  {question.recommended === value ? (
+                    <Star size={11} className="chip-star" aria-label="recommended" />
+                  ) : null}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`chip chip-other ${own ? "is-picked" : ""}`}
+                aria-pressed={own}
+                onClick={() => onEdit("own")}
+              >
+                Other…
+              </button>
+            </span>
+          </div>
+        ) : null}
+        {pending && question.answer === "text" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.text ?? ""}
+            onChange={(text) => onChange({ ...draft, text })}
+            label={`Answer to ${asked}`}
+            placeholder="Type your answer…"
+            onSubmit={onNext}
+            keys="Enter for the next question · Shift+Enter for a new line"
+            boxProps={{ "data-reply": index }}
+          />
+        ) : null}
+        {pending && editing === "own" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.text ?? ""}
+            onChange={(text) => onChange({ ...draft, text, own: text.trim() !== "" })}
+            label={`Answer to ${asked} in your own words`}
+            placeholder="Answer in your own words…"
+            onSubmit={close}
+            onEscape={close}
+            keys="Enter to save · Shift+Enter for a new line"
+            send={{ label: "Save the answer", keys: ["Enter"] }}
+            autoFocus
+          />
+        ) : pending && own ? (
+          <SavedText
+            label="Your answer"
+            text={draft!.text!.trim()}
+            what="answer"
+            onEdit={() => onEdit("own")}
+            onDelete={() => onChange({ ...draft, text: undefined, own: false })}
+          />
+        ) : null}
+        {pending && editing === "note" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.note ?? ""}
+            onChange={(text) => onChange({ ...draft, note: text })}
+            label={`Note on ${asked}`}
+            placeholder="Add a note…"
+            onSubmit={close}
+            onEscape={close}
+            keys="Enter to save · Shift+Enter for a new line"
+            send={{ label: "Save the note", keys: ["Enter"] }}
+            autoFocus
+          />
+        ) : pending && note ? (
+          <SavedText
+            label="Note"
+            text={note}
+            what="note"
+            onEdit={() => onEdit("note")}
+            onDelete={() => onChange({ ...draft, note: undefined })}
+          />
+        ) : null}
+      </div>
+      {review.status === "decided" ? <AnswerLine question={question} answer={answer} review={review} /> : null}
+    </div>
+  );
+}
+
+/** A note or an answer in the person's own words, once saved: a pencil to
+ *  edit it, and a bin, shown on hover, to delete it. */
+function SavedText({
+  label,
+  text,
+  what,
+  onEdit,
+  onDelete,
+}: {
+  label: string;
+  text: string;
+  what: "note" | "answer";
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="msg-saved" data-testid={`saved-${what}`}>
+      <span className="msg-saved-label">{label}</span>
+      <span className="msg-saved-text">{text}</span>
+      <span className="msg-saved-actions">
+        <Tooltip label={`Edit the ${what}`} side="top">
+          <button type="button" className="compose-icon" aria-label={`Edit the ${what}`} onClick={onEdit}>
+            <Pencil size={13} />
+          </button>
+        </Tooltip>
+        <Tooltip label={`Delete the ${what}`} side="top">
+          <button
+            type="button"
+            className="compose-icon msg-saved-delete"
+            aria-label={`Delete the ${what}`}
+            onClick={onDelete}
+          >
+            <Trash2 size={13} />
+          </button>
+        </Tooltip>
+      </span>
+    </div>
+  );
+}
+
+type ComposerProps = {
+  /** the person's comment to the agent on the whole set */
+  comment: string;
+  onComment: (text: string) => void;
+  /** how many questions would go back unanswered, among several */
+  left: number;
+  busy: boolean;
+  connected: boolean;
+  onSend: () => void;
+  onDecline: () => void;
+  /** the reply the agent suggests, which Tab puts in the empty box */
+  suggestion?: string;
+};
+
+/** The box under the thread: a comment to the agent on the questions as a
+ *  whole, sent with the answers. Enter sends them, and a small button
+ *  declines them. The reply the agent suggests shows in the empty box, and
+ *  Tab takes it. */
+function Composer({ comment, onComment, left, busy, connected, onSend, onDecline, suggestion }: ComposerProps) {
+  const sendLabel = connected ? "Send the answers to the agent" : "Reconnect to send";
+  const offered = suggestion && !comment ? suggestion : null;
+  return (
+    <div
+      className={`thread-composer ${busy ? "is-busy" : ""}`}
+      onKeyDown={(e) => {
+        if (offered && e.key === "Tab" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          onComment(offered);
+        }
+      }}
+    >
+      {offered ? (
+        <div className="suggested-reply" data-testid="suggested-reply">
+          <kbd>Tab</kbd> takes the reply the agent suggests
+        </div>
+      ) : null}
+      <ComposeField
+        value={comment}
+        onChange={onComment}
+        label="Comment to the agent"
+        placeholder={offered ?? "Add a comment to the agent on these questions…"}
+        onSubmit={onSend}
+        keys={`${left > 0 ? `${left} unanswered · ` : ""}Enter to send · Shift+Enter for a new line`}
+        tools={
+          <Tooltip label="Decline: the agent is told to stop" keys={[MOD, "D"]} side="top">
+            <button type="button" className="compose-icon" aria-label="Decline" onClick={onDecline}>
+              <Ban size={14} />
+            </button>
+          </Tooltip>
+        }
+        send={{
+          label: left > 0 ? `${sendLabel}, ${left} unanswered` : sendLabel,
+          name: left > 0 ? `Send, ${left} unanswered` : "Send",
+          keys: ["Enter"],
+          disabled: busy || !connected,
+          testId: "send-answers",
+        }}
+      />
+    </div>
+  );
+}
+
+/** The person's answer, in a line under the question. */
+function AnswerLine({ question, answer, review }: { question: Question; answer?: Answer; review: Review }) {
+  const text =
+    !answer || answer.unanswered
+      ? null
+      : answer.choice !== undefined
+        ? answer.choice
+        : answer.choices
+          ? answer.choices.join(", ")
+          : answer.yes !== undefined
+            ? answer.yes
+              ? "Yes"
+              : "No"
+            : (answer.text ?? null);
+  const own = !!answer?.text && question.answer !== "text";
+  const by = review.decision?.decided_by ?? "You";
+  return (
+    <div className="msg-answer" data-testid="answer">
+      {text === null ? (
+        <span className="faint">Not answered</span>
+      ) : (
+        <>
+          <Check size={13} className="msg-answer-check" aria-hidden />
+          <span>
+            {by} answered{own ? " in their own words" : ""}
+          </span>
+          <span className={`msg-answer-text ${own ? "msg-own" : ""}`}>{text}</span>
+        </>
+      )}
+      <span className="faint" title={stamp(review.decision?.decided_at)}>
+        · {age(review.decision?.decided_at)} ago
+      </span>
+      {answer?.note ? (
+        <div className="msg-note" data-testid="answer-note">
+          <CornerDownRight size={12} className="msg-note-mark" aria-label="Note" />
+          <span className="msg-note-text">{answer.note}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A question's context, as Markdown, with its links opened in the browser. */
+function Context({ text }: { text: string }) {
+  const followLink = useFollowLink();
+  const prefixes = useItemPrefixes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
+  const html = useMemo(() => renderMarkdown(text), [text, prefixes]);
+  return (
+    <div
+      className="msg-context"
+      onClick={(e) => {
+        const link = (e.target as HTMLElement).closest("a");
+        if (!link) return;
+        e.preventDefault();
+        followLink(link);
+      }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}

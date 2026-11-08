@@ -16,7 +16,8 @@ import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { SidePanel } from "../components/SidePanel";
-import { Thread, sessionPath, statusLine } from "../components/Thread";
+import { Thread, sessionPath } from "../components/Thread";
+import { statusLine } from "../components/thread/messages";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
 import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
