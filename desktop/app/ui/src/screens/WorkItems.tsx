@@ -799,59 +799,63 @@ function QuickAddBox({ onClose, repos, items, defaultRepo, defaultParent, onAdde
   return (
     <div className="item-quick-box" data-testid="item-quick-box">
       <div className="item-quick-line">
-        <ItemStatusIcon status="open" />
-        <input
-          ref={field}
-          className="item-quick-title"
-          aria-label="What needs to be done?"
-          placeholder="What needs to be done?"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={onKey}
-        />
-        <Select
-          id="item-quick-repo"
-          searchable
-          label="Repository"
-          icon={<FolderGit2 size={13} />}
-          value={repo}
-          onChange={(v) => {
-            setRepo(v);
-            setParent("");
-          }}
-          options={sorted.map((r) => ({ value: r, label: r }))}
-        />
-        <Select
-          id="item-quick-parent"
-          searchable
-          label="Parent"
-          value={parent}
-          onChange={setParent}
-          options={[
-            { value: "", label: "No parent" },
-            ...parents.map((p) => ({ value: p.key, label: `${p.key} ${p.title}` })),
-          ]}
-        />
-        <Tooltip label="Add it" side="bottom">
-          <button
-            type="button"
-            className="chrome-button"
-            aria-label="Add it"
-            disabled={!title.trim() || !repo || busy}
-            onClick={() => void add(false)}
-          >
-            <Plus size={14} />
-          </button>
-        </Tooltip>
-        <Tooltip label="Cancel" side="bottom">
-          <button type="button" className="chrome-button" aria-label="Cancel" onClick={onClose}>
-            <X size={14} />
-          </button>
-        </Tooltip>
+        <div className="item-quick-main">
+          <ItemStatusIcon status="open" />
+          <input
+            ref={field}
+            className="item-quick-title"
+            aria-label="What needs to be done?"
+            placeholder="What needs to be done?"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={onKey}
+          />
+        </div>
+        <div className="item-quick-controls">
+          <Select
+            id="item-quick-repo"
+            searchable
+            label="Repository"
+            icon={<FolderGit2 size={13} />}
+            value={repo}
+            onChange={(v) => {
+              setRepo(v);
+              setParent("");
+            }}
+            options={sorted.map((r) => ({ value: r, label: r }))}
+          />
+          <Select
+            id="item-quick-parent"
+            searchable
+            label="Parent"
+            value={parent}
+            onChange={setParent}
+            options={[
+              { value: "", label: "No parent" },
+              ...parents.map((p) => ({ value: p.key, label: `${p.key} ${p.title}` })),
+            ]}
+          />
+          <Tooltip label="Add it" side="bottom">
+            <button
+              type="button"
+              className="item-quick-action is-add"
+              aria-label="Add it"
+              disabled={!title.trim() || !repo || busy}
+              onClick={() => void add(false)}
+            >
+              <Plus size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Cancel" side="bottom">
+            <button type="button" className="item-quick-action" aria-label="Cancel" onClick={onClose}>
+              <X size={14} />
+            </button>
+          </Tooltip>
+        </div>
       </div>
       <div className="item-quick-keys">
         <KeyHints

@@ -6153,38 +6153,108 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-quick-add kbd {
   margin-left: auto;
 }
+/* the open quick add: the box's accent border frames the title field, and
+   the controls go under the field when the box is narrow. The box's width
+   decides it, not the names the controls show, so a new repository chosen
+   does not move them between lines. */
 .item-quick-box {
+  container-type: inline-size;
   margin-bottom: 8px;
   border: 1px solid var(--accent);
   border-radius: 8px;
   background: var(--bg-raised);
+  overflow: hidden;
 }
 .item-quick-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px 6px 10px;
+  gap: 6px 10px;
+  padding: 7px 8px 7px 12px;
 }
-.item-quick-title {
+.item-quick-main {
+  display: flex;
+  flex: 1 1 240px;
+  align-items: center;
+  gap: 9px;
+  min-width: 200px;
+}
+.item-quick-title,
+.item-quick-title:focus,
+.item-quick-title:focus-visible {
   flex: 1;
   min-width: 0;
-  padding: 5px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
   color: var(--text);
   font-size: 13px;
   outline: none;
 }
-.item-quick-title:focus {
-  border-color: var(--accent);
+.item-quick-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  min-width: 0;
+}
+@container (max-width: 640px) {
+  .item-quick-main {
+    flex-basis: 100%;
+  }
+}
+.item-quick-controls .select-trigger {
+  gap: 5px;
+  max-width: 170px;
+  padding: 2px 7px;
+  border-color: var(--border);
+  border-radius: 999px;
+  background: var(--bg-hover);
+  font-size: 11.5px;
+}
+.item-quick-controls .select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-quick-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+}
+.item-quick-action:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.item-quick-action.is-add {
+  color: var(--accent);
+}
+.item-quick-action.is-add:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.item-quick-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
 }
 .item-quick-keys {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  padding: 7px 10px;
+  gap: 4px 16px;
+  padding: 6px 12px;
   border-top: 1px solid var(--border);
+  background: var(--bg-hover);
   font-size: 11.5px;
   color: var(--faint);
 }

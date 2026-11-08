@@ -259,9 +259,9 @@ test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, an
   const box = page.getByTestId("item-quick-box");
   const field = box.getByLabel("What needs to be done?");
   await expect(field).toBeFocused();
-  // the field is drawn as a field, with the accent's border while focused
-  const border = () =>
-    field.evaluate((e) => {
+  // the box's accent border frames the field, which has no border of its own
+  const border = (el: typeof field) =>
+    el.evaluate((e) => {
       const style = getComputedStyle(e);
       return { width: style.borderTopWidth, color: style.borderTopColor };
     });
@@ -273,7 +273,8 @@ test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, an
     probe.remove();
     return color;
   });
-  await expect.poll(border).toEqual({ width: "1px", color: accent });
+  await expect.poll(() => border(box)).toEqual({ width: "1px", color: accent });
+  expect((await border(field)).width).toBe("0px");
   // the keys it takes, each key or combination in a cap of its own
   const hints = box.locator(".key-hint");
   await expect(hints).toHaveText([
@@ -792,4 +793,54 @@ test("an item dropped on an item of another repository moves there and becomes i
   };
   expect(item.repo).toBe(web);
   expect(item.parent).toBe(parent.key);
+});
+
+test("beside the side panel, the quick add keeps its title field wide and its controls inside it", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("forgeplane-pinrail-with-a-long-name");
+  const item = await add(request, repo, "Load themes");
+  await page.setViewportSize({ width: 1300, height: 700 });
+  await open(page, repo, `&open=${item.key}`);
+  await expect(page.getByTestId("item-panel")).toBeVisible();
+  await page.getByTestId("item-quick-add").click();
+  const box = page.getByTestId("item-quick-box");
+  const field = box.getByRole("textbox", { name: "What needs to be done?" });
+  await expect(field).toBeFocused();
+  expect((await field.boundingBox())!.width).toBeGreaterThanOrEqual(200);
+  const outer = (await box.boundingBox())!;
+  for (const control of await box.getByRole("button").all()) {
+    const at = (await control.boundingBox())!;
+    expect(at.x).toBeGreaterThanOrEqual(outer.x);
+    expect(at.x + at.width, await control.getAttribute("aria-label")).toBeLessThanOrEqual(outer.x + outer.width);
+  }
+  await page.screenshot({ path: test.info().outputPath("quick-add-beside-panel.png") });
+});
+
+test("a narrow quick add keeps its controls on the second line whatever repository is chosen", async ({
+  page,
+  request,
+}) => {
+  const stamp = Date.now();
+  const short = `s${stamp % 1000}/a`;
+  const long = `q${stamp}/a-repository-with-a-much-longer-name`;
+  await add(request, short, "Short");
+  await add(request, long, "Long");
+  // a box wide enough for the field and the controls of a short name on
+  // one line, but not for those of a long one
+  await page.setViewportSize({ width: 820, height: 700 });
+  await page.goto(`/#/items?repo=${encodeURIComponent(short)}`);
+  await page.getByTestId("item-quick-add").click();
+  const box = page.getByTestId("item-quick-box");
+  const field = box.getByRole("textbox", { name: "What needs to be done?" });
+  const cancel = box.getByRole("button", { name: "Cancel" });
+  const below = async () => (await cancel.boundingBox())!.y > (await field.boundingBox())!.y + 10;
+  // the controls stay under the field for a short name and a long one
+  for (const repo of [short, long, short]) {
+    await box.getByRole("button", { name: "Repository" }).click();
+    await page.getByRole("option", { name: repo, exact: true }).click();
+    await expect(box.getByRole("button", { name: "Repository" })).toContainText(repo.slice(0, 8));
+    expect(await below(), repo).toBe(true);
+  }
 });
