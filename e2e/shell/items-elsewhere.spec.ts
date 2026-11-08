@@ -346,6 +346,27 @@ test("an item on hold stays in its session's details and is found with ⌘K", as
   await expect(palette.getByText(/Paused work/).first()).toBeVisible();
 });
 
+test("E on an item beside a session edits the item, and leaves the session", async ({ page, request }) => {
+  const repo = fresh("e-key");
+  const session = `s-e-key-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Load the themes", kind: "start" },
+  });
+  const item = await add(request, repo, "Held", { session });
+  await request.patch(`${core}/api/v1/items/${item.key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  await openReviewsIn(request, "panel");
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.getByTestId("thread-work-item").first().click();
+  await expect(panelKey(page)).toHaveText(item.key);
+  await panelKey(page).click();
+  await page.keyboard.press("e");
+  await expect(page.getByTestId("item-panel").getByRole("textbox", { name: "Description", exact: true })).toBeFocused();
+  // time for the archive to be sent, had E sent it
+  await page.waitForTimeout(300);
+  const shown = await (await request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json();
+  expect(shown.session.archived_at).toBeNull();
+});
+
 test("a comment the session's agent writes on an item shows in its thread", async ({ page, request }) => {
   const repo = fresh("comment");
   const item = await add(request, repo, "Load themes");

@@ -295,9 +295,10 @@ export function Thread({
     return () => window.removeEventListener("keydown", onKey);
   }, [hasDetails, toggleDetails]);
   // E archives the session open on its page or in the side panel, or brings
-  // it back, when the focus is not in a text field
+  // it back, when the focus is not in a text field. With a work item open
+  // beside the thread, E is the item's, which edits its description.
   const toggleArchive = useToggleArchive();
-  const archivable = !focus && named && session ? { ...named, archived_at: session.archived_at } : null;
+  const archivable = !focus && !openItem && named && session ? { ...named, archived_at: session.archived_at } : null;
   const archivableRef = useRef(archivable);
   archivableRef.current = archivable;
   useEffect(() => {
