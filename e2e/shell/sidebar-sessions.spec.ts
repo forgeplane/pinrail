@@ -371,10 +371,15 @@ test("what waits under a session lines up with the session's title, grouped or n
     await setChoices(page.request, { grouping });
     await page.goto("/#/?tab=history");
     const row = sessionRow(page, "claude-code", session);
-    const title = await row.locator(".sidebar-review-title").boundingBox();
     const child = page.getByTestId("waiting-review").filter({ hasText: "Lined up?" });
-    const icon = await child.locator("svg").first().boundingBox();
-    expect(Math.abs((icon?.x ?? 0) - (title?.x ?? 0)), grouping).toBeLessThanOrEqual(2);
+    await expect(child).toBeVisible();
+    // read together, once the sidebar has settled
+    const apart = async () => {
+      const title = await row.locator(".sidebar-review-title").boundingBox();
+      const icon = await child.locator("svg").first().boundingBox();
+      return title && icon ? Math.abs(icon.x - title.x) : Infinity;
+    };
+    await expect.poll(apart, { message: grouping }).toBeLessThanOrEqual(2);
   }
 });
 
