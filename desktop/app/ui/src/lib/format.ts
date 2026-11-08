@@ -11,18 +11,22 @@ export function age(iso: string | null | undefined, now = Date.now()): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/** One formatter for every timestamp: making one is slow, and a long
+ *  thread shows hundreds. */
+const STAMP = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 /** The full timestamp for titles and history rows. */
 export function stamp(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return STAMP.format(d);
 }
 
 /** "2.6 MB", "340 KB", "12 bytes": a file's size, as people read one. */
