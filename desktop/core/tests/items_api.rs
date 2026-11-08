@@ -1754,3 +1754,46 @@ async fn a_sessions_thread_lists_what_its_agent_did_to_work_items() {
     assert_eq!(first["item"]["title"], "Work");
     assert!(first["at"].is_string());
 }
+
+#[tokio::test]
+async fn an_attachment_link_in_code_is_text_and_a_missing_file_is_named_as_the_items() {
+    let app = app();
+    let body = "Show an image with `![p95](attachment:latency.png)`:\n\n\
+                ```md\n![p95](attachment:latency.png)\n```\n\n\
+                ~~~\n[log](attachment:run.log)\n~~~\n";
+    let (code, added) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": REPO, "title": "Mentions", "body": body})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{added}");
+
+    let (code, refused) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(
+            json!({"repo": REPO, "title": "Shows", "body": "See ![p95](attachment:latency.png)."}),
+        ),
+    )
+    .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let said = refused["violations"][0]["message"].as_str().unwrap();
+    assert!(
+        said.contains("which the description does not carry"),
+        "{said}"
+    );
+
+    let (code, refused) = call(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        Some(json!({"body": "See [log](attachment:run.log)."})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let said = refused["violations"][0]["message"].as_str().unwrap();
+    assert!(said.contains("which the comment does not carry"), "{said}");
+}

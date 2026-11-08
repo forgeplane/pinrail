@@ -76,10 +76,12 @@ fn declared_map<'a>(
 }
 
 /// The names a note's Markdown refers to as `](attachment:NAME)`, in an
-/// image or a link.
+/// image or a link. One in a code span or a code block is text, as the
+/// Markdown shows it.
 pub fn note_references(markdown: &str) -> Vec<String> {
     let mut names = Vec::new();
-    let mut rest = markdown;
+    let prose = outside_code(markdown);
+    let mut rest = prose.as_str();
     while let Some(at) = rest.find("](attachment:") {
         rest = &rest[at + "](attachment:".len()..];
         let end = rest.find([')', ' ', '\n']).unwrap_or(rest.len());
@@ -90,6 +92,64 @@ pub fn note_references(markdown: &str) -> Vec<String> {
         rest = &rest[end..];
     }
     names
+}
+
+/// The Markdown with its code blocks, fenced with ``` or ~~~, and its code
+/// spans blanked out, so that what they show is not read as Markdown.
+fn outside_code(markdown: &str) -> String {
+    let mut out = String::with_capacity(markdown.len());
+    let mut fence: Option<String> = None;
+    for line in markdown.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        let marker = |c: char| {
+            let run: String = trimmed.chars().take_while(|&x| x == c).collect();
+            (run.len() >= 3).then_some(run)
+        };
+        match &fence {
+            Some(open) => {
+                if trimmed.trim_end().starts_with(open.as_str())
+                    && trimmed
+                        .trim_end()
+                        .chars()
+                        .all(|c| c == open.chars().next().unwrap())
+                {
+                    fence = None;
+                }
+                out.push('\n');
+            }
+            None => {
+                if let Some(open) = marker('`').or_else(|| marker('~')) {
+                    fence = Some(open);
+                    out.push('\n');
+                } else {
+                    out.push_str(&without_code_spans(line));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A line with its code spans, between runs of backticks of the same
+/// length, blanked out.
+fn without_code_spans(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(at) = rest.find('`') {
+        out.push_str(&rest[..at]);
+        let run = rest[at..].chars().take_while(|&c| c == '`').count();
+        let after = &rest[at + run..];
+        let closing = "`".repeat(run);
+        match after.find(&closing) {
+            Some(end) => rest = &after[end + run..],
+            None => {
+                out.push_str(&rest[at..at + run]);
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Every `{ "$attachment": ... }` in the payload, with where it is and what
@@ -302,11 +362,13 @@ impl Attachments {
 
     /// Reads and checks a note's `attachments` against a note's caps and the
     /// files its Markdown refers to as `attachment:NAME`. Every blob must be
-    /// here with its size.
+    /// here with its size. `field` is where the Markdown is and what it is,
+    /// such as `("/text", "the note")`, for the violations.
     pub fn check_note(
         &self,
         declared: Option<&Value>,
         markdown: &str,
+        field: (&str, &str),
     ) -> Result<Vec<ReviewAttachment>, Error> {
         let mut violations = Vec::new();
         let empty = Map::new();
@@ -321,8 +383,11 @@ impl Attachments {
         for name in note_references(markdown) {
             if !map.contains_key(&name) {
                 violations.push(Violation::new(
-                    "/text",
-                    format!("refers to attachment:{name}, which the note does not carry"),
+                    field.0,
+                    format!(
+                        "refers to attachment:{name}, which {} does not carry",
+                        field.1
+                    ),
                 ));
             }
         }
@@ -710,6 +775,20 @@ mod tests {
         ] {
             assert!(!is_name(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_note_refers_to_files_outside_code_only() {
+        let markdown = "![a](attachment:a.png) and `[b](attachment:b.log)` and \
+                        ``a `[c](attachment:c.log)` span`` and an odd ` tick [d](attachment:d.log)\n\
+                        ```\n[e](attachment:e.log)\n```\n\
+                        [f](attachment:f.log)\n\
+                        ~~~~\n~~~\n[g](attachment:g.log)\n~~~~\n\
+                        [h](attachment:h.log)";
+        assert_eq!(
+            note_references(markdown),
+            ["a.png", "d.log", "f.log", "h.log"]
+        );
     }
 
     #[test]

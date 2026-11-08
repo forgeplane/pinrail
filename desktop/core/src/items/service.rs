@@ -272,7 +272,7 @@ impl Items {
             .as_deref()
             .map(|l| check_link("/link", l))
             .transpose()?;
-        let files = self.files(attachments, &new.body)?;
+        let files = self.files(attachments, &new.body, "the description")?;
         let item = self
             .db
             .add_item(&new, actor, Utc::now())?
@@ -438,7 +438,7 @@ impl Items {
         actor: &Actor,
     ) -> Result<crate::db::Comment, Error> {
         let body = check_comment("/body", body)?;
-        let files = self.files(attachments, &body)?;
+        let files = self.files(attachments, &body, "the comment")?;
         let (item, comment) = self
             .db
             .add_item_comment(item, repo, &body, &files, actor, Utc::now())?
@@ -581,19 +581,21 @@ impl Items {
     /// store. The body may show files it was given before, so only the
     /// files themselves are checked.
     pub fn check_files(&self, attachments: Option<&Value>) -> Result<Vec<ReviewAttachment>, Error> {
-        self.attachments.check_note(attachments, "")
+        self.attachments
+            .check_note(attachments, "", ("/body", "the description"))
     }
 
     /// Files sent beside a body or a comment, checked as a note's are.
+    /// `what` names the Markdown, such as "the comment".
     fn files(
         &self,
         attachments: Option<&Value>,
         markdown: &str,
+        what: &str,
     ) -> Result<Vec<ReviewAttachment>, Error> {
-        if attachments.is_none_or(Value::is_null) {
-            // a body that shows files it does not carry is checked all the same
-            return self.attachments.check_note(None, markdown);
-        }
-        self.attachments.check_note(attachments, markdown)
+        // a body that shows files it does not carry is checked all the same
+        let declared = attachments.filter(|a| !a.is_null());
+        self.attachments
+            .check_note(declared, markdown, ("/body", what))
     }
 }

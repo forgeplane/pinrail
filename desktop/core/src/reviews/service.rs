@@ -442,7 +442,8 @@ impl Reviews {
         }
         // only a note carries files
         let attachments = if note {
-            self.attachments.check_note(attachments, text)?
+            self.attachments
+                .check_note(attachments, text, ("/text", "the note"))?
         } else if attachments.is_some_and(|a| !a.is_null()) {
             return Err(Error::invalid("attachments", "only a note carries files"));
         } else {

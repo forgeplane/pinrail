@@ -67,6 +67,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   window while it is saving a change of its own.
 - On a session's page, what you click in the thread stays in place when
   the side panel opens or closes beside it.
+- A note that shows `attachment:` links inside code, as an example, is no
+  longer refused for files it does not carry.
 
 ## [0.5.0]
 
