@@ -420,6 +420,14 @@ export function Layout({ children }: { children: ReactNode }) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape") {
         setHelp(false);
+        // Esc leaves a page's search field, keeping what was typed, so
+        // the page's keys act again; a dialog's field has its own Esc
+        const field = event.target as HTMLElement | null;
+        if (field?.matches?.('input[type="search"]') && !field.closest('[role="dialog"]')) {
+          // the browser would empty the field: the search stays, to move through its results
+          event.preventDefault();
+          field.blur();
+        }
         return;
       }
       if (isTyping(event.target)) return;

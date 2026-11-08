@@ -23,7 +23,7 @@ The filters apply to every tab, and keep their values when you switch tabs. Each
 
 - **Filter by project, repository or plugin.** The sidebar lists your projects or repositories. Click one, or choose one or a plugin in the **Filter** menu at the right of the header, to see only those reviews. Choosing a project shows the reviews from all of its repositories.
 - **Show the starred reviews.** Turn on **Starred** in the **Filter** menu. See [Stars](#stars).
-- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched.
+- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched. <kbd>Esc</kbd> leaves the search field and keeps the search, so <kbd>J</kbd> and <kbd>K</kbd> move through the results; the same goes for the search on every page.
 - **Jump to what waits.** The sidebar lists what waits under the session that sent it, one click away on every screen. See [Sessions in the sidebar](/docs/using/sessions/#sessions-in-the-sidebar). <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting, oldest first.
 
 ## Deciding a review

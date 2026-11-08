@@ -2,6 +2,7 @@
 // first, and every section on request or when searching.
 
 import { expect, test, type Page } from "@playwright/test";
+import { core } from "./helpers";
 
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Keyboard shortcuts" });
 const sections = (page: Page) => dialog(page).getByRole("heading", { level: 3 });
@@ -33,4 +34,28 @@ test("a search looks through every section", async ({ page }) => {
   await dialog(page).getByRole("searchbox", { name: "Search shortcuts" }).fill("queue");
   await expect(sections(page)).toHaveText(["Work items"]);
   await expect(dialog(page)).toContainText("Queue the work item");
+});
+
+test("Esc leaves a page's search field, so the page's keys work again", async ({ page, request }) => {
+  const repo = `esc-${Date.now()}/app`;
+  for (const title of ["First", "Second"]) {
+    const response = await request.post(`${core}/api/v1/items`, {
+      data: { repo, title, by: "claude-code", session: "s-esc" },
+    });
+    expect(response.status()).toBe(201);
+  }
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  const field = page.getByLabel("Search work items");
+  await field.fill("Fi");
+  await field.press("Escape");
+  await expect(field).not.toBeFocused();
+  await page.keyboard.press("j");
+  await expect(field).toHaveValue("Fi");
+
+  // the Sessions page too
+  await page.goto("/#/sessions");
+  const sessions = page.getByRole("searchbox", { name: /Search sessions/ });
+  await sessions.fill("x");
+  await sessions.press("Escape");
+  await expect(sessions).not.toBeFocused();
 });

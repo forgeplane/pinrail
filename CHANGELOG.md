@@ -75,6 +75,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A note that shows `attachment:` links inside code, as an example, is no
   longer refused for files it does not carry.
 - Esc pressed as soon as What's new opens closes it.
+- Esc in the search field of the inbox, the Sessions page or the
+  Projects page leaves the field and keeps the search, so the page's keys
+  act on the results.
 
 ## [0.5.0]
 
