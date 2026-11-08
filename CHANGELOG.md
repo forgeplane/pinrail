@@ -42,6 +42,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Press `/` to search the Projects page and the official plugins in
   Settings, as in the inbox and the Sessions page.
 
+- Find text in a session's thread with ⌘F, as in a review's view.
+
 ### Changed
 
 - The inbox's layout is kept in the settings, so every window shows the

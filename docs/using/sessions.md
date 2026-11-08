@@ -47,6 +47,8 @@ On a session's page, a review you click opens in a side panel beside the thread,
 
 A work item you click in a session, in its header, its thread or its details, opens in the same side panel, where you can read and change it as on the **Work items** page. When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), the item opens on the **Work items** page instead.
 
+To find text in a session's thread, press <kbd>⌘F</kbd>. Type to highlight every match, press <kbd>Enter</kbd> or <kbd>⇧Enter</kbd> to go to the next or previous one, and press <kbd>Esc</kbd> to close the find bar. The search ignores case. When the focus is in a review open beside the thread, <kbd>⌘F</kbd> finds text in the review's view instead.
+
 When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), a review opens on its own page instead. When you open a review that way from its session's thread, or from under its session in the sidebar, the breadcrumb at the top reads *Sessions › <session> › <review>*. Click the session's name to return to its thread. Deciding or discarding the review also returns you to the thread.
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")
@@ -105,3 +107,4 @@ A note is information only. It does not wait in the inbox, and it is not the lat
 | <kbd>⌘↵</kbd> | Send the answers |
 | <kbd>⌘D</kbd> | Decline the questions |
 | <kbd>⌘⇧B</kbd> | Show or hide the session's details |
+| <kbd>⌘F</kbd> | Find in the thread |

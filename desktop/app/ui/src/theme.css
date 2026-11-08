@@ -7041,3 +7041,17 @@ a.item-ref {
 .menu-popup.opens-left .menu-chevron {
   transform: rotate(180deg);
 }
+
+/* the matches of a find in the app, as a plugin's view paints its own.
+   WebKit paints a highlight only on text that can be selected. */
+.thread-items.is-finding * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+::highlight(pinrail-find) {
+  background-color: rgba(255, 210, 0, 0.45);
+}
+::highlight(pinrail-find-current) {
+  background-color: #ff9632;
+  color: #1c1a17;
+}

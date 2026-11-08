@@ -43,7 +43,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Edit the work item's title", keys: [["T"]] },
   { what: "Edit the work item's description", keys: [["E"]] },
   { what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },
-  { what: "Find in the view", keys: [[MOD, "F"]] },
+  { what: "Find in the view or the thread", keys: [[MOD, "F"]] },
   { what: "Previous / next round", keys: [["["], ["]"]] },
   { what: "Keyboard shortcuts", keys: [["?"]] },
 ];

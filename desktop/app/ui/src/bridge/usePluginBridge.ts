@@ -28,6 +28,7 @@
 // theme's colours as &pinrail-tokens=…, which is the only
 // way it can reach the view before the view paints.
 
+import type { Found } from "../lib/findText";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { connectFrame, themeFragment, type Host } from "pinrail-sdk/host";
 import { api } from "../api/client";
@@ -45,9 +46,7 @@ const VIEW_APP_MOD_KEYS = ["d", "f"];
 
 const DRAFT_PREFIX = "pinrail:draft:";
 
-/** The matches of the find bar's search: how many, and which is current,
- *  from 1, or 0 when there are none. */
-export type Found = { count: number; current: number };
+export type { Found };
 
 export type SubmitResult = { ok: true; decision: Decision } | { ok: false; violations: Violation[] };
 

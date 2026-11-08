@@ -48,6 +48,8 @@ import type {
 import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
+import { finder, type Finder, type Found } from "../lib/findText";
+import { FindBar } from "./FindBar";
 import { plainInline, renderInline, renderLinks, renderMarkdown, renderNote, useItemPrefixes } from "../lib/markdown";
 import { openAgentLink } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
@@ -358,6 +360,45 @@ export function Thread({
   }, [checkEnd]);
   useEffect(checkEnd, [items, checkEnd]);
 
+  // ⌘F finds text in the thread, unless the focus is in the panel beside
+  // it, where a review's view has its own find
+  const [finding, setFinding] = useState(false);
+  const [findFocus, setFindFocus] = useState(0);
+  const [findQuery, setFindQuery] = useState("");
+  const [found, setFound] = useState<Found | null>(null);
+  const finderRef = useRef<Finder | null>(null);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!hasMod(event) || event.shiftKey || event.altKey || (event.key !== "f" && event.key !== "F")) return;
+      // the thread may itself be in the Sessions page's panel
+      const panel = document.activeElement?.closest(".review-panel");
+      if (modalOpen() || (panel && !panel.contains(timeline.current))) return;
+      event.preventDefault();
+      setFinding(true);
+      setFindFocus((n) => n + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  useEffect(() => {
+    const el = timeline.current;
+    if (!finding || !el) return;
+    const made = finder(el, setFound);
+    finderRef.current = made;
+    return () => {
+      made.stop();
+      finderRef.current = null;
+    };
+  }, [finding]);
+  const find = useCallback((text: string, backwards?: boolean) => {
+    const found = finderRef.current?.find(text, backwards) ?? null;
+    setFound(text ? found : null);
+  }, []);
+  const closeFind = () => {
+    setFinding(false);
+    setFound(null);
+  };
+
   // When the timeline's width changes, as the side panel opens, closes or
   // is resized, its text wraps again and its content moves. What was last
   // clicked in it is scrolled back to where it was on screen.
@@ -603,7 +644,18 @@ export function Thread({
         {error ? <p className="notice notice-danger">{error}</p> : null}
         <div className="thread-body" ref={body}>
           <div className="thread-main">
-            <div className="thread-items" ref={timeline}>
+            {finding ? (
+              <FindBar
+                label="Find in the thread"
+                query={findQuery}
+                onQuery={setFindQuery}
+                found={found}
+                onFind={find}
+                onClose={closeFind}
+                focus={findFocus}
+              />
+            ) : null}
+            <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
               {session ? (
                 <div className="thread-divider">
                   <span>Session started {stamp(session.first_at)}</span>

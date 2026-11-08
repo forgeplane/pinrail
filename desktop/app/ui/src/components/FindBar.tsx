@@ -1,12 +1,13 @@
-// The review screen's find bar: searches the text of the plugin's view, as a
-// browser's find in page does. The view does the searching, through the SDK,
-// since its frame keeps its page to itself; the bar sends the query and
-// shows the count it gets back. Enter goes to the next match, Shift+Enter to
+// A find bar, as a browser's find in page has: on the review screen it
+// searches the text of the plugin's view, which does the searching through
+// the SDK, since its frame keeps its page to itself; in a session's thread
+// it searches the thread. The bar sends the query and shows the count it
+// gets back. Enter goes to the next match, Shift+Enter to
 // the previous one, and Escape closes the bar.
 
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { Found } from "../bridge/usePluginBridge";
+import type { Found } from "../lib/findText";
 import { SHIFT } from "../lib/keys";
 import { Tooltip } from "./Tooltip";
 
@@ -23,9 +24,11 @@ type Props = {
   onClose: () => void;
   /** changes each time the bar is asked for again, which focuses it */
   focus: number;
+  /** what the bar searches, as its field and its landmark name it */
+  label?: string;
 };
 
-export function FindBar({ query, onQuery, found, onFind, onClose, focus }: Props) {
+export function FindBar({ query, onQuery, found, onFind, onClose, focus, label = "Find in the view" }: Props) {
   const input = useRef<HTMLInputElement>(null);
 
   // the last search is shown again as the bar opens
@@ -56,13 +59,13 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus }: Props
         : `${found!.current} of ${count >= FIND_LIMIT ? `${FIND_LIMIT}+` : count}`;
 
   return (
-    <div className="find-bar" role="search" aria-label="Find in the view">
+    <div className="find-bar" role="search" aria-label={label}>
       <input
         ref={input}
         type="text"
         value={query}
-        placeholder="Find in the view"
-        aria-label="Find in the view"
+        placeholder={label}
+        aria-label={label}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
