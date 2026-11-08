@@ -49,13 +49,15 @@ An item opens in a panel beside the list. The panel shows:
 - its reviews and questions, and the sessions that worked on it;
 - its comments and activity: every change, with who made it and when.
 
+To attach an image or a file to the description or to a comment, paste it, drop it on the field, or use the paperclip. Pinrail uploads it and links it where the cursor is, and shows an image in place. The files of the description are listed under it: point at one and click its × to remove it, with its link.
+
 Add a comment in the field at the end of the panel, and post it with ⌘Enter or the arrow. Enter starts a new line, and in the macOS app you can dictate the comment with the microphone. When a session holds the item, your comment reaches the agent the next time it runs `pinrail status`, like a message.
 
 The buttons in the panel's header copy the item as Markdown, open its link, and delete it. Deleting an item also deletes its sub-items, and cannot be undone. Its reviews stay in Pinrail.
 
 ## Work items elsewhere in the app
 
-- **Reviews:** a review that belongs to a work item shows the item's key and title in its inbox row and in its header. In the header, **Change…** puts the review, with all its rounds, under another item or under none.
+- **Reviews:** a review that belongs to work items shows each item's key and title in its inbox row and in its header. In the header, the × on an item takes the review, with all its rounds, out of it, and **Add to a work item…** adds it to another.
 - **Sessions:** a session's header names the item it is working on, and its details list every item it worked on. Its thread shows the comments its agent wrote on work items, each with the item's key and title, among its statuses and reviews, and a short line each time the agent added an item, started or stopped working on one, or changed its status.
 - **Command palette:** <kbd>⌘K</kbd> finds a work item by its key or its title.
 

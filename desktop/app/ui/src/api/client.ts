@@ -124,8 +124,11 @@ export const api = {
   /** deletes a work item and its sub-items, as the person */
   deleteItem: (key: string) => request<{ deleted: number }>("DELETE", `/api/v1/items/${seg(key)}`),
   /** comments on a work item, as the person */
-  commentItem: (key: string, body: string) =>
-    request<ItemComment>("POST", `/api/v1/items/${seg(key)}/comments`, { body }),
+  commentItem: (key: string, body: string, attachments?: Record<string, unknown>) =>
+    request<ItemComment>("POST", `/api/v1/items/${seg(key)}/comments`, {
+      body,
+      ...(attachments && Object.keys(attachments).length ? { attachments } : {}),
+    }),
   /** changes the text of the person's own comment */
   editComment: (key: string, id: string, body: string) =>
     request<ItemComment>("PATCH", `/api/v1/items/${seg(key)}/comments/${seg(id)}`, { body }),
@@ -148,6 +151,20 @@ export const api = {
   /** changes what is given of a project; an empty description, colour or emoji removes it */
   updateProject: (id: string, change: { name?: string; description?: string; color?: string; emoji?: string }) =>
     request<Project>("PATCH", `/api/v1/projects/${seg(id)}`, change),
+  /** stores a file's bytes under their SHA-256, for a description or a
+   *  comment to carry; the core keeps one copy of the same bytes */
+  uploadFile: async (file: File): Promise<{ sha256: string; size: number; media_type: string }> => {
+    const bytes = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const sha256 = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const response = await fetch(`${await serverUrl()}/api/v1/attachments/${sha256}`, {
+      method: "PUT",
+      headers: { "content-type": "application/octet-stream" },
+      body: bytes,
+    });
+    if (!response.ok) throw new ApiError(response.status, await errorBody(response));
+    return { sha256, size: bytes.byteLength, media_type: file.type || "application/octet-stream" };
+  },
   /** sets the PNG a project's avatar shows, or removes it with null */
   setProjectImage: async (id: string, png: Blob | null) => {
     const response = await fetch(`${await serverUrl()}/api/v1/projects/${seg(id)}/image`, {

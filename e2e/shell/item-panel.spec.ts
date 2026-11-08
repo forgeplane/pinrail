@@ -117,7 +117,7 @@ test("the title and the description are edited in place, saved or left", async (
 
   // E edits the description: Markdown source, saved with ⌘Enter
   await page.keyboard.press("e");
-  const body = panel(page).getByLabel("Description");
+  const body = panel(page).getByLabel("Description", { exact: true });
   await expect(body).toHaveValue("Read the files.");
   await body.fill("Read the **theme** files.");
   await page.keyboard.press("ControlOrMeta+Enter");
@@ -333,7 +333,7 @@ test("the comment field is the chat box: Enter starts a new line, it is dictated
   await expect(field).toHaveValue("First line\nthen the second");
   await box.getByRole("button", { name: "Stop dictating" }).click();
 
-  await box.getByRole("button", { name: "Comment" }).click();
+  await box.getByRole("button", { name: "Comment", exact: true }).click();
   const comments = panel(page).getByTestId("item-comment");
   await expect(comments).toHaveCount(1);
   await expect(comments.first()).toContainText("then the second");
@@ -441,4 +441,77 @@ test("the properties are a row of pills under the title, with the creation line 
   const created = panel(page).getByTestId("item-created");
   await expect(created).toHaveText(/Added by claude-code · .+ ago$/);
   expect((await created.boundingBox())!.y).toBeGreaterThan(status.y + status.height);
+});
+
+// a 1×1 PNG
+const PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("files are attached to the description with the button or a paste, and removed from its list", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("attach");
+  const item = await add(request, repo, "Item", { body: "Before." });
+  await openItem(page, repo, item.key);
+  await panel(page).getByRole("button", { name: "Edit" }).first().click();
+  const body = panel(page).getByLabel("Description", { exact: true });
+  await body.press("ControlOrMeta+End");
+
+  // the button: an image goes in at the cursor, shown in place
+  await panel(page)
+    .locator('input[type="file"][aria-label="Attach a file to the description"]')
+    .setInputFiles({ name: "latency chart.png", mimeType: "image/png", buffer: PIXEL });
+  await expect(body).toHaveValue(/!\[latency-chart\.png\]\(attachment:latency-chart\.png\)/);
+
+  // a paste: another file goes in as a link, under a name of its own when
+  // the name is taken
+  await body.evaluate((el) => {
+    const data = new DataTransfer();
+    data.items.add(new File(["line one\n"], "latency chart.png", { type: "image/png" }));
+    data.items.add(new File(["log\n"], "run.log", { type: "text/plain" }));
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(body).toHaveValue(/!\[latency-chart-2\.png\]\(attachment:latency-chart-2\.png\)/);
+  await expect(body).toHaveValue(/\[run\.log\]\(attachment:run\.log\)/);
+  await body.press("ControlOrMeta+Enter");
+
+  await expect(panel(page).locator(".item-md img")).toHaveCount(2);
+  const files = panel(page).locator(".item-files li");
+  await expect(files).toHaveText(["latency-chart-2.png", "latency-chart.png", "run.log"]);
+  const stored = await read(request, item.key);
+  expect(stored.files.map((f: { name: string }) => f.name).sort()).toEqual([
+    "latency-chart-2.png",
+    "latency-chart.png",
+    "run.log",
+  ]);
+
+  // removed from the list, a file leaves the item and its place in the text
+  await panel(page).getByRole("button", { name: "Remove run.log" }).click();
+  await expect(files).toHaveText(["latency-chart-2.png", "latency-chart.png"]);
+  const after = await read(request, item.key);
+  expect(after.body).not.toContain("attachment:run.log");
+  expect(after.files.map((f: { name: string }) => f.name)).not.toContain("run.log");
+});
+
+test("a file is attached to a comment, dropped on its field", async ({ page, request }) => {
+  const repo = fresh("comment-file");
+  const item = await add(request, repo, "Item");
+  await openItem(page, repo, item.key);
+  const field = panel(page).getByLabel("Add a comment");
+  await field.fill("The run: ");
+  await field.evaluate((el) => {
+    const data = new DataTransfer();
+    data.items.add(new File(["log\n"], "run.log", { type: "text/plain" }));
+    el.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+  });
+  await expect(field).toHaveValue("The run: [run.log](attachment:run.log)");
+  await field.press("ControlOrMeta+Enter");
+  const card = panel(page).getByTestId("item-comment").filter({ hasText: "The run:" });
+  await expect(card.locator(".item-md").getByRole("link", { name: "run.log" })).toBeVisible();
+  const stored = await read(request, item.key);
+  const comment = stored.timeline.find((e: { type: string }) => e.type === "comment");
+  expect(comment.files.map((f: { name: string }) => f.name)).toEqual(["run.log"]);
 });

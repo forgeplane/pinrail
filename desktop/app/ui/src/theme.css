@@ -6668,9 +6668,41 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-edit-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 6px;
   margin-top: 6px;
+}
+.item-edit-hint {
+  font-size: 12px;
+}
+/* a file of the description, with a button that removes it on hover */
+.item-files li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.item-file-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  opacity: 0;
+}
+.item-files li:hover .item-file-remove,
+.item-file-remove:focus-visible {
+  opacity: 1;
+}
+.item-file-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 /* an item's activity: changes on a rail, comments in cards */
 .activity {

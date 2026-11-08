@@ -29,6 +29,8 @@ import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
 import { ComposeField } from "./ComposeField";
+import { AttachButton } from "./AttachButton";
+import { useAttach, type Attached } from "../lib/attach";
 import { Activity } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
@@ -265,9 +267,11 @@ export function ItemPanel({
         {editingBody ? (
           <EditableBody
             body={item.body}
+            taken={item.files.map((f) => f.name)}
             onCancel={() => setEditingBody(false)}
-            onSave={async (body) => {
-              if (await change({ body })) setEditingBody(false);
+            onSave={async (body, attachments) => {
+              const files = Object.keys(attachments).length ? { attachments } : {};
+              if (await change({ body, ...files })) setEditingBody(false);
             }}
           />
         ) : item.body.trim() ? (
@@ -282,6 +286,15 @@ export function ItemPanel({
                 <a href={fileUrl(f.name) ?? "#"} target="_blank" rel="noreferrer">
                   <FileText size={12} /> {f.name}
                 </a>
+                <button
+                  type="button"
+                  className="item-file-remove"
+                  aria-label={`Remove ${f.name}`}
+                  title={`Remove ${f.name}`}
+                  onClick={() => void change({ detach: [f.name], body: withoutFile(item.body, f.name) })}
+                >
+                  <X size={12} />
+                </button>
               </li>
             ))}
           </ul>
@@ -422,9 +435,9 @@ export function ItemPanel({
           )}
           field={
             <CommentField
-              onPost={async (body) => {
+              onPost={async (body, attachments) => {
                 try {
-                  await api.commentItem(item.key, body);
+                  await api.commentItem(item.key, body, attachments);
                   setReloads((n) => n + 1);
                   onChanged();
                   return true;
@@ -535,20 +548,26 @@ function EditableTitle({
 /** The description as Markdown source: ⌘Enter saves, Esc leaves. */
 function EditableBody({
   body,
+  taken,
   onSave,
   onCancel,
 }: {
   body: string;
-  onSave: (body: string) => Promise<void>;
+  /** the names of the files the description carries already */
+  taken: string[];
+  onSave: (body: string, attachments: Record<string, Attached>) => Promise<void>;
   onCancel: () => void;
 }) {
+  const toast = useToast();
   const [draft, setDraft] = useState(body);
   const field = useRef<HTMLTextAreaElement>(null);
+  const files = useAttach({ box: field, onChange: setDraft, taken, onError: (m) => toast(m, "danger") });
   useEffect(() => {
     field.current?.focus();
   }, []);
+  const save = () => void onSave(draft, files.linked(draft));
   return (
-    <div className="item-body-edit">
+    <div className="item-body-edit" {...files.handlers}>
       <textarea
         ref={field}
         aria-label="Description"
@@ -558,7 +577,7 @@ function EditableBody({
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            void onSave(draft);
+            if (!files.busy) save();
           } else if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -567,15 +586,24 @@ function EditableBody({
         }}
       />
       <div className="item-edit-actions">
+        <AttachButton label="Attach a file to the description" onFiles={(f) => void files.attach(f)} />
+        <span className="dim item-edit-hint">{files.busy ? "Uploading…" : "Drop or paste files to attach them"}</span>
+        <span className="grow" />
         <button type="button" className="chrome-button" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className="chrome-button button-primary" onClick={() => void onSave(draft)}>
+        <button type="button" className="chrome-button button-primary" disabled={files.busy} onClick={save}>
           Save
         </button>
       </div>
     </div>
   );
+}
+
+/** The description without the images and links that show a file. */
+function withoutFile(body: string, name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return body.replace(new RegExp(`!?\\[[^\\]]*\\]\\(attachment:${escaped}\\)\\n?`, "g"), "");
 }
 
 /** The link, or a field to give one; an empty one removes it. */
@@ -741,22 +769,38 @@ function CommentCard({
 }
 
 /** The field at the end of the timeline: ⌘Enter posts the comment. */
-function CommentField({ onPost }: { onPost: (body: string) => Promise<boolean> }) {
+function CommentField({
+  onPost,
+}: {
+  onPost: (body: string, attachments: Record<string, Attached>) => Promise<boolean>;
+}) {
+  const toast = useToast();
   const [draft, setDraft] = useState("");
+  const box = useRef<HTMLTextAreaElement>(null);
+  const files = useAttach({ box, onChange: setDraft, onError: (m) => toast(m, "danger") });
   const post = async () => {
-    if (draft.trim() && (await onPost(draft.trim()))) setDraft("");
+    const text = draft.trim();
+    if (!text || files.busy) return;
+    if (await onPost(text, files.linked(text))) {
+      setDraft("");
+      files.reset();
+    }
   };
   return (
-    <ComposeField
-      className="item-comment-field"
-      value={draft}
-      onChange={setDraft}
-      label="Add a comment"
-      placeholder="Add a comment…"
-      onSubmit={() => void post()}
-      submitKey="mod-enter"
-      keys={`${MOD === "⌘" ? "⌘" : "Ctrl+"}Enter to comment`}
-      send={{ label: "Comment", keys: [MOD, "Enter"], disabled: !draft.trim() }}
-    />
+    <div className="item-comment-drop" {...files.handlers}>
+      <ComposeField
+        className="item-comment-field"
+        value={draft}
+        onChange={setDraft}
+        label="Add a comment"
+        placeholder="Add a comment…"
+        onSubmit={() => void post()}
+        submitKey="mod-enter"
+        keys={`${MOD === "⌘" ? "⌘" : "Ctrl+"}Enter to comment`}
+        boxRef={box}
+        tools={<AttachButton label="Attach a file to the comment" onFiles={(f) => void files.attach(f)} />}
+        send={{ label: "Comment", keys: [MOD, "Enter"], disabled: !draft.trim() || files.busy }}
+      />
+    </div>
   );
 }
