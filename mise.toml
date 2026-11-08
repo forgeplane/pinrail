@@ -59,7 +59,7 @@ run = ["cargo test", "npm --prefix app test"]
 [tasks."e2e:shell"]
 description = "The desktop shell in a browser against the headless desktop server: settings, installing"
 dir = "{{config_root}}/e2e"
-run = "npx playwright test -c shell.config.ts"
+run = "node run-shell.mjs"
 
 [tasks."build:desktop"]
 description = "Desktop app: build the UI and the app binary"

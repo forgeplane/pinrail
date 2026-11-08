@@ -11,8 +11,9 @@ import { corePort, shard, uiPort } from "./shell/helpers";
 // dialog does not cover what the tests click.
 //
 // Runs side by side, with --shard, each set SHELL_SHARD for ports and folders
-// of their own, and SHELL_SDK_BUILT once the SDK copy is built, which they
-// would otherwise write at the same time.
+// of their own, SHELL_SDK_BUILT once the SDK copy is built, which they
+// would otherwise write at the same time, and SHELL_BUILT once the core and
+// the CLI are: run-shell.mjs does all three.
 const root = path.resolve(__dirname, "..");
 const feedbackUrl = "https://feedback.test/v1/feedback";
 const data = path.join(__dirname, ".state", `shell-data-${shard}`);
@@ -22,6 +23,7 @@ const core = path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
 // An official plugin at two versions, which the app does not carry, so an
 // installed older one is offered the newer: notes, made from hello.
 const catalog = path.join(__dirname, ".state", `shell-catalog-${shard}`);
+const ui = path.join(__dirname, ".state", `shell-ui-${shard}`);
 fs.rmSync(catalog, { recursive: true, force: true });
 for (const version of ["1.0.0", "1.1.0"]) {
   const dir = path.join(catalog, `notes-${version}`);
@@ -40,10 +42,13 @@ export default defineConfig({
   testDir: path.join(__dirname, "shell"),
   // after the web servers: the official plugins the specs use
   globalSetup: "./shell/global-setup.ts",
+  // one worker for each core, which the tests share; a shard has a core of
+  // its own, and every test stands alone, so the shards split the tests
+  // evenly rather than file by file
   workers: 1,
   // a test that fails once in CI runs again, and the report marks it flaky
   retries: process.env.CI ? 1 : 0,
-  fullyParallel: false,
+  fullyParallel: true,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [["list"]],
@@ -51,11 +56,14 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${uiPort}`,
     headless: true,
     trace: "retain-on-failure",
+    // the app's endless animations stop, as they do for a person who asks
+    // for less motion, so they do not keep the browsers of every shard busy
+    contextOptions: { reducedMotion: "reduce" },
   },
   webServer: [
     {
       // commands that sh and Windows' cmd both run
-      command: `cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}"`,
+      command: `${process.env.SHELL_BUILT ? "" : "cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && "}node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}"`,
       cwd: path.join(root, "desktop"),
       env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
@@ -65,7 +73,10 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && "}npx vite --host 127.0.0.1 --port ${uiPort} --strictPort`,
+      // a production build of the UI, made for this shard's core and served
+      // as files: far lighter than the dev server, which compiles every
+      // module again for each page a test opens
+      command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && "}npx vite build --outDir "${ui}" --emptyOutDir --logLevel error && npx vite preview --outDir "${ui}" --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
       // feedback goes to an address the tests answer, never to the service
       env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`, VITE_PINRAIL_FEEDBACK_URL: feedbackUrl },

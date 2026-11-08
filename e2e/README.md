@@ -22,8 +22,10 @@ installs a copy of the artifact plugin. The teardown stops the server.
 
 ## The app suites
 
-The app suites run the app's UI from Vite against a headless server
-(`shell.config.ts`, `mise run e2e:shell`):
+The app suites run a production build of the app's UI against a headless
+server (`shell.config.ts`). `mise run e2e:shell` runs them with
+`run-shell.mjs`, in several shards at once, each with its own server, UI
+and browser:
 
 | Suite | What it checks |
 |---|---|

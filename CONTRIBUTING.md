@@ -103,8 +103,10 @@ with `npx playwright install chromium` from `e2e/`.
   Both are built first if needed.
 - **End to end, app:** `mise run e2e:shell`. The app's UI in a browser
   against a headless server: the inbox, reviews, deciding in a plugin's
-  view, settings and installing plugins. It uses ports 4799 and 5199, which
-  must be free.
+  view, settings and installing plugins. The suite runs in several shards
+  at once, each with its own server, UI and browser, one for every two
+  CPUs; set `SHELL_SHARDS` to change the number. Shard `n` uses
+  ports `4799 + 10n` and `5199 + 10n`, which must be free.
 
 To run one test, go to the suite's folder and name it:
 
@@ -114,7 +116,10 @@ npx playwright test shell/decide.spec.ts    # Playwright: one file
 npx playwright test -g "survives a reload"  # Playwright: tests whose title contains this
 ```
 
-In `e2e/`, add `-c shell.config.ts` to run the app suite. Add `--headed` to
+In `e2e/`, add `-c shell.config.ts` to run the app suite in one shard, or
+run `node run-shell.mjs` with the same arguments to run it in several. Each
+shard serves a production build of the UI, so a change to the UI needs a
+new run, not a reload. Add `--headed` to
 watch the browser. When a Playwright test fails, its trace is saved under
 `test-results/`; open it with `npx playwright show-trace`.
 
