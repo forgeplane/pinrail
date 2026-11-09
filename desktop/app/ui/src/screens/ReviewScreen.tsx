@@ -33,6 +33,7 @@ import { useReviewRounds } from "./review/useReviewRounds";
 import { usePluginView } from "./review/usePluginView";
 import { useLinkRequests } from "./review/useLinkRequests";
 import { OriginLink, ReviewActions, ReviewCrumb } from "./review/ReviewBar";
+import { useWindowKey } from "../lib/useWindowKey";
 
 const NOTE_PREFIX = "pinrail:draft:";
 
@@ -65,6 +66,15 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
   const rounds = useReviewRounds(props.id);
   const view = usePluginView(rounds.review, rounds.setReview);
   usePageRepo(rounds.review?.origin.repo);
+  // Escape closes the side panel before the review has loaded, or when it
+  // failed to; once it shows, the review's own keys take Escape
+  const shown = !rounds.error && !!rounds.review;
+  useWindowKey(
+    (event) => {
+      if (event.key === "Escape" && !modalOpen()) props.onClose?.();
+    },
+    { enabled: !shown && !!props.onClose },
+  );
   if (rounds.error) {
     return (
       <div className="review-page">

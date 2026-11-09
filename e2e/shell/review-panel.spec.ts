@@ -303,3 +303,22 @@ test("walking to another review never shows it maximized", async ({ page }) => {
   await expect(page.locator(".frame-bar")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__maximizedTitles)).not.toContain("Panel: walk to");
 });
+
+test("Escape closes the panel before its review has loaded", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  const review = await createReview(request, { title: "Panel: slow review" });
+  await page.goto("/#/");
+  // the review's own request is held until the panel has been closed
+  let release: () => void = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route(`**/api/v1/reviews/${review.id}`, async (route) => {
+    await held;
+    await route.continue().catch(() => {});
+  });
+  await row(page, "Panel: slow review").click();
+  await expect(panel(page)).toBeVisible();
+  await page.locator("body").press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  release();
+});
