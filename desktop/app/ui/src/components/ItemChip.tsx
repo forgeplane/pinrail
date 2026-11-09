@@ -34,14 +34,23 @@ export function useItemLinkClick() {
   );
 }
 
-export function ItemChip({ item, inLink = false }: { item: Pick<ItemTag, "key" | "title">; inLink?: boolean }) {
+export function ItemChip({
+  item,
+  inLink = false,
+  keyOnly = false,
+}: {
+  item: Pick<ItemTag, "key" | "title">;
+  inLink?: boolean;
+  /** the key alone, the title on hover: for several chips in a row */
+  keyOnly?: boolean;
+}) {
   const openItem = useOpenItem();
   const onLinkClick = useItemLinkClick();
   const content = (
     <>
       <ListChecks size={12} aria-hidden="true" />
       <span className="mono">{item.key}</span>
-      <span className="item-chip-title">{item.title}</span>
+      {keyOnly ? null : <span className="item-chip-title">{item.title}</span>}
     </>
   );
   if (inLink)

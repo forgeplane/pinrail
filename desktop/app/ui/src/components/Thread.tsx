@@ -360,11 +360,16 @@ export function Thread({
                 )
               ) : null}
               {named ? <CopySessionId id={named.id} /> : null}
-              {held.map((item) => (
-                <span key={item.key} className="thread-meta-item" data-testid="thread-held-item">
-                  working on <ItemChip item={item} />
+              {held.length ? (
+                // one item with its title; several by their keys, the titles
+                // on hover
+                <span className="thread-meta-item" data-testid="thread-held-item">
+                  working on{" "}
+                  {held.map((item) => (
+                    <ItemChip key={item.key} item={item} keyOnly={held.length > 1} />
+                  ))}
                 </span>
-              ))}
+              ) : null}
             </div>
           </div>
           <span className="thread-head-end">

@@ -491,3 +491,23 @@ test("a line for several work items keeps its words and its time on one line eac
   // every chip is shown, wrapped under the words where they do not fit
   for (const chip of await line.getByTestId("item-chip").all()) await expect(chip).toBeVisible();
 });
+
+test("a session holding several items names them once, by their keys", async ({ page, request }) => {
+  const repo = fresh("several");
+  const session = `s-several-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Several at once", kind: "start" },
+  });
+  const keys: string[] = [];
+  for (const title of ["First of them", "Second of them", "Third of them"]) {
+    const item = await add(request, repo, title, { session });
+    await request.patch(`${core}/api/v1/items/${item.key}`, { data: { by: "claude-code", session, claim: "claim" } });
+    keys.push(item.key);
+  }
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const held = page.getByTestId("thread-held-item");
+  await expect(held).toHaveCount(1);
+  await expect(held).toHaveText(`working on ${keys.join("")}`);
+  // each title is on its chip's tooltip
+  await expect(held.getByTestId("item-chip").first()).toHaveAttribute("title", `${keys[0]} First of them`);
+});

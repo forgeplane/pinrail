@@ -3293,6 +3293,7 @@ body.is-resizing iframe {
   gap: 14px;
   padding: 12px 32px 14px;
   border-bottom: 1px solid var(--border);
+  container-type: inline-size;
 }
 .thread.in-panel .thread-head {
   padding: 2px 0 12px;
@@ -3383,9 +3384,10 @@ body.is-resizing iframe {
   color: var(--dim);
 }
 /* the dot sits in the gap before each item; at the start of a line it
-   falls outside the box, which clips it */
+   falls outside the box, which clips it. Each item wraps as a whole. */
 .thread-meta > * {
   position: relative;
+  white-space: nowrap;
 }
 .thread-meta > *::before {
   /* no text of its own for a screen reader */
@@ -3412,7 +3414,31 @@ body.is-resizing iframe {
   font-size: 11.5px;
 }
 .thread-meta .thread-session {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--faint);
+}
+/* a narrow header: the counts are in the details, and the held items'
+   chips wrap within their label's line */
+@container (max-width: 760px) {
+  /* the title takes the lines it needs, the badge after it */
+  .thread-title-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .thread-title-row h1 {
+    white-space: normal;
+  }
+}
+@container (max-width: 560px) {
+  .thread-counts {
+    display: none;
+  }
+  .thread-meta-item {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
 .thread-session {
   font-family: var(--mono);
@@ -3420,6 +3446,8 @@ body.is-resizing iframe {
 }
 .thread-waiting {
   display: inline-flex;
+  flex: none;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
