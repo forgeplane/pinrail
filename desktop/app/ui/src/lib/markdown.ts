@@ -93,7 +93,15 @@ const NOTE_LINK = /^(https?:|mailto:|attachment:)/i;
 noteMd.validateLink = (url) => NOTE_LINK.test(url.trim());
 const ATTACHMENT = "attachment:";
 type NoteEnv = { fileUrl: (name: string) => string | null };
-const fileName = (url: string) => decodeURIComponent(url.slice(ATTACHMENT.length));
+// a name with a malformed escape, such as %E0, is kept as written
+const fileName = (url: string) => {
+  const name = url.slice(ATTACHMENT.length);
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+};
 
 // an image of the note's own shows from its address, and is left out
 // without one

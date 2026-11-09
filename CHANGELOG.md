@@ -82,6 +82,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   the side panel opens or closes beside it.
 - A note that shows `attachment:` links inside code, as an example, is no
   longer refused for files it does not carry.
+- A note or work item whose `attachment:` link has a malformed escape,
+  such as `%E0`, no longer blanks the app's window.
 - Esc pressed as soon as What's new opens closes it.
 - Esc in the search field of the inbox, the Sessions page or the
   Projects page leaves the field and keeps the search, so the page's keys

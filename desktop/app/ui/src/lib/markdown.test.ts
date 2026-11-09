@@ -32,6 +32,12 @@ describe("renderNote", () => {
     expect(html).not.toContain("<img");
     expect(html).toContain('href="https://example.com"');
   });
+
+  test("keeps a file name with a malformed escape as written", () => {
+    const html = renderNote("![bad](attachment:a%E0.png) [log](attachment:%FF.log)", url);
+    expect(html).toContain('data-attachment="a%E0.png"');
+    expect(html).toContain('<a href="#" data-attachment="%FF.log">log</a>');
+  });
 });
 
 describe("renderLinks", () => {
