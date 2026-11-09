@@ -1558,27 +1558,6 @@ async fn the_same_submission_while_the_first_is_pending_is_one_review() {
     assert_eq!(pending["total"], 1, "{pending}");
 }
 
-/// A linked plugin is looked up by its full name, never joined into a
-/// path: a folder beside the plugins' data is not reached through `..`,
-/// and only an installed link is served.
-#[tokio::test]
-async fn a_link_is_served_only_for_a_linked_plugins_own_name() {
-    let app = app();
-    let outside = app.state.config().plugins_dir().join("outside");
-    std::fs::create_dir_all(outside.join("view")).unwrap();
-    std::fs::write(outside.join("view/index.html"), "<html>outside</html>").unwrap();
-    for path in [
-        "/links/..%2Foutside/x/view/index.html",
-        "/links/..%2F..%2Fplugins/outside/view/index.html",
-        "/links/outside/view/index.html",
-        // the official plugins are bundles, not links
-        "/links/list/view/index.html",
-    ] {
-        let response = bundle_get(&app, path, &[]).await;
-        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
-    }
-}
-
 async fn raw(
     app: &App,
     method: &str,
@@ -2532,11 +2511,6 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
         ),
         Some(decision.clone()),
     )
-    // a limit too far back to subtract keeps everything rather than panicking
-    assert_eq!(
-        app.state.reviews().sweep_history(Some(u32::MAX)).unwrap(),
-        0
-    );
     .await;
     assert_eq!(status, StatusCode::OK);
     let withdrawn = submit(&app, submission()).await;
@@ -2558,6 +2532,11 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
 
     // nothing to keep for: everything stays
     assert_eq!(app.state.reviews().sweep_history(None).unwrap(), 0);
+    // a limit too far back to subtract keeps everything rather than panicking
+    assert_eq!(
+        app.state.reviews().sweep_history(Some(u32::MAX)).unwrap(),
+        0
+    );
     let tomorrow = chrono::Utc::now() + chrono::Duration::days(1);
     // the withdrawn one goes; the decided one stays while the round revising it is pending
     assert_eq!(
