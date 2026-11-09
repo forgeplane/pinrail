@@ -882,7 +882,13 @@ function PartDetail(props: PanelProps & { part: Part }) {
         </>
       ) : null}
       <AlsoIn payload={payload} node={part.id} openDiagram={props.openDiagram} />
-      <Comments {...props} target={{ node: part.id }} changes={part.changes} part={part} />
+      <Comments
+        key={keyOf({ node: part.id })}
+        {...props}
+        target={{ node: part.id }}
+        changes={part.changes}
+        part={part}
+      />
     </div>
   );
 }
@@ -945,7 +951,7 @@ function LinkDetail(props: PanelProps & { link: Link }) {
         </>
       ) : null}
       <AlsoIn payload={payload} edge={link.id} openDiagram={props.openDiagram} />
-      <Comments {...props} target={{ edge: link.id }} changes={link.changes} />
+      <Comments key={keyOf({ edge: link.id })} {...props} target={{ edge: link.id }} changes={link.changes} />
     </div>
   );
 }
@@ -1039,7 +1045,7 @@ function ItemDetail(props: PanelProps & { found: Found }) {
           />
         </>
       ) : null}
-      <Comments {...props} target={sel} changes={item.changes} />
+      <Comments key={keyOf(sel)} {...props} target={sel} changes={item.changes} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "name": "change-map",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "title": "Change map",
   "description": "A code change, such as a pull request, drawn as a diagram of the parts it touches and how they interact. Each part opens its files in a diff viewer, and parts of the interface show screenshots before and after. Comment on a part, an interaction or a line, and approve the change or ask for changes.",
   "use_when": "You made or studied a code change with several moving parts, such as a feature across services, modules and screens, and the person should understand how the parts fit together before reading the diff, then approve it or say what to change.",

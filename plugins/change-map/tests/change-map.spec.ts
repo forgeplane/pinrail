@@ -1727,3 +1727,12 @@ test("the zoom buttons sit in the map's top-left corner, above the diff drawer",
   expect(bar.y - map.y).toBeLessThan(20);
   await fit.click({ timeout: 2000 });
 });
+
+test("a comment typed on one part is not carried to the next part selected", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: dedup() });
+  const f = plugin.frame;
+  await f.locator('[data-node="tickets-endpoint"]').click();
+  await f.getByPlaceholder("Add a comment").fill("rename this");
+  await f.locator('[data-node="api-client"]').click();
+  await expect(f.getByPlaceholder("Add a comment")).toHaveValue("");
+});

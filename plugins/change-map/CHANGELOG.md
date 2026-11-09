@@ -4,6 +4,13 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.1.2] - Unreleased
+
+### Fixed
+
+- Text typed in the comment field of one part, and not yet added, no
+  longer stays in the field when you select another part.
+
 ## [1.1.1] - Pinrail 0.5.0
 
 ### Fixed
