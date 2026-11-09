@@ -4022,6 +4022,124 @@ fn items_comment_sends_the_text_given_or_read_from_a_file() {
 }
 
 #[test]
+fn items_read_the_description_from_a_file_or_stdin_and_upload_the_files_they_attach() {
+    let shot = sha256("png bytes");
+    let sent = Arc::new(Mutex::new(Vec::<(String, String, String)>::new()));
+    let seen = sent.clone();
+    let uploaded = shot.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        seen.lock()
+            .unwrap()
+            .push((method.into(), path.into(), body.into()));
+        match method {
+            "HEAD" => (404, String::new()),
+            "PUT" => (201, format!(r#"{{"sha256":"{uploaded}","size":9}}"#)),
+            "POST" if path.ends_with("/comments") => (201, r#"{"id": "c_1", "body": "x"}"#.into()),
+            _ => (
+                if method == "POST" { 201 } else { 200 },
+                work_item("PIN-7", "Load themes", serde_json::json!({})),
+            ),
+        }
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("shot.png"), "png bytes").unwrap();
+    std::fs::write(dir.join("body.md"), "From a file.").unwrap();
+    let attach = format!("{}=screen.png", dir.join("shot.png").display());
+    let items = |args: &[&str], stdin: &str| {
+        let mut child = pinrail()
+            .env_remove("PINRAIL_JSON")
+            .args(args)
+            .args(["--repo", "forgeplane/pinrail"])
+            .current_dir(std::env::temp_dir())
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        std::io::Write::write_all(&mut child.stdin.take().unwrap(), stdin.as_bytes()).unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    items(
+        &[
+            "items",
+            "add",
+            "Load themes",
+            "--body-file",
+            "-",
+            "--attach",
+            &attach,
+        ],
+        "From stdin.",
+    );
+    items(
+        &[
+            "items",
+            "edit",
+            "PIN-7",
+            "--body-file",
+            dir.join("body.md").to_str().unwrap(),
+            "--attach",
+            &attach,
+        ],
+        "",
+    );
+    items(
+        &[
+            "items",
+            "comment",
+            "PIN-7",
+            "See the screen.",
+            "--attach",
+            &attach,
+        ],
+        "",
+    );
+
+    let sent = sent.lock().unwrap();
+    let requests: Vec<String> = sent
+        .iter()
+        .map(|(m, p, _)| format!("{m} {}", p.replace(&shot, "{shot}")))
+        .collect();
+    let file = "/api/v1/attachments/{shot}";
+    assert_eq!(
+        requests,
+        [
+            format!("HEAD {file}"),
+            format!("PUT {file}"),
+            "POST /api/v1/items".to_string(),
+            format!("HEAD {file}"),
+            format!("PUT {file}"),
+            "PATCH /api/v1/items/PIN-7?repo=forgeplane%2Fpinrail".to_string(),
+            format!("HEAD {file}"),
+            format!("PUT {file}"),
+            "POST /api/v1/items/PIN-7/comments?repo=forgeplane%2Fpinrail".to_string(),
+        ]
+    );
+    assert_eq!(sent[1].2, "png bytes", "the file's bytes, as they are");
+    let declared = serde_json::json!({
+        "screen.png": { "sha256": shot, "size": 9, "media_type": "image/png" },
+    });
+    for (at, body) in [
+        (2, "From stdin."),
+        (5, "From a file."),
+        (8, "See the screen."),
+    ] {
+        let request: serde_json::Value = serde_json::from_str(&sent[at].2).unwrap();
+        assert_eq!(request["body"], body, "{}", requests[at]);
+        assert_eq!(request["attachments"], declared, "{}", requests[at]);
+    }
+}
+
+#[test]
 fn items_done_prints_what_became_ready_and_the_parents_closed_or_left_open() {
     let (server, sent) = items_server(|_, _| {
         let item = work_item(
