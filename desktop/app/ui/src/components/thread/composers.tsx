@@ -2,7 +2,7 @@
 // or a disabled box when there is nothing to answer.
 
 import { useState } from "react";
-import { ApiError, api } from "../../api/client";
+import { api, errorMessage } from "../../api/client";
 import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ComposeField } from "../ComposeField";
@@ -23,7 +23,7 @@ export function MessageComposer({ session, onSent }: { session: { agent: string;
       setText("");
       onSent();
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : "The message was not sent.");
+      toast(errorMessage(e, "The message was not sent."));
     } finally {
       setBusy(false);
     }

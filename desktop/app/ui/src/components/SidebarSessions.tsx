@@ -30,6 +30,7 @@ import { SidebarSessionsMenu, type ScopeChoice } from "./SidebarSessionsMenu";
 import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
+import { useLoad } from "../lib/useLoad";
 
 /** How often the working marks are checked against the time. */
 const TICK_MS = 30_000;
@@ -38,11 +39,13 @@ const FETCHED = 200;
 
 const STATE_LABEL = { working: "Working", quiet: "Quiet", done: "Done" } as const;
 
+/** No sessions, the same array each time, while none have loaded. */
+const NO_SESSIONS: Session[] = [];
+
 export function SidebarSessions({ shown }: { shown: string | null }) {
   const live = useLive();
   const { settings, update } = useSettings();
   const choices = settings.sidebar.sessions;
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [menu, setMenu] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -52,16 +55,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const reported = useNoticeCount((n) =>
     ["session_status", "session_archived", "session_unarchived", "repository_deleted"].includes(n.kind),
   );
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined })
-      .then((d) => !cancelled && setSessions(d.sessions))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [live.pending, reported, choices.archived]);
+  const sessions =
+    useLoad(
+      () =>
+        api
+          .sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined })
+          .then((d) => d.sessions),
+      [live.pending, reported, choices.archived],
+    ).data ?? NO_SESSIONS;
   // a session stops working once its last status is old enough
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), TICK_MS);

@@ -3,7 +3,7 @@
 // to, and linked at the cursor, an image shown in place.
 
 import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent, type RefObject } from "react";
-import { ApiError, api } from "../api/client";
+import { api, errorMessage } from "../api/client";
 
 /** A file the Markdown links to, as the core takes it beside the text. */
 export type Attached = { sha256: string; size: number; media_type: string };
@@ -106,7 +106,7 @@ export function useAttach({
           el?.setSelectionRange(start + inserted.length, start + inserted.length);
         });
       } catch (error) {
-        onError(error instanceof ApiError ? error.message : "The file could not be attached");
+        onError(errorMessage(error, "The file could not be attached"));
       } finally {
         setBusy((n) => n - 1);
       }

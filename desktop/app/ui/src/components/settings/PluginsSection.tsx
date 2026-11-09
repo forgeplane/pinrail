@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, inTauri } from "../../api/client";
+import { api, inTauri, errorMessage } from "../../api/client";
 import type { CatalogEntry, Plugin, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
 import { REVEAL, composing } from "../../lib/keys";
@@ -235,12 +235,7 @@ function PluginEntry({
       onOpenReview(review.id);
     } catch (e) {
       setSending(false);
-      onMessage(
-        e instanceof ApiError
-          ? (e.violations[0]?.message ?? e.message)
-          : `The ${p.title || p.name} sample could not be sent`,
-        "danger",
-      );
+      onMessage(errorMessage(e, `The ${p.title || p.name} sample could not be sent`), "danger");
     }
   };
 
@@ -258,7 +253,7 @@ function PluginEntry({
       onReload();
     } catch (e) {
       setSkillWanted(null);
-      onMessage(e instanceof ApiError ? e.message : `The ${p.title || p.name} skill could not be changed`, "danger");
+      onMessage(errorMessage(e, `The ${p.title || p.name} skill could not be changed`), "danger");
     }
   };
   const skillOn = skillWanted ?? skillStored;
@@ -271,10 +266,7 @@ function PluginEntry({
     try {
       onUpdated(await api.installPlugin({ id: p.install.source }));
     } catch (e) {
-      onMessage(
-        e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : `${p.title || p.name} could not be updated`,
-        "danger",
-      );
+      onMessage(errorMessage(e, `${p.title || p.name} could not be updated`), "danger");
     } finally {
       setUpdating(false);
     }
@@ -288,12 +280,7 @@ function PluginEntry({
       onMessage(`${p.title || p.name} plugin was removed`);
     } catch (e) {
       setRemoving(null);
-      onMessage(
-        e instanceof ApiError
-          ? (e.violations[0]?.message ?? e.message)
-          : `The ${p.title || p.name} plugin could not be removed`,
-        "danger",
-      );
+      onMessage(errorMessage(e, `The ${p.title || p.name} plugin could not be removed`), "danger");
     }
   };
 

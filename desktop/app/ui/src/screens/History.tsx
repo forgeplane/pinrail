@@ -25,6 +25,7 @@ import { useSettings } from "../state/settings";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
+import { useDebounced } from "../lib/useDebounced";
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
@@ -61,11 +62,7 @@ export function History() {
 
   // The server filters and pages: the history can be far longer than any
   // one fetch. The search waits for typing to pause.
-  const [debounced, setDebounced] = useState(query);
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(query), SEARCH_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [query]);
+  const debounced = useDebounced(query, SEARCH_DELAY_MS);
   useEffect(() => {
     let cancelled = false;
     api

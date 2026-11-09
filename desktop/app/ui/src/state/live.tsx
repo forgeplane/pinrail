@@ -7,6 +7,7 @@ import { api, subscribe } from "../api/client";
 import type { Notice, Plugin, ProjectRef, ProjectsListing, Review } from "../api/types";
 import { setItemPrefixes } from "../lib/markdown";
 import { ENDINGS, applyNotice } from "./pending";
+import { useLoad } from "../lib/useLoad";
 
 /** The most pending reviews the app loads; the server has the rest. */
 const PENDING_LOADED = 500;
@@ -60,7 +61,6 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [historyVersion, setHistoryVersion] = useState(0);
   const [projectsVersion, setProjectsVersion] = useState(0);
   const [projectsListing, setProjectsListing] = useState<ProjectsListing | null>(null);
-  const [openItems, setOpenItems] = useState(0);
   // advances when an item changes, and when one names a key prefix not yet
   // known: a repository gets its prefix with its first item
   const [itemsVersion, setItemsVersion] = useState(0);
@@ -136,16 +136,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   );
 
   // how many work items are open, beside their entry in the sidebar
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .items()
-      .then((d) => !cancelled && setOpenItems(d.items.length))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [itemsVersion, connected]);
+  const openItems = useLoad(() => api.items().then((d) => d.items.length), [itemsVersion, connected]).data ?? 0;
 
   useEffect(() => {
     refresh();

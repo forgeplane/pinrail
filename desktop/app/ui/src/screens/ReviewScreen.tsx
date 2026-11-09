@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
-import { ApiError, api } from "../api/client";
+import { ApiError, api, errorMessage } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { AgentIcon } from "../components/AgentIcon";
@@ -183,7 +183,7 @@ export const ReviewView = memo(function ReviewView({
       return true;
     } catch (e) {
       if (wanted.current !== id) return false;
-      setError(e instanceof ApiError ? e.message : "The server did not answer.");
+      setError(errorMessage(e, "The server did not answer."));
       return false;
     }
   }, [id]);

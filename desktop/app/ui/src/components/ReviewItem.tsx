@@ -3,26 +3,16 @@
 // menu that adds it to another.
 
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { ApiError, api } from "../api/client";
-import type { Review, WorkItem } from "../api/types";
+import { api, errorMessage } from "../api/client";
+import type { Review } from "../api/types";
 import { useToast } from "../state/toasts";
 import { ItemChip } from "./ItemChip";
 import { Select } from "./Select";
+import { useLoad } from "../lib/useLoad";
 
 export function ReviewItem({ review, onChanged }: { review: Review; onChanged: () => void }) {
   const toast = useToast();
-  const [items, setItems] = useState<WorkItem[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .items()
-      .then((d) => !cancelled && setItems(d.items))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const items = useLoad(() => api.items().then((d) => d.items), []).data ?? [];
   const current = review.items ?? [];
   const keys = current.map((i) => i.key);
   const save = async (next: string[]) => {
@@ -30,7 +20,7 @@ export function ReviewItem({ review, onChanged }: { review: Review; onChanged: (
       await api.setReviewItems(review.id, next);
       onChanged();
     } catch (error) {
-      toast(error instanceof ApiError ? error.message : "Pinrail could not be reached", "danger");
+      toast(errorMessage(error), "danger");
     }
   };
   return (

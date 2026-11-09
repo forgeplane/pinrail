@@ -28,6 +28,7 @@ import { ReviewView } from "./ReviewScreen";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
+import { useDebounced } from "../lib/useDebounced";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -65,11 +66,7 @@ export function Sessions() {
   const size = pageSizeOf(params.get("per"));
   const [data, setData] = useState<Awaited<ReturnType<typeof api.sessions>> | null>(null);
 
-  const [debounced, setDebounced] = useState(query);
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(query), SEARCH_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [query]);
+  const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // anything sent, answered or withdrawn moves the sessions
   const sessionNotices = useNoticeCount(aboutSessions);
   useEffect(() => {

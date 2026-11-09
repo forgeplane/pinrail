@@ -5,7 +5,7 @@
 import { FolderGit2, ListChecks, Lock, Plus, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ApiError, api } from "../api/client";
+import { api, errorMessage } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
@@ -32,6 +32,7 @@ import { useToast } from "../state/toasts";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
+import { useDebounced } from "../lib/useDebounced";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -65,8 +66,6 @@ const DRAGGED = "application/x-pinrail-item";
 /** An item in the order J and K walk, at its depth in the tree. */
 type Shown = { item: WorkItem; depth: number; folded: boolean; children: number; parentTitle?: string };
 
-const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
-
 export function WorkItems() {
   const live = useLive();
   const toast = useToast();
@@ -89,11 +88,7 @@ export function WorkItems() {
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
-  const [debounced, setDebounced] = useState(query);
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(query), SEARCH_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [query]);
+  const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // the notices that can change the items, which load them again
   const itemNotices = useNoticeCount(aboutItems);
   useEffect(() => {
@@ -238,7 +233,7 @@ export function WorkItems() {
       try {
         await api.editItem(item.key, body);
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
       }
       reload();
     },
@@ -251,7 +246,7 @@ export function WorkItems() {
       try {
         setQueue((await run()).items);
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
       }
       reload();
     },
@@ -298,7 +293,7 @@ export function WorkItems() {
         await api.editItem(key, { parent });
         toast(parent ? `${key} is now part of ${parent}` : `${key} is no longer part of ${from}`);
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
       }
       reload();
     },
@@ -313,7 +308,7 @@ export function WorkItems() {
         toast(`${key} moved to ${repo} as ${item.key}`);
         return true;
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
         return false;
       } finally {
         reload();

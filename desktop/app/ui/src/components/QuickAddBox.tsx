@@ -4,7 +4,7 @@
 
 import { FolderGit2, Plus, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { ApiError, api } from "../api/client";
+import { api, errorMessage } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { MOD, SHIFT, composing } from "../lib/keys";
 import { useToast } from "../state/toasts";
@@ -12,8 +12,6 @@ import { ItemStatusIcon } from "./ItemStatusIcon";
 import { KeyHints } from "./KeyHints";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
-
-const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
 
 export type QuickAddBoxProps = {
   onClose: () => void;
@@ -59,7 +57,7 @@ export function QuickAddBox({
       setTitle("");
       onAdded(item, more);
     } catch (error) {
-      toast(reason(error), "danger");
+      toast(errorMessage(error), "danger");
     } finally {
       setBusy(false);
       field.current?.focus();

@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { ApiError, api } from "../api/client";
-import type { Project, ProjectRepo, ProjectsListing } from "../api/types";
+import { api, errorMessage } from "../api/client";
+import type { Project, ProjectRepo } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
 import { Tooltip } from "../components/Tooltip";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
@@ -38,6 +38,7 @@ import { useSettings } from "../state/settings";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
 import { Dialog } from "../components/Dialog";
+import { useLoad } from "../lib/useLoad";
 
 /** The type of a repository's name on a drag. */
 const DRAGGED = "application/x-pinrail-repo";
@@ -45,10 +46,6 @@ const DRAGGED = "application/x-pinrail-repo";
 const LOOSE = "-";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** Why a request was refused, as the person should read it. */
-const reason = (error: unknown) =>
-  error instanceof ApiError ? (error.violations[0]?.message ?? error.message) : "The app could not be reached.";
 
 type Menu = { anchor: HTMLElement; label: string; entries: MenuEntry[]; align?: "left" | "right" };
 type Dialog =
@@ -65,7 +62,6 @@ export function Projects() {
   const location = useLocation();
   const { settings: prefs } = useSettings();
   const sessionsOn = prefs.labs.sessions;
-  const [listing, setListing] = useState<ProjectsListing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
@@ -80,16 +76,7 @@ export function Projects() {
   // what waits and when it last moved change with what moves the sessions
   // and the items
   const notices = useNoticeCount((n) => aboutSessions(n) || aboutItems(n));
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .projects()
-      .then((l) => !cancelled && setListing(l))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [notices, live.projectsVersion, reloads]);
+  const listing = useLoad(() => api.projects(), [notices, live.projectsVersion, reloads]).data;
   // the command palette's New project opens the dialog here, once
   useEffect(() => {
     if ((location.state as { newProject?: boolean } | null)?.newProject) {
@@ -117,7 +104,7 @@ export function Projects() {
       try {
         await api.moveRepo(repo, project);
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
       }
       // shown at once, whether or not the event stream brings the change
       setReloads((n) => n + 1);
@@ -473,7 +460,7 @@ export function Projects() {
                 `Deleted ${gone.repo}: ${plural(gone.reviews, "review", "reviews")} and ${plural(gone.sessions, "session", "sessions")}`,
               );
             } catch (error) {
-              toast(reason(error), "danger");
+              toast(errorMessage(error), "danger");
             }
             setDialog(null);
           }}
@@ -487,7 +474,7 @@ export function Projects() {
             try {
               await api.deleteProject(dialog.project.id);
             } catch (error) {
-              toast(reason(error), "danger");
+              toast(errorMessage(error), "danger");
             }
             setDialog(null);
           }}
@@ -568,7 +555,7 @@ function ProjectDialog({
         image: image === "removed" ? null : image ? image.png : undefined,
       });
     } catch (e) {
-      setError(reason(e));
+      setError(errorMessage(e));
       setSaving(false);
     }
   };
@@ -746,7 +733,7 @@ function PrefixDialog({
           try {
             await onSave(prefix);
           } catch (e) {
-            setError(reason(e));
+            setError(errorMessage(e));
             setBusy(false);
           }
         }}

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { subscribe } from "./client";
+import { ApiError, errorMessage, subscribe } from "./client";
 import eventsSource from "../../../../core/src/events.rs?raw";
 
 /** Stands in for the browser's EventSource: records the listeners the client adds. */
@@ -34,5 +34,23 @@ describe("subscribe", () => {
     }
     expect(seen).toEqual(kinds);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("errorMessage", () => {
+  test("is what the core said, its first violation's when it refused a field", () => {
+    expect(errorMessage(new ApiError(409, { error: "conflict", message: "PIN-1 is on hold" }))).toBe(
+      "PIN-1 is on hold",
+    );
+    const refused = new ApiError(422, {
+      error: "invalid",
+      message: "validation failed",
+      violations: [{ path: "/title", message: "is empty" }],
+    });
+    expect(errorMessage(refused)).toBe("is empty");
+  });
+  test("is the fallback for anything else", () => {
+    expect(errorMessage(new TypeError("Failed to fetch"))).toBe("Pinrail could not be reached.");
+    expect(errorMessage(null, "The item was not saved.")).toBe("The item was not saved.");
   });
 });

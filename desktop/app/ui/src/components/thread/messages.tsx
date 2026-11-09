@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, type To } from "react-router";
-import { ApiError, api } from "../../api/client";
+import { api, errorMessage } from "../../api/client";
 import type {
   ItemStatus,
   Review,
@@ -408,7 +408,7 @@ export const MessageBubble = memo(function MessageBubble({
     try {
       await api.deleteMessage(session.agent, session.id, message.id);
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : "The message was not deleted.");
+      toast(errorMessage(e, "The message was not deleted."));
     }
     onDeleted();
   };

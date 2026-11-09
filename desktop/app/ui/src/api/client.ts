@@ -54,6 +54,14 @@ const itemStatuses: Record<ItemStatus, true> = {
 /** The `status` that lists items whatever their status. */
 export const EVERY_ITEM_STATUS = Object.keys(itemStatuses).join(",");
 
+/** What went wrong, for the person: the core's own words, the first
+ *  violation's when it refused a field, or `fallback` when the core could
+ *  not be reached or the error is not the core's. */
+export function errorMessage(error: unknown, fallback = "Pinrail could not be reached."): string {
+  if (!(error instanceof ApiError)) return fallback;
+  return error.violations[0]?.message ?? error.message;
+}
+
 let baseUrl: Promise<string> | undefined;
 
 export const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

@@ -4,7 +4,7 @@
 // notice is about any of them.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, EVERY_ITEM_STATUS } from "../../api/client";
+import { api, EVERY_ITEM_STATUS, errorMessage } from "../../api/client";
 import type {
   Review,
   Session,
@@ -15,6 +15,10 @@ import type {
   WorkItem,
 } from "../../api/types";
 import { useNotice } from "../../state/live";
+import { useLoad } from "../../lib/useLoad";
+
+/** No items, the same array each time, while none have loaded. */
+const NO_ITEMS: WorkItem[] = [];
 
 export function useSessionThread(
   named: { agent: string; id: string } | null,
@@ -22,20 +26,16 @@ export function useSessionThread(
   onSession?: (session: Session) => void,
 ) {
   // the work items the session holds or worked on, with what changes them
-  const [sessionItems, setSessionItems] = useState<WorkItem[]>([]);
   // how many times its items changed, which loads them again
   const [itemsChanged, setItemsChanged] = useState(0);
-  useEffect(() => {
-    if (!named) return;
-    let cancelled = false;
-    api
-      .items({ agent: named.agent, session: named.id, status: EVERY_ITEM_STATUS })
-      .then((d) => !cancelled && setSessionItems(d.items))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [named?.agent, named?.id, itemsChanged]); // eslint-disable-line react-hooks/exhaustive-deps -- the session's names, not the object
+  const sessionItems =
+    useLoad(
+      () =>
+        named
+          ? api.items({ agent: named.agent, session: named.id, status: EVERY_ITEM_STATUS }).then((d) => d.items)
+          : Promise.resolve<WorkItem[]>([]),
+      [named?.agent, named?.id, itemsChanged],
+    ).data ?? NO_ITEMS;
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
@@ -60,7 +60,7 @@ export function useSessionThread(
       }
       setError(null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "The server did not answer.");
+      setError(errorMessage(e, "The server did not answer."));
     }
   }, [named?.agent, named?.id, focus?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the objects
   useEffect(() => {

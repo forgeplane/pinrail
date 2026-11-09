@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ApiError, api } from "../api/client";
+import { ApiError, api, errorMessage } from "../api/client";
 import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
 import { age, ordinal, stamp } from "../lib/format";
 import { MOD, modalOpen, isTyping } from "../lib/keys";
@@ -45,8 +45,6 @@ import { Tooltip } from "./Tooltip";
 import { useWindowKey } from "../lib/useWindowKey";
 import { ProgressRing } from "./ProgressRing";
 import { editKeys } from "../lib/editKeys";
-
-const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
 
 export function ItemPanel({
   itemKey,
@@ -109,7 +107,7 @@ export function ItemPanel({
         onChanged();
         return true;
       } catch (error) {
-        toast(reason(error), "danger");
+        toast(errorMessage(error), "danger");
         return false;
       }
     },
@@ -274,7 +272,7 @@ export function ItemPanel({
                 setReloads((n) => n + 1);
                 onChanged();
               } catch (error) {
-                toast(reason(error), "danger");
+                toast(errorMessage(error), "danger");
               }
             }}
           >
@@ -394,7 +392,7 @@ export function ItemPanel({
               onChanged();
               return true;
             } catch (error) {
-              toast(reason(error), "danger");
+              toast(errorMessage(error), "danger");
               return false;
             }
           }}
@@ -461,7 +459,7 @@ export function ItemPanel({
                   setReloads((n) => n + 1);
                   return true;
                 } catch (error) {
-                  toast(reason(error), "danger");
+                  toast(errorMessage(error), "danger");
                   return false;
                 }
               }}
@@ -470,7 +468,7 @@ export function ItemPanel({
                   await api.deleteComment(item.key, entry.id);
                   setReloads((n) => n + 1);
                 } catch (error) {
-                  toast(reason(error), "danger");
+                  toast(errorMessage(error), "danger");
                 }
               }}
             />
@@ -485,7 +483,7 @@ export function ItemPanel({
                   onChanged();
                   return true;
                 } catch (error) {
-                  toast(reason(error), "danger");
+                  toast(errorMessage(error), "danger");
                   return false;
                 }
               }}
