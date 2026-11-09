@@ -216,10 +216,24 @@ fn installs_itself() -> bool {
 /// Installs the downloaded update, if there is one; true when it did. The
 /// new version runs from the next start.
 pub fn install(app: &AppHandle) -> Result<bool, String> {
-    let Some((update, bytes)) = app.state::<Updates>().ready.lock().unwrap().take() else {
+    install_ready(&app.state::<Updates>().ready, |(update, bytes)| {
+        update.install(bytes).map_err(|e| e.to_string())
+    })
+}
+
+/// Installs what `ready` holds with `install`, and lets it go only once
+/// it is installed: an install that fails, such as from a read-only
+/// volume, can be tried again.
+fn install_ready<U>(
+    ready: &Mutex<Option<U>>,
+    install: impl FnOnce(&U) -> Result<(), String>,
+) -> Result<bool, String> {
+    let mut ready = ready.lock().unwrap();
+    let Some(update) = ready.as_ref() else {
         return Ok(false);
     };
-    update.install(bytes).map_err(|e| e.to_string())?;
+    install(update)?;
+    ready.take();
     Ok(true)
 }
 
@@ -254,4 +268,22 @@ pub fn start(app: &AppHandle, enabled: impl Fn() -> bool + Send + 'static) {
             tokio::time::sleep(TICK).await;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_failed_install_keeps_the_update_for_another_attempt() {
+        let ready = Mutex::new(Some("1.2.0"));
+        let failed = install_ready(&ready, |_| Err("read-only volume".to_string()));
+        assert_eq!(failed, Err("read-only volume".to_string()));
+        assert_eq!(*ready.lock().unwrap(), Some("1.2.0"));
+
+        assert_eq!(install_ready(&ready, |_| Ok(())), Ok(true));
+        assert_eq!(*ready.lock().unwrap(), None);
+        // nothing left to install
+        assert_eq!(install_ready(&ready, |_| Ok(())), Ok(false));
+    }
 }
