@@ -571,3 +571,47 @@ test("two files pasted before the first is uploaded take names of their own", as
   const comment = stored.timeline.find((e: { type: string }) => e.type === "comment");
   expect(comment.files.map((f: { name: string }) => f.name).sort()).toEqual(["image-2.png", "image.png"]);
 });
+
+test("the activity names a question or review in one line, its title as Markdown", async ({ page, request }) => {
+  const repo = fresh("activity-reviews");
+  const item = await add(request, repo, "Item");
+  const sent = async (body: Record<string, unknown>) => {
+    const response = await request.post(`${core}/api/v1/reviews`, {
+      data: { origin: { repo }, requested_by: "claude-code", items: [item.key], ...body },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return ((await response.json()) as { id: string }).id;
+  };
+  const question = await sent({
+    kind: "question",
+    title: "Split `Thread.tsx` in two?",
+    payload: { questions: [{ id: "q1", question: "Split it?", answer: "yes-no" }] },
+  });
+  await request.post(`${core}/api/v1/reviews/${question}/discard`, {
+    data: { reason: "not now" },
+    headers: { origin: shellOrigin },
+  });
+  const review = await sent({
+    plugin: "list",
+    title: "The plan",
+    payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
+  });
+  await request.post(`${core}/api/v1/reviews/${review}/withdraw`, { data: { reason: "replaced", by: "claude-code" } });
+
+  await openItem(page, repo, item.key);
+  // the run of changes is folded behind "Show … more"
+  await panel(page)
+    .getByRole("button", { name: /^Show \d+ more/ })
+    .click();
+  const lines = panel(page).getByTestId("item-event");
+  await expect(lines.filter({ hasText: "Split" })).toHaveText([
+    /claude-code asked Split Thread\.tsx in two\?/,
+    /You declined Split Thread\.tsx in two\?/,
+  ]);
+  await expect(lines.filter({ hasText: "asked" }).locator("code")).toHaveText("Thread.tsx");
+  await expect(lines.filter({ hasText: "asked" }).getByRole("link")).toHaveAttribute("href", `#/reviews/${question}`);
+  await expect(lines.filter({ hasText: "The plan" })).toHaveText([
+    /claude-code sent the review The plan/,
+    /claude-code withdrew The plan/,
+  ]);
+});

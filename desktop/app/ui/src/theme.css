@@ -6800,6 +6800,19 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   min-width: 0;
   line-height: 17px;
 }
+/* a question's or review's title: one line, the whole title on hover */
+.activity-title {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: var(--text);
+}
+.activity-title:hover {
+  text-decoration: underline;
+}
 .activity-text b {
   color: var(--text);
   font-weight: 500;

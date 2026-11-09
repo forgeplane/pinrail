@@ -5,17 +5,24 @@
 
 import {
   ChevronsUpDown,
+  CircleCheck,
+  CircleX,
+  Clock,
   FileText,
   FolderGit2,
   GitPullRequestArrow,
   Link2,
   ListTree,
+  MessageCircleQuestion,
   Paperclip,
   Pencil,
+  Undo2,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import type { ItemComment, ItemEntry, ItemStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
+import { plainInline, renderInline } from "../lib/markdown";
 import { AgentIcon } from "./AgentIcon";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 
@@ -24,6 +31,25 @@ type Comment = ItemComment & { type: "comment" };
 
 /** Who did something: you, or the agent by its name. */
 export const who = (actor: string) => (actor === "person" ? "You" : actor);
+
+/** The question or review a change is about, by its id and title. */
+function reviewOf(change: Change): { id: string; title: string } | null {
+  if (!change.kind.startsWith("review_")) return null;
+  const a = (change.attrs ?? {}) as Record<string, unknown>;
+  return typeof a.review === "string" && typeof a.title === "string" ? { id: a.review, title: a.title } : null;
+}
+
+/** A question's or review's title on one line, as Markdown, linking to it. */
+function ReviewTitle({ review }: { review: { id: string; title: string } }) {
+  return (
+    <Link
+      to={`/reviews/${review.id}`}
+      className="activity-title"
+      title={plainInline(review.title)}
+      dangerouslySetInnerHTML={{ __html: renderInline(review.title) }}
+    />
+  );
+}
 
 /** A change on the timeline, in words. */
 export function said(entry: Extract<ItemEntry, { type: "event" }>): string {
@@ -64,18 +90,28 @@ export function said(entry: Extract<ItemEntry, { type: "event" }>): string {
       return `set it ${STATUS_LABEL[to]?.toLowerCase() ?? to}`;
     }
     case "review_sent":
-      return `sent the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
+      if (a.kind === "question") return "asked";
+      return a.revises ? "sent a new round of" : "sent the review";
     case "review_ended":
-      return `“${a.title}” ended: ${String(a.outcome)}`;
+      switch (a.outcome) {
+        case "decided":
+          return a.kind === "question" ? "answered" : "decided on";
+        case "discarded":
+          return a.kind === "question" ? "declined" : "discarded";
+        case "withdrawn":
+          return "withdrew";
+        default:
+          return "expired";
+      }
     case "queued":
       return "queued it";
     case "unqueued":
       return "took it out of the queue";
     case "review_added":
     case "review_linked":
-      return `added the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
+      return `added the ${a.kind === "question" ? "question" : "review"}`;
     case "review_removed":
-      return `removed the ${a.kind === "question" ? "question" : "review"} “${a.title}”`;
+      return `removed the ${a.kind === "question" ? "question" : "review"}`;
     default:
       return entry.kind.replace(/_/g, " ");
   }
@@ -145,7 +181,16 @@ function ChangeIcon({ change }: { change: Change }) {
     case "moved":
       return <FolderGit2 size={12} aria-hidden="true" />;
     case "review_sent":
+      return a.kind === "question" ? (
+        <MessageCircleQuestion size={12} aria-hidden="true" />
+      ) : (
+        <GitPullRequestArrow size={12} aria-hidden="true" />
+      );
     case "review_ended":
+      if (a.outcome === "decided") return <CircleCheck size={12} aria-hidden="true" />;
+      if (a.outcome === "discarded") return <CircleX size={12} aria-hidden="true" />;
+      if (a.outcome === "withdrawn") return <Undo2 size={12} aria-hidden="true" />;
+      return <Clock size={12} aria-hidden="true" />;
     case "review_linked":
     case "review_added":
     case "review_removed":
@@ -155,6 +200,35 @@ function ChangeIcon({ change }: { change: Change }) {
   }
 }
 
+/** Who made a change and what it was, with the question or review it names. */
+function ChangeWords({ change }: { change: Change }) {
+  const review = reviewOf(change);
+  const words = said(change);
+  // only the person decides or declines, though the event names them by
+  // their user name
+  const outcome = (change.attrs as Record<string, unknown> | null)?.outcome;
+  const actor =
+    change.kind === "review_ended" && (outcome === "decided" || outcome === "discarded") ? "person" : change.actor;
+  // a review that expired: no one ended it
+  if (review && change.kind === "review_ended" && words === "expired")
+    return (
+      <>
+        <ReviewTitle review={review} /> expired
+      </>
+    );
+  return (
+    <>
+      <b>{who(actor)}</b> {words}
+      {review ? (
+        <>
+          {" "}
+          <ReviewTitle review={review} />
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function ChangeLine({ change }: { change: Change }) {
   return (
     <li className="activity-line" data-testid="item-event">
@@ -162,7 +236,7 @@ function ChangeLine({ change }: { change: Change }) {
         <ChangeIcon change={change} />
       </span>
       <span className="activity-text">
-        <b>{who(change.actor)}</b> {said(change)}
+        <ChangeWords change={change} />
         <span className="activity-age">
           {" · "}
           <time dateTime={change.at} title={stamp(change.at)}>
