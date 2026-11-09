@@ -65,6 +65,7 @@ export function useSessionThread(
     }
   }, [named?.agent, named?.id, focus?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the objects
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     load();
   }, [load]);
 

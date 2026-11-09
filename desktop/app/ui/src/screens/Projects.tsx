@@ -82,12 +82,17 @@ export function Projects() {
   // the command palette's New project opens the dialog here, once
   useEffect(() => {
     if ((location.state as { newProject?: boolean } | null)?.newProject) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a request that a navigation carries, taken once
       setDialog({ kind: "new", repos: [] });
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.state, location.pathname, navigate]);
   // a menu opened on a project or a repository that changed since is stale
-  useEffect(() => setMenu(null), [live.projectsVersion]);
+  const [menuVersion, setMenuVersion] = useState(live.projectsVersion);
+  if (menuVersion !== live.projectsVersion) {
+    setMenuVersion(live.projectsVersion);
+    setMenu(null);
+  }
 
   // by name, as the core lists them
   const projects = listing?.projects ?? [];

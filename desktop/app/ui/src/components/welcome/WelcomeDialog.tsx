@@ -242,9 +242,7 @@ function AgentsSection() {
   const icon = <Bot size={16} />;
 
   // every agent that can be connected, chosen once the agents are known
-  useEffect(() => {
-    if (agents && !chosen) setChosen(new Set(agents.filter(connectable).map((a) => a.id)));
-  }, [agents, chosen]);
+  if (agents && !chosen) setChosen(new Set(agents.filter(connectable).map((a) => a.id)));
 
   if (!inTauri()) {
     return <Section icon={icon} title="Your agents" detail="The desktop app finds your agents and connects them" />;
@@ -567,11 +565,10 @@ export function WelcomeDialog({
 
   // the first review: any review that arrives while the setup is open
   const [opened] = useState(() => new Date().toISOString().slice(0, 19));
-  useEffect(() => {
-    if (sample) return;
-    const found = live.pending.find((r) => r.created_at >= opened);
-    if (found) setSample(found.id);
-  }, [live.pending, sample, opened]);
+  if (!sample) {
+    const first = live.pending.find((r) => r.created_at >= opened);
+    if (first) setSample(first.id);
+  }
   const arrived = sample ? live.pending.find((r) => r.id === sample) : undefined;
 
   const installed = tryOrder([...live.plugins.values()]);

@@ -58,9 +58,11 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const sessions =
     useLoad(
       () =>
-        api
-          .sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined })
-          .then((d) => d.sessions),
+        api.sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined }).then((d) => {
+          // the clock moves on with each list, which ages its sessions
+          setNow(Date.now());
+          return d.sessions;
+        }),
       [live.pending, reported, choices.archived],
     ).data ?? NO_SESSIONS;
   // a session stops working once its last status is old enough
@@ -68,7 +70,6 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     const timer = window.setInterval(() => setNow(Date.now()), TICK_MS);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(() => setNow(Date.now()), [sessions]);
 
   const groups = useMemo(() => arrange(sessions, live.pending, choices, now), [sessions, live.pending, choices, now]);
   const agents = useMemo(() => [...new Set(sessions.map((s) => s.agent))].sort(), [sessions]);

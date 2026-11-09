@@ -53,6 +53,7 @@ export function useReviewRounds(id: string) {
 
   useEffect(() => {
     // marked viewed only once the server knows the review
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     load().then((found) => {
       if (found) api.markViewed(id).catch(() => {});
     });

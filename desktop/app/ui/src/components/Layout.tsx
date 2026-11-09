@@ -116,6 +116,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const state = location.state as { settings?: SettingsSection; plugin?: string } | null;
     if (state?.settings) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a request that a navigation carries, taken once
       setSettings(state.settings);
       setSettingsPlugin(state.plugin ?? null);
       navigate(location.pathname, { replace: true, state: null });
@@ -333,7 +334,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-      <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
+      {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
       {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog

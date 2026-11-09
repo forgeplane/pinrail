@@ -332,12 +332,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     loadThemes();
   }, [loadThemes]);
   useNotice((notice) => {
     if (notice.kind === "themes_changed") loadThemes();
   });
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     if (connected) loadThemes();
   }, [connected, loadThemes]);
 

@@ -92,6 +92,7 @@ export function ComposeField({
     const el = box.current;
     if (!el) return;
     if (!value) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- measured from the field's layout
       if (wide) setWide(false);
     } else if (!wide) {
       el.style.height = "auto";

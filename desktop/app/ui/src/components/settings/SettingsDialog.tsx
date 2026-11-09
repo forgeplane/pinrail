@@ -56,7 +56,12 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
 /** The port, committed on Enter or blur when it is a port and it changed. */
 function PortField({ value, onChange }: { value: number; onChange: (port: number) => void }) {
   const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+  // a port changed elsewhere replaces what the field shows
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    setText(String(value));
+  }
   const commit = () => {
     const port = parseInt(text, 10);
     if (Number.isNaN(port) || port < 1024 || port > 65535) {

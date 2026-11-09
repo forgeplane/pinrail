@@ -149,6 +149,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const openItems = useLoad(() => api.items().then((d) => d.items.length), [itemsVersion, connected]).data ?? 0;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     refresh();
     loadPlugins();
     return subscribe({

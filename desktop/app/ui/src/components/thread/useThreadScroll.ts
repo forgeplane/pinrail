@@ -79,6 +79,7 @@ export function useThreadScroll(
       observer.disconnect();
     };
   }, [timeline, checkEnd]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- measured from the timeline's layout
   useEffect(checkEnd, [items, checkEnd]);
 
   // When the timeline's width changes, as the side panel opens, closes or

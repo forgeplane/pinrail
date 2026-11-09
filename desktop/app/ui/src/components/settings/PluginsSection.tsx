@@ -57,6 +57,7 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     load().catch(() => {});
   }, [load, live.plugins]);
 
@@ -212,11 +213,14 @@ function PluginEntry({
   const [removing, setRemoving] = useState<"asking" | "busy" | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
+  // asked to open by a link after the list showed: opened, and scrolled to
+  const [askedOpen, setAskedOpen] = useState(openAtStart);
+  if (openAtStart !== askedOpen) {
+    setAskedOpen(openAtStart);
+    if (openAtStart) setOpen(true);
+  }
   useEffect(() => {
-    if (openAtStart) {
-      setOpen(true);
-      box.current?.scrollIntoView({ block: "start" });
-    }
+    if (openAtStart) box.current?.scrollIntoView({ block: "start" });
   }, [openAtStart]);
 
   useEffect(() => {
@@ -243,9 +247,7 @@ function PluginEntry({
   // shown at once, until the reloaded plugin agrees or the change fails
   const [skillWanted, setSkillWanted] = useState<boolean | null>(null);
   const skillStored = p.install?.skill_allowed === true;
-  useEffect(() => {
-    if (skillWanted === skillStored) setSkillWanted(null);
-  }, [skillWanted, skillStored]);
+  if (skillWanted !== null && skillWanted === skillStored) setSkillWanted(null);
   const allowSkill = async (allowed: boolean) => {
     setSkillWanted(allowed);
     try {
@@ -589,7 +591,12 @@ function SettingRow({
   const isDefault = value === property.default;
   const choices = property.type === "string" ? choicesOf(property) : null;
   const [text, setText] = useState(String(value ?? ""));
-  useEffect(() => setText(String(value ?? "")), [value]);
+  // a value changed elsewhere replaces what the field shows
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    setText(String(value ?? ""));
+  }
 
   const commitText = () => {
     if (property.type === "string") {

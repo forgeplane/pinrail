@@ -42,18 +42,29 @@ function fitInWindow(node: HTMLElement | null) {
 /** The state and parts of an options menu anchored under `anchor`. */
 export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   const menu = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpenKey] = useState<string | null>(null);
   // what is typed in a searchable submenu
-  const [query, setQuery] = useState("");
+  const [query, setQueryText] = useState("");
   // in a searchable submenu, the match the arrow keys move to and Enter picks
   const [active, setActive] = useState(0);
-  useEffect(() => setQuery(""), [open]);
 
   // the pointer's last positions, the oldest first, to tell where it heads
   const trail = useRef<Point[]>([]);
   // the row the pointer is over while it heads for the open submenu
   const waiting = useRef<{ key: string | null; timer: number } | null>(null);
   const openRef = useLatest(open);
+  /** Opens another submenu, or none, with nothing typed in it. */
+  const setOpen = (key: string | null) => {
+    if (key === openRef.current) return;
+    setOpenKey(key);
+    setQueryText("");
+    setActive(0);
+  };
+  /** What is typed: the first match is highlighted again. */
+  const setQuery = (text: string) => {
+    setQueryText(text);
+    setActive(0);
+  };
   const heading = () => {
     const sub = menu.current?.querySelector<HTMLElement>(".menu-submenu");
     const points = trail.current;
@@ -65,7 +76,10 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     window.clearTimeout(waiting.current.timer);
     const { key } = waiting.current;
     waiting.current = null;
-    setOpen(key);
+    // another row than the open one, as hover() sees to
+    setOpenKey(key);
+    setQueryText("");
+    setActive(0);
   };
   /** The pointer is over a row: open its submenu, or none, unless the
    *  pointer is on its way to the open one. */
@@ -88,13 +102,13 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       if (waiting.current) window.clearTimeout(waiting.current.timer);
     };
   }, []);
-  useEffect(() => setActive(0), [open, query]);
   // under the button: its left edge, or its right edge for a menu that
   // opens to the left
   const [pos, setPos] = useState<{ top: number; left: number; right: number } | null>(null);
 
   useLayoutEffect(() => {
     const box = viewportRect(anchor);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- measured from the anchor's layout
     setPos({ top: box.bottom + 4, left: box.left, right: box.right });
   }, [anchor]);
 

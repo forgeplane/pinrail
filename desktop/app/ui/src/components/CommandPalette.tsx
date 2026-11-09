@@ -55,15 +55,7 @@ const matches = (q: string, ...fields: (string | null | undefined)[]) =>
 
 const reviewText = (r: Review) => [r.title, r.plugin, r.requested_by, r.origin.repo, r.origin.workflow, r.origin.ref];
 
-export function CommandPalette({
-  open,
-  onClose,
-  actions,
-}: {
-  open: boolean;
-  onClose: () => void;
-  actions: PaletteAction[];
-}) {
+export function CommandPalette({ onClose, actions }: { onClose: () => void; actions: PaletteAction[] }) {
   const { pending: waiting } = useLive();
   const navigate = useNavigate();
   const { inbox, labs } = useSettings().settings;
@@ -72,7 +64,16 @@ export function CommandPalette({
   const filters = labs.sessions ? FILTERS : FILTERS.filter((f) => f.key !== "stages");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  // the highlighted entry, the first again after each change of the search
   const [active, setActive] = useState(0);
+  const search = (text: string) => {
+    setQuery(text);
+    setActive(0);
+  };
+  const show = (next: Filter) => {
+    setFilter(next);
+    setActive(0);
+  };
   const [history, setHistory] = useState<Review[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -83,10 +84,6 @@ export function CommandPalette({
   const all = filter === "all";
 
   useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setFilter("all");
-    setActive(0);
     api
       .plugins()
       .then(({ plugins }) => setPlugins(plugins))
@@ -98,11 +95,11 @@ export function CommandPalette({
       .catch(() => setWorkItems([]));
     const focus = window.setTimeout(() => input.current?.focus(), 0);
     return () => window.clearTimeout(focus);
-  }, [open]);
+  }, []);
 
   // decided reviews come from the server, a moment after typing stops
   useEffect(() => {
-    if (!open || (filter !== "all" && filter !== "history")) return;
+    if (filter !== "all" && filter !== "history") return;
     // an answer for a search typed over, or a palette closed, is dropped
     let current = true;
     const timer = window.setTimeout(
@@ -123,15 +120,12 @@ export function CommandPalette({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [open, q, filter, all]);
+  }, [q, filter, all]);
 
   // the stages agents started, from the server, once something is typed
   useEffect(() => {
-    if (!open || !labs.sessions || (filter !== "all" && filter !== "stages")) return;
-    if (!q && all) {
-      setStages([]);
-      return;
-    }
+    // with nothing typed, the stages show only under their own filter
+    if (!labs.sessions || (filter !== "all" && filter !== "stages") || (!q && all)) return;
     let current = true;
     const timer = window.setTimeout(
       () => {
@@ -146,7 +140,7 @@ export function CommandPalette({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [open, q, filter, all, labs.sessions]);
+  }, [q, filter, all, labs.sessions]);
 
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
@@ -215,7 +209,7 @@ export function CommandPalette({
       }
     }
     if (labs.sessions && want("stages")) {
-      for (const s of stages) {
+      for (const s of !q && all ? [] : stages) {
         out.push({
           key: `stage:${s.id}`,
           group: "stages",
@@ -274,12 +268,9 @@ export function CommandPalette({
     return out;
   }, [all, filter, q, waiting, history, workItems, stages, plugins, actions, navigate, openIn, labs.sessions]);
 
-  useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {
     list.current?.querySelectorAll<HTMLElement>("[data-item]")[active]?.scrollIntoView({ block: "nearest" });
   }, [active]);
-
-  if (!open) return null;
 
   const pick = (item: Item) => {
     onClose();
@@ -287,7 +278,7 @@ export function CommandPalette({
   };
   const cycle = (dir: 1 | -1) => {
     const at = filters.findIndex((f) => f.key === filter);
-    setFilter(filters[(at + dir + filters.length) % filters.length].key);
+    show(filters[(at + dir + filters.length) % filters.length].key);
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
     event.stopPropagation();
@@ -341,7 +332,7 @@ export function CommandPalette({
             aria-label="Search"
             autoComplete="off"
             spellCheck={false}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => search(e.target.value)}
           />
         </label>
         <div className="palette-filters" role="tablist">
@@ -352,7 +343,7 @@ export function CommandPalette({
               role="tab"
               aria-selected={filter === f.key}
               className={filter === f.key ? "is-active" : ""}
-              onClick={() => setFilter(f.key)}
+              onClick={() => show(f.key)}
               tabIndex={-1}
             >
               {f.label}

@@ -187,6 +187,7 @@ export function usePluginBridge(options: Options): Bridge {
   useEffect(() => {
     const el = frame.current;
     if (!el || !src) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the frame loads a new view, whose state starts over
     setLeft(false);
     setLoaded(false);
     setHandoverLabel("Hand over");

@@ -45,6 +45,7 @@ export function useCli(open: boolean) {
 
   useEffect(() => {
     if (!open || !inTauri()) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- asks the system whether the command is installed
     check();
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);

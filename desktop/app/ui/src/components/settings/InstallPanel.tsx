@@ -273,6 +273,7 @@ export function InstallPanel({
   // a source given from a row is looked at right away, and shown
   useEffect(() => {
     if (!initial) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- looks up the source a row gave
     look(initial);
     field.current?.focus();
     panel.current?.scrollIntoView({ block: "nearest" });
