@@ -2,7 +2,7 @@
 // each with its repositories, and the repositories in no project last.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { clearInbox, core, createReview, pickIn, settingSaved } from "./helpers";
+import { clearInbox, core, createReview, pickIn, settingSaved, toast } from "./helpers";
 
 /** Deletes every project, so each test starts with none. */
 async function noProjects(request: APIRequestContext) {
@@ -663,4 +663,30 @@ test("the Projects page shows a moved repository without waiting for its event",
   await page.getByRole("menu", { name: repo }).getByRole("menuitem", { name: "Quiet" }).click();
   await expect(card(page, "Quiet")).toContainText(repo);
   await expect(row).toHaveCount(0);
+});
+
+test("a new project whose image cannot be saved is still created, and says so", async ({ page }) => {
+  const name = `Unpictured ${Date.now()}`;
+  await page.goto("/#/projects");
+  await page.route(/\/api\/v1\/projects\/[^/]+\/image$/, (route) =>
+    route.fulfill({ status: 413, contentType: "application/json", body: JSON.stringify({ message: "too large" }) }),
+  );
+  const png = Buffer.from(
+    (
+      await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 64;
+        return canvas.toDataURL("image/png");
+      })
+    ).split(",")[1],
+    "base64",
+  );
+  await page.getByRole("button", { name: "New project" }).click();
+  const dialog = page.getByRole("dialog", { name: "New project" });
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  await dialog.getByLabel("Image").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: png });
+  await dialog.getByRole("button", { name: "Create project" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(card(page, name)).toBeVisible();
+  await expect(toast(page, `${name} was created, but its image was not saved`)).toBeVisible();
 });

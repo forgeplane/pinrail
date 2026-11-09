@@ -402,8 +402,14 @@ export function Projects() {
           repos={dialog.repos}
           onSave={async ({ name, description, color, emoji, image }) => {
             const made = await api.createProject(name, { description, color, emoji }, dialog.repos);
-            if (image) await api.setProjectImage(made.id, image);
+            // the project exists now: a failed image is reported, not the creation
             setDialog(null);
+            if (image)
+              await api
+                .setProjectImage(made.id, image)
+                .catch((error) =>
+                  toast(`${made.name} was created, but its image was not saved: ${errorMessage(error)}`, "danger"),
+                );
           }}
           onClose={() => setDialog(null)}
         />
