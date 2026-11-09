@@ -1,18 +1,8 @@
 // Choices about a thread kept on this machine, such as whether its details
 // show, which last until the app restarts when there is no storage.
 
-export function stored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
+import { readStored, writeStored } from "../../lib/storage";
 
-export function store(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // without storage, the choice lasts until the app restarts
-  }
-}
+export const stored = (key: string) => readStored(key);
+
+export const store = (key: string, value: string) => writeStored(key, value);

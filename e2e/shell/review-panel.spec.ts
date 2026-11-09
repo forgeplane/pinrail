@@ -237,3 +237,23 @@ test("with reviews opening as pages, set in Settings, a row opens the page", asy
   await expect(page).toHaveURL(new RegExp(`/reviews/${review.id}$`));
   await expect(page.getByRole("button", { name: "Show in the inbox's panel" })).toHaveCount(0);
 });
+
+test("a panel closed while its edge is dragged leaves the page as it was", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  await createReview(request, { title: "Drag me" });
+  await page.goto("/#/");
+  await row(page, "Drag me").click();
+  await expect(panel(page)).toBeVisible();
+  // the drag starts on the panel's edge, and the panel closes before it ends
+  const edge = page.getByRole("separator", { name: "Resize the review panel" });
+  const box = (await edge.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box.x - 40, box.y + 100);
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  // with the panel gone, the page takes the pointer again at once
+  await expect(page.locator("body")).not.toHaveClass(/is-resizing/);
+  await page.mouse.up();
+});

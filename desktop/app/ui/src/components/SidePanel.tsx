@@ -2,7 +2,8 @@
 // session's thread, and an edge that resizes the panel by dragging or with
 // the arrow keys. The lists share one width, stored on this machine.
 
-import { useState, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject } from "react";
+import { useResizableWidth } from "../lib/useResizableWidth";
 
 /** The side panel's width, stored on this machine. */
 const PANEL_WIDTH = "pinrail.inbox.panel";
@@ -12,15 +13,6 @@ const PANEL_MIN = 420;
 const LIST_MIN = 320;
 /** The room the edge between them takes: 5px, less its negative margins. */
 const EDGE = 1;
-
-function savedWidth(): number | null {
-  try {
-    const n = Number(localStorage.getItem(PANEL_WIDTH));
-    return n >= PANEL_MIN ? n : null;
-  } catch {
-    return null;
-  }
-}
 
 export function SidePanel({
   split,
@@ -36,52 +28,30 @@ export function SidePanel({
   listMin?: number;
   children: ReactNode;
 }): ReactNode {
-  const [width, setWidth] = useState<number | null>(savedWidth);
+  const { width, onKeyDown, edgeProps } = useResizableWidth({
+    key: PANEL_WIDTH,
+    min: PANEL_MIN,
+    // the list beside it keeps its room
+    max: () => (split.current?.clientWidth ?? window.innerWidth) - listMin - EDGE,
+    fallback: null,
+    grows: "left",
+    anchor: () => split.current?.getBoundingClientRect().right ?? window.innerWidth,
+  });
+  // the stored width, within the room there is now
   const clampWidth = (w: number) => {
     const room = split.current?.clientWidth ?? window.innerWidth;
     return Math.round(Math.max(PANEL_MIN, Math.min(w, room - listMin - EDGE)));
   };
-  const keepWidth = (w: number) => {
-    setWidth(w);
-    try {
-      localStorage.setItem(PANEL_WIDTH, String(w));
-    } catch {
-      // without storage, the width is kept until the app restarts
-    }
-  };
-  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const right = split.current?.getBoundingClientRect().right ?? window.innerWidth;
-    // stop the view's frame from capturing pointer events during the drag
-    document.body.classList.add("is-resizing");
-    const onMove = (e: PointerEvent) => setWidth(clampWidth(right - e.clientX));
-    const onUp = (e: PointerEvent) => {
-      document.body.classList.remove("is-resizing");
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      keepWidth(clampWidth(right - e.clientX));
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const resizeBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 80 : 20;
-    const now = width ?? split.current?.querySelector<HTMLElement>(".review-panel")?.offsetWidth ?? PANEL_MIN;
-    if (event.key === "ArrowLeft") keepWidth(clampWidth(now + step));
-    else if (event.key === "ArrowRight") keepWidth(clampWidth(now - step));
-    else return;
-    event.preventDefault();
-  };
+  // the arrow keys start from the width the panel has, stored or not
+  const resizeBy = (event: React.KeyboardEvent<HTMLDivElement>) =>
+    onKeyDown(event, width ?? split.current?.querySelector<HTMLElement>(".review-panel")?.offsetWidth ?? PANEL_MIN);
 
   return (
     <>
       <div
         className="panel-resizer"
-        role="separator"
-        aria-orientation="vertical"
+        {...edgeProps}
         aria-label={`Resize the ${label.toLowerCase()} panel`}
-        tabIndex={0}
-        onPointerDown={startResize}
         onKeyDown={resizeBy}
       />
       <aside

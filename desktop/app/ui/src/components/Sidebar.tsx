@@ -3,7 +3,7 @@
 // by dragging or with the arrow keys.
 
 import { History, Inbox, LayoutGrid, ListChecks, MessageSquare, MessagesSquare, Search, Settings } from "lucide-react";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { NavLink } from "react-router";
 import { command } from "../lib/commands";
 import { MOD } from "../lib/keys";
@@ -13,6 +13,7 @@ import { SidebarProjects } from "./SidebarProjects";
 import { SidebarSessions } from "./SidebarSessions";
 import { Tooltip } from "./Tooltip";
 import { UpdateNotice } from "./UpdateNotice";
+import { useResizableWidth } from "../lib/useResizableWidth";
 
 // The sidebar's pages, with the History tab, which has a shortcut and no
 // entry of its own; their keys come from the commands table.
@@ -33,51 +34,18 @@ const SIDEBAR_WIDTH = "pinrail.sidebar.width";
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 420;
 const SIDEBAR_DEFAULT = 220;
-const clampSidebar = (w: number) => Math.round(Math.max(SIDEBAR_MIN, Math.min(w, SIDEBAR_MAX)));
-function savedSidebarWidth(): number {
-  try {
-    const n = Number(localStorage.getItem(SIDEBAR_WIDTH));
-    return n > 0 ? clampSidebar(n) : SIDEBAR_DEFAULT;
-  } catch {
-    return SIDEBAR_DEFAULT;
-  }
-}
-
 /** The sidebar's width, dragged by its edge or changed with the arrow keys
  *  on it, and remembered on this machine. */
 export function useSidebarWidth() {
-  const [sidebarWidth, setSidebarWidth] = useState(savedSidebarWidth);
-  const keepSidebarWidth = (w: number) => {
-    setSidebarWidth(w);
-    try {
-      localStorage.setItem(SIDEBAR_WIDTH, String(w));
-    } catch {
-      // private mode or no storage: the width lasts until the app restarts
-    }
-  };
-  const resizeSidebar = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
-    document.body.classList.add("is-resizing");
-    const onMove = (e: PointerEvent) => setSidebarWidth(clampSidebar(e.clientX - left));
-    const onUp = (e: PointerEvent) => {
-      document.body.classList.remove("is-resizing");
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      keepSidebarWidth(clampSidebar(e.clientX - left));
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const resizeSidebarBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 80 : 20;
-    if (event.key === "ArrowRight") keepSidebarWidth(clampSidebar(sidebarWidth + step));
-    else if (event.key === "ArrowLeft") keepSidebarWidth(clampSidebar(sidebarWidth - step));
-    else return;
-    event.preventDefault();
-  };
-  const reset = () => keepSidebarWidth(SIDEBAR_DEFAULT);
-  return { width: sidebarWidth, resize: resizeSidebar, resizeBy: resizeSidebarBy, reset };
+  const { width, keep, onKeyDown, edgeProps } = useResizableWidth({
+    key: SIDEBAR_WIDTH,
+    min: SIDEBAR_MIN,
+    max: SIDEBAR_MAX,
+    fallback: SIDEBAR_DEFAULT,
+    grows: "right",
+    anchor: (edge) => edge.parentElement?.getBoundingClientRect().left ?? 0,
+  });
+  return { width: width ?? SIDEBAR_DEFAULT, edgeProps, onKeyDown, reset: () => keep(SIDEBAR_DEFAULT) };
 }
 
 export function Sidebar({
@@ -110,15 +78,9 @@ export function Sidebar({
     <aside className="app-sidebar" aria-label="Workspace">
       <div
         className="panel-resizer sidebar-resizer"
-        role="separator"
-        aria-orientation="vertical"
+        {...width.edgeProps}
         aria-label="Resize the sidebar"
-        aria-valuenow={width.width}
-        aria-valuemin={SIDEBAR_MIN}
-        aria-valuemax={SIDEBAR_MAX}
-        tabIndex={0}
-        onPointerDown={width.resize}
-        onKeyDown={width.resizeBy}
+        onKeyDown={(event) => width.onKeyDown(event)}
         onDoubleClick={width.reset}
       />
       <div className="sidebar-bar" data-tauri-drag-region>

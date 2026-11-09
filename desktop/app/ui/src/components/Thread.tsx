@@ -28,6 +28,7 @@ import { useNewestFirst } from "./thread/useNewestFirst";
 import { useThreadScroll } from "./thread/useThreadScroll";
 import { store, stored } from "./thread/storage";
 import { useWindowKey } from "../lib/useWindowKey";
+import { useResizableWidth } from "../lib/useResizableWidth";
 
 /** Whether the box under a thread sends the agent messages. Off until
  *  Pinrail can reach an agent that waits for nothing: until then a message
@@ -42,8 +43,6 @@ const DETAILS_SHOWN_PANEL = "pinrail.thread.panel-details";
 const DETAILS_WIDTH = "pinrail.thread.detailsWidth";
 const DETAILS_MIN = 220;
 const DETAILS_MAX = 520;
-
-const clampDetails = (w: number) => Math.round(Math.max(DETAILS_MIN, Math.min(w, DETAILS_MAX)));
 
 type ThreadProps = {
   /** the questions opened, which the thread shows within their session */
@@ -258,10 +257,22 @@ export function Thread({
   const [details, setDetails] = useState(() =>
     inPanel ? stored(DETAILS_SHOWN_PANEL) === "shown" : stored(DETAILS_SHOWN) !== "hidden",
   );
-  const [detailsWidth, setDetailsWidth] = useState(() => {
-    const n = Number(stored(DETAILS_WIDTH));
-    return n >= DETAILS_MIN ? clampDetails(n) : 280;
+  const {
+    width: storedDetailsWidth,
+    onKeyDown: resizeDetailsBy,
+    edgeProps: detailsEdge,
+  } = useResizableWidth({
+    key: DETAILS_WIDTH,
+    min: DETAILS_MIN,
+    max: DETAILS_MAX,
+    fallback: 280,
+    grows: "left",
+    anchor: (edge) => edge.parentElement?.getBoundingClientRect().right ?? window.innerWidth,
+    // while dragging, the width goes to the CSS variable alone: the thread
+    // is not drawn again for every pointer move
+    preview: (width) => body.current?.style.setProperty("--details-width", `${width}px`),
   });
+  const detailsWidth = storedDetailsWidth ?? 280;
   const toggleDetails = useCallback(() => {
     setDetails((shown) => {
       store(shownKey, shown ? "hidden" : "shown");
@@ -296,34 +307,6 @@ export function Thread({
     },
     { enabled: !focus },
   );
-  const keepDetailsWidth = (w: number) => {
-    setDetailsWidth(w);
-    store(DETAILS_WIDTH, String(w));
-  };
-  const resizeDetails = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const right = event.currentTarget.parentElement?.getBoundingClientRect().right ?? window.innerWidth;
-    document.body.classList.add("is-resizing");
-    // while dragging, the width goes to the CSS variable alone: the thread
-    // is not drawn again for every pointer move
-    const onMove = (e: PointerEvent) =>
-      body.current?.style.setProperty("--details-width", `${clampDetails(right - e.clientX)}px`);
-    const onUp = (e: PointerEvent) => {
-      document.body.classList.remove("is-resizing");
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      keepDetailsWidth(clampDetails(right - e.clientX));
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const resizeDetailsBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 80 : 20;
-    if (event.key === "ArrowLeft") keepDetailsWidth(clampDetails(detailsWidth + step));
-    else if (event.key === "ArrowRight") keepDetailsWidth(clampDetails(detailsWidth - step));
-    else return;
-    event.preventDefault();
-  };
   const questions = items.filter((r) => r.kind === "question").length;
   const reviews = newest.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
@@ -501,15 +484,9 @@ export function Thread({
           {!hasDetails || !details || openReview || openItem ? null : (
             <div
               className="panel-resizer thread-aside-resizer"
-              role="separator"
-              aria-orientation="vertical"
+              {...detailsEdge}
               aria-label="Resize the session's details"
-              aria-valuenow={detailsWidth}
-              aria-valuemin={DETAILS_MIN}
-              aria-valuemax={DETAILS_MAX}
-              tabIndex={0}
-              onPointerDown={resizeDetails}
-              onKeyDown={resizeDetailsBy}
+              onKeyDown={(event) => resizeDetailsBy(event)}
             />
           )}
           {!hasDetails || !details || openReview || openItem ? null : (
