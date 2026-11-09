@@ -12,6 +12,12 @@ carries it.
   long first line, is no longer refused when you hand the review over. A
   comment takes at most 4000 characters.
 
+### Security
+
+- Updated Mermaid to 12, with DOMPurify and KaTeX versions that fix their
+  advisories, and markdown-it, whose parser could take quadratic time on
+  some input.
+
 ## [1.3.0] - Pinrail 0.5.0
 
 ### Added
