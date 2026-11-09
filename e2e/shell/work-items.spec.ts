@@ -1073,3 +1073,20 @@ test("J and K wrap around at the ends of the list", async ({ page, request }) =>
   await page.locator("body").press("j");
   await expect(lit).toHaveAttribute("data-key", first.key);
 });
+
+test("with an item open in the panel, D acts on that item, even once it leaves the list", async ({ page, request }) => {
+  const repo = fresh("panelkeys");
+  const a = await add(request, repo, "Alpha");
+  const b = await add(request, repo, "Bravo");
+  const status = async (key: string) =>
+    ((await (await request.get(`${core}/api/v1/items/${key}`)).json()) as { status: string }).status;
+  await open(page, repo, `&open=${a.key}`);
+  await expect(page.getByTestId("item-panel")).toContainText("Alpha");
+  await page.locator("body").press("d");
+  await expect.poll(() => status(a.key)).toBe("done");
+  await expect(row(page, a.key)).toHaveCount(0);
+  // the panel still shows Alpha: D again reopens it, and Bravo is left alone
+  await page.locator("body").press("d");
+  await expect.poll(() => status(a.key)).toBe("open");
+  expect(await status(b.key)).toBe("open");
+});

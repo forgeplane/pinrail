@@ -320,8 +320,25 @@ export function WorkItems() {
   });
   useSlashSearch(search);
 
+  /** S, D, Q, H and X on the item open in the panel, which may have left the
+   *  list, or else on the focused row. */
+  const act = async (key: string) => {
+    let at = openKey ? items?.find((i) => i.key === openKey) : rows[focused]?.item;
+    if (openKey && !at) at = await api.item(openKey).catch(() => undefined);
+    if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
+    else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
+    else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
+    else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
+      if (at.status === "on_hold") void change(at, { status: "open" });
+      else hold(at);
+    } else if (key === "x" && at) {
+      // its open sub-items go with it: the person is asked first
+      if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
+      else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
+    }
+  };
   // J and K move, and open what they reach while the panel is open; Enter opens, / searches, C adds; S, D and X change the
-  // focused item: claimed or released, done, cancelled
+  // open or the focused item: claimed or released, done, cancelled
   useWindowKey((event) => {
     const typing = (el: HTMLElement | null) => isTyping(el);
     // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
@@ -345,22 +362,11 @@ export function WorkItems() {
     if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
     const el = event.target as HTMLElement | null;
     if (isTyping(el)) return;
-    const at = rows[focused]?.item;
     const key = event.key.toLowerCase();
     if (key === "c" && !event.shiftKey) {
       event.preventDefault();
       setAdding(true);
-    } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
-    else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
-    else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
-    else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
-      if (at.status === "on_hold") void change(at, { status: "open" });
-      else hold(at);
-    } else if (key === "x" && at) {
-      // its open sub-items go with it: the person is asked first
-      if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
-      else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
-    }
+    } else if ("sdqhx".includes(key) && key.length === 1) void act(key);
   });
   // ⌘⇧C, which elsewhere opens the quick add dialog, opens this page's own
   useEffect(() => {
