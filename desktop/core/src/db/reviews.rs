@@ -120,7 +120,8 @@ impl Db {
     }
 
     /// Stores the review, unless a pending review is the same submission:
-    /// the same plugin, title, payload, origin, round and files. Then it
+    /// the same plugin, title, payload, origin, round and files, from the
+    /// same agent and session, as when an agent runs its command again. Then it
     /// stores nothing and answers that review's id, as it does for a file
     /// that is no longer stored. Looking and storing
     /// happen under one lock, so two copies sent at once make one review.
@@ -145,6 +146,7 @@ impl Db {
                    AND r.revises IS ?5
                    AND NOT EXISTS (SELECT 1 FROM outcomes o WHERE o.review_id = r.id)
                    AND (r.expires_at IS NULL OR r.expires_at > ?6)
+                   AND r.requested_by IS ?7 AND r.session IS ?8
                  ORDER BY r.id",
             )?
             .query_map(
@@ -154,7 +156,9 @@ impl Db {
                     payload,
                     origin,
                     review.revises,
-                    crate::reviews::iso(chrono::Utc::now())
+                    crate::reviews::iso(chrono::Utc::now()),
+                    review.requested_by,
+                    review.session
                 ],
                 |row| row.get(0),
             )?

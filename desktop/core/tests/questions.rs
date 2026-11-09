@@ -360,6 +360,21 @@ async fn asking_again_while_waiting_gives_the_same_questions() {
 }
 
 #[tokio::test]
+async fn the_same_questions_from_another_session_are_their_own() {
+    let app = app();
+    let first = ask(&app, questions()).await;
+    for (agent, session) in [("claude-code", "s-2"), ("codex", "s-1")] {
+        let mut other = questions();
+        other["requested_by"] = json!(agent);
+        other["session"] = json!(session);
+        let (status, theirs) = call(&app, "POST", "/api/v1/reviews", Some(other)).await;
+        assert_eq!(status, StatusCode::CREATED, "{agent} {session}: {theirs}");
+        assert_ne!(theirs["id"], first["id"], "{agent} {session}");
+        assert_eq!(theirs["session"], session);
+    }
+}
+
+#[tokio::test]
 async fn reviews_are_listed_by_kind() {
     let app = app();
     let question = ask(&app, questions()).await["id"].clone();
