@@ -101,6 +101,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - **Restart to update** can be tried again after the install fails, such
   as when Pinrail runs from its disk image. It used to answer that no
   update was downloaded until the app was restarted.
+- A block of code in a question's explanation, such as a diff, wraps its
+  long lines inside the question, set apart as in a note.
 - With a review open beside a session's thread, ⌘Enter, ⌘D and the
   answer keys act on the review, unless the focus is in the thread. They
   also sent or declined the session's waiting questions.

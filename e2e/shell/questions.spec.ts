@@ -883,3 +883,24 @@ test("Send sends every question set of the session whose questions are all answe
   await expect.poll(async () => (await decisionOf(page.request, second.id)).status).toBe("decided");
   expect((await decisionOf(page.request, third.id)).status).toBe("pending");
 });
+
+test("a long line of code in a question's context wraps inside the question", async ({ page }) => {
+  const session = fresh();
+  const long = `+  const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\\n")[0].trim(); ${"x".repeat(80)}`;
+  await send(page.request, {
+    ...asked(session, "Thread: long code"),
+    payload: {
+      questions: [
+        { id: "q1", question: "Commit the change?", answer: "yes-no", context: "```diff\n" + long + "\n```" },
+      ],
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const block = question(page, "Commit the change?").locator(".msg-context pre");
+  await expect(block).toContainText("diagram-body");
+  // nothing hidden past the edge, and nothing to scroll sideways
+  const card = await question(page, "Commit the change?").boundingBox();
+  const box = await block.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(card!.x + card!.width);
+  expect(await block.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
