@@ -221,6 +221,67 @@ async fn an_item_needs_a_repository_and_a_one_line_title_of_200_characters_at_mo
 }
 
 #[tokio::test]
+async fn no_open_item_is_put_under_a_closed_parent() {
+    let app = app();
+    // the person's change of status, which `hold` makes
+    let person = |key: &'static str, status: &'static str| hold(&app, key, status);
+    let refused = |(code, body): (StatusCode, Value), what: &str| {
+        assert_eq!(code, StatusCode::CONFLICT, "{what}: {body}");
+        assert_eq!(
+            body["message"], "PIN-1 is cancelled: open it again to work on it",
+            "{what}"
+        );
+    };
+    add(&app, "Cancelled goal").await;
+    add(&app, "Elsewhere").await;
+    let (code, body) = person("PIN-1", "cancelled").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+
+    let added = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "title": "Late", "parent": "PIN-1"}),
+    )
+    .await;
+    refused(added, "an item added under it");
+    let breakdown = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "items": [{"ref": "a", "parent": "PIN-1", "title": "Part"}]}),
+    )
+    .await;
+    refused(breakdown, "a breakdown under it");
+    refused(
+        edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await,
+        "an item moved under it",
+    );
+
+    // a sub-item done with its parent is not opened again under it
+    add(&app, "Release").await;
+    let (code, sub) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "title": "Notes", "parent": "PIN-3"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{sub}");
+    person("PIN-4", "done").await;
+    assert_eq!(item(&app, "PIN-3").await["status"], "done");
+    let (code, body) = person("PIN-4", "open").await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(
+        body["message"],
+        "PIN-3 is done: open it again to work on it"
+    );
+}
+
+#[tokio::test]
 async fn a_breakdown_is_added_whole_through_the_api() {
     let app = app();
     let (code, added) = agent(

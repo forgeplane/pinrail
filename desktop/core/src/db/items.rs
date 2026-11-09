@@ -637,16 +637,40 @@ fn insert(
 
 /// Puts `item` under `parent`, or under none.
 pub(super) fn set_parent_in(conn: &Connection, item: &str, parent: Option<&str>) -> Outcome<()> {
-    if let Some(parent) = parent
-        && let Err(refused) = may_wait(conn, parent, item)?
-    {
-        return Ok(Err(refused));
+    if let Some(parent) = parent {
+        if let Err(refused) = may_wait(conn, parent, item)? {
+            return Ok(Err(refused));
+        }
+        if !stored_status(conn, item)?.is_closed()
+            && let Some(refused) = closed(conn, parent)?
+        {
+            return Ok(Err(refused));
+        }
     }
     conn.execute(
         "UPDATE work_items SET parent = ?2 WHERE id = ?1",
         params![item, parent],
     )?;
     Ok(Ok(()))
+}
+
+fn stored_status(conn: &Connection, item: &str) -> rusqlite::Result<Status> {
+    let status: String = conn.query_row(
+        "SELECT status FROM work_items WHERE id = ?1",
+        params![item],
+        |r| r.get(0),
+    )?;
+    Ok(Status::parse(&status).expect("a stored status is known"))
+}
+
+/// The refusal of open work under `item` when it is done or cancelled.
+pub(super) fn closed(conn: &Connection, item: &str) -> rusqlite::Result<Option<Refused>> {
+    let status = stored_status(conn, item)?;
+    Ok(status
+        .is_closed()
+        .then(|| key_of(conn, item))
+        .transpose()?
+        .map(|key| Refused::Closed(key, status)))
 }
 
 /// Makes `item` depend on `on`.

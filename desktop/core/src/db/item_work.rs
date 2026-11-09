@@ -217,6 +217,15 @@ pub(super) fn item_event(
     Ok(())
 }
 
+/// The id of the item `id` is part of, if any.
+fn parent_id(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT parent FROM work_items WHERE id = ?1",
+        params![id],
+        |r| r.get(0),
+    )
+}
+
 fn item_row(conn: &Connection, id: &str) -> rusqlite::Result<WorkItem> {
     conn.query_row(
         &format!("{} WHERE i.id = ?1", select()),
@@ -865,6 +874,14 @@ impl Db {
                 && (status == Status::OnHold || current.status == Status::OnHold)
             {
                 return Ok(Err(Refused::OnHold(current.key.to_string())));
+            }
+            // a sub-item opened again needs its parent open
+            if current.status.is_closed()
+                && !status.is_closed()
+                && let Some(parent) = parent_id(&tx, &id)?
+                && let Some(refused) = super::items::closed(&tx, &parent)?
+            {
+                return Ok(Err(refused));
             }
             if status != current.status {
                 match status {
