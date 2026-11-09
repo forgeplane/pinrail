@@ -205,3 +205,27 @@ export function usePlugins(): Plugins {
   if (!plugins) throw new Error("usePlugins outside LiveProvider");
   return plugins;
 }
+
+/** A number that goes up with each live notice `about` keeps: an effect that
+ *  depends on it loads its data again for those notices alone. */
+export function useNoticeCount(about: (notice: Notice) => boolean): number {
+  const { lastNotice } = useLive();
+  const [count, setCount] = useState(0);
+  const aboutRef = useRef(about);
+  aboutRef.current = about;
+  useEffect(() => {
+    if (lastNotice && aboutRef.current(lastNotice)) setCount((n) => n + 1);
+  }, [lastNotice]);
+  return count;
+}
+
+/** Whether a notice can change what a list of work items shows: a change
+ *  to an item, a review of items, a session archived or restored, which
+ *  gives up or keeps its claims, or a change to the projects. */
+export const aboutItems = (notice: Notice) =>
+  !!notice.item ||
+  !!notice.review?.items?.length ||
+  ["session_archived", "session_unarchived", "projects_changed", "repository_deleted"].includes(notice.kind);
+
+/** Whether a notice is about a work item itself. */
+export const anItem = (notice: Notice) => !!notice.item;

@@ -968,3 +968,24 @@ test("Q queues the focused item, its row shows its place, and ⇧↑ and ⇧↓ 
   await expect(place(second.key)).toHaveText("2");
   await request.post(`${core}/api/v1/reviews/${review}/discard`, { data: { reason: "spec cleanup" } });
 });
+
+test("the list loads again for item changes, not for a session's statuses", async ({ page, request }) => {
+  const repo = fresh("notices");
+  const item = await add(request, repo, "Listed");
+  await open(page, repo);
+  await expect(row(page, item.key)).toBeVisible();
+  let loads = 0;
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname === "/api/v1/items") loads += 1;
+  });
+  for (const text of ["Reading", "Testing", "Writing"]) {
+    await request.post(`${core}/api/v1/sessions/claude-code/s-notices/status`, { data: { text } });
+  }
+  // time for a reload to start, had a status caused one
+  await page.waitForTimeout(500);
+  expect(loads).toBe(0);
+
+  await edit(request, item.key, { title: "Listed, renamed" });
+  await expect(row(page, item.key)).toContainText("Listed, renamed");
+  expect(loads).toBeGreaterThan(0);
+});

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, EVERY_ITEM_STATUS } from "../api/client";
 import type { WorkItem } from "../api/types";
-import { useLive } from "../state/live";
+import { anItem, useNoticeCount } from "../state/live";
 import { ItemPanel } from "./ItemPanel";
 
 export function SessionItemPanel({
@@ -16,7 +16,6 @@ export function SessionItemPanel({
   onOpen: (key: string) => void;
   onClose: () => void;
 }) {
-  const live = useLive();
   const [items, setItems] = useState<WorkItem[]>([]);
   const load = useCallback(() => {
     api
@@ -24,7 +23,8 @@ export function SessionItemPanel({
       .then((d) => setItems(d.items))
       .catch(() => {});
   }, []);
-  useEffect(load, [load, live.lastNotice]);
+  const itemNotices = useNoticeCount(anItem);
+  useEffect(load, [load, itemNotices]);
   return (
     <ItemPanel
       itemKey={itemKey}

@@ -38,7 +38,7 @@ import { useWhatsNew } from "./useWhatsNew";
 import { useAppCommands, type CommandRun } from "./useAppCommands";
 import { command, type CommandId } from "../lib/commands";
 import { reviewPath, reviewShown } from "../lib/url";
-import { useLive } from "../state/live";
+import { useLive, anItem, useNoticeCount } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
@@ -90,6 +90,7 @@ export function Layout({ children }: { children: ReactNode }) {
   // how many work items are open or in progress, beside their entry, as
   // anything changes: what the page lists when it opens
   const [openItems, setOpenItems] = useState(0);
+  const itemNotices = useNoticeCount(anItem);
   useEffect(() => {
     let cancelled = false;
     api
@@ -99,7 +100,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [live.lastNotice, live.connected]);
+  }, [itemNotices, live.connected]);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();

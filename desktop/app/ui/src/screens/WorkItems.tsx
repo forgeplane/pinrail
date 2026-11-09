@@ -38,7 +38,7 @@ import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { SidePanel } from "../components/SidePanel";
 import { useOptionsMenu } from "../components/OptionsMenu";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
-import { useLive } from "../state/live";
+import { useLive, aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 
@@ -106,6 +106,8 @@ export function WorkItems() {
     const t = window.setTimeout(() => setDebounced(query), SEARCH_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [query]);
+  // the notices that can change the items, which load them again
+  const itemNotices = useNoticeCount(aboutItems);
   useEffect(() => {
     let cancelled = false;
     const wanted = STATUSES.find((s) => s.value === status)?.query;
@@ -116,7 +118,7 @@ export function WorkItems() {
     return () => {
       cancelled = true;
     };
-  }, [status, debounced, live.lastNotice, reloads]);
+  }, [status, debounced, itemNotices, reloads]);
   // the person's queue, in its order: the items agents take first
   const [queue, setQueue] = useState<WorkItem[]>([]);
   useEffect(() => {
@@ -128,7 +130,7 @@ export function WorkItems() {
     return () => {
       cancelled = true;
     };
-  }, [live.lastNotice, reloads]);
+  }, [itemNotices, reloads]);
   // the repositories an item can be added to: every one the app knows
   useEffect(() => {
     let cancelled = false;

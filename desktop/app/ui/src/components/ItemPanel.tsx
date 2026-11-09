@@ -25,7 +25,7 @@ import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types
 import { age, ordinal, stamp } from "../lib/format";
 import { MOD, modalOpen, composing } from "../lib/keys";
 import { reviewPath } from "../lib/url";
-import { useLive } from "../state/live";
+import { aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -62,7 +62,6 @@ export function ItemPanel({
   /** the item changed here, for the list to show it */
   onChanged: () => void;
 }) {
-  const live = useLive();
   const toast = useToast();
   const { settings } = useSettings();
   const [item, setItem] = useState<ItemDetail | null>(null);
@@ -74,6 +73,8 @@ export function ItemPanel({
   const [cancelling, setCancelling] = useState(false);
   const fileUrl = useFileUrl(item?.key);
 
+  // the notices that can change the item, its sub-items or its reviews
+  const itemNotices = useNoticeCount(aboutItems);
   useEffect(() => {
     let cancelled = false;
     api
@@ -89,7 +90,7 @@ export function ItemPanel({
     return () => {
       cancelled = true;
     };
-  }, [itemKey, live.lastNotice, reloads, onOpen]);
+  }, [itemKey, itemNotices, reloads, onOpen]);
 
   /** A change the person makes, then shown here and in the list. */
   const change = useCallback(
