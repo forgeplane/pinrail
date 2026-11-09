@@ -11,6 +11,7 @@ carries it.
 - A diff given as `git diff` prints it, with its `diff --git`, `index`,
   `---` and `+++` lines, no longer shows those lines as code, and each
   file's counts of added and deleted lines are right.
+- The change's link is shown only for an `http` or `https` address.
 
 ## [1.3.0] - Pinrail 0.4.1
 

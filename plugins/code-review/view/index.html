@@ -2693,7 +2693,7 @@
       <span class="head-ref">${esc(c.ref)}</span>
       <span class="head-branch">
         ${c.source ? `<span class="pinrail-chip">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="pinrail-chip">${esc(c.target)}</span>` : ""}
-        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
+        ${/^https?:\/\//i.test(c.url || "") ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
       </span>
     </div>
     ${

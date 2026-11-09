@@ -736,3 +736,11 @@ test("a diff as git diff prints it shows no header lines and counts only the cha
     await expect(section.locator(".diff-row").filter({ hasText: header })).toHaveCount(0);
   }
 });
+
+test("a change link that is not a web address is not shown", async ({ page }) => {
+  const review = round2();
+  review.payload.change.url = "javascript:alert(1)";
+  const plugin = await mountPlugin(page, dir, { review });
+  await expect(plugin.frame.locator("header")).toContainText("Dedup tickets on save");
+  await expect(plugin.frame.locator("header a", { hasText: "open" })).toHaveCount(0);
+});
