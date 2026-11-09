@@ -615,3 +615,24 @@ test("the activity names a question or review in one line, its title as Markdown
     /claude-code withdrew The plan/,
   ]);
 });
+
+test("a dialog keeps Tab inside it, and Esc gives the focus back to what opened it", async ({ page, request }) => {
+  const repo = fresh("dialog-focus");
+  const item = await add(request, repo, "Item");
+  await openItem(page, repo, item.key);
+  const opener = panel(page).getByRole("button", { name: "Delete…" });
+  await opener.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: `Delete ${item.key}?` });
+  await expect(dialog).toBeVisible();
+  // Tab goes round the dialog's buttons and never leaves it
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Tab");
+    expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("Shift+Tab");
+  expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});

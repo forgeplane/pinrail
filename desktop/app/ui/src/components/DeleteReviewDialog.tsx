@@ -1,11 +1,11 @@
 // Deleting a review, with every round of it, from the history or from its
 // screen. A round still waiting is discarded first, so the agent is told to
-// stop. Enter confirms, Esc leaves.
+// stop. Esc leaves.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
-import { useWindowKey } from "../lib/useWindowKey";
+import { Dialog } from "./Dialog";
 
 export function DeleteReviewDialog({
   review,
@@ -21,19 +21,6 @@ export function DeleteReviewDialog({
   const [error, setError] = useState<string | null>(null);
   const cancel = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    cancel.current?.focus();
-  }, [onClose]);
-  useWindowKey(
-    (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
-
   const confirm = async () => {
     if (busy) return;
     setBusy(true);
@@ -48,41 +35,33 @@ export function DeleteReviewDialog({
   };
 
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className="app-dialog discard-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-review-title"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <h2 id="delete-review-title">{question ? "Delete these questions?" : "Delete this review?"}</h2>
-        </div>
-        <p className="dim discard-what" title={review.title}>
-          {review.title}
-        </p>
-        <p className="dim">
-          {question
-            ? "The questions and their answers are deleted from Pinrail. This cannot be undone."
-            : "Every round of the review is deleted from Pinrail, with its decisions and comments. This cannot be undone."}
-        </p>
-        {review.status === "pending" ? (
-          <p className="dim" data-testid="delete-review-waiting">
-            {question ? "They still wait" : "It still waits"}: the agent is told to stop first.
-          </p>
-        ) : null}
-        {review.starred ? <p className="dim">The review is starred.</p> : null}
-        {error ? <p className="notice notice-danger">{error}</p> : null}
-        <div className="dialog-actions">
-          <button ref={cancel} type="button" className="chrome-button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="chrome-button button-danger" onClick={confirm} disabled={busy}>
-            {question ? "Delete questions" : "Delete review"}
-          </button>
-        </div>
+    <Dialog labelledBy="delete-review-title" className="discard-dialog" initialFocus={cancel} onClose={onClose}>
+      <div className="dialog-head">
+        <h2 id="delete-review-title">{question ? "Delete these questions?" : "Delete this review?"}</h2>
       </div>
-    </div>
+      <p className="dim discard-what" title={review.title}>
+        {review.title}
+      </p>
+      <p className="dim">
+        {question
+          ? "The questions and their answers are deleted from Pinrail. This cannot be undone."
+          : "Every round of the review is deleted from Pinrail, with its decisions and comments. This cannot be undone."}
+      </p>
+      {review.status === "pending" ? (
+        <p className="dim" data-testid="delete-review-waiting">
+          {question ? "They still wait" : "It still waits"}: the agent is told to stop first.
+        </p>
+      ) : null}
+      {review.starred ? <p className="dim">The review is starred.</p> : null}
+      {error ? <p className="notice notice-danger">{error}</p> : null}
+      <div className="dialog-actions">
+        <button ref={cancel} type="button" className="chrome-button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="chrome-button button-danger" onClick={confirm} disabled={busy}>
+          {question ? "Delete questions" : "Delete review"}
+        </button>
+      </div>
+    </Dialog>
   );
 }

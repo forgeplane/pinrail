@@ -2,10 +2,10 @@
 // progress: the agents working on them are told to stop, so the person is
 // asked first. Esc leaves.
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { api } from "../api/client";
 import type { WorkItem } from "../api/types";
-import { useWindowKey } from "../lib/useWindowKey";
+import { Dialog } from "./Dialog";
 
 /** The items in progress that putting `item` on hold stops: the item itself
  *  and its sub-items at any depth. Asks the core only when there can be some. */
@@ -39,61 +39,40 @@ export function HoldItemDialog({
 }) {
   const keep = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    keep.current?.focus();
-  }, [onClose]);
-  useWindowKey(
-    (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
-
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className="app-dialog discard-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="hold-item-title"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <h2 id="hold-item-title">Put {item.key} on hold?</h2>
-        </div>
-        <p className="dim discard-what" title={item.title}>
-          {item.title}
-        </p>
-        <ul className="hold-item-work" data-testid="hold-item-work">
-          {stopped.map((i) => (
-            <li key={i.key}>
-              <span className="mono">{i.key}</span> {i.title}
-              <span className="dim">
-                {" · "}
-                {i.claim?.agent === "person"
-                  ? "you are working on it"
-                  : `${i.claim?.agent ?? "an agent"} is working on it`}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="dim">
-          {stopped.length === 1
-            ? "It is released, and an agent working on it is told to stop the next time it reports its status."
-            : "They are released, and each agent working on one is told to stop the next time it reports its status."}
-        </p>
-        <div className="dialog-actions">
-          <button ref={keep} type="button" className="chrome-button" onClick={onClose}>
-            Keep working
-          </button>
-          <button type="button" className="chrome-button button-danger" onClick={onConfirm}>
-            Put on hold
-          </button>
-        </div>
+    <Dialog labelledBy="hold-item-title" className="discard-dialog" initialFocus={keep} onClose={onClose}>
+      <div className="dialog-head">
+        <h2 id="hold-item-title">Put {item.key} on hold?</h2>
       </div>
-    </div>
+      <p className="dim discard-what" title={item.title}>
+        {item.title}
+      </p>
+      <ul className="hold-item-work" data-testid="hold-item-work">
+        {stopped.map((i) => (
+          <li key={i.key}>
+            <span className="mono">{i.key}</span> {i.title}
+            <span className="dim">
+              {" · "}
+              {i.claim?.agent === "person"
+                ? "you are working on it"
+                : `${i.claim?.agent ?? "an agent"} is working on it`}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="dim">
+        {stopped.length === 1
+          ? "It is released, and an agent working on it is told to stop the next time it reports its status."
+          : "They are released, and each agent working on one is told to stop the next time it reports its status."}
+      </p>
+      <div className="dialog-actions">
+        <button ref={keep} type="button" className="chrome-button" onClick={onClose}>
+          Keep working
+        </button>
+        <button type="button" className="chrome-button button-danger" onClick={onConfirm}>
+          Put on hold
+        </button>
+      </div>
+    </Dialog>
   );
 }

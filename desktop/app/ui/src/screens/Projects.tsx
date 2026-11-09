@@ -37,7 +37,7 @@ import { useLive, aboutItems, aboutSessions, useNoticeCount } from "../state/liv
 import { useSettings } from "../state/settings";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
-import { useWindowKey } from "../lib/useWindowKey";
+import { Dialog } from "../components/Dialog";
 
 /** The type of a repository's name on a drag. */
 const DRAGGED = "application/x-pinrail-repo";
@@ -555,15 +555,6 @@ function ProjectDialog({
   useEffect(() => {
     input.current?.select();
   }, [onClose]);
-  useWindowKey(
-    (event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -583,15 +574,8 @@ function ProjectDialog({
   };
 
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <form
-        className="app-dialog project-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="project-dialog-title"
-        onMouseDown={(event) => event.stopPropagation()}
-        onSubmit={submit}
-      >
+    <Dialog labelledBy="project-dialog-title" className="project-dialog" onClose={onClose}>
+      <form className="dialog-form" onSubmit={submit}>
         <div className="dialog-head">
           <h2 id="project-dialog-title">{title}</h2>
         </div>
@@ -716,7 +700,7 @@ function ProjectDialog({
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -742,76 +726,59 @@ function PrefixDialog({
     field.current?.focus();
     field.current?.select();
   }, [onClose]);
-  useWindowKey(
-    (event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className="app-dialog project-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="repo-prefix-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <h2 id="repo-prefix-title">Key prefix of {repo.repo}</h2>
-        </div>
-        <p className="dim">
-          {repo.prefix
-            ? `Its work items are keyed ${repo.prefix}, such as ${repo.prefix}-1. Their old keys still find them after a change.`
-            : "Its first work item will take a prefix from its name; you can choose one now."}
-        </p>
-        <form
-          className="repo-delete-confirm"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!valid || busy) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await onSave(prefix);
-            } catch (e) {
-              setError(reason(e));
-              setBusy(false);
-            }
-          }}
-        >
-          <label htmlFor={fieldId}>Two to five capital letters</label>
-          <input
-            ref={field}
-            id={fieldId}
-            className="settings-input"
-            value={prefix}
-            maxLength={5}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            onChange={(e) => setPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
-          />
-          {error ? <p className="notice notice-danger">{error}</p> : null}
-          <div className="dialog-actions">
-            <button type="button" className="chrome-button" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="chrome-button button-primary"
-              disabled={!valid || busy || prefix === repo.prefix}
-            >
-              Change prefix
-            </button>
-          </div>
-        </form>
+    <Dialog labelledBy="repo-prefix-title" className="project-dialog" onClose={onClose}>
+      <div className="dialog-head">
+        <h2 id="repo-prefix-title">Key prefix of {repo.repo}</h2>
       </div>
-    </div>
+      <p className="dim">
+        {repo.prefix
+          ? `Its work items are keyed ${repo.prefix}, such as ${repo.prefix}-1. Their old keys still find them after a change.`
+          : "Its first work item will take a prefix from its name; you can choose one now."}
+      </p>
+      <form
+        className="repo-delete-confirm"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!valid || busy) return;
+          setBusy(true);
+          setError(null);
+          try {
+            await onSave(prefix);
+          } catch (e) {
+            setError(reason(e));
+            setBusy(false);
+          }
+        }}
+      >
+        <label htmlFor={fieldId}>Two to five capital letters</label>
+        <input
+          ref={field}
+          id={fieldId}
+          className="settings-input"
+          value={prefix}
+          maxLength={5}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          onChange={(e) => setPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+        />
+        {error ? <p className="notice notice-danger">{error}</p> : null}
+        <div className="dialog-actions">
+          <button type="button" className="chrome-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="chrome-button button-primary"
+            disabled={!valid || busy || prefix === repo.prefix}
+          >
+            Change prefix
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -831,70 +798,53 @@ function DeleteRepoDialog({
   useEffect(() => {
     confirm.current?.focus();
   }, [onClose]);
-  useWindowKey(
-    (event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className="app-dialog project-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="repo-delete-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <h2 id="repo-delete-title">Delete {repo.repo}?</h2>
-        </div>
-        <p className="dim">
-          All of its work items, reviews, questions and sessions will be deleted from Pinrail, including the history.
-          This cannot be undone.
-        </p>
-        {repo.waiting ? (
-          <p className="dim" data-testid="repo-delete-waiting">
-            {plural(repo.waiting, "review or question", "reviews or questions")} still{" "}
-            {repo.waiting === 1 ? "waits" : "wait"}. They will be discarded first, and the agents waiting on them will
-            be told to stop.
-          </p>
-        ) : null}
-        <form
-          className="repo-delete-confirm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (confirmed) onDelete();
-          }}
-        >
-          <label htmlFor={confirmId}>
-            To confirm, type <strong>{repo.repo}</strong>
-          </label>
-          <input
-            ref={confirm}
-            id={confirmId}
-            className="settings-input"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-          />
-          <div className="dialog-actions">
-            <button type="button" className="chrome-button" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="chrome-button button-danger" disabled={!confirmed}>
-              Delete repository
-            </button>
-          </div>
-        </form>
+    <Dialog labelledBy="repo-delete-title" className="project-dialog" onClose={onClose}>
+      <div className="dialog-head">
+        <h2 id="repo-delete-title">Delete {repo.repo}?</h2>
       </div>
-    </div>
+      <p className="dim">
+        All of its work items, reviews, questions and sessions will be deleted from Pinrail, including the history. This
+        cannot be undone.
+      </p>
+      {repo.waiting ? (
+        <p className="dim" data-testid="repo-delete-waiting">
+          {plural(repo.waiting, "review or question", "reviews or questions")} still{" "}
+          {repo.waiting === 1 ? "waits" : "wait"}. They will be discarded first, and the agents waiting on them will be
+          told to stop.
+        </p>
+      ) : null}
+      <form
+        className="repo-delete-confirm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (confirmed) onDelete();
+        }}
+      >
+        <label htmlFor={confirmId}>
+          To confirm, type <strong>{repo.repo}</strong>
+        </label>
+        <input
+          ref={confirm}
+          id={confirmId}
+          className="settings-input"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
+        <div className="dialog-actions">
+          <button type="button" className="chrome-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="chrome-button button-danger" disabled={!confirmed}>
+            Delete repository
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -903,39 +853,22 @@ function DeleteDialog({ project, onDelete, onClose }: { project: Project; onDele
   useEffect(() => {
     cancel.current?.focus();
   }, [onClose]);
-  useWindowKey(
-    (event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className="app-dialog project-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="project-delete-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <h2 id="project-delete-title">Delete {project.name}?</h2>
-        </div>
-        <p className="dim">
-          Its repositories will be in no project. Their reviews, questions and sessions stay as they are.
-        </p>
-        <div className="dialog-actions">
-          <button ref={cancel} type="button" className="chrome-button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="chrome-button button-danger" onClick={onDelete}>
-            Delete project
-          </button>
-        </div>
+    <Dialog labelledBy="project-delete-title" className="project-dialog" onClose={onClose}>
+      <div className="dialog-head">
+        <h2 id="project-delete-title">Delete {project.name}?</h2>
       </div>
-    </div>
+      <p className="dim">
+        Its repositories will be in no project. Their reviews, questions and sessions stay as they are.
+      </p>
+      <div className="dialog-actions">
+        <button ref={cancel} type="button" className="chrome-button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="chrome-button button-danger" onClick={onDelete}>
+          Delete project
+        </button>
+      </div>
+    </Dialog>
   );
 }

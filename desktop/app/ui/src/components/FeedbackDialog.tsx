@@ -13,7 +13,7 @@ import { api, inTauri } from "../api/client";
 import { describeDiagnostics, type CliState } from "../lib/diagnostics";
 import { size } from "../lib/format";
 import { MOD } from "../lib/keys";
-import { useWindowKey } from "../lib/useWindowKey";
+import { Dialog } from "./Dialog";
 
 /** What the feedback service accepts. */
 export const MAX_FILES = 5;
@@ -104,16 +104,6 @@ export function FeedbackDialog({
     (first.current?.value ? second : first).current?.focus();
   }, []);
 
-  useWindowKey(
-    (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    },
-    { capture: true },
-  );
-
   const attach = (added: File[]) => {
     if (!added.length) return;
     const next = [...files, ...added.map((file, i) => named(file, files.length + i))];
@@ -148,171 +138,167 @@ export function FeedbackDialog({
   };
 
   return (
-    <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div
-        className={`app-dialog feedback-dialog${dropping ? " is-dropping" : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="feedback-title"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={onKeyDown}
-        onPaste={(e) => {
-          const pasted = Array.from(e.clipboardData.files);
-          if (pasted.length) {
-            e.preventDefault();
-            attach(pasted);
-          }
-        }}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes("Files")) {
-            e.preventDefault();
-            setDropping(true);
-          }
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
-        }}
-        onDrop={(e) => {
+    <Dialog
+      labelledBy="feedback-title"
+      className={`feedback-dialog${dropping ? " is-dropping" : ""}`}
+      onClose={onClose}
+      onKeyDown={onKeyDown}
+      onPaste={(e) => {
+        const pasted = Array.from(e.clipboardData.files);
+        if (pasted.length) {
           e.preventDefault();
-          setDropping(false);
-          attach(Array.from(e.dataTransfer.files));
-        }}
-      >
-        <div className="dialog-head">
-          <h2 id="feedback-title">Send feedback</h2>
-        </div>
-        <p className="dim">
-          Report a problem or suggest an idea. The Pinrail team reads every message and replies by email. You can also
-          email us at{" "}
-          <a href="mailto:hey@pinrail.dev" target="_blank" rel="noreferrer">
-            hey@pinrail.dev
-          </a>
-          .
-        </p>
-        <label className="feedback-field">
-          <span>Email</span>
-          <input
-            ref={first}
-            type="email"
-            className="feedback-input"
-            placeholder="you@example.com"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <label className="feedback-field">
-          <span>Subject</span>
-          <input
-            ref={second}
-            type="text"
-            className="feedback-input"
-            placeholder="A short summary"
-            maxLength={200}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </label>
-        <label className="feedback-field">
-          <span>Message</span>
-          <textarea
-            className="feedback-input feedback-message"
-            rows={6}
-            placeholder="What happened, or what would you like Pinrail to do?"
-            maxLength={10_000}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-        </label>
-        <div className="feedback-attachments">
-          {files.length ? (
-            <ul className="feedback-files" aria-label="Attachments">
-              {files.map((file, i) => (
-                <li key={`${file.name}-${i}`} className="feedback-file">
-                  <span className="feedback-file-name" title={file.name}>
-                    {file.name}
-                  </span>
-                  <span className="dim">{size(file.size)}</span>
-                  <button
-                    type="button"
-                    className="feedback-file-remove"
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => setFiles((current) => current.filter((_, j) => j !== i))}
-                  >
-                    <X size={12} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="feedback-attach-row">
-            <button
-              type="button"
-              className="chrome-button"
-              onClick={() => picker.current?.click()}
-              disabled={files.length >= MAX_FILES}
-            >
-              <Paperclip size={13} /> Attach files
-            </button>
-            <span className="dim">or drop or paste them here. Up to {MAX_FILES} files, 10 MB in total.</span>
-          </div>
-          <input
-            ref={picker}
-            type="file"
-            multiple
-            hidden
-            aria-label="Attach files"
-            onChange={(e) => {
-              attach(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
-        </div>
-        <div className="feedback-diagnostics">
-          <div className="feedback-diagnostics-row">
-            <label className="feedback-check">
-              <input
-                type="checkbox"
-                checked={includeDiagnostics}
-                onChange={(e) => setIncludeDiagnostics(e.target.checked)}
-              />
-              Include diagnostics
-            </label>
-            <button
-              type="button"
-              className="feedback-show"
-              aria-expanded={showDiagnostics}
-              onClick={() => setShowDiagnostics((shown) => !shown)}
-            >
-              {showDiagnostics ? "Hide" : "Show"}
-            </button>
-          </div>
-          <span className="dim">
-            How Pinrail is installed, its plugins and its settings. Nothing from your reviews is included.
-          </span>
-          {showDiagnostics ? (
-            <pre className="feedback-diagnostics-text" aria-label="Diagnostics">
-              {diagnostics ?? "Gathering…"}
-            </pre>
-          ) : null}
-        </div>
-        {error ? <p className="notice notice-danger">{error}</p> : null}
-        <div className="dialog-actions feedback-actions">
-          <span className="dim feedback-note">Pinrail adds its version and your operating system.</span>
-          <button type="button" className="chrome-button" onClick={onClose}>
-            Cancel
-          </button>
+          attach(pasted);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setDropping(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDropping(false);
+        attach(Array.from(e.dataTransfer.files));
+      }}
+    >
+      <div className="dialog-head">
+        <h2 id="feedback-title">Send feedback</h2>
+      </div>
+      <p className="dim">
+        Report a problem or suggest an idea. The Pinrail team reads every message and replies by email. You can also
+        email us at{" "}
+        <a href="mailto:hey@pinrail.dev" target="_blank" rel="noreferrer">
+          hey@pinrail.dev
+        </a>
+        .
+      </p>
+      <label className="feedback-field">
+        <span>Email</span>
+        <input
+          ref={first}
+          type="email"
+          className="feedback-input"
+          placeholder="you@example.com"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </label>
+      <label className="feedback-field">
+        <span>Subject</span>
+        <input
+          ref={second}
+          type="text"
+          className="feedback-input"
+          placeholder="A short summary"
+          maxLength={200}
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+      </label>
+      <label className="feedback-field">
+        <span>Message</span>
+        <textarea
+          className="feedback-input feedback-message"
+          rows={6}
+          placeholder="What happened, or what would you like Pinrail to do?"
+          maxLength={10_000}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+      </label>
+      <div className="feedback-attachments">
+        {files.length ? (
+          <ul className="feedback-files" aria-label="Attachments">
+            {files.map((file, i) => (
+              <li key={`${file.name}-${i}`} className="feedback-file">
+                <span className="feedback-file-name" title={file.name}>
+                  {file.name}
+                </span>
+                <span className="dim">{size(file.size)}</span>
+                <button
+                  type="button"
+                  className="feedback-file-remove"
+                  aria-label={`Remove ${file.name}`}
+                  onClick={() => setFiles((current) => current.filter((_, j) => j !== i))}
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="feedback-attach-row">
           <button
             type="button"
-            className="chrome-button button-primary"
-            onClick={send}
-            disabled={!ready}
-            title={MOD === "⌘" ? "⌘Enter" : "Ctrl+Enter"}
+            className="chrome-button"
+            onClick={() => picker.current?.click()}
+            disabled={files.length >= MAX_FILES}
           >
-            Send
+            <Paperclip size={13} /> Attach files
+          </button>
+          <span className="dim">or drop or paste them here. Up to {MAX_FILES} files, 10 MB in total.</span>
+        </div>
+        <input
+          ref={picker}
+          type="file"
+          multiple
+          hidden
+          aria-label="Attach files"
+          onChange={(e) => {
+            attach(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <div className="feedback-diagnostics">
+        <div className="feedback-diagnostics-row">
+          <label className="feedback-check">
+            <input
+              type="checkbox"
+              checked={includeDiagnostics}
+              onChange={(e) => setIncludeDiagnostics(e.target.checked)}
+            />
+            Include diagnostics
+          </label>
+          <button
+            type="button"
+            className="feedback-show"
+            aria-expanded={showDiagnostics}
+            onClick={() => setShowDiagnostics((shown) => !shown)}
+          >
+            {showDiagnostics ? "Hide" : "Show"}
           </button>
         </div>
+        <span className="dim">
+          How Pinrail is installed, its plugins and its settings. Nothing from your reviews is included.
+        </span>
+        {showDiagnostics ? (
+          <pre className="feedback-diagnostics-text" aria-label="Diagnostics">
+            {diagnostics ?? "Gathering…"}
+          </pre>
+        ) : null}
       </div>
-    </div>
+      {error ? <p className="notice notice-danger">{error}</p> : null}
+      <div className="dialog-actions feedback-actions">
+        <span className="dim feedback-note">Pinrail adds its version and your operating system.</span>
+        <button type="button" className="chrome-button" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="chrome-button button-primary"
+          onClick={send}
+          disabled={!ready}
+          title={MOD === "⌘" ? "⌘Enter" : "Ctrl+Enter"}
+        >
+          Send
+        </button>
+      </div>
+    </Dialog>
   );
 }

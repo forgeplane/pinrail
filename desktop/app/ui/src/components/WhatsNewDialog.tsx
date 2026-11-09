@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { pictureOf, type CardAction, type Release } from "../lib/whatsNew";
 import { useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
+import { Dialog } from "./Dialog";
 
 export function WhatsNewDialog({
   releases,
@@ -58,85 +59,86 @@ export function WhatsNewDialog({
   const picture = card.image ? pictureOf(card.version, card.image, theme) : null;
 
   return (
-    <div className="app-dialog-backdrop whats-new-backdrop" onClick={onClose}>
-      <section
-        className="whats-new"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="whats-new-title"
-        data-testid="whats-new"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="whats-new-head">
-          <span className="whats-new-tag">New in {card.version}</span>
-          <h2 id="whats-new-title">What's new in Pinrail</h2>
-          <Tooltip label="Close" keys={["Esc"]}>
-            <button type="button" className="bar-button" onClick={onClose} aria-label="Close">
-              <X size={16} />
-            </button>
-          </Tooltip>
-        </header>
-        <div className="whats-new-picture">
-          {picture ? (
-            <img src={picture} alt={card.alt ?? ""} />
-          ) : (
-            <Sparkles size={40} strokeWidth={1.25} aria-hidden="true" />
-          )}
-        </div>
-        <div className="whats-new-text" aria-live="polite">
-          <h3 data-testid="whats-new-card">{card.title}</h3>
-          <p>{card.text}</p>
-        </div>
-        <footer className="whats-new-foot">
-          {cards.length > 1 ? (
-            <>
-              <div className="whats-new-dots" role="tablist" aria-label="Cards">
-                {cards.map((c, i) => (
-                  <button
-                    key={`${c.version}:${i}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={i === at}
-                    aria-label={c.title}
-                    className={i === at ? "is-on" : ""}
-                    onClick={() => setAt(i)}
-                  />
-                ))}
-              </div>
-              <span className="whats-new-count">
-                {at + 1} of {cards.length}
-              </span>
-            </>
-          ) : null}
-          <span className="whats-new-spacer" />
-          {card.action ? (
-            <button
-              type="button"
-              className="chrome-button"
-              onClick={() => {
-                onClose();
-                onAction(card.action!);
-              }}
-            >
-              {card.action.label}
-            </button>
-          ) : null}
-          {cards.length > 1 ? (
-            <button type="button" className="chrome-button" disabled={at === 0} onClick={() => setAt(at - 1)}>
-              Back
-            </button>
-          ) : null}
-          <button
-            ref={next}
-            type="button"
-            className="chrome-button button-primary"
-            data-testid="whats-new-next"
-            onClick={() => (last ? onClose() : setAt(at + 1))}
-          >
-            {last ? "Done" : "Next"}
+    // its keys are its own, added before it paints
+    <Dialog
+      labelledBy="whats-new-title"
+      plain
+      className="whats-new"
+      backdropClass="whats-new-backdrop"
+      data-testid="whats-new"
+      initialFocus={next}
+      onClose={onClose}
+      closeOnEscape={false}
+    >
+      <header className="whats-new-head">
+        <span className="whats-new-tag">New in {card.version}</span>
+        <h2 id="whats-new-title">What's new in Pinrail</h2>
+        <Tooltip label="Close" keys={["Esc"]}>
+          <button type="button" className="bar-button" onClick={onClose} aria-label="Close">
+            <X size={16} />
           </button>
-        </footer>
-      </section>
-    </div>
+        </Tooltip>
+      </header>
+      <div className="whats-new-picture">
+        {picture ? (
+          <img src={picture} alt={card.alt ?? ""} />
+        ) : (
+          <Sparkles size={40} strokeWidth={1.25} aria-hidden="true" />
+        )}
+      </div>
+      <div className="whats-new-text" aria-live="polite">
+        <h3 data-testid="whats-new-card">{card.title}</h3>
+        <p>{card.text}</p>
+      </div>
+      <footer className="whats-new-foot">
+        {cards.length > 1 ? (
+          <>
+            <div className="whats-new-dots" role="tablist" aria-label="Cards">
+              {cards.map((c, i) => (
+                <button
+                  key={`${c.version}:${i}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === at}
+                  aria-label={c.title}
+                  className={i === at ? "is-on" : ""}
+                  onClick={() => setAt(i)}
+                />
+              ))}
+            </div>
+            <span className="whats-new-count">
+              {at + 1} of {cards.length}
+            </span>
+          </>
+        ) : null}
+        <span className="whats-new-spacer" />
+        {card.action ? (
+          <button
+            type="button"
+            className="chrome-button"
+            onClick={() => {
+              onClose();
+              onAction(card.action!);
+            }}
+          >
+            {card.action.label}
+          </button>
+        ) : null}
+        {cards.length > 1 ? (
+          <button type="button" className="chrome-button" disabled={at === 0} onClick={() => setAt(at - 1)}>
+            Back
+          </button>
+        ) : null}
+        <button
+          ref={next}
+          type="button"
+          className="chrome-button button-primary"
+          data-testid="whats-new-next"
+          onClick={() => (last ? onClose() : setAt(at + 1))}
+        >
+          {last ? "Done" : "Next"}
+        </button>
+      </footer>
+    </Dialog>
   );
 }

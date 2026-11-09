@@ -1549,6 +1549,10 @@ body.is-resizing iframe {
 }
 
 /* dialogs and notices */
+/* a dialog that is a form: the form takes no box of its own */
+.dialog-form {
+  display: contents;
+}
 .app-dialog-backdrop {
   position: fixed;
   inset: 0;

@@ -19,6 +19,7 @@ import { useCli, type CliStatus } from "../settings/CliRow";
 import { WaitMark } from "../WaitMark";
 import { useCopy } from "../../lib/useCopy";
 import { useWindowKey } from "../../lib/useWindowKey";
+import { Dialog } from "../Dialog";
 
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
 
@@ -607,118 +608,125 @@ export function WelcomeDialog({
   }
 
   return (
-    <div className="app-dialog-backdrop">
-      <div className="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-        <aside className="welcome-rail">
-          <Mark />
-          <h1 id="welcome-title">Set up Pinrail</h1>
-          <p>Agents ask here before they act. You decide, and they carry on with your answer.</p>
-          <ol>
-            {STEPS.map(({ label, detail }, i) => (
-              <li key={label} className={done[i] ? "is-done" : ""}>
-                <button
-                  type="button"
-                  className={i === step ? "is-current" : ""}
-                  aria-current={i === step ? "step" : undefined}
-                  disabled={locked[i]}
-                  onClick={() => setStep(i)}
-                >
-                  <span className={`welcome-dot ${done[i] ? "is-done" : ""} ${locked[i] ? "is-locked" : ""}`}>
-                    {done[i] ? (
-                      <Check size={11} strokeWidth={3} />
-                    ) : locked[i] ? (
-                      <Lock size={10} strokeWidth={2.5} />
-                    ) : (
-                      i + 1
-                    )}
+    // the setup holds every key itself, Esc included, and stays open on a
+    // click outside
+    <Dialog
+      labelledBy="welcome-title"
+      plain
+      className="welcome-dialog"
+      onClose={onClose}
+      closeOnEscape={false}
+      closeOnBackdrop={false}
+    >
+      <aside className="welcome-rail">
+        <Mark />
+        <h1 id="welcome-title">Set up Pinrail</h1>
+        <p>Agents ask here before they act. You decide, and they carry on with your answer.</p>
+        <ol>
+          {STEPS.map(({ label, detail }, i) => (
+            <li key={label} className={done[i] ? "is-done" : ""}>
+              <button
+                type="button"
+                className={i === step ? "is-current" : ""}
+                aria-current={i === step ? "step" : undefined}
+                disabled={locked[i]}
+                onClick={() => setStep(i)}
+              >
+                <span className={`welcome-dot ${done[i] ? "is-done" : ""} ${locked[i] ? "is-locked" : ""}`}>
+                  {done[i] ? (
+                    <Check size={11} strokeWidth={3} />
+                  ) : locked[i] ? (
+                    <Lock size={10} strokeWidth={2.5} />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <span className="welcome-step-text">
+                  <span className="welcome-step-label">{label}</span>
+                  <span className="welcome-step-detail">{locked[i] ? "Install a plugin first" : detail}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </aside>
+
+      <section className="welcome-main">
+        <div className="welcome-content" key={step}>
+          <span className="welcome-eyebrow">
+            Step {step + 1} of {STEPS.length}
+          </span>
+
+          {step === 0 ? (
+            <>
+              <h2>Connect Pinrail</h2>
+              <p>
+                Agents ask through the <code>pinrail</code> command. A short skill tells each agent how and when to ask
+                you.
+              </p>
+              <CommandSection cli={cli} />
+              <AgentsSection />
+              <NotificationsSection {...notifications} />
+            </>
+          ) : null}
+
+          {step === 1 ? <PluginsStep catalog={catalog} choice={choice} /> : null}
+
+          {step === FIRST_REVIEW ? (
+            <>
+              <h2>Try it</h2>
+              <p>Give your agent one of these, or send yourself a sample to see a plugin first.</p>
+              <div className="welcome-tries">
+                {installed.map((p) => (
+                  <TryRow key={p.name} plugin={p} onSent={setSample} />
+                ))}
+              </div>
+              {at.decided && sample === at.sample ? (
+                <div className="welcome-wait is-done" role="status">
+                  <span className="welcome-wait-mark">
+                    <Check size={12} strokeWidth={3} />
                   </span>
-                  <span className="welcome-step-text">
-                    <span className="welcome-step-label">{label}</span>
-                    <span className="welcome-step-detail">{locked[i] ? "Install a plugin first" : detail}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </aside>
-
-        <section className="welcome-main">
-          <div className="welcome-content" key={step}>
-            <span className="welcome-eyebrow">
-              Step {step + 1} of {STEPS.length}
-            </span>
-
-            {step === 0 ? (
-              <>
-                <h2>Connect Pinrail</h2>
-                <p>
-                  Agents ask through the <code>pinrail</code> command. A short skill tells each agent how and when to
-                  ask you.
-                </p>
-                <CommandSection cli={cli} />
-                <AgentsSection />
-                <NotificationsSection {...notifications} />
-              </>
-            ) : null}
-
-            {step === 1 ? <PluginsStep catalog={catalog} choice={choice} /> : null}
-
-            {step === FIRST_REVIEW ? (
-              <>
-                <h2>Try it</h2>
-                <p>Give your agent one of these, or send yourself a sample to see a plugin first.</p>
-                <div className="welcome-tries">
-                  {installed.map((p) => (
-                    <TryRow key={p.name} plugin={p} onSent={setSample} />
-                  ))}
+                  Decided. An agent that asks gets your answer the same way.
                 </div>
-                {at.decided && sample === at.sample ? (
-                  <div className="welcome-wait is-done" role="status">
-                    <span className="welcome-wait-mark">
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                    Decided. An agent that asks gets your answer the same way.
-                  </div>
-                ) : sample ? (
-                  <div className="welcome-wait is-done" role="status">
-                    <span className="welcome-wait-mark">
-                      <Check size={12} strokeWidth={3} />
-                    </span>
-                    <span>
-                      Arrived: <b>{arrived?.title ?? "your first review"}</b>
-                    </span>
-                    <button type="button" className="chrome-button button-primary" onClick={() => onOpenReview(sample)}>
-                      Open the review
-                    </button>
-                  </div>
-                ) : (
-                  <div className="welcome-wait" role="status">
-                    <WaitMark size={20} />
-                    Waiting for a review to arrive
-                  </div>
-                )}
-                {sample && !(at.decided && sample === at.sample) ? (
-                  <p>Decide it and hand it over. The setup comes back here once you have decided.</p>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-
-          <footer className="welcome-foot">
-            <button type="button" className="welcome-skip" onClick={onClose}>
-              {last ? "Close" : "Skip setup"}
-            </button>
-            <div className="welcome-nav">
-              {step > 0 ? (
-                <button type="button" className="chrome-button" onClick={() => setStep(step - 1)}>
-                  Back
-                </button>
+              ) : sample ? (
+                <div className="welcome-wait is-done" role="status">
+                  <span className="welcome-wait-mark">
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                  <span>
+                    Arrived: <b>{arrived?.title ?? "your first review"}</b>
+                  </span>
+                  <button type="button" className="chrome-button button-primary" onClick={() => onOpenReview(sample)}>
+                    Open the review
+                  </button>
+                </div>
+              ) : (
+                <div className="welcome-wait" role="status">
+                  <WaitMark size={20} />
+                  Waiting for a review to arrive
+                </div>
+              )}
+              {sample && !(at.decided && sample === at.sample) ? (
+                <p>Decide it and hand it over. The setup comes back here once you have decided.</p>
               ) : null}
-              {next}
-            </div>
-          </footer>
-        </section>
-      </div>
-    </div>
+            </>
+          ) : null}
+        </div>
+
+        <footer className="welcome-foot">
+          <button type="button" className="welcome-skip" onClick={onClose}>
+            {last ? "Close" : "Skip setup"}
+          </button>
+          <div className="welcome-nav">
+            {step > 0 ? (
+              <button type="button" className="chrome-button" onClick={() => setStep(step - 1)}>
+                Back
+              </button>
+            ) : null}
+            {next}
+          </div>
+        </footer>
+      </section>
+    </Dialog>
   );
 }
