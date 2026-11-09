@@ -1,23 +1,8 @@
-import {
-  Ban,
-  Clock,
-  Expand,
-  ExternalLink,
-  Maximize2,
-  MessagesSquare,
-  Mic,
-  Minimize2,
-  PanelRight,
-  RefreshCw,
-  Send,
-  TriangleAlert,
-  X,
-  Trash2,
-} from "lucide-react";
+import { Clock, Mic, Minimize2, RefreshCw, Send, TriangleAlert } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
-import { ApiError, api, errorMessage } from "../api/client";
-import type { Plugin, Review, Violation } from "../api/types";
+import { ApiError, api } from "../api/client";
+import type { Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
@@ -26,25 +11,28 @@ import { DiscardDialog } from "../components/DiscardDialog";
 import { DeleteReviewDialog } from "../components/DeleteReviewDialog";
 import { FindBar, useFindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
-import { StarButton, useToggleStar } from "../components/StarButton";
+import { useToggleStar } from "../components/StarButton";
 import { ReviewItem } from "../components/ReviewItem";
-import { Thread, sessionOf, sessionPath } from "../components/Thread";
+import { Thread, sessionPath } from "../components/Thread";
 import { WaitMark } from "../components/WaitMark";
-import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
-import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
-import { openExternal, overlayTitleBar } from "../lib/native";
+import { LinkDialog } from "../components/LinkDialog";
+import { overlayTitleBar } from "../lib/native";
 import { canDictate, useDictation } from "../lib/dictation";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { age, stamp } from "../lib/format";
-import { useNotice, useConnected, usePlugins } from "../state/live";
+import { useConnected } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import type { FromSession } from "../lib/sessions";
 import { usePageRepo } from "../lib/pageRepo";
 import { CopyButton } from "../components/CopyButton";
+import { useReviewRounds } from "./review/useReviewRounds";
+import { usePluginView } from "./review/usePluginView";
+import { useLinkRequests } from "./review/useLinkRequests";
+import { OriginLink, ReviewActions, ReviewCrumb } from "./review/ReviewBar";
 
 const NOTE_PREFIX = "pinrail:draft:";
 
@@ -70,18 +58,43 @@ type ReviewViewProps = {
 
 const pageOf = (id: string): To => `/reviews/${id}`;
 
-/** A review: its strip, its plugin view, and the note sent with a decision. */
-export const ReviewView = memo(function ReviewView({
-  id,
+/** A review: its strip, its plugin view, and the note sent with a decision.
+ *  The review on screen stays until the next one the route names has
+ *  loaded; what was said and opened for it goes with it. */
+export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
+  const rounds = useReviewRounds(props.id);
+  const view = usePluginView(rounds.review, rounds.setReview);
+  usePageRepo(rounds.review?.origin.repo);
+  if (rounds.error) {
+    return (
+      <div className="review-page">
+        <p className="notice notice-danger">{rounds.error}</p>
+      </div>
+    );
+  }
+  if (!rounds.review) return <div className="review-page" />;
+  return <ReviewBody key={rounds.review.id} {...props} review={rounds.review} rounds={rounds} view={view} />;
+});
+
+/** The review on screen, with the state that belongs to it alone. */
+function ReviewBody({
+  review,
+  rounds: { rounds, unopened, previous, revisedBy, waiting, load, wanted },
+  view: { plugin, src, bundle, refused, newerInstalled, reopen },
   inPanel = false,
   linkTo = pageOf,
   onEnded,
   onClose,
   besideThread = false,
-}: ReviewViewProps) {
+}: ReviewViewProps & {
+  review: Review;
+  rounds: ReturnType<typeof useReviewRounds>;
+  view: ReturnType<typeof usePluginView>;
+}) {
+  // the review on screen, which is the route's once it has loaded
+  const id = review.id;
   const connected = useConnected();
-  const { plugins } = usePlugins();
-  const { settings: prefs, update: updatePrefs } = useSettings();
+  const { settings: prefs } = useSettings();
   const navigate = useNavigate();
   const toast = useToast();
   const location = useLocation();
@@ -92,55 +105,18 @@ export const ReviewView = memo(function ReviewView({
   const back = fromHistory ? { to: "/?tab=history", label: "History" } : { to: "/", label: "Inbox" };
   // where a decision leads: what is still waiting, or the session it came from
   const ended = fromSession ? sessionPath(fromSession) : "/";
-  const [review, setReview] = useState<Review | null>(null);
-  // the review the shortcuts act on, read when a key is pressed
-  const reviewRef = useRef(review);
-  reviewRef.current = review;
-  usePageRepo(review?.origin.repo);
   const toggleStar = useToggleStar();
-  const [rounds, setRounds] = useState<Review[]>([]);
-  // the whole review this round revises, with its payload, for the view: the
-  // rounds list holds summaries only
-  const [revised, setRevised] = useState<Review | null>(null);
-  // the other rounds still waiting that have never been opened: what is new
-  const [unopened, setUnopened] = useState<Set<string>>(new Set());
-  // The review opened: the plugin and its view's URL, resolved together for
-  // one plugin and the bundle the review renders with, which opening may
-  // move it to; the installed bundle when it was opened; and why the
-  // installed version does not take it, when it does not. The screen
-  // outlives a change of review, so what was resolved for the last review
-  // stays in state until the lookup for this one lands: it counts only
-  // when it was resolved for the review on screen.
-  const [resolved, setResolved] = useState<{
-    key: string;
-    plugin: Plugin | null;
-    src: string | null;
-    bundle: string | null;
-    installed: string | null;
-    refused: string | null;
-  } | null>(null);
-  // questions have no plugin: the thread shows them
-  const pluginKey = review && review.kind !== "question" ? `${review.plugin}@${review.plugin_bundle}` : null;
-  const current = resolved && resolved.key === pluginKey ? resolved : null;
-  const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
-  const src = current?.src ?? null;
-  // the plugin as installed now: another version, or a linked folder
-  // changed since it was stored, may have come since the review was opened
-  const installedNow = review ? plugins.get(review.plugin)?.install : undefined;
-  const newerInstalled =
-    !!current &&
-    review?.status === "pending" &&
-    !!installedNow &&
-    (installedNow.folder_changed ||
-      (installedNow.bundle !== current.installed && installedNow.bundle !== current.bundle));
-  // opens the review again, on the version installed now when it takes it
-  const reopen = () => setResolved(null);
   const [violations, setViolations] = useState<Violation[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(() => {
+    try {
+      return sessionStorage.getItem(NOTE_PREFIX + id + ":note") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const noteBox = useRef<HTMLTextAreaElement>(null);
   const [maximized, setMaximized] = useState(false);
   // the find bar, and a count that focuses it each time it is asked for
@@ -154,113 +130,18 @@ export const ReviewView = memo(function ReviewView({
   } = useFindBar();
   const frame = useRef<HTMLIFrameElement>(null);
   const noteRef = useRef(note);
-  noteRef.current = note;
-
-  // the review the route names now: a fetch for one clicked past lands late
-  // and is dropped, so the screen never settles on a review nobody picked
-  const wanted = useRef(id);
-  wanted.current = id;
-  /** Loads the review and its rounds; true when the review exists. */
-  const load = useCallback(async (): Promise<boolean> => {
-    try {
-      const [r, rs] = await Promise.all([api.getReview(id), api.rounds(id).catch(() => [] as Review[])]);
-      const before = r.revises ? await api.getReview(r.revises).catch(() => null) : null;
-      const waiting = rs.filter((round) => round.id !== id && round.status === "pending");
-      const opened = await Promise.all(
-        waiting.map((round) =>
-          api
-            .events(round.id)
-            .then((events) => events.some((e) => e.kind === "viewed"))
-            .catch(() => true),
-        ),
-      );
-      if (wanted.current !== id) return false;
-      setReview(r);
-      setRounds(rs);
-      setRevised(before);
-      setUnopened(new Set(waiting.filter((_, i) => !opened[i]).map((round) => round.id)));
-      setError(null);
-      return true;
-    } catch (e) {
-      if (wanted.current !== id) return false;
-      setError(errorMessage(e, "The server did not answer."));
-      return false;
-    }
-  }, [id]);
-
   useEffect(() => {
-    // marked viewed only once the server knows the review
-    load().then((found) => {
-      if (found) api.markViewed(id).catch(() => {});
-    });
-    try {
-      setNote(sessionStorage.getItem(NOTE_PREFIX + id + ":note") ?? "");
-    } catch {
-      // no storage
-    }
-  }, [id, load]);
+    noteRef.current = note;
+  }, [note]);
 
-  // Every event about this review refreshes it, and so does a new round of
-  // it: that event names the new review, revising this one or a later round.
-  const roundIds = useRef(new Set<string>());
-  roundIds.current = new Set([id, ...rounds.map((r) => r.id)]);
-  useNotice((notice) => {
-    const revises = notice.review?.revises;
-    // a star on another round marks this one too
-    const round = !!notice.review_id && roundIds.current.has(notice.review_id);
-    if (notice.review_id === id || (revises && roundIds.current.has(revises)) || round) load();
-  });
-
-  // The plugin the review renders with and the address of its view; null
-  // when it is not there, and the review says so.
-  useEffect(() => {
-    if (!review || !pluginKey) return;
-    if (resolved?.key === pluginKey) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        // opened, the review may move to the version installed now
-        const view = await api.reviewView(review.id);
-        if (cancelled) return;
-        const key = `${view.review.plugin}@${view.bundle}`;
-        // the plugin and its URL arrive in one update, for the key they were looked up for
-        setResolved({
-          key,
-          plugin: view.plugin.usable ? view.plugin : null,
-          src: view.url,
-          bundle: view.bundle,
-          refused: view.refused,
-          installed: view.installed,
-        });
-        if (view.review.plugin_bundle !== review.plugin_bundle) setReview(view.review);
-      } catch {
-        if (!cancelled)
-          setResolved({ key: pluginKey, plugin: null, src: null, bundle: null, installed: null, refused: null });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pluginKey, resolved]); // eslint-disable-line react-hooks/exhaustive-deps -- the key names the plugin and version; the review changes on every event
-
-  const previous = useMemo(() => {
-    if (!review?.revises) return null;
-    if (revised?.id === review.revises) return revised;
-    return rounds.find((r) => r.id === review.revises) ?? null;
-  }, [review, rounds, revised]);
-  const revisedBy = useMemo(() => rounds.find((r) => r.revises === review?.id) ?? null, [rounds, review]);
-  // the newest round, when it is waiting and has never been opened
-  const waiting = useMemo(() => {
-    const last = rounds[rounds.length - 1];
-    return last && unopened.has(last.id) ? { round: last, number: rounds.length } : null;
-  }, [rounds, unopened]);
-
-  const readonly = !review || review.status !== "pending";
+  const readonly = review.status !== "pending";
+  // only a review that is still waiting can be discarded
+  const pending = review.status === "pending";
 
   const onSubmit = useCallback(
     async (data: unknown): Promise<SubmitResult> => {
       try {
-        const decided = await api.decide(id, data, noteRef.current, current?.bundle ?? undefined);
+        const decided = await api.decide(id, data, noteRef.current, bundle ?? undefined);
         try {
           sessionStorage.removeItem(NOTE_PREFIX + id + ":note");
         } catch {
@@ -293,7 +174,7 @@ export const ReviewView = memo(function ReviewView({
         return { ok: false, violations: [] };
       }
     },
-    [id, load, navigate, toast, current?.bundle, onEnded, ended],
+    [id, load, navigate, toast, bundle, onEnded, ended, wanted, reopen],
   );
 
   // the plugin's own settings as they stand: its defaults under what was set
@@ -320,54 +201,11 @@ export const ReviewView = memo(function ReviewView({
     [plugin],
   );
 
-  // A link the view asked to open: opened when its origin is allowed for this
-  // plugin, and otherwise asked about, one request at a time; any that
-  // arrive while the person is being asked are dropped.
-  const [linkAsk, setLinkAsk] = useState<LinkRequest | null>(null);
-  const asking = useRef(false);
-  const prefsNow = useRef(prefs);
-  prefsNow.current = prefs;
-  const onOpen = useCallback(
-    (url: string) => {
-      if (!plugin || asking.current) return;
-      const request = linkRequest(url);
-      if (!request) return;
-      if (
-        allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugins.get(plugin.name) ?? plugin))
-      ) {
-        openExternal(url);
-        return;
-      }
-      asking.current = true;
-      setLinkAsk(request);
-    },
-    [plugin, plugins],
-  );
-  const onLinkChoice = useCallback(
-    (choice: LinkChoice) => {
-      const request = linkAsk;
-      asking.current = false;
-      setLinkAsk(null);
-      if (!request || !plugin || choice === "cancel") return;
-      if (choice === "always" && request.origin) {
-        updatePrefs({
-          links: {
-            [plugin.name]: allowing(
-              prefsNow.current.links[plugin.name],
-              sourceOf(plugins.get(plugin.name) ?? plugin),
-              request.origin,
-            ),
-          },
-        });
-      }
-      openExternal(request.url);
-    },
-    [linkAsk, plugin, updatePrefs, plugins],
-  );
+  const links = useLinkRequests(plugin);
 
   const bridge = usePluginBridge({
     frame,
-    reviewId: review?.id ?? null,
+    reviewId: id,
     review,
     previous: previous ? { ...previous } : null,
     readonly,
@@ -376,7 +214,7 @@ export const ReviewView = memo(function ReviewView({
     onSubmit,
     settings: pluginSettings,
     onSetSetting,
-    onOpen,
+    onOpen: links.onOpen,
     onDictationError: (message) => toast(message, "danger"),
     canCopy: !!plugin?.capabilities?.includes("clipboard"),
     onCopied: (what) => toast("text" in what ? "Copied the text" : `Copied ${what.image}`),
@@ -390,9 +228,6 @@ export const ReviewView = memo(function ReviewView({
     findInView("");
     frame.current?.focus();
   }, [findInView, hideFind]);
-
-  // only a review that is still waiting can be discarded
-  const pending = review?.status === "pending";
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -413,8 +248,7 @@ export const ReviewView = memo(function ReviewView({
       }
       if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "s" || event.key === "S")) {
         event.preventDefault();
-        const shown = reviewRef.current;
-        if (shown && shown.kind !== "question") toggleStar(shown);
+        if (review.kind !== "question") toggleStar(review);
         return;
       }
       if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "m" || event.key === "M")) {
@@ -482,181 +316,55 @@ export const ReviewView = memo(function ReviewView({
       window.removeEventListener("pinrail:discard", onDiscard);
       window.removeEventListener("pinrail:delete-review", onDelete);
     };
-  }, [previous, revisedBy, navigate, maximized, plugin, pending, onClose, finding, linkTo, toggleStar, showFind]);
-
-  // the view leaves with the review
-  // what was said and opened for the last review stays with it: the screen
-  // outlives a change of review
-  useEffect(() => {
-    setMaximized(false);
-    hideFind();
-    setFlash(null);
-    setViolations([]);
-    setDiscarding(false);
-    setDeleting(false);
-  }, [id, hideFind]);
+  }, [
+    review,
+    previous,
+    revisedBy,
+    navigate,
+    maximized,
+    plugin,
+    pending,
+    onClose,
+    finding,
+    linkTo,
+    toggleStar,
+    showFind,
+  ]);
 
   // the bar: where this came from, the title, its origin link. The review's
   // outcome leads the page's own strip, and what can be done with it ends it.
-  const originUrl = review?.origin.url ?? null;
+  const originUrl = review.origin.url ?? null;
   const crumb = useMemo(
-    () =>
-      review ? (
-        // it stretches across the bar, so its own empty space moves the window
-        <span className="crumb" data-tauri-drag-region>
-          {fromSession ? (
-            <>
-              {prefs.labs.sessions ? (
-                <>
-                  <Link to="/sessions" className="crumb-root">
-                    Sessions
-                  </Link>
-                  <span className="crumb-sep">›</span>
-                </>
-              ) : null}
-              <Link
-                to={sessionPath(fromSession)}
-                className="crumb-root crumb-session"
-                title={fromSession.title ?? fromSession.agent}
-              >
-                {fromSession.title ?? fromSession.agent}
-              </Link>
-            </>
-          ) : (
-            <Link to={back.to} state={location.state} className="crumb-root">
-              {back.label}
-            </Link>
-          )}
-          <span className="crumb-sep">›</span>
-          <span className="crumb-title copyable" title={review.title} data-testid="review-title">
-            {review.title}
-          </span>
-          {originUrl ? (
-            <Tooltip label={`Open ${review.origin.ref ?? "the origin"} in the browser`}>
-              <a
-                href={originUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="bar-button crumb-link"
-                aria-label="Open the origin"
-              >
-                <ExternalLink size={13} />
-              </a>
-            </Tooltip>
-          ) : null}
-        </span>
-      ) : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
-    [
-      review?.title,
-      review?.origin.ref,
-      originUrl,
-      back.to,
-      back.label,
-      location.state,
-      fromSession,
-      prefs.labs.sessions,
-    ],
+    () => (
+      <ReviewCrumb
+        title={review.title}
+        originRef={review.origin.ref ?? null}
+        originUrl={originUrl}
+        back={back}
+        backState={location.state}
+        fromSession={fromSession}
+        sessionsShown={prefs.labs.sessions}
+      />
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- back is made from fromHistory, which location.state holds
+    [review.title, review.origin.ref, originUrl, location.state, fromSession, prefs.labs.sessions],
   );
   // a page opened from the inbox can return to its side panel
   const showInPanel = !inPanel && !fromHistory && !fromSession && prefs.inbox.open_in === "panel" && pending;
-  const actions = useMemo(
-    () =>
-      review ? (
-        <>
-          {review.status === "pending" ? (
-            <Tooltip label="Discard: the agent is told to stop" keys={[MOD, "D"]} side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                onClick={() => setDiscarding(true)}
-                aria-label="Discard this review"
-              >
-                <Ban size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-          {id ? (
-            <CopyButton
-              key={id}
-              text={() => api.reviewMarkdown(id)}
-              label="Copy decision as markdown"
-              ariaLabel="Copy the decision as markdown"
-              className="bar-button copy-button"
-              size={15}
-            />
-          ) : null}
-          {review.kind === "question" ? null : <StarButton review={review} />}
-          <Tooltip label={review.kind === "question" ? "Delete these questions" : "Delete this review"} side="bottom">
-            <button
-              type="button"
-              className="bar-button"
-              onClick={() => setDeleting(true)}
-              aria-label={review.kind === "question" ? "Delete these questions" : "Delete this review"}
-            >
-              <Trash2 size={15} />
-            </button>
-          </Tooltip>
-          {besideThread || !prefs.labs.sessions ? null : <SessionLink review={review} />}
-          {plugin ? (
-            <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                onClick={() => setMaximized(true)}
-                aria-label="Maximize the view"
-              >
-                <Maximize2 size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-          {inPanel ? (
-            <Tooltip label="Open as a page" side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                onClick={() => navigate(`/reviews/${id}`)}
-                aria-label="Open as a page"
-              >
-                <Expand size={15} />
-              </button>
-            </Tooltip>
-          ) : showInPanel ? (
-            <Tooltip label="Show in the inbox's panel" side="bottom">
-              <button
-                type="button"
-                className="bar-button"
-                onClick={() => navigate(`/?open=${encodeURIComponent(id)}`)}
-                aria-label="Show in the inbox's panel"
-              >
-                <PanelRight size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-          {inPanel && onClose ? (
-            <Tooltip label="Close" keys={["Esc"]} side="bottom">
-              <button type="button" className="bar-button" onClick={onClose} aria-label="Close the panel">
-                <X size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-        </>
-      ) : null,
-    // the id too: the screen outlives a change of review, and Copy acts on it
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
-    [
-      id,
-      review?.status,
-      review?.requested_by,
-      review?.session,
-      review?.starred,
-      review?.starred_at,
-      plugin,
-      inPanel,
-      showInPanel,
-      onClose,
-      besideThread,
-    ],
+  const actions = (
+    <ReviewActions
+      review={review}
+      hasView={!!plugin}
+      inPanel={inPanel}
+      showInPanel={showInPanel}
+      sessionLink={!besideThread && prefs.labs.sessions}
+      onDiscard={() => setDiscarding(true)}
+      onDelete={() => setDeleting(true)}
+      onMaximize={() => setMaximized(true)}
+      onOpenPage={() => navigate(`/reviews/${id}`)}
+      onShowInPanel={() => navigate(`/?open=${encodeURIComponent(id)}`)}
+      onClose={onClose}
+    />
   );
   const forPlugin = useMemo(
     () =>
@@ -673,8 +381,8 @@ export const ReviewView = memo(function ReviewView({
   // in the side panel, the inbox shows its own bar and title: the panel
   // gives only its plugin, whose keys the shortcuts dialog lists
   const topbar = useMemo(
-    () => (review ? (inPanel ? { plugin: forPlugin } : { crumb, plugin: forPlugin }) : null),
-    [review, crumb, forPlugin, inPanel],
+    () => (inPanel ? { plugin: forPlugin } : { crumb, plugin: forPlugin }),
+    [crumb, forPlugin, inPanel],
   );
   useTopBar(topbar);
 
@@ -713,14 +421,6 @@ export const ReviewView = memo(function ReviewView({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [note, dictation.listening]);
 
-  if (error) {
-    return (
-      <div className="review-page">
-        <p className="notice notice-danger">{error}</p>
-      </div>
-    );
-  }
-  if (!review) return <div className="review-page" />;
   if (review.kind === "question")
     return (
       <div className={`review-page thread-page ${inPanel ? "in-panel" : ""}`}>
@@ -738,19 +438,7 @@ export const ReviewView = memo(function ReviewView({
           <span className="panel-title copyable" title={review.title} data-testid="review-title">
             {review.title}
           </span>
-          {originUrl ? (
-            <Tooltip label={`Open ${review.origin.ref ?? "the origin"} in the browser`}>
-              <a
-                href={originUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="bar-button crumb-link"
-                aria-label="Open the origin"
-              >
-                <ExternalLink size={13} />
-              </a>
-            </Tooltip>
-          ) : null}
+          {originUrl ? <OriginLink url={originUrl} originRef={review.origin.ref ?? null} /> : null}
           <span className="strip-actions">{actions}</span>
         </div>
       ) : null}
@@ -824,10 +512,10 @@ export const ReviewView = memo(function ReviewView({
           </button>
         </div>
       ) : null}
-      {current?.refused && review.status === "pending" ? (
+      {refused && review.status === "pending" ? (
         <p className="notice">
           The installed version of this plugin does not take this review, so it opens with the version it was submitted
-          to. {current.refused}
+          to. {refused}
         </p>
       ) : null}
       {review.status === "withdrawn" ? (
@@ -878,8 +566,8 @@ export const ReviewView = memo(function ReviewView({
           />
         </p>
       ) : null}
-      {linkAsk && plugin ? (
-        <LinkDialog plugin={plugin.title || plugin.name} request={linkAsk} onClose={onLinkChoice} />
+      {links.asked && plugin ? (
+        <LinkDialog plugin={plugin.title || plugin.name} request={links.asked} onClose={links.onChoice} />
       ) : null}
       {deleting ? (
         <DeleteReviewDialog
@@ -1093,19 +781,5 @@ export const ReviewView = memo(function ReviewView({
         </div>
       ) : null}
     </div>
-  );
-});
-
-/** A link to the thread of the session the review was sent from, if the
- *  agent said which. */
-function SessionLink({ review }: { review: Review }) {
-  const session = sessionOf(review);
-  if (!session) return null;
-  return (
-    <Tooltip label="Open the session's thread" side="bottom">
-      <Link to={sessionPath(session)} className="bar-button" aria-label="Open the session's thread">
-        <MessagesSquare size={15} />
-      </Link>
-    </Tooltip>
   );
 }

@@ -276,3 +276,30 @@ test("J and K move the focus to the row they light, and closing the panel gives 
   await expect(panel(page)).toHaveCount(0);
   await expect(page.getByTestId("review-row").filter({ hasText: title! })).toBeFocused();
 });
+
+test("walking to another review never shows it maximized", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Panel: walk from" });
+  await createReview(page.request, { title: "Panel: walk to" });
+  await page.goto("/#/");
+  await row(page, "Panel: walk from").click();
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
+  await page.locator("body").press("ControlOrMeta+Shift+M");
+  await expect(page.locator(".frame-bar-title")).toHaveText("Panel: walk from");
+  // every title the maximized bar ever shows, even for one render
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as any).__maximizedTitles = seen;
+    new MutationObserver((records) => {
+      for (const r of records)
+        for (const n of [r.target, ...r.addedNodes]) {
+          const bar = (n instanceof Element ? n : n.parentElement)?.closest(".frame-bar-title");
+          if (bar) seen.push(bar.textContent ?? "");
+        }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  await page.locator("body").press("j");
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Panel: walk to");
+  await expect(page.locator(".frame-bar")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__maximizedTitles)).not.toContain("Panel: walk to");
+});
