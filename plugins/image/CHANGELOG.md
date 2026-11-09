@@ -4,6 +4,13 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.2.1] - Unreleased
+
+### Fixed
+
+- A hand-over made before the images have loaded waits for them, so the
+  regions restored from a draft are no longer left out of the decision.
+
 ## [1.2.0] - Pinrail 0.4.1
 
 ### Changed

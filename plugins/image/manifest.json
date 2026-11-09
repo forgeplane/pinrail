@@ -1,6 +1,6 @@
 {
   "name": "image",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "title": "Image review",
   "description": "A round of generated images or illustrations, sent as PNG, JPEG, WebP or SVG files, each large on a stage to zoom and pan. Pick a favourite, keep or drop the rest, and box or pin a spot on an image to ask for a change there.",
   "use_when": "You generated candidate images or illustrations (a spot illustration, a hero, a product shot, an icon set) and need a person to pick one, shortlist or drop the rest, and mark the areas to fix, remove or redraw, in coordinates an image-editing or inpainting step can act on.",

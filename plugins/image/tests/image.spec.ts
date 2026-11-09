@@ -524,3 +524,28 @@ test("in a narrow but short frame the stage still takes the full width", async (
   // the stage spans the sheet's content area, apart from its padding
   expect(stage.width).toBeGreaterThan(sheet.width - 80);
 });
+
+test("a hand-over before the images are read waits for them and keeps the draft's regions", async ({ page }) => {
+  let plugin = await mountPlugin(page, dir, { review: round() });
+  await ready(plugin);
+  await page.mouse.click(...(await onImage(plugin, 0.5, 0.84)));
+  await plugin.frame.locator("#region-note").fill("Ground the post");
+  await plugin.frame.locator("#region-note").press("Enter");
+  await expect.poll(async () => (await plugin.lastDraft())?.A?.regions?.length).toBe(1);
+  // the other images decided, so the hand-over asks nothing more
+  const draft = { ...(await plugin.lastDraft()), B: { action: "drop" }, C: { action: "drop" }, D: { action: "drop" } };
+
+  // the images are held back until the hand-over has been asked for
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/_attachments/**", async (route) => {
+    await held;
+    await route.fallback();
+  });
+  plugin = await mountPlugin(page, dir, { review: round(), draft });
+  const collecting = plugin.collect();
+  setTimeout(release, 300);
+  await collecting;
+  const decision = valid(await plugin.nextSubmit());
+  expect(decision.decisions[0].regions).toHaveLength(1);
+});

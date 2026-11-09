@@ -906,6 +906,8 @@
         notesOpen: true,
       };
       const images = []; // per payload image: { url, width, height, ox, oy, type, bytes, error }
+      // the reading of the images, which the next hand-over waits for
+      let reading = Promise.resolve();
       const past = {}; // the previous round's image, by id: the same shape, or null
 
       /* Reading an image: the file the review carries, handed over by the app.
@@ -1794,7 +1796,7 @@
           render();
           // the view is up at once; each image fills in as it is read
           const round = ++rounds;
-          await Promise.all(
+          reading = Promise.all(
             P.images.map(async (m, i) => {
               let entry;
               try {
@@ -1810,6 +1812,7 @@
               } else document.querySelector(`[data-pick="${i}"]`)?.replaceWith(pickFor(m, i));
             }),
           );
+          await reading;
         },
         onSubmitted() {
           render();
@@ -1825,7 +1828,9 @@
           S.armed = false;
           status();
         },
-        onCollect() {
+        // the regions need the images' sizes: a hand-over waits for them
+        async onCollect() {
+          await reading;
           return handOver();
         },
       });
