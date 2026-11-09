@@ -155,7 +155,7 @@ pub async fn serve(
                     .settings()
                     .value("/history/keep_days")
                     .as_u64()
-                    .map(|d| d as u32);
+                    .and_then(|d| u32::try_from(d).ok());
                 if let Err(error) = app.reviews().sweep_history(keep_days) {
                     eprintln!("pinrail: history sweep failed: {error}");
                 }

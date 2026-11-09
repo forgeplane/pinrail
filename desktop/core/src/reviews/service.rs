@@ -963,11 +963,14 @@ impl Reviews {
     /// more. `None` keeps everything, and so does 0, which the settings
     /// refuse. Returns how many reviews went.
     pub fn sweep_history(&self, keep_days: Option<u32>) -> Result<usize, Error> {
-        match keep_days {
-            Some(days) if days > 0 => {
-                self.sweep_history_before(Utc::now() - chrono::Duration::days(days as i64))
-            }
-            _ => Ok(0),
+        // a limit too far back to subtract from today keeps everything
+        let before = keep_days
+            .filter(|days| *days > 0)
+            .and_then(|days| chrono::Duration::try_days(days.into()))
+            .and_then(|kept| Utc::now().checked_sub_signed(kept));
+        match before {
+            Some(before) => self.sweep_history_before(before),
+            None => Ok(0),
         }
     }
 

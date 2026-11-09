@@ -84,6 +84,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   longer refused for files it does not carry.
 - A note or work item whose `attachment:` link has a malformed escape,
   such as `%E0`, no longer blanks the app's window.
+- `history.keep_days` takes at most 36500 days. A much larger value set
+  through the API or in `settings.json` stopped the app from deleting
+  old history and expired reviews until it restarted.
 - Esc pressed as soon as What's new opens closes it.
 - Esc in the search field of the inbox, the Sessions page or the
   Projects page leaves the field and keeps the search, so the page's keys

@@ -2532,6 +2532,11 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
         ),
         Some(decision.clone()),
     )
+    // a limit too far back to subtract keeps everything rather than panicking
+    assert_eq!(
+        app.state.reviews().sweep_history(Some(u32::MAX)).unwrap(),
+        0
+    );
     .await;
     assert_eq!(status, StatusCode::OK);
     let withdrawn = submit(&app, submission()).await;

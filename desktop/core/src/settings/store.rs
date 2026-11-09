@@ -13,6 +13,8 @@ use super::{LINKS, PLUGINS};
 use crate::error::{Error, Violation};
 
 const FILE: &str = "settings.json";
+/// The most days history.keep_days takes: a hundred years.
+const MAX_DAYS: u64 = 36_500;
 
 /// What a leaf may hold.
 #[derive(Debug, Clone, Copy)]
@@ -308,7 +310,9 @@ impl Kind {
             Kind::TextList => "a list of non-empty strings".into(),
             Kind::NullableHours => "`{\"from\": \"HH:MM\", \"to\": \"HH:MM\"}`, or `null`".into(),
             Kind::Port => "a port, 1 to 65535".into(),
-            Kind::NullableDays => "a positive number of days, or `null`".into(),
+            Kind::NullableDays => {
+                format!("a number of days from 1 to {MAX_DAYS}, or `null`").into()
+            }
             Kind::NullableVersion => "a version such as `\"0.3.0\"`, or `null`".into(),
             Kind::ThemeId => "a theme's id, such as `\"nord\"`".into(),
         }
@@ -768,7 +772,7 @@ fn check(kind: Kind, value: &Value) -> Option<String> {
         },
         Kind::NullableDays => match value {
             Value::Null => None,
-            Value::Number(n) if n.as_u64().is_some_and(|d| d >= 1) => None,
+            Value::Number(n) if n.as_u64().is_some_and(|d| (1..=MAX_DAYS).contains(&d)) => None,
             _ => wrong("a number of days, or null"),
         },
         Kind::NullableVersion => match value {
@@ -913,6 +917,17 @@ mod tests {
                 .is_err()
         );
         assert!(store.patch(&json!({"history": {"keep_days": 0}})).is_err());
+        // beyond what the sweep can subtract from today
+        assert!(
+            store
+                .patch(&json!({"history": {"keep_days": 100_000_000}}))
+                .is_err()
+        );
+        assert!(
+            store
+                .patch(&json!({"history": {"keep_days": 36_500}}))
+                .is_ok()
+        );
         assert!(
             store
                 .patch(&json!({"notifications": {"muted_plugins": [""]}}))
