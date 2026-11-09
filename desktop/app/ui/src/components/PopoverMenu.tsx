@@ -49,10 +49,12 @@ export function PopoverMenu({
     setPos({ top, left: Math.max(4, Math.min(left, window.innerWidth - width - 4)) });
   }, [anchor, align]);
 
-  // the button says its menu is open, which keeps it and its row shown
+  // the button says its menu is open, which keeps it and its row shown, and
+  // says what it said before once the menu closes
   useEffect(() => {
+    const before = anchor.getAttribute("aria-expanded");
     anchor.setAttribute("aria-expanded", "true");
-    return () => anchor.setAttribute("aria-expanded", "false");
+    return () => anchor.setAttribute("aria-expanded", before ?? "false");
   }, [anchor]);
 
   useEffect(() => {

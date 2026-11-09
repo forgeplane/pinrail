@@ -23,7 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { api, errorMessage } from "../api/client";
 import type { Project, ProjectRepo } from "../api/types";
@@ -39,6 +39,7 @@ import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
 import { Dialog } from "../components/Dialog";
 import { useLoad } from "../lib/useLoad";
+import { useDragDrop } from "../lib/useDragDrop";
 
 /** The type of a repository's name on a drag. */
 const DRAGGED = "application/x-pinrail-repo";
@@ -64,7 +65,8 @@ export function Projects() {
   const sessionsOn = prefs.labs.sessions;
   const [menu, setMenu] = useState<Menu | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [dropOn, setDropOn] = useState<string | null>(null);
+  const drag = useDragDrop(DRAGGED);
+  const dropOn = drag.dropOn;
   const [folded, setFolded] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
   const search = useRef<HTMLInputElement>(null);
@@ -194,23 +196,10 @@ export function Projects() {
 
   // a repository dropped on a project's group goes in that project, and
   // dropped on the last group, in none
-  const dropTarget = (key: string, project: string | null) => ({
-    onDragOver: (event: DragEvent) => {
-      if (!event.dataTransfer.types.includes(DRAGGED)) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      setDropOn(key);
-    },
-    onDragLeave: (event: DragEvent) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
-    },
-    onDrop: (event: DragEvent) => {
-      event.preventDefault();
-      setDropOn(null);
-      const repo = event.dataTransfer.getData(DRAGGED);
-      if (repo && projectOf(repo)?.id !== (project ?? undefined)) void move(repo, project);
-    },
-  });
+  const dropTarget = (key: string, project: string | null) =>
+    drag.target(key, (repo) => {
+      if (projectOf(repo)?.id !== (project ?? undefined)) void move(repo, project);
+    });
 
   const toggle = (key: string) =>
     setFolded((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
@@ -219,17 +208,7 @@ export function Projects() {
   const allFolded = groupKeys.length > 0 && groupKeys.every((key) => folded.includes(key));
 
   const repoRow = (repo: ProjectRepo) => (
-    <li
-      key={repo.repo}
-      className="project-repo"
-      draggable
-      data-testid="project-repo"
-      onDragStart={(event) => {
-        event.dataTransfer.setData(DRAGGED, repo.repo);
-        event.dataTransfer.effectAllowed = "move";
-      }}
-      onDragEnd={() => setDropOn(null)}
-    >
+    <li key={repo.repo} className="project-repo" data-testid="project-repo" {...drag.source(repo.repo)}>
       <GripVertical size={13} className="project-grip" aria-hidden />
       <FolderGit2 size={14} className="project-repo-icon" aria-hidden />
       <span className="project-repo-name">{repo.repo}</span>

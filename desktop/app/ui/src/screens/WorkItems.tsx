@@ -3,8 +3,7 @@
 // each as a row of its own, a quick add at the top, and filters.
 
 import { FolderGit2, ListChecks, Lock, Plus, Search, SearchX } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, errorMessage } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
@@ -24,7 +23,7 @@ import { ItemRow, type ItemRowActions } from "../components/ItemRow";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
-import { useOptionsMenu } from "../components/OptionsMenu";
+import { PopoverMenu } from "../components/PopoverMenu";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive, aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -33,6 +32,8 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
+import { itemTree, type ItemTreeRow } from "../lib/itemTree";
+import { useDragDrop } from "../lib/useDragDrop";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -64,7 +65,7 @@ function statusIcon(value: string) {
 const DRAGGED = "application/x-pinrail-item";
 
 /** An item in the order J and K walk, at its depth in the tree. */
-type Shown = { item: WorkItem; depth: number; folded: boolean; children: number; parentTitle?: string };
+type Shown = ItemTreeRow;
 
 export function WorkItems() {
   const live = useLive();
@@ -162,35 +163,9 @@ export function WorkItems() {
   );
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
-  /** A group's rows in order: nested under their parents, or flat. */
-  const rowsOf = useCallback(
-    (list: WorkItem[]): Shown[] => {
-      if (!nested) return list.map((item) => ({ item, depth: 0, folded: false, children: 0 }));
-      const here = new Map(list.map((i) => [i.key, i]));
-      const children = new Map<string, WorkItem[]>();
-      const roots: WorkItem[] = [];
-      for (const item of list) {
-        if (item.parent && here.has(item.parent)) {
-          const kids = children.get(item.parent);
-          if (kids) kids.push(item);
-          else children.set(item.parent, [item]);
-        } else roots.push(item);
-      }
-      const out: Shown[] = [];
-      const walk = (item: WorkItem, depth: number) => {
-        const kids = children.get(item.key) ?? [];
-        const isFolded = folded.has(item.key);
-        out.push({ item, depth, folded: isFolded, children: kids.length });
-        if (!isFolded) for (const kid of kids) walk(kid, depth + 1);
-      };
-      for (const root of roots) walk(root, 0);
-      return out;
-    },
-    [nested, folded],
-  );
   const shownGroups = useMemo(
-    () => groups.map(([key, list]) => [key, rowsOf(list)] as [string, Shown[]]),
-    [groups, rowsOf],
+    () => groups.map(([key, list]) => [key, itemTree(list, { nested, folded })] as [string, Shown[]]),
+    [groups, nested, folded],
   );
   const rows = useMemo(() => shownGroups.flatMap(([, r]) => r), [shownGroups]);
   const agents = useMemo(
@@ -284,7 +259,8 @@ export function WorkItems() {
   );
   // an item dragged onto another becomes its sub-item, and a sub-item
   // dragged to the top of the list leaves its parent
-  const [dropOn, setDropOn] = useState<string | null>(null);
+  const drag = useDragDrop(DRAGGED);
+  const dropOn = drag.dropOn;
   const [dragging, setDragging] = useState<WorkItem | null>(null);
   const dragTimer = useRef(0);
   const putUnder = useCallback(
@@ -404,26 +380,16 @@ export function WorkItems() {
     open: (item) => open(item),
     toggleFold: (key) => toggleFold(key),
     dragStart: (event, item, group) => {
-      event.dataTransfer.setData(DRAGGED, item.key);
+      drag.start(event, item.key);
       draggedGroup.current = group;
-      event.dataTransfer.effectAllowed = "move";
       // after the drag has begun: a change to the page during dragstart
       // cancels the drag
       dragTimer.current = window.setTimeout(() => setDragging(item), 0);
     },
-    dragOver: (event, item) => {
-      if (!event.dataTransfer.types.includes(DRAGGED)) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      setDropOn(item.key);
-    },
-    dragLeave: (event) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
-    },
+    dragOver: (event, item) => drag.over(event, item.key),
+    dragLeave: drag.leave,
     drop: (event, item) => {
-      event.preventDefault();
-      setDropOn(null);
-      const dragged = event.dataTransfer.getData(DRAGGED);
+      const dragged = drag.take(event);
       if (!dragged || dragged === item.key) return;
       // dropped on another item, it becomes its sub-item, in its repository
       const from = items?.find((i) => i.key === dragged);
@@ -435,7 +401,7 @@ export function WorkItems() {
     dragEnd: () => {
       window.clearTimeout(dragTimer.current);
       draggedGroup.current = null;
-      setDropOn(null);
+      drag.end();
       setDragging(null);
     },
   };
@@ -617,19 +583,7 @@ export function WorkItems() {
               <div
                 className={`item-top-drop ${dropOn === "" ? "is-drop" : ""}`}
                 data-testid="item-top-drop"
-                onDragOver={(event) => {
-                  if (!event.dataTransfer.types.includes(DRAGGED)) return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                  if (dropOn !== "") setDropOn("");
-                }}
-                onDragLeave={() => setDropOn(null)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setDropOn(null);
-                  const dragged = event.dataTransfer.getData(DRAGGED);
-                  if (dragged) void putUnder(dragged, null, dragging.parent);
-                }}
+                {...drag.target("", (dragged) => void putUnder(dragged, null, dragging.parent))}
               >
                 Drop here to move it to the top level
               </div>
@@ -648,22 +602,11 @@ export function WorkItems() {
                         ? `is-drop-target ${dropOn === `group:${key}` ? "is-drop" : ""}`
                         : undefined
                     }
-                    onDragOver={(event) => {
-                      if (!event.dataTransfer.types.includes(DRAGGED)) return;
-                      if (key === draggedGroup.current || !reposOf(key).length) return;
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      if (dropOn !== `group:${key}`) setDropOn(`group:${key}`);
-                    }}
-                    onDragLeave={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setDropOn(null);
-                      const dragged = event.dataTransfer.getData(DRAGGED);
-                      if (dragged && key !== draggedGroup.current) dropOnGroup(key, event.currentTarget, dragged);
-                    }}
+                    {...drag.target(
+                      `group:${key}`,
+                      (dragged, event) => dropOnGroup(key, event.currentTarget as HTMLElement, dragged),
+                      key !== draggedGroup.current && reposOf(key).length > 0,
+                    )}
                   >
                     <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />
                   </summary>
@@ -690,13 +633,17 @@ export function WorkItems() {
         </footer>
       </div>
       {choosing ? (
-        <RepoChoiceMenu
+        <PopoverMenu
           anchor={choosing.anchor}
-          repos={choosing.repos}
-          onPick={(repo) => {
-            void moveTo(choosing.key, repo);
-            setChoosing(null);
-          }}
+          label="Move to which repository?"
+          entries={[
+            { kind: "heading", label: "Move to which repository?" },
+            ...choosing.repos.map((repo) => ({
+              label: repo,
+              icon: FolderGit2,
+              onPick: () => void moveTo(choosing.key, repo),
+            })),
+          ]}
           onClose={() => setChoosing(null)}
         />
       ) : null}
@@ -748,47 +695,4 @@ function QuickAdd({ open, onOpen, ...box }: { open: boolean; onOpen: () => void 
       </button>
     );
   return <QuickAddBox {...box} />;
-}
-
-/** The repositories of a project an item was dropped on, to pick the one
- *  it moves to. */
-function RepoChoiceMenu({
-  anchor,
-  repos,
-  onPick,
-  onClose,
-}: {
-  anchor: HTMLElement;
-  repos: string[];
-  onPick: (repo: string) => void;
-  onClose: () => void;
-}) {
-  const { menu, pos } = useOptionsMenu(anchor, onClose);
-  // above the heading when it does not fit under it
-  const [above, setAbove] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const el = menu.current;
-    if (!el || !pos) return;
-    const height = el.getBoundingClientRect().height;
-    if (pos.top + height > window.innerHeight - 8) setAbove(Math.max(8, pos.top - height - 8 - anchor.offsetHeight));
-  }, [menu, pos, anchor]);
-  if (!pos) return null;
-  return createPortal(
-    <div
-      ref={menu}
-      className="menu-popup"
-      role="menu"
-      aria-label="Move to which repository?"
-      style={{ top: above ?? pos.top, left: pos.left }}
-    >
-      <div className="menu-heading">Move to which repository?</div>
-      {repos.map((repo) => (
-        <button key={repo} type="button" role="menuitem" className="menu-item" onClick={() => onPick(repo)}>
-          <FolderGit2 size={14} className="menu-icon" aria-hidden />
-          {repo}
-        </button>
-      ))}
-    </div>,
-    document.body,
-  );
 }
