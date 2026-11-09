@@ -24,6 +24,8 @@ export function useSessionThread(
   const live = useLive();
   // the work items the session holds or worked on, with what changes them
   const [sessionItems, setSessionItems] = useState<WorkItem[]>([]);
+  // how many times its items changed, which loads them again
+  const [itemsChanged, setItemsChanged] = useState(0);
   useEffect(() => {
     if (!named) return;
     let cancelled = false;
@@ -34,7 +36,7 @@ export function useSessionThread(
     return () => {
       cancelled = true;
     };
-  }, [named?.agent, named?.id, live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- the session's names, not the object
+  }, [named?.agent, named?.id, itemsChanged]); // eslint-disable-line react-hooks/exhaustive-deps -- the session's names, not the object
   const [session, setSession] = useState<Session | null>(null);
   const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
   const [statuses, setStatuses] = useState<SessionStatus[]>([]);
@@ -69,15 +71,27 @@ export function useSessionThread(
   // anything about one of its reviews, or a new one from the session
   const ids = useRef(new Set<string>());
   ids.current = new Set(items.map((r) => r.id));
+  // the items it holds, worked on or commented on
+  const keys = useRef(new Set<string>());
+  keys.current = new Set([
+    ...sessionItems.map((i) => i.key),
+    ...comments.map((c) => c.item.key),
+    ...itemEvents.map((e) => e.item.key),
+  ]);
   useEffect(() => {
     const notice = live.lastNotice;
     if (!notice) return;
+    // a change its agent made to an item, or any change to one of its items
+    const itemOurs =
+      !!named &&
+      !!notice.item &&
+      ((notice.item.agent === named.agent && notice.item.session === named.id) || keys.current.has(notice.item.key));
     const ours =
+      itemOurs ||
       (notice.review_id && ids.current.has(notice.review_id)) ||
       (named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
-      (named && notice.session?.agent === named.agent && notice.session.id === named.id) ||
-      // a comment its agent wrote on a work item, or a change to its items
-      (named && notice.kind === "item_changed");
+      (named && notice.session?.agent === named.agent && notice.session.id === named.id);
+    if (itemOurs) setItemsChanged((n) => n + 1);
     if (ours) load();
   }, [live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- each notice once
 

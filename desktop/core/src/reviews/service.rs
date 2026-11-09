@@ -469,6 +469,7 @@ impl Reviews {
             review: None,
             keys: None,
             session: Some(status_notice(agent, session, &added.status)),
+            item: None,
         });
         if let Some(event_id) = added.delivered {
             self.bus.publish(Notice {
@@ -478,6 +479,7 @@ impl Reviews {
                 review: None,
                 keys: None,
                 session: Some(delivered_notice(agent, session, &added.messages)),
+                item: None,
             });
         }
         Ok((added.messages, added.stage))
@@ -512,6 +514,7 @@ impl Reviews {
             review: None,
             keys: None,
             session: Some(message_notice(agent, session, &message)),
+            item: None,
         });
         Ok(message)
     }
@@ -527,6 +530,7 @@ impl Reviews {
                     review: None,
                     keys: None,
                     session: Some(message_notice(agent, session, &deleted)),
+                    item: None,
                 });
                 Ok(())
             }
@@ -563,6 +567,7 @@ impl Reviews {
             review: None,
             keys: None,
             session: Some(serde_json::json!({ "agent": agent, "id": id })),
+            item: None,
         });
         Ok(())
     }
@@ -1108,6 +1113,7 @@ impl Reviews {
             review: None,
             keys: None,
             session: None,
+            item: None,
         });
     }
 
@@ -1119,6 +1125,7 @@ impl Reviews {
             review: Some(review.to_json(false)),
             keys: None,
             session: None,
+            item: None,
         });
     }
 

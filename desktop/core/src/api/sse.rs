@@ -70,6 +70,10 @@ async fn events(
         if let Some(session) = &n.session {
             data["session"] = session.clone();
         }
+        // the item, and who changed it, on an item's notice
+        if let Some(item) = &n.item {
+            data["item"] = item.clone();
+        }
         Ok(Event::default()
             .id(n.event_id.to_string())
             .event(n.kind.clone())

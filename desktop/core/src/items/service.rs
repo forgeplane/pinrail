@@ -142,13 +142,21 @@ impl Items {
         }
     }
 
-    fn announce(&self, kind: &str, item: &WorkItem) -> Result<(), Error> {
-        let event_id = self.db.append_event(
-            None,
-            kind,
-            None,
-            &json!({"id": item.id, "key": item.key.to_string()}),
-        )?;
+    /// Tells the app an item changed: its key, and the agent and session
+    /// that changed it when an agent did, so that a view can tell whether it
+    /// is about the items it shows.
+    fn announce(&self, kind: &str, item: &WorkItem, actor: &Actor) -> Result<(), Error> {
+        let (agent, session) = match actor {
+            Actor::Agent { .. } => (Some(actor.name()), actor.session()),
+            _ => (None, None),
+        };
+        let attrs = json!({
+            "id": item.id,
+            "key": item.key.to_string(),
+            "agent": agent,
+            "session": session,
+        });
+        let event_id = self.db.append_event(None, kind, None, &attrs)?;
         self.bus.publish(Notice {
             event_id,
             kind: kind.to_string(),
@@ -156,6 +164,7 @@ impl Items {
             review: None,
             keys: None,
             session: None,
+            item: Some(attrs),
         });
         Ok(())
     }
@@ -302,7 +311,7 @@ impl Items {
             )?
             .item
         };
-        self.announce(events::ITEM_CHANGED, &item)?;
+        self.announce(events::ITEM_CHANGED, &item, actor)?;
         Ok(item)
     }
 
@@ -340,7 +349,7 @@ impl Items {
             .add_breakdown(&breakdown, actor, Utc::now())?
             .map_err(refused)?;
         if let Some((_, first)) = added.first() {
-            self.announce(events::ITEM_CHANGED, first)?;
+            self.announce(events::ITEM_CHANGED, first, actor)?;
         }
         Ok(added)
     }
@@ -351,7 +360,7 @@ impl Items {
         let repo = check_repo(repo)?;
         let item = self.db.next_item(&repo, actor, claim, Utc::now())?;
         if claim && let Some(item) = &item {
-            self.announce(events::ITEM_CHANGED, item)?;
+            self.announce(events::ITEM_CHANGED, item, actor)?;
         }
         Ok(item)
     }
@@ -406,7 +415,7 @@ impl Items {
             );
             self.tell_holder(&held_by, &text)?;
         }
-        self.announce(events::ITEM_CHANGED, &edited.item)?;
+        self.announce(events::ITEM_CHANGED, &edited.item, actor)?;
         Ok(edited)
     }
 
@@ -473,7 +482,7 @@ impl Items {
             );
             self.tell_holder(&item.claim, &text)?;
         }
-        self.announce(events::ITEM_CHANGED, &item)?;
+        self.announce(events::ITEM_CHANGED, &item, actor)?;
         Ok(comment)
     }
 
@@ -489,7 +498,7 @@ impl Items {
         self.db
             .queue_item(item, place, Utc::now())?
             .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, None)?)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, None)?, actor)?;
         self.queued()
     }
 
@@ -497,7 +506,7 @@ impl Items {
     pub fn unqueue(&self, item: &ItemRef, actor: &Actor) -> Result<Vec<WorkItem>, Error> {
         only_the_person(actor)?;
         self.db.unqueue_item(item, Utc::now())?.map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, None)?)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, None)?, actor)?;
         self.queued()
     }
 
@@ -530,6 +539,7 @@ impl Items {
                 review: None,
                 keys: None,
                 session: Some(crate::db::message_notice(agent, session, &message)),
+                item: None,
             });
         }
         Ok(())
@@ -549,7 +559,7 @@ impl Items {
             .db
             .edit_item_comment(item, repo, comment, &body, actor, Utc::now())?
             .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?, actor)?;
         Ok(edited)
     }
 
@@ -564,7 +574,7 @@ impl Items {
         self.db
             .delete_item_comment(item, repo, comment, actor)?
             .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?)?;
+        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?, actor)?;
         Ok(())
     }
 
@@ -583,7 +593,7 @@ impl Items {
         }
         let found = self.get(item, repo)?;
         let count = self.db.delete_item(item, repo)?.map_err(refused)?;
-        self.announce(events::ITEM_DELETED, &found)?;
+        self.announce(events::ITEM_DELETED, &found, actor)?;
         Ok(count)
     }
 
@@ -604,7 +614,11 @@ impl Items {
             .set_review_items(&rounds, items, actor, Utc::now())?
             .map_err(refused)?;
         for id in changed {
-            self.announce(events::ITEM_CHANGED, &self.get(&ItemRef::Id(id), None)?)?;
+            self.announce(
+                events::ITEM_CHANGED,
+                &self.get(&ItemRef::Id(id), None)?,
+                actor,
+            )?;
         }
         Ok(())
     }
@@ -627,6 +641,7 @@ impl Items {
             review: None,
             keys: None,
             session: None,
+            item: None,
         });
         Ok(())
     }

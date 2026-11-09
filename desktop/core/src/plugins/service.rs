@@ -314,6 +314,7 @@ impl PluginService {
             review: None,
             keys: None,
             session: None,
+            item: None,
         });
         Ok(())
     }

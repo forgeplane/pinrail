@@ -204,6 +204,7 @@ impl Projects {
             review: None,
             keys: None,
             session: None,
+            item: None,
         });
     }
 }

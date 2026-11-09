@@ -369,6 +369,9 @@ export type Notice = {
   keys?: string[];
   /** for session_status: the session and the status the agent reported */
   session?: { agent: string; id: string; status: SessionStatus };
+  /** for item_changed and item_deleted: the item, and the agent and session
+   *  that changed it when an agent did */
+  item?: { id: string; key: string; agent: string | null; session: string | null };
 };
 
 /** What an agent said it is doing, with `pinrail status`. */

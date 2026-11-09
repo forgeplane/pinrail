@@ -89,6 +89,7 @@ impl SettingsService {
             review: None,
             keys: Some(keys.to_vec()),
             session: None,
+            item: None,
         });
         Ok(())
     }

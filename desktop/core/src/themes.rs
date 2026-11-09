@@ -240,6 +240,7 @@ impl Themes {
             review: None,
             keys: None,
             session: None,
+            item: None,
         });
         Ok(true)
     }

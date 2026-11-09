@@ -63,6 +63,10 @@ pub struct Notice {
     /// The session and its new status, for `session_status`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<Value>,
+    /// The item, for `item_changed` and `item_deleted`: its key, and the
+    /// agent and session that changed it, when an agent did.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item: Option<Value>,
 }
 
 #[derive(Debug, Clone)]

@@ -50,6 +50,9 @@ impl Events {
             .events_after(after, limit)?
             .into_iter()
             .map(|event| Notice {
+                item: [super::ITEM_CHANGED, super::ITEM_DELETED]
+                    .contains(&event.kind.as_str())
+                    .then(|| event.attrs.clone()),
                 session: [
                     super::SESSION_STATUS,
                     super::SESSION_ARCHIVED,

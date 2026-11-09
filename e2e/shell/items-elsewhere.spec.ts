@@ -367,6 +367,35 @@ test("E on an item beside a session edits the item, and leaves the session", asy
   expect(shown.session.archived_at).toBeNull();
 });
 
+test("a session's thread loads again only for changes to its own items", async ({ page, request }) => {
+  const repo = fresh("reload");
+  const session = `s-reload-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Load the themes", kind: "start" },
+  });
+  const own = await add(request, repo, "Its own", { session });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByTestId("thread-work-item")).toHaveCount(1);
+  let loads = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith(`/api/v1/sessions/claude-code/${session}`)) loads += 1;
+  });
+
+  // another session's items, changed
+  const other = await add(request, repo, "Someone else's", { session: "s-other" });
+  await request.patch(`${core}/api/v1/items/${other.key}`, {
+    data: { by: "claude-code", session: "s-other", claim: "claim" },
+  });
+  // time for a reload to start, had a notice caused one
+  await page.waitForTimeout(500);
+  expect(loads).toBe(0);
+
+  // its own item, changed by its agent
+  await request.patch(`${core}/api/v1/items/${own.key}`, { data: { by: "claude-code", session, claim: "claim" } });
+  await expect(page.getByTestId("thread-work-item")).toHaveText([new RegExp(`${own.key} · in progress`)]);
+  expect(loads).toBeGreaterThan(0);
+});
+
 test("a comment the session's agent writes on an item shows in its thread", async ({ page, request }) => {
   const repo = fresh("comment");
   const item = await add(request, repo, "Load themes");
