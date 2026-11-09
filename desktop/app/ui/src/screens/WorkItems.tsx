@@ -393,8 +393,6 @@ export function WorkItems() {
   }, []);
 
   const focusedItem = rows[focused]?.item;
-  // the keys shown, for the rows of sub-items whose parent is not
-  const shownKeys = useMemo(() => new Set(rows.map((r) => r.item.key)), [rows]);
   // What a row does, as the same functions from one render to the next, so
   // that a memoized row draws again only when its own props change; each
   // calls the page's latest state.
@@ -449,8 +447,9 @@ export function WorkItems() {
       focused={index === focused}
       open={item.key === openKey}
       dropTarget={dropOn === item.key}
-      // a sub-item shown without its parent names it
-      orphanOf={item.parent && (!nested || !shownKeys.has(item.parent)) ? item.parent : null}
+      // a sub-item not shown under its parent names it: flat, filtered
+      // apart from it, or in another repository's group than it
+      orphanOf={item.parent && depth === 0 ? item.parent : null}
       showRepo={layout !== "repository" && (layout === "list" || mixed.has(group))}
       actions={rowActions}
     />

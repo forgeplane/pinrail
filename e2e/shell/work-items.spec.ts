@@ -1161,3 +1161,19 @@ test("Esc leaves the search field with an item open, and the page's keys act aga
     .poll(async () => (await (await request.get(`${core}/api/v1/items/${a.key}`)).json()).status)
     .toBe("done");
 });
+
+test("a sub-item in another repository's group names its parent, though the parent is listed", async ({
+  page,
+  request,
+}) => {
+  const site = fresh("site");
+  const plugins = site.replace("/site", "/plugins");
+  const parent = await add(request, site, "The release");
+  const child = await add(request, plugins, "A plugin for it", { parent: parent.key });
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { layout: "repository" } } });
+  await settingSaved(request, (s) => s.items.layout, "repository");
+  await page.goto("/#/items");
+  // each in its own repository's group: the child cannot sit under the parent
+  await expect(row(page, parent.key)).toBeVisible();
+  await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
+});
