@@ -219,43 +219,8 @@ pub fn human(bytes: u64) -> String {
     }
 }
 
-/// What a file is, by its extension: the kinds plugins are likely to
-/// take. Anything else is plain bytes.
-pub fn media_type(name: &str) -> &'static str {
-    let ext = name
-        .rsplit_once('.')
-        .map(|(_, e)| e.to_ascii_lowercase())
-        .unwrap_or_default();
-    match ext.as_str() {
-        "glb" => "model/gltf-binary",
-        "gltf" => "model/gltf+json",
-        "obj" => "model/obj",
-        "stl" => "model/stl",
-        "usdz" => "model/vnd.usdz+zip",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "avif" => "image/avif",
-        "svg" => "image/svg+xml",
-        "pdf" => "application/pdf",
-        "mp4" => "video/mp4",
-        "webm" => "video/webm",
-        "mov" => "video/quicktime",
-        "mp3" => "audio/mpeg",
-        "wav" => "audio/wav",
-        "ogg" | "oga" | "opus" => "audio/ogg",
-        "m4a" => "audio/mp4",
-        "aac" => "audio/aac",
-        "flac" => "audio/flac",
-        "json" => "application/json",
-        "csv" => "text/csv",
-        "txt" | "md" | "log" => "text/plain",
-        "html" | "htm" => "text/html",
-        "zip" => "application/zip",
-        _ => "application/octet-stream",
-    }
-}
+/// What a file is, by its extension, as the app names it.
+pub use pinrail_format::attachments::media_type;
 
 #[cfg(test)]
 mod tests {

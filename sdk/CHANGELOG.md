@@ -11,6 +11,10 @@ change to the protocol is a new major and a new path.
 - Find in a view now finds text across the space between two inline
   elements, such as `<strong>a</strong> <em>b</em>`, and no longer
   matches the words run together.
+- The test harness and `pinrail-sdk dev` give an attached file the media
+  type the app gives it. A `.avif`, `.mov`, `.obj`, `.stl`, `.usdz`,
+  `.md`, `.log`, `.html` or `.zip` file was sent as
+  `application/octet-stream`.
 
 ### Security
 

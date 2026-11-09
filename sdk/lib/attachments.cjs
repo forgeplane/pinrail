@@ -12,18 +12,24 @@ const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
+// as the format crate names them, which test/attachments.test.cjs checks
 const TYPES = {
   ".glb": "model/gltf-binary",
   ".gltf": "model/gltf+json",
+  ".obj": "model/obj",
+  ".stl": "model/stl",
+  ".usdz": "model/vnd.usdz+zip",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
+  ".avif": "image/avif",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
   ".mp4": "video/mp4",
   ".webm": "video/webm",
+  ".mov": "video/quicktime",
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".ogg": "audio/ogg",
@@ -35,6 +41,11 @@ const TYPES = {
   ".json": "application/json",
   ".csv": "text/csv",
   ".txt": "text/plain",
+  ".md": "text/plain",
+  ".log": "text/plain",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".zip": "application/zip",
 };
 
 /** `{ name: {path, media_type?} | path }` → `{ list: [...], files: { name: { path, media_type } } }` */
@@ -64,4 +75,4 @@ function resolveAttachments(spec, baseDir) {
   return { list, files };
 }
 
-module.exports = { resolveAttachments };
+module.exports = { resolveAttachments, TYPES };
