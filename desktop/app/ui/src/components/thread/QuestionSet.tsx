@@ -22,6 +22,9 @@ import { Linked, useFollowLink } from "./messages";
 
 /** Where the answers being written are kept, per question set, until they are sent. */
 const DRAFTS = "pinrail:answers:";
+/** Sent when the person sends the answers of one set: the session's other
+ *  sets whose questions are all answered send theirs too. */
+const SEND_ANSWERED = "pinrail:send-answered";
 
 function loadDrafts(id: string): Record<string, Draft> {
   try {
@@ -129,6 +132,23 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
     }
   }, [busy, pending, review.id, questions, drafts, comment, toast, onDone]);
 
+  // Send sends the answers of every set of the session whose questions are
+  // all answered, not only this one's: answers picked in another set are
+  // not left behind
+  const sessionOf = `${review.requested_by ?? ""}/${review.session ?? review.id}`;
+  const sendAll = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(SEND_ANSWERED, { detail: sessionOf }));
+    void send();
+  }, [sessionOf, send]);
+  useEffect(() => {
+    if (active || !pending) return;
+    const onSend = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === sessionOf && unanswered(questions, drafts) === 0) void send();
+    };
+    window.addEventListener(SEND_ANSWERED, onSend);
+    return () => window.removeEventListener(SEND_ANSWERED, onSend);
+  }, [active, pending, sessionOf, questions, drafts, send]);
+
   // a pick from the keyboard moves on to the next question still
   // unanswered; one with the pointer keeps the question selected
   const picked = useCallback(
@@ -174,7 +194,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
       if (modalOpen()) return;
       if (hasMod(event) && !event.shiftKey && !event.altKey && event.key === "Enter") {
         event.preventDefault();
-        send();
+        sendAll();
         return;
       }
       if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "d" || event.key === "D")) {
@@ -214,7 +234,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:discard", onDiscard);
     };
-  }, [active, pending, current, questions, picked, send, goTo, replyBox]);
+  }, [active, pending, current, questions, picked, sendAll, goTo, replyBox]);
 
   const several = questions.length > 1;
   return (
@@ -287,7 +307,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
               left={several ? left : 0}
               busy={busy}
               connected={live.connected}
-              onSend={send}
+              onSend={sendAll}
               onDecline={() => setDeclining(true)}
               suggestion={(review.payload as { suggested_reply?: string } | undefined)?.suggested_reply}
             />,

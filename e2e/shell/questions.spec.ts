@@ -846,3 +846,30 @@ test("the reply the agent suggests shows in the empty comment box, and Tab takes
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.agent_note).toBe("Staging, keep it, and call it /v2/themes");
 });
+
+test("Send sends every question set of the session whose questions are all answered", async ({ page }) => {
+  const session = fresh();
+  const single = (title: string) => ({
+    ...asked(session, title),
+    payload: { questions: [{ id: "q1", question: title, answer: "yes-no" }] },
+  });
+  const first = await send(page.request, single("First: commit it?"));
+  const second = await send(page.request, single("Second: does it work?"));
+  const third = await send(page.request, asked(session, "Third: deploy"));
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const sets = thread(page).getByTestId("question-set");
+  await expect(sets).toHaveCount(3);
+  // an answer picked in the first, then in the second, which takes the chat box
+  await sets.nth(0).getByRole("radio", { name: /Yes/ }).click();
+  await sets.nth(1).getByRole("radio", { name: /Yes/ }).click();
+  // the third is answered in part
+  await sets
+    .nth(2)
+    .getByRole("radio", { name: /staging/ })
+    .click();
+  await sets.nth(1).click();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(async () => (await decisionOf(page.request, first.id)).status).toBe("decided");
+  await expect.poll(async () => (await decisionOf(page.request, second.id)).status).toBe("decided");
+  expect((await decisionOf(page.request, third.id)).status).toBe("pending");
+});

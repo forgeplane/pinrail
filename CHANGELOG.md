@@ -86,6 +86,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The Enter that confirms text typed with an input method, such as
   Japanese or Chinese, no longer submits the field, such as the command
   palette or a search.
+- When an agent asked several sets of questions, Send now also sends the
+  other sets whose questions are all answered. Answers picked in another
+  set were left unsent.
 
 ## [0.5.0]
 
