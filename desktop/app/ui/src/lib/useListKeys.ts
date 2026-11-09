@@ -85,7 +85,7 @@ export function useListKeys<T>({
       const walk = altWalk && event.altKey && (event.key === "ArrowDown" || event.key === "ArrowUp");
       const jk = !event.altKey && (event.key === "j" || event.key === "k");
       if (!walk && !jk) return;
-      if (jk && isTyping(event.target)) return;
+      if (isTyping(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       // the list scrolls to the item the keys open, under a still pointer

@@ -170,10 +170,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   /** ⌥↓ and ⌥↑ walk the waiting reviews from wherever you are, in a circle;
    *  the inbox handles them itself while a review is open in its side
-   *  panel. Nothing happens, and the keys keep their use, when none waits. */
+   *  panel. Nothing happens, and the keys keep their use, when none waits,
+   *  in a text field, where they move the caret, or with a dialog open. */
   const walkWaiting = (by: 1 | -1) => {
     const list = waitingRef.current;
-    if (!list.length) return false;
+    if (!list.length || isTyping(document.activeElement) || modalOpen()) return false;
     const at = list.findIndex((r) => r.id === shownRef.current);
     const next = at < 0 ? (by > 0 ? 0 : list.length - 1) : (at + by + list.length) % list.length;
     navigate(reviewPath(list[next].id, openInRef.current));

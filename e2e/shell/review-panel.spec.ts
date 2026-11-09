@@ -130,6 +130,35 @@ test("⌥↓ and ⌥↑ walk the list from the panel, in the order it shows", as
   await expect(panel(page).getByTestId("review-title")).toHaveText("Panel walk: newest");
 });
 
+test("⌥↓ and ⌥↑ leave a text field and an open dialog alone", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Typing walk: oldest" });
+  await createReview(page.request, { title: "Typing walk: newest" });
+  await page.goto("/#/");
+  const search = page.getByRole("searchbox", { name: "Search inbox" });
+
+  // in a field, with no review open: the keys move the caret
+  await search.focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(search).toBeFocused();
+
+  // in a field, with a review open in the panel: the same
+  await row(page, "Typing walk: newest").click();
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Typing walk: newest");
+  await search.focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Typing walk: newest");
+
+  // in a dialog: the screen behind it stays
+  await page.locator("body").click();
+  await page.keyboard.press("ControlOrMeta+k");
+  await expect(page.getByRole("dialog", { name: "Search" })).toBeVisible();
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Typing walk: newest");
+});
+
 test("J and K move to the next and previous review, from the list and from the view", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel keys: oldest" });
