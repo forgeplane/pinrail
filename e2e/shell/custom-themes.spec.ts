@@ -110,3 +110,32 @@ test("a plugin view takes a custom theme's colours and follows a change to them"
   await expect.poll(token).toBe("#18191b");
   fs.rmSync(path);
 });
+
+test("an answer about the themes that arrives late does not undo a newer one", async ({ page }) => {
+  const { id, path } = await newTheme(page.request, "late");
+  write(path, "Late", { bg: "#102030" });
+  await settings(page.request, { theme: "dark", dark_theme: id });
+  await page.goto("/#/history");
+  await expect.poll(() => bg(page)).toBe("#102030");
+
+  // the next answer is read at once and held back, so that a later one
+  // passes it
+  let held: () => void = () => {};
+  const first = new Promise<void>((seen) => {
+    let calls = 0;
+    void page.route("**/api/v1/themes", async (route) => {
+      if (++calls > 1) return route.continue();
+      const answer = await route.fetch();
+      seen();
+      await new Promise<void>((release) => (held = release));
+      await route.fulfill({ response: answer });
+    });
+  });
+  write(path, "Late", { bg: "#203040" });
+  await first;
+  write(path, "Late", { bg: "#304050" });
+  await expect.poll(() => bg(page)).toBe("#304050");
+  held();
+  await page.waitForTimeout(500);
+  expect(await bg(page)).toBe("#304050");
+});

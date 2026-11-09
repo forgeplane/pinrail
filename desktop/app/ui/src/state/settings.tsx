@@ -316,9 +316,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     load();
   }, [load]);
 
+  // the latest request for the themes: an answer to an earlier one that
+  // arrives after it is dropped
+  const themesAsked = useRef(0);
   const loadThemes = useCallback(async () => {
+    const asked = ++themesAsked.current;
     try {
-      setThemes((await api.themes()).themes);
+      const { themes } = await api.themes();
+      if (asked !== themesAsked.current) return;
+      setThemes(themes);
       themesLoaded.current = true;
     } catch {
       // the server is away; the cached colours stand until it is back

@@ -63,6 +63,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A theme file saved twice in quick succession now shows its last
+  colours. An earlier version could stay.
 - `pinrail` stops quietly when the program reading its output exits,
   such as `head`, as other command-line tools do.
 - A long reason for a withdrawn review now wraps at the width of the
