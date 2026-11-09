@@ -21,7 +21,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
@@ -47,6 +47,7 @@ import { chooseTheme, chosenTheme } from "../lib/themes";
 import { Tooltip } from "./Tooltip";
 import { WelcomeDialog } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
+import { useLatest } from "../lib/useLatest";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
@@ -74,27 +75,23 @@ export function Layout({ children }: { children: ReactNode }) {
   const [feedback, setFeedback] = useState(false);
   // a report that was not sent, to open the dialog again with
   const [unsent, setUnsent] = useState<{ draft: FeedbackDraft; reason: string } | null>(null);
-  const feedbackOpen = useRef(false);
-  feedbackOpen.current = feedback;
+  const feedbackOpen = useLatest(feedback);
   const toast = useToast();
   const [palette, setPalette] = useState(false);
   // ⌘⇧C adds a work item: in a dialog, or on the Work items page in its own
   // quick add
   const [quickAdd, setQuickAdd] = useState(false);
-  const onItemsPage = useRef(false);
-  onItemsPage.current = location.pathname === "/items";
+  const onItemsPage = useLatest(location.pathname === "/items");
   const startQuickAdd = useCallback(() => {
     if (onItemsPage.current) window.dispatchEvent(new CustomEvent("pinrail:quick-add"));
     else setQuickAdd(true);
-  }, []);
+  }, [onItemsPage]);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update } = useSettings();
   const sidebar = prefs.sidebar.open;
   // sessions, their page and their list in the sidebar, are in Settings › Labs
   const sessionsOn = prefs.labs.sessions;
-  const sessionsOnRef = useRef(sessionsOn);
-  sessionsOnRef.current = sessionsOn;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
@@ -133,12 +130,9 @@ export function Layout({ children }: { children: ReactNode }) {
     () => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)),
     [live.pending],
   );
-  const waitingRef = useRef(waiting);
-  waitingRef.current = waiting;
-  const shownRef = useRef<string | null>(null);
-  shownRef.current = reviewShown(location.pathname, location.search);
-  const openInRef = useRef(prefs.inbox.open_in);
-  openInRef.current = prefs.inbox.open_in;
+  const waitingRef = useLatest(waiting);
+  const shownRef = useLatest(reviewShown(location.pathname, location.search));
+  const openInRef = useLatest(prefs.inbox.open_in);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

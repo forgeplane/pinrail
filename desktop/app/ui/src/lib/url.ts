@@ -1,7 +1,7 @@
 // Reading and writing the query string in the address, for the screens whose
 // filters and page live there.
 
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
 
 /**
@@ -16,27 +16,31 @@ import { useSearchParams } from "react-router";
  */
 export function useUrlParams() {
   const [params, setParams] = useSearchParams();
-  // what the URL will hold, including writes the router has not shown us yet
-  const latest = useRef(params);
-  // the address moved by itself: a link, the back button, another screen
-  const seen = useRef(params);
-  if (seen.current !== params) {
-    seen.current = params;
-    latest.current = params;
-  }
+  // the query the router last rendered with
+  const shown = useRef(params);
+  useLayoutEffect(() => {
+    shown.current = params;
+  }, [params]);
+  // the last write, and the query it was made over: it counts until the
+  // router renders another query, after a link, the back button or the
+  // write itself
+  const pending = useRef<{ over: URLSearchParams; next: URLSearchParams } | null>(null);
+
+  /** The query the URL holds or is about to hold, which a render may not show yet. */
+  const current = useCallback(() => {
+    const write = pending.current;
+    return write && write.over === shown.current ? write.next : shown.current;
+  }, []);
 
   const update = useCallback(
     (change: (next: URLSearchParams) => void, options?: { replace?: boolean }) => {
-      const next = new URLSearchParams(latest.current);
+      const next = new URLSearchParams(current());
       change(next);
-      latest.current = next;
+      pending.current = { over: shown.current, next };
       setParams(next, options);
     },
-    [setParams],
+    [setParams, current],
   );
-
-  /** The query the URL holds or is about to hold, which a render may not show yet. */
-  const current = useCallback(() => latest.current, []);
 
   return [params, update, current] as const;
 }

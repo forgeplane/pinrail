@@ -34,6 +34,7 @@ import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
 import { itemTree, type ItemTreeRow } from "../lib/itemTree";
 import { useDragDrop } from "../lib/useDragDrop";
+import { useLatest } from "../lib/useLatest";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -261,7 +262,8 @@ export function WorkItems() {
   // dragged to the top of the list leaves its parent
   const drag = useDragDrop(DRAGGED);
   const dropOn = drag.dropOn;
-  const [dragging, setDragging] = useState<WorkItem | null>(null);
+  // the item dragged, and the group it is in, which is no place to drop it
+  const [dragging, setDragging] = useState<{ item: WorkItem; group: string } | null>(null);
   const dragTimer = useRef(0);
   const putUnder = useCallback(
     async (key: string, parent: string | null, from?: string | null) => {
@@ -292,8 +294,6 @@ export function WorkItems() {
     },
     [toast, reload],
   );
-  // the group the dragged row is in, which is no place to drop it
-  const draggedGroup = useRef<string | null>(null);
   /** The repositories a group takes a dropped item to. */
   const reposOf = (group: string) =>
     group.startsWith("project:") ? (projectRepos[group.slice(8)] ?? []) : group ? [group] : [];
@@ -381,10 +381,9 @@ export function WorkItems() {
     toggleFold: (key) => toggleFold(key),
     dragStart: (event, item, group) => {
       drag.start(event, item.key);
-      draggedGroup.current = group;
       // after the drag has begun: a change to the page during dragstart
       // cancels the drag
-      dragTimer.current = window.setTimeout(() => setDragging(item), 0);
+      dragTimer.current = window.setTimeout(() => setDragging({ item, group }), 0);
     },
     dragOver: (event, item) => drag.over(event, item.key),
     dragLeave: drag.leave,
@@ -400,13 +399,11 @@ export function WorkItems() {
     },
     dragEnd: () => {
       window.clearTimeout(dragTimer.current);
-      draggedGroup.current = null;
       drag.end();
       setDragging(null);
     },
   };
-  const latestRow = useRef(rowHandlers);
-  latestRow.current = rowHandlers;
+  const latestRow = useLatest(rowHandlers);
   const rowActions = useMemo<ItemRowActions>(
     () => ({
       hover: (index) => latestRow.current.hover(index),
@@ -418,7 +415,7 @@ export function WorkItems() {
       drop: (event, item) => latestRow.current.drop(event, item),
       dragEnd: () => latestRow.current.dragEnd(),
     }),
-    [],
+    [latestRow],
   );
   const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => (
     <ItemRow
@@ -579,11 +576,11 @@ export function WorkItems() {
           </EmptyState>
         ) : (
           <div className="inbox-groups item-groups">
-            {dragging?.parent ? (
+            {dragging?.item.parent ? (
               <div
                 className={`item-top-drop ${dropOn === "" ? "is-drop" : ""}`}
                 data-testid="item-top-drop"
-                {...drag.target("", (dragged) => void putUnder(dragged, null, dragging.parent))}
+                {...drag.target("", (dragged) => void putUnder(dragged, null, dragging.item.parent))}
               >
                 Drop here to move it to the top level
               </div>
@@ -598,14 +595,14 @@ export function WorkItems() {
                   <summary
                     data-testid="inbox-group-heading"
                     className={
-                      dragging && key !== draggedGroup.current && reposOf(key).length
+                      dragging && key !== dragging.group && reposOf(key).length
                         ? `is-drop-target ${dropOn === `group:${key}` ? "is-drop" : ""}`
                         : undefined
                     }
                     {...drag.target(
                       `group:${key}`,
                       (dragged, event) => dropOnGroup(key, event.currentTarget as HTMLElement, dragged),
-                      key !== draggedGroup.current && reposOf(key).length > 0,
+                      !!dragging && key !== dragging.group && reposOf(key).length > 0,
                     )}
                   >
                     <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />

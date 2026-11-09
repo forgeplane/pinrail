@@ -1,8 +1,9 @@
 // Runs the app's commands from the keys and from the native menu, as
 // lib/commands.ts defines them and the layout says what each one does.
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { COMMANDS, type CommandId } from "../lib/commands";
+import { useLatest } from "../lib/useLatest";
 
 /** What a command does; `false` when it does not apply now, which leaves
  *  the key to whatever it does elsewhere. */
@@ -10,8 +11,7 @@ export type CommandRun = () => void | false;
 
 export function useAppCommands(runs: Partial<Record<CommandId, CommandRun>>) {
   // the latest actions, so the listeners are added once
-  const current = useRef(runs);
-  current.current = runs;
+  const current = useLatest(runs);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
@@ -32,5 +32,5 @@ export function useAppCommands(runs: Partial<Record<CommandId, CommandRun>>) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:command", onCommand);
     };
-  }, []);
+  }, [current]);
 }

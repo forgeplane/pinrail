@@ -3,6 +3,7 @@
 // shows no dictation button.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLatest } from "./useLatest";
 
 type Result = { 0: { transcript: string }; isFinal: boolean };
 type Recognition = {
@@ -84,23 +85,25 @@ export function listen(listener: (heard: Heard) => void): () => void {
 export function useDictation(onText: (text: string) => void, onError: (message: string) => void) {
   const [listening, setListening] = useState(false);
   const stopping = useRef<(() => void) | null>(null);
-  const handlers = useRef({ onText, onError });
-  handlers.current = { onText, onError };
+  const handlers = useLatest({ onText, onError });
 
   const stop = useCallback(() => stopping.current?.(), []);
-  const start = useCallback((before: string) => {
-    if (!Recognizer || stopping.current) return;
-    const lead = before && !/\s$/.test(before) ? `${before} ` : before;
-    stopping.current = listen((heard) => {
-      if ("text" in heard) handlers.current.onText(lead + heard.text.trimStart());
-      else {
-        stopping.current = null;
-        setListening(false);
-        if (heard.error) handlers.current.onError(heard.error);
-      }
-    });
-    setListening(true);
-  }, []);
+  const start = useCallback(
+    (before: string) => {
+      if (!Recognizer || stopping.current) return;
+      const lead = before && !/\s$/.test(before) ? `${before} ` : before;
+      stopping.current = listen((heard) => {
+        if ("text" in heard) handlers.current.onText(lead + heard.text.trimStart());
+        else {
+          stopping.current = null;
+          setListening(false);
+          if (heard.error) handlers.current.onError(heard.error);
+        }
+      });
+      setListening(true);
+    },
+    [handlers],
+  );
   // leaving the review stops the dictation
   useEffect(() => () => stopping.current?.(), []);
   return { listening, start, stop };

@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { RELEASES, compareVersions, latestNotes, releasesToShow, type CardAction, type Release } from "../lib/whatsNew";
 import { useSettings } from "../state/settings";
 import type { SettingsSection } from "./settings/SettingsDialog";
+import { useLatest } from "../lib/useLatest";
 
 export function useWhatsNew({ onSettings }: { onSettings: (section: SettingsSection) => void }) {
   const navigate = useNavigate();
@@ -37,8 +38,7 @@ export function useWhatsNew({ onSettings }: { onSettings: (section: SettingsSect
   const openWhatsNew = () => {
     if (latest.length) setWhatsNew(latest);
   };
-  const openWhatsNewRef = useRef(openWhatsNew);
-  openWhatsNewRef.current = openWhatsNew;
+  const openWhatsNewRef = useLatest(openWhatsNew);
   const closeWhatsNew = () => {
     const seen = prefs.whats_new.seen;
     if (running && (!seen || compareVersions(seen, running) < 0)) void update({ whats_new: { seen: running } });

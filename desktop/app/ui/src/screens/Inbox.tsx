@@ -1,5 +1,5 @@
 import { CheckCheck, SearchX } from "lucide-react";
-import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
@@ -20,6 +20,7 @@ import { InboxRow, type InboxRowActions } from "../components/InboxRow";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
+import { useLatest } from "../lib/useLatest";
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -139,13 +140,14 @@ function Waiting() {
     [updateParams],
   );
   // the rows in display order, which the side panel follows
-  const orderedRef = useRef(ordered);
-  orderedRef.current = ordered;
+  const orderedRef = useLatest(ordered);
   // where the open review was in the list when last seen there: once it has
   // ended, the list may have dropped it before the panel moves on
   const openAt = useRef(-1);
   const seenAt = ordered.findIndex((r) => r.id === openId);
-  if (seenAt >= 0) openAt.current = seenAt;
+  useLayoutEffect(() => {
+    if (seenAt >= 0) openAt.current = seenAt;
+  }, [seenAt]);
   /** The review after the one that just ended, or before it at the end of the list. */
   const openNext = useCallback(() => {
     const list = orderedRef.current;
@@ -153,7 +155,7 @@ function Waiting() {
     // still listed: the one after it; gone: the one now in its place
     const next = at >= 0 ? (list[at + 1] ?? list[at - 1]) : (list[openAt.current] ?? list[list.length - 1]);
     openInPanel(next && next.id !== openId ? next.id : null, { replace: true });
-  }, [openId, openInPanel]);
+  }, [openId, openInPanel, orderedRef]);
   const closePanel = useCallback(() => openInPanel(null), [openInPanel]);
   /**
    * A plain click on a review's link in the panel mode: opens it in the side
@@ -210,15 +212,14 @@ function Waiting() {
     open: (event, id) => openFromLink(event, id),
     discard: (review) => setDiscarding(review),
   };
-  const latestRow = useRef(rowHandlers);
-  latestRow.current = rowHandlers;
+  const latestRow = useLatest(rowHandlers);
   const rowActions = useMemo<InboxRowActions>(
     () => ({
       hover: (here) => latestRow.current.hover(here),
       open: (event, id) => latestRow.current.open(event, id),
       discard: (review) => latestRow.current.discard(review),
     }),
-    [],
+    [latestRow],
   );
   /** A review's row; `here` is its place in the order J and K walk. */
   const row = (review: Review, here: number) => (

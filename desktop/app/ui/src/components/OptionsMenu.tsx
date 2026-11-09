@@ -10,6 +10,7 @@ import { Check, ChevronRight, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { headsFor, type Point } from "../lib/menuAim";
 import { viewportRect } from "../lib/viewport";
+import { useLatest } from "../lib/useLatest";
 
 /** How long a row the pointer crossed on its way to a submenu waits before
  *  it opens its own, if the pointer stays on it. */
@@ -52,8 +53,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   const trail = useRef<Point[]>([]);
   // the row the pointer is over while it heads for the open submenu
   const waiting = useRef<{ key: string | null; timer: number } | null>(null);
-  const openRef = useRef(open);
-  openRef.current = open;
+  const openRef = useLatest(open);
   const heading = () => {
     const sub = menu.current?.querySelector<HTMLElement>(".menu-submenu");
     const points = trail.current;

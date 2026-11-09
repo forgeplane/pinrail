@@ -29,6 +29,7 @@ import { useThreadScroll } from "./thread/useThreadScroll";
 import { store, stored } from "./thread/storage";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useResizableWidth } from "../lib/useResizableWidth";
+import { useLatest } from "../lib/useLatest";
 
 /** Whether the box under a thread sends the agent messages. Off until
  *  Pinrail can reach an agent that waits for nothing: until then a message
@@ -293,8 +294,7 @@ export function Thread({
   // beside the thread, E is the item's, which edits its description.
   const toggleArchive = useToggleArchive();
   const archivable = !focus && !openItem && named && session ? { ...named, archived_at: session.archived_at } : null;
-  const archivableRef = useRef(archivable);
-  archivableRef.current = archivable;
+  const archivableRef = useLatest(archivable);
   useWindowKey(
     (event) => {
       if (event.key !== "e" && event.key !== "E") return;

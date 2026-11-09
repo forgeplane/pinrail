@@ -37,6 +37,7 @@ import { currentTheme, currentTokens } from "../lib/theme";
 import { modalOpen } from "../lib/keys";
 import { copyImage, copyText } from "../lib/clipboard";
 import { canDictate, listen } from "../lib/dictation";
+import { useLatest } from "../lib/useLatest";
 
 /** The review-screen shortcuts a view may forward to the app. Help, the
  *  rounds, and J and K for the inbox come without a modifier. Discard and
@@ -128,7 +129,7 @@ export function usePluginBridge(options: Options): Bridge {
   const [dictating, setDictating] = useState(false);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
   const host = useRef<(Host & { disconnect(): void }) | null>(null);
-  const latest = useRef({
+  const latest = useLatest({
     review,
     previous,
     readonly,
@@ -141,19 +142,6 @@ export function usePluginBridge(options: Options): Bridge {
     canCopy,
     onCopied,
   });
-  latest.current = {
-    review,
-    previous,
-    readonly,
-    connected,
-    onSubmit,
-    settings,
-    onSetSetting,
-    onOpen,
-    onDictationError,
-    canCopy,
-    onCopied,
-  };
 
   const draftKey = () => DRAFT_PREFIX + (latest.current.review?.id ?? "");
   const loadDraft = () => {
@@ -185,7 +173,7 @@ export function usePluginBridge(options: Options): Bridge {
     // not while a dialog is open: ⌘Enter in a plugin's setting field is no
     // hand-over
     if (latest.current.connected && !modalOpen()) host.current?.collect();
-  }, []);
+  }, [latest]);
 
   const find = useCallback((query: string, backwards = false) => {
     if (!query) setFound(null);

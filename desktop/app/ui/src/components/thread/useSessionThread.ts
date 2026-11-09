@@ -3,7 +3,7 @@
 // items, and the items it holds or worked on, loaded again when a live
 // notice is about any of them.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, EVERY_ITEM_STATUS, errorMessage } from "../../api/client";
 import type {
   Review,
@@ -16,6 +16,7 @@ import type {
 } from "../../api/types";
 import { useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
+import { useLatest } from "../../lib/useLatest";
 
 /** No items, the same array each time, while none have loaded. */
 const NO_ITEMS: WorkItem[] = [];
@@ -68,15 +69,15 @@ export function useSessionThread(
   }, [load]);
 
   // anything about one of its reviews, or a new one from the session
-  const ids = useRef(new Set<string>());
-  ids.current = new Set(items.map((r) => r.id));
+  const ids = useLatest(new Set(items.map((r) => r.id)));
   // the items it holds, worked on or commented on
-  const keys = useRef(new Set<string>());
-  keys.current = new Set([
-    ...sessionItems.map((i) => i.key),
-    ...comments.map((c) => c.item.key),
-    ...itemEvents.map((e) => e.item.key),
-  ]);
+  const keys = useLatest(
+    new Set([
+      ...sessionItems.map((i) => i.key),
+      ...comments.map((c) => c.item.key),
+      ...itemEvents.map((e) => e.item.key),
+    ]),
+  );
   useNotice((notice) => {
     // a change its agent made to an item, or any change to one of its items
     const itemOurs =

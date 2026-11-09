@@ -2,7 +2,17 @@
 // server's events, the connection state, the installed plugins, and the
 // events themselves, which a screen listens to with useNotice.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  useEffectEvent,
+} from "react";
 import { api, subscribe } from "../api/client";
 import type { Notice, Plugin, ProjectRef, ProjectsListing, Review } from "../api/types";
 import { setItemPrefixes } from "../lib/markdown";
@@ -260,9 +270,8 @@ export function useConnected(): boolean {
 export function useNotice(handler: (notice: Notice) => void) {
   const listen = useContext(NoticesContext);
   if (!listen) throw new Error("useNotice outside LiveProvider");
-  const latest = useRef(handler);
-  latest.current = handler;
-  useEffect(() => listen((notice) => latest.current(notice)), [listen]);
+  const onNotice = useEffectEvent(handler);
+  useEffect(() => listen((notice) => onNotice(notice)), [listen]);
 }
 
 /** A number that goes up with each live notice `about` keeps: an effect that

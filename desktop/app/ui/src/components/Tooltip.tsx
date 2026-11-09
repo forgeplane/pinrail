@@ -76,13 +76,20 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const child = children.props;
-  const anchored = cloneElement(children, {
-    ref: (node: HTMLElement | null) => {
+  // the trigger is the child, which keeps its own ref too
+  const setTrigger = useCallback(
+    (node: HTMLElement | null) => {
       trigger.current = node;
-      const ref = (child as { ref?: unknown }).ref;
-      if (typeof ref === "function") ref(node);
-      else if (ref && typeof ref === "object") (ref as { current: HTMLElement | null }).current = node;
+      const own = (children.props as { ref?: unknown }).ref;
+      if (typeof own === "function") own(node);
+      else if (own && typeof own === "object") (own as { current: HTMLElement | null }).current = node;
     },
+    [children],
+  );
+  // the handlers read the refs when they run, not while this renders
+  // eslint-disable-next-line react-hooks/refs
+  const anchored = cloneElement(children, {
+    ref: setTrigger,
     "aria-describedby": open ? id : undefined,
     onMouseEnter: (event: MouseEvent) => {
       (child.onMouseEnter as ((e: MouseEvent) => void) | undefined)?.(event);

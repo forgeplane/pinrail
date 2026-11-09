@@ -74,4 +74,9 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "error",
     },
   },
+  // the app's UI: no ref read or written while a component renders
+  {
+    files: ["desktop/app/ui/**/*.ts", "desktop/app/ui/**/*.tsx"],
+    rules: { "react-hooks/refs": "error" },
+  },
 );

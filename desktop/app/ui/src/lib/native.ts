@@ -2,11 +2,12 @@
 // link or a notification. A route sent before the shell was listening is
 // picked up at start. Outside the app this does nothing.
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 import { useSettings } from "../state/settings";
 import { reviewPath } from "./url";
+import { useLatest } from "./useLatest";
 
 const OPEN_EVENT = "pinrail:open";
 
@@ -98,12 +99,10 @@ export function useNativeRoutes() {
   // through a ref, so the listener and the saved route are taken once per
   // mount, not again after every navigation
   const navigate = useNavigate();
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
+  const navigateRef = useLatest(navigate);
   // open a review's route in the place set for the inbox
   const { settings } = useSettings();
-  const openInRef = useRef(settings.inbox.open_in);
-  openInRef.current = settings.inbox.open_in;
+  const openInRef = useLatest(settings.inbox.open_in);
   useEffect(() => {
     if (!inTauri()) return;
     let cancelled = false;
@@ -145,5 +144,5 @@ export function useNativeRoutes() {
       cancelled = true;
       unlisten?.();
     };
-  }, []);
+  }, [navigateRef, openInRef]);
 }

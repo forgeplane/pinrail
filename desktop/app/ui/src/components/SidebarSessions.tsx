@@ -5,7 +5,7 @@
 // settings.
 
 import { ChevronDown, ChevronRight, FilterX, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
@@ -47,8 +47,8 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const { settings, update } = useSettings();
   const choices = settings.sidebar.sessions;
   const [now, setNow] = useState(() => Date.now());
-  const [menu, setMenu] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
+  // the options menu, by the button it opened from
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
 
   // a status may rename a session or mark it done, and archiving one moves
   // it in or out
@@ -285,13 +285,15 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           ) : null}
           <Tooltip label="Grouping, ordering and filters" side="bottom">
             <button
-              ref={button}
               type="button"
               className={`bar-button sidebar-sessions-button ${menu ? "is-on" : ""}`}
               aria-label="Sessions options"
               aria-haspopup="menu"
-              aria-expanded={menu}
-              onClick={() => setMenu((m) => !m)}
+              aria-expanded={!!menu}
+              onClick={(e) => {
+                const anchor = e.currentTarget;
+                setMenu((m) => (m ? null : anchor));
+              }}
             >
               <SlidersHorizontal size={13} />
             </button>
@@ -313,16 +315,16 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           </div>
         );
       })}
-      {menu && button.current ? (
+      {menu ? (
         <SidebarSessionsMenu
-          anchor={button.current}
+          anchor={menu}
           choices={choices}
           agents={agents}
           repos={repos}
           collapsedAll={collapsedAll}
           onChange={change}
           onCollapseAll={(collapse) => change({ collapsed: collapse ? groups.map(keyOf) : [] })}
-          onClose={() => setMenu(false)}
+          onClose={() => setMenu(null)}
         />
       ) : null}
     </section>

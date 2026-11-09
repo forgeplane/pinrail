@@ -4,7 +4,7 @@
 
 import { FolderGit2, LayoutGrid, List, ListFilter, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
 import type { Layout } from "../lib/grouping";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
 import { Tooltip } from "./Tooltip";
@@ -56,21 +56,22 @@ export function ListMenuButtons({
   onReset: () => void;
   displays?: Display[];
 }) {
-  const filterButton = useRef<HTMLButtonElement>(null);
-  const displayButton = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState<"filter" | "display" | null>(null);
+  // the menu open, and the button it opened from
+  const [menu, setMenu] = useState<{ kind: "filter" | "display"; anchor: HTMLElement } | null>(null);
+  const open = menu?.kind ?? null;
+  const toggle = (kind: "filter" | "display", anchor: HTMLElement) =>
+    setMenu((m) => (m?.kind === kind ? null : { kind, anchor }));
   const on = filtersOn(filters, toggles);
   return (
     <>
       <Tooltip label="Filter" side="bottom">
         <button
-          ref={filterButton}
           type="button"
           className={`bar-button item-menu-button ${open === "filter" ? "is-on" : ""} ${on ? "has-value" : ""}`}
           aria-label="Filter"
           aria-haspopup="menu"
           aria-expanded={open === "filter"}
-          onClick={() => setOpen((o) => (o === "filter" ? null : "filter"))}
+          onClick={(e) => toggle("filter", e.currentTarget)}
         >
           <ListFilter size={15} />
         </button>
@@ -78,30 +79,29 @@ export function ListMenuButtons({
       {displays.length ? (
         <Tooltip label="Display options" side="bottom">
           <button
-            ref={displayButton}
             type="button"
             className={`bar-button item-menu-button ${open === "display" ? "is-on" : ""}`}
             aria-label="Display options"
             aria-haspopup="menu"
             aria-expanded={open === "display"}
-            onClick={() => setOpen((o) => (o === "display" ? null : "display"))}
+            onClick={(e) => toggle("display", e.currentTarget)}
           >
             <SlidersHorizontal size={15} />
           </button>
         </Tooltip>
       ) : null}
-      {open === "filter" && filterButton.current ? (
+      {menu?.kind === "filter" ? (
         <FilterMenu
           label={label}
-          anchor={filterButton.current}
+          anchor={menu.anchor}
           filters={filters}
           toggles={toggles}
           onReset={onReset}
-          onClose={() => setOpen(null)}
+          onClose={() => setMenu(null)}
         />
       ) : null}
-      {open === "display" && displayButton.current ? (
-        <DisplayMenu anchor={displayButton.current} displays={displays} onClose={() => setOpen(null)} />
+      {menu?.kind === "display" ? (
+        <DisplayMenu anchor={menu.anchor} displays={displays} onClose={() => setMenu(null)} />
       ) : null}
     </>
   );

@@ -13,6 +13,7 @@ import { type Choices, DEFAULT_CHOICES } from "../lib/sidebarSessions";
 import { cacheAppearance, setThemeOverlays, setThemePreference, type ThemePreference } from "../lib/theme";
 import { chosenTheme } from "../lib/themes";
 import { useNotice, useConnected } from "./live";
+import { useLatest } from "../lib/useLatest";
 
 export type TextSize = "small" | "default" | "large";
 
@@ -262,8 +263,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const themesLoaded = useRef(false);
   // the settings as last applied, ahead of the next render: a change made
   // before React renders the previous one builds on it, not on a stale copy
-  const current = useRef(settings);
-  current.current = settings;
+  const current = useLatest(settings);
   // the latest change sent: an older answer that lands after it is dropped
   const sent = useRef(0);
   // the changes sent and not yet answered
@@ -310,7 +310,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } catch {
       // the server is away; the cached appearance stands until it is back
     }
-  }, [apply]);
+  }, [apply, current]);
 
   useEffect(() => {
     load();
@@ -435,7 +435,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [native, apply, load],
+    [current, native, apply, load],
   );
 
   const value = useMemo(
