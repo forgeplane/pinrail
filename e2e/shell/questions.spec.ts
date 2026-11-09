@@ -227,14 +227,23 @@ test("a long session's thread shows its newest entries first, at its end", async
     await report(page.request, session, { text: `Stage ${i}`, kind: "start" });
     await report(page.request, session, { text: `Step of stage ${i}` });
   }
-  // what each frame shows of the thread, from its first entry on
+  // How many entries each change to the thread draws, painted or not: a
+  // busy machine may draw the newest entries and the rest before it paints
+  // a frame. And whether each frame painted shows the thread at its end.
   await page.addInitScript(() => {
-    const frames: { entries: number; atEnd: boolean }[] = [];
-    (window as unknown as { frames_: typeof frames }).frames_ = frames;
-    const look = () => {
+    const drawn: number[] = [];
+    const frames: boolean[] = [];
+    Object.assign(window, { drawn_: drawn, frames_: frames });
+    const count = () => {
       const el = document.querySelector(".thread-items");
       const entries = el?.querySelectorAll(":scope > :not(.thread-divider)").length ?? 0;
-      if (el && entries) frames.push({ entries, atEnd: el.scrollHeight - el.clientHeight - el.scrollTop < 2 });
+      if (entries && entries !== drawn[drawn.length - 1]) drawn.push(entries);
+      return el && entries ? el : null;
+    };
+    new MutationObserver(count).observe(document, { childList: true, subtree: true });
+    const look = () => {
+      const el = count();
+      if (el) frames.push(el.scrollHeight - el.clientHeight - el.scrollTop < 2);
       requestAnimationFrame(look);
     };
     requestAnimationFrame(look);
@@ -245,12 +254,13 @@ test("a long session's thread shows its newest entries first, at its end", async
   await expect(items.getByTestId("status").last()).toContainText("Step of stage 100");
   await expect.poll(() => items.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
 
-  const frames = await page.evaluate(
-    () => (window as unknown as { frames_: { entries: number; atEnd: boolean }[] }).frames_,
-  );
-  // the first frame shows only the newest entries, and no frame shows the start
-  expect(frames[0].entries).toBeLessThan(frames[frames.length - 1].entries);
-  expect(frames.filter((f) => !f.atEnd)).toEqual([]);
+  const { drawn, frames } = await page.evaluate(() => {
+    const w = window as unknown as { drawn_: number[]; frames_: boolean[] };
+    return { drawn: w.drawn_, frames: w.frames_ };
+  });
+  // the newest entries are drawn first, and no frame shows the start
+  expect(drawn[0]).toBeLessThan(drawn[drawn.length - 1]);
+  expect(frames.filter((atEnd) => !atEnd)).toEqual([]);
 });
 
 test("a question's thread links to its session's page", async ({ page }) => {
