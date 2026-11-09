@@ -25,6 +25,8 @@ const HANDLED_SHOWN = "pinrail.thread.handled";
 const STAGE_REVIEWS = 5;
 /** How many of the latest stages the details show before the rest fold. */
 const STAGES_SHOWN = 8;
+/** How many work items the details list before Show more. */
+const ITEMS_SHOWN = 5;
 
 type Props = {
   session: Session | null;
@@ -68,6 +70,7 @@ export function ThreadDetails({
   // the latest stages, and the earlier ones once unfolded; a stage the
   // thread was opened at is never folded away
   const [allStages, setAllStages] = useState(false);
+  const [allItems, setAllItems] = useState(false);
   // the clock the stage in progress counts its time by
   const now = useNow();
   const earlier = Math.max(0, started.length - STAGES_SHOWN);
@@ -145,7 +148,7 @@ export function ThreadDetails({
       {workedOn.length > 0 ? (
         <section aria-label="Work items" data-testid="thread-work-items">
           <h2>Work items · {workedOn.length}</h2>
-          {workedOn.map((item) => (
+          {(allItems ? workedOn : workedOn.slice(0, ITEMS_SHOWN)).map((item) => (
             <Link
               key={item.key}
               to={itemPath(item.key)}
@@ -162,6 +165,16 @@ export function ThreadDetails({
               </span>
             </Link>
           ))}
+          {workedOn.length > ITEMS_SHOWN ? (
+            <button
+              type="button"
+              className="thread-status-more thread-items-more"
+              aria-expanded={allItems}
+              onClick={() => setAllItems((all) => !all)}
+            >
+              {allItems ? "Show fewer" : `Show ${workedOn.length - ITEMS_SHOWN} more`}
+            </button>
+          ) : null}
         </section>
       ) : null}
       {starred.length > 0 ? (

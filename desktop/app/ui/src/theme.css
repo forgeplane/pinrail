@@ -4032,6 +4032,11 @@ body.is-resizing iframe {
   display: block;
   margin: 0 0 1px 20px;
 }
+/* under the work items, at the start of the line like their text */
+.thread-items-more {
+  align-self: flex-start;
+  margin-left: 22px;
+}
 /* the rail between this stop and the next */
 .thread-rail-stop:not(:last-child)::after {
   content: "";

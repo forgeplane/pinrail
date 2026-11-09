@@ -511,3 +511,21 @@ test("a session holding several items names them once, by their keys", async ({ 
   // each title is on its chip's tooltip
   await expect(held.getByTestId("item-chip").first()).toHaveAttribute("title", `${keys[0]} First of them`);
 });
+
+test("a session's details show its first five items, and the rest on request", async ({ page, request }) => {
+  const repo = fresh("five");
+  const session = `s-five-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Plan the work", kind: "start" },
+  });
+  for (let n = 1; n <= 7; n++) await add(request, repo, `Step ${n}`, { session });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const items = page.getByTestId("thread-work-items");
+  await expect(items).toContainText("Work items · 7");
+  await expect(items.getByTestId("thread-work-item")).toHaveCount(5);
+  const more = items.getByRole("button", { name: "Show 2 more" });
+  await more.click();
+  await expect(items.getByTestId("thread-work-item")).toHaveCount(7);
+  await items.getByRole("button", { name: "Show fewer" }).click();
+  await expect(items.getByTestId("thread-work-item")).toHaveCount(5);
+});
