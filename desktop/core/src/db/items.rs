@@ -188,6 +188,9 @@ pub struct ItemFilters {
     pub session: Option<(String, String)>,
     /// only the queued items, in the queue's order
     pub queued: bool,
+    /// the items without their bodies, which a list that shows none need
+    /// not read
+    pub summary: bool,
 }
 
 /// Why a change to the items was not made.
@@ -313,8 +316,14 @@ pub(super) type Outcome<T> = rusqlite::Result<Result<T, Refused>>;
 pub(super) const OPEN: &str = "('open', 'in_progress')";
 
 pub(super) fn select() -> String {
+    columns(true)
+}
+
+/// The item's columns, with its body or an empty one in its place.
+fn columns(body: bool) -> String {
+    let body = if body { "i.body" } else { "''" };
     format!(
-        "SELECT i.id, g.prefix, i.number, g.name, i.title, i.body, {status},
+        "SELECT i.id, g.prefix, i.number, g.name, i.title, {body}, {status},
            (SELECT pg.prefix || '-' || p.number FROM work_items p JOIN repos pg ON pg.id = p.repo_id
              WHERE p.id = i.parent),
            i.link, i.claim_agent, i.claim_session, i.created_by, i.created_session,
@@ -806,7 +815,7 @@ impl Db {
         };
         let sql = format!(
             "{} WHERE {} ORDER BY {order}",
-            select(),
+            columns(!filters.summary),
             wheres.join(" AND ")
         );
         let conn = self.conn();

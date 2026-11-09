@@ -478,7 +478,8 @@ export type WorkItem = {
   number: number;
   repo: string;
   title: string;
-  body: string;
+  /** its description: left out of the lists, which show none */
+  body?: string;
   status: ItemStatus;
   /** the parent's key */
   parent: string | null;
@@ -545,6 +546,7 @@ export type ItemEntry =
 
 /** A work item with everything about it, as its panel shows it. */
 export type ItemDetail = WorkItem & {
+  body: string;
   ancestors: { key: string; title: string }[];
   depends_on: RelatedItem[];
   blocks: RelatedItem[];

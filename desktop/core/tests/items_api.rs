@@ -2039,6 +2039,33 @@ async fn putting_a_parent_on_hold_releases_its_sub_items_and_tells_their_session
     );
 }
 
+#[tokio::test]
+async fn the_summary_list_leaves_the_bodies_out() {
+    let app = app();
+    let (code, _) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "title": "With a body", "body": "A long description of the quokka"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    let (_, full) = call(&app, "GET", "/api/v1/items", None).await;
+    assert_eq!(full["items"][0]["body"], "A long description of the quokka");
+    let (code, summary) = call(&app, "GET", "/api/v1/items?fields=summary", None).await;
+    assert_eq!(code, StatusCode::OK, "{summary}");
+    let item = &summary["items"][0];
+    assert!(item.get("body").is_none(), "{item}");
+    // the rest stays
+    let mut without = full["items"][0].clone();
+    without.as_object_mut().unwrap().remove("body");
+    assert_eq!(item, &without);
+    // and the words of a body still find it
+    let (_, found) = call(&app, "GET", "/api/v1/items?fields=summary&q=quokka", None).await;
+    assert_eq!(keys(&found["items"]), ["PIN-1"]);
+}
+
 // --- the queue
 
 async fn queue(app: &App, key: &str, place: Value) -> (StatusCode, Value) {

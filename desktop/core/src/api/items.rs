@@ -105,8 +105,9 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
 
 /// The items the query keeps: `status`, any of open, in_progress, done,
 /// cancelled, ready and blocked, comma-separated, by default those open or
-/// in progress; `repo`; `project`; `parent`, an item; `created_by`; and
-/// `q`, words in the title or the body. Answers `items`.
+/// in progress; `repo`; `project`; `parent`, an item; `created_by`; `q`,
+/// words in the title or the body; and `fields=summary`, which leaves the
+/// bodies out. Answers `items`.
 async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
@@ -136,10 +137,19 @@ async fn list(
             .get(&item_ref(parent)?, filters.repo.as_deref())?;
         filters.parent = Some(parent.id);
     }
+    // `fields=summary`: without the bodies, for a list that shows none
+    filters.summary = params.get("fields").is_some_and(|v| v == "summary");
     let items = state.items().list(&filters)?;
-    Ok(Json(json!({
-        "items": items.iter().map(|i| i.to_json()).collect::<Vec<_>>(),
-    })))
+    let json = |item: &WorkItem| {
+        let mut json = item.to_json();
+        if filters.summary {
+            json.as_object_mut().map(|o| o.remove("body"));
+        }
+        json
+    };
+    Ok(Json(
+        json!({ "items": items.iter().map(json).collect::<Vec<_>>() }),
+    ))
 }
 
 /// Adds an item from `repo`, `title` and, optionally, `body`, `parent`,

@@ -121,7 +121,8 @@ export const api = {
       "GET",
       `/api/v1/sessions${query(params)}`,
     ),
-  /** the work items the filters keep: by default those open or in progress */
+  /** the work items the filters keep, without their descriptions: by
+   *  default those open or in progress */
   items: (
     params: {
       status?: string;
@@ -132,7 +133,7 @@ export const api = {
       session?: string;
       queued?: "true";
     } = {},
-  ) => request<{ items: WorkItem[] }>("GET", `/api/v1/items${query(params)}`),
+  ) => request<{ items: WorkItem[] }>("GET", `/api/v1/items${query({ ...params, fields: "summary" })}`),
   /** puts an item in the person's queue, or moves it: at the end, or
    *  before or after a queued item; answers the queue in order */
   queueItem: (key: string, place: { before?: string; after?: string } = {}) =>
