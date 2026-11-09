@@ -45,9 +45,16 @@ impl Events {
     /// notices. Review data reflects its current state and omits the payload.
     /// Missing or unreadable reviews leave the notice's review data empty.
     pub fn after(&self, after: i64, limit: usize) -> Result<Vec<Notice>, Error> {
-        Ok(self
-            .db
-            .events_after(after, limit)?
+        let events = self.db.events_after(after, limit)?;
+        // each review once, in one query, however many events name it
+        let mut ids: Vec<&str> = events
+            .iter()
+            .filter_map(|e| e.review_id.as_deref())
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        let reviews = self.db.reviews_by_id(&ids).unwrap_or_default();
+        Ok(events
             .into_iter()
             .map(|event| Notice {
                 item: [super::ITEM_CHANGED, super::ITEM_DELETED]
@@ -65,7 +72,7 @@ impl Events {
                 review: event
                     .review_id
                     .as_deref()
-                    .and_then(|id| self.db.get_review(id).ok().flatten())
+                    .and_then(|id| reviews.get(id))
                     .map(|review| review.to_json(false)),
                 review_id: event.review_id,
                 keys: event

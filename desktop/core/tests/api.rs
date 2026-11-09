@@ -515,6 +515,47 @@ async fn a_decided_withdrawn_or_discarded_review_leaves_the_pending_list() {
 }
 
 #[tokio::test]
+async fn a_catch_up_gives_each_events_review_as_it_is_now() {
+    let app = app();
+    let mut ids = Vec::new();
+    for i in 0..3 {
+        let mut body = submission();
+        body["origin"]["run_id"] = json!(format!("catch-up-{i}"));
+        ids.push(submit(&app, body).await["id"].as_str().unwrap().to_string());
+    }
+    // several events for each review, and one of them decided
+    for id in &ids {
+        for _ in 0..3 {
+            call(&app, "POST", &format!("/api/v1/reviews/{id}/viewed"), None).await;
+        }
+    }
+    let data = json!({"decisions": [{"id": 1, "action": "accept"}, {"id": 2, "action": "accept"}], "undecided": []});
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{}/decision", ids[0]),
+        Some(json!({"data": data})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let notices = app.state.events().after(0, 1000).unwrap();
+    let about: Vec<_> = notices.iter().filter(|n| n.review_id.is_some()).collect();
+    assert!(about.len() >= 10, "{}", about.len());
+    for notice in about {
+        let id = notice.review_id.as_deref().unwrap();
+        let review = notice
+            .review
+            .as_ref()
+            .expect("the notice carries its review");
+        assert_eq!(review["id"], id);
+        assert!(review.get("payload").is_none());
+        let expected = if id == ids[0] { "decided" } else { "pending" };
+        assert_eq!(review["status"], expected, "{}", notice.kind);
+    }
+}
+
+#[tokio::test]
 async fn unknown_reviews_are_404() {
     let app = app();
     let (status, body) = call(&app, "GET", "/api/v1/reviews/r_nope", None).await;

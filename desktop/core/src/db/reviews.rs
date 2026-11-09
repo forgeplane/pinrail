@@ -360,6 +360,28 @@ impl Db {
         Ok(())
     }
 
+    /// The reviews with these ids, without payloads, as a listing reads
+    /// them: in one query, for the many events of a catch-up.
+    pub fn reviews_by_id(
+        &self,
+        ids: &[&str],
+    ) -> rusqlite::Result<std::collections::HashMap<String, Review>> {
+        if ids.is_empty() {
+            return Ok(Default::default());
+        }
+        let marks = (1..=ids.len())
+            .map(|n| format!("?{n}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let conn = self.conn();
+        let mut stmt = conn.prepare(&format!("{} WHERE r.id IN ({marks})", select(false)))?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+            row_to_review(row, false)
+        })?;
+        rows.map(|review| review.map(|r| (r.id.clone(), r)))
+            .collect()
+    }
+
     /// Whether any round of the review this round belongs to is starred.
     pub fn is_starred(&self, id: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
