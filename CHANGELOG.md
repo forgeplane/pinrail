@@ -93,6 +93,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   through the API or in `settings.json` stopped the app from deleting
   old history and expired reviews until it restarted.
 - Esc pressed as soon as What's new opens closes it.
+- Moving quickly from one review to another after a plugin update no
+  longer brings back the review you left.
 - **Restart to update** can be tried again after the install fails, such
   as when Pinrail runs from its disk image. It used to answer that no
   update was downloaded until the app was restarted.

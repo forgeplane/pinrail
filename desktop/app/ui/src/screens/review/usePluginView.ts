@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Plugin, Review } from "../../api/types";
+import { useLatest } from "../../lib/useLatest";
 import { usePlugins } from "../../state/live";
 
 type Resolved = {
@@ -23,6 +24,7 @@ type Resolved = {
 export function usePluginView(review: Review | null, onMoved: (review: Review) => void) {
   const { plugins } = usePlugins();
   const [resolved, setResolved] = useState<Resolved | null>(null);
+  const wanted = useLatest(review?.id);
   // questions have no plugin: the thread shows them
   const pluginKey = review && review.kind !== "question" ? `${review.plugin}@${review.plugin_bundle}` : null;
   // what was resolved for the last review counts only when it is for this one
@@ -45,7 +47,9 @@ export function usePluginView(review: Review | null, onMoved: (review: Review) =
           refused: view.refused,
           installed: view.installed,
         });
-        if (view.review.plugin_bundle !== review.plugin_bundle) onMoved(view.review);
+        // a review moved to the version installed now is shown moved, unless
+        // the person went on to another review while it was looked up
+        if (view.review.plugin_bundle !== review.plugin_bundle && wanted.current === review.id) onMoved(view.review);
       } catch {
         if (!cancelled)
           setResolved({ key: pluginKey, plugin: null, src: null, bundle: null, installed: null, refused: null });

@@ -113,6 +113,48 @@ test("a review clicked past does not come back when its fetch lands late", async
   await expect(frame.locator("p").first()).toHaveText("The third question.");
 });
 
+test("a review clicked past does not come back when its view lookup lands late with a moved version", async ({
+  page,
+}) => {
+  await clearInbox(page.request);
+  const first = await createReview(page.request, {
+    plugin: "list",
+    title: "Moved: first",
+    payload: {
+      summary: "The first list.",
+      groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
+    },
+  });
+  const second = await createReview(page.request, {
+    plugin: "list",
+    title: "Moved: second",
+    payload: {
+      summary: "The second list.",
+      groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
+    },
+  });
+
+  // the first review's view is looked up late, and answers that it moved
+  // to another version of the plugin, as after an update
+  let released!: () => void;
+  const held = new Promise<void>((resolve) => (released = resolve));
+  await page.route(`${core}/api/v1/reviews/${first.id}/view`, async (route) => {
+    const answer = await route.fetch();
+    const view = await answer.json();
+    view.review.plugin_bundle = "f".repeat(64);
+    await held;
+    await route.fulfill({ response: answer, json: view });
+  });
+  await page.goto(`/#/reviews/${first.id}`);
+  await expect(page.locator(".crumb-title")).toHaveText("Moved: first");
+  await page.evaluate((id) => (location.hash = `#/reviews/${id}`), second.id);
+  await expect(page.locator(".crumb-title")).toHaveText("Moved: second");
+  released();
+  await page.waitForTimeout(800);
+  await expect(page).toHaveURL(new RegExp(`/reviews/${second.id}$`));
+  await expect(page.locator(".crumb-title")).toHaveText("Moved: second");
+});
+
 test("Copy as markdown copies the review on screen, after moving from another", async ({ page }) => {
   // The screen stays mounted from one review to the next, so an action that
   // kept the id of the first would quietly copy the wrong review into a
