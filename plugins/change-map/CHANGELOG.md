@@ -10,6 +10,8 @@ carries it.
 
 - Text typed in the comment field of one part, and not yet added, no
   longer stays in the field when you select another part.
+- After you hand the review over, the view shows it read-only. The
+  verdict, the comment fields and the reviewed toggles stayed editable.
 
 ## [1.1.1] - Pinrail 0.5.0
 

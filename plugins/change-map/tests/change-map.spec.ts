@@ -1736,3 +1736,15 @@ test("a comment typed on one part is not carried to the next part selected", asy
   await f.locator('[data-node="api-client"]').click();
   await expect(f.getByPlaceholder("Add a comment")).toHaveValue("");
 });
+
+test("after the view's own hand-over, the decided review shows read-only", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: dedup() });
+  const f = plugin.frame;
+  await f.locator('[data-node="tickets-endpoint"]').click();
+  await f.getByPlaceholder("Add a comment").fill("Return the ticket's id with the 409.");
+  await f.getByPlaceholder("Add a comment").press("Enter");
+  const handed = await plugin.handOver();
+  expect(handed).toHaveProperty("decision");
+  await expect(f.getByPlaceholder("Add a comment")).toHaveCount(0);
+  await expect(f.locator(".cm-comments")).toContainText("Return the ticket's id with the 409.");
+});
