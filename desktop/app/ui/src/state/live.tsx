@@ -4,7 +4,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, subscribe } from "../api/client";
-import type { Notice, Plugin, ProjectRef, Review } from "../api/types";
+import type { Notice, Plugin, ProjectRef, ProjectsListing, Review } from "../api/types";
+import { setItemPrefixes } from "../lib/markdown";
 import { ENDINGS, applyNotice } from "./pending";
 
 /** The most pending reviews the app loads; the server has the rest. */
@@ -29,6 +30,10 @@ type Live = {
   projectsVersion: number;
   /** the person's projects, by name, for the filters */
   namedProjects: ProjectRef[];
+  /** the projects with their repositories, and the repositories in none */
+  projectsListing: ProjectsListing | null;
+  /** how many work items are open, in progress or on hold */
+  openItems: number;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
   /** the icon a plugin declares, if any */
@@ -54,7 +59,13 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [unloaded, setUnloaded] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [projectsVersion, setProjectsVersion] = useState(0);
-  const [namedProjects, setNamedProjects] = useState<ProjectRef[]>([]);
+  const [projectsListing, setProjectsListing] = useState<ProjectsListing | null>(null);
+  const [openItems, setOpenItems] = useState(0);
+  // advances when an item changes, and when one names a key prefix not yet
+  // known: a repository gets its prefix with its first item
+  const [itemsVersion, setItemsVersion] = useState(0);
+  const [prefixesVersion, setPrefixesVersion] = useState(0);
+  const prefixes = useRef(new Set<string>());
   const listeners = useRef(new Set<(notice: Notice) => void>());
   const listen = useCallback<Listen>((listener) => {
     listeners.current.add(listener);
@@ -98,21 +109,43 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // the projects, read again whenever one changes
+  // the projects, read once for every screen, again whenever one changes;
+  // their repositories' key prefixes are what links item keys in Markdown
   useEffect(() => {
     let cancelled = false;
     api
       .projects()
-      .then(
-        (l) =>
-          !cancelled &&
-          setNamedProjects(l.projects.map(({ id, name, color, emoji, image }) => ({ id, name, color, emoji, image }))),
-      )
+      .then((listing) => {
+        if (cancelled) return;
+        setProjectsListing(listing);
+        const known = [...listing.projects.flatMap((p) => p.repos), ...listing.loose]
+          .map((r) => r.prefix)
+          .filter((p): p is string => !!p);
+        prefixes.current = new Set(known);
+        setItemPrefixes(known);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [projectsVersion, connected]);
+  }, [projectsVersion, prefixesVersion, connected]);
+  const namedProjects = useMemo<ProjectRef[]>(
+    () =>
+      (projectsListing?.projects ?? []).map(({ id, name, color, emoji, image }) => ({ id, name, color, emoji, image })),
+    [projectsListing],
+  );
+
+  // how many work items are open, beside their entry in the sidebar
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .items()
+      .then((d) => !cancelled && setOpenItems(d.items.length))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [itemsVersion, connected]);
 
   useEffect(() => {
     refresh();
@@ -146,6 +179,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           setHistoryVersion((v) => v + 1);
           refresh();
         }
+        if (notice.item) {
+          setItemsVersion((v) => v + 1);
+          const prefix = notice.item.key.replace(/-\d+$/, "");
+          if (!prefixes.current.has(prefix)) setPrefixesVersion((v) => v + 1);
+        }
         // a review that moved may have taken a linked folder as it is now
         if (notice.kind === "plugins_reloaded" || notice.kind === "plugin_changed") loadPlugins();
       },
@@ -176,6 +214,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       historyVersion,
       projectsVersion,
       namedProjects,
+      projectsListing,
+      openItems,
       plugins,
       pluginIcon,
     }),
@@ -188,6 +228,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       historyVersion,
       projectsVersion,
       namedProjects,
+      projectsListing,
+      openItems,
       plugins,
       pluginIcon,
     ],

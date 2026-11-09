@@ -81,9 +81,7 @@ export function WorkItems() {
   const openKey = params.get("open");
   const filtered = !!(query || status || scope || by || waiting);
   const [items, setItems] = useState<WorkItem[] | null>(null);
-  const [repos, setRepos] = useState<string[]>([]);
   // each project's repositories, by its id: where an item dropped on it goes
-  const [projectRepos, setProjectRepos] = useState<Record<string, string[]>>({});
   const [focused, setFocused] = useState(0);
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
@@ -121,22 +119,23 @@ export function WorkItems() {
     };
   }, [itemNotices, reloads]);
   // the repositories an item can be added to: every one the app knows
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .projects()
-      .then((l) => {
-        if (cancelled) return;
-        setRepos([
-          ...new Set([...l.projects.flatMap((p) => p.repos.map((r) => r.repo)), ...l.loose.map((r) => r.repo)]),
-        ]);
-        setProjectRepos(Object.fromEntries(l.projects.map((p) => [p.id, p.repos.map((r) => r.repo)])));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [live.projectsVersion]);
+  const listing = live.projectsListing;
+  const repos = useMemo(
+    () =>
+      listing
+        ? [
+            ...new Set([
+              ...listing.projects.flatMap((p) => p.repos.map((r) => r.repo)),
+              ...listing.loose.map((r) => r.repo),
+            ]),
+          ]
+        : [],
+    [listing],
+  );
+  const projectRepos = useMemo<Record<string, string[]>>(
+    () => Object.fromEntries((listing?.projects ?? []).map((p) => [p.id, p.repos.map((r) => r.repo)])),
+    [listing],
+  );
 
   const setParam = (key: string, value: string | null) =>
     updateParams(

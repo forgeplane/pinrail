@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { api, sendFeedback } from "../api/client";
+import { sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
@@ -38,11 +38,10 @@ import { useWhatsNew } from "./useWhatsNew";
 import { useAppCommands, type CommandRun } from "./useAppCommands";
 import { command, type CommandId } from "../lib/commands";
 import { reviewPath, reviewShown } from "../lib/url";
-import { useLive, anItem, useNoticeCount } from "../state/live";
+import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
-import { setItemPrefixes } from "../lib/markdown";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { chooseTheme, chosenTheme } from "../lib/themes";
 import { Tooltip } from "./Tooltip";
@@ -67,32 +66,6 @@ const pageTitle = (path: string) =>
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
-  // the repositories' key prefixes, for the links to work items in what
-  // the app shows, as projects and items change
-  const itemNotices = useNoticeCount(anItem);
-  useEffect(() => {
-    api
-      .projects()
-      .then((l) =>
-        setItemPrefixes(
-          [...l.projects.flatMap((p) => p.repos), ...l.loose].map((r) => r.prefix).filter((p): p is string => !!p),
-        ),
-      )
-      .catch(() => {});
-  }, [live.projectsVersion, live.connected, itemNotices]);
-  // how many work items are open or in progress, beside their entry, as
-  // anything changes: what the page lists when it opens
-  const [openItems, setOpenItems] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .items()
-      .then((d) => !cancelled && setOpenItems(d.items.length))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [itemNotices, live.connected]);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -329,7 +302,7 @@ export function Layout({ children }: { children: ReactNode }) {
           sessionsOn={sessionsOn}
           shown={shown}
           openIn={prefs.inbox.open_in}
-          openItems={openItems}
+          openItems={live.openItems}
           onSearch={() => setPalette(true)}
           onSettings={setSettings}
           onFeedback={() => setFeedback(true)}
