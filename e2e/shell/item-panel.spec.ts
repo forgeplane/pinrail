@@ -636,3 +636,25 @@ test("a dialog keeps Tab inside it, and Esc gives the focus back to what opened 
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
 });
+
+test("a comment changed elsewhere opens its editor with the new text", async ({ page, request }) => {
+  const repo = fresh("comment-stale");
+  const item = await add(request, repo, "Item");
+  await openItem(page, repo, item.key);
+  const field = panel(page).getByLabel("Add a comment");
+  await field.fill("First words.");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  const comment = panel(page).getByTestId("item-comment");
+  await expect(comment).toContainText("First words.");
+  // another window changes it
+  const detail = await (await request.get(`${core}/api/v1/items/${item.key}`)).json();
+  const id = detail.timeline.find((e: { type: string }) => e.type === "comment").id;
+  const changed = await request.patch(`${core}/api/v1/items/${item.key}/comments/${id}`, {
+    data: { body: "Second words." },
+    headers: { origin: shellOrigin },
+  });
+  expect(changed.status(), await changed.text()).toBe(200);
+  await expect(comment).toContainText("Second words.");
+  await comment.getByRole("button", { name: "Edit" }).click();
+  await expect(comment.getByLabel("Comment")).toHaveValue("Second words.");
+});

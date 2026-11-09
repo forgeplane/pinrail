@@ -18,12 +18,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
 import { age, ordinal, stamp } from "../lib/format";
-import { MOD, modalOpen, composing, isTyping } from "../lib/keys";
+import { MOD, modalOpen, isTyping } from "../lib/keys";
 import { reviewPath } from "../lib/url";
 import { aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -44,6 +44,7 @@ import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 import { useWindowKey } from "../lib/useWindowKey";
 import { ProgressRing } from "./ProgressRing";
+import { editKeys } from "../lib/editKeys";
 
 const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
 
@@ -551,16 +552,6 @@ function EditableTitle({
   onEdit: (on: boolean) => void;
   onSave: (title: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(title);
-  const field = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (editing) {
-      setDraft(title);
-      field.current?.focus();
-      field.current?.select();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the title as it was when editing began
-  }, [editing]);
   if (!editing)
     return (
       <h2 className="item-panel-title">
@@ -569,9 +560,28 @@ function EditableTitle({
         </button>
       </h2>
     );
+  return <TitleField title={title} onDone={() => onEdit(false)} onSave={onSave} />;
+}
+
+/** The title's field, which starts from the title as it is when it opens. */
+function TitleField({
+  title,
+  onDone,
+  onSave,
+}: {
+  title: string;
+  onDone: () => void;
+  onSave: (title: string) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState(title);
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
   const save = async () => {
-    if (!draft.trim() || draft.trim() === title) return onEdit(false);
-    if (await onSave(draft.trim())) onEdit(false);
+    if (!draft.trim() || draft.trim() === title) return onDone();
+    if (await onSave(draft.trim())) onDone();
   };
   return (
     <input
@@ -583,18 +593,8 @@ function EditableTitle({
       autoCorrect="off"
       spellCheck={false}
       onChange={(e) => setDraft(e.target.value)}
-      onKeyDown={(e) => {
-        if (composing(e)) return;
-        if (e.key === "Enter") {
-          e.preventDefault();
-          void save();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          onEdit(false);
-        }
-      }}
-      onBlur={() => onEdit(false)}
+      onKeyDown={editKeys({ onSave: () => void save(), onCancel: onDone })}
+      onBlur={onDone}
     />
   );
 }
@@ -628,16 +628,7 @@ function EditableBody({
         value={draft}
         rows={8}
         onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            if (!files.busy) save();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            onCancel();
-          }
-        }}
+        onKeyDown={editKeys({ onSave: () => !files.busy && save(), onCancel, saveOn: "mod-enter" })}
       />
       <div className="item-edit-actions">
         <AttachButton label="Attach a file to the description" onFiles={(f) => void files.attach(f)} />
@@ -688,17 +679,10 @@ function EditableLink({ link, onSave }: { link: string | null; onSave: (link: st
       placeholder="https://"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onKeyDown={async (e: ReactKeyboardEvent<HTMLInputElement>) => {
-        if (composing(e)) return;
-        if (e.key === "Enter") {
-          e.preventDefault();
-          if (await onSave(draft.trim() || null)) setEditing(false);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          setEditing(false);
-        }
-      }}
+      onKeyDown={editKeys({
+        onSave: () => void onSave(draft.trim() || null).then((saved) => saved && setEditing(false)),
+        onCancel: () => setEditing(false),
+      })}
       onBlur={() => setEditing(false)}
     />
   );
@@ -736,15 +720,12 @@ function AddSubItem({ onAdd }: { onAdd: (title: string) => Promise<boolean> }) {
       autoCorrect="off"
       spellCheck={false}
       onChange={(e) => setTitle(e.target.value)}
-      onKeyDown={async (e) => {
-        if (composing(e)) return;
-        if (e.key === "Enter" && title.trim()) {
-          e.preventDefault();
-          if (await onAdd(title.trim())) setTitle("");
-        } else if (e.key === "Escape") {
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
+      onKeyDown={editKeys({
+        onSave: () => {
+          if (title.trim()) void onAdd(title.trim()).then((added) => added && setTitle(""));
+        },
+        onCancel: () => (document.activeElement as HTMLElement | null)?.blur(),
+      })}
     />
   );
 }
@@ -763,7 +744,6 @@ function CommentCard({
   onDelete: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
   const mine = comment.author === "person";
   return (
     <div className={`item-comment ${mine ? "is-mine" : ""}`} data-testid="item-comment">
@@ -787,25 +767,7 @@ function CommentCard({
         ) : null}
       </div>
       {editing ? (
-        <div className="item-body-edit">
-          <textarea
-            aria-label="Comment"
-            value={draft}
-            rows={3}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={async (e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                if (await onEdit(draft)) setEditing(false);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                e.stopPropagation();
-                setEditing(false);
-              }
-            }}
-          />
-        </div>
+        <CommentEdit body={comment.body} onSave={onEdit} onDone={() => setEditing(false)} />
       ) : (
         <Markdown text={comment.body} files={[...files, ...comment.files]} fileUrl={fileUrl} />
       )}
@@ -820,6 +782,36 @@ function CommentCard({
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+}
+
+/** A comment's text being edited, from the comment as it is when it opens:
+ *  ⌘Enter saves, Esc leaves. */
+function CommentEdit({
+  body,
+  onSave,
+  onDone,
+}: {
+  body: string;
+  onSave: (body: string) => Promise<boolean>;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState(body);
+  return (
+    <div className="item-body-edit">
+      <textarea
+        aria-label="Comment"
+        value={draft}
+        rows={3}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={editKeys({
+          onSave: () => void onSave(draft).then((saved) => saved && onDone()),
+          onCancel: onDone,
+          saveOn: "mod-enter",
+        })}
+      />
     </div>
   );
 }
