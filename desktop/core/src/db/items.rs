@@ -715,11 +715,8 @@ pub(super) fn move_in(
         "INSERT INTO work_item_aliases (repo_id, number, item_id) VALUES (?1, ?2, ?3)",
         params![from_repo, from_number, id],
     )?;
-    // moving back to a repository it was in, its alias there goes
-    conn.execute(
-        "DELETE FROM work_item_aliases WHERE repo_id = ?1 AND item_id = ?2",
-        params![to_repo, id],
-    )?;
+    // numbers are never given again, so an alias, even in the repository
+    // it moves back to, names only this item
     conn.execute(
         "UPDATE work_items SET repo_id = ?2, number = ?3 WHERE id = ?1",
         params![id, to_repo, number],

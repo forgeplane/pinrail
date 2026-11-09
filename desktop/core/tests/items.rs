@@ -282,6 +282,23 @@ fn a_moved_item_takes_the_next_number_there_and_keeps_its_old_key() {
     assert_eq!(add(&s, "pinrail", "Next"), "PIN-5");
 }
 
+#[test]
+fn an_item_moved_away_and_back_keeps_every_key_it_had() {
+    let s = store();
+    add(&s, "pinrail", "First");
+    add(&s, "pinrail", "Moving");
+    let move_to = |repo: &str| {
+        s.db.move_item(&r("PIN-2"), repo, None, Utc::now())
+            .unwrap()
+            .unwrap()
+    };
+    assert_eq!(move_to("pinrail-plugins").key.to_string(), "PP-1");
+    assert_eq!(move_to("pinrail").key.to_string(), "PIN-3");
+    for key in ["PIN-2", "PP-1", "PIN-3"] {
+        assert_eq!(get(&s, key).key.to_string(), "PIN-3", "{key}");
+    }
+}
+
 // --- the tree
 
 #[test]
