@@ -17,7 +17,7 @@ import {
   X,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import { copyText } from "../lib/clipboard";
@@ -74,7 +74,7 @@ type ReviewViewProps = {
 const pageOf = (id: string): To => `/reviews/${id}`;
 
 /** A review: its strip, its plugin view, and the note sent with a decision. */
-export function ReviewView({
+export const ReviewView = memo(function ReviewView({
   id,
   inPanel = false,
   linkTo = pageOf,
@@ -1155,7 +1155,7 @@ export function ReviewView({
       ) : null}
     </div>
   );
-}
+});
 
 /** A link to the thread of the session the review was sent from, if the
  *  agent said which. */

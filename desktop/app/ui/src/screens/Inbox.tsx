@@ -1,28 +1,22 @@
-import { Ban, CheckCheck, MessageCircleQuestion, SearchX } from "lucide-react";
+import { CheckCheck, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
-import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
-import { Tooltip } from "../components/Tooltip";
-import { ItemChips } from "../components/ItemChip";
-import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, SummaryCounts } from "../components/Badges";
-import { age } from "../lib/format";
 import { clearAll, scopeOf, useUrlParams } from "../lib/url";
 import { waitingFilter } from "../lib/waiting";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { GroupHeading } from "../components/GroupHeading";
 import { useLive } from "../state/live";
-import { MOD, hasMod, modalOpen } from "../lib/keys";
+import { hasMod, modalOpen } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
-import { StarButton } from "../components/StarButton";
 import { History } from "./History";
 import { InboxHead, tabOf, type Layout } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
+import { InboxRow, type InboxRowActions } from "../components/InboxRow";
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -271,88 +265,47 @@ function Waiting() {
     return () => window.removeEventListener("keydown", onKey);
   }, [shown, focused, navigate, discarding, openId, openInPanel, hrefFor]);
 
+  // What a row does, as the same functions from one render to the next, so
+  // that a memoized row draws again only when its own props change; each
+  // calls the page's latest state.
+  const rowHandlers: InboxRowActions = {
+    hover: (here) => {
+      if (!keyboard.current) setFocused(here);
+    },
+    open: (event, id) => openFromLink(event, id),
+    discard: (review) => setDiscarding(review),
+  };
+  const latestRow = useRef(rowHandlers);
+  latestRow.current = rowHandlers;
+  const rowActions = useMemo<InboxRowActions>(
+    () => ({
+      hover: (here) => latestRow.current.hover(here),
+      open: (event, id) => latestRow.current.open(event, id),
+      discard: (review) => latestRow.current.discard(review),
+    }),
+    [],
+  );
   /** A review's row; `here` is its place in the order J and K walk. */
   const row = (review: Review, here: number) => (
-    <Link
+    <InboxRow
       key={review.id}
-      to={hrefFor(review.id)}
-      onClick={(event) => openFromLink(event, review.id)}
-      className={`review-row ${review.kind === "question" ? "is-question" : ""} ${here === focused ? "is-focused" : ""} ${review.id === openId ? "is-open" : ""}`}
-      aria-current={review.id === openId ? "true" : undefined}
-      onMouseEnter={() => !keyboard.current && setFocused(here)}
-      data-testid="review-row"
-    >
-      {/* questions an agent asked are marked apart from the reviews it sent */}
-      {review.kind === "question" ? (
-        <MessageCircleQuestion className="review-row-asks" size={15} aria-label="Asks you" />
-      ) : (
-        <span className="review-row-marker" aria-label="Pending" />
-      )}
-      <span className="review-row-main">
-        <span className="review-row-title">
-          {review.title}
-          {review.origin.ref ? <span className="review-row-ref">{review.origin.ref}</span> : null}
-        </span>
-        <span className="review-row-meta">
-          {layout === "list" || mixed.has(groupOf(review)) ? (
-            <span className="review-row-project" data-testid="review-row-project">
-              {review.origin.repo ?? "No repository"}
-            </span>
-          ) : null}
-          {(layout === "list" || mixed.has(groupOf(review))) && (review.requested_by || review.origin.workflow) ? (
-            <span>·</span>
-          ) : null}
-          {review.requested_by ? (
-            <span className="requester">
-              <AgentIcon requestedBy={review.requested_by} />
-              {review.requested_by}
-            </span>
-          ) : null}
-          <ItemChips items={review.items ?? []} />
-          {review.requested_by && review.origin.workflow ? <span>·</span> : null}
-          {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
-          {review.revises ? <span>· New round</span> : null}
-          <FilesCount total={review.attachments_total} />
-        </span>
-      </span>
-      {review.kind === "question" ? (
-        <span className="review-row-plugin">
-          <span className="asks-chip">asks you</span>
-        </span>
-      ) : (
-        <span className="review-row-plugin" title={reviewLabel(review)}>
-          <ReviewIcon review={review} size={13} />
-          {reviewLabel(review)}
-        </span>
-      )}
-      <span className="review-row-summary">
-        <SummaryCounts summary={review.summary} />
-      </span>
-      <span className="review-row-end">
-        <time className="review-row-time" dateTime={review.created_at}>
-          {age(review.created_at, now)}
-        </time>
-        {review.kind === "question" ? null : <StarButton review={review} inRow ofReview />}
-        <Tooltip label="Discard: the agent is told to stop" keys={[MOD, "D"]} side="top">
-          <button
-            type="button"
-            className="bar-button"
-            aria-label={`Discard ${review.title}`}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDiscarding(review);
-            }}
-          >
-            <Ban size={14} />
-          </button>
-        </Tooltip>
-      </span>
-    </Link>
+      review={review}
+      here={here}
+      focused={here === focused}
+      open={review.id === openId}
+      showRepo={layout === "list" || mixed.has(groupOf(review))}
+      hrefFor={hrefFor}
+      actions={rowActions}
+    />
   );
+  // how many reviews each group has, across the pages, for its heading
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of reviews) counts.set(groupOf(r), (counts.get(groupOf(r)) ?? 0) + 1);
+    return counts;
+  }, [reviews, groupOf]);
 
   const filtered = !!(q || scope || plugin || rounds || starred);
-  const now = Date.now();
   let index = -1;
 
   return (
@@ -409,11 +362,7 @@ function Waiting() {
             {groups.map(([key, items]) => (
               <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                 <summary data-testid="inbox-group-heading">
-                  <GroupHeading
-                    groupKey={key}
-                    project={items[0].project}
-                    count={reviews.filter((r) => groupOf(r) === key).length}
-                  />
+                  <GroupHeading groupKey={key} project={items[0].project} count={groupCounts.get(key) ?? 0} />
                 </summary>
                 {items.map((review) => {
                   index += 1;
