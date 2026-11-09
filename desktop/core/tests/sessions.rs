@@ -149,6 +149,73 @@ async fn sessions_are_listed_with_those_waiting_first() {
 }
 
 #[tokio::test]
+async fn the_listing_searches_titles_and_reports_the_newest_status() {
+    let app = app();
+    send(
+        &app,
+        question("claude-code", Some("s-search"), "Deploy the quokka?"),
+    )
+    .await;
+    send(
+        &app,
+        question("claude-code", Some("s-search"), "Second question"),
+    )
+    .await;
+    status(
+        &app,
+        "claude-code",
+        "s-search",
+        json!({"text": "Port the loader", "kind": "start"}),
+    )
+    .await;
+    status(
+        &app,
+        "claude-code",
+        "s-search",
+        json!({"text": "Running the tests"}),
+    )
+    .await;
+    status(
+        &app,
+        "claude-code",
+        "s-search",
+        json!({"text": "A note last", "kind": "note"}),
+    )
+    .await;
+    send(&app, question("codex", Some("s-other"), "Something else")).await;
+
+    // a word of a question's title, of the session's title, or of its agent
+    for (q, found) in [
+        ("quokka", vec!["s-search"]),
+        ("loader", vec!["s-search"]),
+        ("codex", vec!["s-other"]),
+        ("quokka loader", vec!["s-search"]),
+        ("quokka codex", vec![]),
+    ] {
+        assert_eq!(
+            listed_ids(&app, &format!("?q={}", q.replace(' ', "+"))).await,
+            found,
+            "{q}"
+        );
+    }
+    // each session counts each question once
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions?q=quokka", None).await;
+    let session = &listing["sessions"][0];
+    assert_eq!(session["total"]["questions"], 2);
+    assert_eq!(session["waiting"]["questions"], 2);
+    assert_eq!(session["status"]["text"], "Running the tests");
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-search", None).await;
+    let newest = thread["statuses"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(newest["text"], "A note last");
+    assert_eq!(session["reported_at"], newest["at"]);
+}
+
+#[tokio::test]
 async fn a_session_nobody_sent_from_is_404() {
     let app = app();
     let (status, _) = call(&app, "GET", "/api/v1/sessions/claude-code/nothing", None).await;

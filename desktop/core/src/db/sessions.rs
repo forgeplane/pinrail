@@ -347,7 +347,6 @@ impl Db {
         if !filters.include_archived {
             wheres.push("s.archived_at IS NULL".to_string());
         }
-        let mut having = Vec::new();
         if let Some(text) = &filters.text {
             for word in text.split_whitespace() {
                 let escaped = word
@@ -356,8 +355,9 @@ impl Db {
                     .replace('_', "\\_");
                 args.push(format!("%{escaped}%"));
                 let n = args.len();
-                having.push(format!(
-                    "(COALESCE(SUM(r.title LIKE ?{n} ESCAPE '\\'), 0) > 0 \
+                wheres.push(format!(
+                    "(EXISTS (SELECT 1 FROM reviews r WHERE r.requested_by = s.agent \
+                       AND r.session = s.id AND r.title LIKE ?{n} ESCAPE '\\') \
                      OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\' \
                      OR {title} LIKE ?{n} ESCAPE '\\')",
                     title = title()
@@ -365,17 +365,13 @@ impl Db {
             }
         }
         if filters.waiting {
-            having.push(format!("{WAITING} > 0"));
+            wheres.push(format!("{WAITING} > 0"));
         }
         let wheres = match wheres.is_empty() {
             true => String::new(),
             false => format!(" WHERE {}", wheres.join(" AND ")),
         };
-        let having = match having.is_empty() {
-            true => String::new(),
-            false => format!(" HAVING {}", having.join(" AND ")),
-        };
-        let sessions = format!("{}{wheres} GROUP BY s.agent, s.id{having}", select());
+        let sessions = format!("{}{wheres}", select());
         let conn = self.conn();
         let total: i64 = conn.query_row(
             &format!("SELECT COUNT(*) FROM ({sessions})"),
@@ -401,10 +397,7 @@ impl Db {
         id: &str,
         now: DateTime<Utc>,
     ) -> rusqlite::Result<Option<SessionRow>> {
-        let sql = format!(
-            "{} WHERE s.agent = ?2 AND s.id = ?3 GROUP BY s.agent, s.id",
-            select()
-        );
+        let sql = format!("{} WHERE s.agent = ?2 AND s.id = ?3", select());
         let conn = self.conn();
         conn.query_row(
             &sql,
@@ -594,16 +587,16 @@ impl Db {
 }
 
 /// How many of the session's questions and reviews wait for the person.
-const WAITING: &str = "(waiting_questions + waiting_reviews)";
+const WAITING: &str = "(COALESCE(c.waiting_questions, 0) + COALESCE(c.waiting_reviews, 0))";
 
-/// The sessions with what their reviews hold, before the `WHERE` and the
-/// `GROUP BY`; `?1` is the time now, for what still waits.
+/// The sessions with what their reviews hold, before the `WHERE`; `?1` is
+/// the time now, for what still waits. The reviews are counted once per
+/// session, in `c`, and each status is read once per session.
 fn select() -> String {
-    let pending = "(r.id IS NOT NULL AND o.review_id IS NULL \
-                   AND (r.expires_at IS NULL OR r.expires_at > ?1))";
-    // the latest status is the newest that is not a note
+    let pending = "(o.review_id IS NULL AND (r.expires_at IS NULL OR r.expires_at > ?1))";
     // a review counts once, by its newest round
     let newest = "NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)";
+    // the latest status is the newest that is not a note
     let status = |column: &str| {
         format!(
             "(SELECT t.{column} FROM session_statuses t \
@@ -612,20 +605,29 @@ fn select() -> String {
         )
     };
     format!(
-        "SELECT s.agent, s.id, {repo} AS repo, s.ref, s.folder, s.first_at, s.last_at,
-    COALESCE(SUM(r.kind = 'question'), 0) AS questions,
-    COALESCE(SUM(r.kind = 'review' AND {newest}), 0) AS reviews,
-    COALESCE(SUM(r.kind = 'question' AND {pending}), 0) AS waiting_questions,
-    COALESCE(SUM(r.kind = 'review' AND {pending}), 0) AS waiting_reviews,
+        "WITH c AS (
+    SELECT r.requested_by AS agent, r.session AS id,
+      SUM(r.kind = 'question') AS questions,
+      SUM(r.kind = 'review' AND {newest}) AS reviews,
+      SUM(r.kind = 'question' AND {pending}) AS waiting_questions,
+      SUM(r.kind = 'review' AND {pending}) AS waiting_reviews
+    FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+    WHERE r.session IS NOT NULL
+    GROUP BY r.requested_by, r.session
+  )
+  SELECT s.agent, s.id, {repo} AS repo, s.ref, s.folder, s.first_at, s.last_at,
+    COALESCE(c.questions, 0) AS questions,
+    COALESCE(c.reviews, 0) AS reviews,
+    COALESCE(c.waiting_questions, 0) AS waiting_questions,
+    COALESCE(c.waiting_reviews, 0) AS waiting_reviews,
     {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,
     {title} AS title,
     s.archived_at,
-    (SELECT MAX(t.created_at) FROM session_statuses t
-     WHERE t.agent = s.agent AND t.session = s.id) AS reported_at,
+    (SELECT t.created_at FROM session_statuses t
+     WHERE t.agent = s.agent AND t.session = s.id ORDER BY t.id DESC LIMIT 1) AS reported_at,
     {project}
   FROM sessions s
-  LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
-  LEFT JOIN outcomes o ON o.review_id = r.id",
+  LEFT JOIN c ON c.agent = s.agent AND c.id = s.id",
         id = status("id"),
         text = status("text"),
         kind = status("kind"),
