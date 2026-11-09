@@ -45,6 +45,8 @@ type Live = {
   projectsListing: ProjectsListing | null;
   /** how many work items are open, in progress or on hold */
   openItems: number;
+  /** how many of them are in progress */
+  itemsInProgress: number;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
   /** the icon a plugin declares, if any */
@@ -145,8 +147,18 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     [projectsListing],
   );
 
-  // how many work items are open, beside their entry in the sidebar
-  const openItems = useLoad(() => api.items().then((d) => d.items.length), [itemsVersion, connected]).data ?? 0;
+  // how many work items are open, and how many of them in progress,
+  // beside their entry in the sidebar
+  const itemCounts = useLoad(
+    () =>
+      api.items().then((d) => ({
+        open: d.items.length,
+        inProgress: d.items.filter((i) => i.status === "in_progress").length,
+      })),
+    [itemsVersion, connected],
+  ).data;
+  const openItems = itemCounts?.open ?? 0;
+  const itemsInProgress = itemCounts?.inProgress ?? 0;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
@@ -218,6 +230,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       namedProjects,
       projectsListing,
       openItems,
+      itemsInProgress,
       plugins,
       pluginIcon,
     }),
@@ -232,6 +245,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       namedProjects,
       projectsListing,
       openItems,
+      itemsInProgress,
       plugins,
       pluginIcon,
     ],

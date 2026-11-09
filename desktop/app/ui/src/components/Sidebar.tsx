@@ -11,6 +11,7 @@ import { useLive } from "../state/live";
 import type { SettingsSection } from "./settings/SettingsDialog";
 import { SidebarProjects } from "./SidebarProjects";
 import { SidebarSessions } from "./SidebarSessions";
+import { ItemStatusIcon } from "./ItemStatusIcon";
 import { Tooltip } from "./Tooltip";
 import { UpdateNotice } from "./UpdateNotice";
 import { useResizableWidth } from "../lib/useResizableWidth";
@@ -55,6 +56,7 @@ export function Sidebar({
   shown,
   openIn,
   openItems,
+  itemsInProgress,
   onSearch,
   onSettings,
   onFeedback,
@@ -69,6 +71,7 @@ export function Sidebar({
   openIn: "panel" | "page";
   /** how many work items are open or in progress */
   openItems: number;
+  itemsInProgress: number;
   onSearch: () => void;
   onSettings: (section: SettingsSection) => void;
   onFeedback: () => void;
@@ -102,9 +105,20 @@ export function Sidebar({
                     </span>
                   ) : null}
                   {key === "items" && openItems ? (
-                    <Tooltip label={`${openItems} open or in progress`} side="bottom">
-                      <span className="nav-count is-quiet" data-testid="items-count">
-                        {openItems}
+                    <Tooltip
+                      label={`${openItems} open or in progress${itemsInProgress ? `, ${itemsInProgress} of them in progress` : ""}`}
+                      side="bottom"
+                    >
+                      <span className="nav-counts">
+                        {itemsInProgress ? (
+                          <span className="nav-count is-working" data-testid="items-in-progress">
+                            <ItemStatusIcon status="in_progress" size={10} decorative />
+                            {itemsInProgress}
+                          </span>
+                        ) : null}
+                        <span className="nav-count is-quiet" data-testid="items-count">
+                          {openItems}
+                        </span>
                       </span>
                     </Tooltip>
                   ) : null}

@@ -414,12 +414,16 @@ test("the sidebar counts the items the page lists when it opens, as they change"
   const repo = fresh("count");
   const item = await add(request, repo, "Counted");
   await expect.poll(shown).toBe(before + 1);
-  // in progress is still not closed
+  // in progress is still not closed, and is counted on its own too
+  const working = page.getByTestId("items-in-progress");
+  const inProgress = async () => Number((await working.count()) ? await working.textContent() : 0);
+  const workingBefore = await inProgress();
   await edit(request, item.key, { claim: "claim" });
-  await page.waitForTimeout(300);
+  await expect.poll(inProgress).toBe(workingBefore + 1);
   expect(await shown()).toBe(before + 1);
   await edit(request, item.key, { status: "done" });
   await expect.poll(shown).toBe(before);
+  await expect.poll(inProgress).toBe(workingBefore);
   // and the page, opened from it, lists as many
   await page
     .getByRole("navigation", { name: "Main" })

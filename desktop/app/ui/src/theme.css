@@ -6499,6 +6499,17 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: none;
   color: var(--faint);
 }
+/* the work items in progress, before the count of all those not closed */
+.nav-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.nav-count.is-working {
+  gap: 3px;
+  background: none;
+  color: var(--dim);
+}
 
 /* a line of keyboard hints: each key or combination in a plain cap, in the
    line's own font, the hints spaced apart */

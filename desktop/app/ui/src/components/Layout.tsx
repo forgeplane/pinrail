@@ -299,6 +299,7 @@ export function Layout({ children }: { children: ReactNode }) {
           shown={shown}
           openIn={prefs.inbox.open_in}
           openItems={live.openItems}
+          itemsInProgress={live.itemsInProgress}
           onSearch={() => setPalette(true)}
           onSettings={setSettings}
           onFeedback={() => setFeedback(true)}
