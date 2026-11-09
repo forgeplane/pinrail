@@ -4,6 +4,14 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.3.1] - Unreleased
+
+### Fixed
+
+- A diff given as `git diff` prints it, with its `diff --git`, `index`,
+  `---` and `+++` lines, no longer shows those lines as code, and each
+  file's counts of added and deleted lines are right.
+
 ## [1.3.0] - Pinrail 0.4.1
 
 ### Changed

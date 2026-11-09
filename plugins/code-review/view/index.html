@@ -1788,9 +1788,14 @@
       function parseDiff(lines) {
         const rows = [];
         let o = 0,
-          n = 0;
+          n = 0,
+          inHunk = false;
         for (const line of lines) {
+          // git diff's header lines, before a file's first hunk
+          if (line.startsWith("diff --git ")) inHunk = false;
+          if (!inHunk && !line.startsWith("@@")) continue;
           if (line.startsWith("@@")) {
+            inHunk = true;
             const m = line.match(/-(\d+)(?:,\d+)? \+(\d+)/);
             if (m) {
               o = parseInt(m[1], 10);

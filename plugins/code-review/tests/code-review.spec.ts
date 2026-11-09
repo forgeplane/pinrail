@@ -718,3 +718,21 @@ test("without the app's dictation a note has no microphone", async ({ page }) =>
   await expect(card.locator("textarea[data-note-ta]")).toBeVisible();
   await expect(plugin.frame.getByRole("button", { name: "Dictate" })).toHaveCount(0);
 });
+
+test("a diff as git diff prints it shows no header lines and counts only the changed lines", async ({ page }) => {
+  const review = round2();
+  const file = review.payload.files[0];
+  file.diff = [
+    "diff --git a/lib/acme/tickets.ex b/lib/acme/tickets.ex",
+    "index 3b18e51..a9c2f04 100644",
+    "--- a/lib/acme/tickets.ex",
+    "+++ b/lib/acme/tickets.ex",
+    file.diff,
+  ].join("\n");
+  const plugin = await mountPlugin(page, dir, { review });
+  const section = plugin.frame.locator('[data-filesec="lib/acme/tickets.ex"]');
+  await expect(section).toContainText("+3 −2");
+  for (const header of ["diff --git", "index 3b18e51", "a/lib/acme/tickets.ex"]) {
+    await expect(section.locator(".diff-row").filter({ hasText: header })).toHaveCount(0);
+  }
+});
