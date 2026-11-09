@@ -736,7 +736,12 @@ fn status_sql(status: Status, now: usize) -> String {
         Status::Withdrawn => "o.kind = 'withdrawn'".to_string(),
         Status::Discarded => "o.kind = 'discarded'".to_string(),
         Status::Pending => {
-            format!("(o.review_id IS NULL AND (r.expires_at IS NULL OR r.expires_at > ?{now}))")
+            // ended_at is set with the outcome: it lets the reviews still open
+            // be read through their partial index
+            format!(
+                "(r.ended_at IS NULL AND o.review_id IS NULL \
+                 AND (r.expires_at IS NULL OR r.expires_at > ?{now}))"
+            )
         }
         Status::Expired => {
             format!("(o.review_id IS NULL AND r.expires_at IS NOT NULL AND r.expires_at <= ?{now})")
@@ -857,4 +862,36 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         discarded_via,
         discarded_session,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_pending_list_reads_the_reviews_still_open_through_their_index() {
+        let db = Db::in_memory().unwrap();
+        let filters = Filters {
+            statuses: vec![Status::Pending],
+            limit: 500,
+            ..Default::default()
+        };
+        let (sql, args) = db.where_clause(&filters, Utc::now());
+        let sql = format!(
+            "EXPLAIN QUERY PLAN {}{sql} ORDER BY r.id DESC LIMIT 500",
+            select(false)
+        );
+        let conn = db.conn();
+        let plan: Vec<String> = conn
+            .prepare(&sql)
+            .unwrap()
+            .query_map(rusqlite::params_from_iter(args.iter()), |r| r.get(3))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(
+            plan.iter().any(|step| step.contains("reviews_open")),
+            "{plan:#?}"
+        );
+    }
 }

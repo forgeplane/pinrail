@@ -479,6 +479,42 @@ async fn withdrawing_keeps_the_reason_and_then_refuses() {
 }
 
 #[tokio::test]
+async fn a_decided_withdrawn_or_discarded_review_leaves_the_pending_list() {
+    let app = app();
+    let mut ids = Vec::new();
+    for i in 0..4 {
+        // a run of its own each, or the same review comes back
+        let mut body = submission();
+        body["origin"]["run_id"] = json!(format!("run-{i}"));
+        ids.push(submit(&app, body).await["id"].as_str().unwrap().to_string());
+    }
+    let data = json!({"decisions": [{"id": 1, "action": "accept"}, {"id": 2, "action": "accept"}], "undecided": []});
+    for (id, path, body) in [
+        (&ids[0], "decision", json!({"data": data})),
+        (&ids[1], "withdraw", json!({"reason": "replaced"})),
+        (&ids[2], "discard", json!({"reason": "not needed"})),
+    ] {
+        let (status, review) = call(
+            &app,
+            "POST",
+            &format!("/api/v1/reviews/{id}/{path}"),
+            Some(body),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{path}: {review}");
+    }
+    let (_, pending) = call(&app, "GET", "/api/v1/reviews?status=pending", None).await;
+    let listed: Vec<&str> = pending["reviews"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(listed, [ids[3].as_str()]);
+    assert_eq!(pending["total"], 1);
+}
+
+#[tokio::test]
 async fn unknown_reviews_are_404() {
     let app = app();
     let (status, body) = call(&app, "GET", "/api/v1/reviews/r_nope", None).await;
