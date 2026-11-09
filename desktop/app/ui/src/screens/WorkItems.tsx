@@ -15,12 +15,13 @@ import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
-import { modalOpen, isTyping } from "../lib/keys";
+import { hasMod, modalOpen, isTyping } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
 import { QuickAddBox, type QuickAddBoxProps } from "../components/QuickAddBox";
 import { ItemPanel } from "../components/ItemPanel";
 import { ItemRow, type ItemRowActions } from "../components/ItemRow";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
+import { DeleteItemDialog } from "../components/DeleteItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
 import { PopoverMenu } from "../components/PopoverMenu";
@@ -245,6 +246,8 @@ export function WorkItems() {
 
   // an item with open sub-items waiting for the person to confirm its cancel
   const [cancelling, setCancelling] = useState<WorkItem | null>(null);
+  // an item waiting for the person to confirm its deletion
+  const [deleting, setDeleting] = useState<WorkItem | null>(null);
   // an item about to go on hold with work in progress under it, and that work
   const [holding, setHolding] = useState<{ item: WorkItem; stopped: WorkItem[] } | null>(null);
   /** Puts an item on hold, asking first when it stops work in progress. */
@@ -320,12 +323,13 @@ export function WorkItems() {
   });
   useSlashSearch(search);
 
-  /** S, D, Q, H and X on the item open in the panel, which may have left the
-   *  list, or else on the focused row. */
+  /** S, D, Q, H, X and ⌘⌫ on the item open in the panel, which may have
+   *  left the list, or else on the focused row. */
   const act = async (key: string) => {
     let at = openKey ? items?.find((i) => i.key === openKey) : rows[focused]?.item;
     if (openKey && !at) at = await api.item(openKey).catch(() => undefined);
-    if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
+    if (key === "delete" && at) setDeleting(at);
+    else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
     else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
     else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
     else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
@@ -338,7 +342,7 @@ export function WorkItems() {
     }
   };
   // J and K move, and open what they reach while the panel is open; Enter opens, / searches, C adds; S, D and X change the
-  // open or the focused item: claimed or released, done, cancelled
+  // open or the focused item: claimed or released, done, cancelled; ⌘⌫ deletes it, after asking
   useWindowKey((event) => {
     const typing = (el: HTMLElement | null) => isTyping(el);
     // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
@@ -357,6 +361,19 @@ export function WorkItems() {
         event.preventDefault();
         moveInQueue(at, event.key === "ArrowUp" ? -1 : 1);
       }
+      return;
+    }
+    // ⌘⌫ in a text field deletes text, not the item
+    if (
+      hasMod(event) &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "Backspace" || event.key === "Delete") &&
+      !modalOpen() &&
+      !typing(event.target as HTMLElement | null)
+    ) {
+      event.preventDefault();
+      void act("delete");
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
@@ -668,6 +685,17 @@ export function WorkItems() {
           onConfirm={() => {
             void change(cancelling, { status: "cancelled" });
             setCancelling(null);
+          }}
+        />
+      ) : null}
+      {deleting ? (
+        <DeleteItemDialog
+          item={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={() => {
+            if (deleting.key === openKey) closePanel();
+            setDeleting(null);
+            reload();
           }}
         />
       ) : null}

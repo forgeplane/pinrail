@@ -80,6 +80,7 @@ export const SHORTCUTS: Shortcut[] = [
   { section: "Work items", what: "Cancel the work item, or open it again", keys: [["X"]] },
   { section: "Work items", what: "Put the work item on hold, or take it off hold", keys: [["H"]] },
   { section: "Work items", what: "Queue the work item, or take it out of the queue", keys: [["Q"]] },
+  { section: "Work items", what: "Delete the work item", keys: [[MOD, isMac ? "⌫" : "Backspace"]] },
   {
     section: "Work items",
     what: "Move the work item up or down the queue",

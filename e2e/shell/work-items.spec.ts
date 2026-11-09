@@ -370,6 +370,9 @@ test("J and K move, and S, D and X claim, close and cancel the focused item, but
   await page.getByLabel("Search work items").fill("ds");
   await expect(row(page, first.key)).toHaveCount(0);
   await page.getByLabel("Search work items").fill("");
+  // a click outside the field leaves it
+  await page.getByRole("heading", { name: "Work items", level: 1 }).click();
+  await expect(page.getByLabel("Search work items")).not.toBeFocused();
   await expect(row(page, first.key).getByRole("img", { name: "Done" })).toBeVisible();
 });
 
@@ -1089,4 +1092,42 @@ test("with an item open in the panel, D acts on that item, even once it leaves t
   await page.locator("body").press("d");
   await expect.poll(() => status(a.key)).toBe("open");
   expect(await status(b.key)).toBe("open");
+});
+
+test("⌘⌫ deletes the open or the focused item, after asking, and leaves a text field alone", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("deletekey");
+  const a = await add(request, repo, "Alpha");
+  const b = await add(request, repo, "Bravo");
+  await open(page, repo, `&open=${a.key}`);
+  await expect(page.getByTestId("item-panel")).toContainText("Alpha");
+
+  // in a text field, the key is the field's
+  await page.getByLabel("Search work items").fill("Al");
+  await page.getByLabel("Search work items").press("ControlOrMeta+Backspace");
+  await expect(page.getByRole("dialog", { name: /^Delete / })).toHaveCount(0);
+  await page.getByLabel("Search work items").fill("");
+  // a click outside the field leaves it
+  await page.getByRole("heading", { name: "Work items", level: 1 }).click();
+  await expect(page.getByLabel("Search work items")).not.toBeFocused();
+
+  // the item open in the panel
+  await page.keyboard.press("ControlOrMeta+Backspace");
+  const dialog = page.getByRole("dialog", { name: `Delete ${a.key}?` });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete item" }).click();
+  await expect(row(page, a.key)).toHaveCount(0);
+  await expect(page.getByTestId("item-panel")).toHaveCount(0);
+
+  // the focused row
+  await row(page, b.key).hover();
+  await expect(row(page, b.key)).toHaveClass(/is-focused/);
+  await page.keyboard.press("ControlOrMeta+Backspace");
+  await page
+    .getByRole("dialog", { name: `Delete ${b.key}?` })
+    .getByRole("button", { name: "Delete item" })
+    .click();
+  await expect(row(page, b.key)).toHaveCount(0);
 });
