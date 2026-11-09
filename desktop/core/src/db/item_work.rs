@@ -511,6 +511,26 @@ pub(super) fn earlier_rounds_follow(
     Ok(())
 }
 
+/// What a session's agent did to work items, for its thread: `?1` is the
+/// agent and `?2` the session.
+const SESSION_ITEM_EVENTS: &str = "SELECT e.id, e.kind, e.actor, e.session, e.at, e.attrs,
+    w.id, g.prefix || '-' || w.number, w.title
+  FROM work_item_events e
+  JOIN work_items w ON w.id = e.item_id
+  JOIN repos g ON g.id = w.repo_id
+ WHERE e.actor = ?1 AND e.session = ?2
+   AND e.kind IN ('created', 'claimed', 'released', 'status')
+   AND json_extract(e.attrs, '$.with') IS NULL
+ ORDER BY e.id";
+
+/// The comments a session's agent wrote on work items, oldest first.
+const SESSION_COMMENTS: &str = "SELECT c.id, w.id, g.prefix || '-' || w.number, w.title
+  FROM work_item_comments c
+  JOIN work_items w ON w.id = c.item_id
+  JOIN repos g ON g.id = w.repo_id
+ WHERE c.author = ?1 AND c.session = ?2
+ ORDER BY c.created_at, c.id";
+
 /// Records on each of its items that a review was sent for it.
 pub(super) fn review_sent(conn: &Connection, review: &str) -> rusqlite::Result<()> {
     conn.execute(
@@ -1096,17 +1116,7 @@ impl Db {
         session: &str,
     ) -> rusqlite::Result<Vec<(Entry, super::ItemTag)>> {
         let conn = self.conn();
-        let mut stmt = conn.prepare(
-            "SELECT e.id, e.kind, e.actor, e.session, e.at, e.attrs,
-                    w.id, g.prefix || '-' || w.number, w.title
-               FROM work_item_events e
-               JOIN work_items w ON w.id = e.item_id
-               JOIN repos g ON g.id = w.repo_id
-              WHERE e.actor = ?1 AND e.session = ?2
-                AND e.kind IN ('created', 'claimed', 'released', 'status')
-                AND json_extract(e.attrs, '$.with') IS NULL
-              ORDER BY e.id",
-        )?;
+        let mut stmt = conn.prepare(SESSION_ITEM_EVENTS)?;
         stmt.query_map(params![agent, session], |r| {
             Ok((
                 Entry::Event {
@@ -1138,14 +1148,7 @@ impl Db {
         session: &str,
     ) -> rusqlite::Result<Vec<(Comment, super::ItemTag)>> {
         let conn = self.conn();
-        let mut stmt = conn.prepare(
-            "SELECT c.id, w.id, g.prefix || '-' || w.number, w.title
-               FROM work_item_comments c
-               JOIN work_items w ON w.id = c.item_id
-               JOIN repos g ON g.id = w.repo_id
-              WHERE c.author = ?1 AND c.session = ?2
-              ORDER BY c.created_at, c.id",
-        )?;
+        let mut stmt = conn.prepare(SESSION_COMMENTS)?;
         let rows = stmt
             .query_map(params![agent, session], |r| {
                 Ok((
@@ -1484,4 +1487,41 @@ fn insert_comment(
     Ok(Ok(
         comment_row(conn, &id)?.expect("the comment was just added")
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The steps of a query's plan.
+    fn plan(db: &Db, sql: &str) -> Vec<String> {
+        let conn = db.conn();
+        conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+            .unwrap()
+            .query_map(params!["claude-code", "s-1"], |r| r.get(3))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn a_sessions_item_lines_and_comments_are_read_through_their_indexes() {
+        let db = Db::in_memory().unwrap();
+        let steps = plan(&db, SESSION_ITEM_EVENTS);
+        assert!(
+            steps.iter().any(|s| s.contains("work_item_events_session")),
+            "{steps:#?}"
+        );
+        let steps = plan(&db, SESSION_COMMENTS);
+        assert!(
+            steps
+                .iter()
+                .any(|s| s.contains("work_item_comments_session")),
+            "{steps:#?}"
+        );
+        assert!(
+            !steps.iter().any(|s| s.contains("TEMP B-TREE")),
+            "{steps:#?}"
+        );
+    }
 }

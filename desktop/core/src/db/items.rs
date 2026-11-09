@@ -770,15 +770,16 @@ impl Db {
             let a = args.len();
             args.push(session.clone());
             let s = args.len();
+            // the items it holds, added, changed, commented on or sent
+            // reviews for, each found through its own index
             wheres.push(format!(
-                "((i.claim_agent = ?{a} AND i.claim_session = ?{s})
-                  OR (i.created_by = ?{a} AND i.created_session = ?{s})
-                  OR EXISTS (SELECT 1 FROM work_item_events e WHERE e.item_id = i.id
-                               AND e.actor = ?{a} AND e.session = ?{s})
-                  OR EXISTS (SELECT 1 FROM work_item_comments c WHERE c.item_id = i.id
-                               AND c.author = ?{a} AND c.session = ?{s})
-                  OR EXISTS (SELECT 1 FROM reviews r JOIN review_items x ON x.review_id = r.id
-                               WHERE x.item_id = i.id AND r.requested_by = ?{a} AND r.session = ?{s}))"
+                "i.id IN (
+                   SELECT id FROM work_items WHERE claim_agent = ?{a} AND claim_session = ?{s}
+                   UNION SELECT id FROM work_items WHERE created_by = ?{a} AND created_session = ?{s}
+                   UNION SELECT item_id FROM work_item_events WHERE actor = ?{a} AND session = ?{s}
+                   UNION SELECT item_id FROM work_item_comments WHERE author = ?{a} AND session = ?{s}
+                   UNION SELECT x.item_id FROM reviews r JOIN review_items x ON x.review_id = r.id
+                          WHERE r.requested_by = ?{a} AND r.session = ?{s})"
             ));
         }
         for word in filters
