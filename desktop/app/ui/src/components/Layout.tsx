@@ -76,7 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
   // the repositories' key prefixes, for the links to work items in what
   // the app shows, as projects and items change
-  const prefixNotice = live.lastNotice?.kind === "item_changed" ? live.lastNotice.event_id : 0;
+  const itemNotices = useNoticeCount(anItem);
   useEffect(() => {
     api
       .projects()
@@ -86,11 +86,10 @@ export function Layout({ children }: { children: ReactNode }) {
         ),
       )
       .catch(() => {});
-  }, [live.projectsVersion, live.connected, prefixNotice]);
+  }, [live.projectsVersion, live.connected, itemNotices]);
   // how many work items are open or in progress, beside their entry, as
   // anything changes: what the page lists when it opens
   const [openItems, setOpenItems] = useState(0);
-  const itemNotices = useNoticeCount(anItem);
   useEffect(() => {
     let cancelled = false;
     api

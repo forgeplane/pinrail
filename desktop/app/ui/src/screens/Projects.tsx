@@ -33,7 +33,7 @@ import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../co
 import { iconInput } from "../lib/projectAvatar";
 import { squarePng } from "../lib/projectImage";
 import { age, stamp } from "../lib/format";
-import { useLive } from "../state/live";
+import { useLive, aboutItems, aboutSessions, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
@@ -76,7 +76,9 @@ export function Projects() {
   // for the event that announces it
   const [reloads, setReloads] = useState(0);
 
-  // what waits and when it last moved change with every event
+  // what waits and when it last moved change with what moves the sessions
+  // and the items
+  const notices = useNoticeCount((n) => aboutSessions(n) || aboutItems(n));
   useEffect(() => {
     let cancelled = false;
     api
@@ -86,7 +88,7 @@ export function Projects() {
     return () => {
       cancelled = true;
     };
-  }, [live.lastNotice, live.projectsVersion, reloads]);
+  }, [notices, live.projectsVersion, reloads]);
   // the command palette's New project opens the dialog here, once
   useEffect(() => {
     if ((location.state as { newProject?: boolean } | null)?.newProject) {

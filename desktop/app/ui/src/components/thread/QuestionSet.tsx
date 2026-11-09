@@ -11,7 +11,7 @@ import { age, stamp } from "../../lib/format";
 import { MOD, hasMod, modalOpen } from "../../lib/keys";
 import { plainInline, renderInline, renderMarkdown, useItemPrefixes } from "../../lib/markdown";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../../lib/questions";
-import { useLive } from "../../state/live";
+import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ItemChips } from "../ItemChip";
 import { AgentIcon } from "../AgentIcon";
@@ -63,7 +63,7 @@ type SetProps = {
 /** The questions of one `pinrail ask`: the agent's message, with each
  *  question below it, answered together while they wait. */
 export function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
-  const live = useLive();
+  const connected = useConnected();
   const toast = useToast();
   const questions = useMemo(
     () => (review.payload as { questions?: Question[] } | undefined)?.questions ?? [],
@@ -306,7 +306,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
               onComment={onComment}
               left={several ? left : 0}
               busy={busy}
-              connected={live.connected}
+              connected={connected}
               onSend={sendAll}
               onDecline={() => setDeclining(true)}
               suggestion={(review.payload as { suggested_reply?: string } | undefined)?.suggested_reply}

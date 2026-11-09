@@ -12,7 +12,7 @@ import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
 import { type Choices, DEFAULT_CHOICES } from "../lib/sidebarSessions";
 import { cacheAppearance, setThemeOverlays, setThemePreference, type ThemePreference } from "../lib/theme";
 import { chosenTheme } from "../lib/themes";
-import { useLive } from "./live";
+import { useNotice, useConnected } from "./live";
 
 export type TextSize = "small" | "default" | "large";
 
@@ -174,7 +174,7 @@ const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"])
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const native = inTauri();
-  const live = useLive();
+  const connected = useConnected();
   const [settings, setSettings] = useState<Settings>(() => ({
     appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
     sidebar: { open: true, sessions: SESSIONS },
@@ -267,12 +267,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadThemes();
   }, [loadThemes]);
+  useNotice((notice) => {
+    if (notice.kind === "themes_changed") loadThemes();
+  });
   useEffect(() => {
-    if (live.lastNotice?.kind === "themes_changed") loadThemes();
-  }, [live.lastNotice, loadThemes]);
-  useEffect(() => {
-    if (live.connected) loadThemes();
-  }, [live.connected, loadThemes]);
+    if (connected) loadThemes();
+  }, [connected, loadThemes]);
 
   const { dark_theme: darkTheme, light_theme: lightTheme } = settings.appearance;
   useEffect(() => {
@@ -285,12 +285,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [themes, darkTheme, lightTheme, loaded]);
 
   // a change made elsewhere — the CLI, the file, another window
+  useNotice((notice) => {
+    if (notice.kind === "settings_changed") load();
+  });
   useEffect(() => {
-    if (live.lastNotice?.kind === "settings_changed") load();
-  }, [live.lastNotice, load]);
-  useEffect(() => {
-    if (live.connected) load();
-  }, [live.connected, load]);
+    if (connected) load();
+  }, [connected, load]);
 
   // what the app knows: launch at login
   useEffect(() => {

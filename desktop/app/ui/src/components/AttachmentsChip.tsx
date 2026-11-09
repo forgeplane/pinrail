@@ -10,7 +10,7 @@ import { inTauri, serverUrl } from "../api/client";
 import type { Attachment } from "../api/types";
 import { size } from "../lib/format";
 import { viewportRect } from "../lib/viewport";
-import { useToasts } from "../state/toasts";
+import { useToast } from "../state/toasts";
 
 const GAP = 6;
 const MARGIN = 8;
@@ -21,7 +21,7 @@ type Props = {
 };
 
 export function AttachmentsChip({ reviewId, attachments }: Props) {
-  const { notify } = useToasts();
+  const notify = useToast();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);

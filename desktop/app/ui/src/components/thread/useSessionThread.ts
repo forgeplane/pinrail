@@ -14,14 +14,13 @@ import type {
   SessionStatus,
   WorkItem,
 } from "../../api/types";
-import { useLive } from "../../state/live";
+import { useNotice } from "../../state/live";
 
 export function useSessionThread(
   named: { agent: string; id: string } | null,
   focus: Review | undefined,
   onSession?: (session: Session) => void,
 ) {
-  const live = useLive();
   // the work items the session holds or worked on, with what changes them
   const [sessionItems, setSessionItems] = useState<WorkItem[]>([]);
   // how many times its items changed, which loads them again
@@ -78,9 +77,7 @@ export function useSessionThread(
     ...comments.map((c) => c.item.key),
     ...itemEvents.map((e) => e.item.key),
   ]);
-  useEffect(() => {
-    const notice = live.lastNotice;
-    if (!notice) return;
+  useNotice((notice) => {
     // a change its agent made to an item, or any change to one of its items
     const itemOurs =
       !!named &&
@@ -93,7 +90,7 @@ export function useSessionThread(
       (named && notice.session?.agent === named.agent && notice.session.id === named.id);
     if (itemOurs) setItemsChanged((n) => n + 1);
     if (ours) load();
-  }, [live.lastNotice]); // eslint-disable-line react-hooks/exhaustive-deps -- each notice once
+  });
 
   return { session, items, statuses, messages, comments, itemEvents, error, load, sessionItems };
 }

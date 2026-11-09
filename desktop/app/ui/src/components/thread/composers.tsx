@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { ApiError, api } from "../../api/client";
-import { useLive } from "../../state/live";
+import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ComposeField } from "../ComposeField";
 
@@ -11,7 +11,7 @@ import { ComposeField } from "../ComposeField";
 /** The box under the thread while no question waits: a message to the
  *  agent, which it receives with its next status. */
 export function MessageComposer({ session, onSent }: { session: { agent: string; id: string }; onSent: () => void }) {
-  const live = useLive();
+  const connected = useConnected();
   const toast = useToast();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,10 +38,10 @@ export function MessageComposer({ session, onSent }: { session: { agent: string;
         onSubmit={send}
         keys="Enter to send · Shift+Enter for a new line"
         send={{
-          label: live.connected ? "Send the message to the agent" : "Reconnect to send",
+          label: connected ? "Send the message to the agent" : "Reconnect to send",
           name: "Send the message",
           keys: ["Enter"],
-          disabled: busy || !live.connected || !text.trim(),
+          disabled: busy || !connected || !text.trim(),
           testId: "send-message",
         }}
       />

@@ -42,7 +42,7 @@ import { Tooltip } from "../components/Tooltip";
 import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { age, stamp } from "../lib/format";
-import { useLive } from "../state/live";
+import { useNotice, useConnected, usePlugins } from "../state/live";
 import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
@@ -82,7 +82,8 @@ export function ReviewView({
   onClose,
   besideThread = false,
 }: ReviewViewProps) {
-  const live = useLive();
+  const connected = useConnected();
+  const { plugins } = usePlugins();
   const { settings: prefs, update: updatePrefs } = useSettings();
   const navigate = useNavigate();
   const toast = useToast();
@@ -152,7 +153,7 @@ export function ReviewView({
   const src = current?.src ?? null;
   // the plugin as installed now: another version, or a linked folder
   // changed since it was stored, may have come since the review was opened
-  const installedNow = review ? live.plugins.get(review.plugin)?.install : undefined;
+  const installedNow = review ? plugins.get(review.plugin)?.install : undefined;
   const newerInstalled =
     !!current &&
     review?.status === "pending" &&
@@ -230,14 +231,12 @@ export function ReviewView({
   // it: that event names the new review, revising this one or a later round.
   const roundIds = useRef(new Set<string>());
   roundIds.current = new Set([id, ...rounds.map((r) => r.id)]);
-  useEffect(() => {
-    const notice = live.lastNotice;
-    if (!notice) return;
+  useNotice((notice) => {
     const revises = notice.review?.revises;
     // a star on another round marks this one too
     const round = !!notice.review_id && roundIds.current.has(notice.review_id);
     if (notice.review_id === id || (revises && roundIds.current.has(revises)) || round) load();
-  }, [live.lastNotice, id, load]);
+  });
 
   // The plugin the review renders with and the address of its view; null
   // when it is not there, and the review says so.
@@ -361,11 +360,7 @@ export function ReviewView({
       const request = linkRequest(url);
       if (!request) return;
       if (
-        allowedWithoutAsking(
-          request,
-          prefsNow.current.links[plugin.name],
-          sourceOf(live.plugins.get(plugin.name) ?? plugin),
-        )
+        allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugins.get(plugin.name) ?? plugin))
       ) {
         openExternal(url);
         return;
@@ -373,7 +368,7 @@ export function ReviewView({
       asking.current = true;
       setLinkAsk(request);
     },
-    [plugin, live.plugins],
+    [plugin, plugins],
   );
   const onLinkChoice = useCallback(
     (choice: LinkChoice) => {
@@ -386,7 +381,7 @@ export function ReviewView({
           links: {
             [plugin.name]: allowing(
               prefsNow.current.links[plugin.name],
-              sourceOf(live.plugins.get(plugin.name) ?? plugin),
+              sourceOf(plugins.get(plugin.name) ?? plugin),
               request.origin,
             ),
           },
@@ -394,7 +389,7 @@ export function ReviewView({
       }
       openExternal(request.url);
     },
-    [linkAsk, plugin, updatePrefs, live.plugins],
+    [linkAsk, plugin, updatePrefs, plugins],
   );
 
   const bridge = usePluginBridge({
@@ -404,7 +399,7 @@ export function ReviewView({
     previous: previous ? { ...previous } : null,
     readonly,
     src,
-    connected: live.connected,
+    connected: connected,
     onSubmit,
     settings: pluginSettings,
     onSetSetting,
@@ -1109,7 +1104,7 @@ export function ReviewView({
               </span>
             ) : (
               <span className="composer-hint">
-                {live.connected
+                {connected
                   ? "The note travels with your decision"
                   : "Reconnecting — hand-over resumes when the server is back"}
               </span>
@@ -1136,7 +1131,7 @@ export function ReviewView({
               </Tooltip>
             ) : null}
             <Tooltip
-              label={live.connected ? "Hand over to the agent" : "Reconnect to hand over"}
+              label={connected ? "Hand over to the agent" : "Reconnect to hand over"}
               keys={[MOD, "Enter"]}
               side="top"
             >
@@ -1144,7 +1139,7 @@ export function ReviewView({
                 type="button"
                 className="handover-button with-icon"
                 data-testid="handover"
-                disabled={bridge.submitting || !live.connected}
+                disabled={bridge.submitting || !connected}
                 onClick={bridge.collect}
               >
                 {bridge.handoverLabel}

@@ -1,6 +1,6 @@
 // What every screen shares: the pending reviews, kept up to date from the
-// server's events, the connection state, the last event for screens that
-// follow one review, and the installed plugins.
+// server's events, the connection state, the installed plugins, and the
+// events themselves, which a screen listens to with useNotice.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, subscribe } from "../api/client";
@@ -29,7 +29,6 @@ type Live = {
   projectsVersion: number;
   /** the person's projects, by name, for the filters */
   namedProjects: ProjectRef[];
-  lastNotice: Notice | null;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
   /** the icon a plugin declares, if any */
@@ -42,6 +41,12 @@ const LiveContext = createContext<Live | null>(null);
 // the plugins alone, which change far less often than the rest: a badge
 // that only shows an icon does not redraw on every event
 const PluginsContext = createContext<Plugins | null>(null);
+// whether the server is connected, alone: a send button needs nothing else
+const ConnectedContext = createContext(false);
+// the events, delivered to listeners: a screen renders only for the events
+// it acts on, not for every status an agent reports
+type Listen = (listener: (notice: Notice) => void) => () => void;
+const NoticesContext = createContext<Listen | null>(null);
 
 export function LiveProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
@@ -50,7 +55,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [historyVersion, setHistoryVersion] = useState(0);
   const [projectsVersion, setProjectsVersion] = useState(0);
   const [namedProjects, setNamedProjects] = useState<ProjectRef[]>([]);
-  const [lastNotice, setLastNotice] = useState<Notice | null>(null);
+  const listeners = useRef(new Set<(notice: Notice) => void>());
+  const listen = useCallback<Listen>((listener) => {
+    listeners.current.add(listener);
+    return () => listeners.current.delete(listener);
+  }, []);
   const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
 
   const loadPlugins = useCallback(async () => {
@@ -116,7 +125,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       },
       onError: () => setConnected(false),
       onNotice: (notice) => {
-        setLastNotice(notice);
+        for (const listener of listeners.current) listener(notice);
         for (const missed of fetching.current) missed.push(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
         if (ENDINGS.has(notice.kind) || notice.kind === "history_swept") setHistoryVersion((v) => v + 1);
@@ -167,7 +176,6 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       historyVersion,
       projectsVersion,
       namedProjects,
-      lastNotice,
       plugins,
       pluginIcon,
     }),
@@ -180,16 +188,19 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       historyVersion,
       projectsVersion,
       namedProjects,
-      lastNotice,
       plugins,
       pluginIcon,
     ],
   );
   const pluginsValue = useMemo<Plugins>(() => ({ plugins, pluginIcon }), [plugins, pluginIcon]);
   return (
-    <LiveContext.Provider value={value}>
-      <PluginsContext.Provider value={pluginsValue}>{children}</PluginsContext.Provider>
-    </LiveContext.Provider>
+    <NoticesContext.Provider value={listen}>
+      <ConnectedContext.Provider value={connected}>
+        <LiveContext.Provider value={value}>
+          <PluginsContext.Provider value={pluginsValue}>{children}</PluginsContext.Provider>
+        </LiveContext.Provider>
+      </ConnectedContext.Provider>
+    </NoticesContext.Provider>
   );
 }
 
@@ -206,16 +217,28 @@ export function usePlugins(): Plugins {
   return plugins;
 }
 
+/** Whether the server is connected, for what needs nothing else. */
+export function useConnected(): boolean {
+  return useContext(ConnectedContext);
+}
+
+/** Calls `handler` with each event from the server, as it arrives. The
+ *  latest `handler` is called, so it can read the component's state. */
+export function useNotice(handler: (notice: Notice) => void) {
+  const listen = useContext(NoticesContext);
+  if (!listen) throw new Error("useNotice outside LiveProvider");
+  const latest = useRef(handler);
+  latest.current = handler;
+  useEffect(() => listen((notice) => latest.current(notice)), [listen]);
+}
+
 /** A number that goes up with each live notice `about` keeps: an effect that
  *  depends on it loads its data again for those notices alone. */
 export function useNoticeCount(about: (notice: Notice) => boolean): number {
-  const { lastNotice } = useLive();
   const [count, setCount] = useState(0);
-  const aboutRef = useRef(about);
-  aboutRef.current = about;
-  useEffect(() => {
-    if (lastNotice && aboutRef.current(lastNotice)) setCount((n) => n + 1);
-  }, [lastNotice]);
+  useNotice((notice) => {
+    if (about(notice)) setCount((n) => n + 1);
+  });
   return count;
 }
 
@@ -229,3 +252,10 @@ export const aboutItems = (notice: Notice) =>
 
 /** Whether a notice is about a work item itself. */
 export const anItem = (notice: Notice) => !!notice.item;
+
+/** Whether a notice can change what a list of sessions shows: a review, a
+ *  session's status, message or archive, or a change to the projects. */
+export const aboutSessions = (notice: Notice) =>
+  !!notice.review_id ||
+  notice.kind.startsWith("session_") ||
+  ["projects_changed", "repository_deleted"].includes(notice.kind);

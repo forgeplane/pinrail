@@ -21,7 +21,7 @@ import { statusLine } from "../components/thread/messages";
 import { age, stamp } from "../lib/format";
 import { modalOpen } from "../lib/keys";
 import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
-import { useLive } from "../state/live";
+import { useLive, aboutSessions, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import { ReviewView } from "./ReviewScreen";
@@ -69,6 +69,7 @@ export function Sessions() {
     return () => window.clearTimeout(t);
   }, [query]);
   // anything sent, answered or withdrawn moves the sessions
+  const sessionNotices = useNoticeCount(aboutSessions);
   useEffect(() => {
     let cancelled = false;
     api
@@ -85,7 +86,7 @@ export function Sessions() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, repo, project, withArchived, page, size, live.lastNotice]);
+  }, [debounced, repo, project, withArchived, page, size, sessionNotices]);
 
   // grouped by project or by repository within the page shown, or one
   // list; J, K and Enter walk the rows in the order they are drawn

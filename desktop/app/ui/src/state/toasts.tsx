@@ -22,6 +22,9 @@ type Toasts = {
 };
 
 const ToastContext = createContext<Toasts | null>(null);
+// notify alone, which never changes: a screen that only says things does not
+// render again as toasts come and go
+const NotifyContext = createContext<Toasts["notify"] | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -49,14 +52,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(() => ({ toasts, notify, dismiss }), [toasts, notify, dismiss]);
-  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
+  return (
+    <NotifyContext.Provider value={notify}>
+      <ToastContext.Provider value={value}>{children}</ToastContext.Provider>
+    </NotifyContext.Provider>
+  );
 }
 
 /** Says something to the person: `notify("Plugin removed")`. */
 export function useToast(): (text: string, tone?: ToastTone) => void {
-  const store = useContext(ToastContext);
-  if (!store) throw new Error("useToast outside ToastProvider");
-  return store.notify;
+  const notify = useContext(NotifyContext);
+  if (!notify) throw new Error("useToast outside ToastProvider");
+  return notify;
 }
 
 export function useToasts(): Toasts {
