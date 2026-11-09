@@ -1,8 +1,9 @@
 # Known vulnerabilities in the dependencies: RustSec advisories for both Rust
-# workspaces, and npm audit for the packages whose code ships (the app's UI,
-# the SDK, and the plugins with a build). A new advisory needs no change in
-# the repository, so this runs every week as well as when a lock file
-# changes. On a pull request it reports without blocking the merge.
+# workspaces, and npm audit for the packages whose code ships: the app's UI,
+# the SDK, the plugins with a build, and the website. A new advisory needs
+# no change in the repository, so this runs every week as well as when a
+# lock file changes. On a pull request it reports without blocking the
+# merge.
 name: advisories
 
 on:
@@ -53,7 +54,7 @@ jobs:
       # the lock files are enough: npm audit needs no install
       - name: npm advisories
         run: |
-          for dir in desktop/app sdk; do
+          for dir in desktop/app sdk plugins/change-map plugins/markdown website; do
             echo "::group::$dir"
             (cd "$dir" && npm audit --omit=dev --audit-level=high) || failed=1
             echo "::endgroup::"
