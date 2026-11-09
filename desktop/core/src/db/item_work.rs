@@ -876,6 +876,20 @@ impl Db {
             {
                 return Ok(Err(Refused::OnHold(current.key.to_string())));
             }
+            // an agent closes only what it holds, or what no one holds: it
+            // takes another session's claim first, in the open
+            if matches!(actor, Actor::Agent { .. })
+                && status.is_closed()
+                && current.status == Status::InProgress
+                && !holds(&current.claim, actor)
+                && let Some((agent, session)) = &current.claim
+            {
+                return Ok(Err(Refused::ClaimedBy(
+                    current.key.to_string(),
+                    agent.clone(),
+                    session.clone(),
+                )));
+            }
             // a sub-item opened again needs its parent open
             if current.status.is_closed()
                 && !status.is_closed()

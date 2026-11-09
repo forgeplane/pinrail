@@ -333,6 +333,33 @@ async fn deleting_a_repository_releases_what_its_sessions_held_elsewhere() {
 }
 
 #[tokio::test]
+async fn an_agent_does_not_close_an_item_another_session_holds() {
+    let app = app();
+    add(&app, "Held by s-1").await;
+    let (code, _) = edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK);
+    let refused = "PIN-1 is claimed by claude-code (session s-1)";
+    let (code, body) = done(&app, "PIN-1", "s-2", "Finished it").await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["message"], refused);
+    let (code, body) = edit(
+        &app,
+        "PIN-1",
+        "s-2",
+        json!({"status": "cancelled", "comment": "Not needed"}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["message"], refused);
+    assert_eq!(item(&app, "PIN-1").await["status"], "in_progress");
+    // taking the claim first is a choice the agent makes in the open
+    let (code, _) = edit(&app, "PIN-1", "s-2", json!({"claim": "take"})).await;
+    assert_eq!(code, StatusCode::OK);
+    let (code, body) = done(&app, "PIN-1", "s-2", "Finished it").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+}
+
+#[tokio::test]
 async fn a_breakdown_is_added_whole_through_the_api() {
     let app = app();
     let (code, added) = agent(
