@@ -3,6 +3,16 @@
    inherit none of this; they are told the theme over the plugin protocol. */
 
 :root {
+  /* a fully rounded shape, such as a pill or a dot */
+  --radius-pill: 999px;
+  /* what stacks over what, lowest first: dialogs, a maximized view, menus
+     and toasts, tooltips, then the popups opened from a menu or a dialog */
+  --z-dialog: 10;
+  --z-maximized: 30;
+  --z-menu: 40;
+  --z-toast: 40;
+  --z-tooltip: 50;
+  --z-popup: 60;
   --bg: #18191b;
   --bg-panel: #18191b;
   --bg-raised: #202124;
@@ -220,17 +230,11 @@ h1 {
 .text {
   color: var(--text);
 }
-.accent {
-  color: var(--accent);
-}
 .ok {
   color: var(--ok);
 }
 .danger {
   color: var(--danger);
-}
-.mt {
-  margin-top: 6px;
 }
 .with-icon {
   display: inline-flex;
@@ -386,7 +390,7 @@ h1 {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
   font-size: 10px;
@@ -681,7 +685,7 @@ h1 {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 18%, transparent);
   color: var(--sev-major);
   font-size: 10.5px;
@@ -705,7 +709,7 @@ h1 {
 /* a menu of choices with submenus, drawn above everything */
 .menu-popup {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-popup);
   min-width: 210px;
   padding: 5px;
   border: 1px solid var(--border);
@@ -1196,7 +1200,7 @@ body.is-resizing iframe {
 /* tooltips: a raised panel in the theme, the shortcut as keys */
 .tooltip {
   position: fixed;
-  z-index: 50;
+  z-index: var(--z-tooltip);
   pointer-events: none;
   display: inline-flex;
   align-items: center;
@@ -1301,7 +1305,7 @@ body.is-resizing iframe {
 }
 .select-list {
   position: fixed;
-  z-index: 40;
+  z-index: var(--z-menu);
   margin: 0;
   padding: 4px;
   list-style: none;
@@ -1457,7 +1461,7 @@ body.is-resizing iframe {
   color: var(--dim);
   font-size: 12.5px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .palette-filters button:hover {
   color: var(--text);
@@ -1546,7 +1550,7 @@ body.is-resizing iframe {
   background: rgb(0 0 0 / 0.5);
   display: grid;
   place-items: center;
-  z-index: 10;
+  z-index: var(--z-dialog);
 }
 .app-dialog {
   background: var(--bg-panel);
@@ -1996,8 +2000,7 @@ body.is-resizing iframe {
   gap: 8px;
   flex-wrap: wrap;
 }
-.inbox-controls input,
-.history-filters input {
+.inbox-controls input {
   padding: 5px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -2155,7 +2158,7 @@ body.is-resizing iframe {
 }
 .asks-chip {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 16%, transparent);
   color: var(--sev-major);
   font-size: 11.5px;
@@ -2461,7 +2464,7 @@ body.is-resizing iframe {
   gap: 4px;
   padding: 2px 4px 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11.5px;
 }
 .settings-link-forget {
@@ -2470,7 +2473,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--dim);
   padding: 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
 }
 .settings-link-forget:hover {
@@ -2537,7 +2540,7 @@ body.is-resizing iframe {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 40;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2646,7 +2649,7 @@ body.is-resizing iframe {
   gap: 5px;
   padding: 1px 8px;
   border: 1px solid var(--border);
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   background: none;
   color: var(--dim);
   font: inherit;
@@ -2664,7 +2667,7 @@ body.is-resizing iframe {
 }
 .attachments-panel {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-popup);
   width: min(420px, calc(100vw - 16px));
   padding: 6px;
   border: 1px solid var(--border-strong);
@@ -2763,7 +2766,7 @@ body.is-resizing iframe {
   height: 20px;
   padding: 0 4px;
   border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font: 11px/1 var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--tone);
@@ -2889,7 +2892,7 @@ body.is-resizing iframe {
 .plugin-frame-wrap.is-maximized {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-maximized);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3835,7 +3838,7 @@ body.is-resizing iframe {
   max-width: 100%;
   padding: 3px 4px 3px 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
 }
 .note-file:hover {
@@ -4267,7 +4270,7 @@ body.is-resizing iframe {
 .thread-revised-waiting {
   flex: none;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 14%, transparent);
   color: var(--sev-major);
   font-size: 11.5px;
@@ -4586,7 +4589,7 @@ body.is-resizing iframe {
 .archived-chip {
   margin-left: 8px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--dim);
   font-size: 11px;
@@ -5158,7 +5161,7 @@ body.is-resizing iframe {
   width: 38px;
   height: 22px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border-strong);
   padding: 0;
   cursor: pointer;
@@ -5280,7 +5283,7 @@ body.is-resizing iframe {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 40;
+  z-index: var(--z-menu);
   display: grid;
   width: 280px;
   padding: 4px;
@@ -5629,7 +5632,7 @@ body.is-resizing iframe {
 }
 .welcome-pill {
   padding: 1px 7px;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
   font-size: 10.5px;
@@ -5919,19 +5922,6 @@ body.is-resizing iframe {
 .project-group-icon {
   flex: none;
   color: var(--dim);
-}
-.project-group-description {
-  min-width: 0;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  color: var(--dim);
-}
-.project-dialog-note {
-  margin: 0;
-  font-size: 12px;
 }
 .project-group-description {
   min-width: 0;
@@ -6254,7 +6244,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   max-width: 170px;
   padding: 2px 7px;
   border-color: var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-hover);
   font-size: 11.5px;
 }
@@ -6406,7 +6396,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   align-items: center;
   gap: 4px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -6556,7 +6546,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   height: 24px;
   padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--text);
   font-size: 12px;
@@ -6595,7 +6585,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   width: 260px;
   height: 24px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
 }
 .item-created {
@@ -6677,7 +6667,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-review-status {
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   background: var(--bg-hover);
   color: var(--dim);
@@ -7015,7 +7005,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   min-width: 0;
   max-width: 260px;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
   font-size: 11.5px;
@@ -7051,7 +7041,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
 }
 .review-item-chip .item-chip {
@@ -7080,7 +7070,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-more {
   flex: none;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
   font-size: 11px;
@@ -7192,7 +7182,7 @@ a.item-ref {
   gap: 5px;
   padding: 2px 4px 2px 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-raised, var(--bg));
   color: var(--dim);
   font-size: 12px;
@@ -7207,7 +7197,7 @@ a.item-ref {
   display: inline-flex;
   padding: 2px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: none;
   color: var(--faint);
   cursor: pointer;
@@ -7270,7 +7260,7 @@ a.item-ref {
   align-items: center;
   gap: 3px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
   font-family: var(--mono);
