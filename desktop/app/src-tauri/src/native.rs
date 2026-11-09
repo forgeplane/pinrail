@@ -370,9 +370,21 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     Ok(tray)
 }
 
-fn on_menu(app: &AppHandle, id: &str) {
+/// The page a menu entry opens, by the entry's id.
+fn page_of(id: &str) -> Option<&'static str> {
     match id {
-        "inbox" => open(app, "/"),
+        "inbox" => Some("/"),
+        "items" => Some("/items"),
+        _ => None,
+    }
+}
+
+fn on_menu(app: &AppHandle, id: &str) {
+    if let Some(page) = page_of(id) {
+        open(app, page);
+        return;
+    }
+    match id {
         "next" => open_from_shortcut(app),
         "pause:15" | "pause:60" | "pause:tomorrow" | "resume" => {
             if let Some(native) = app.try_state::<Native>() {
@@ -563,6 +575,13 @@ fn menu(
         )?)?;
         menu.append(&with_keys("next", "Open oldest review")?)?;
     }
+    menu.append(&MenuItem::with_id(
+        app,
+        "items",
+        "Open work items",
+        true,
+        None::<&str>,
+    )?)?;
     // the pause, as a submenu: how long, or resume with the time it ends
     if !notifications.enabled {
         menu.append(&MenuItem::with_id(
@@ -830,6 +849,13 @@ fn close_notification(app: &AppHandle, review_id: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_menu_opens_the_inbox_and_the_work_items_pages() {
+        assert_eq!(page_of("inbox"), Some("/"));
+        assert_eq!(page_of("items"), Some("/items"));
+        assert_eq!(page_of("quit"), None);
+    }
 
     #[test]
     fn the_light_menu_bar_icon_keeps_the_shape_in_white() {

@@ -9,7 +9,7 @@ While an agent waits for your decision, Pinrail tells you that a review has arri
 
 The menu bar icon shows how many reviews are waiting, and its menu lists them, oldest first. From it you can:
 
-- open a waiting review, the oldest one, or the inbox;
+- open a waiting review, the oldest one, the inbox, or the Work items page;
 - pause notifications for 15 minutes, an hour, or until tomorrow.
 
 Closing Pinrail's window keeps it in the menu bar, so reviews keep arriving. You can hide the icon in *Settings › General*, and Pinrail still runs.
