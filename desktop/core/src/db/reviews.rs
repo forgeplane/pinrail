@@ -299,7 +299,7 @@ impl Db {
         let conn = self.conn();
         let review = conn
             .query_row(
-                &format!("{} WHERE r.id = ?1", select(true)),
+                &format!("{} WHERE r.id = ?1", select_one(true)),
                 params![id],
                 |row| row_to_review(row, true),
             )
@@ -363,11 +363,9 @@ impl Db {
     /// Whether any round of the review this round belongs to is starred.
     pub fn is_starred(&self, id: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
-        conn.query_row(
-            &format!("SELECT ?1 IN ({STARRED_ROUNDS})"),
-            params![id],
-            |row| row.get(0),
-        )
+        conn.query_row(&is_starred_sql(), params![id], |row| row.get(0))
+            .optional()
+            .map(|starred| starred.unwrap_or(false))
     }
 
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
@@ -588,7 +586,7 @@ impl Db {
         let mut frontier = vec![root];
         while let Some(current) = frontier.pop() {
             let review = conn.query_row(
-                &format!("{} WHERE r.id = ?1", select(false)),
+                &format!("{} WHERE r.id = ?1", select_one(false)),
                 params![current],
                 |row| row_to_review(row, false),
             )?;
@@ -691,9 +689,39 @@ const STARRED_ROUNDS: &str = "WITH RECURSIVE chain(id) AS (
     )
     SELECT id FROM chain";
 
-/// The columns `row_to_review` reads. Only a single review joins its
-/// payload; a listing selects NULL in its place.
+/// Whether a round of the review `r` is starred, walking only its own
+/// rounds: up through `revises`, and down through the rounds after it.
+/// Cheaper than STARRED_ROUNDS for one review, which reads every starred
+/// review in the database.
+const OWN_ROUNDS_STARRED: &str = "EXISTS (WITH RECURSIVE
+      up(id) AS (SELECT r.id UNION ALL
+        SELECT p.revises FROM reviews p JOIN up ON p.id = up.id WHERE p.revises IS NOT NULL),
+      down(id) AS (SELECT r.id UNION ALL
+        SELECT n.id FROM reviews n JOIN down ON n.revises = down.id),
+      own(id) AS (SELECT id FROM up UNION SELECT id FROM down)
+    SELECT 1 FROM own JOIN reviews s ON s.id = own.id WHERE s.starred_at IS NOT NULL)";
+
+/// Whether any round of the review `?1` belongs to is starred: no row when
+/// there is no such review.
+fn is_starred_sql() -> String {
+    format!("SELECT {OWN_ROUNDS_STARRED} FROM reviews r WHERE r.id = ?1")
+}
+
+/// The columns `row_to_review` reads, for a listing: the payload as NULL,
+/// and the star from the set of every starred review's rounds.
 fn select(with_payload: bool) -> String {
+    select_with(with_payload, &format!("r.id IN ({STARRED_ROUNDS})"))
+}
+
+/// The same columns for one review, whose star is read from its own rounds.
+fn select_one(with_payload: bool) -> String {
+    select_with(with_payload, OWN_ROUNDS_STARRED)
+}
+
+/// The columns `row_to_review` reads, with `starred` as the star's SQL.
+/// Only a single review joins its payload; a listing selects NULL in its
+/// place.
+fn select_with(with_payload: bool, starred: &str) -> String {
     let (payload, join) = if with_payload {
         (
             "p.payload",
@@ -714,7 +742,7 @@ fn select(with_payload: bool) -> String {
     o.via, o.session,
     r.kind,
     r.starred_at,
-    r.id IN ({STARRED_ROUNDS}),
+    {starred},
     {project},
     {item}
   FROM reviews r
@@ -867,6 +895,36 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The steps of a query's plan, with `args` for its parameters.
+    fn plan(db: &Db, sql: &str, args: &[String]) -> Vec<String> {
+        let conn = db.conn();
+        conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+            .unwrap()
+            .query_map(rusqlite::params_from_iter(args.iter()), |r| r.get(3))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn one_review_is_read_with_its_own_rounds_star_alone() {
+        let db = Db::in_memory().unwrap();
+        let steps = plan(
+            &db,
+            &format!("{} WHERE r.id = ?1", select_one(true)),
+            &["r_1".to_string()],
+        );
+        assert!(
+            !steps.iter().any(|step| step.contains("reviews_starred_at")),
+            "{steps:#?}"
+        );
+        let steps = plan(&db, &is_starred_sql(), &["r_1".to_string()]);
+        assert!(
+            !steps.iter().any(|step| step.contains("reviews_starred_at")),
+            "{steps:#?}"
+        );
+    }
 
     #[test]
     fn the_pending_list_reads_the_reviews_still_open_through_their_index() {
