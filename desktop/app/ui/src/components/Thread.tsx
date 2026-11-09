@@ -31,19 +31,7 @@ import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
 import { Tooltip } from "./Tooltip";
-import {
-  CommentMessage,
-  FinishedLine,
-  ItemEventLine,
-  MessageBubble,
-  NoteMessage,
-  ReviewCard,
-  RevisedLine,
-  StartedLine,
-  StatusGroup,
-  WithdrawnLine,
-} from "./thread/messages";
-import { QuestionSet } from "./thread/QuestionSet";
+import { ThreadEntries } from "./thread/ThreadEntries";
 import { IdleComposer, MessageComposer } from "./thread/composers";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
@@ -166,11 +154,14 @@ export function Thread({
     [panelMode, params],
   );
   /** A plain click on a review's link, which opens it in the panel. */
-  const openFromLink = (event: React.MouseEvent, id: string) => {
-    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    showReview(id);
-  };
+  const openFromLink = useCallback(
+    (event: React.MouseEvent, id: string) => {
+      if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      showReview(id);
+    },
+    [panelMode, showReview],
+  );
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
   const { session, items, statuses, messages, comments, itemEvents, error, load, sessionItems } = useSessionThread(
@@ -249,7 +240,15 @@ export function Thread({
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
   // a review opened from here names the session in its breadcrumb
-  const from = named ? fromSession({ ...named, title: session?.title }) : undefined;
+  // the same objects from one render to the next, for the memoized entries
+  const namedRef = useMemo(
+    () => (named ? { agent: named.agent, id: named.id } : null),
+    [named?.agent, named?.id], // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the object
+  );
+  const from = useMemo(
+    () => (namedRef ? fromSession({ ...namedRef, title: session?.title }) : undefined),
+    [namedRef, session?.title],
+  );
   // each review once, by its newest round
   const newest = useMemo(() => newestRounds(items), [items]);
   const waiting = newest.filter((r) => r.status === "pending");
@@ -323,7 +322,10 @@ export function Thread({
     event.preventDefault();
     const right = event.currentTarget.parentElement?.getBoundingClientRect().right ?? window.innerWidth;
     document.body.classList.add("is-resizing");
-    const onMove = (e: PointerEvent) => setDetailsWidth(clampDetails(right - e.clientX));
+    // while dragging, the width goes to the CSS variable alone: the thread
+    // is not drawn again for every pointer move
+    const onMove = (e: PointerEvent) =>
+      body.current?.style.setProperty("--details-width", `${clampDetails(right - e.clientX)}px`);
     const onUp = (e: PointerEvent) => {
       document.body.classList.remove("is-resizing");
       window.removeEventListener("pointermove", onMove);
@@ -447,7 +449,11 @@ export function Thread({
           </span>
         </header>
         {error ? <p className="notice notice-danger">{error}</p> : null}
-        <div className="thread-body" ref={body}>
+        <div
+          className="thread-body"
+          ref={body}
+          style={{ "--details-width": `${detailsWidth}px` } as React.CSSProperties}
+        >
           <div className="thread-main">
             {finding ? (
               <FindBar
@@ -461,77 +467,22 @@ export function Thread({
               />
             ) : null}
             <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
-              {session && whole ? (
-                <div className="thread-divider">
-                  <span>Session started {stamp(session.first_at)}</span>
-                </div>
-              ) : null}
-              {shown.map((entry) => {
-                if (entry.kind === "message")
-                  return (
-                    <MessageBubble
-                      key={`m-${entry.message.id}`}
-                      message={entry.message}
-                      session={named!}
-                      onDeleted={load}
-                    />
-                  );
-                if (entry.kind === "statuses")
-                  return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
-                if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
-                if (entry.kind === "finished")
-                  return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
-                if (entry.kind === "itemEvents")
-                  return <ItemEventLine key={`e-${entry.events[0].id}`} events={entry.events} />;
-                if (entry.kind === "comment")
-                  return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
-                if (entry.kind === "note")
-                  return (
-                    <NoteMessage
-                      key={`s-${entry.status.id}`}
-                      status={entry.status}
-                      agent={agent}
-                      session={named?.id ?? null}
-                    />
-                  );
-                if (entry.kind === "revised")
-                  return (
-                    <RevisedLine
-                      key={`v-${entry.review.id}`}
-                      entry={entry}
-                      onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
-                    />
-                  );
-                if (entry.kind === "withdrawn")
-                  return (
-                    <WithdrawnLine
-                      key={`w-${entry.review.id}`}
-                      entry={entry}
-                      onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
-                    />
-                  );
-                const item = entry.review;
-                return item.kind === "question" ? (
-                  <QuestionSet
-                    key={item.id}
-                    review={item}
-                    active={item.id === active}
-                    footer={item.id === active ? footer : null}
-                    onActivate={() => setPicked(item.id)}
-                    onDone={load}
-                  />
-                ) : (
-                  <ReviewCard
-                    key={item.id}
-                    review={item}
-                    round={entry.round}
-                    to={reviewTo(item.id)}
-                    state={panelMode ? undefined : from}
-                    open={item.id === openReview}
-                    onClick={(e) => openFromLink(e, item.id)}
-                  />
-                );
-              })}
+              <ThreadEntries
+                entries={shown}
+                startedAt={session && whole ? session.first_at : null}
+                named={namedRef}
+                agent={agent}
+                active={active}
+                footer={footer}
+                openReview={openReview}
+                panelMode={panelMode}
+                reviewTo={reviewTo}
+                from={from}
+                load={load}
+                onPick={setPicked}
+                showReview={showReview}
+                openFromLink={openFromLink}
+              />
             </div>
             <div className="thread-footer" ref={setFooter}>
               {atEnd ? null : (
@@ -589,7 +540,6 @@ export function Thread({
               started={started}
               stage={stage}
               entries={entries}
-              width={detailsWidth}
               onWaiting={(r) => {
                 if (r.kind !== "question" && panelMode) showReview(r.id);
                 else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });

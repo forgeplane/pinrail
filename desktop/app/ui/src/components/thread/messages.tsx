@@ -15,7 +15,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, type To } from "react-router";
 import { ApiError, api } from "../../api/client";
 import type {
@@ -80,7 +80,7 @@ export function Linked({ text }: { text: string }) {
 
 /** Statuses the agent reported in a row: the newest, and the earlier ones
  *  behind a button. */
-export function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
+export const StatusGroup = memo(function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
   const [open, setOpen] = useState(false);
   const newest = statuses[statuses.length - 1];
   const earlier = statuses.length - 1;
@@ -105,7 +105,7 @@ export function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
       ))}
     </div>
   );
-}
+});
 
 /** A starred review's mark at the end of its row in the details. */
 export function StarMark({ review }: { review: Review }) {
@@ -114,7 +114,7 @@ export function StarMark({ review }: { review: Review }) {
 }
 
 /** The agent saying it starts a stage, which it names. */
-export function StartedLine({ status }: { status: SessionStatus }) {
+export const StartedLine = memo(function StartedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
       <span>
@@ -131,14 +131,14 @@ export function StartedLine({ status }: { status: SessionStatus }) {
       </span>
     </div>
   );
-}
+});
 
 /** How tall a note is before it folds, about 12 lines. */
 const NOTE_FOLDED = 230;
 
 /** What the session's agent did to work items, as a line among its
  *  statuses: the verb, and the chip of each item it did it to. */
-export function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
+export const ItemEventLine = memo(function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
   const event = events[events.length - 1];
   const a = (event.attrs ?? {}) as Record<string, unknown>;
   const to = a.to as ItemStatus | undefined;
@@ -175,11 +175,11 @@ export function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
       </div>
     </div>
   );
-}
+});
 
 /** A comment the session's agent wrote on a work item: the item's chip,
  *  and the comment's Markdown as the item's panel shows it. */
-export function CommentMessage({ comment }: { comment: SessionComment }) {
+export const CommentMessage = memo(function CommentMessage({ comment }: { comment: SessionComment }) {
   const followLink = useFollowLink();
   const fileUrl = useFileUrl(comment.item.key);
   return (
@@ -218,12 +218,12 @@ export function CommentMessage({ comment }: { comment: SessionComment }) {
       </div>
     </div>
   );
-}
+});
 
 /** A note the agent sent: a message under the agent's icon, as a question
  *  is, with its Markdown folded when long and its files under it. Its links
  *  open in the browser, and a link to one of its files saves it. */
-export function NoteMessage({
+export const NoteMessage = memo(function NoteMessage({
   status,
   agent,
   session,
@@ -295,10 +295,10 @@ export function NoteMessage({
       </div>
     </div>
   );
-}
+});
 
 /** The agent saying it has finished, with what it finished with. */
-export function FinishedLine({ status }: { status: SessionStatus }) {
+export const FinishedLine = memo(function FinishedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-finished" data-testid="finished">
       <span>
@@ -317,7 +317,7 @@ export function FinishedLine({ status }: { status: SessionStatus }) {
       </span>
     </div>
   );
-}
+});
 
 type CardProps = {
   review: Review;
@@ -330,7 +330,7 @@ type CardProps = {
 };
 
 /** A review the session sent, by its newest round, which opens it. */
-export function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
+export const ReviewCard = memo(function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
   return (
     <Link
       to={to}
@@ -359,7 +359,7 @@ export function ReviewCard({ review, round, to, state, open, onClick }: CardProp
       <OutcomeBadge review={review} />
     </Link>
   );
-}
+});
 
 /** How long a card stays highlighted after a line leads to it. */
 const FLASH_MS = 1600;
@@ -380,7 +380,13 @@ function showCard(id: string, onOpen?: () => void) {
 /** Where the agent sent a later round of a review shown further up: a quiet
  *  line that scrolls to the review's card, and opens the review in the
  *  panel beside the thread when reviews open there. */
-export function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "revised" }>; onOpen?: () => void }) {
+export const RevisedLine = memo(function RevisedLine({
+  entry,
+  onOpen,
+}: {
+  entry: Extract<Entry, { kind: "revised" }>;
+  onOpen?: () => void;
+}) {
   const { review, round, card } = entry;
   const waiting = card.status === "pending" && review === card;
   return (
@@ -397,10 +403,10 @@ export function RevisedLine({ entry, onOpen }: { entry: Extract<Entry, { kind: "
       <ArrowUp size={12} className="thread-revised-up" aria-hidden />
     </button>
   );
-}
+});
 
 /** Where the agent withdrew a review shown further up, and why. */
-export function WithdrawnLine({
+export const WithdrawnLine = memo(function WithdrawnLine({
   entry,
   onOpen,
 }: {
@@ -428,11 +434,11 @@ export function WithdrawnLine({
       <ArrowUp size={12} className="thread-revised-up" aria-hidden />
     </button>
   );
-}
+});
 
 /** A message the person sent the agent, on the right, with whether the
  *  agent has received it; one still queued can be deleted. */
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   message,
   session,
   onDeleted,
@@ -484,4 +490,4 @@ export function MessageBubble({
       )}
     </div>
   );
-}
+});

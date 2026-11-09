@@ -11,6 +11,10 @@ import { FIND_LIMIT, type Found } from "../lib/findText";
 import { SHIFT, composing } from "../lib/keys";
 import { Tooltip } from "./Tooltip";
 
+/** How long the bar waits after a key before it searches: a long thread is
+ *  not searched again for every letter of a word. */
+const FIND_DELAY_MS = 150;
+
 type Props = {
   /** the search, which outlives the bar: it comes back when the bar opens again */
   query: string;
@@ -39,12 +43,27 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus, label =
     input.current?.select();
   }, [focus]);
 
+  // the search that waits for the typing to pause
+  const pending = useRef<number | null>(null);
+  const cancel = () => {
+    if (pending.current !== null) window.clearTimeout(pending.current);
+    pending.current = null;
+  };
+  useEffect(() => cancel, []);
   const change = (value: string) => {
     onQuery(value);
-    onFind(value);
+    cancel();
+    pending.current = window.setTimeout(() => {
+      pending.current = null;
+      onFind(value);
+    }, FIND_DELAY_MS);
   };
+  // Enter searches at once; it steps to the next match once the search ran
   const step = (backwards: boolean) => {
-    if (query) onFind(query, backwards);
+    if (pending.current !== null) {
+      cancel();
+      if (query) onFind(query);
+    } else if (query) onFind(query, backwards);
   };
 
   const count = found && query ? found.count : null;

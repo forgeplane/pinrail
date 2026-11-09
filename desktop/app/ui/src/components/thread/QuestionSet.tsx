@@ -3,7 +3,7 @@
 // under the thread that sends them.
 
 import { Ban, Check, CornerDownRight, MessageSquarePlus, Pencil, Star, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../api/client";
 import type { Answer, Question, Review } from "../../api/types";
@@ -56,13 +56,14 @@ type SetProps = {
   active: boolean;
   /** where the chat box goes while they are active */
   footer: HTMLElement | null;
-  onActivate: () => void;
+  /** makes these the questions the keys and the chat box answer, by their id */
+  onActivate: (id: string) => void;
   onDone: () => void;
 };
 
 /** The questions of one `pinrail ask`: the agent's message, with each
  *  question below it, answered together while they wait. */
-export function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
+export const QuestionSet = memo(function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
   const connected = useConnected();
   const toast = useToast();
   const questions = useMemo(
@@ -243,8 +244,8 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
       className={`question-set msg ${pending ? "is-pending" : ""} ${active ? "is-active" : ""}`}
       aria-label={review.title}
       data-testid="question-set"
-      onClick={pending ? onActivate : undefined}
-      onFocus={pending ? onTyping(onActivate) : undefined}
+      onClick={pending ? () => onActivate(review.id) : undefined}
+      onFocus={pending ? onTyping(() => onActivate(review.id)) : undefined}
     >
       <span className="msg-avatar">
         <AgentIcon requestedBy={review.requested_by} size={14} />
@@ -272,7 +273,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
             answer={answers.get(question.id)}
             current={active && pending && index === current}
             onFocus={() => {
-              onActivate();
+              onActivate(review.id);
               setCurrent(index);
             }}
             onPick={(value) => picked(index, value, false)}
@@ -327,7 +328,7 @@ export function QuestionSet({ review, active, footer, onActivate, onDone }: SetP
       ) : null}
     </section>
   );
-}
+});
 
 /** How questions that were not answered ended. */
 function SetFooter({ review }: { review: Review }) {

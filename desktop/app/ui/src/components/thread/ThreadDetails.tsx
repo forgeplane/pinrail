@@ -38,7 +38,6 @@ type Props = {
   /** the stage the thread was opened at, which never folds away */
   stage?: number;
   entries: Entry[];
-  width: number;
   /** a waiting review or question was clicked */
   onWaiting: (review: Review) => void;
   /** where a review's link goes, and what a click on it does */
@@ -55,7 +54,6 @@ export function ThreadDetails({
   started,
   stage,
   entries,
-  width,
   onWaiting,
   reviewLink,
   onItemLink,
@@ -90,7 +88,7 @@ export function ThreadDetails({
     });
 
   return (
-    <aside className="thread-aside" aria-label="Session details" style={{ width }}>
+    <aside className="thread-aside" aria-label="Session details">
       <section>
         <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
         {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}
