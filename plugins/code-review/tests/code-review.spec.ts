@@ -744,3 +744,27 @@ test("a change link that is not a web address is not shown", async ({ page }) =>
   await expect(plugin.frame.locator("header")).toContainText("Dedup tickets on save");
   await expect(plugin.frame.locator("header a", { hasText: "open" })).toHaveCount(0);
 });
+
+test("a note or a comment still open at the hand-over goes with the decision", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: round2() });
+  const f = plugin.frame;
+  await f.locator("#card-18 button", { hasText: "Accept" }).click();
+  await f.locator("#card-20 button", { hasText: "Accept" }).click();
+  await f.locator("#card-19 button", { hasText: "Reject" }).click();
+  // typed, and not saved with Enter
+  await f.getByLabel("note for proposal 19").fill("the backfill covers it");
+  await f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Repo.insert_all" }).hover();
+  await f.getByLabel("comment on lib/acme/tickets.ex:150", { exact: true }).click();
+  await f.getByLabel("your comment").fill("is insert_all chunked anywhere?");
+
+  await plugin.collect();
+  expect(await plugin.nextSubmit()).toEqual({
+    decisions: [
+      { id: 18, action: "accept" },
+      { id: 19, action: "reject", note: "the backfill covers it" },
+      { id: 20, action: "accept" },
+    ],
+    comments: [{ file: "lib/acme/tickets.ex", line: 150, side: "new", body: "is insert_all chunked anywhere?" }],
+    undecided: [],
+  });
+});

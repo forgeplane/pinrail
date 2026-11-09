@@ -549,3 +549,15 @@ test("a hand-over before the images are read waits for them and keeps the draft'
   const decision = valid(await plugin.nextSubmit());
   expect(decision.decisions[0].regions).toHaveLength(1);
 });
+
+test("a region note typed and not yet added goes with the hand-over", async ({ page }) => {
+  // the other images decided, so the hand-over asks nothing more
+  const draft = { B: { action: "drop" }, C: { action: "drop" }, D: { action: "drop" } };
+  const plugin = await mountPlugin(page, dir, { review: round(), draft });
+  await ready(plugin);
+  await page.mouse.click(...(await onImage(plugin, 0.5, 0.84)));
+  await plugin.frame.locator("#region-note").fill("Ground the post");
+  await plugin.collect();
+  const decision = valid(await plugin.nextSubmit());
+  expect(decision.decisions[0].regions.map((r: { note: string }) => r.note)).toEqual(["Ground the post"]);
+});

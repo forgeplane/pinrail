@@ -12,6 +12,9 @@ carries it.
   `---` and `+++` lines, no longer shows those lines as code, and each
   file's counts of added and deleted lines are right.
 - The change's link is shown only for an `http` or `https` address.
+- A note or a line comment typed and not yet saved goes with the
+  decision when you hand the review over. A rejection's reason typed in
+  its note box was left out.
 
 ## [1.3.0] - Pinrail 0.4.1
 

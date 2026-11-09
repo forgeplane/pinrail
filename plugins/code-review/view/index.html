@@ -2975,6 +2975,12 @@
       /** The decision, or nothing while undecided proposals wait for a second
        *  press to confirm. */
       function confirmSubmit() {
+        // a note or a comment typed and not yet saved goes with the decision
+        document.querySelectorAll("[data-note-ta]").forEach((el) => {
+          const text = el.value.trim();
+          if (text) setNote(el.getAttribute("data-note-ta"), text);
+        });
+        saveComposer();
         captureDrafts();
         const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
         if (!S.confirmSubmitArm && undecidedCount) {

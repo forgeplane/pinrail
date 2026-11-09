@@ -777,3 +777,14 @@ test("a comment under a very long heading path stays within the decision's limit
   const decision = await plugin.nextSubmit();
   expect(decision.comments[0].target.section.length).toBeLessThanOrEqual(1000);
 });
+
+test("a comment typed and not yet added goes with the hand-over", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  await f.locator(".rendered h3").hover();
+  await f.locator(".rendered h3 [data-comment-section]").click();
+  await f.locator("#compose-body").fill("Show the delays up to 8.");
+  await plugin.collect();
+  const decision = await plugin.nextSubmit();
+  expect(decision.comments.map((c: { body: string }) => c.body)).toEqual(["Show the delays up to 8."]);
+});
