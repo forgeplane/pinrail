@@ -1135,3 +1135,26 @@ test("⌘⌫ deletes the open or the focused item, after asking, and leaves a te
     .click();
   await expect(row(page, b.key)).toHaveCount(0);
 });
+
+test("Esc leaves the search field with an item open, and the page's keys act again", async ({ page, request }) => {
+  const repo = fresh("escsearch");
+  const a = await add(request, repo, "Alpha");
+  await add(request, repo, "Bravo");
+  await open(page, repo, `&open=${a.key}`);
+  await expect(page.getByTestId("item-panel")).toContainText("Alpha");
+  const field = page.getByLabel("Search work items");
+  await field.fill("Al");
+  await field.press("Escape");
+  await expect(field).not.toBeFocused();
+  await expect(field).toHaveValue("Al");
+  // and when it was emptied first
+  await field.fill("");
+  await field.press("Escape");
+  await expect(field).not.toBeFocused();
+  // the panel stays: the first Esc was the field's
+  await expect(page.getByTestId("item-panel")).toContainText("Alpha");
+  await page.keyboard.press("d");
+  await expect
+    .poll(async () => (await (await request.get(`${core}/api/v1/items/${a.key}`)).json()).status)
+    .toBe("done");
+});
