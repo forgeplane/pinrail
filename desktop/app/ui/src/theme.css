@@ -3,16 +3,6 @@
    inherit none of this; they are told the theme over the plugin protocol. */
 
 :root {
-  /* a fully rounded shape, such as a pill or a dot */
-  --radius-pill: 999px;
-  /* what stacks over what, lowest first: dialogs, a maximized view, menus
-     and toasts, tooltips, then the popups opened from a menu or a dialog */
-  --z-dialog: 10;
-  --z-maximized: 30;
-  --z-menu: 40;
-  --z-toast: 40;
-  --z-tooltip: 50;
-  --z-popup: 60;
   --bg: #18191b;
   --bg-panel: #18191b;
   --bg-raised: #202124;
@@ -52,6 +42,21 @@
   --code-symbol: #f0b48a;
   --code-meta: #a0abc2;
   color-scheme: dark;
+}
+
+/* sizes and layers, the same in every theme; the block above is the
+   colour palette, which the themes replace */
+:root {
+  /* a fully rounded shape, such as a pill or a dot */
+  --radius-pill: 999px;
+  /* what stacks over what, lowest first: dialogs, a maximized view, menus
+     and toasts, tooltips, then the popups opened from a menu or a dialog */
+  --z-dialog: 10;
+  --z-maximized: 30;
+  --z-menu: 40;
+  --z-toast: 40;
+  --z-tooltip: 50;
+  --z-popup: 60;
 }
 [data-theme="light"] {
   --code-keyword: #8a3fb8;
