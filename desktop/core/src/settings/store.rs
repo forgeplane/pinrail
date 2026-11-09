@@ -350,8 +350,13 @@ pub(super) struct Store {
 
 #[derive(Debug)]
 struct Inner {
-    /// the file's contents, unknown keys included; never the defaults
+    /// the file's contents the app uses, unknown keys included and values
+    /// it refuses left out; never the defaults
     file: Value,
+    /// the file as it was read, values the app refuses included: what a
+    /// write keeps, so a typo stays where the person can fix it, and a
+    /// newer version's value survives an older app
+    raw: Value,
     /// the file on disk does not parse: moved aside before the next write
     broken: bool,
     /// what the file looked like when we last read or wrote it
@@ -365,14 +370,17 @@ impl Store {
     /// loses the file; a value the app would refuse reads as its default.
     pub(super) fn open(data_dir: &Path) -> Self {
         let path = data_dir.join(FILE);
-        let (file, seen) = read(&path);
+        let (raw, seen) = read(&path);
+        let broken = raw.is_none();
+        let raw = raw.unwrap_or_else(|| Value::Object(Map::new()));
         Store {
-            path,
             inner: Mutex::new(Inner {
-                broken: file.is_none(),
-                file: file.unwrap_or_else(|| Value::Object(Map::new())),
+                broken,
+                file: usable(&raw, &path),
+                raw,
                 seen,
             }),
+            path,
         }
     }
 
@@ -415,10 +423,13 @@ impl Store {
             v
         };
         let mut file = inner.file.clone();
-        merge(&mut file, patch);
-        // a plugin's links set to null are forgotten, not kept as null
-        if let Some(Value::Object(links)) = file.pointer_mut(LINKS) {
-            links.retain(|_, v| !v.is_null());
+        let mut raw = inner.raw.clone();
+        for value in [&mut file, &mut raw] {
+            merge(value, patch);
+            // a plugin's links set to null are forgotten, not kept as null
+            if let Some(Value::Object(links)) = value.pointer_mut(LINKS) {
+                links.retain(|_, v| !v.is_null());
+            }
         }
         if inner.broken {
             let aside = self.path.with_extension("json.bad");
@@ -430,8 +441,9 @@ impl Store {
             );
             inner.broken = false;
         }
-        write(&self.path, &file)?;
+        write(&self.path, &raw)?;
         inner.file = file;
+        inner.raw = raw;
         inner.seen = stat(&self.path);
         let mut after = defaults();
         merge(&mut after, &inner.file);
@@ -449,15 +461,17 @@ impl Store {
         if now == inner.seen {
             return None;
         }
-        let (file, seen) = read(&self.path);
+        let (raw, seen) = read(&self.path);
         inner.seen = seen;
         // a file that does not parse, often an edit half made, changes
         // nothing: the settings stay as they were until it does
-        let Some(file) = file else {
+        let Some(raw) = raw else {
             inner.broken = true;
             return None;
         };
         inner.broken = false;
+        let file = usable(&raw, &self.path);
+        inner.raw = raw;
         let mut before = defaults();
         merge(&mut before, &inner.file);
         let mut after = defaults();
@@ -475,18 +489,23 @@ fn read(path: &Path) -> (Option<Value>, Option<(SystemTime, u64)>) {
     let Ok(text) = std::fs::read_to_string(path) else {
         return (Some(Value::Object(Map::new())), seen);
     };
-    let mut file = serde_json::from_str::<Value>(&text)
+    let file = serde_json::from_str::<Value>(&text)
         .ok()
         .filter(Value::is_object);
-    if let Some(file) = &mut file {
-        drop_refused(file, path);
-    }
     (file, seen)
+}
+
+/// The file's settings as the app uses them: those it would refuse left
+/// out, so they read as their defaults.
+fn usable(raw: &Value, path: &Path) -> Value {
+    let mut file = raw.clone();
+    drop_refused(&mut file, path);
+    file
 }
 
 /// A hand edit is held to what a change through the API is: a value the
 /// app would refuse is left out, so it reads as its default. The file
-/// itself is not touched. Unknown keys stay, as they do on a write.
+/// keeps it, through the app's writes too. Unknown keys stay.
 fn drop_refused(file: &mut Value, path: &Path) {
     let mut violations = Vec::new();
     validate(file, "", &mut violations);
@@ -999,6 +1018,27 @@ mod tests {
         assert_eq!(port_in(dir.path()), Some(4800));
         std::fs::write(dir.path().join(FILE), r#"{"port": 0}"#).unwrap();
         assert_eq!(port_in(dir.path()), None);
+    }
+
+    #[test]
+    fn a_value_the_app_refuses_stays_in_the_file_through_a_write() {
+        // a typo of the person's, and a value a newer Pinrail knows
+        let dir = tempfile::tempdir().unwrap();
+        let text = r#"{"history": {"keep_days": 0}, "inbox": {"layout": "board"}}"#;
+        std::fs::write(dir.path().join(FILE), text).unwrap();
+        let store = Store::open(dir.path());
+        assert_eq!(store.value("/inbox/layout"), defaults()["inbox"]["layout"]);
+        store
+            .patch(&json!({"appearance": {"theme": "dark"}}))
+            .unwrap();
+        let written: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join(FILE)).unwrap()).unwrap();
+        assert_eq!(written["history"]["keep_days"], 0);
+        assert_eq!(written["inbox"]["layout"], "board");
+        assert_eq!(written["appearance"]["theme"], "dark");
+        // and they still read as their defaults
+        assert_eq!(store.value("/inbox/layout"), defaults()["inbox"]["layout"]);
+        assert_eq!(store.value("/appearance/theme"), "dark");
     }
 
     #[test]

@@ -89,6 +89,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   such as `%E0`, no longer blanks the app's window.
 - Settings no longer tells AppImage users to install the CLI again after
   updating Pinrail. The app updates the installed copy when it starts.
+- A value in `settings.json` that the app does not accept, such as a typo
+  or a value from a newer Pinrail, stays in the file when the app saves
+  another setting. The app still uses the default in its place.
 - `history.keep_days` takes at most 36500 days. A much larger value set
   through the API or in `settings.json` stopped the app from deleting
   old history and expired reviews until it restarted.
