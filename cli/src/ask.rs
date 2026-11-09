@@ -119,6 +119,13 @@ impl AskArgs {
             None => self.built()?,
         };
         for (i, question) in questions.iter_mut().enumerate() {
+            if !question.is_object() {
+                bail!(
+                    "question {} is not an object: give each question as \
+                     {{\"question\": \"...\", ...}}",
+                    i + 1
+                );
+            }
             if question.get("id").is_none() {
                 question["id"] = json!(format!("q{}", i + 1));
             }

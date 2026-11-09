@@ -3091,6 +3091,14 @@ fn ask_refuses_an_option_given_twice_for_one_question() {
             "--recommend",
         ),
         (
+#[test]
+fn ask_refuses_a_question_that_is_not_an_object() {
+    let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
+    let (code, _, stderr) = run(&server, &["ask", "--data", r#"["Deploy now?"]"#]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("question 1 is not an object"), "{stderr}");
+}
+
             vec!["ask", "Why?", "--context", "one", "--context", "two"],
             "--context",
         ),
