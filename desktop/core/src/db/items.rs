@@ -161,6 +161,15 @@ pub enum State {
 }
 
 impl State {
+    /// Every item, whatever its status: the states that cover them all once.
+    pub const ALL: [State; 5] = [
+        State::Open,
+        State::InProgress,
+        State::OnHold,
+        State::Done,
+        State::Cancelled,
+    ];
+
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "ready" => Some(State::Ready),

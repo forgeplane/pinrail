@@ -216,12 +216,7 @@ impl Items {
         let (depends_on, blocks) = self.db.relations(&item.id)?;
         let sub_items = self.db.items(&ItemFilters {
             parent: Some(item.id.clone()),
-            states: vec![
-                crate::db::State::Open,
-                crate::db::State::InProgress,
-                crate::db::State::Done,
-                crate::db::State::Cancelled,
-            ],
+            states: crate::db::State::ALL.to_vec(),
             ..Default::default()
         })?;
         let parents = self.ancestors(item)?;

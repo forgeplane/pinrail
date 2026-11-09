@@ -1939,6 +1939,26 @@ async fn next_skips_an_item_on_hold_and_its_sub_items() {
 }
 
 #[tokio::test]
+async fn an_items_sub_items_list_includes_those_on_hold() {
+    let app = app();
+    add(&app, "Parent").await;
+    for title in ["Held", "Open"] {
+        let (code, sub) = call(
+            &app,
+            "POST",
+            "/api/v1/items",
+            Some(json!({"repo": REPO, "title": title, "parent": "PIN-1"})),
+        )
+        .await;
+        assert_eq!(code, StatusCode::CREATED, "{sub}");
+    }
+    hold(&app, "PIN-2", "on_hold").await;
+    let parent = item(&app, "PIN-1").await;
+    assert_eq!(parent["sub_items"]["total"], 2);
+    assert_eq!(keys(&parent["sub_items_list"]), ["PIN-2", "PIN-3"]);
+}
+
+#[tokio::test]
 async fn only_the_person_puts_an_item_on_hold_or_takes_it_off() {
     let app = app();
     add(&app, "Held").await;
