@@ -417,9 +417,10 @@ impl Db {
 
     /// Deletes a repository from the app: its row, and through the schema's
     /// cascades every round of its reviews, with what cascades from them,
-    /// and its sessions, with their statuses and messages. Returns how many
-    /// reviews and sessions went, and the event's id.
-    pub fn delete_repo(&self, repo: &str) -> rusqlite::Result<(usize, usize, i64)> {
+    /// its sessions, with their statuses and messages, and its work items.
+    /// Their sub-items in other repositories stay, out from under them.
+    /// Returns how many reviews, sessions and items went, and the event's id.
+    pub fn delete_repo(&self, repo: &str) -> rusqlite::Result<(usize, usize, usize, i64)> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let count = |table: &str| -> rusqlite::Result<usize> {
@@ -434,6 +435,32 @@ impl Db {
         };
         let reviews = count("reviews")?;
         let sessions = count("sessions")?;
+        let items = count("work_items")?;
+        // a sub-item in another repository is not this one's to delete: it
+        // stays, out from under its parent, which the cascade would take
+        let now = chrono::Utc::now();
+        let elsewhere: Vec<String> = tx
+            .prepare(
+                "SELECT c.id FROM work_items c JOIN work_items p ON p.id = c.parent
+                  WHERE p.repo_id = (SELECT id FROM repos WHERE name = ?1)
+                    AND c.repo_id IS NOT p.repo_id",
+            )?
+            .query_map(params![repo], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for id in &elsewhere {
+            tx.execute(
+                "UPDATE work_items SET parent = NULL WHERE id = ?1",
+                params![id],
+            )?;
+            super::item_work::item_event(
+                &tx,
+                id,
+                "parent",
+                &crate::items::Actor::Person,
+                json!({ "to": null }),
+                now,
+            )?;
+        }
         // its sessions go: what they held elsewhere is free to take again
         let held: Vec<(String, String)> = tx
             .prepare(
@@ -457,10 +484,10 @@ impl Db {
             None,
             crate::events::REPOSITORY_DELETED,
             None,
-            &json!({ "repo": repo, "reviews": reviews, "sessions": sessions }),
+            &json!({ "repo": repo, "reviews": reviews, "sessions": sessions, "items": items }),
         )?;
         tx.commit()?;
-        Ok((reviews, sessions, event_id))
+        Ok((reviews, sessions, items, event_id))
     }
 }
 

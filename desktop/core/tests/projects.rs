@@ -554,7 +554,7 @@ async fn deleting_a_repository_discards_what_waits_and_deletes_its_reviews_and_s
     assert_eq!(status, StatusCode::OK, "{deleted}");
     assert_eq!(
         deleted,
-        json!({"repo": "acme/api", "reviews": 2, "sessions": 1, "discarded": 1})
+        json!({"repo": "acme/api", "reviews": 2, "sessions": 1, "items": 0, "discarded": 1})
     );
 
     // the one that waited was discarded first (the waiting agent's test

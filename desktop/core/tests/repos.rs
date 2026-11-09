@@ -306,3 +306,38 @@ async fn deleting_a_repository_deletes_its_rounds_files_events_and_sessions_only
     );
     assert_eq!(review_repos(&app), ["Again acme/api", "Web acme/web"]);
 }
+
+#[tokio::test]
+async fn deleting_a_repository_keeps_the_sub_items_and_dependents_it_has_elsewhere() {
+    let app = app();
+    let add = |body: Value| {
+        let app = &app;
+        async move {
+            let (code, item) = call(app, "POST", "/api/v1/items", Some(body)).await;
+            assert_eq!(code, StatusCode::CREATED, "{item}");
+            item["key"].as_str().unwrap().to_string()
+        }
+    };
+    let goal = add(json!({"repo": "acme/x", "title": "The goal"})).await;
+    let part = add(json!({"repo": "acme/y", "title": "A part elsewhere", "parent": goal})).await;
+    let after = add(json!({"repo": "acme/y", "title": "Waits on it", "depends_on": [goal]})).await;
+
+    let (code, deleted) = call(&app, "DELETE", "/api/v1/repos/acme%2Fx", None).await;
+    assert_eq!(code, StatusCode::OK, "{deleted}");
+    assert_eq!(deleted["items"], 1, "{deleted}");
+    // the sub-item elsewhere stays, out from under its deleted parent
+    let (code, kept) = call(&app, "GET", &format!("/api/v1/items/{part}"), None).await;
+    assert_eq!(code, StatusCode::OK, "{kept}");
+    assert!(kept["parent"].is_null(), "{kept}");
+    assert!(
+        kept["timeline"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["kind"] == "parent"),
+        "{kept}"
+    );
+    // and what waited on it no longer does
+    let (_, waiting) = call(&app, "GET", &format!("/api/v1/items/{after}"), None).await;
+    assert_eq!(waiting["blocked_by"], json!([]), "{waiting}");
+}

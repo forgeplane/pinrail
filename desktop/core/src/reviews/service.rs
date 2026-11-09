@@ -992,12 +992,13 @@ impl Reviews {
                 Err(e) => return Err(e),
             }
         }
-        let (reviews, sessions, event_id) = self.db.delete_repo(repo)?;
+        let (reviews, sessions, items, event_id) = self.db.delete_repo(repo)?;
         self.publish_plain(event_id, events::REPOSITORY_DELETED);
         Ok(serde_json::json!({
             "repo": repo,
             "reviews": reviews,
             "sessions": sessions,
+            "items": items,
             "discarded": discarded,
         }))
     }

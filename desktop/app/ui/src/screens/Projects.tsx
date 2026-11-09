@@ -447,7 +447,7 @@ export function Projects() {
               const gone = await api.deleteRepo(dialog.repo.repo);
               setReloads((n) => n + 1);
               toast(
-                `Deleted ${gone.repo}: ${plural(gone.reviews, "review", "reviews")} and ${plural(gone.sessions, "session", "sessions")}`,
+                `Deleted ${gone.repo}: ${plural(gone.reviews, "review", "reviews")}, ${plural(gone.sessions, "session", "sessions")} and ${plural(gone.items, "work item", "work items")}`,
               );
             } catch (error) {
               toast(errorMessage(error), "danger");

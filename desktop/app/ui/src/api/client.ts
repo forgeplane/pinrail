@@ -214,7 +214,7 @@ export const api = {
   /** deletes a project; its repositories are in none after it */
   deleteProject: (id: string) => request<void>("DELETE", `/api/v1/projects/${seg(id)}`),
   deleteRepo: (repo: string) =>
-    request<{ repo: string; reviews: number; sessions: number; discarded: number }>(
+    request<{ repo: string; reviews: number; sessions: number; items: number; discarded: number }>(
       "DELETE",
       `/api/v1/repos/${seg(repo)}`,
     ),
