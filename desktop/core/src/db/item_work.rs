@@ -453,8 +453,9 @@ pub(super) fn release_session_claims(
     conn: &Connection,
     agent: &str,
     session: &str,
+    because: &str,
     at: DateTime<Utc>,
-) -> rusqlite::Result<()> {
+) -> rusqlite::Result<usize> {
     let mut stmt = conn.prepare(
         "SELECT id FROM work_items WHERE status = 'in_progress'
            AND claim_agent = ?1 AND claim_session = ?2",
@@ -463,18 +464,18 @@ pub(super) fn release_session_claims(
         .query_map(params![agent, session], |r| r.get(0))?
         .collect::<rusqlite::Result<_>>()?;
     let actor = Actor::Person;
-    for id in ids {
-        status_in(conn, &id, Status::Open, at)?;
+    for id in &ids {
+        status_in(conn, id, Status::Open, at)?;
         item_event(
             conn,
-            &id,
+            id,
             "released",
             &actor,
-            json!({"because": "archived", "agent": agent, "session": session}),
+            json!({"because": because, "agent": agent, "session": session}),
             at,
         )?;
     }
-    Ok(())
+    Ok(ids.len())
 }
 
 /// Gives the earlier rounds of a new round its items, and records

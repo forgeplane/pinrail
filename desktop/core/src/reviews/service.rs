@@ -1028,20 +1028,24 @@ impl Reviews {
     /// `sweep_history` with the moment spelled out.
     pub fn sweep_history_before(&self, before: DateTime<Utc>) -> Result<usize, Error> {
         let ended = self.db.ended_before(before)?;
-        if ended.is_empty() {
-            self.db.delete_idle_sessions(before)?;
+        let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
+        let count = if ids.is_empty() {
+            0
+        } else {
+            self.db.delete_reviews(&ids)?
+        };
+        // and the sessions that hold nothing more, and did nothing since,
+        // with the claims they held
+        let (_, released) = self.db.delete_idle_sessions(before)?;
+        if count == 0 && released == 0 {
             return Ok(0);
         }
-        let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
-        let count = self.db.delete_reviews(&ids)?;
-        // and the sessions that hold nothing more, and did nothing since
-        self.db.delete_idle_sessions(before)?;
         // the bundles only these reviews kept go with the bundles' sweep
         let event_id = self.db.append_event(
             None,
             events::HISTORY_SWEPT,
             None,
-            &serde_json::json!({ "count": count }),
+            &serde_json::json!({ "count": count, "released": released }),
         )?;
         self.publish_plain(event_id, events::HISTORY_SWEPT);
         Ok(count)

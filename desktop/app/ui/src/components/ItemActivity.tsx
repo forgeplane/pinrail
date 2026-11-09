@@ -79,7 +79,9 @@ export function said(entry: Extract<ItemEntry, { type: "event" }>): string {
     case "claimed":
       return a.from ? "took it over" : "started working on it";
     case "released":
-      return a.because === "archived" ? `released it when session ${a.session} was archived` : "stopped working on it";
+      if (a.because === "archived") return `released it when session ${a.session} was archived`;
+      if (a.because === "deleted") return `released it when session ${a.session} was deleted`;
+      return "stopped working on it";
     case "status": {
       const to = a.to as ItemStatus;
       if (to === "on_hold") return "put it on hold";

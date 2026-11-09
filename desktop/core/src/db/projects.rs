@@ -434,6 +434,23 @@ impl Db {
         };
         let reviews = count("reviews")?;
         let sessions = count("sessions")?;
+        // its sessions go: what they held elsewhere is free to take again
+        let held: Vec<(String, String)> = tx
+            .prepare(
+                "SELECT agent, id FROM sessions
+                  WHERE repo_id = (SELECT id FROM repos WHERE name = ?1)",
+            )?
+            .query_map(params![repo], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (agent, id) in &held {
+            super::item_work::release_session_claims(
+                &tx,
+                agent,
+                id,
+                "deleted",
+                chrono::Utc::now(),
+            )?;
+        }
         tx.execute("DELETE FROM repos WHERE name = ?1", params![repo])?;
         let event_id = insert_event(
             &tx,

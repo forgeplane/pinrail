@@ -289,7 +289,7 @@ impl Db {
             return Ok(None);
         }
         if let Some(at) = at {
-            super::item_work::release_session_claims(&tx, agent, id, at)?;
+            super::item_work::release_session_claims(&tx, agent, id, "archived", at)?;
         }
         let kind = if at.is_some() {
             crate::events::SESSION_ARCHIVED
@@ -572,17 +572,33 @@ impl Db {
     }
 
     /// Deletes the sessions with no review left, no message queued and no
-    /// activity since `before`, with their statuses. Returns how many went.
-    pub fn delete_idle_sessions(&self, before: DateTime<Utc>) -> rusqlite::Result<usize> {
-        let conn = self.conn();
-        conn.execute(
-            "DELETE FROM sessions WHERE last_at < ?1 AND NOT EXISTS
-               (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)
-             AND NOT EXISTS
-               (SELECT 1 FROM session_messages m WHERE m.agent = sessions.agent
-                  AND m.session = sessions.id AND m.delivered_at IS NULL)",
-            params![activity(before)],
-        )
+    /// activity since `before`, with their statuses, and releases the work
+    /// items they held. Returns how many sessions went, and how many items
+    /// were released.
+    pub fn delete_idle_sessions(&self, before: DateTime<Utc>) -> rusqlite::Result<(usize, usize)> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let idle: Vec<(String, String)> = tx
+            .prepare(
+                "SELECT agent, id FROM sessions WHERE last_at < ?1 AND NOT EXISTS
+                   (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)
+                 AND NOT EXISTS
+                   (SELECT 1 FROM session_messages m WHERE m.agent = sessions.agent
+                      AND m.session = sessions.id AND m.delivered_at IS NULL)",
+            )?
+            .query_map(params![activity(before)], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let now = Utc::now();
+        let mut released = 0;
+        for (agent, id) in &idle {
+            released += super::item_work::release_session_claims(&tx, agent, id, "deleted", now)?;
+            tx.execute(
+                "DELETE FROM sessions WHERE agent = ?1 AND id = ?2",
+                params![agent, id],
+            )?;
+        }
+        tx.commit()?;
+        Ok((idle.len(), released))
     }
 }
 

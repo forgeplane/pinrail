@@ -282,6 +282,57 @@ async fn no_open_item_is_put_under_a_closed_parent() {
 }
 
 #[tokio::test]
+async fn the_history_sweep_releases_the_claims_of_the_sessions_it_deletes() {
+    let app = app();
+    add(&app, "Held by a session that goes").await;
+    let (code, status) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-idle/status",
+        Some(json!({"text": "Working", "kind": "start"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{status}");
+    let (code, claimed) = edit(&app, "PIN-1", "s-idle", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK, "{claimed}");
+    assert_eq!(item(&app, "PIN-1").await["status"], "in_progress");
+
+    let mut notices = app.state.events().subscribe();
+    let later = chrono::Utc::now() + chrono::Duration::days(1);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    let released = item(&app, "PIN-1").await;
+    assert_eq!(released["status"], "open", "{released}");
+    assert!(released["claim"].is_null(), "{released}");
+    // the app is told, so open screens show it
+    assert_eq!(notices.recv().await.unwrap().kind, "history_swept");
+    // and another session can take it
+    let (code, _) = edit(&app, "PIN-1", "s-2", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn deleting_a_repository_releases_what_its_sessions_held_elsewhere() {
+    let app = app();
+    add(&app, "Held from another repository").await;
+    let (code, status) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-api/status",
+        Some(json!({"text": "Working", "kind": "start", "origin": {"repo": "acme/api"}})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{status}");
+    let (code, claimed) = edit(&app, "PIN-1", "s-api", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK, "{claimed}");
+    let (code, deleted) = call(&app, "DELETE", "/api/v1/repos/acme%2Fapi", None).await;
+    assert_eq!(code, StatusCode::OK, "{deleted}");
+    assert_eq!(deleted["sessions"], 1, "{deleted}");
+    let released = item(&app, "PIN-1").await;
+    assert_eq!(released["status"], "open", "{released}");
+    assert!(released["claim"].is_null(), "{released}");
+}
+
+#[tokio::test]
 async fn a_breakdown_is_added_whole_through_the_api() {
     let app = app();
     let (code, added) = agent(
