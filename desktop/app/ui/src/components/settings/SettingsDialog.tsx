@@ -19,7 +19,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
-import { copyText } from "../../lib/clipboard";
 import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo, composing } from "../../lib/keys";
@@ -35,6 +34,7 @@ import { ThemeRows } from "./ThemeRows";
 import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
+import { useCopy } from "../../lib/useCopy";
 
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "agents" | "plugins" | "data" | "labs" | "about";
 
@@ -162,7 +162,7 @@ export function SettingsDialog({
   const navigate = useNavigate();
   const { settings, update, native } = useSettings();
   const [info, setInfo] = useState<ServerInfo | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { state: copied, copy } = useCopy(1200);
   const paused = pausedUntil(settings.notifications.paused_until);
   const { system, request: requestNotifications, openSystemSettings } = useNotificationStatus(open);
   const [noticesError, setNoticesError] = useState<string | null>(null);
@@ -206,15 +206,8 @@ export function SettingsDialog({
 
   if (!open) return null;
 
-  const copyUrl = async () => {
-    if (!info) return;
-    try {
-      await copyText(`http://127.0.0.1:${info.port}`);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
-      // the clipboard is not available here
-    }
+  const copyUrl = () => {
+    if (info) void copy(`http://127.0.0.1:${info.port}`);
   };
 
   return (
@@ -511,7 +504,7 @@ export function SettingsDialog({
                   description={info ? <span className="mono">http://127.0.0.1:{info.port}</span> : "…"}
                 >
                   <button type="button" className="chrome-button" onClick={copyUrl} disabled={!info}>
-                    {copied ? "Copied" : "Copy URL"}
+                    {copied === "done" ? "Copied" : "Copy URL"}
                   </button>
                 </SettingsRow>
                 <SettingsRow

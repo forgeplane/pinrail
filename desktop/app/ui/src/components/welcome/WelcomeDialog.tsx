@@ -9,7 +9,6 @@ import { Bell, Bot, Check, Copy, Lock, SquareTerminal } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { CatalogEntry, Plugin } from "../../api/types";
-import { copyText } from "../../lib/clipboard";
 import { useLive } from "../../state/live";
 import { describeSystem, useNotificationStatus } from "../../state/notifications";
 import { useSettings } from "../../state/settings";
@@ -18,6 +17,7 @@ import { Toggle } from "../settings/controls";
 import { byName, readsSkillOf, Tile, useAgents, where, type AgentStatus } from "../settings/AgentsSection";
 import { useCli, type CliStatus } from "../settings/CliRow";
 import { WaitMark } from "../WaitMark";
+import { useCopy } from "../../lib/useCopy";
 
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
 
@@ -72,23 +72,10 @@ function Mark() {
 }
 
 function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(t);
-  }, [copied]);
+  const { state, copy } = useCopy(1600);
   return (
-    <button
-      type="button"
-      className="chrome-button"
-      onClick={() =>
-        copyText(text)
-          .then(() => setCopied(true))
-          .catch(() => {})
-      }
-    >
-      {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : label}
+    <button type="button" className="chrome-button" onClick={() => void copy(text)}>
+      {state === "done" ? <Check size={13} /> : <Copy size={13} />} {state === "done" ? "Copied" : label}
     </button>
   );
 }

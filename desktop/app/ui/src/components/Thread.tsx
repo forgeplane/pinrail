@@ -1,22 +1,10 @@
 // An agent session's thread: the questions it asked, as the agent's
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
-import {
-  ArrowDown,
-  CheckCircle2,
-  ClipboardCheck,
-  ClipboardX,
-  Copy,
-  Expand,
-  GitBranch,
-  PanelRightClose,
-  PanelRightOpen,
-  X,
-} from "lucide-react";
+import { ArrowDown, CheckCircle2, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
-import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
 import { finder, type Finder, type Found } from "../lib/findText";
@@ -30,6 +18,7 @@ import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
+import { CopyButton } from "./CopyButton";
 import { Tooltip } from "./Tooltip";
 import { ThreadEntries } from "./thread/ThreadEntries";
 import { IdleComposer, MessageComposer } from "./thread/composers";
@@ -582,35 +571,5 @@ function Where({ agent, repo, reference }: { agent: string | null; repo: string 
 
 /** Copies the session's id, for a message to the agent or a command line. */
 function CopySessionId({ id }: { id: string }) {
-  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
-  const copy = async () => {
-    try {
-      await copyText(id);
-      setCopied("done");
-    } catch {
-      setCopied("failed");
-    }
-    window.setTimeout(() => setCopied(null), 3500);
-  };
-  return (
-    <Tooltip
-      label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy the id"}
-      side="bottom"
-    >
-      <button
-        type="button"
-        className={`id-copy ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`}
-        onClick={copy}
-        aria-label="Copy the session id"
-      >
-        {copied === "done" ? (
-          <ClipboardCheck size={14} />
-        ) : copied === "failed" ? (
-          <ClipboardX size={14} />
-        ) : (
-          <Copy size={14} />
-        )}
-      </button>
-    </Tooltip>
-  );
+  return <CopyButton text={id} label="Copy the id" ariaLabel="Copy the session id" />;
 }

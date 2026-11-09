@@ -1,9 +1,6 @@
 import {
   Ban,
-  ClipboardCheck,
-  ClipboardX,
   Clock,
-  Copy,
   Expand,
   ExternalLink,
   Maximize2,
@@ -20,7 +17,6 @@ import {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { ApiError, api } from "../api/client";
-import { copyText } from "../lib/clipboard";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { AgentIcon } from "../components/AgentIcon";
@@ -48,6 +44,7 @@ import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import type { FromSession } from "../lib/sessions";
 import { usePageRepo } from "../lib/pageRepo";
+import { CopyButton } from "../components/CopyButton";
 
 const NOTE_PREFIX = "pinrail:draft:";
 
@@ -87,30 +84,6 @@ export const ReviewView = memo(function ReviewView({
   const { settings: prefs, update: updatePrefs } = useSettings();
   const navigate = useNavigate();
   const toast = useToast();
-  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
-  const [copiedId, setCopiedId] = useState<"done" | "failed" | null>(null);
-  // the review as the core renders it in markdown, for a merge request or a thread
-  const copyMarkdown = async () => {
-    if (!id) return;
-    try {
-      await copyText(await api.reviewMarkdown(id));
-      setCopied("done");
-    } catch {
-      setCopied("failed");
-    }
-    window.setTimeout(() => setCopied(null), 3500);
-  };
-  // the id alone, for a message to the agent or a command line
-  const copyId = async () => {
-    if (!id) return;
-    try {
-      await copyText(id);
-      setCopiedId("done");
-    } catch {
-      setCopiedId("failed");
-    }
-    window.setTimeout(() => setCopiedId(null), 3500);
-  };
   const location = useLocation();
   // the way back is where the review was opened from
   const opened = location.state as { from?: string; session?: FromSession["session"] } | null;
@@ -521,8 +494,6 @@ export const ReviewView = memo(function ReviewView({
     setViolations([]);
     setDiscarding(false);
     setDeleting(false);
-    setCopied(null);
-    setCopiedId(null);
   }, [id, hideFind]);
 
   // the bar: where this came from, the title, its origin link. The review's
@@ -605,25 +576,16 @@ export const ReviewView = memo(function ReviewView({
               </button>
             </Tooltip>
           ) : null}
-          <Tooltip
-            label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy decision as markdown"}
-            side="bottom"
-          >
-            <button
-              type="button"
-              className={`bar-button copy-button ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`}
-              onClick={copyMarkdown}
-              aria-label="Copy the decision as markdown"
-            >
-              {copied === "done" ? (
-                <ClipboardCheck size={15} className="copy-done" />
-              ) : copied === "failed" ? (
-                <ClipboardX size={15} />
-              ) : (
-                <Copy size={15} />
-              )}
-            </button>
-          </Tooltip>
+          {id ? (
+            <CopyButton
+              key={id}
+              text={() => api.reviewMarkdown(id)}
+              label="Copy decision as markdown"
+              ariaLabel="Copy the decision as markdown"
+              className="bar-button copy-button"
+              size={15}
+            />
+          ) : null}
           {review.kind === "question" ? null : <StarButton review={review} />}
           <Tooltip label={review.kind === "question" ? "Delete these questions" : "Delete this review"} side="bottom">
             <button
@@ -690,7 +652,6 @@ export const ReviewView = memo(function ReviewView({
       review?.starred,
       review?.starred_at,
       plugin,
-      copied,
       inPanel,
       showInPanel,
       onClose,
@@ -824,25 +785,7 @@ export const ReviewView = memo(function ReviewView({
             <span className="mono faint copyable" data-testid="review-id">
               {review.id}
             </span>
-            <Tooltip
-              label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"}
-              side="bottom"
-            >
-              <button
-                type="button"
-                className={`id-copy ${copiedId === "done" ? "ok" : copiedId === "failed" ? "danger" : ""}`}
-                onClick={copyId}
-                aria-label="Copy the review id"
-              >
-                {copiedId === "done" ? (
-                  <ClipboardCheck size={14} />
-                ) : copiedId === "failed" ? (
-                  <ClipboardX size={14} />
-                ) : (
-                  <Copy size={14} />
-                )}
-              </button>
-            </Tooltip>
+            <CopyButton key={review.id} text={review.id} label="Copy the id" ariaLabel="Copy the review id" />
           </span>
           <span className="strip-spacer" />
           {rounds.length > 1 ? (

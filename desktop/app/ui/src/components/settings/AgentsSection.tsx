@@ -6,10 +6,10 @@ import { Check, ChevronRight, Copy, Plug } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { inTauri } from "../../api/client";
 import { AgentIcon } from "../AgentIcon";
-import { copyText } from "../../lib/clipboard";
 import { useSettings } from "../../state/settings";
 import { Toggle } from "./controls";
 import { SettingsRow } from "./layout";
+import { useCopy } from "../../lib/useCopy";
 
 export type AgentStatus = {
   id: string;
@@ -190,17 +190,8 @@ function AgentCard({
 
 /** For an agent Pinrail does not know: the skill, to give it by hand. */
 function AnotherAgent() {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(t);
-  }, [copied]);
-  const copy = () =>
-    invoke<string>("agent_skill")
-      .then(copyText)
-      .then(() => setCopied(true))
-      .catch(() => {});
+  const { state: copied, copy: copyNow } = useCopy(1600);
+  const copy = () => void copyNow(() => invoke<string>("agent_skill"));
   return (
     <div className="agent-card is-other">
       <span className="agent-other-icon">
@@ -212,7 +203,7 @@ function AnotherAgent() {
       </div>
       <div className="agent-side">
         <button type="button" className="chrome-button" onClick={copy}>
-          {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
+          {copied === "done" ? <Check size={13} /> : <Copy size={13} />} {copied === "done" ? "Copied" : "Copy"}
         </button>
       </div>
     </div>
