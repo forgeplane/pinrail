@@ -90,6 +90,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   through the API or in `settings.json` stopped the app from deleting
   old history and expired reviews until it restarted.
 - Esc pressed as soon as What's new opens closes it.
+- With a review open beside a session's thread, ⌘Enter, ⌘D and the
+  answer keys act on the review, unless the focus is in the thread. They
+  also sent or declined the session's waiting questions.
 - ⌥↑ and ⌥↓ move the caret in a text field, and do nothing with a dialog
   open, rather than switching to another waiting review.
 - Esc in the search field of the inbox, the Sessions page or the

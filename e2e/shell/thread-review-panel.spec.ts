@@ -203,3 +203,33 @@ test("beside an open review, the thread's lines wrap as text and never break a n
     expect(tops, id).toBeLessThan(4);
   }
 });
+
+test("⌘Enter in the review beside the thread hands the review over and leaves the questions alone", async ({
+  page,
+}) => {
+  await openReviewsIn(page.request, "panel");
+  const { session, id } = await sessionWithReview(page.request, "Panel: keys");
+  const asked = await page.request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Keep the old endpoint?",
+      origin: { repo: "acme/api" },
+      requested_by: "claude-code",
+      session,
+      payload: { questions: [{ id: "q1", question: "Keep the old endpoint?", answer: "yes-no" }] },
+    },
+  });
+  expect(asked.status()).toBe(201);
+  const question = ((await asked.json()) as { id: string }).id;
+  const status = async (review: string) =>
+    ((await (await page.request.get(`${core}/api/v1/reviews/${review}`)).json()) as { status: string }).status;
+
+  await page.goto(`/#/sessions/claude-code/${session}?review=${id}`);
+  const frame = page.frameLocator("#plugin-frame");
+  await frame.locator('button[data-act="accept"]').first().click();
+  // the focus outside the thread, and outside the review's view
+  await panel(page).getByTestId("review-title").click();
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect.poll(() => status(id)).toBe("decided");
+  expect(await status(question)).toBe("pending");
+});

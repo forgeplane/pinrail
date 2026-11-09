@@ -194,6 +194,12 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
     if (!active || !pending) return;
     const onKey = (event: KeyboardEvent) => {
       if (modalOpen()) return;
+      // with a review open beside the thread, the keys are the review's,
+      // unless the focus is in the thread. The thread may itself be in the
+      // Sessions page's panel, which is no review beside it.
+      const thread = document.getElementById(`set-${review.id}`)?.closest(".thread-main");
+      const beside = [...document.querySelectorAll(".review-panel")].some((panel) => !panel.contains(thread ?? null));
+      if (beside && !thread?.contains(document.activeElement)) return;
       if (hasMod(event) && !event.shiftKey && !event.altKey && event.key === "Enter") {
         event.preventDefault();
         sendAll();
@@ -236,7 +242,7 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:discard", onDiscard);
     };
-  }, [active, pending, current, questions, picked, sendAll, goTo, replyBox]);
+  }, [active, pending, current, questions, picked, sendAll, goTo, replyBox, review.id]);
 
   const several = questions.length > 1;
   return (
