@@ -42,6 +42,7 @@ import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { Select } from "./Select";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
+import { useWindowKey } from "../lib/useWindowKey";
 
 const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
 
@@ -114,25 +115,21 @@ export function ItemPanel({
   );
 
   // Esc closes, T edits the title, E the description
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
-      const el = event.target as HTMLElement | null;
-      if (isTyping(el)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "t" || event.key === "T") {
-        event.preventDefault();
-        setEditingTitle(true);
-      } else if (event.key === "e" || event.key === "E") {
-        event.preventDefault();
-        setEditingBody(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useWindowKey((event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
+    const el = event.target as HTMLElement | null;
+    if (isTyping(el)) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === "t" || event.key === "T") {
+      event.preventDefault();
+      setEditingTitle(true);
+    } else if (event.key === "e" || event.key === "E") {
+      event.preventDefault();
+      setEditingBody(true);
+    }
+  });
 
   if (missing)
     return (

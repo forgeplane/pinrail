@@ -7,11 +7,12 @@
 // dictation first, then leaves the field.
 
 import { ArrowUp, Mic } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { canDictate, useDictation } from "../lib/dictation";
 import { modalOpen, composing } from "../lib/keys";
 import { useToast } from "../state/toasts";
 import { Tooltip } from "./Tooltip";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** The tallest the text grows before it scrolls. */
 const MAX = 160;
@@ -74,17 +75,15 @@ export function ComposeField({
   const dictation = useDictation(onChange, (message) => toast(message, "danger"));
   const listening = dictation.listening;
   const stopDictation = dictation.stop;
-  useEffect(() => {
-    if (!listening) return;
-    const onKey = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (event.key !== "Escape" || event.isComposing || modalOpen()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       stopDictation();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [listening, stopDictation]);
+    },
+    { capture: true, enabled: !!listening },
+  );
 
   // wide once the text no longer fits on one line, and narrow again only
   // when it is emptied, so the buttons do not jump back and forth

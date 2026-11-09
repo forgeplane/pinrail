@@ -13,6 +13,7 @@ import { api, inTauri } from "../api/client";
 import { describeDiagnostics, type CliState } from "../lib/diagnostics";
 import { size } from "../lib/format";
 import { MOD } from "../lib/keys";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** What the feedback service accepts. */
 export const MAX_FILES = 5;
@@ -103,16 +104,15 @@ export function FeedbackDialog({
     (first.current?.value ? second : first).current?.focus();
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+  useWindowKey(
+    (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   const attach = (added: File[]) => {
     if (!added.length) return;

@@ -5,6 +5,7 @@
 import { useEffect, useRef } from "react";
 import { api } from "../api/client";
 import type { WorkItem } from "../api/types";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** The items in progress that putting `item` on hold stops: the item itself
  *  and its sub-items at any depth. Asks the core only when there can be some. */
@@ -40,15 +41,16 @@ export function HoldItemDialog({
 
   useEffect(() => {
     keep.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>

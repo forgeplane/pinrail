@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
 import { composing } from "../lib/keys";
+import { useWindowKey } from "../lib/useWindowKey";
 
 export function DiscardDialog({
   review,
@@ -25,15 +26,16 @@ export function DiscardDialog({
 
   useEffect(() => {
     field.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   const confirm = async () => {
     if (busy) return;

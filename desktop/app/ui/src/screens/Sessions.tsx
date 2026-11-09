@@ -25,6 +25,7 @@ import { useLive, aboutSessions, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import { ReviewView } from "./ReviewScreen";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -159,9 +160,8 @@ export function Sessions() {
 
   // With a session open beside the list, J and K open the next and previous
   // session, wrapping around at the ends of the page, and Esc closes it.
-  useEffect(() => {
-    if (!openKey) return;
-    const onWalk = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       const el = event.target as HTMLElement | null;
       if (isTyping(el)) return;
@@ -176,10 +176,9 @@ export function Sessions() {
       const at = sessions.findIndex((s) => keyOf(s) === openKey);
       const next = at < 0 ? 0 : (at + (event.key === "j" ? 1 : sessions.length - 1)) % sessions.length;
       if (keyOf(sessions[next]) !== openKey) openInPanel(keyOf(sessions[next]), { replace: true });
-    };
-    window.addEventListener("keydown", onWalk, true);
-    return () => window.removeEventListener("keydown", onWalk, true);
-  }, [openKey, sessions, openInPanel, closePanel]);
+    },
+    { capture: true, enabled: !!openKey },
+  );
 
   // the focused row stays in view as J and K move it
   const list = useRef<HTMLDivElement>(null);
@@ -188,27 +187,23 @@ export function Sessions() {
   }, [focused]);
 
   // the keys of the other lists: j and k move, Enter opens, / searches
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
-      const el = event.target as HTMLElement | null;
-      const typing = isTyping(el);
-      if (event.key === "/" && !typing) {
-        event.preventDefault();
-        document.querySelector<HTMLInputElement>(".sessions input[type=search]")?.focus();
-        return;
-      }
-      if (typing) return;
-      if (event.key === "j") setFocused((f) => Math.min(f + 1, sessions.length - 1));
-      if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-      if (event.key === "Enter" && sessions[focused] && !openKey) open(sessions[focused]);
-      // E archives the focused row; with a session open, the thread takes it
-      if ((event.key === "e" || event.key === "E") && !event.shiftKey && sessions[focused] && !openKey)
-        toggleArchive(sessions[focused]);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [sessions, focused, open, openKey, toggleArchive]);
+  useWindowKey((event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
+    const el = event.target as HTMLElement | null;
+    const typing = isTyping(el);
+    if (event.key === "/" && !typing) {
+      event.preventDefault();
+      document.querySelector<HTMLInputElement>(".sessions input[type=search]")?.focus();
+      return;
+    }
+    if (typing) return;
+    if (event.key === "j") setFocused((f) => Math.min(f + 1, sessions.length - 1));
+    if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
+    if (event.key === "Enter" && sessions[focused] && !openKey) open(sessions[focused]);
+    // E archives the focused row; with a session open, the thread takes it
+    if ((event.key === "e" || event.key === "E") && !event.shiftKey && sessions[focused] && !openKey)
+      toggleArchive(sessions[focused]);
+  });
 
   /** A session's row; `i` is its place in the order J and K walk, and
    *  `group` the group it is drawn in, if any. */

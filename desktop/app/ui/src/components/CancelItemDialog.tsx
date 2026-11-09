@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import type { WorkItem } from "../api/types";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** How many of an item's own sub-items are still open or in progress. */
 export const openSubItems = (item: WorkItem) => item.sub_items.total - item.sub_items.closed;
@@ -21,15 +22,16 @@ export function CancelItemDialog({
 
   useEffect(() => {
     keep.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>

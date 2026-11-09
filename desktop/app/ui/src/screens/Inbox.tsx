@@ -17,6 +17,7 @@ import { History } from "./History";
 import { InboxHead, tabOf, type Layout } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -201,8 +202,8 @@ function Waiting() {
   // ⌥↓ and ⌥↑ do too. All of them wrap around at the ends. The listener uses
   // the capture phase, so it runs before the layout's handler for waiting
   // reviews, which then ignores the key.
-  useEffect(() => {
-    const onWalk = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (!openId || modalOpen() || hasMod(event)) return;
       const walk = event.altKey && !event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp");
       const step = !event.altKey && !event.shiftKey && (event.key === "j" || event.key === "k");
@@ -216,54 +217,49 @@ function Waiting() {
       const down = event.key === "ArrowDown" || event.key === "j";
       const next = at < 0 ? 0 : (at + (down ? 1 : list.length - 1)) % list.length;
       if (list[next].id !== openId) openInPanel(list[next].id, { replace: true });
-    };
-    window.addEventListener("keydown", onWalk, true);
-    return () => window.removeEventListener("keydown", onWalk, true);
-  }, [openId, openInPanel]);
+    },
+    { capture: true },
+  );
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // the inbox's keys are not for a dialog in front of it
-      if (modalOpen()) return;
-      // the open review handles the other keys: the panel handles discard,
-      // and the view may use Enter
-      if (openId) {
-        if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-          const el = event.target as HTMLElement | null;
-          if (isTyping(el)) return;
-          event.preventDefault();
-          search.current?.focus();
-        }
-        return;
-      }
-      if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
-        // the key must not land in the reason field that opens
-        event.preventDefault();
-        if (!discarding && shown[focused]) setDiscarding(shown[focused]);
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const el = event.target as HTMLElement | null;
-      const typing = isTyping(el);
-      if (event.key === "/" && !typing) {
+  useWindowKey((event) => {
+    // the inbox's keys are not for a dialog in front of it
+    if (modalOpen()) return;
+    // the open review handles the other keys: the panel handles discard,
+    // and the view may use Enter
+    if (openId) {
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const el = event.target as HTMLElement | null;
+        if (isTyping(el)) return;
         event.preventDefault();
         search.current?.focus();
-        return;
       }
-      if (typing) {
-        if (event.key === "Escape") (el as HTMLElement).blur();
-        return;
-      }
-      if (discarding) return;
-      if (event.key === "j" || event.key === "k") keyboard.current = true;
-      // wrap around at the ends, from the last row to the first and back
-      if (shown.length && event.key === "j") setFocused((f) => (f + 1) % shown.length);
-      if (shown.length && event.key === "k") setFocused((f) => (f - 1 + shown.length) % shown.length);
-      if (event.key === "Enter" && shown[focused]) navigate(hrefFor(shown[focused].id));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [shown, focused, navigate, discarding, openId, openInPanel, hrefFor]);
+      return;
+    }
+    if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
+      // the key must not land in the reason field that opens
+      event.preventDefault();
+      if (!discarding && shown[focused]) setDiscarding(shown[focused]);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const el = event.target as HTMLElement | null;
+    const typing = isTyping(el);
+    if (event.key === "/" && !typing) {
+      event.preventDefault();
+      search.current?.focus();
+      return;
+    }
+    if (typing) {
+      if (event.key === "Escape") (el as HTMLElement).blur();
+      return;
+    }
+    if (discarding) return;
+    if (event.key === "j" || event.key === "k") keyboard.current = true;
+    // wrap around at the ends, from the last row to the first and back
+    if (shown.length && event.key === "j") setFocused((f) => (f + 1) % shown.length);
+    if (shown.length && event.key === "k") setFocused((f) => (f - 1 + shown.length) % shown.length);
+    if (event.key === "Enter" && shown[focused]) navigate(hrefFor(shown[focused].id));
+  });
 
   // What a row does, as the same functions from one render to the next, so
   // that a memoized row draws again only when its own props change; each

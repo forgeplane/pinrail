@@ -18,6 +18,7 @@ import { byName, readsSkillOf, Tile, useAgents, where, type AgentStatus } from "
 import { useCli, type CliStatus } from "../settings/CliRow";
 import { WaitMark } from "../WaitMark";
 import { useCopy } from "../../lib/useCopy";
+import { useWindowKey } from "../../lib/useWindowKey";
 
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
 
@@ -555,14 +556,13 @@ export function WelcomeDialog({
 
   // the dialog holds the keyboard: Esc skips, and no key reaches the screen
   // behind it; buttons, Tab and copying still work, being the browser's own
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+  useWindowKey(
+    (e) => {
       e.stopPropagation();
       if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   // the first review: any review that arrives while the setup is open
   const [opened] = useState(() => new Date().toISOString().slice(0, 19));

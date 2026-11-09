@@ -22,6 +22,7 @@ import { useToast } from "../state/toasts";
 import { InboxHead } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
+import { useWindowKey } from "../lib/useWindowKey";
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
@@ -183,8 +184,8 @@ export function History() {
   // With a review open beside the list, J and K open the next and previous
   // review, from the list or from the view, which forwards them, and wrap
   // around at the ends of the page.
-  useEffect(() => {
-    const onWalk = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (!openId || modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       if (event.key !== "j" && event.key !== "k") return;
       const el = event.target as HTMLElement | null;
@@ -195,45 +196,40 @@ export function History() {
       const at = reviews.findIndex((r) => r.id === openId);
       const next = at < 0 ? 0 : (at + (event.key === "j" ? 1 : reviews.length - 1)) % reviews.length;
       if (reviews[next].id !== openId) openInPanel(reviews[next].id, { replace: true });
-    };
-    window.addEventListener("keydown", onWalk, true);
-    return () => window.removeEventListener("keydown", onWalk, true);
-  }, [openId, reviews, openInPanel]);
+    },
+    { capture: true },
+  );
 
   useEffect(() => {
     setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
   }, [reviews.length]);
 
   // the same keys as the inbox: j/k move, enter opens, / searches
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
-      const el = event.target as HTMLElement | null;
-      const typing = isTyping(el);
-      if (event.key === "/" && !typing) {
+  useWindowKey((event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
+    const el = event.target as HTMLElement | null;
+    const typing = isTyping(el);
+    if (event.key === "/" && !typing) {
+      event.preventDefault();
+      search.current?.focus();
+      return;
+    }
+    if (typing && el) {
+      if (composing(event)) return;
+      if (event.key === "Escape") el.blur();
+      // Enter leaves the field for the results, so J, K and Enter work on them
+      if (event.key === "Enter" && el === search.current) {
         event.preventDefault();
-        search.current?.focus();
-        return;
+        el.blur();
+        setFocused(0);
       }
-      if (typing && el) {
-        if (composing(event)) return;
-        if (event.key === "Escape") el.blur();
-        // Enter leaves the field for the results, so J, K and Enter work on them
-        if (event.key === "Enter" && el === search.current) {
-          event.preventDefault();
-          el.blur();
-          setFocused(0);
-        }
-        return;
-      }
-      if (event.key === "j" || event.key === "k") keyboard.current = true;
-      if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
-      if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-      if (event.key === "Enter" && reviews[focused] && !openId) open(reviews[focused].id);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [reviews, focused, navigate, openId, panelMode]); // eslint-disable-line react-hooks/exhaustive-deps -- open follows panelMode and openId
+      return;
+    }
+    if (event.key === "j" || event.key === "k") keyboard.current = true;
+    if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
+    if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
+    if (event.key === "Enter" && reviews[focused] && !openId) open(reviews[focused].id);
+  });
 
   useEffect(() => {
     document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });

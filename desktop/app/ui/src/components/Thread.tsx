@@ -27,6 +27,7 @@ import { useSessionThread } from "./thread/useSessionThread";
 import { useNewestFirst } from "./thread/useNewestFirst";
 import { useThreadScroll } from "./thread/useThreadScroll";
 import { store, stored } from "./thread/storage";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** Whether the box under a thread sends the agent messages. Off until
  *  Pinrail can reach an agent that waits for nothing: until then a message
@@ -196,18 +197,14 @@ export function Thread({
   } = useFindBar();
   const [found, setFound] = useState<Found | null>(null);
   const finderRef = useRef<Finder | null>(null);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!hasMod(event) || event.shiftKey || event.altKey || (event.key !== "f" && event.key !== "F")) return;
-      // the thread may itself be in the Sessions page's panel
-      const panel = document.activeElement?.closest(".review-panel");
-      if (modalOpen() || (panel && !panel.contains(timeline.current))) return;
-      event.preventDefault();
-      showFind();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showFind]);
+  useWindowKey((event) => {
+    if (!hasMod(event) || event.shiftKey || event.altKey || (event.key !== "f" && event.key !== "F")) return;
+    // the thread may itself be in the Sessions page's panel
+    const panel = document.activeElement?.closest(".review-panel");
+    if (modalOpen() || (panel && !panel.contains(timeline.current))) return;
+    event.preventDefault();
+    showFind();
+  });
   useEffect(() => {
     const el = timeline.current;
     if (!finding || !el) return;
@@ -271,17 +268,15 @@ export function Thread({
       return !shown;
     });
   }, [shownKey]);
-  useEffect(() => {
-    if (!hasDetails) return;
-    const onKey = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (modalOpen() || !hasMod(event) || !event.shiftKey || event.altKey) return;
       if (event.key !== "b" && event.key !== "B") return;
       event.preventDefault();
       toggleDetails();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [hasDetails, toggleDetails]);
+    },
+    { enabled: !!hasDetails },
+  );
   // E archives the session open on its page or in the side panel, or brings
   // it back, when the focus is not in a text field. With a work item open
   // beside the thread, E is the item's, which edits its description.
@@ -289,9 +284,8 @@ export function Thread({
   const archivable = !focus && !openItem && named && session ? { ...named, archived_at: session.archived_at } : null;
   const archivableRef = useRef(archivable);
   archivableRef.current = archivable;
-  useEffect(() => {
-    if (focus) return;
-    const onKey = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (event.key !== "e" && event.key !== "E") return;
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
@@ -299,10 +293,9 @@ export function Thread({
       if (!archivableRef.current) return;
       event.preventDefault();
       toggleArchive(archivableRef.current);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [focus, toggleArchive]);
+    },
+    { enabled: !focus },
+  );
   const keepDetailsWidth = (w: number) => {
     setDetailsWidth(w);
     store(DETAILS_WIDTH, String(w));

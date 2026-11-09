@@ -37,6 +37,7 @@ import { useLive, aboutItems, aboutSessions, useNoticeCount } from "../state/liv
 import { useSettings } from "../state/settings";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** The type of a repository's name on a drag. */
 const DRAGGED = "application/x-pinrail-repo";
@@ -553,15 +554,16 @@ function ProjectDialog({
 
   useEffect(() => {
     input.current?.select();
-    const onKey = (event: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -739,15 +741,16 @@ function PrefixDialog({
   useEffect(() => {
     field.current?.focus();
     field.current?.select();
-    const onKey = (event: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
       <div
@@ -827,15 +830,16 @@ function DeleteRepoDialog({
   const confirmed = typed.trim() === repo.repo;
   useEffect(() => {
     confirm.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
       <div
@@ -898,15 +902,16 @@ function DeleteDialog({ project, onDelete, onClose }: { project: Project; onDele
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     cancel.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
       <div

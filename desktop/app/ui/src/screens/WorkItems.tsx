@@ -29,6 +29,7 @@ import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/u
 import { useLive, aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -358,62 +359,58 @@ export function WorkItems() {
 
   // J and K move, and open what they reach while the panel is open; Enter opens, / searches, C adds; S, D and X change the
   // focused item: claimed or released, done, cancelled
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const typing = (el: HTMLElement | null) => isTyping(el);
-      // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
-      // waiting reviews, everywhere
-      if (
-        event.shiftKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-        !modalOpen() &&
-        !typing(event.target as HTMLElement | null)
-      ) {
-        const at = rows[focused]?.item;
-        if (at?.queue) {
-          event.preventDefault();
-          moveInQueue(at, event.key === "ArrowUp" ? -1 : 1);
-        }
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
-      const el = event.target as HTMLElement | null;
-      if (isTyping(el)) return;
+  useWindowKey((event) => {
+    const typing = (el: HTMLElement | null) => isTyping(el);
+    // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
+    // waiting reviews, everywhere
+    if (
+      event.shiftKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+      !modalOpen() &&
+      !typing(event.target as HTMLElement | null)
+    ) {
       const at = rows[focused]?.item;
-      const key = event.key.toLowerCase();
-      if (event.key === "/") {
+      if (at?.queue) {
         event.preventDefault();
-        document.querySelector<HTMLInputElement>(".work-items input[type=search]")?.focus();
-      } else if ((key === "j" || key === "k") && rows.length) {
-        // with the panel open they step from the open item, wherever the
-        // pointer has moved the highlight, and the panel follows
-        const opened = openKey ? rows.findIndex((r) => r.item.key === openKey) : -1;
-        const from = opened >= 0 ? opened : focused;
-        const next = key === "j" ? Math.min(from + 1, rows.length - 1) : Math.max(from - 1, 0);
-        setFocused(next);
-        if (openKey && rows[next].item.key !== openKey) openKeyed(rows[next].item.key);
-      } else if (event.key === "Enter" && at) open(at);
-      else if (key === "c" && !event.shiftKey) {
-        event.preventDefault();
-        setAdding(true);
-      } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
-      else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
-      else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
-      else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
-        if (at.status === "on_hold") void change(at, { status: "open" });
-        else hold(at);
-      } else if (key === "x" && at) {
-        // its open sub-items go with it: the person is asked first
-        if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
-        else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
+        moveInQueue(at, event.key === "ArrowUp" ? -1 : 1);
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [rows, focused, open, openKey, openKeyed, change, hold, toggleQueue, moveInQueue]);
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
+    const el = event.target as HTMLElement | null;
+    if (isTyping(el)) return;
+    const at = rows[focused]?.item;
+    const key = event.key.toLowerCase();
+    if (event.key === "/") {
+      event.preventDefault();
+      document.querySelector<HTMLInputElement>(".work-items input[type=search]")?.focus();
+    } else if ((key === "j" || key === "k") && rows.length) {
+      // with the panel open they step from the open item, wherever the
+      // pointer has moved the highlight, and the panel follows
+      const opened = openKey ? rows.findIndex((r) => r.item.key === openKey) : -1;
+      const from = opened >= 0 ? opened : focused;
+      const next = key === "j" ? Math.min(from + 1, rows.length - 1) : Math.max(from - 1, 0);
+      setFocused(next);
+      if (openKey && rows[next].item.key !== openKey) openKeyed(rows[next].item.key);
+    } else if (event.key === "Enter" && at) open(at);
+    else if (key === "c" && !event.shiftKey) {
+      event.preventDefault();
+      setAdding(true);
+    } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
+    else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
+    else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
+    else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
+      if (at.status === "on_hold") void change(at, { status: "open" });
+      else hold(at);
+    } else if (key === "x" && at) {
+      // its open sub-items go with it: the person is asked first
+      if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
+      else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
+    }
+  });
   // ⌘⇧C, which elsewhere opens the quick add dialog, opens this page's own
   useEffect(() => {
     const onQuickAdd = () => setAdding(true);

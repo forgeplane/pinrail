@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from "react";
 import type { LinkRequest } from "../lib/links";
+import { useWindowKey } from "../lib/useWindowKey";
 
 export type LinkChoice = "cancel" | "once" | "always";
 
@@ -21,15 +22,16 @@ export function LinkDialog({
 
   useEffect(() => {
     cancel.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
+  }, [onClose]);
+  useWindowKey(
+    (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose("cancel");
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    },
+    { capture: true },
+  );
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={() => onClose("cancel")}>
