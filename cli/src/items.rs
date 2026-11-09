@@ -89,22 +89,32 @@ struct AddArgs {
     #[arg(required_unless_present = "file", conflicts_with = "file")]
     title: Option<String>,
     /// The description, in Markdown: the goal, the context and what done means
-    #[arg(long, conflicts_with = "body_file")]
+    #[arg(long, conflicts_with_all = ["body_file", "file"])]
     body: Option<String>,
     /// Read the description from a file, or from stdin with -
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", conflicts_with = "file")]
     body_file: Option<PathBuf>,
     /// The item it is part of
     #[arg(long, value_name = "ITEM")]
     parent: Option<String>,
     /// Items that must be done first; several, or separated by commas
-    #[arg(long, value_name = "ITEM", value_delimiter = ',')]
+    #[arg(
+        long,
+        value_name = "ITEM",
+        value_delimiter = ',',
+        conflicts_with = "file"
+    )]
     depends_on: Vec<String>,
     /// A link, such as the issue elsewhere
-    #[arg(long, value_name = "URL")]
+    #[arg(long, value_name = "URL", conflicts_with = "file")]
     link: Option<String>,
     /// A file the description shows as attachment:NAME
-    #[arg(long = "attach", value_name = "PATH[=NAME]", value_parser = attachments::parse_flag)]
+    #[arg(
+        long = "attach",
+        value_name = "PATH[=NAME]",
+        value_parser = attachments::parse_flag,
+        conflicts_with = "file"
+    )]
     attachments: Vec<(String, PathBuf)>,
     /// A breakdown: a JSON file of items, or - for stdin
     #[arg(long, value_name = "FILE")]

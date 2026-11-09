@@ -3678,6 +3678,24 @@ fn items_add_with_a_file_sends_the_breakdown_and_lists_each_ref_with_its_key() {
     std::fs::write(
         &plan,
         r#"{"items": [{"ref": "themes", "title": "Custom themes"},
+#[test]
+fn items_add_with_a_file_refuses_the_options_it_does_not_use() {
+    let server = MockServer::start(Box::new(|_, path, _| panic!("nothing is sent: {path}")));
+    for option in [
+        &["--depends-on", "PIN-3"][..],
+        &["--link", "https://example.com"],
+        &["--body", "text"],
+        &["--body-file", "body.md"],
+        &["--attach", "x.png"],
+    ] {
+        let mut args = vec!["items", "add", "--file", "plan.json"];
+        args.extend_from_slice(option);
+        let (code, _, stderr) = run(&server, &args);
+        assert_eq!(code, 1, "{option:?}: {stderr}");
+        assert!(stderr.contains("cannot be used with"), "{stderr}");
+    }
+}
+
                       {"ref": "load", "parent": "themes", "title": "Load themes", "depends_on": ["PIN-38"]}]}"#,
     )
     .unwrap();
