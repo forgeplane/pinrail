@@ -9,7 +9,7 @@ import { api } from "../../api/client";
 import type { Answer, Question, Review } from "../../api/types";
 import { age, stamp } from "../../lib/format";
 import { MOD, hasMod, modalOpen, isTyping } from "../../lib/keys";
-import { plainInline, renderInline, renderMarkdown, useItemPrefixes } from "../../lib/markdown";
+import { plainInline } from "../../lib/markdown";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../../lib/questions";
 import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
@@ -18,7 +18,8 @@ import { AgentIcon } from "../AgentIcon";
 import { ComposeField } from "../ComposeField";
 import { DiscardDialog } from "../DiscardDialog";
 import { Tooltip } from "../Tooltip";
-import { Linked, useFollowLink } from "./messages";
+import { Linked } from "./messages";
+import { MarkdownHtml } from "../MarkdownHtml";
 
 /** Where the answers being written are kept, per question set, until they are sent. */
 const DRAFTS = "pinrail:answers:";
@@ -397,7 +398,6 @@ function QuestionMessage({
   onEdit,
   index,
 }: MessageProps) {
-  const followLink = useFollowLink();
   const pending = review.status === "pending";
   // the question as it reads, for the labels of what answers it
   const asked = useMemo(() => plainInline(question.question), [question.question]);
@@ -428,17 +428,7 @@ function QuestionMessage({
         <div className="msg-question-row">
           <p className="msg-question">
             {number ? <span className="msg-number">{number}</span> : null}
-            <span
-              className="markdown-inline"
-              onClick={(e) => {
-                // its links open in the browser, as the context's do
-                const link = (e.target as HTMLElement).closest("a");
-                if (!link) return;
-                e.preventDefault();
-                followLink(link);
-              }}
-              dangerouslySetInnerHTML={{ __html: renderInline(question.question) }}
-            />
+            <MarkdownHtml as="span" mode="inline" className="markdown-inline" text={question.question} />
           </p>
           {pending && question.answer !== "text" && !note && editing !== "note" ? (
             <Tooltip label="Add a note to this answer" keys={["C"]} side="top">
@@ -697,20 +687,5 @@ function AnswerLine({ question, answer, review }: { question: Question; answer?:
 
 /** A question's context, as Markdown, with its links opened in the browser. */
 function Context({ text }: { text: string }) {
-  const followLink = useFollowLink();
-  const prefixes = useItemPrefixes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
-  const html = useMemo(() => renderMarkdown(text), [text, prefixes]);
-  return (
-    <div
-      className="msg-context"
-      onClick={(e) => {
-        const link = (e.target as HTMLElement).closest("a");
-        if (!link) return;
-        e.preventDefault();
-        followLink(link);
-      }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  return <MarkdownHtml className="msg-context" text={text} />;
 }

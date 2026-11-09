@@ -152,3 +152,29 @@ export function plainInline(text: string): string {
 export function useItemPrefixes(): number {
   return useSyncExternalStore(onItemPrefixes, itemPrefixesVersion);
 }
+
+/** How a text is rendered: Markdown, a note with its files, one line of
+ *  Markdown, or plain text with its links. */
+export type MarkdownMode = "markdown" | "note" | "inline" | "links";
+
+/** Renders `text` as `mode` says. `prefixes` is the version of the key
+ *  prefixes the rendering is for, from useItemPrefixes: a memo of the HTML
+ *  depends on it, and renders again when it changes. */
+export function renderAs(
+  mode: MarkdownMode,
+  text: string,
+  prefixes: number,
+  fileUrl: (name: string) => string | null = () => null,
+): string {
+  void prefixes;
+  switch (mode) {
+    case "note":
+      return renderNote(text, fileUrl);
+    case "inline":
+      return renderInline(text);
+    case "links":
+      return renderLinks(text);
+    default:
+      return renderMarkdown(text);
+  }
+}

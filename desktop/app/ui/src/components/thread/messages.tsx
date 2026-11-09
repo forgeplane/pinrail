@@ -27,11 +27,9 @@ import type {
   SessionStatus,
 } from "../../api/types";
 import { age, stamp } from "../../lib/format";
-import { renderLinks, renderNote, useItemPrefixes } from "../../lib/markdown";
-import { openAgentLink } from "../../lib/native";
 import { type Entry, type FromSession, type Round } from "../../lib/sessions";
 import { useToast } from "../../state/toasts";
-import { ItemChip, ItemChips, useOpenItem } from "../ItemChip";
+import { ItemChip, ItemChips } from "../ItemChip";
 import { Markdown, useFileUrl } from "../ItemMarkdown";
 import { ItemStatusIcon, STATUS_LABEL } from "../ItemStatusIcon";
 import { AgentIcon } from "../AgentIcon";
@@ -39,6 +37,7 @@ import { OutcomeBadge, SummaryCounts } from "../Badges";
 import { NoteFiles, filesOf, useNoteFileUrl, useSaveNoteFile } from "../NoteFiles";
 import { ReviewIcon } from "../ReviewIcon";
 import { Tooltip } from "../Tooltip";
+import { MarkdownHtml } from "../MarkdownHtml";
 
 /** How a status reads on its own: a step as it is, the start of a stage, which
  *  the title names, as Started, and the end as Finished with what it says. */
@@ -49,33 +48,8 @@ export function statusLine(status: SessionStatus): string {
 }
 
 /** Text the agent reported, with its links opened in the browser. */
-/** Follows a link in what an agent wrote: a work item's key opens the item
- *  in the app, and any other link opens in the browser. */
-export function useFollowLink() {
-  const openItem = useOpenItem();
-  return useCallback(
-    (link: HTMLAnchorElement) => {
-      if (link.dataset.item) openItem(link.dataset.item);
-      else openAgentLink(link.href);
-    },
-    [openItem],
-  );
-}
-
 export function Linked({ text }: { text: string }) {
-  const followLink = useFollowLink();
-  const html = useMemo(() => renderLinks(text), [text]);
-  return (
-    <span
-      onClick={(e) => {
-        const link = (e.target as HTMLElement).closest("a");
-        if (!link) return;
-        e.preventDefault();
-        followLink(link);
-      }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  return <MarkdownHtml as="span" mode="links" text={text} />;
 }
 
 /** Statuses the agent reported in a row: the newest, and the earlier ones
@@ -180,7 +154,6 @@ export const ItemEventLine = memo(function ItemEventLine({ events }: { events: S
 /** A comment the session's agent wrote on a work item: the item's chip,
  *  and the comment's Markdown as the item's panel shows it. */
 export const CommentMessage = memo(function CommentMessage({ comment }: { comment: SessionComment }) {
-  const followLink = useFollowLink();
   const fileUrl = useFileUrl(comment.item.key);
   return (
     <div className="thread-note thread-comment msg" data-testid="thread-comment">
@@ -194,16 +167,7 @@ export const CommentMessage = memo(function CommentMessage({ comment }: { commen
             {age(comment.created_at)} ago
           </span>
         </div>
-        <div
-          onClick={(e) => {
-            const link = (e.target as HTMLElement).closest("a");
-            if (!link || link.dataset.attachment !== undefined) return;
-            e.preventDefault();
-            followLink(link);
-          }}
-        >
-          <Markdown text={comment.body} files={comment.files} fileUrl={fileUrl} />
-        </div>
+        <Markdown text={comment.body} files={comment.files} fileUrl={fileUrl} />
         {comment.files.length ? (
           <ul className="item-files">
             {comment.files.map((f) => (
@@ -232,7 +196,6 @@ export const NoteMessage = memo(function NoteMessage({
   agent: string | null;
   session: string | null;
 }) {
-  const followLink = useFollowLink();
   const files = filesOf(status);
   const note = useMemo(
     () => (agent && session ? { agent, session, status: status.id } : null),
@@ -245,15 +208,12 @@ export const NoteMessage = memo(function NoteMessage({
     (name: string) => (files.some((f) => f.name === name && f.media_type.startsWith("image/")) ? url(name) : null),
     [files, url],
   );
-  const prefixes = useItemPrefixes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- rendered again when the key prefixes change
-  const html = useMemo(() => renderNote(status.text, imageUrl), [status.text, imageUrl, prefixes]);
-  const body = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
   // measured again as its images load
   const measure = useCallback(() => setLong((body.current?.scrollHeight ?? 0) > NOTE_FOLDED + 40), []);
-  useLayoutEffect(measure, [html, measure]);
+  useLayoutEffect(measure, [status.text, imageUrl, measure]);
   return (
     <div className="thread-note msg" data-testid="note">
       <span className="msg-avatar">
@@ -271,20 +231,15 @@ export const NoteMessage = memo(function NoteMessage({
             </span>
           ) : null}
         </div>
-        <div
+        <MarkdownHtml
           ref={body}
+          mode="note"
+          text={status.text}
+          imageUrl={imageUrl}
           className={`thread-note-body ${long && !open ? "is-folded" : ""}`}
           style={long && !open ? { maxHeight: NOTE_FOLDED } : undefined}
           onLoadCapture={measure}
-          onClick={(e) => {
-            const link = (e.target as HTMLElement).closest("a");
-            if (!link) return;
-            e.preventDefault();
-            const file = link.dataset.attachment;
-            if (file !== undefined) void save(file);
-            else followLink(link);
-          }}
-          dangerouslySetInnerHTML={{ __html: html }}
+          onAttachment={(file) => void save(file)}
         />
         {long ? (
           <button type="button" className="thread-note-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
