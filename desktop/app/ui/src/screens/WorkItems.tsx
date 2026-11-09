@@ -2,19 +2,7 @@
 // list grouped like the inbox, with sub-items nested under their parent or
 // each as a row of its own, a quick add at the top, and filters.
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  FolderGit2,
-  ListChecks,
-  ListOrdered,
-  Lock,
-  Plus,
-  Search,
-  SearchX,
-  User,
-} from "lucide-react";
+import { FolderGit2, ListChecks, Lock, Plus, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, api } from "../api/client";
@@ -27,13 +15,12 @@ import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle
 import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
-import { Tooltip } from "../components/Tooltip";
-import { age, ordinal, stamp } from "../lib/format";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { modalOpen } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
 import { QuickAddBox, type QuickAddBoxProps } from "../components/QuickAddBox";
 import { ItemPanel } from "../components/ItemPanel";
+import { ItemRow, type ItemRowActions } from "../components/ItemRow";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
@@ -187,9 +174,11 @@ export function WorkItems() {
       const children = new Map<string, WorkItem[]>();
       const roots: WorkItem[] = [];
       for (const item of list) {
-        if (item.parent && here.has(item.parent))
-          children.set(item.parent, [...(children.get(item.parent) ?? []), item]);
-        else roots.push(item);
+        if (item.parent && here.has(item.parent)) {
+          const kids = children.get(item.parent);
+          if (kids) kids.push(item);
+          else children.set(item.parent, [item]);
+        } else roots.push(item);
       }
       const out: Shown[] = [];
       const walk = (item: WorkItem, depth: number) => {
@@ -439,131 +428,84 @@ export function WorkItems() {
   }, []);
 
   const focusedItem = rows[focused]?.item;
-  const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => {
-    // on hold, it waits: dimmed as a closed item is
-    const closed = item.status === "done" || item.status === "cancelled" || item.status === "on_hold";
-    // a sub-item shown without its parent names it
-    const orphan = item.parent && (!nested || !rows.some((r) => r.item.key === item.parent));
-    return (
-      <div
-        key={item.key}
-        role="button"
-        tabIndex={-1}
-        data-row={index}
-        data-testid="item-row"
-        data-key={item.key}
-        className={`item-row ${index === focused ? "is-focused" : ""} ${item.key === openKey ? "is-open" : ""} ${closed ? "is-closed" : ""} ${dropOn === item.key ? "is-drop" : ""}`}
-        // its arrow under the group's, its status under the group's icon,
-        // and each level of sub-items one step in
-        style={{ paddingLeft: 4 + depth * 18 }}
-        onMouseEnter={() => setFocused(index)}
-        onClick={() => open(item)}
-        draggable
-        onDragStart={(event) => {
-          event.dataTransfer.setData(DRAGGED, item.key);
-          draggedGroup.current = group;
-          event.dataTransfer.effectAllowed = "move";
-          // after the drag has begun: a change to the page during
-          // dragstart cancels the drag
-          dragTimer.current = window.setTimeout(() => setDragging(item), 0);
-        }}
-        onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes(DRAGGED)) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          if (dropOn !== item.key) setDropOn(item.key);
-        }}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDropOn(null);
-          const dragged = event.dataTransfer.getData(DRAGGED);
-          if (!dragged || dragged === item.key) return;
-          // dropped on another item, it becomes its sub-item, in its repository
-          const from = items?.find((i) => i.key === dragged);
-          void (async () => {
-            if (from && from.repo !== item.repo && !(await moveTo(dragged, item.repo))) return;
-            await putUnder(dragged, item.key);
-          })();
-        }}
-        onDragEnd={() => {
-          window.clearTimeout(dragTimer.current);
-          draggedGroup.current = null;
-          setDropOn(null);
-          setDragging(null);
-        }}
-      >
-        <span className="item-fold">
-          {children ? (
-            <button
-              type="button"
-              aria-label={isFolded ? `Show the sub-items of ${item.key}` : `Hide the sub-items of ${item.key}`}
-              aria-expanded={!isFolded}
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleFold(item.key);
-              }}
-            >
-              {isFolded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-            </button>
-          ) : null}
-        </span>
-        <ItemStatusIcon status={item.status} />
-        <span className="item-key mono">{item.key}</span>
-        <span className="item-title">
-          <span className="item-title-text">{item.title}</span>
-          {orphan ? <span className="item-parent">in {item.parent}</span> : null}
-          {layout !== "repository" && (layout === "list" || mixed.has(group)) ? (
-            <span className="item-repo">{item.repo}</span>
-          ) : null}
-        </span>
-        <span className="item-marks">
-          {item.queue ? (
-            <span className="item-mark is-queued" data-testid="item-queued" title={`Queued, ${ordinal(item.queue)}`}>
-              <ListOrdered size={11} aria-hidden="true" />
-              {item.queue}
-            </span>
-          ) : null}
-          {item.waiting ? (
-            <span className="item-mark is-waiting" data-testid="item-waiting">
-              <Clock size={11} aria-hidden="true" /> waiting on you
-            </span>
-          ) : null}
-          {item.blocked && !closed ? (
-            <span className="item-mark is-blocked" data-testid="item-blocked">
-              <Lock size={11} aria-hidden="true" /> blocked by {item.blocked_by.join(", ")}
-            </span>
-          ) : null}
-          {item.sub_items.total ? (
-            <span
-              className="item-progress"
-              title={`${item.sub_items.closed} of ${item.sub_items.total} sub-items closed`}
-            >
-              {item.sub_items.closed}/{item.sub_items.total}
-            </span>
-          ) : null}
-        </span>
-        <span className="item-claim">
-          {item.claim ? (
-            item.claim.agent === "person" ? (
-              <Tooltip label="You are working on it" side="top">
-                <User size={13} aria-label="You" />
-              </Tooltip>
-            ) : (
-              <Tooltip label={`${item.claim.agent} is working on it`} side="top">
-                <AgentIcon requestedBy={item.claim.agent} size={14} />
-              </Tooltip>
-            )
-          ) : null}
-        </span>
-        <time className="review-row-time" dateTime={item.updated_at} title={stamp(item.updated_at)}>
-          {age(item.updated_at)}
-        </time>
-      </div>
-    );
+  // the keys shown, for the rows of sub-items whose parent is not
+  const shownKeys = useMemo(() => new Set(rows.map((r) => r.item.key)), [rows]);
+  // What a row does, as the same functions from one render to the next, so
+  // that a memoized row draws again only when its own props change; each
+  // calls the page's latest state.
+  const rowHandlers: ItemRowActions = {
+    hover: (index) => setFocused(index),
+    open: (item) => open(item),
+    toggleFold: (key) => toggleFold(key),
+    dragStart: (event, item, group) => {
+      event.dataTransfer.setData(DRAGGED, item.key);
+      draggedGroup.current = group;
+      event.dataTransfer.effectAllowed = "move";
+      // after the drag has begun: a change to the page during dragstart
+      // cancels the drag
+      dragTimer.current = window.setTimeout(() => setDragging(item), 0);
+    },
+    dragOver: (event, item) => {
+      if (!event.dataTransfer.types.includes(DRAGGED)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setDropOn(item.key);
+    },
+    dragLeave: (event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn(null);
+    },
+    drop: (event, item) => {
+      event.preventDefault();
+      setDropOn(null);
+      const dragged = event.dataTransfer.getData(DRAGGED);
+      if (!dragged || dragged === item.key) return;
+      // dropped on another item, it becomes its sub-item, in its repository
+      const from = items?.find((i) => i.key === dragged);
+      void (async () => {
+        if (from && from.repo !== item.repo && !(await moveTo(dragged, item.repo))) return;
+        await putUnder(dragged, item.key);
+      })();
+    },
+    dragEnd: () => {
+      window.clearTimeout(dragTimer.current);
+      draggedGroup.current = null;
+      setDropOn(null);
+      setDragging(null);
+    },
   };
+  const latestRow = useRef(rowHandlers);
+  latestRow.current = rowHandlers;
+  const rowActions = useMemo<ItemRowActions>(
+    () => ({
+      hover: (index) => latestRow.current.hover(index),
+      open: (item) => latestRow.current.open(item),
+      toggleFold: (key) => latestRow.current.toggleFold(key),
+      dragStart: (event, item, group) => latestRow.current.dragStart(event, item, group),
+      dragOver: (event, item) => latestRow.current.dragOver(event, item),
+      dragLeave: (event) => latestRow.current.dragLeave(event),
+      drop: (event, item) => latestRow.current.drop(event, item),
+      dragEnd: () => latestRow.current.dragEnd(),
+    }),
+    [],
+  );
+  const row = ({ item, depth, folded: isFolded, children }: Shown, index: number, group: string) => (
+    <ItemRow
+      key={item.key}
+      item={item}
+      depth={depth}
+      folded={isFolded}
+      children={children}
+      index={index}
+      group={group}
+      focused={index === focused}
+      open={item.key === openKey}
+      dropTarget={dropOn === item.key}
+      // a sub-item shown without its parent names it
+      orphanOf={item.parent && (!nested || !shownKeys.has(item.parent)) ? item.parent : null}
+      showRepo={layout !== "repository" && (layout === "list" || mixed.has(group))}
+      actions={rowActions}
+    />
+  );
 
   // the page's filters, in the Filter menu and as chips while they are on
   const clearFilters = () =>
