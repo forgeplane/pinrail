@@ -2283,6 +2283,14 @@ body.is-resizing iframe {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the work in progress a hold would stop */
+.hold-item-work {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+}
 .discard-reason {
   width: 100%;
   resize: vertical;

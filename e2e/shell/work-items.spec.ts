@@ -989,3 +989,31 @@ test("the list loads again for item changes, not for a session's statuses", asyn
   await expect(row(page, item.key)).toContainText("Listed, renamed");
   expect(loads).toBeGreaterThan(0);
 });
+
+test("H on an item with work in progress under it asks first", async ({ page, request }) => {
+  const repo = fresh("hold-ask");
+  const parent = await add(request, repo, "Release");
+  const child = await add(request, repo, "Notes", { parent: parent.key });
+  await edit(request, child.key, { claim: "claim" }, "s-holding");
+  const status = async (key: string) =>
+    ((await (await request.get(`${core}/api/v1/items/${key}`)).json()) as { status: string }).status;
+  await open(page, repo);
+  const dialog = page.getByRole("dialog", { name: `Put ${parent.key} on hold?` });
+
+  await row(page, parent.key).hover();
+  await page.keyboard.press("h");
+  await expect(dialog).toContainText(`${child.key} Notes`);
+  await expect(dialog).toContainText("claude-code is working on it");
+  await dialog.getByRole("button", { name: "Keep working" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await status(parent.key)).toBe("open");
+
+  // the panel's status menu asks too
+  await open(page, repo, `&open=${parent.key}`);
+  await page.getByTestId("item-panel").getByRole("button", { name: "Status", exact: true }).click();
+  await page.getByRole("option", { name: "On hold", exact: true }).click();
+  await expect(dialog).toContainText(`${child.key} Notes`);
+  await dialog.getByRole("button", { name: "Put on hold" }).click();
+  await expect.poll(() => status(parent.key)).toBe("on_hold");
+  expect(await status(child.key)).toBe("open");
+});

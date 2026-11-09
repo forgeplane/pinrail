@@ -414,6 +414,13 @@ impl Items {
                 edited.item.key, edited.item.title
             );
             self.tell_holder(&held_by, &text)?;
+            for (sub, claim) in &edited.released_with {
+                let text = format!(
+                    "{} {} is under {} {}, which is on hold now: stop working on it, and take another item.",
+                    sub.key, sub.title, edited.item.key, edited.item.title
+                );
+                self.tell_holder(claim, &text)?;
+            }
         }
         self.announce(events::ITEM_CHANGED, &edited.item, actor)?;
         Ok(edited)

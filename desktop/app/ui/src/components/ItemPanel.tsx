@@ -35,6 +35,7 @@ import { useAttach, type Attached } from "../lib/attach";
 import { Activity } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
+import { HoldItemDialog, stoppedByHold } from "./HoldItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
@@ -71,6 +72,8 @@ export function ItemPanel({
   const [editingBody, setEditingBody] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // the work in progress a hold would stop, while the person is asked
+  const [holding, setHolding] = useState<WorkItem[] | null>(null);
   const fileUrl = useFileUrl(item?.key);
 
   // the notices that can change the item, its sub-items or its reviews
@@ -203,9 +206,17 @@ export function ItemPanel({
           id="item-status"
           label="Status"
           value={item.status}
-          onChange={(v) =>
-            v === "cancelled" && openSubItems(item) > 0 ? setCancelling(true) : void change({ status: v })
-          }
+          onChange={(v) => {
+            if (v === "cancelled" && openSubItems(item) > 0) setCancelling(true);
+            else if (v === "on_hold")
+              void stoppedByHold(item)
+                .then((stopped) => {
+                  if (stopped.length) setHolding(stopped);
+                  else void change({ status: v });
+                })
+                .catch(() => {});
+            else void change({ status: v });
+          }}
           options={(["open", "in_progress", "on_hold", "done", "cancelled"] as ItemStatus[]).map((s) => ({
             value: s,
             label: STATUS_LABEL[s],
@@ -479,6 +490,17 @@ export function ItemPanel({
         />
       </section>
 
+      {holding ? (
+        <HoldItemDialog
+          item={item}
+          stopped={holding}
+          onClose={() => setHolding(null)}
+          onConfirm={() => {
+            setHolding(null);
+            void change({ status: "on_hold" });
+          }}
+        />
+      ) : null}
       {cancelling ? (
         <CancelItemDialog
           item={item}

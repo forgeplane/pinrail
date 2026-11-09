@@ -60,7 +60,13 @@ pub struct Edited {
     pub parent_left_open: Option<Related>,
     /// the sub-items, at any depth, that were cancelled with it
     pub cancelled_with: Vec<Related>,
+    /// the sub-items, at any depth, released as it went on hold, each with
+    /// who held it
+    pub released_with: Vec<(Related, HeldBy)>,
 }
+
+/// Who held an item: the agent, and its session when it gave one.
+pub type HeldBy = Option<(String, Option<String>)>;
 
 /// A comment on an item.
 #[derive(Debug, Clone, PartialEq)]
@@ -393,6 +399,38 @@ fn cancel_sub_items(
     }
     cancelled.sort_by_key(|r| super::items::sort_key(&r.key));
     Ok(cancelled)
+}
+
+/// Releases an item's sub-items in progress, at any depth, as it goes on
+/// hold: no one works under an item on hold. Each comes with who held it.
+fn release_sub_items(
+    conn: &Connection,
+    id: &str,
+    actor: &Actor,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<Vec<(Related, HeldBy)>> {
+    let key = key_of(conn, id)?;
+    let mut stmt = conn.prepare(
+        "WITH RECURSIVE tree(id) AS (
+           SELECT id FROM work_items WHERE parent = ?1
+           UNION SELECT w.id FROM work_items w JOIN tree ON w.parent = tree.id
+         )
+         SELECT w.id FROM work_items w JOIN tree ON tree.id = w.id
+          WHERE w.status = 'in_progress'",
+    )?;
+    let held: Vec<String> = stmt
+        .query_map(params![id], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    drop(stmt);
+    let mut released = Vec::new();
+    for sub in held {
+        let claim = item_row(conn, &sub)?.claim;
+        status_in(conn, &sub, Status::Open, at)?;
+        item_event(conn, &sub, "released", actor, json!({ "on_hold": key }), at)?;
+        released.push((related(conn, &sub)?, claim));
+    }
+    released.sort_by_key(|(r, _)| super::items::sort_key(&r.key));
+    Ok(released)
 }
 
 /// Gives up every claim the session holds, for when it is archived.
@@ -791,6 +829,7 @@ impl Db {
         }
         let mut closed_now = false;
         let mut cancelled_with = Vec::new();
+        let mut released_with = Vec::new();
         if let Some(status) = change.status {
             let current = item_row(&tx, &id)?;
             // the person decides what waits: an agent neither puts an item
@@ -845,6 +884,9 @@ impl Db {
                         if status == Status::Cancelled {
                             cancelled_with = cancel_sub_items(&tx, &id, actor, at)?;
                         }
+                        if status == Status::OnHold {
+                            released_with = release_sub_items(&tx, &id, actor, at)?;
+                        }
                     }
                 }
             }
@@ -889,6 +931,7 @@ impl Db {
             now_ready,
             parent_left_open,
             cancelled_with,
+            released_with,
         }))
     }
 

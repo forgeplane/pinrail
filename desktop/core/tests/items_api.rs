@@ -2002,6 +2002,43 @@ async fn putting_an_item_in_progress_on_hold_releases_it_and_tells_the_session()
     );
 }
 
+#[tokio::test]
+async fn putting_a_parent_on_hold_releases_its_sub_items_and_tells_their_sessions() {
+    let app = app();
+    add(&app, "Release").await;
+    add(&app, "Notes").await;
+    add(&app, "Draft").await;
+    edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await;
+    edit(&app, "PIN-3", "s-1", json!({"parent": "PIN-2"})).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-2/status",
+        "s-2",
+        json!({"text": "Working"}),
+    )
+    .await;
+    edit(&app, "PIN-3", "s-2", json!({"claim": "claim"})).await;
+    let (code, held) = hold(&app, "PIN-1", "on_hold").await;
+    assert_eq!(code, StatusCode::OK, "{held}");
+    // the sub-item two levels down is no longer in progress
+    let sub = item(&app, "PIN-3").await;
+    assert_eq!(sub["status"], "open");
+    assert_eq!(sub["claim"], Value::Null);
+    let (_, answer) = agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-2/status",
+        "s-2",
+        json!({"text": "Still working"}),
+    )
+    .await;
+    assert_eq!(
+        answer["messages"][0]["text"],
+        "PIN-3 Draft is under PIN-1 Release, which is on hold now: stop working on it, and take another item."
+    );
+}
+
 // --- the queue
 
 async fn queue(app: &App, key: &str, place: Value) -> (StatusCode, Value) {

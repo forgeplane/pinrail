@@ -35,6 +35,7 @@ import { KeyHints } from "../components/KeyHints";
 import { QuickAddBox, type QuickAddBoxProps } from "../components/QuickAddBox";
 import { ItemPanel } from "../components/ItemPanel";
 import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
+import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
 import { useOptionsMenu } from "../components/OptionsMenu";
 import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
@@ -283,6 +284,19 @@ export function WorkItems() {
 
   // an item with open sub-items waiting for the person to confirm its cancel
   const [cancelling, setCancelling] = useState<WorkItem | null>(null);
+  // an item about to go on hold with work in progress under it, and that work
+  const [holding, setHolding] = useState<{ item: WorkItem; stopped: WorkItem[] } | null>(null);
+  /** Puts an item on hold, asking first when it stops work in progress. */
+  const hold = useCallback(
+    (item: WorkItem) =>
+      void stoppedByHold(item)
+        .then((stopped) => {
+          if (stopped.length) setHolding({ item, stopped });
+          else void change(item, { status: "on_hold" });
+        })
+        .catch(() => {}),
+    [change],
+  );
   // an item dragged onto another becomes its sub-item, and a sub-item
   // dragged to the top of the list leaves its parent
   const [dropOn, setDropOn] = useState<string | null>(null);
@@ -405,9 +419,10 @@ export function WorkItems() {
       } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
       else if (key === "d" && at) void change(at, { status: at.status === "done" ? "open" : "done" });
       else if (key === "q" && at && at.status !== "done" && at.status !== "cancelled") toggleQueue(at);
-      else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled")
-        void change(at, { status: at.status === "on_hold" ? "open" : "on_hold" });
-      else if (key === "x" && at) {
+      else if (key === "h" && at && at.status !== "done" && at.status !== "cancelled") {
+        if (at.status === "on_hold") void change(at, { status: "open" });
+        else hold(at);
+      } else if (key === "x" && at) {
         // its open sub-items go with it: the person is asked first
         if (at.status !== "cancelled" && openSubItems(at) > 0) setCancelling(at);
         else void change(at, { status: at.status === "cancelled" ? "open" : "cancelled" });
@@ -415,7 +430,7 @@ export function WorkItems() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, focused, open, openKey, openKeyed, change, toggleQueue, moveInQueue]);
+  }, [rows, focused, open, openKey, openKeyed, change, hold, toggleQueue, moveInQueue]);
   // ⌘⇧C, which elsewhere opens the quick add dialog, opens this page's own
   useEffect(() => {
     const onQuickAdd = () => setAdding(true);
@@ -774,6 +789,17 @@ export function WorkItems() {
             setChoosing(null);
           }}
           onClose={() => setChoosing(null)}
+        />
+      ) : null}
+      {holding ? (
+        <HoldItemDialog
+          item={holding.item}
+          stopped={holding.stopped}
+          onClose={() => setHolding(null)}
+          onConfirm={() => {
+            void change(holding.item, { status: "on_hold" });
+            setHolding(null);
+          }}
         />
       ) : null}
       {cancelling ? (
