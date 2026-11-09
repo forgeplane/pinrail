@@ -4,6 +4,14 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.3.1] - Unreleased
+
+### Fixed
+
+- A comment on a section under very long headings, or on a diagram with a
+  long first line, is no longer refused when you hand the review over. A
+  comment takes at most 4000 characters.
+
 ## [1.3.0] - Pinrail 0.5.0
 
 ### Added

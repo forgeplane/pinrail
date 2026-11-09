@@ -761,3 +761,19 @@ test("a long quote shows two whole lines and an ellipsis", async ({ page }) => {
   expect(clamp).toBe("2");
   expect(Math.round(height / line)).toBe(2);
 });
+
+test("a comment under a very long heading path stays within the decision's limits", async ({ page }) => {
+  const long = "A heading that goes on and on ".repeat(10);
+  const markdown = [1, 2, 3, 4, 5, 6].map((level) => `${"#".repeat(level)} ${long}${level}\n\nText.\n`).join("\n");
+  const plugin = await mountPlugin(page, dir, { review: { ...round(), payload: { ...round().payload, markdown } } });
+  const f = plugin.frame;
+  await f.locator(".rendered h6").hover();
+  await f.locator(".rendered h6 [data-comment-section]").click();
+  await expect(f.locator("#compose-body")).toHaveAttribute("maxlength", "4000");
+  await f.locator("#compose-body").fill("Shorter headings, please.");
+  await f.locator("#compose-body").press("Enter");
+  await plugin.collect();
+  // the harness refuses a decision that breaks the decision schema
+  const decision = await plugin.nextSubmit();
+  expect(decision.comments[0].target.section.length).toBeLessThanOrEqual(1000);
+});

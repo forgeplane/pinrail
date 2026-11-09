@@ -211,7 +211,17 @@ function sectionOf(line) {
     while (path.length && path[path.length - 1].level >= h.level) path.pop();
     path.push(h);
   }
-  return path.map((h) => h.text).join(" › ");
+  return cut(path.map((h) => h.text).join(" › "), SECTION_MAX);
+}
+
+// the decision schema's limits on a comment's section, quote and body
+const SECTION_MAX = 1000;
+const QUOTE_MAX = 2000;
+const BODY_MAX = 4000;
+
+/** `text`, cut to `max` characters with an ellipsis when it is longer. */
+function cut(text, max) {
+  return text.length > max ? text.slice(0, max - 1) + "…" : text;
 }
 
 function renderDocument() {
@@ -554,7 +564,7 @@ $("rendered").addEventListener("click", (event) => {
     const end = Number(figure.dataset.lineEnd);
     const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\n")[0].trim();
     startComment(
-      { kind: "diagram", start_line: start, end_line: end, section: sectionOf(start), quote: first },
+      { kind: "diagram", start_line: start, end_line: end, section: sectionOf(start), quote: cut(first, QUOTE_MAX) },
       figure,
     );
   }
@@ -585,7 +595,7 @@ function offerPick() {
     start_line: lineRange[0],
     end_line: lineRange[1],
     section: sectionOf(lineRange[0]),
-    quote: text.slice(0, 2000),
+    quote: text.slice(0, QUOTE_MAX),
   };
   // just under the end of the selection's last line
   const rects = [...range.getClientRects()].filter((r) => r.width > 0 || r.height > 0);
@@ -708,7 +718,7 @@ function openDialog(anchor) {
     `</div>` +
     // the SDK's comment field, with the microphone and the buttons at its end
     `<div class="pinrail-compose">` +
-    `<textarea class="pinrail-compose-input" id="compose-body" rows="1" data-pinrail-dictate placeholder="${PLACEHOLDERS[kind]}" aria-label="Comment">${edited ? esc(edited.body) : ""}</textarea>` +
+    `<textarea class="pinrail-compose-input" id="compose-body" rows="1" maxlength="${BODY_MAX}" data-pinrail-dictate placeholder="${PLACEHOLDERS[kind]}" aria-label="Comment">${edited ? esc(edited.body) : ""}</textarea>` +
     `<span class="pinrail-compose-keys">Enter to ${edited ? "save" : "add"} · Shift+Enter for a new line</span>` +
     `<span class="pinrail-compose-tools"><span data-pinrail-dictate-for="compose-body"></span>` +
     `<button type="button" class="pinrail-compose-icon pinrail-compose-cancel" id="compose-cancel" title="Cancel (Esc)" aria-label="Cancel"></button>` +
