@@ -5,17 +5,22 @@ import eventsSource from "../../../../core/src/events.rs?raw";
 /** Stands in for the browser's EventSource: records the listeners the client adds. */
 class FakeSource {
   static last: FakeSource;
+  static all: FakeSource[] = [];
   listeners = new Map<string, (event: MessageEvent) => void>();
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
-  constructor() {
+  closed = false;
+  constructor(readonly url: string) {
     FakeSource.last = this;
+    FakeSource.all.push(this);
   }
   addEventListener(kind: string, listener: (event: MessageEvent) => void) {
     this.listeners.set(kind, listener);
   }
-  close() {}
+  close() {
+    this.closed = true;
+  }
 }
 
 /** Every kind of event the core publishes, read from its source. */
@@ -33,6 +38,42 @@ describe("subscribe", () => {
       FakeSource.last.listeners.get(kind)?.({ data: JSON.stringify({ kind }) } as MessageEvent);
     }
     expect(seen).toEqual(kinds);
+    vi.unstubAllGlobals();
+  });
+
+  test("a new connection catches up from the last event seen, and each event arrives once", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeSource);
+    // the client waits with window.setTimeout, which the fake timers drive
+    vi.stubGlobal("window", globalThis);
+    FakeSource.all = [];
+    const seen: number[] = [];
+    const stop = subscribe({ onNotice: (notice) => seen.push(notice.event_id) });
+    await vi.waitFor(() => expect(FakeSource.all).toHaveLength(1));
+    const send = (source: FakeSource, id: number) =>
+      source.listeners.get("created")!({
+        data: JSON.stringify({ kind: "created", event_id: id }),
+        lastEventId: String(id),
+      } as MessageEvent);
+    const first = FakeSource.all[0];
+    expect(first.url).toMatch(/\/api\/v1\/events$/);
+    send(first, 6);
+    send(first, 7);
+
+    // the connection drops; the client tries again after a short wait
+    first.onerror!();
+    expect(first.closed).toBe(true);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(FakeSource.all).toHaveLength(2);
+    const second = FakeSource.all[1];
+    expect(second.url).toMatch(/\/api\/v1\/events\?after=7$/);
+    // the core replays what came after 7, then goes on
+    send(second, 8);
+    send(second, 9);
+    expect(seen).toEqual([6, 7, 8, 9]);
+
+    stop();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 });
