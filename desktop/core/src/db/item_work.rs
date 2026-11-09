@@ -1509,18 +1509,6 @@ impl Db {
         tx.commit()?;
         Ok(Ok(()))
     }
-
-    /// Records a change made outside `edit_item`, such as an item added.
-    pub fn record_item_event(
-        &self,
-        id: &str,
-        kind: &str,
-        actor: &Actor,
-        attrs: Value,
-        at: DateTime<Utc>,
-    ) -> rusqlite::Result<()> {
-        item_event(&self.conn(), id, kind, actor, attrs, at)
-    }
 }
 
 fn insert_comment(

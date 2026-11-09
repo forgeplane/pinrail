@@ -2,7 +2,7 @@
 //! is blocked and ready, listing, moving, prefixes and breakdowns.
 
 use chrono::Utc;
-use pinrail_core::db::{Db, ItemFilters, Refused, State, WorkItem};
+use pinrail_core::db::{Db, ItemChange, ItemFilters, Refused, State, WorkItem};
 use pinrail_core::items::{Actor, Breakdown, BreakdownItem, ItemRef, NewItem, Status};
 
 struct Store {
@@ -57,19 +57,59 @@ fn get(s: &Store, key: &str) -> WorkItem {
     s.db.item(&r(key), None).unwrap().unwrap()
 }
 
-fn depend(s: &Store, item: &str, on: &str) -> Result<(), Refused> {
-    s.db.set_item_dependencies(&r(item), &[r(on)], &[], None, Utc::now())
+/// A change the person makes to an item, through the same path as the app.
+fn edit(s: &Store, item: &str, change: ItemChange) -> Result<WorkItem, Refused> {
+    s.db.edit_item(&r(item), None, &change, &Actor::Person, Utc::now())
         .unwrap()
+        .map(|edited| edited.item)
+}
+
+fn depend(s: &Store, item: &str, on: &str) -> Result<(), Refused> {
+    edit(
+        s,
+        item,
+        ItemChange {
+            depends_on: vec![r(on)],
+            ..Default::default()
+        },
+    )
+    .map(|_| ())
 }
 
 fn under(s: &Store, item: &str, parent: &str) -> Result<(), Refused> {
-    s.db.set_item_parent(&r(item), Some(&r(parent)), None, Utc::now())
-        .unwrap()
+    edit(
+        s,
+        item,
+        ItemChange {
+            parent: Some(Some(r(parent))),
+            ..Default::default()
+        },
+    )
+    .map(|_| ())
 }
 
 fn status(s: &Store, key: &str, status: Status) {
-    let id = get(s, key).id;
-    s.db.set_item_status(&id, status, Utc::now()).unwrap();
+    edit(
+        s,
+        key,
+        ItemChange {
+            status: Some(status),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+}
+
+fn move_to(s: &Store, item: &str, repo: &str) -> WorkItem {
+    edit(
+        s,
+        item,
+        ItemChange {
+            repo: Some(repo.into()),
+            ..Default::default()
+        },
+    )
+    .unwrap()
 }
 
 fn keys(items: &[WorkItem]) -> Vec<String> {
@@ -267,10 +307,7 @@ fn a_moved_item_takes_the_next_number_there_and_keeps_its_old_key() {
     let child = add(&s, "pinrail", "Child");
     under(&s, &child, "PIN-2").unwrap();
 
-    let moved =
-        s.db.move_item(&r("PIN-2"), "pinrail-plugins", None, Utc::now())
-            .unwrap()
-            .unwrap();
+    let moved = move_to(&s, "PIN-2", "pinrail-plugins");
     assert_eq!(moved.key.to_string(), "PP-2");
     assert_eq!(moved.repo, "pinrail-plugins");
     assert_eq!(get(&s, "PIN-2").key.to_string(), "PP-2");
@@ -287,13 +324,11 @@ fn an_item_moved_away_and_back_keeps_every_key_it_had() {
     let s = store();
     add(&s, "pinrail", "First");
     add(&s, "pinrail", "Moving");
-    let move_to = |repo: &str| {
-        s.db.move_item(&r("PIN-2"), repo, None, Utc::now())
-            .unwrap()
-            .unwrap()
-    };
-    assert_eq!(move_to("pinrail-plugins").key.to_string(), "PP-1");
-    assert_eq!(move_to("pinrail").key.to_string(), "PIN-3");
+    assert_eq!(
+        move_to(&s, "PIN-2", "pinrail-plugins").key.to_string(),
+        "PP-1"
+    );
+    assert_eq!(move_to(&s, "PP-1", "pinrail").key.to_string(), "PIN-3");
     for key in ["PIN-2", "PP-1", "PIN-3"] {
         assert_eq!(get(&s, key).key.to_string(), "PIN-3", "{key}");
     }
@@ -310,9 +345,15 @@ fn an_item_goes_under_a_parent_and_out_again() {
     assert_eq!(get(&s, "PIN-2").parent.as_deref(), Some("PIN-1"));
     let parent = get(&s, "PIN-1");
     assert_eq!((parent.sub_items, parent.sub_items_closed), (1, 0));
-    s.db.set_item_parent(&r("PIN-2"), None, None, Utc::now())
-        .unwrap()
-        .unwrap();
+    edit(
+        &s,
+        "PIN-2",
+        ItemChange {
+            parent: Some(None),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert_eq!(get(&s, "PIN-2").parent, None);
     assert_eq!(get(&s, "PIN-1").sub_items, 0);
 }
@@ -374,9 +415,15 @@ fn an_item_depends_on_others_and_no_longer() {
     assert_eq!(blocks[0].key, "PIN-1");
     assert_eq!(blocks[0].title, "A");
 
-    s.db.set_item_dependencies(&r("PIN-1"), &[], &[r("PIN-3")], None, Utc::now())
-        .unwrap()
-        .unwrap();
+    edit(
+        &s,
+        "PIN-1",
+        ItemChange {
+            no_depends_on: vec![r("PIN-3")],
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert_eq!(get(&s, "PIN-1").blocked_by, ["PIN-2"]);
 }
 
