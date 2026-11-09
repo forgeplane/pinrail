@@ -12,6 +12,12 @@ change to the protocol is a new major and a new path.
   elements, such as `<strong>a</strong> <em>b</em>`, and no longer
   matches the words run together.
 
+### Security
+
+- `pinrail-sdk dev` no longer serves the plugin folder's dot-files, such
+  as `.env` and `.git/config`, or its `node_modules`, as the app does not.
+  Any web page open in the browser could read them while the dev shell ran.
+
 ## [1.5.0]
 
 ### Added

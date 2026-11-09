@@ -63,10 +63,20 @@ const csp = (origin) =>
     "frame-ancestors 'self'",
   ].join("; ");
 
-/** A file under `root`, or null when the path escapes it or is not a file. */
+/**
+ * A file under `root`, or null when the path escapes it, is not a file, or
+ * is one the app does not serve: a dot-file, or anything in node_modules.
+ */
 function under(root, rel) {
-  const file = path.resolve(root, decodeURIComponent(rel).replace(/^\/+/, ""));
-  if (!file.startsWith(path.resolve(root) + path.sep) && file !== path.resolve(root)) return null;
+  let name;
+  try {
+    name = decodeURIComponent(rel).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+  if (name.split(/[\\/]/).some((part) => part.startsWith(".") || part === "node_modules")) return null;
+  const file = path.resolve(root, name);
+  if (!file.startsWith(path.resolve(root) + path.sep)) return null;
   return fs.existsSync(file) && fs.statSync(file).isFile() ? file : null;
 }
 

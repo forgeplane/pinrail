@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { withDevShell } from "./dev-shell";
 import { plainPlugin } from "./plain-plugin.cjs";
@@ -314,5 +315,37 @@ test("the frame takes the size chosen, as the app's side panel or a phone shows 
     await page.locator("#width").selectOption("full");
     await expect.poll(width).toBeGreaterThan(900);
     await expect(page.locator("#frame-size")).toBeHidden();
+  });
+});
+
+test("the plugin's dot-files, its node_modules and files outside it are not served", async () => {
+  const dir = path.join(scratch("pinrail-dev-"), "secrets");
+  plainPlugin("secrets", dir);
+  fs.writeFileSync(path.join(dir, ".env"), "TOKEN=secret");
+  fs.mkdirSync(path.join(dir, ".git"));
+  fs.writeFileSync(path.join(dir, ".git", "config"), "url = https://token@example.com");
+  fs.mkdirSync(path.join(dir, "node_modules", "dep"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "node_modules", "dep", "index.js"), "secret");
+  fs.writeFileSync(path.join(dir, "..", "outside.txt"), "secret");
+
+  // sent as written: fetch would resolve the dots itself
+  const status = (url: string, at: string) =>
+    new Promise<number>((resolve, reject) => {
+      const { hostname, port } = new URL(url);
+      http.get({ hostname, port, path: at }, (res) => resolve(res.statusCode ?? 0)).on("error", reject);
+    });
+
+  await withDevShell(dir, async (url) => {
+    expect(await status(url, "/plugin/manifest.json")).toBe(200);
+    for (const at of [
+      "/plugin/.env",
+      "/plugin/.git/config",
+      "/plugin/%2Eenv",
+      "/plugin/node_modules/dep/index.js",
+      "/plugin/../outside.txt",
+      "/plugin/..%2Foutside.txt",
+    ]) {
+      expect(await status(url, at), at).toBe(404);
+    }
   });
 });
