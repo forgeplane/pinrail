@@ -16,7 +16,7 @@ import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
 import { List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
-import { modalOpen } from "../lib/keys";
+import { modalOpen, isTyping } from "../lib/keys";
 import { KeyHints } from "../components/KeyHints";
 import { QuickAddBox, type QuickAddBoxProps } from "../components/QuickAddBox";
 import { ItemPanel } from "../components/ItemPanel";
@@ -360,9 +360,7 @@ export function WorkItems() {
   // focused item: claimed or released, done, cancelled
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const typing = (el: HTMLElement | null) =>
-        !!el &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+      const typing = (el: HTMLElement | null) => isTyping(el);
       // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ go to the
       // waiting reviews, everywhere
       if (
@@ -383,11 +381,7 @@ export function WorkItems() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
-      )
-        return;
+      if (isTyping(el)) return;
       const at = rows[focused]?.item;
       const key = event.key.toLowerCase();
       if (event.key === "/") {

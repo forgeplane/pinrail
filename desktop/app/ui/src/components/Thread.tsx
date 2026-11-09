@@ -18,7 +18,7 @@ import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
 import { copyText } from "../lib/clipboard";
 import { age, stamp } from "../lib/format";
-import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
 import { finder, type Finder, type Found } from "../lib/findText";
 import { usePageRepo } from "../lib/pageRepo";
 import { FindBar, useFindBar } from "./FindBar";
@@ -306,7 +306,7 @@ export function Thread({
       if (event.key !== "e" && event.key !== "E") return;
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (isTyping(el)) return;
       if (!archivableRef.current) return;
       event.preventDefault();
       toggleArchive(archivableRef.current);

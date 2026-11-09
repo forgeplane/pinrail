@@ -19,7 +19,7 @@ import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath } from "../components/Thread";
 import { statusLine } from "../components/thread/messages";
 import { age, stamp } from "../lib/format";
-import { modalOpen } from "../lib/keys";
+import { modalOpen, isTyping } from "../lib/keys";
 import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive, aboutSessions, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -164,7 +164,7 @@ export function Sessions() {
     const onWalk = (event: KeyboardEvent) => {
       if (modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (isTyping(el)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         closePanel();
@@ -192,7 +192,7 @@ export function Sessions() {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      const typing = isTyping(el);
       if (event.key === "/" && !typing) {
         event.preventDefault();
         document.querySelector<HTMLInputElement>(".sessions input[type=search]")?.focus();

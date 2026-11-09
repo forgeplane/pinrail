@@ -3,7 +3,7 @@
 // a field inside the dialog passes `inDialog`.
 
 import { useEffect, type RefObject } from "react";
-import { modalOpen } from "./keys";
+import { modalOpen, isTyping } from "./keys";
 
 export function useSlashSearch(field: RefObject<HTMLInputElement | null>, { inDialog = false } = {}) {
   useEffect(() => {
@@ -11,11 +11,7 @@ export function useSlashSearch(field: RefObject<HTMLInputElement | null>, { inDi
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       if (!inDialog && modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
-      )
-        return;
+      if (isTyping(el)) return;
       if (!field.current || field.current.disabled) return;
       event.preventDefault();
       field.current.focus();

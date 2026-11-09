@@ -39,7 +39,7 @@ import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest
 import { openExternal, overlayTitleBar } from "../lib/native";
 import { canDictate, useDictation } from "../lib/dictation";
 import { Tooltip } from "../components/Tooltip";
-import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { age, stamp } from "../lib/format";
 import { useNotice, useConnected, usePlugins } from "../state/live";
@@ -463,11 +463,7 @@ export const ReviewView = memo(function ReviewView({
         return;
       }
       const el = event.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
-      )
-        return;
+      if (isTyping(el)) return;
       // [ and ] alone move between rounds; with ⌘ or Ctrl they are Back and
       // Forward, which the layout handles
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey;

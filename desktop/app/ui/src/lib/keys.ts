@@ -32,3 +32,13 @@ export function composing(event: KeyboardEvent | { nativeEvent: KeyboardEvent })
   const native = "nativeEvent" in event ? event.nativeEvent : event;
   return native.isComposing || native.keyCode === 229;
 }
+
+/** Whether a key press is typed into a field: a text box, a text area, a
+ *  select or editable text, where a letter is the field's and not a
+ *  shortcut. */
+export function isTyping(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return (
+    !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
+  );
+}

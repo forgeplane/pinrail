@@ -12,7 +12,7 @@ import { Tooltip } from "../components/Tooltip";
 import { age, settledAt, stamp } from "../lib/format";
 import { useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { modalOpen, composing } from "../lib/keys";
+import { modalOpen, composing, isTyping } from "../lib/keys";
 import { SourceBadge } from "../components/SourceBadge";
 import { SidePanel } from "../components/SidePanel";
 import { useToggleStar } from "../components/StarButton";
@@ -188,7 +188,7 @@ export function History() {
       if (!openId || modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
       if (event.key !== "j" && event.key !== "k") return;
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (isTyping(el)) return;
       if (!reviews.length) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -209,13 +209,13 @@ export function History() {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      const typing = isTyping(el);
       if (event.key === "/" && !typing) {
         event.preventDefault();
         search.current?.focus();
         return;
       }
-      if (typing) {
+      if (typing && el) {
         if (composing(event)) return;
         if (event.key === "Escape") el.blur();
         // Enter leaves the field for the results, so J, K and Enter work on them

@@ -10,7 +10,7 @@ import { waitingFilter } from "../lib/waiting";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { GroupHeading } from "../components/GroupHeading";
 import { useLive } from "../state/live";
-import { hasMod, modalOpen } from "../lib/keys";
+import { hasMod, modalOpen, isTyping } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
 import { History } from "./History";
@@ -208,7 +208,7 @@ function Waiting() {
       const step = !event.altKey && !event.shiftKey && (event.key === "j" || event.key === "k");
       if (!walk && !step) return;
       const el = event.target as HTMLElement | null;
-      if (step && el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (step && isTyping(el)) return;
       const list = orderedRef.current;
       if (!list.length) return;
       event.preventDefault();
@@ -230,7 +230,7 @@ function Waiting() {
       if (openId) {
         if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
           const el = event.target as HTMLElement | null;
-          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+          if (isTyping(el)) return;
           event.preventDefault();
           search.current?.focus();
         }
@@ -244,7 +244,7 @@ function Waiting() {
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const el = event.target as HTMLElement | null;
-      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      const typing = isTyping(el);
       if (event.key === "/" && !typing) {
         event.preventDefault();
         search.current?.focus();

@@ -30,7 +30,7 @@ import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog"
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
-import { MOD, SHIFT, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, modalOpen, isTyping } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
 import { HISTORY_PATH, Sidebar, useSidebarWidth } from "./Sidebar";
 import { useWelcome } from "./useWelcome";
@@ -64,13 +64,6 @@ const pageTitle = (path: string) =>
           : path.startsWith("/items")
             ? "Work items"
             : "Review";
-
-function isTyping(target: EventTarget | null) {
-  const el = target as HTMLElement | null;
-  return (
-    !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
-  );
-}
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();

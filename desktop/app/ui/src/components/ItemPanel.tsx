@@ -23,7 +23,7 @@ import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { ItemComment, ItemDetail, ItemStatus, WorkItem } from "../api/types";
 import { age, ordinal, stamp } from "../lib/format";
-import { MOD, modalOpen, composing } from "../lib/keys";
+import { MOD, modalOpen, composing, isTyping } from "../lib/keys";
 import { reviewPath } from "../lib/url";
 import { aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -118,11 +118,7 @@ export function ItemPanel({
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
-      )
-        return;
+      if (isTyping(el)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();

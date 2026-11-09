@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { api } from "../../api/client";
 import type { Answer, Question, Review } from "../../api/types";
 import { age, stamp } from "../../lib/format";
-import { MOD, hasMod, modalOpen } from "../../lib/keys";
+import { MOD, hasMod, modalOpen, isTyping } from "../../lib/keys";
 import { plainInline, renderInline, renderMarkdown, useItemPrefixes } from "../../lib/markdown";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../../lib/questions";
 import { useConnected } from "../../state/live";
@@ -204,7 +204,7 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
         return;
       }
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (isTyping(el)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const question = questions[current];
       if (!question) return;
