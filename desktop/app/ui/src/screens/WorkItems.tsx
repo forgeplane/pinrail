@@ -413,12 +413,9 @@ export function WorkItems() {
     drop: (event, item) => {
       const dragged = drag.take(event);
       if (!dragged || dragged === item.key) return;
-      // dropped on another item, it becomes its sub-item, in its repository
-      const from = items?.find((i) => i.key === dragged);
-      void (async () => {
-        if (from && from.repo !== item.repo && !(await moveTo(dragged, item.repo))) return;
-        await putUnder(dragged, item.key);
-      })();
+      // dropped on another item, it becomes its sub-item, and stays in its
+      // own repository, with its key
+      void putUnder(dragged, item.key);
     },
     dragEnd: () => {
       window.clearTimeout(dragTimer.current);

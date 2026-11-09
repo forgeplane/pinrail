@@ -782,7 +782,7 @@ test("grouped by project, a drop asks which repository of a project with several
   expect(several.id).toBeTruthy();
 });
 
-test("an item dropped on an item of another repository moves there and becomes its sub-item", async ({
+test("an item dropped on an item of another repository becomes its sub-item and keeps its repository", async ({
   page,
   request,
 }) => {
@@ -798,12 +798,15 @@ test("an item dropped on an item of another repository moves there and becomes i
   const { transfer, end } = await dragRow(page, moved.key);
   await row(page, parent.key).dispatchEvent("drop", { dataTransfer: transfer });
   await end();
-  await expect(page.locator(".toast").last()).toContainText(`is now part of ${parent.key}`);
+  await expect(page.locator(".toast").last()).toContainText(`${moved.key} is now part of ${parent.key}`);
+  // the same key, in its own repository
   const item = (await (await request.get(`${core}/api/v1/items/${moved.key}`)).json()) as {
+    key: string;
     repo: string;
     parent: string | null;
   };
-  expect(item.repo).toBe(web);
+  expect(item.key).toBe(moved.key);
+  expect(item.repo).toBe(api);
   expect(item.parent).toBe(parent.key);
 });
 
