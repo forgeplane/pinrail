@@ -4,6 +4,13 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.2.1] - Unreleased
+
+### Fixed
+
+- Before the hand-over, the confirmation for undecided items says how
+  many of them have a note. A note on an undecided item is not sent.
+
 ## [1.2.0] - Pinrail 0.4.1
 
 ### Changed

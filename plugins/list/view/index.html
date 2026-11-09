@@ -810,11 +810,16 @@
         if (S.errors && S.errors.length) {
           html += `<div class="pinrail-errors pinrail-notice pinrail-notice-danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
         }
-        // items left undecided are confirmed in the layout's bar, before the next hand-over
+        // items left undecided are confirmed in the layout's bar, before the
+        // next hand-over; a note on one of them is not sent, so it says so
+        const unsent = itemIds().filter((id) => !S.decisions[id]?.action && S.decisions[id]?.note?.trim()).length;
+        const notes = !unsent
+          ? ""
+          : `${unsent === 1 ? "The note on 1 of them is" : `The notes on ${unsent} of them are`} not sent: accept or reject an item to send its note. `;
         view.confirmation(
           !readonly && S.armed
             ? {
-                text: `${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.`,
+                text: `${t.undecided} left undecided — they go back marked undecided. ${notes}Hand over again to confirm.`,
                 actions: [keepDeciding],
               }
             : null,

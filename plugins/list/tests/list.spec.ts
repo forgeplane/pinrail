@@ -281,3 +281,14 @@ test("without the app's dictation the notes have no microphone", async ({ page }
   await expect(plugin.frame.getByLabel("note for item 102")).toBeVisible();
   await expect(plugin.frame.getByRole("button", { name: "Dictate" })).toHaveCount(0);
 });
+
+test("the confirmation says which undecided items have a note that will not be sent", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: triage() });
+  const f = plugin.frame;
+  await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
+  await f.getByLabel("note for item 102").fill("ask the infra team first");
+  await plugin.collect();
+  await expect(f.locator(".pinrail-confirmation")).toContainText(
+    "The note on 1 of them is not sent: accept or reject an item to send its note.",
+  );
+});
