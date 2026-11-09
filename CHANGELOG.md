@@ -122,6 +122,12 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The app connects within a moment of starting. It showed Reconnecting
   for a few seconds when its window loaded before its server.
 
+### Security
+
+- Updated rusqlite, whose bundled SQLite could return uninitialized
+  memory when it opened a database with a crafted `-wal` file
+  (CVE-2026-119375).
+
 ## [0.5.0]
 
 ### Added
