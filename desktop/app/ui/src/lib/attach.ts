@@ -16,21 +16,35 @@ export function fileName(name: string): string {
     .join("")
     .replace(/[\\/\s()[\]<>]+/g, "-")
     .replace(/^[.-]+/, "");
-  const dot = cleaned.lastIndexOf(".");
-  const [stem, ext] = dot > 0 ? [cleaned.slice(0, dot), cleaned.slice(dot)] : [cleaned, ""];
-  return (stem.slice(0, 120 - ext.length) || "file") + ext;
+  const [stem, ext] = split(cleaned);
+  return (stem.slice(0, NAME_MAX - ext.length) || "file") + ext;
+}
+
+/** The longest name the core takes. */
+const NAME_MAX = 120;
+
+/** A name's stem and extension. What follows the last dot is no extension
+ *  when it is longer than 20 characters. */
+function split(name: string): [string, string] {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 && name.length - dot <= 21 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
 }
 
 /** `name`, or the first of name-2, name-3… that is not taken. */
 export function freeName(name: string, taken: (n: string) => boolean): string {
   if (!taken(name)) return name;
-  const dot = name.lastIndexOf(".");
-  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  const [stem, ext] = split(name);
   for (let n = 2; ; n++) {
-    const next = `${stem}-${n}${ext}`;
+    // the stem made shorter where the number would make the name too long
+    const suffix = `-${n}${ext}`;
+    const next = stem.slice(0, NAME_MAX - suffix.length) + suffix;
     if (!taken(next)) return next;
   }
 }
+
+/** The files the text still links to, of those attached. */
+export const linkedIn = (files: Record<string, Attached>, text: string) =>
+  Object.fromEntries(Object.entries(files).filter(([name]) => text.includes(`(attachment:${name})`)));
 
 /** The Markdown that shows a file: an image in place, else a link. */
 export const markdownFor = (name: string, mediaType: string) =>
@@ -120,8 +134,7 @@ export function useAttach({
   };
 
   /** the files the text still links to, to send beside it */
-  const linked = (text: string) =>
-    Object.fromEntries(Object.entries(files).filter(([name]) => text.includes(`(attachment:${name})`)));
+  const linked = (text: string) => linkedIn(files, text);
 
   const reset = () => {
     setFiles({});
