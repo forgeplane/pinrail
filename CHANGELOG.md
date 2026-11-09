@@ -69,6 +69,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   such as `head`, as other command-line tools do.
 - `pinrail ask --data` refuses a question that is not an object with an
   error, rather than stopping with an internal error.
+- `pinrail status` and `pinrail open` answer in JSON with `--json` or
+  `PINRAIL_JSON=1`, and `pinrail status` filters terminal control
+  sequences out of the person's messages, as the other commands do.
 - `pinrail wait`, `pinrail ask` and `pinrail submit --wait` refuse a
   `PINRAIL_TIMEOUT` that is not a whole number of seconds, such as `10m`.
   Such a value meant no time limit.

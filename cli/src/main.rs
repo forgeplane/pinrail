@@ -1023,7 +1023,7 @@ fn run(cli: Cli) -> Result<u8> {
                 ..output
             },
         ),
-        Command::Status(args) => status(&client, args),
+        Command::Status(args) => status(&client, args, output),
         Command::Items(args) => items::run(&client, args, output),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
@@ -1390,7 +1390,7 @@ fn run(cli: Cli) -> Result<u8> {
                 format!("pinrail://reviews/{id}")
             };
             server::open_browser(&url)?;
-            println!("{url}");
+            output.data(&json!({ "url": url }), |_| format!("{url}\n"));
             Ok(0)
         }
         Command::Serve | Command::Docs { .. } => unreachable!(),
@@ -1673,7 +1673,7 @@ struct StatusArgs {
     no_start: bool,
 }
 
-fn status(client: &Client, args: StatusArgs) -> Result<u8> {
+fn status(client: &Client, args: StatusArgs, output: Output) -> Result<u8> {
     let Some(session) = agent::session() else {
         anyhow::bail!(
             "pinrail status needs an agent session, and none was found: run it from \
@@ -1719,14 +1719,16 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
     // the stage the app has, and the person's messages, which the agent
     // receives with its status
     let answer = client.status(&agent, &session, &body)?;
-    let stage = md::stage(&answer);
-    let messages = md::messages(&answer["messages"]);
-    let gap = if stage.is_empty() || messages.is_empty() {
-        ""
-    } else {
-        "\n"
-    };
-    print!("{stage}{gap}{messages}");
+    output.data(&answer, |answer| {
+        let stage = md::stage(answer);
+        let messages = md::messages(&answer["messages"]);
+        let gap = if stage.is_empty() || messages.is_empty() {
+            ""
+        } else {
+            "\n"
+        };
+        format!("{stage}{gap}{messages}")
+    });
     Ok(0)
 }
 

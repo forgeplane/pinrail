@@ -3271,6 +3271,8 @@ fn status_sends_the_text_to_the_agents_session() {
             .arg("status")
             .args(args)
             .arg("--no-start")
+            // the Markdown the agent reads
+            .env("PINRAIL_JSON", "0")
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
@@ -3508,6 +3510,8 @@ fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
     let status = || {
         let out = pinrail()
             .args(["status", "Running the tests", "--no-start"])
+            // the Markdown the agent reads
+            .env("PINRAIL_JSON", "0")
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
@@ -3532,6 +3536,40 @@ fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
 }
 
 #[test]
+fn status_answers_in_json_and_prints_messages_without_terminal_escapes() {
+    let answer = r#"{"messages":[{"sent_by":"pnezis","sent_at":"2026-11-02T10:04:00Z","text":"Use v2.\u001b]0;pwned\u0007"}],"stage":null}"#;
+    let server = MockServer::start(Box::new(move |_, _, _| (200, answer.to_string())));
+    let status = |extra: &[&str]| {
+        let out = pinrail()
+            .args(["status", "Running the tests", "--no-start"])
+            .args(extra)
+            .env("PINRAIL_JSON", if extra.is_empty() { "0" } else { "1" })
+            .env("PINRAIL_URL", &server.url)
+            .env("CLAUDECODE", "1")
+            .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", "UTC")
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap()
+    };
+    let json: serde_json::Value = serde_json::from_str(&status(&["--json"])).unwrap();
+    assert_eq!(json["messages"][0]["sent_by"], "pnezis");
+    let text = status(&[]);
+    assert!(text.contains("Use v2."), "{text}");
+    assert!(
+        !text.contains('\u{1b}') && !text.contains('\u{7}'),
+        "{text:?}"
+    );
+}
+
+#[test]
 fn status_prints_the_open_stage_above_the_messages() {
     let answers = vec![
         r#"{"messages":[],"stage":{"text":"Add rate limiting","at":"2026-11-02T10:00:00Z"}}"#
@@ -3548,6 +3586,8 @@ fn status_prints_the_open_stage_above_the_messages() {
     let status = || {
         let out = pinrail()
             .args(["status", "Running the tests", "--no-start"])
+            // the Markdown the agent reads
+            .env("PINRAIL_JSON", "0")
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
