@@ -826,6 +826,26 @@ fn a_wait_that_runs_out_gives_the_command_to_keep_waiting() {
 }
 
 #[test]
+fn an_invalid_pinrail_timeout_is_refused_before_anything_is_sent() {
+    let server = MockServer::start(Box::new(|_, path, _| panic!("nothing is sent: {path}")));
+    for args in [
+        vec!["wait", "r_1"],
+        vec!["ask", "Why?"],
+        vec!["submit", "list", "--title", "T", "--data", "{}", "--wait"],
+    ] {
+        let out = pinrail()
+            .args(["--url", &server.url])
+            .args(&args)
+            .env("PINRAIL_TIMEOUT", "10m")
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(1), "{args:?}: {stderr}");
+        assert!(stderr.contains("PINRAIL_TIMEOUT"), "{stderr}");
+    }
+}
+
+#[test]
 fn json_can_be_given_inline_as_well_as_in_a_file() {
     let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
     let seen = bodies.clone();
@@ -3072,6 +3092,14 @@ fn ask_takes_the_questions_as_json_and_numbers_those_without_an_id() {
 }
 
 #[test]
+fn ask_refuses_a_question_that_is_not_an_object() {
+    let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
+    let (code, _, stderr) = run(&server, &["ask", "--data", r#"["Deploy now?"]"#]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("question 1 is not an object"), "{stderr}");
+}
+
+#[test]
 fn ask_refuses_an_option_given_twice_for_one_question() {
     let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
     for (args, problem) in [
@@ -3091,14 +3119,6 @@ fn ask_refuses_an_option_given_twice_for_one_question() {
             "--recommend",
         ),
         (
-#[test]
-fn ask_refuses_a_question_that_is_not_an_object() {
-    let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
-    let (code, _, stderr) = run(&server, &["ask", "--data", r#"["Deploy now?"]"#]);
-    assert_eq!(code, 1, "{stderr}");
-    assert!(stderr.contains("question 1 is not an object"), "{stderr}");
-}
-
             vec!["ask", "Why?", "--context", "one", "--context", "two"],
             "--context",
         ),
@@ -3659,6 +3679,24 @@ fn items_that_need_a_repository_say_so_outside_a_checkout() {
 }
 
 #[test]
+fn items_add_with_a_file_refuses_the_options_it_does_not_use() {
+    let server = MockServer::start(Box::new(|_, path, _| panic!("nothing is sent: {path}")));
+    for option in [
+        &["--depends-on", "PIN-3"][..],
+        &["--link", "https://example.com"],
+        &["--body", "text"],
+        &["--body-file", "body.md"],
+        &["--attach", "x.png"],
+    ] {
+        let mut args = vec!["items", "add", "--file", "plan.json"];
+        args.extend_from_slice(option);
+        let (code, _, stderr) = run(&server, &args);
+        assert_eq!(code, 1, "{option:?}: {stderr}");
+        assert!(stderr.contains("cannot be used with"), "{stderr}");
+    }
+}
+
+#[test]
 fn items_add_with_a_file_sends_the_breakdown_and_lists_each_ref_with_its_key() {
     let (server, sent) = items_server(|_, _| {
         let item = |key: &str, title: &str, extra| {
@@ -3678,24 +3716,6 @@ fn items_add_with_a_file_sends_the_breakdown_and_lists_each_ref_with_its_key() {
     std::fs::write(
         &plan,
         r#"{"items": [{"ref": "themes", "title": "Custom themes"},
-#[test]
-fn items_add_with_a_file_refuses_the_options_it_does_not_use() {
-    let server = MockServer::start(Box::new(|_, path, _| panic!("nothing is sent: {path}")));
-    for option in [
-        &["--depends-on", "PIN-3"][..],
-        &["--link", "https://example.com"],
-        &["--body", "text"],
-        &["--body-file", "body.md"],
-        &["--attach", "x.png"],
-    ] {
-        let mut args = vec!["items", "add", "--file", "plan.json"];
-        args.extend_from_slice(option);
-        let (code, _, stderr) = run(&server, &args);
-        assert_eq!(code, 1, "{option:?}: {stderr}");
-        assert!(stderr.contains("cannot be used with"), "{stderr}");
-    }
-}
-
                       {"ref": "load", "parent": "themes", "title": "Load themes", "depends_on": ["PIN-38"]}]}"#,
     )
     .unwrap();

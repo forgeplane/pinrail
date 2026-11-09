@@ -66,8 +66,24 @@ pub const EXITS: &[(u8, &str)] = &[
 ];
 
 /// The limit on waiting that PINRAIL_TIMEOUT sets, in seconds, when set.
-fn timeout_from_env() -> Option<u64> {
-    std::env::var("PINRAIL_TIMEOUT").ok()?.trim().parse().ok()
+fn timeout_from_env() -> Result<Option<u64>> {
+    let Ok(value) = std::env::var("PINRAIL_TIMEOUT") else {
+        return Ok(None);
+    };
+    match value.trim().parse() {
+        Ok(seconds) => Ok(Some(seconds)),
+        Err(_) => anyhow::bail!(
+            "PINRAIL_TIMEOUT must be a whole number of seconds, such as 600, not {value:?}"
+        ),
+    }
+}
+
+/// The limit on waiting: --timeout, else PINRAIL_TIMEOUT, else none (0).
+fn wait_limit(timeout: Option<u64>) -> Result<u64> {
+    Ok(match timeout {
+        Some(seconds) => seconds,
+        None => timeout_from_env()?.unwrap_or(0),
+    })
 }
 
 /// The exit codes as the help lists them: plain text, without the
@@ -1382,6 +1398,10 @@ fn run(cli: Cli) -> Result<u8> {
 }
 
 fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
+    if args.wait {
+        // refused before the review is sent, rather than once it waits
+        wait_limit(args.timeout)?;
+    }
     if args.request.as_deref() == Some("-") && args.data.as_deref() == Some("-") {
         anyhow::bail!("--request and --data cannot both read stdin");
     }
@@ -1711,6 +1731,7 @@ fn status(client: &Client, args: StatusArgs) -> Result<u8> {
 }
 
 fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
+    wait_limit(args.timeout)?;
     let questions = args.questions()?;
     let mut body = json!({
         "kind": "question",
@@ -1781,8 +1802,7 @@ fn wait(
     mut answered: bool,
     output: Output,
 ) -> Result<u8> {
-    // --timeout, else PINRAIL_TIMEOUT, else no limit
-    let timeout = opts.timeout.or_else(timeout_from_env).unwrap_or(0);
+    let timeout = wait_limit(opts.timeout)?;
     let deadline = (timeout > 0).then(|| Instant::now() + Duration::from_secs(timeout));
     let mut last_error = String::new();
 
