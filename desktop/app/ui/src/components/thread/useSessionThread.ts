@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, EVERY_ITEM_STATUS, errorMessage } from "../../api/client";
 import type {
+  Notice,
   Review,
   Session,
   SessionComment,
@@ -17,6 +18,29 @@ import type {
 import { useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
 import { useLatest } from "../../lib/useLatest";
+
+/** What a live notice changes in a session's thread: `thread` when the
+ *  thread is to load again, `item` when one of its work items changed.
+ *  `reviews` are the thread's reviews by id, and `items` the keys of the
+ *  items it holds, worked on or commented on. */
+export function aboutThread(
+  notice: Notice,
+  named: { agent: string; id: string } | null,
+  reviews: Set<string>,
+  items: Set<string>,
+): { thread: boolean; item: boolean } {
+  // a change its agent made to an item, or any change to one of its items
+  const item =
+    !!named &&
+    !!notice.item &&
+    ((notice.item.agent === named.agent && notice.item.session === named.id) || items.has(notice.item.key));
+  const thread =
+    item ||
+    (!!notice.review_id && reviews.has(notice.review_id)) ||
+    (!!named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
+    (!!named && notice.session?.agent === named.agent && notice.session.id === named.id);
+  return { thread, item };
+}
 
 /** No items, the same array each time, while none have loaded. */
 const NO_ITEMS: WorkItem[] = [];
@@ -80,18 +104,9 @@ export function useSessionThread(
     ]),
   );
   useNotice((notice) => {
-    // a change its agent made to an item, or any change to one of its items
-    const itemOurs =
-      !!named &&
-      !!notice.item &&
-      ((notice.item.agent === named.agent && notice.item.session === named.id) || keys.current.has(notice.item.key));
-    const ours =
-      itemOurs ||
-      (notice.review_id && ids.current.has(notice.review_id)) ||
-      (named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
-      (named && notice.session?.agent === named.agent && notice.session.id === named.id);
-    if (itemOurs) setItemsChanged((n) => n + 1);
-    if (ours) load();
+    const { thread, item } = aboutThread(notice, named, ids.current, keys.current);
+    if (item) setItemsChanged((n) => n + 1);
+    if (thread) load();
   });
 
   return { session, items, statuses, messages, comments, itemEvents, error, load, sessionItems };
