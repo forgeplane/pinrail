@@ -74,10 +74,18 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "error",
     },
   },
-  // the app's UI: no ref read or written while a component renders, and
-  // no state set in an effect that does not answer something outside React
+  // the app's UI: no ref read or written while a component renders, no
+  // state set in an effect that does not answer something outside React,
+  // no value changed after render, no impure call while rendering, and
+  // memoization the compiler can keep
   {
     files: ["desktop/app/ui/**/*.ts", "desktop/app/ui/**/*.tsx"],
-    rules: { "react-hooks/refs": "error", "react-hooks/set-state-in-effect": "error" },
+    rules: {
+      "react-hooks/refs": "error",
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/immutability": "error",
+      "react-hooks/purity": "error",
+      "react-hooks/preserve-manual-memoization": "error",
+    },
   },
 );

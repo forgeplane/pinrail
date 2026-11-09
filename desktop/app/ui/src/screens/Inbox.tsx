@@ -112,10 +112,20 @@ function Waiting() {
 
   // a page past the end, after reviews were decided: the last page there is
   const pages = Math.max(1, Math.ceil(ordered.length / size));
-  const current = Math.min(page, pages);
-  const shown = useMemo(() => ordered.slice((current - 1) * size, current * size), [ordered, current, size]);
+  const pageShown = Math.min(page, pages);
+  const shown = useMemo(() => ordered.slice((pageShown - 1) * size, pageShown * size), [ordered, pageShown, size]);
 
   const groups = useMemo(() => grouped(shown, groupOf), [shown, groupOf]);
+  // where each group's rows start in the order J and K walk
+  const starts = useMemo(() => {
+    const out: number[] = [];
+    let at = 0;
+    for (const [, items] of groups) {
+      out.push(at);
+      at += items.length;
+    }
+    return out;
+  }, [groups]);
   // a project's group whose reviews come from more than one repository
   // names the repository on each row
   const mixed = useMemo(() => mixedGroups(grouped(reviews, groupOf), (r) => r.origin.repo), [reviews, groupOf]);
@@ -242,7 +252,6 @@ function Waiting() {
   }, [reviews, groupOf]);
 
   const filtered = !!(q || scope || plugin || rounds || starred);
-  let index = -1;
 
   return (
     <div className={`inbox ${openId ? "has-panel" : ""}`} ref={split}>
@@ -295,20 +304,17 @@ function Waiting() {
           <div className="inbox-list">{shown.map((review, i) => row(review, i))}</div>
         ) : (
           <div className="inbox-groups">
-            {groups.map(([key, items]) => (
+            {groups.map(([key, items], g) => (
               <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                 <summary data-testid="inbox-group-heading">
                   <GroupHeading groupKey={key} project={items[0].project} count={groupCounts.get(key) ?? 0} />
                 </summary>
-                {items.map((review) => {
-                  index += 1;
-                  return row(review, index);
-                })}
+                {items.map((review, i) => row(review, starts[g] + i))}
               </details>
             ))}
           </div>
         )}
-        <Pager label="Inbox" page={current} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
+        <Pager label="Inbox" page={pageShown} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
         {discarding ? (
           <DiscardDialog
             review={discarding}

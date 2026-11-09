@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import type { Review, Session } from "../../api/types";
 
 export function useThreadScroll(
-  timeline: RefObject<HTMLDivElement | null>,
+  timelineRef: RefObject<HTMLDivElement | null>,
   footer: HTMLDivElement | null,
   { focus, items, session, stage }: { focus?: Review; items: Review[]; session: Session | null; stage?: number },
 ) {
@@ -23,21 +23,21 @@ export function useThreadScroll(
       if (items.length < 2) return;
       scrolled.current = true;
       document.getElementById(`set-${focus.id}`)?.scrollIntoView({ block: "start" });
-    } else if (session && timeline.current) {
+    } else if (session && timelineRef.current) {
       scrolled.current = true;
       const started = stage ? document.getElementById(`status-${stage}`) : null;
       if (started) started.scrollIntoView({ block: "center" });
       else {
-        timeline.current.scrollTop = timeline.current.scrollHeight;
+        timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
         pinned.current = true;
       }
     }
-  }, [timeline, items, focus, session, stage]);
+  }, [timelineRef, items, focus, session, stage]);
 
   // While the newest message is in view, it stays there as an image loads
   // and makes the thread taller. Scrolling away from it ends that.
   useEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (!el) return;
     const onScroll = () => (pinned.current = el.scrollHeight - el.clientHeight - el.scrollTop < 40);
     const onLoad = () => {
@@ -49,27 +49,27 @@ export function useThreadScroll(
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("load", onLoad, true);
     };
-  }, [timeline]);
+  }, [timelineRef]);
 
   // the timeline keeps room under its last message for the chat box over it
   useEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (!footer || !el) return;
     const size = () => el.style.setProperty("--footer-height", `${footer.offsetHeight}px`);
     size();
     const observer = new ResizeObserver(size);
     observer.observe(footer);
     return () => observer.disconnect();
-  }, [timeline, footer]);
+  }, [timelineRef, footer]);
 
   // whether the timeline shows its newest message, else a button goes there
   const [atEnd, setAtEnd] = useState(true);
   const checkEnd = useCallback(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (el) setAtEnd(el.scrollHeight - el.clientHeight - el.scrollTop < 40);
-  }, [timeline]);
+  }, [timelineRef]);
   useEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (!el) return;
     el.addEventListener("scroll", checkEnd, { passive: true });
     const observer = new ResizeObserver(checkEnd);
@@ -78,15 +78,15 @@ export function useThreadScroll(
       el.removeEventListener("scroll", checkEnd);
       observer.disconnect();
     };
-  }, [timeline, checkEnd]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- measured from the timeline's layout
+  }, [timelineRef, checkEnd]);
+
   useEffect(checkEnd, [items, checkEnd]);
 
   // When the timeline's width changes, as the side panel opens, closes or
   // is resized, its text wraps again and its content moves. What was last
   // clicked in it is scrolled back to where it was on screen.
   useEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (!el) return;
     let width = el.clientWidth;
     let anchor: { target: Element; top: number } | null = null;
@@ -112,7 +112,7 @@ export function useThreadScroll(
       el.removeEventListener("scroll", onScroll);
       observer.disconnect();
     };
-  }, [timeline]);
+  }, [timelineRef]);
 
   return { atEnd };
 }

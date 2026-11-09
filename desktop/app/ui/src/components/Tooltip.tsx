@@ -33,6 +33,12 @@ type Props = {
   children: ReactElement<Record<string, unknown>>;
 };
 
+/** Gives `node` to a ref, a callback or an object, as React does. */
+function setRef(ref: unknown, node: HTMLElement | null) {
+  if (typeof ref === "function") ref(node);
+  else if (ref && typeof ref === "object") (ref as { current: HTMLElement | null }).current = node;
+}
+
 export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone, children }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -80,9 +86,7 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
   const setTrigger = useCallback(
     (node: HTMLElement | null) => {
       trigger.current = node;
-      const own = (children.props as { ref?: unknown }).ref;
-      if (typeof own === "function") own(node);
-      else if (own && typeof own === "object") (own as { current: HTMLElement | null }).current = node;
+      setRef((children.props as { ref?: unknown }).ref, node);
     },
     [children],
   );

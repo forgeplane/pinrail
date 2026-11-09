@@ -263,7 +263,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const themesLoaded = useRef(false);
   // the settings as last applied, ahead of the next render: a change made
   // before React renders the previous one builds on it, not on a stale copy
-  const current = useLatest(settings);
+  const settingsRef = useLatest(settings);
   // the latest change sent: an older answer that lands after it is dropped
   const sent = useRef(0);
   // the changes sent and not yet answered
@@ -283,34 +283,37 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     cacheAppearance(s.appearance);
   }, []);
 
-  const load = useCallback(async () => {
-    // A reload that overlaps a change of ours may have read the settings
-    // from before it, and would undo it; it runs again once every change
-    // is answered.
-    const before = sent.current;
-    const overlapped = () => unanswered.current > 0 || sent.current !== before;
-    try {
-      if (overlapped()) {
-        stale.current = true;
-        return;
+  const load = useCallback(
+    async function load(): Promise<void> {
+      // A reload that overlaps a change of ours may have read the settings
+      // from before it, and would undo it; it runs again once every change
+      // is answered.
+      const before = sent.current;
+      const overlapped = () => unanswered.current > 0 || sent.current !== before;
+      try {
+        if (overlapped()) {
+          stale.current = true;
+          return;
+        }
+        const s = fromServer(await api.settings());
+        if (overlapped()) {
+          // a change sent and answered meanwhile has nothing left to rerun it
+          if (unanswered.current === 0) void load();
+          else stale.current = true;
+          return;
+        }
+        apply(s);
+        // a change made before the next redraw builds on these, not on the
+        // defaults the provider started with
+        settingsRef.current = { ...settingsRef.current, ...s };
+        setSettings((prev) => ({ ...prev, ...s }));
+        setLoaded(true);
+      } catch {
+        // the server is away; the cached appearance stands until it is back
       }
-      const s = fromServer(await api.settings());
-      if (overlapped()) {
-        // a change sent and answered meanwhile has nothing left to rerun it
-        if (unanswered.current === 0) void load();
-        else stale.current = true;
-        return;
-      }
-      apply(s);
-      // a change made before the next redraw builds on these, not on the
-      // defaults the provider started with
-      current.current = { ...current.current, ...s };
-      setSettings((prev) => ({ ...prev, ...s }));
-      setLoaded(true);
-    } catch {
-      // the server is away; the cached appearance stands until it is back
-    }
-  }, [apply, current]);
+    },
+    [apply, settingsRef],
+  );
 
   useEffect(() => {
     load();
@@ -332,14 +335,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     loadThemes();
   }, [loadThemes]);
   useNotice((notice) => {
     if (notice.kind === "themes_changed") loadThemes();
   });
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     if (connected) loadThemes();
   }, [connected, loadThemes]);
 
@@ -377,7 +378,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback(
     async (change: Patch | ((settings: Settings) => Patch)) => {
-      const patch = typeof change === "function" ? change(current.current) : change;
+      const patch = typeof change === "function" ? change(settingsRef.current) : change;
       // the core's settings go to the core; applied at once, confirmed by the response
       if (
         patch.appearance ||
@@ -399,10 +400,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         patch.welcome ||
         patch.whats_new
       ) {
-        const base = current.current;
+        const base = settingsRef.current;
         const next = mergeSettings(base, patch);
         apply(next);
-        current.current = { ...base, ...next };
+        settingsRef.current = { ...base, ...next };
         setSettings((s) => ({ ...s, ...next }));
         const body = patchBody(patch);
         const mine = ++sent.current;
@@ -414,7 +415,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           unanswered.current--;
           if (mine === sent.current) {
             apply(s);
-            current.current = { ...current.current, ...s };
+            settingsRef.current = { ...settingsRef.current, ...s };
             setSettings((prev) => ({ ...prev, ...s }));
           }
         } catch {
@@ -437,7 +438,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [current, native, apply, load],
+    [settingsRef, native, apply, load],
   );
 
   const value = useMemo(

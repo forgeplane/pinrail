@@ -10,7 +10,7 @@ const FIRST = 60;
 
 export function useNewestFirst<T>(
   entries: T[],
-  timeline: RefObject<HTMLDivElement | null>,
+  timelineRef: RefObject<HTMLDivElement | null>,
   {
     all,
     thread,
@@ -32,7 +32,7 @@ export function useNewestFirst<T>(
   // is at its end, kept up to date as the person scrolls
   const kept = useRef<{ anchor: Element | null; top: number; atEnd: boolean }>({ anchor: null, top: 0, atEnd: true });
   useLayoutEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     if (!el || whole) return;
     const keep = () => {
       const anchor = el.firstElementChild;
@@ -45,12 +45,12 @@ export function useNewestFirst<T>(
     keep();
     el.addEventListener("scroll", keep, { passive: true });
     return () => el.removeEventListener("scroll", keep);
-  }, [timeline, whole, shown]);
+  }, [timelineRef, whole, shown]);
 
   // once the rest is drawn above, before it is painted
   const wasWhole = useRef(whole);
   useLayoutEffect(() => {
-    const el = timeline.current;
+    const el = timelineRef.current;
     const added = whole && !wasWhole.current;
     wasWhole.current = whole;
     if (!el || !added) return;
@@ -58,7 +58,7 @@ export function useNewestFirst<T>(
     if (atEnd) el.scrollTop = el.scrollHeight;
     else if (anchor?.isConnected)
       el.scrollTop += anchor.getBoundingClientRect().top - el.getBoundingClientRect().top - top;
-  }, [timeline, whole]);
+  }, [timelineRef, whole]);
 
   return { shown, whole };
 }

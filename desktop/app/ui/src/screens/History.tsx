@@ -26,6 +26,7 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
+import { useNow } from "../lib/useNow";
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
@@ -89,23 +90,6 @@ export function History() {
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / size));
 
-  // a page past the end, after a filter or a sweep shrank the list: the last page
-  useEffect(() => {
-    if (data && total > 0 && reviews.length === 0 && page > 1) setPage(Math.ceil(total / size));
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps -- only when a page arrives, not when the page number changes
-
-  /** A page number, or a step from the page the URL is on. */
-  const setPage = (n: number | ((current: number) => number)) => {
-    updateParams((next) => {
-      const now = Math.min(pageOf(next.get("page")), pages);
-      const wanted = typeof n === "function" ? n(now) : n;
-      const value = Math.min(Math.max(1, wanted), pages);
-      if (value > 1) next.set("page", String(value));
-      else next.delete("page");
-    });
-    setFocused(0);
-    window.scrollTo({ top: 0 });
-  };
   const setSize = (n: number) => {
     updateParams(
       (next) => {
@@ -166,6 +150,23 @@ export function History() {
     onWalk: (r) => openInPanel(r.id, { replace: true }),
     rowOf: (i) => document.querySelector<HTMLElement>(`[data-history-row="${i}"]`),
   });
+  /** A page number, or a step from the page the URL is on. */
+  const setPage = (n: number | ((current: number) => number)) => {
+    updateParams((next) => {
+      const now = Math.min(pageOf(next.get("page")), pages);
+      const wanted = typeof n === "function" ? n(now) : n;
+      const value = Math.min(Math.max(1, wanted), pages);
+      if (value > 1) next.set("page", String(value));
+      else next.delete("page");
+    });
+    setFocused(0);
+    window.scrollTo({ top: 0 });
+  };
+  // a page past the end, after a filter or a sweep shrank the list: the last page
+  useEffect(() => {
+    if (data && total > 0 && reviews.length === 0 && page > 1) setPage(Math.ceil(total / size));
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps -- only when a page arrives, not when the page number changes
+
   useSlashSearch(search);
 
   // in the search field: Escape leaves it, and Enter leaves it for the
@@ -186,7 +187,7 @@ export function History() {
   });
 
   const repos = data?.facets?.repos ?? [];
-  const now = Date.now();
+  const now = useNow();
 
   return (
     <div className={`inbox history ${openId ? "has-panel" : ""}`} ref={split}>

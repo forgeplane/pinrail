@@ -15,6 +15,7 @@ import { ReviewIcon, reviewLabel } from "../ReviewIcon";
 import { Tooltip } from "../Tooltip";
 import { StarMark } from "./messages";
 import { store, stored } from "./storage";
+import { useNow } from "../../lib/useNow";
 
 /** Whether the session's details list the reviews that ended, stored on
  *  this machine; they are folded away until opened. */
@@ -67,6 +68,8 @@ export function ThreadDetails({
   // the latest stages, and the earlier ones once unfolded; a stage the
   // thread was opened at is never folded away
   const [allStages, setAllStages] = useState(false);
+  // the clock the stage in progress counts its time by
+  const now = useNow();
   const earlier = Math.max(0, started.length - STAGES_SHOWN);
   const atEarlier = !!stage && started.slice(0, earlier).some((s) => s.start.id === stage);
   const stagesShown = allStages || atEarlier ? started : started.slice(earlier);
@@ -208,7 +211,7 @@ export function ThreadDetails({
               // until it finished, until the next stage began for one left
               // open, or until now for the one in progress
               const end = stage.done?.at ?? (last ? null : started[i + 1].start.at);
-              const took = age(stage.start.at, end ? Date.parse(end) : Date.now());
+              const took = age(stage.start.at, end ? Date.parse(end) : now);
               const length = stage.current
                 ? `In progress for ${took}`
                 : stage.done

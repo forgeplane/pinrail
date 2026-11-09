@@ -104,7 +104,7 @@ export type Bridge = {
 
 export function usePluginBridge(options: Options): Bridge {
   const {
-    frame,
+    frame: frameRef,
     reviewId,
     review,
     previous,
@@ -185,9 +185,9 @@ export function usePluginBridge(options: Options): Bridge {
   // pointing the frame at the URL it already shows would not reload it, and
   // the view would wait for an init that never comes.
   useEffect(() => {
-    const el = frame.current;
+    const el = frameRef.current;
     if (!el || !src) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the frame loads a new view, whose state starts over
+
     setLeft(false);
     setLoaded(false);
     setHandoverLabel("Hand over");
@@ -313,7 +313,7 @@ export function usePluginBridge(options: Options): Bridge {
       window.removeEventListener("pinrail:appearance", onAppearance);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the draft helpers read the review from latest
-  }, [frame, reviewId, src, reloads, collect]);
+  }, [frameRef, reviewId, src, reloads, collect]);
 
   // The plugin's settings changed, in Settings or through the view itself:
   // the view hears the values as they stand now.
