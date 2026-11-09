@@ -78,9 +78,6 @@ pub struct Status {
     /// something that went wrong after the CLI was installed, such as the
     /// PATH not being updated
     pub warning: Option<String>,
-    /// the app runs on Windows, where a copy is brought up to date when the
-    /// app starts
-    pub windows: bool,
 }
 
 /// What went wrong after the last install, kept so that the status check that
@@ -190,7 +187,6 @@ pub fn status(
         occupied_by,
         runs: shell.and_then(|s| s.command.clone()),
         warning: None,
-        windows: cfg!(windows),
         dir_on_path: shell.map(|s| {
             dir.as_ref()
                 .is_some_and(|d| s.path.iter().any(|p| same_file(p, d)))

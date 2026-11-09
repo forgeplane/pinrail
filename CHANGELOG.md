@@ -84,6 +84,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   longer refused for files it does not carry.
 - A note or work item whose `attachment:` link has a malformed escape,
   such as `%E0`, no longer blanks the app's window.
+- Settings no longer tells AppImage users to install the CLI again after
+  updating Pinrail. The app updates the installed copy when it starts.
 - `history.keep_days` takes at most 36500 days. A much larger value set
   through the API or in `settings.json` stopped the app from deleting
   old history and expired reviews until it restarted.
