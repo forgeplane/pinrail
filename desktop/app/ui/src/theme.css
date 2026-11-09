@@ -6421,10 +6421,37 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: color-mix(in srgb, var(--danger) 16%, transparent);
   color: var(--danger);
 }
-.item-progress {
+.item-progress,
+.item-section-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11.5px;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
+}
+.item-section-progress {
+  margin-left: 8px;
+  font-weight: 400;
+}
+/* how much of a parent's work is closed */
+.progress-ring {
+  flex: none;
+}
+.progress-ring-track {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+.progress-ring-fill {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 1.5;
+}
+/* a parent with work under way: its own status stays open */
+.item-mark.is-active {
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 .item-claim {
   display: inline-flex;

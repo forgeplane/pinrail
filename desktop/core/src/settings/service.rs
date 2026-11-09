@@ -14,7 +14,7 @@ use crate::plugins::Registry;
 /// Validates and persists settings, then records and broadcasts each change.
 #[derive(Debug)]
 pub struct SettingsService {
-    store: Store,
+    store: Arc<Store>,
     db: Arc<Db>,
     registry: Arc<Registry>,
     bus: Bus,
@@ -24,7 +24,7 @@ impl SettingsService {
     /// Opens the settings store and connects validation and change notifications.
     pub(crate) fn open(data_dir: &Path, db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
         Self {
-            store: Store::open(data_dir),
+            store: Arc::new(Store::open(data_dir)),
             db,
             registry,
             bus,
@@ -39,6 +39,11 @@ impl SettingsService {
     /// One setting addressed by a JSON pointer, or null when it is absent.
     pub fn value(&self, pointer: &str) -> Value {
         self.store.value(pointer)
+    }
+
+    /// A handle that reads the settings, for a service that follows one.
+    pub(crate) fn reader(&self) -> SettingsReader {
+        SettingsReader(self.store.clone())
     }
 
     /// Applies a partial change to the settings and announces what changed,
@@ -92,5 +97,16 @@ impl SettingsService {
             item: None,
         });
         Ok(())
+    }
+}
+
+/// Reads the settings, as they are now, for a service that follows one.
+#[derive(Debug, Clone)]
+pub(crate) struct SettingsReader(Arc<Store>);
+
+impl SettingsReader {
+    /// One setting addressed by a JSON pointer, or null when it is absent.
+    pub fn value(&self, pointer: &str) -> Value {
+        self.0.value(pointer)
     }
 }

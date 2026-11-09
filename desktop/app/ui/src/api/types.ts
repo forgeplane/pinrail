@@ -435,6 +435,7 @@ export type ServerSettings = {
     layout?: "project" | "repository" | "list";
     nesting?: "nested" | "flat";
     ordering?: "oldest" | "newest" | "updated" | "status" | "title";
+    close_parents?: boolean;
   };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
@@ -492,7 +493,8 @@ export type WorkItem = {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
-  sub_items: { total: number; closed: number };
+  /** its own sub-items: how many, how many closed and how many in progress */
+  sub_items: { total: number; closed: number; in_progress: number };
   /** the keys of what it waits for */
   blocked_by: string[];
   blocked: boolean;

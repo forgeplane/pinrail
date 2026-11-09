@@ -43,6 +43,7 @@ import { Select } from "./Select";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 import { useWindowKey } from "../lib/useWindowKey";
+import { ProgressRing } from "./ProgressRing";
 
 const reason = (error: unknown) => (error instanceof ApiError ? error.message : "Pinrail could not be reached");
 
@@ -362,7 +363,16 @@ export function ItemPanel({
       </section>
 
       <section className="item-section" aria-label="Sub-items">
-        <h3>Sub-items</h3>
+        <h3>
+          Sub-items
+          {item.sub_items.total ? (
+            <span className="item-section-progress" data-testid="item-sub-progress">
+              <ProgressRing done={item.sub_items.closed} total={item.sub_items.total} />
+              {item.sub_items.closed} of {item.sub_items.total} closed
+              {item.sub_items.in_progress ? ` · ${item.sub_items.in_progress} in progress` : ""}
+            </span>
+          ) : null}
+        </h3>
         {item.sub_items_list.length ? (
           <ul className="item-related">
             {item.sub_items_list.map((s) => (

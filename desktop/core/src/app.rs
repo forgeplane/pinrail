@@ -181,6 +181,7 @@ impl Pinrail {
             events.bus(),
             config.user.clone(),
             attachments.clone(),
+            settings.reader(),
         );
         let reviews = Reviews::new(
             db.clone(),

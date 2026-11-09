@@ -28,7 +28,13 @@ export type Settings = {
   inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
   sessions: { layout: "project" | "repository" | "list" };
   /** how the Work items page lists the items, and shows sub-items */
-  items: { layout: "project" | "repository" | "list"; nesting: "nested" | "flat"; ordering: Ordering };
+  items: {
+    layout: "project" | "repository" | "list";
+    nesting: "nested" | "flat";
+    ordering: Ordering;
+    /** whether a parent closes when its last open sub-item does */
+    close_parents: boolean;
+  };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
   /** each plugin's permission to open links without asking */
@@ -145,6 +151,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     layout: s.items?.layout ?? "project",
     nesting: s.items?.nesting ?? "nested",
     ordering: s.items?.ordering ?? "oldest",
+    close_parents: s.items?.close_parents ?? true,
   },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
@@ -238,7 +245,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     inbox: { open_in: "panel", layout: "repository" },
     sessions: { layout: "list" },
-    items: { layout: "project", nesting: "nested", ordering: "oldest" },
+    items: { layout: "project", nesting: "nested", ordering: "oldest", close_parents: true },
     plugins: {},
     links: {},
     port: 4747,

@@ -4,7 +4,7 @@
 // shared.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, settingSaved, shellOrigin } from "./helpers";
+import { core, settingSaved, settingsDialog, settingsSection, shellOrigin } from "./helpers";
 
 let counter = 0;
 /** A repository no other test uses. */
@@ -644,12 +644,10 @@ test("an item with an open sub-item cannot be marked done, and says which", asyn
     `${parent.key} is not done: its sub-item ${child.key} is still open`,
   );
   await expect(row(page, parent.key).getByRole("img", { name: "Open" })).toBeVisible();
-  // once the sub-item is done, the parent can be
+  // once its last sub-item is done, the parent is done with it
   await row(page, child.key).hover();
   await page.keyboard.press("d");
   await expect(row(page, child.key)).toHaveCount(0);
-  await row(page, parent.key).hover();
-  await page.keyboard.press("d");
   await expect(row(page, parent.key)).toHaveCount(0);
 });
 
@@ -1028,4 +1026,36 @@ test("a row's fold button is not inside the row's button, and J focuses the row"
   expect(await fold.evaluate((el) => el.parentElement?.closest('[role="button"]') === null)).toBe(true);
   await page.locator("body").press("j");
   await expect(page.locator(".item-row.is-focused")).toBeFocused();
+});
+
+test("a parent shows the work under way under it and how much is closed", async ({ page, request }) => {
+  const repo = fresh("under-way");
+  const parent = await add(request, repo, "Release");
+  const notes = await add(request, repo, "Notes", { parent: parent.key });
+  const tag = await add(request, repo, "Tag", { parent: parent.key });
+  await add(request, repo, "Announce", { parent: parent.key });
+  await edit(request, notes.key, { claim: "claim" });
+  await request.post(`${core}/api/v1/items/${tag.key}/done`, {
+    data: { by: "claude-code", session: "s-shell", comment: "Tagged" },
+  });
+  await open(page, repo, "&nesting=flat");
+  const parentRow = row(page, parent.key);
+  await expect(parentRow.getByTestId("item-active")).toHaveText(/1 in progress/);
+  await expect(parentRow.getByTestId("item-progress")).toHaveText("1/3");
+  await expect(parentRow.locator(".progress-ring")).toBeVisible();
+  await parentRow.click();
+  await expect(page.getByTestId("item-sub-progress")).toHaveText("1 of 3 closed · 1 in progress");
+});
+
+test("Settings has a Work items page with the switch that closes parents", async ({ page, request }) => {
+  await page.goto("/#/items");
+  await page.keyboard.press("ControlOrMeta+,");
+  await expect(settingsDialog(page)).toBeVisible();
+  await settingsSection(page, "Work items").click();
+  const close = settingsDialog(page).getByRole("switch", { name: "Close a parent with its last sub-item" });
+  await expect(close).toBeChecked();
+  await close.click();
+  await settingSaved(request, (s) => s.items.close_parents, false);
+  await close.click();
+  await settingSaved(request, (s) => s.items.close_parents, true);
 });

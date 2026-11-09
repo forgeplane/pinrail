@@ -11,6 +11,7 @@ use crate::attachments::{Attachments, ReviewAttachment};
 use crate::db::{Claim, Db, Edited, ItemChange, ItemFilters, Refused, WorkItem};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
+use crate::settings::SettingsReader;
 
 /// The longest title an item takes, as a review's.
 pub const TITLE_MAX: usize = 200;
@@ -30,6 +31,9 @@ pub struct Items {
     /// the person's name, which their comments are delivered under
     user: String,
     attachments: Attachments,
+    /// the person's settings, for whether parents close with their last
+    /// sub-item
+    settings: SettingsReader,
 }
 
 /// A refusal as the API answers it: an unknown item is not found, a rule
@@ -133,12 +137,19 @@ fn check_comment(path: &str, text: &str) -> Result<String, Error> {
 }
 
 impl Items {
-    pub(crate) fn new(db: Arc<Db>, bus: Bus, user: String, attachments: Attachments) -> Self {
+    pub(crate) fn new(
+        db: Arc<Db>,
+        bus: Bus,
+        user: String,
+        attachments: Attachments,
+        settings: SettingsReader,
+    ) -> Self {
         Items {
             db,
             bus,
             user,
             attachments,
+            settings,
         }
     }
 
@@ -375,6 +386,11 @@ impl Items {
         actor: &Actor,
     ) -> Result<Edited, Error> {
         let mut change = change.clone();
+        change.close_parents = self
+            .settings
+            .value("/items/close_parents")
+            .as_bool()
+            .unwrap_or(true);
         if let Some(title) = &change.title {
             change.title = Some(check_title("/title", title)?);
         }

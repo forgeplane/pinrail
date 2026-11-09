@@ -257,7 +257,10 @@ async fn a_breakdown_is_added_whole_through_the_api() {
     );
     let parent = item(&app, "PIN-1").await;
     assert_eq!(keys(&parent["sub_items_list"]), ["PIN-2", "PIN-3"]);
-    assert_eq!(parent["sub_items"], json!({"total": 2, "closed": 0}));
+    assert_eq!(
+        parent["sub_items"],
+        json!({"total": 2, "closed": 0, "in_progress": 0})
+    );
     // a cycle refuses the whole breakdown, with the circle
     let (code, refused) = agent(
         &app,
@@ -603,7 +606,7 @@ async fn no_one_can_mark_done_an_item_with_open_or_in_progress_sub_items() {
 }
 
 #[tokio::test]
-async fn done_says_what_became_ready_and_a_parent_left_open() {
+async fn done_says_what_became_ready_and_the_parent_it_closed() {
     let app = app();
     for t in [
         "Parent",
@@ -626,9 +629,10 @@ async fn done_says_what_became_ready_and_a_parent_left_open() {
     let (code, closed) = done(&app, "PIN-2", "s-1", "Done").await;
     assert_eq!(code, StatusCode::OK, "{closed}");
     assert_eq!(keys(&closed["now_ready"]), ["PIN-3"]);
-    assert_eq!(closed["parent_left_open"]["key"], "PIN-1");
-    assert_eq!(item(&app, "PIN-1").await["status"], "open");
-    assert_eq!(item(&app, "PIN-1").await["ready"], true);
+    // its last sub-item done, the parent is done too
+    assert_eq!(keys(&closed["parents_closed"]), ["PIN-1"]);
+    assert_eq!(closed["parent_left_open"], Value::Null);
+    assert_eq!(item(&app, "PIN-1").await["status"], "done");
 }
 
 #[tokio::test]
@@ -2064,6 +2068,56 @@ async fn the_summary_list_leaves_the_bodies_out() {
     // and the words of a body still find it
     let (_, found) = call(&app, "GET", "/api/v1/items?fields=summary&q=quokka", None).await;
     assert_eq!(keys(&found["items"]), ["PIN-1"]);
+}
+
+#[tokio::test]
+async fn a_parent_closes_with_its_last_sub_item_unless_it_is_worked_on_or_the_setting_is_off() {
+    let app = app();
+    add(&app, "Release").await;
+    add(&app, "Notes").await;
+    add(&app, "Tag").await;
+    edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await;
+    edit(&app, "PIN-3", "s-1", json!({"parent": "PIN-1"})).await;
+    // a sub-item in progress shows on the parent
+    edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
+    assert_eq!(item(&app, "PIN-1").await["sub_items"]["in_progress"], 1);
+
+    done(&app, "PIN-2", "s-1", "Written").await;
+    assert_eq!(item(&app, "PIN-1").await["status"], "open");
+    let (code, answer) = done(&app, "PIN-3", "s-1", "Tagged").await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    let parent = item(&app, "PIN-1").await;
+    assert_eq!(parent["status"], "done");
+    let last = parent["timeline"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(last["attrs"]["with_last"], "PIN-3", "{last}");
+
+    // a parent a session works on stays open, as it does with the setting off
+    add(&app, "Second").await;
+    add(&app, "Under it").await;
+    edit(&app, "PIN-5", "s-1", json!({"parent": "PIN-4"})).await;
+    edit(&app, "PIN-4", "s-2", json!({"claim": "claim"})).await;
+    let (_, answer) = done(&app, "PIN-5", "s-1", "Done").await;
+    assert_eq!(item(&app, "PIN-4").await["status"], "in_progress");
+    assert_eq!(answer["parent_left_open"]["key"], "PIN-4");
+
+    let (code, _) = call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(json!({"items": {"close_parents": false}})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    add(&app, "Third").await;
+    add(&app, "Under the third").await;
+    edit(&app, "PIN-7", "s-1", json!({"parent": "PIN-6"})).await;
+    done(&app, "PIN-7", "s-1", "Done").await;
+    assert_eq!(item(&app, "PIN-6").await["status"], "open");
 }
 
 // --- the queue

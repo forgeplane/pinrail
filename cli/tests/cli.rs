@@ -3936,7 +3936,7 @@ fn items_comment_sends_the_text_given_or_read_from_a_file() {
 }
 
 #[test]
-fn items_done_prints_what_became_ready_and_a_parent_left_open() {
+fn items_done_prints_what_became_ready_and_the_parents_closed_or_left_open() {
     let (server, sent) = items_server(|_, _| {
         let item = work_item(
             "PIN-42",
@@ -3947,6 +3947,7 @@ fn items_done_prints_what_became_ready_and_a_parent_left_open() {
             200,
             format!(
                 r#"{{"item": {item}, "now_ready": [{{"key": "PIN-43", "title": "Theme picker"}}],
+                    "parents_closed": [{{"key": "PIN-41", "title": "Theme files"}}],
                     "parent_left_open": {{"key": "PIN-40", "title": "Custom themes"}}}}"#
             ),
         )
@@ -3966,6 +3967,7 @@ fn items_done_prints_what_became_ready_and_a_parent_left_open() {
         out,
         "Done: PIN-42 Load themes.\n\
          Now ready: PIN-43 Theme picker\n\
+         PIN-41 Theme files is done too: its last open sub-item closed.\n\
          PIN-40 Custom themes has no open sub-item left but stays open: mark it done when its work is complete.\n"
     );
     let sent = sent.lock().unwrap();

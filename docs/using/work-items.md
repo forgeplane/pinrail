@@ -22,7 +22,7 @@ An item is in one of four states:
 - **Done:** its work is finished.
 - **Cancelled:** it will not be done. Cancelling an item also cancels its sub-items that are still open or in progress. Pinrail asks first when an item has any.
 
-An open item is **ready** when every item it depends on is done and it has no open sub-item. An item waiting for another is **blocked**. A parent item waits for its sub-items in the same way. Pinrail refuses a dependency or a parent that would make items wait for each other in a circle.
+An open item is **ready** when every item it depends on is done and it has no open sub-item. An item waiting for another is **blocked**. A parent item waits for its sub-items in the same way. A parent's row shows how many of its sub-items are closed, with a ring that fills as they close, and how many are in progress. When its last open sub-item is done or cancelled, and at least one of them is done, the parent is done too, unless someone works on it or something of it waits for you. Turn this off in Settings › Work items to close parents yourself. Pinrail refuses a dependency or a parent that would make items wait for each other in a circle.
 
 ## The Work items page
 

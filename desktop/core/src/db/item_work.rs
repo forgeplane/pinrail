@@ -29,6 +29,9 @@ pub enum Claim {
 /// lists leave a part as it is.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ItemChange {
+    /// whether a parent whose last open sub-item this change closes closes
+    /// too, as the person's setting says
+    pub close_parents: bool,
     pub title: Option<String>,
     pub body: Option<String>,
     /// `Some(None)` removes the link
@@ -55,9 +58,12 @@ pub struct Edited {
     pub item: WorkItem,
     /// items that depended on it, or its parent, ready now that it closed
     pub now_ready: Vec<Related>,
-    /// its parent, when it closed the parent's last open sub-item: the
-    /// parent stays open until someone says it is done
+    /// its parent, when it closed the parent's last open sub-item and the
+    /// parent stays open: none of its sub-items was done, someone works on
+    /// it, it waits on the person, or the setting leaves parents open
     pub parent_left_open: Option<Related>,
+    /// the parents, at any depth, that closed with their last sub-item
+    pub parents_closed: Vec<Related>,
     /// the sub-items, at any depth, that were cancelled with it
     pub cancelled_with: Vec<Related>,
     /// the sub-items, at any depth, released as it went on hold, each with
@@ -920,6 +926,7 @@ impl Db {
         // what its closing changed for the items that waited for it
         let mut now_ready = Vec::new();
         let mut parent_left_open = None;
+        let mut parents_closed = Vec::new();
         if closed_now {
             let mut stmt =
                 tx.prepare("SELECT item_id FROM work_item_deps WHERE depends_on = ?1")?;
@@ -932,16 +939,47 @@ impl Db {
                     now_ready.push(related(&tx, &other)?);
                 }
             }
-            let parent: Option<String> = tx.query_row(
-                "SELECT parent FROM work_items WHERE id = ?1",
-                params![id],
-                |r| r.get(0),
-            )?;
-            if let Some(parent) = parent {
+            // a parent whose last open sub-item closed closes too, and so on
+            // up, unless someone works on it, it is on hold, something of it
+            // waits on the person, or the setting leaves parents open
+            let mut child = id.clone();
+            loop {
+                let parent: Option<String> = tx.query_row(
+                    "SELECT parent FROM work_items WHERE id = ?1",
+                    params![child],
+                    |r| r.get(0),
+                )?;
+                let Some(parent) = parent else { break };
                 let row = item_row(&tx, &parent)?;
-                if !row.status.is_closed() && open_sub_items(&tx, &parent)?.is_empty() {
-                    parent_left_open = Some(related(&tx, &parent)?);
+                if row.status.is_closed() || !open_sub_items(&tx, &parent)?.is_empty() {
+                    break;
                 }
+                // done when some of its work was done: a parent whose
+                // sub-items were all cancelled has its own work left
+                let some_done: bool = tx.query_row(
+                    "SELECT EXISTS (SELECT 1 FROM work_items WHERE parent = ?1 AND status = 'done')",
+                    params![parent],
+                    |r| r.get(0),
+                )?;
+                if !change.close_parents
+                    || !some_done
+                    || row.status != Status::Open
+                    || !waiting_on(&tx, &parent, at)?.is_empty()
+                {
+                    parent_left_open = Some(related(&tx, &parent)?);
+                    break;
+                }
+                status_in(&tx, &parent, Status::Done, at)?;
+                item_event(
+                    &tx,
+                    &parent,
+                    "status",
+                    actor,
+                    json!({"from": "open", "to": "done", "with_last": key_of(&tx, &child)?}),
+                    at,
+                )?;
+                parents_closed.push(related(&tx, &parent)?);
+                child = parent;
             }
         }
         let item = item_row(&tx, &id)?;
@@ -950,6 +988,7 @@ impl Db {
             item,
             now_ready,
             parent_left_open,
+            parents_closed,
             cancelled_with,
             released_with,
         }))

@@ -699,6 +699,13 @@ fn edited_md(verb: &str, edited: &Value) -> String {
             s(&ready["title"])
         ));
     }
+    for parent in edited["parents_closed"].as_array().into_iter().flatten() {
+        out.push_str(&format!(
+            "{} {} is done too: its last open sub-item closed.\n",
+            s(&parent["key"]),
+            s(&parent["title"])
+        ));
+    }
     if let Some(parent) = edited["parent_left_open"].as_object() {
         out.push_str(&format!(
             "{} {} has no open sub-item left but stays open: mark it done when its work is complete.\n",

@@ -41,6 +41,8 @@ pub struct WorkItem {
     /// how many sub-items it has, and how many of them are closed
     pub sub_items: usize,
     pub sub_items_closed: usize,
+    /// its own sub-items that a session works on now
+    pub sub_items_in_progress: usize,
     /// the keys of the items it depends on that are still open or in
     /// progress, sorted
     pub blocked_by: Vec<String>,
@@ -76,7 +78,11 @@ impl WorkItem {
             "created_at": iso(self.created_at),
             "updated_at": iso(self.updated_at),
             "closed_at": self.closed_at.map(iso),
-            "sub_items": {"total": self.sub_items, "closed": self.sub_items_closed},
+            "sub_items": {
+                "total": self.sub_items,
+                "closed": self.sub_items_closed,
+                "in_progress": self.sub_items_in_progress,
+            },
             "blocked_by": self.blocked_by,
             "blocked": self.blocked(),
             "ready": self.ready,
@@ -342,7 +348,8 @@ fn columns(body: bool) -> String {
                AND (r.expires_at IS NULL OR r.expires_at > strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
            (SELECT (SELECT COUNT(*) FROM work_item_queue b WHERE b.position <= q.position)
-              FROM work_item_queue q WHERE q.item_id = i.id)
+              FROM work_item_queue q WHERE q.item_id = i.id),
+           (SELECT COUNT(*) FROM work_items c WHERE c.parent = i.id AND c.status = 'in_progress')
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
         status = status_of("i"),
         ready = READY,
@@ -410,6 +417,7 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
         project: super::ProjectRef::from_column(row.get(20)?),
         waiting: row.get::<_, i64>(21)? as usize,
         queue: row.get::<_, Option<i64>>(22)?.map(|n| n as usize),
+        sub_items_in_progress: row.get::<_, i64>(23)? as usize,
     })
 }
 

@@ -99,6 +99,7 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
         "item": state.items().detail(&edited.item)?,
         "now_ready": edited.now_ready.iter().map(|r| r.to_json()).collect::<Vec<_>>(),
         "parent_left_open": edited.parent_left_open.as_ref().map(|r| r.to_json()),
+        "parents_closed": edited.parents_closed.iter().map(|r| r.to_json()).collect::<Vec<_>>(),
         "cancelled_with": edited.cancelled_with.iter().map(|r| r.to_json()).collect::<Vec<_>>(),
     }))
 }
@@ -262,7 +263,7 @@ async fn show(
 /// `attachments` to add to its body and the files to `detach`, and a
 /// `comment` that goes with the change. Answers the item, the items it made
 /// ready, `now_ready`, and its parent when it closed the parent's last
-/// open sub-item, `parent_left_open`.
+/// open sub-item, `parents_closed` or `parent_left_open`.
 async fn edit(
     State(state): State<Arc<Pinrail>>,
     headers: HeaderMap,
@@ -302,6 +303,8 @@ async fn edit(
         Some(_) => return Err(Error::invalid("/link", "is not a string").into()),
     };
     let change = ItemChange {
+        // the service sets it from the settings
+        close_parents: false,
         title: text(&body, "title")?,
         body: text(&body, "body")?,
         link,

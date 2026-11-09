@@ -5,6 +5,7 @@
 mod service;
 mod store;
 
+pub(crate) use service::SettingsReader;
 pub use service::SettingsService;
 pub use store::port_in;
 #[cfg(feature = "docs")]

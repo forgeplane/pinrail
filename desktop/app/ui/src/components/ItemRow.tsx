@@ -10,6 +10,7 @@ import { age, ordinal, stamp } from "../lib/format";
 import { AgentIcon } from "./AgentIcon";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { Tooltip } from "./Tooltip";
+import { ProgressRing } from "./ProgressRing";
 
 /** What a row does, the same functions from one render to the next. */
 export type ItemRowActions = {
@@ -105,11 +106,18 @@ export const ItemRow = memo(function ItemRow({
               <Lock size={11} aria-hidden="true" /> blocked by {item.blocked_by.join(", ")}
             </span>
           ) : null}
+          {item.sub_items.in_progress && !closed && item.status !== "in_progress" ? (
+            <span className="item-mark is-active" data-testid="item-active">
+              <ItemStatusIcon status="in_progress" size={11} decorative /> {item.sub_items.in_progress} in progress
+            </span>
+          ) : null}
           {item.sub_items.total ? (
             <span
               className="item-progress"
+              data-testid="item-progress"
               title={`${item.sub_items.closed} of ${item.sub_items.total} sub-items closed`}
             >
+              <ProgressRing done={item.sub_items.closed} total={item.sub_items.total} />
               {item.sub_items.closed}/{item.sub_items.total}
             </span>
           ) : null}

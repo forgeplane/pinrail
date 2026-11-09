@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Info,
   Keyboard,
+  ListChecks,
   Palette,
   Settings,
   Settings2,
@@ -36,11 +37,13 @@ import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
 import { useCopy } from "../../lib/useCopy";
 
-export type SettingsSection = "general" | "appearance" | "shortcuts" | "agents" | "plugins" | "data" | "labs" | "about";
+export type SettingsSection =
+  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "labs" | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
   { key: "appearance", label: "Appearance", icon: <Palette size={15} /> },
+  { key: "items", label: "Work items", icon: <ListChecks size={15} /> },
   { key: "shortcuts", label: "Shortcuts", icon: <Keyboard size={15} /> },
   { key: "agents", label: "Agents", icon: <Bot size={15} /> },
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
@@ -367,6 +370,22 @@ export function SettingsDialog({
             </SettingsPage>
           ) : null}
 
+          {section === "items" ? (
+            <SettingsPage title="Work items">
+              <SettingsGroup>
+                <SettingsRow
+                  label="Close a parent with its last sub-item"
+                  description="When its last open sub-item is done or cancelled, and at least one is done, a work item is done too, unless someone works on it or something of it waits for you."
+                >
+                  <Toggle
+                    label="Close a parent with its last sub-item"
+                    checked={settings.items.close_parents}
+                    onChange={(v) => update({ items: { close_parents: v } })}
+                  />
+                </SettingsRow>
+              </SettingsGroup>
+            </SettingsPage>
+          ) : null}
           {section === "appearance" ? (
             <SettingsPage title="Appearance">
               <SettingsGroup>

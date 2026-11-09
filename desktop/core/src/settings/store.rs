@@ -110,6 +110,12 @@ const LEAVES: &[Leaf] = &[
         "How the Work items page shows sub-items: nested under their parent, or each as a row of its own.",
     ),
     (
+        "/items/close_parents",
+        Kind::Bool,
+        || json!(true),
+        "Close a work item when its last open sub-item is done or cancelled and at least one of them is done, unless someone works on it or something of it waits for you.",
+    ),
+    (
         "/items/ordering",
         Kind::Enum(&["oldest", "newest", "updated", "status", "title"]),
         || json!("oldest"),
