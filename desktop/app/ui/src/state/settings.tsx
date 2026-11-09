@@ -120,7 +120,9 @@ type Served = Pick<
 /** The sidebar's sessions as they are listed until the person changes it. */
 const SESSIONS: Settings["sidebar"]["sessions"] = { ...DEFAULT_CHOICES, collapsed: [] };
 
-const fromServer = (s: ServerSettings): Served => ({
+/** The settings as the core answers them, with the defaults of what it
+ *  leaves out. */
+export const fromServer = (s: ServerSettings): Served => ({
   appearance: {
     theme: s.appearance.theme,
     dark_theme: s.appearance.dark_theme,
@@ -171,6 +173,58 @@ const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"])
   for (const [name, values] of Object.entries(patch)) out[name] = { ...current[name], ...values };
   return out;
 };
+
+/** The settings with a patch applied: each section merged key by key, a
+ *  plugin's settings per plugin, and a link set to null removed. */
+export function mergeSettings(base: Served, patch: Patch): Served {
+  return {
+    appearance: { ...base.appearance, ...patch.appearance },
+    sidebar: {
+      open: patch.sidebar?.open ?? base.sidebar.open,
+      sessions: { ...base.sidebar.sessions, ...patch.sidebar?.sessions },
+    },
+    close_window: patch.close_window ?? base.close_window,
+    menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
+    notifications: { ...base.notifications, ...patch.notifications },
+    shortcut: { ...base.shortcut, ...patch.shortcut },
+    inbox: { ...base.inbox, ...patch.inbox },
+    sessions: { ...base.sessions, ...patch.sessions },
+    items: { ...base.items, ...patch.items },
+    plugins: mergePlugins(base.plugins, patch.plugins),
+    links: mergeLinks(base.links, patch.links),
+    port: patch.port ?? base.port,
+    history: { ...base.history, ...patch.history },
+    updates: { ...base.updates, ...patch.updates },
+    agents: { ...base.agents, ...patch.agents },
+    labs: { ...base.labs, ...patch.labs },
+    welcome: { ...base.welcome, ...patch.welcome },
+    whats_new: { ...base.whats_new, ...patch.whats_new },
+  };
+}
+
+/** What a patch sends to the core: only the sections it changes. */
+export function patchBody(patch: Patch): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  if (patch.appearance) body.appearance = patch.appearance;
+  if (patch.sidebar) body.sidebar = patch.sidebar;
+  if (patch.close_window !== undefined) body.close_window = patch.close_window;
+  if (patch.menu_bar_icon !== undefined) body.menu_bar_icon = patch.menu_bar_icon;
+  if (patch.notifications) body.notifications = patch.notifications;
+  if (patch.shortcut) body.shortcut = patch.shortcut;
+  if (patch.inbox) body.inbox = patch.inbox;
+  if (patch.sessions) body.sessions = patch.sessions;
+  if (patch.items) body.items = patch.items;
+  if (patch.plugins) body.plugins = patch.plugins;
+  if (patch.links) body.links = patch.links;
+  if (patch.port !== undefined) body.port = patch.port;
+  if (patch.history) body.history = patch.history;
+  if (patch.updates) body.updates = patch.updates;
+  if (patch.agents) body.agents = patch.agents;
+  if (patch.labs) body.labs = patch.labs;
+  if (patch.welcome) body.welcome = patch.welcome;
+  if (patch.whats_new) body.whats_new = patch.whats_new;
+  return body;
+}
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const native = inTauri();
@@ -331,51 +385,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         patch.whats_new
       ) {
         const base = current.current;
-        const next: Served = {
-          appearance: { ...base.appearance, ...patch.appearance },
-          sidebar: {
-            open: patch.sidebar?.open ?? base.sidebar.open,
-            sessions: { ...base.sidebar.sessions, ...patch.sidebar?.sessions },
-          },
-          close_window: patch.close_window ?? base.close_window,
-          menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
-          notifications: { ...base.notifications, ...patch.notifications },
-          shortcut: { ...base.shortcut, ...patch.shortcut },
-          inbox: { ...base.inbox, ...patch.inbox },
-          sessions: { ...base.sessions, ...patch.sessions },
-          items: { ...base.items, ...patch.items },
-          plugins: mergePlugins(base.plugins, patch.plugins),
-          links: mergeLinks(base.links, patch.links),
-          port: patch.port ?? base.port,
-          history: { ...base.history, ...patch.history },
-          updates: { ...base.updates, ...patch.updates },
-          agents: { ...base.agents, ...patch.agents },
-          labs: { ...base.labs, ...patch.labs },
-          welcome: { ...base.welcome, ...patch.welcome },
-          whats_new: { ...base.whats_new, ...patch.whats_new },
-        };
+        const next = mergeSettings(base, patch);
         apply(next);
         current.current = { ...base, ...next };
         setSettings((s) => ({ ...s, ...next }));
-        const body: Record<string, unknown> = {};
-        if (patch.appearance) body.appearance = patch.appearance;
-        if (patch.sidebar) body.sidebar = patch.sidebar;
-        if (patch.close_window !== undefined) body.close_window = patch.close_window;
-        if (patch.menu_bar_icon !== undefined) body.menu_bar_icon = patch.menu_bar_icon;
-        if (patch.notifications) body.notifications = patch.notifications;
-        if (patch.shortcut) body.shortcut = patch.shortcut;
-        if (patch.inbox) body.inbox = patch.inbox;
-        if (patch.sessions) body.sessions = patch.sessions;
-        if (patch.items) body.items = patch.items;
-        if (patch.plugins) body.plugins = patch.plugins;
-        if (patch.links) body.links = patch.links;
-        if (patch.port !== undefined) body.port = patch.port;
-        if (patch.history) body.history = patch.history;
-        if (patch.updates) body.updates = patch.updates;
-        if (patch.agents) body.agents = patch.agents;
-        if (patch.labs) body.labs = patch.labs;
-        if (patch.welcome) body.welcome = patch.welcome;
-        if (patch.whats_new) body.whats_new = patch.whats_new;
+        const body = patchBody(patch);
         const mine = ++sent.current;
         unanswered.current++;
         try {
