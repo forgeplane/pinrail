@@ -92,3 +92,18 @@ test("the history and the Plugins section fetch again only for what they show", 
   await expect(page.getByTestId("waiting-review").filter({ hasText: "Live: not a plugin" })).toBeVisible();
   expect(plugins).toEqual([]);
 });
+
+test("the app connects soon after its first attempt is refused, as at startup", async ({ page }) => {
+  // the first request for the events finds no server, as when the window
+  // loads before the server listens
+  let refused = false;
+  await page.route("**/api/v1/events*", async (route) => {
+    if (!refused) {
+      refused = true;
+      await route.abort("connectionrefused");
+    } else await route.continue();
+  });
+  await page.goto("/#/");
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible({ timeout: 1500 });
+  expect(refused).toBe(true);
+});

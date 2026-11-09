@@ -324,6 +324,12 @@ export async function sendFeedback(form: FormData): Promise<void> {
 }
 
 /** Subscribes to the server's event stream. Returns a function that closes it. */
+/** How soon the app tries the events again after an error: at first soon,
+ *  since at startup the window may load before the server listens, then
+ *  less often. The browser's own retry waits three seconds. */
+const RETRY_FIRST_MS = 250;
+const RETRY_MAX_MS = 3000;
+
 export function subscribe(handlers: {
   onNotice: (notice: Notice) => void;
   onOpen?: () => void;
@@ -331,18 +337,34 @@ export function subscribe(handlers: {
 }): () => void {
   let source: EventSource | undefined;
   let closed = false;
-  serverUrl().then((url) => {
+  let timer: number | undefined;
+  let delay = RETRY_FIRST_MS;
+  // the last event seen, so that a new connection catches up from it
+  let last: string | null = null;
+  const notice = (event: MessageEvent) => {
+    if (event.lastEventId) last = event.lastEventId;
+    try {
+      handlers.onNotice(JSON.parse(event.data));
+    } catch {
+      // a malformed event is dropped; the next refresh catches up
+    }
+  };
+  const connect = (url: string) => {
     if (closed) return;
-    source = new EventSource(`${url}/api/v1/events`);
-    source.onopen = () => handlers.onOpen?.();
-    source.onerror = () => handlers.onError?.();
-    source.onmessage = (event) => {
-      try {
-        handlers.onNotice(JSON.parse(event.data));
-      } catch {
-        // a malformed event is dropped; the next refresh catches up
-      }
+    source = new EventSource(`${url}/api/v1/events${last ? `?after=${encodeURIComponent(last)}` : ""}`);
+    source.onopen = () => {
+      delay = RETRY_FIRST_MS;
+      handlers.onOpen?.();
     };
+    // the app retries itself, sooner than the browser would
+    source.onerror = () => {
+      handlers.onError?.();
+      source?.close();
+      if (closed) return;
+      timer = window.setTimeout(() => connect(url), delay);
+      delay = Math.min(delay * 2, RETRY_MAX_MS);
+    };
+    source.onmessage = notice;
     for (const kind of [
       "created",
       "decided",
@@ -369,17 +391,13 @@ export function subscribe(handlers: {
       "item_deleted",
       "history_swept",
     ]) {
-      source.addEventListener(kind, (event) => {
-        try {
-          handlers.onNotice(JSON.parse((event as MessageEvent).data));
-        } catch {
-          // as above
-        }
-      });
+      source.addEventListener(kind, (event) => notice(event as MessageEvent));
     }
-  });
+  };
+  serverUrl().then(connect);
   return () => {
     closed = true;
+    window.clearTimeout(timer);
     source?.close();
   };
 }

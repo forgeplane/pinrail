@@ -89,6 +89,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - When an agent asked several sets of questions, Send now also sends the
   other sets whose questions are all answered. Answers picked in another
   set were left unsent.
+- The app connects within a moment of starting. It showed Reconnecting
+  for a few seconds when its window loaded before its server.
 
 ## [0.5.0]
 
