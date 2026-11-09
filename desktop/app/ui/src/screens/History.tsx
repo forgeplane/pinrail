@@ -23,6 +23,8 @@ import { InboxHead } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { useSettings } from "../state/settings";
 import { useWindowKey } from "../lib/useWindowKey";
+import { useListKeys } from "../lib/useListKeys";
+import { useSlashSearch } from "../lib/useSlashSearch";
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
@@ -35,7 +37,6 @@ export function History() {
   const navigate = useNavigate();
   const { settings: prefs } = useSettings();
   const [data, setData] = useState<ReviewListing | null>(null);
-  const [focused, setFocused] = useState(0);
   const [menu, setMenu] = useState<{ review: Review; anchor: HTMLElement } | null>(null);
   const [deleting, setDeleting] = useState<Review | null>(null);
   // bumped after a delete made here, so the list shows it at once
@@ -43,17 +44,6 @@ export function History() {
   const toggleStar = useToggleStar();
   const toast = useToast();
   const search = useRef<HTMLInputElement>(null);
-  // While the keyboard moves the focus the list scrolls under a still
-  // pointer, and the row that slides under it must not take the focus
-  // back; the next real movement of the pointer hands it over again.
-  const keyboard = useRef(false);
-  useEffect(() => {
-    const onMove = () => {
-      keyboard.current = false;
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
   const status = params.get("status") ?? "";
   const plugin = params.get("plugin") ?? "";
   const repo = params.get("repo") ?? "";
@@ -170,51 +160,23 @@ export function History() {
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
 
-  // The focus follows the review open in the side panel. Opened from the
-  // keyboard, the list may scroll under a still pointer, and the row that
-  // slides under it must not take the focus back.
-  useEffect(() => {
-    if (!openId) return;
-    const at = reviews.findIndex((r) => r.id === openId);
-    if (at < 0) return;
-    keyboard.current = true;
-    setFocused(at);
-  }, [openId, reviews]);
+  // J, K and Enter, and walking the side panel, as in the other lists
+  const { focused, setFocused, hover } = useListKeys({
+    items: reviews,
+    keyOf: (r) => r.id,
+    openKey: openId,
+    onOpen: (r) => open(r.id),
+    onWalk: (r) => openInPanel(r.id, { replace: true }),
+    rowOf: (i) => document.querySelector<HTMLElement>(`[data-history-row="${i}"]`),
+  });
+  useSlashSearch(search);
 
-  // With a review open beside the list, J and K open the next and previous
-  // review, from the list or from the view, which forwards them, and wrap
-  // around at the ends of the page.
-  useWindowKey(
-    (event) => {
-      if (!openId || modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      if (event.key !== "j" && event.key !== "k") return;
-      const el = event.target as HTMLElement | null;
-      if (isTyping(el)) return;
-      if (!reviews.length) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const at = reviews.findIndex((r) => r.id === openId);
-      const next = at < 0 ? 0 : (at + (event.key === "j" ? 1 : reviews.length - 1)) % reviews.length;
-      if (reviews[next].id !== openId) openInPanel(reviews[next].id, { replace: true });
-    },
-    { capture: true },
-  );
-
-  useEffect(() => {
-    setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
-  }, [reviews.length]);
-
-  // the same keys as the inbox: j/k move, enter opens, / searches
+  // in the search field: Escape leaves it, and Enter leaves it for the
+  // results, so that J, K and Enter work on them
   useWindowKey((event) => {
     if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
     const el = event.target as HTMLElement | null;
-    const typing = isTyping(el);
-    if (event.key === "/" && !typing) {
-      event.preventDefault();
-      search.current?.focus();
-      return;
-    }
-    if (typing && el) {
+    if (isTyping(el) && el) {
       if (composing(event)) return;
       if (event.key === "Escape") el.blur();
       // Enter leaves the field for the results, so J, K and Enter work on them
@@ -223,21 +185,9 @@ export function History() {
         el.blur();
         setFocused(0);
       }
-      return;
     }
-    if (event.key === "j" || event.key === "k") keyboard.current = true;
-    if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
-    if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-    if (event.key === "Enter" && reviews[focused] && !openId) open(reviews[focused].id);
   });
 
-  // the row lit is scrolled to, and J and K move the focus with it, so that
-  // a screen reader says which row it is on
-  useEffect(() => {
-    const row = document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`);
-    row?.scrollIntoView({ block: "nearest" });
-    if (keyboard.current) row?.focus({ preventScroll: true });
-  }, [focused]);
   const repos = data?.facets?.repos ?? [];
   const now = Date.now();
 
@@ -277,7 +227,7 @@ export function History() {
                   aria-current={r.id === openId ? "true" : undefined}
                   data-history-row={i}
                   data-testid="history-row"
-                  onMouseEnter={() => !keyboard.current && !menu && setFocused(i)}
+                  onMouseEnter={() => !menu && hover(i)}
                 >
                   <span className={`review-row-marker is-ended status-${outcome.tone}`} aria-label={outcome.label} />
                   <span className="review-row-main">

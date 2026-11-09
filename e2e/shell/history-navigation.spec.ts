@@ -101,3 +101,21 @@ test("J and K beside the history move the highlight, not the row a scroll brings
   await expect(page.locator('[data-testid="history-row"].is-focused')).toHaveCount(1);
   await expect(rows.nth(19)).toHaveClass(/is-focused/);
 });
+
+test("J and K wrap around at the ends of the history", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = Date.now();
+  for (const title of [`Wrap first ${run}`, `Wrap second ${run}`]) {
+    const review = await createReview(page.request, { title });
+    await decide(page.request, review.id, { decisions: [], undecided: [1, 2] });
+  }
+  await page.goto(`/#/?tab=history&q=${run}`);
+  const rows = page.getByTestId("history-row");
+  await expect(rows).toHaveCount(2);
+  const lit = page.locator('[data-testid="history-row"].is-focused');
+  await expect(lit).toContainText("Wrap second");
+  await page.locator("body").press("k");
+  await expect(lit).toContainText("Wrap first");
+  await page.locator("body").press("j");
+  await expect(lit).toContainText("Wrap second");
+});

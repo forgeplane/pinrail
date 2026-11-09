@@ -1059,3 +1059,17 @@ test("Settings has a Work items page with the switch that closes parents", async
   await close.click();
   await settingSaved(request, (s) => s.items.close_parents, true);
 });
+
+test("J and K wrap around at the ends of the list", async ({ page, request }) => {
+  const repo = fresh("wrap");
+  const first = await add(request, repo, "First");
+  const second = await add(request, repo, "Second");
+  await open(page, repo);
+  await expect(rows(page)).toHaveCount(2);
+  const lit = page.locator(".item-row.is-focused");
+  await expect(lit).toHaveAttribute("data-key", first.key);
+  await page.locator("body").press("k");
+  await expect(lit).toHaveAttribute("data-key", second.key);
+  await page.locator("body").press("j");
+  await expect(lit).toHaveAttribute("data-key", first.key);
+});

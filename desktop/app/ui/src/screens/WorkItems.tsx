@@ -30,6 +30,8 @@ import { useLive, aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { useWindowKey } from "../lib/useWindowKey";
+import { useListKeys } from "../lib/useListKeys";
+import { useSlashSearch } from "../lib/useSlashSearch";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -82,7 +84,6 @@ export function WorkItems() {
   const filtered = !!(query || status || scope || by || waiting);
   const [items, setItems] = useState<WorkItem[] | null>(null);
   // each project's repositories, by its id: where an item dropped on it goes
-  const [focused, setFocused] = useState(0);
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
   const [reloads, setReloads] = useState(0);
@@ -336,25 +337,17 @@ export function WorkItems() {
   // the quick add's field, opened by C or a click
   const [adding, setAdding] = useState(false);
 
-  // the focused row stays in view as J and K move it
-  const list = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    list.current?.querySelector(`[data-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [focused]);
-  useEffect(() => {
-    if (focused >= rows.length && rows.length) setFocused(rows.length - 1);
-  }, [rows.length, focused]);
-  // the open item is focused, however it was opened, so J and K move on from
-  // it; once per item, so a live update does not take the focus from a hovered row
-  const focusedOpen = useRef<string | null>(null);
-  useEffect(() => {
-    if (!openKey) focusedOpen.current = null;
-    if (!openKey || focusedOpen.current === openKey) return;
-    const at = rows.findIndex((r) => r.item.key === openKey);
-    if (at < 0) return;
-    focusedOpen.current = openKey;
-    setFocused(at);
-  }, [openKey, rows]);
+  // J, K and Enter, and walking the side panel, as in the other lists
+  const search = useRef<HTMLInputElement>(null);
+  const { focused, hover } = useListKeys({
+    items: rows,
+    keyOf: (r) => r.item.key,
+    openKey,
+    onOpen: (r) => open(r.item),
+    onWalk: (r) => openKeyed(r.item.key),
+    rowOf: (i) => document.querySelector<HTMLElement>(`[data-testid="item-row"][data-row="${i}"]`),
+  });
+  useSlashSearch(search);
 
   // J and K move, and open what they reach while the panel is open; Enter opens, / searches, C adds; S, D and X change the
   // focused item: claimed or released, done, cancelled
@@ -383,24 +376,7 @@ export function WorkItems() {
     if (isTyping(el)) return;
     const at = rows[focused]?.item;
     const key = event.key.toLowerCase();
-    if (event.key === "/") {
-      event.preventDefault();
-      document.querySelector<HTMLInputElement>(".work-items input[type=search]")?.focus();
-    } else if ((key === "j" || key === "k") && rows.length) {
-      // with the panel open they step from the open item, wherever the
-      // pointer has moved the highlight, and the panel follows
-      const opened = openKey ? rows.findIndex((r) => r.item.key === openKey) : -1;
-      const from = opened >= 0 ? opened : focused;
-      const next = key === "j" ? Math.min(from + 1, rows.length - 1) : Math.max(from - 1, 0);
-      // the focus moves with the highlight, so that a screen reader says
-      // which row it is on
-      window.requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>(`[data-testid="item-row"][data-row="${next}"]`)?.focus(),
-      );
-      setFocused(next);
-      if (openKey && rows[next].item.key !== openKey) openKeyed(rows[next].item.key);
-    } else if (event.key === "Enter" && at) open(at);
-    else if (key === "c" && !event.shiftKey) {
+    if (key === "c" && !event.shiftKey) {
       event.preventDefault();
       setAdding(true);
     } else if (key === "s" && at) void change(at, { claim: at.status === "in_progress" ? "release" : "take" });
@@ -429,7 +405,7 @@ export function WorkItems() {
   // that a memoized row draws again only when its own props change; each
   // calls the page's latest state.
   const rowHandlers: ItemRowActions = {
-    hover: (index) => setFocused(index),
+    hover: (index) => hover(index),
     open: (item) => open(item),
     toggleFold: (key) => toggleFold(key),
     dragStart: (event, item, group) => {
@@ -567,6 +543,7 @@ export function WorkItems() {
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
               <input
+                ref={search}
                 autoCorrect="off"
                 autoCapitalize="off"
                 type="search"
@@ -640,7 +617,7 @@ export function WorkItems() {
             )}
           </EmptyState>
         ) : (
-          <div className="inbox-groups item-groups" ref={list}>
+          <div className="inbox-groups item-groups">
             {dragging?.parent ? (
               <div
                 className={`item-top-drop ${dropOn === "" ? "is-drop" : ""}`}

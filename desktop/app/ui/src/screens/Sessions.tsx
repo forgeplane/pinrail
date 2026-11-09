@@ -26,6 +26,8 @@ import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import { ReviewView } from "./ReviewScreen";
 import { useWindowKey } from "../lib/useWindowKey";
+import { useListKeys } from "../lib/useListKeys";
+import { useSlashSearch } from "../lib/useSlashSearch";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -62,7 +64,6 @@ export function Sessions() {
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
   const [data, setData] = useState<Awaited<ReturnType<typeof api.sessions>> | null>(null);
-  const [focused, setFocused] = useState(0);
 
   const [debounced, setDebounced] = useState(query);
   useEffect(() => {
@@ -151,58 +152,32 @@ export function Sessions() {
     return openKey && at > 0 ? { agent: openKey.slice(0, at), id: openKey.slice(at + 1) } : null;
   }, [openKey]);
 
-  // the focus follows the session open in the side panel
-  useEffect(() => {
-    if (!openKey) return;
-    const at = sessions.findIndex((s) => keyOf(s) === openKey);
-    if (at >= 0) setFocused(at);
-  }, [openKey, sessions]);
-
-  // With a session open beside the list, J and K open the next and previous
-  // session, wrapping around at the ends of the page, and Esc closes it.
+  // J, K and Enter, and walking the side panel, as in the other lists
+  const search = useRef<HTMLInputElement>(null);
+  const { focused, setFocused, hover } = useListKeys({
+    items: sessions,
+    keyOf,
+    openKey,
+    onOpen: (s) => open(s),
+    onWalk: (s) => openInPanel(keyOf(s), { replace: true }),
+    rowOf: (i) => document.querySelector<HTMLElement>(`[data-testid="session-row"][data-row="${i}"]`),
+  });
+  useSlashSearch(search);
+  // Esc closes the session open beside the list
   useWindowKey(
     (event) => {
-      if (modalOpen() || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      const el = event.target as HTMLElement | null;
-      if (isTyping(el)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closePanel();
-        return;
-      }
-      if ((event.key !== "j" && event.key !== "k") || !sessions.length) return;
+      if (event.key !== "Escape" || modalOpen() || isTyping(event.target)) return;
       event.preventDefault();
-      event.stopImmediatePropagation();
-      const at = sessions.findIndex((s) => keyOf(s) === openKey);
-      const next = at < 0 ? 0 : (at + (event.key === "j" ? 1 : sessions.length - 1)) % sessions.length;
-      if (keyOf(sessions[next]) !== openKey) openInPanel(keyOf(sessions[next]), { replace: true });
+      closePanel();
     },
     { capture: true, enabled: !!openKey },
   );
 
-  // the focused row stays in view as J and K move it
-  const list = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    list.current?.children[focused]?.scrollIntoView({ block: "nearest" });
-  }, [focused]);
-
-  // the keys of the other lists: j and k move, Enter opens, / searches
+  // E archives the focused row; with a session open, the thread takes it
   useWindowKey((event) => {
-    if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
-    const el = event.target as HTMLElement | null;
-    const typing = isTyping(el);
-    if (event.key === "/" && !typing) {
-      event.preventDefault();
-      document.querySelector<HTMLInputElement>(".sessions input[type=search]")?.focus();
-      return;
-    }
-    if (typing) return;
-    if (event.key === "j") setFocused((f) => Math.min(f + 1, sessions.length - 1));
-    if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-    if (event.key === "Enter" && sessions[focused] && !openKey) open(sessions[focused]);
-    // E archives the focused row; with a session open, the thread takes it
-    if ((event.key === "e" || event.key === "E") && !event.shiftKey && sessions[focused] && !openKey)
-      toggleArchive(sessions[focused]);
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || modalOpen()) return;
+    if (isTyping(event.target) || openKey) return;
+    if ((event.key === "e" || event.key === "E") && sessions[focused]) toggleArchive(sessions[focused]);
   });
 
   /** A session's row; `i` is its place in the order J and K walk, and
@@ -218,8 +193,9 @@ export function Sessions() {
         onClick={(event) => openFromLink(event, s)}
         className={`review-row session-row ${waiting ? "is-waiting" : ""} ${s.archived_at ? "is-archived" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
         aria-current={keyOf(s) === openKey ? "true" : undefined}
-        onMouseEnter={() => setFocused(i)}
+        onMouseEnter={() => hover(i)}
         data-testid="session-row"
+        data-row={i}
       >
         <AgentIcon requestedBy={s.agent} size={15} />
         <span className="review-row-main">
@@ -308,6 +284,7 @@ export function Sessions() {
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
               <input
+                ref={search}
                 autoCorrect="off"
                 autoCapitalize="off"
                 type="search"
@@ -349,7 +326,7 @@ export function Sessions() {
         ) : (
           <>
             {groups ? (
-              <div className="inbox-groups" ref={list}>
+              <div className="inbox-groups">
                 {groups.map(([key, items]) => (
                   <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
                     <summary data-testid="inbox-group-heading">
@@ -360,9 +337,7 @@ export function Sessions() {
                 ))}
               </div>
             ) : (
-              <div className="inbox-list" ref={list}>
-                {sessions.map((s, i) => row(s, i))}
-              </div>
+              <div className="inbox-list">{sessions.map((s, i) => row(s, i))}</div>
             )}
             <Pager
               page={page}

@@ -18,6 +18,8 @@ import { InboxHead, tabOf, type Layout } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
 import { useWindowKey } from "../lib/useWindowKey";
+import { useListKeys } from "../lib/useListKeys";
+import { useSlashSearch } from "../lib/useSlashSearch";
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -44,7 +46,6 @@ function Waiting() {
   const plugin = params.get("plugin") ?? "";
   const rounds = params.get("rounds") ?? "";
   const starred = params.get("starred") === "1";
-  const [focused, setFocused] = useState(0);
   const layout: Layout = prefs.inbox.layout;
   const setLayout = (next: Layout) => {
     void update({ inbox: { layout: next } });
@@ -64,17 +65,6 @@ function Waiting() {
   }, [loaded, update]);
   const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
-  // While the keyboard moves the focus the list scrolls under a still
-  // pointer, and the row that slides under it must not take the focus
-  // back; the next real movement of the pointer hands it over again.
-  const keyboard = useRef(false);
-  useEffect(() => {
-    const onMove = () => {
-      keyboard.current = false;
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
 
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
@@ -129,23 +119,6 @@ function Waiting() {
   // names the repository on each row
   const mixed = useMemo(() => mixedGroups(grouped(reviews, groupOf), (r) => r.origin.repo), [reviews, groupOf]);
 
-  useEffect(() => {
-    setFocused((f) => Math.min(f, Math.max(0, shown.length - 1)));
-  }, [shown.length]);
-
-  // The highlight follows the review open in the side panel, whether opened
-  // by a click, a shortcut or after a decision. A pointer over another row
-  // moves the highlight only once it moves.
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
-  useEffect(() => {
-    if (!openId) return;
-    const at = shownRef.current.findIndex((r) => r.id === openId);
-    if (at < 0) return;
-    keyboard.current = true;
-    setFocused(at);
-  }, [openId]);
-
   /** The link of a review's row: the side panel, keeping the filters, or its page. */
   const hrefFor = useCallback(
     (id: string): To => {
@@ -197,44 +170,27 @@ function Waiting() {
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
 
-  // With a review open beside the list, J and K move to the next and
-  // previous review, from the list or from the view, which forwards them;
-  // ⌥↓ and ⌥↑ do too. All of them wrap around at the ends. The listener uses
-  // the capture phase, so it runs before the layout's handler for waiting
-  // reviews, which then ignores the key.
-  useWindowKey(
-    (event) => {
-      if (!openId || modalOpen() || hasMod(event)) return;
-      const walk = event.altKey && !event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp");
-      const step = !event.altKey && !event.shiftKey && (event.key === "j" || event.key === "k");
-      if (!walk && !step) return;
-      const el = event.target as HTMLElement | null;
-      if (step && isTyping(el)) return;
-      const list = orderedRef.current;
-      if (!list.length) return;
-      event.preventDefault();
-      const at = list.findIndex((r) => r.id === openId);
-      const down = event.key === "ArrowDown" || event.key === "j";
-      const next = at < 0 ? 0 : (at + (down ? 1 : list.length - 1)) % list.length;
-      if (list[next].id !== openId) openInPanel(list[next].id, { replace: true });
-    },
-    { capture: true },
-  );
+  // J, K and Enter, and walking the side panel through every page of the
+  // list, as in the other lists
+  const { focused, setFocused, hover } = useListKeys({
+    items: shown,
+    walkItems: ordered,
+    // the waiting reviews, which ⌥↓ and ⌥↑ go to everywhere
+    altWalk: true,
+    keyOf: (r) => r.id,
+    openKey: openId,
+    onOpen: (r) => navigate(hrefFor(r.id)),
+    onWalk: (r) => openInPanel(r.id, { replace: true }),
+    rowOf: (i) => document.querySelector<HTMLElement>(`[data-testid="review-row"][data-row="${i}"]`),
+  });
+  useSlashSearch(search);
 
   useWindowKey((event) => {
     // the inbox's keys are not for a dialog in front of it
     if (modalOpen()) return;
     // the open review handles the other keys: the panel handles discard,
     // and the view may use Enter
-    if (openId) {
-      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
-        const el = event.target as HTMLElement | null;
-        if (isTyping(el)) return;
-        event.preventDefault();
-        search.current?.focus();
-      }
-      return;
-    }
+    if (openId) return;
     if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
       // the key must not land in the reason field that opens
       event.preventDefault();
@@ -243,38 +199,14 @@ function Waiting() {
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const el = event.target as HTMLElement | null;
-    const typing = isTyping(el);
-    if (event.key === "/" && !typing) {
-      event.preventDefault();
-      search.current?.focus();
-      return;
-    }
-    if (typing) {
-      if (event.key === "Escape") (el as HTMLElement).blur();
-      return;
-    }
-    if (discarding) return;
-    if (event.key === "j" || event.key === "k") keyboard.current = true;
-    // wrap around at the ends, from the last row to the first and back
-    if (shown.length && event.key === "j") setFocused((f) => (f + 1) % shown.length);
-    if (shown.length && event.key === "k") setFocused((f) => (f - 1 + shown.length) % shown.length);
-    if (event.key === "Enter" && shown[focused]) navigate(hrefFor(shown[focused].id));
+    if (isTyping(el) && event.key === "Escape") (el as HTMLElement).blur();
   });
-
-  // J and K move the focus with the highlight, so that a screen reader
-  // says which row it is on
-  useEffect(() => {
-    if (keyboard.current)
-      document.querySelector<HTMLElement>(`[data-testid="review-row"][data-row="${focused}"]`)?.focus();
-  }, [focused]);
 
   // What a row does, as the same functions from one render to the next, so
   // that a memoized row draws again only when its own props change; each
   // calls the page's latest state.
   const rowHandlers: InboxRowActions = {
-    hover: (here) => {
-      if (!keyboard.current) setFocused(here);
-    },
+    hover: (here) => hover(here),
     open: (event, id) => openFromLink(event, id),
     discard: (review) => setDiscarding(review),
   };
