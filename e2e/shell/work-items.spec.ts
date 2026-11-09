@@ -1017,3 +1017,15 @@ test("H on an item with work in progress under it asks first", async ({ page, re
   await expect.poll(() => status(parent.key)).toBe("on_hold");
   expect(await status(child.key)).toBe("open");
 });
+
+test("a row's fold button is not inside the row's button, and J focuses the row", async ({ page, request }) => {
+  const repo = fresh("a11y");
+  const parent = await add(request, repo, "Parent");
+  await add(request, repo, "Child", { parent: parent.key });
+  await open(page, repo);
+  const fold = page.getByRole("button", { name: `Hide the sub-items of ${parent.key}` });
+  await expect(fold).toBeVisible();
+  expect(await fold.evaluate((el) => el.parentElement?.closest('[role="button"]') === null)).toBe(true);
+  await page.locator("body").press("j");
+  await expect(page.locator(".item-row.is-focused")).toBeFocused();
+});

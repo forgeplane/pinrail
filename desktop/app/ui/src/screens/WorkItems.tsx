@@ -392,6 +392,11 @@ export function WorkItems() {
       const opened = openKey ? rows.findIndex((r) => r.item.key === openKey) : -1;
       const from = opened >= 0 ? opened : focused;
       const next = key === "j" ? Math.min(from + 1, rows.length - 1) : Math.max(from - 1, 0);
+      // the focus moves with the highlight, so that a screen reader says
+      // which row it is on
+      window.requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(`[data-testid="item-row"][data-row="${next}"]`)?.focus(),
+      );
       setFocused(next);
       if (openKey && rows[next].item.key !== openKey) openKeyed(rows[next].item.key);
     } else if (event.key === "Enter" && at) open(at);

@@ -257,3 +257,22 @@ test("a panel closed while its edge is dragged leaves the page as it was", async
   await expect(page.locator("body")).not.toHaveClass(/is-resizing/);
   await page.mouse.up();
 });
+
+test("J and K move the focus to the row they light, and closing the panel gives it back", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  await createReview(request, { title: "Focus: first" });
+  await createReview(request, { title: "Focus: second" });
+  await page.goto("/#/");
+  await expect(page.getByTestId("review-row")).toHaveCount(2);
+  await page.keyboard.press("j");
+  const lit = page.locator(".review-row.is-focused");
+  await expect(lit).toBeFocused();
+  const title = await lit.locator(".review-row-title").textContent();
+  // the panel opens from the row, and Escape closes it and returns there
+  await page.keyboard.press("Enter");
+  await expect(panel(page)).toBeVisible();
+  await page.locator("body").press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByTestId("review-row").filter({ hasText: title! })).toBeFocused();
+});

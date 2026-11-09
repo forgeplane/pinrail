@@ -6333,14 +6333,22 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-row.is-closed {
   opacity: 0.55;
 }
-.item-fold button {
+/* a row and its fold button, which sits over the row's first column */
+.item-line {
+  position: relative;
+}
+.item-fold-toggle {
+  position: absolute;
+  top: 50%;
   display: inline-flex;
+  width: 14px;
   padding: 0;
   border: 0;
   background: none;
   color: var(--faint);
+  transform: translateY(-50%);
 }
-.item-fold button:hover {
+.item-fold-toggle:hover {
   color: var(--text);
 }
 .item-status {

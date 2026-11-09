@@ -231,8 +231,12 @@ export function History() {
     if (event.key === "Enter" && reviews[focused] && !openId) open(reviews[focused].id);
   });
 
+  // the row lit is scrolled to, and J and K move the focus with it, so that
+  // a screen reader says which row it is on
   useEffect(() => {
-    document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
+    const row = document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`);
+    row?.scrollIntoView({ block: "nearest" });
+    if (keyboard.current) row?.focus({ preventScroll: true });
   }, [focused]);
   const repos = data?.facets?.repos ?? [];
   const now = Date.now();

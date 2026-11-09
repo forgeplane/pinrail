@@ -261,6 +261,13 @@ function Waiting() {
     if (event.key === "Enter" && shown[focused]) navigate(hrefFor(shown[focused].id));
   });
 
+  // J and K move the focus with the highlight, so that a screen reader
+  // says which row it is on
+  useEffect(() => {
+    if (keyboard.current)
+      document.querySelector<HTMLElement>(`[data-testid="review-row"][data-row="${focused}"]`)?.focus();
+  }, [focused]);
+
   // What a row does, as the same functions from one render to the next, so
   // that a memoized row draws again only when its own props change; each
   // calls the page's latest state.

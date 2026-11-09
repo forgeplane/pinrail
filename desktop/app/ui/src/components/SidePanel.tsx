@@ -2,7 +2,7 @@
 // session's thread, and an edge that resizes the panel by dragging or with
 // the arrow keys. The lists share one width, stored on this machine.
 
-import { type ReactNode, type RefObject } from "react";
+import { useEffect, type ReactNode, type RefObject } from "react";
 import { useResizableWidth } from "../lib/useResizableWidth";
 
 /** The side panel's width, stored on this machine. */
@@ -37,6 +37,15 @@ export function SidePanel({
     grows: "left",
     anchor: () => split.current?.getBoundingClientRect().right ?? window.innerWidth,
   });
+  // the focus goes back to what opened the panel, such as a row, when it
+  // closes
+  useEffect(() => {
+    const opener = document.activeElement;
+    return () => {
+      if (opener instanceof HTMLElement && opener !== document.body && opener.isConnected)
+        opener.focus({ preventScroll: true });
+    };
+  }, []);
   // the stored width, within the room there is now
   const clampWidth = (w: number) => {
     const room = split.current?.clientWidth ?? window.innerWidth;

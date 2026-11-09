@@ -44,6 +44,7 @@ export const InboxRow = memo(function InboxRow({ review, here, focused, open, sh
       aria-current={open ? "true" : undefined}
       onMouseEnter={() => actions.hover(here)}
       data-testid="review-row"
+      data-row={here}
     >
       {/* questions an agent asked are marked apart from the reviews it sent */}
       {review.kind === "question" ? (
