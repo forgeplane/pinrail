@@ -317,6 +317,31 @@ test("each review's status shows as a badge on its plugin's icon", async ({ page
     // the plugin's own icon, not a generic one
     await expect(link.locator(".plugin-icon")).toBeVisible();
   }
+  // what waits comes first, then what ended, newest first, in grey
+  await expect(reviews.locator(".item-related-title")).toHaveText([
+    "Still waiting",
+    "Withdrawn one",
+    "Discarded one",
+    "Decided one",
+  ]);
+  const color = (title: string) =>
+    reviews
+      .getByRole("link", { name: new RegExp(title) })
+      .locator(".item-related-title")
+      .evaluate((el) => getComputedStyle(el).color);
+  const [text, dim] = await page.evaluate(() => {
+    const probe = (v: string) => {
+      const el = document.createElement("span");
+      el.style.color = `var(${v})`;
+      document.body.append(el);
+      const c = getComputedStyle(el).color;
+      el.remove();
+      return c;
+    };
+    return [probe("--text"), probe("--dim")];
+  });
+  expect(await color("Still waiting")).toBe(text);
+  expect(await color("Decided one")).toBe(dim);
 });
 
 test("the person comments, an agent's comment shows live, and the activity reads in order", async ({

@@ -6891,6 +6891,10 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   flex: 1;
   min-width: 0;
 }
+/* a review that ended reads quieter than one that waits on the person */
+.item-related a.is-ended .item-related-title {
+  color: var(--dim);
+}
 .item-review-kind {
   flex: none;
   color: var(--faint);

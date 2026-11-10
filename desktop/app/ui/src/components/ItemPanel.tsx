@@ -404,9 +404,10 @@ export function ItemPanel({
         <section className="item-section" aria-label="Reviews">
           <h3>Reviews</h3>
           <ul className="item-related">
-            {item.reviews.map((r) => (
+            {waitingFirst(item.reviews).map((r) => (
               <li key={r.id}>
                 <Link
+                  className={r.status === "pending" ? undefined : "is-ended"}
                   to={
                     // a question opens in its session, where it is answered
                     r.kind === "question" && r.requested_by && r.session
@@ -597,6 +598,14 @@ function TitleField({
       onBlur={onDone}
     />
   );
+}
+
+/** An item's reviews as its panel lists them: those that wait on the person
+ *  first, then those that ended, each newest first. A review's id grows
+ *  with the time it was sent. */
+function waitingFirst<R extends { id: string; status: string }>(reviews: R[]): R[] {
+  const ended = (r: R) => (r.status === "pending" ? 0 : 1);
+  return [...reviews].sort((a, b) => ended(a) - ended(b) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 }
 
 /** The description as Markdown source: ⌘Enter saves, Esc leaves. */
