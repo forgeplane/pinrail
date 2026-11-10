@@ -260,12 +260,63 @@ test("the reviews and sessions of an item are listed and lead to them", async ({
   const review = (await sent.json()) as { id: string };
   await openItem(page, repo, item.key);
   const reviews = panel(page).getByRole("region", { name: "Reviews" });
-  await expect(reviews.getByRole("link", { name: /Theme loader/ })).toContainText("pending");
+  // its status is a badge on the plugin's icon, named for the status
+  await expect(reviews.getByRole("link", { name: /Theme loader/ }).getByRole("img", { name: "Waiting" })).toBeVisible();
   await expect(panel(page).getByRole("region", { name: "Sessions" })).toContainText("s-panel");
   await reviews.getByRole("link", { name: /Theme loader/ }).click();
   await expect(page).toHaveURL(new RegExp(review.id));
   // the inbox is shared with the other tests
   await request.post(`${core}/api/v1/reviews/${review.id}/discard`, { data: { reason: "spec cleanup" } });
+});
+
+test("each review's status shows as a badge on its plugin's icon", async ({ page, request }) => {
+  const repo = fresh("statuses");
+  const item = await add(request, repo, "Theme loader");
+  const send = async (title: string) => {
+    const sent = await request.post(`${core}/api/v1/reviews`, {
+      data: {
+        plugin: "list",
+        title,
+        origin: { repo },
+        requested_by: "claude-code",
+        session: "s-panel",
+        items: [item.key],
+        payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
+      },
+    });
+    expect(sent.status(), await sent.text()).toBe(201);
+    return ((await sent.json()) as { id: string }).id;
+  };
+  await send("Still waiting");
+  const decided = await send("Decided one");
+  const discarded = await send("Discarded one");
+  const withdrawn = await send("Withdrawn one");
+  const ok = async (response: Promise<{ status(): number; text(): Promise<string> }>) => {
+    const r = await response;
+    expect(r.status(), await r.text()).toBe(200);
+  };
+  await ok(
+    request.post(`${core}/api/v1/reviews/${decided}/decision`, {
+      data: { data: { decisions: [{ id: 1, action: "accept" }], undecided: [] } },
+      headers: { origin: shellOrigin },
+    }),
+  );
+  await ok(request.post(`${core}/api/v1/reviews/${discarded}/discard`, { data: { reason: "not needed" } }));
+  await ok(request.post(`${core}/api/v1/reviews/${withdrawn}/withdraw`, { data: { reason: "superseded" } }));
+
+  await openItem(page, repo, item.key);
+  const reviews = panel(page).getByRole("region", { name: "Reviews" });
+  for (const [title, status] of [
+    ["Still waiting", "Waiting"],
+    ["Decided one", "Decided"],
+    ["Discarded one", "Discarded"],
+    ["Withdrawn one", "Withdrawn"],
+  ]) {
+    const link = reviews.getByRole("link", { name: new RegExp(title) });
+    await expect(link.getByRole("img", { name: status })).toBeVisible();
+    // the plugin's own icon, not a generic one
+    await expect(link.locator(".plugin-icon")).toBeVisible();
+  }
 });
 
 test("the person comments, an agent's comment shows live, and the activity reads in order", async ({

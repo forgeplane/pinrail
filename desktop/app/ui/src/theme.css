@@ -6891,20 +6891,46 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   flex: 1;
   min-width: 0;
 }
-.item-review-status {
-  padding: 1px 7px;
-  border-radius: var(--radius-pill);
+.item-review-kind {
+  flex: none;
+  color: var(--faint);
   font-size: var(--text-xs);
-  background: var(--bg-hover);
+}
+/* a review's icon with its status on the corner: see ReviewStatusIcon */
+.review-status-icon {
+  --tone: var(--dim);
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  /* room for the badge, which sticks out past the icon */
+  margin-right: 4px;
   color: var(--dim);
 }
-.item-review-status.is-pending {
-  background: color-mix(in srgb, var(--sev-major) 16%, transparent);
-  color: var(--sev-major);
+.review-status-icon.is-pending {
+  --tone: var(--sev-major);
 }
-.item-review-status.is-decided {
-  background: color-mix(in srgb, var(--ok) 16%, transparent);
-  color: var(--ok);
+.review-status-icon.is-decided {
+  --tone: var(--ok);
+}
+.review-status-icon.is-discarded {
+  --tone: var(--danger);
+}
+.review-status-icon.is-withdrawn {
+  --tone: var(--faint);
+}
+.review-status-badge {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 1.5px var(--bg-panel);
+  color: var(--bg-panel);
 }
 .item-warning {
   margin: 6px 0 0;

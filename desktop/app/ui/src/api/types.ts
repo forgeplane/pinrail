@@ -563,7 +563,7 @@ export type ItemDetail = WorkItem & {
     title: string;
     plugin: string;
     kind: "review" | "question";
-    status: string;
+    status: Status;
     requested_by: string | null;
     /** the agent's session it was sent from */
     session: string | null;

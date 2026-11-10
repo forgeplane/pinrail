@@ -4,7 +4,6 @@
 // comments with what happened around them, in one timeline.
 
 import {
-  Check,
   Copy,
   CornerDownRight,
   ExternalLink,
@@ -12,7 +11,6 @@ import {
   FolderGit2,
   Link2,
   ListOrdered,
-  MessageCircleQuestion,
   MessagesSquare,
   Pencil,
   Trash2,
@@ -40,6 +38,7 @@ import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
 import { useItemPicker } from "./ItemPicker";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
+import { ReviewStatusIcon } from "./ReviewStatusIcon";
 import { Select } from "./Select";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
@@ -415,10 +414,9 @@ export function ItemPanel({
                       : reviewPath(r.id, settings.inbox.open_in)
                   }
                 >
-                  {r.kind === "question" ? <MessageCircleQuestion size={13} /> : <Check size={13} />}
+                  <ReviewStatusIcon review={r} size={14} />
                   <span className="item-related-title truncate">{r.title}</span>
-                  <span className={`item-review-status is-${r.status}`}>{r.status}</span>
-                  <span className="dim">{r.kind === "question" ? "question" : r.plugin}</span>
+                  <span className="item-review-kind">{r.kind === "question" ? "question" : r.plugin}</span>
                 </Link>
               </li>
             ))}
