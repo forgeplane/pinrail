@@ -176,7 +176,7 @@ impl Db {
         &self,
         now: DateTime<Utc>,
     ) -> rusqlite::Result<(Vec<ProjectRow>, Vec<RepoRow>)> {
-        let conn = self.conn();
+        let conn = self.read();
         // a repository with nothing left in it and in no project is not shown
         let mut stmt = conn.prepare(
             "SELECT g.name, g.project_id,
@@ -244,7 +244,7 @@ impl Db {
 
     /// The project a repository is in, if any.
     pub fn project_of_repo(&self, repo: &str) -> rusqlite::Result<Option<ProjectRef>> {
-        let conn = self.conn();
+        let conn = self.read();
         let json: Option<Option<String>> = conn
             .query_row(
                 &format!(
@@ -317,7 +317,7 @@ impl Db {
     /// The hash of a project's PNG, if it has one; `None` when there is no
     /// such project.
     pub fn project_image(&self, id: &str) -> rusqlite::Result<Option<Option<String>>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT image FROM projects WHERE id = ?1",
             params![id],
@@ -404,7 +404,7 @@ impl Db {
     /// The reviews from a repository still waiting at `now`, newest rounds
     /// only, as the inbox lists them.
     pub fn pending_in_repo(&self, repo: &str, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT r.id FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
              WHERE r.repo_id = (SELECT id FROM repos WHERE name = ?1) AND o.review_id IS NULL

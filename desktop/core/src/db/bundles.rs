@@ -63,7 +63,7 @@ impl Db {
     }
 
     pub fn bundle(&self, hash: &str) -> rusqlite::Result<Option<BundleRecord>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT hash, name, version, manifest, size, stored_at
              FROM plugin_bundles WHERE hash = ?1",
@@ -84,7 +84,7 @@ impl Db {
 
     /// The listing a stored bundle's hash was taken over.
     pub fn bundle_listing(&self, hash: &str) -> rusqlite::Result<Option<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT listing FROM plugin_bundle_files WHERE hash = ?1",
             params![hash],
@@ -95,7 +95,7 @@ impl Db {
 
     /// Every stored bundle's hash.
     pub fn bundle_hashes(&self) -> rusqlite::Result<HashSet<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.prepare("SELECT hash FROM plugin_bundles")?
             .query_map([], |r| r.get(0))?
             .collect()

@@ -167,7 +167,7 @@ impl Db {
 
     /// The session's messages, oldest first.
     pub fn messages(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<MessageRow>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM session_messages
              WHERE agent = ?1 AND session = ?2 ORDER BY id"

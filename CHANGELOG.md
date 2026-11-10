@@ -54,6 +54,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Reads from the database no longer wait for a write or for another slow
+  read, so the app and the CLI answer at once while a large list loads.
 - The app and plugin views have the system's own scrollbars. On macOS
   they are thin, drawn over the content and shown only while it
   scrolls, as your scroll bar setting says, so a list's width no longer

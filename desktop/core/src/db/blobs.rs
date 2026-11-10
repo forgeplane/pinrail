@@ -9,7 +9,7 @@ use super::Db;
 impl Db {
     /// The size of a stored blob, or none.
     pub fn blob_size(&self, sha256: &str) -> rusqlite::Result<Option<u64>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT size FROM blobs WHERE sha256 = ?1",
             params![sha256],
@@ -64,7 +64,7 @@ impl Db {
 
     /// How many blobs are stored, and how many bytes they add up to.
     pub fn blob_totals(&self) -> rusqlite::Result<(u64, u64)> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT count(*), coalesce(sum(size), 0) FROM blobs",
             [],

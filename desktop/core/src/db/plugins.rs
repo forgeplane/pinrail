@@ -45,7 +45,7 @@ fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
 impl Db {
     /// Every installed plugin, by full name.
     pub fn installs(&self) -> rusqlite::Result<Vec<InstallRecord>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.prepare(&format!(
             "SELECT {INSTALL_COLUMNS} FROM plugin_installs ORDER BY name"
         ))?
@@ -54,7 +54,7 @@ impl Db {
     }
 
     pub fn install(&self, name: &str) -> rusqlite::Result<Option<InstallRecord>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             &format!("SELECT {INSTALL_COLUMNS} FROM plugin_installs WHERE name = ?1"),
             params![name],
@@ -130,7 +130,7 @@ impl Db {
 
     /// The installed plugins whose skill the person allowed.
     pub fn skill_grants(&self) -> rusqlite::Result<std::collections::HashSet<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.prepare("SELECT name FROM plugin_skill_grants")?
             .query_map([], |r| r.get(0))?
             .collect()

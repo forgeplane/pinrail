@@ -761,7 +761,7 @@ pub(super) fn move_in(
 impl Db {
     /// The item `item` names, in the repository `repo` for a number alone.
     pub fn item(&self, item: &ItemRef, repo: Option<&str>) -> Outcome<WorkItem> {
-        let conn = self.conn();
+        let conn = self.read();
         let id = match resolve(&conn, item, repo)? {
             Ok(id) => id,
             Err(refused) => return Ok(Err(refused)),
@@ -856,7 +856,7 @@ impl Db {
             columns(!filters.summary),
             wheres.join(" AND ")
         );
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params_from_iter(args.iter()), row_to_item)?;
         rows.collect()
@@ -864,7 +864,7 @@ impl Db {
 
     /// What an item depends on, and what depends on it, each by key.
     pub fn relations(&self, id: &str) -> rusqlite::Result<(Vec<Related>, Vec<Related>)> {
-        let conn = self.conn();
+        let conn = self.read();
         let related = |sql: &str| -> rusqlite::Result<Vec<Related>> {
             let mut stmt = conn.prepare(sql)?;
             let mut rows: Vec<Related> = stmt

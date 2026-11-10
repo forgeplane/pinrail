@@ -304,7 +304,7 @@ impl Db {
     /// The projects of all the sessions, sorted, and whether a session has
     /// none: what the project filter offers, whatever it filters by.
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT DISTINCT g.name FROM sessions s JOIN repos g ON g.id = s.repo_id ORDER BY 1",
         )?;
@@ -372,7 +372,7 @@ impl Db {
             false => format!(" WHERE {}", wheres.join(" AND ")),
         };
         let sessions = format!("{}{wheres}", select());
-        let conn = self.conn();
+        let conn = self.read();
         let total: i64 = conn.query_row(
             &format!("SELECT COUNT(*) FROM ({sessions})"),
             params_from_iter(args.iter()),
@@ -398,7 +398,7 @@ impl Db {
         now: DateTime<Utc>,
     ) -> rusqlite::Result<Option<SessionRow>> {
         let sql = format!("{} WHERE s.agent = ?2 AND s.id = ?3", select());
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             &sql,
             params![crate::reviews::iso(now), agent, id],
@@ -513,7 +513,7 @@ impl Db {
             sql.push_str(&format!(" AND st.text LIKE ?{} ESCAPE '\\'", args.len()));
         }
         sql.push_str(&format!(" ORDER BY st.id DESC LIMIT {limit}"));
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params_from_iter(args.iter()), |row| {
             Ok(StageRow {
@@ -530,7 +530,7 @@ impl Db {
 
     /// The session's statuses, oldest first.
     pub fn statuses(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<StatusRow>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT t.id, t.text, t.kind, t.created_at FROM session_statuses t
              WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.id",

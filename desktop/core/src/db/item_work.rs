@@ -1031,7 +1031,7 @@ impl Db {
     /// The sessions holding a claim of an item, for an agent's request
     /// that names no item: the items `agent` holds in `session`.
     pub fn session_claims(&self, agent: &str, session: &str) -> rusqlite::Result<Vec<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT id FROM work_items WHERE status = 'in_progress'
                AND claim_agent = ?1 AND claim_session = ?2 ORDER BY id",
@@ -1144,7 +1144,7 @@ impl Db {
 
     /// An item's timeline, oldest first: its changes and its comments.
     pub fn item_timeline(&self, id: &str) -> rusqlite::Result<Vec<Entry>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT id, kind, actor, session, at, attrs FROM work_item_events
               WHERE item_id = ?1 ORDER BY id",
@@ -1188,7 +1188,7 @@ impl Db {
         agent: &str,
         session: &str,
     ) -> rusqlite::Result<Vec<(Entry, super::ItemTag)>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(SESSION_ITEM_EVENTS)?;
         stmt.query_map(params![agent, session], |r| {
             Ok((
@@ -1220,7 +1220,7 @@ impl Db {
         agent: &str,
         session: &str,
     ) -> rusqlite::Result<Vec<(Comment, super::ItemTag)>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(SESSION_COMMENTS)?;
         let rows = stmt
             .query_map(params![agent, session], |r| {
@@ -1258,7 +1258,7 @@ impl Db {
     /// The reviews and questions of an item, by their newest rounds,
     /// oldest first.
     pub fn item_reviews(&self, id: &str, now: DateTime<Utc>) -> rusqlite::Result<Vec<ItemReview>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT r.id, r.title, r.plugin, r.kind,
                CASE WHEN o.kind IS NOT NULL THEN o.kind
@@ -1292,7 +1292,7 @@ impl Db {
     /// commented on it or sent a review for it, with each one's latest
     /// status.
     pub fn item_sessions(&self, id: &str) -> rusqlite::Result<Vec<ItemSession>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "WITH worked(agent, session) AS (
                SELECT actor, session FROM work_item_events WHERE item_id = ?1 AND session IS NOT NULL
@@ -1325,12 +1325,12 @@ impl Db {
 
     /// The files of an item's body.
     pub fn item_body_files(&self, id: &str) -> rusqlite::Result<Vec<ReviewAttachment>> {
-        files(&self.conn(), "item_id = ?1 AND comment_id IS NULL", id)
+        files(&self.read(), "item_id = ?1 AND comment_id IS NULL", id)
     }
 
     /// One of an item's files, of its body or of a comment, by name.
     pub fn item_file(&self, id: &str, name: &str) -> rusqlite::Result<Option<ReviewAttachment>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT name, sha256, size, media_type FROM work_item_files WHERE item_id = ?1 AND name = ?2",
             params![id, name],
@@ -1353,7 +1353,7 @@ impl Db {
 
     /// The ids of the items a review belongs to.
     pub fn items_of_review(&self, review: &str) -> rusqlite::Result<Vec<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt =
             conn.prepare("SELECT item_id FROM review_items WHERE review_id = ?1 ORDER BY item_id")?;
         stmt.query_map(params![review], |r| r.get(0))?.collect()

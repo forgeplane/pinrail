@@ -2,10 +2,10 @@
 //! written once; events are appended; the one-ending rule is the primary
 //! key on `outcomes`.
 //!
-//! One connection and one file, in six areas: the migrations that
-//! make the tables, reviews and the queries over them, how a review
-//! ends, the event log, the record of installed plugins, and the blobs
-//! uploaded beside reviews.
+//! One file, written through one connection and read through a few more,
+//! in six areas: the migrations that make the tables, reviews and the
+//! queries over them, how a review ends, the event log, the record of
+//! installed plugins, and the blobs uploaded beside reviews.
 
 mod blobs;
 mod bundles;
@@ -36,15 +36,25 @@ pub use sessions::{
 };
 
 use std::path::Path;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, MutexGuard, PoisonError, TryLockError};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
 use schema::migrate;
 
+/// How many read-only connections a database file is read through.
+const READERS: usize = 4;
+
 #[derive(Debug)]
 pub struct Db {
+    /// the connection every write goes through, one at a time
     conn: Mutex<Connection>,
+    /// read-only connections to the same file, which WAL lets read while a
+    /// write runs; none for a database in memory, which reads through `conn`
+    readers: Vec<Mutex<Connection>>,
+    /// the reader to try first, so reads spread over them
+    next: AtomicUsize,
 }
 
 impl Db {
@@ -55,6 +65,26 @@ impl Db {
         self.conn.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// A connection to read through: a free read-only connection, else
+    /// the next one once it is free. A slow read or a write in progress
+    /// holds up no other read.
+    fn read(&self) -> MutexGuard<'_, Connection> {
+        if self.readers.is_empty() {
+            return self.conn();
+        }
+        let start = self.next.fetch_add(1, Ordering::Relaxed);
+        for k in 0..self.readers.len() {
+            match self.readers[(start + k) % self.readers.len()].try_lock() {
+                Ok(reader) => return reader,
+                Err(TryLockError::Poisoned(poisoned)) => return poisoned.into_inner(),
+                Err(TryLockError::WouldBlock) => {}
+            }
+        }
+        self.readers[start % self.readers.len()]
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
     pub fn open(path: &Path) -> rusqlite::Result<Db> {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -63,7 +93,17 @@ impl Db {
         conn.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;",
         )?;
-        Self::init(conn)
+        let mut db = Self::init(conn)?;
+        // opened once the migrations have made the tables
+        for _ in 0..READERS {
+            let reader = Connection::open_with_flags(
+                path,
+                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            )?;
+            reader.execute_batch("PRAGMA busy_timeout = 5000;")?;
+            db.readers.push(Mutex::new(reader));
+        }
+        Ok(db)
     }
 
     pub fn in_memory() -> rusqlite::Result<Db> {
@@ -76,6 +116,8 @@ impl Db {
         migrate(&conn)?;
         Ok(Db {
             conn: Mutex::new(conn),
+            readers: Vec::new(),
+            next: AtomicUsize::new(0),
         })
     }
 }
@@ -95,5 +137,28 @@ mod tests {
             panic!("a request fails while it holds the connection");
         }));
         assert!(db.installs().is_ok());
+    }
+
+    /// Whether `read` finishes on another thread within a second.
+    fn finishes_soon(db: &std::sync::Arc<Db>, read: fn(&Db) -> bool) -> bool {
+        let db = db.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(read(&db));
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(1)) == Ok(true)
+    }
+
+    #[test]
+    fn a_read_does_not_wait_for_a_write_or_another_read_in_progress() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = std::sync::Arc::new(Db::open(&dir.path().join("pinrail.db")).unwrap());
+        // a long write holds the write connection
+        let write = db.conn();
+        assert!(finishes_soon(&db, |db| db.installs().is_ok()));
+        // and a long read one of the read connections
+        let read = db.read();
+        assert!(finishes_soon(&db, |db| db.installs().is_ok()));
+        drop((write, read));
     }
 }

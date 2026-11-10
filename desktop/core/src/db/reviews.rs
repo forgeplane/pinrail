@@ -300,7 +300,7 @@ fn insert_in(
 
 impl Db {
     pub fn get_review(&self, id: &str) -> rusqlite::Result<Option<Review>> {
-        let conn = self.conn();
+        let conn = self.read();
         let review = conn
             .query_row(
                 &format!("{} WHERE r.id = ?1", select_one(true)),
@@ -327,7 +327,7 @@ impl Db {
 
     /// The plugin a review uses, or None when there is no such review.
     pub fn plugin_of(&self, id: &str) -> rusqlite::Result<Option<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT plugin FROM reviews WHERE id = ?1",
             params![id],
@@ -338,7 +338,7 @@ impl Db {
 
     /// The round that revises this one, if any.
     pub fn newer_round(&self, id: &str) -> rusqlite::Result<Option<String>> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(
             "SELECT id FROM reviews WHERE revises = ?1",
             params![id],
@@ -377,7 +377,7 @@ impl Db {
             .map(|n| format!("?{n}"))
             .collect::<Vec<_>>()
             .join(", ");
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&format!("{} WHERE r.id IN ({marks})", select(false)))?;
         let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
             row_to_review(row, false)
@@ -388,14 +388,14 @@ impl Db {
 
     /// Whether any round of the review this round belongs to is starred.
     pub fn is_starred(&self, id: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row(&is_starred_sql(), params![id], |row| row.get(0))
             .optional()
             .map(|starred| starred.unwrap_or(false))
     }
 
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn();
+        let conn = self.read();
         conn.query_row("SELECT 1 FROM reviews WHERE id = ?1", params![id], |_| {
             Ok(())
         })
@@ -417,7 +417,7 @@ impl Db {
                 sql.push_str(&format!(" OFFSET ?{}", args.len()));
             }
         }
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&sql)?;
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
@@ -430,7 +430,7 @@ impl Db {
         let mut filters = filters.clone();
         filters.cursor = None;
         let (sql, args) = self.where_clause(&filters, now);
-        let conn = self.conn();
+        let conn = self.read();
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         conn.query_row(
@@ -453,7 +453,7 @@ impl Db {
             ..Filters::default()
         };
         let (sql, args) = self.where_clause(&scope, now);
-        let conn = self.conn();
+        let conn = self.read();
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         let from = format!("FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id{sql}");
@@ -592,7 +592,7 @@ impl Db {
 
     /// Every round of a review's chain, oldest first, without payloads.
     pub fn rounds(&self, id: &str) -> rusqlite::Result<Vec<Review>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut root = id.to_string();
         loop {
             let prev: Option<Option<String>> = conn
@@ -631,7 +631,7 @@ impl Db {
     /// Reviews whose expiry has passed with no decision or withdrawal and no
     /// `expired` event yet.
     pub fn newly_expired(&self, now: DateTime<Utc>) -> rusqlite::Result<Vec<Review>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(&format!(
             "{} WHERE r.expires_at IS NOT NULL AND r.expires_at <= ?1
                AND o.review_id IS NULL
@@ -653,7 +653,7 @@ impl Db {
         &self,
         before: DateTime<Utc>,
     ) -> rusqlite::Result<Vec<(String, String, String)>> {
-        let conn = self.conn();
+        let conn = self.read();
         let mut stmt = conn.prepare(
             "SELECT r.id, r.plugin, r.plugin_version FROM reviews r
                LEFT JOIN outcomes o ON o.review_id = r.id
