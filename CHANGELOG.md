@@ -67,6 +67,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- The text of a session's thread, such as statuses, notes, messages and
+  questions, can be selected and copied.
 - The app shows every change made while it was disconnected, such as
   while the computer slept. After more than 1000 changes, the inbox,
   sessions and counts could miss some until the app was reloaded.

@@ -138,6 +138,19 @@ code,
 .copyable {
   cursor: text;
 }
+/* a session's thread: what the agent and the person wrote can be selected
+   and copied, across entries; its buttons stay controls */
+.thread-items {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.thread-items button,
+.thread-items [role="button"],
+.thread-items [role="menu"],
+.thread-items [role="menuitem"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
 a {
   color: var(--accent);
   text-decoration: none;
