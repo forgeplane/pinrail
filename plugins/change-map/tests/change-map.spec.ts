@@ -1748,3 +1748,28 @@ test("after the view's own hand-over, the decided review shows read-only", async
   await expect(f.getByPlaceholder("Add a comment")).toHaveCount(0);
   await expect(f.locator(".cm-comments")).toContainText("Return the ticket's id with the 409.");
 });
+
+test("comments typed and not yet added go with the decision", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: dedup() });
+  const f = plugin.frame;
+  await f.locator('[data-node="ticket-form"]').click();
+  // typed on the part, and on a line, without Enter
+  await f.getByPlaceholder("Add a comment").fill("Keep the form's labels.");
+  await f.locator(".cm-file", { hasText: "TicketForm.tsx" }).click();
+  await f.locator('[data-line="new:47"]').hover();
+  await f.getByRole("button", { name: "Comment on line 47" }).click();
+  await f.locator("#line-comment").fill("why here?");
+
+  const result = await plugin.handOver();
+  expect(result).toMatchObject({
+    decision: {
+      data: {
+        verdict: "request_changes",
+        comments: [
+          { target: { node: "ticket-form" }, body: "Keep the form's labels." },
+          { target: { file: expect.stringContaining("TicketForm.tsx"), line: 47 }, body: "why here?" },
+        ],
+      },
+    },
+  });
+});

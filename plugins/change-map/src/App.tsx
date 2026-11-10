@@ -6,6 +6,7 @@ import { GitFork, ListOrdered, Network, PanelBottom } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Init, Plugin, Settings } from "../pinrail-plugin";
 import { Diagram, type Marks } from "./Diagram";
+import { submitOpenFields } from "./Compose";
 import { DiffViewer, savedHeight } from "./DiffViewer";
 import type { CardStyle, Direction } from "./layout";
 import { coverage } from "./lines";
@@ -250,14 +251,17 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
   const problems = useMemo(() => problemsOf(payload), [payload]);
   const verdict = verdictOf(draft);
 
-  // the draft survives a reload, and the hand-over says what it will do
+  // the draft survives a reload, and the hand-over says what it will do.
+  // The latest draft is also kept in a ref, which the hand-over reads right
+  // after the open comment fields add their text.
+  const latest = useRef(draft);
   const change = useCallback(
-    (next: (d: Draft) => Draft) =>
-      setDraft((d) => {
-        const out = next(d);
-        if (!readonly) plugin.draft(out);
-        return out;
-      }),
+    (next: (d: Draft) => Draft) => {
+      const out = next(latest.current);
+      latest.current = out;
+      setDraft(out);
+      if (!readonly) plugin.draft(out);
+    },
     [plugin, readonly],
   );
   const commented = draft.comments.length > 0;
@@ -267,11 +271,11 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
       verdict === "request_changes" ? "Request changes" : commented ? "Approve with comments" : "Approve",
     );
   }, [plugin, readonly, verdict, commented]);
-  view.collect = () => ({
-    verdict,
-    comments: draft.comments,
-    ...(draft.reviewed.length ? { reviewed: draft.reviewed } : {}),
-  });
+  view.collect = () => {
+    submitOpenFields();
+    const d = latest.current;
+    return { verdict: verdictOf(d), comments: d.comments, ...(d.reviewed.length ? { reviewed: d.reviewed } : {}) };
+  };
 
   // the screens' addresses, screenshots and recordings, once the app has them
   const [images, setImages] = useState<Map<string, string>>(new Map());

@@ -5,7 +5,16 @@
 // with the keys on their left. Enter adds the comment, Shift+Enter starts a
 // new line, and Esc cancels when the field can be cancelled. Focused when it
 // opens, the cursor is at the end of the text.
-import { useCallback, useLayoutEffect, useRef, type Ref } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type Ref } from "react";
+
+/** The open fields' submit functions, each as of its last render. */
+const open = new Set<{ current: () => void }>();
+
+/** Adds the text of every open field, as Enter would, so that a comment
+ *  typed and not yet added goes with the decision. */
+export function submitOpenFields() {
+  for (const submit of [...open]) submit.current();
+}
 
 export function Compose({
   id,
@@ -31,6 +40,16 @@ export function Compose({
   onLeave?: () => void;
 }) {
   const field = useRef<HTMLTextAreaElement | null>(null);
+  const submit = useRef(onSubmit);
+  useLayoutEffect(() => {
+    submit.current = onSubmit;
+  });
+  useEffect(() => {
+    open.add(submit);
+    return () => {
+      open.delete(submit);
+    };
+  }, []);
   const setField = useCallback(
     (el: HTMLTextAreaElement | null) => {
       field.current = el;

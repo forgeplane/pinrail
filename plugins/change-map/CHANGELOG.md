@@ -12,6 +12,9 @@ carries it.
   longer stays in the field when you select another part.
 - After you hand the review over, the view shows it read-only. The
   verdict, the comment fields and the reviewed toggles stayed editable.
+- A comment typed and not yet added, on a part, a line or a screen,
+  goes with the decision when you hand the review over. It was left out,
+  and with no other comment the review was approved.
 
 ## [1.1.1] - Pinrail 0.5.0
 
