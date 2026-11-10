@@ -55,6 +55,9 @@
   --radius-xl: 12px;
   /* a fully rounded shape, such as a pill or a dot */
   --radius-pill: 999px;
+  /* the strip a scrollbar is drawn in at the edge of what scrolls, which
+     what floats over the content leaves uncovered */
+  --scrollbar-room: 12px;
   /* the text sizes: the body is base; small labels, keys and counts take
      the smaller steps, and titles the larger ones */
   --text-2xs: 10.5px;
@@ -3516,12 +3519,14 @@ body.is-resizing iframe {
 .thread-main {
   position: relative;
 }
+/* the box stops short of the right edge, where the timeline's scrollbar
+   is drawn over it, so the end of its track stays in view */
 .thread-footer {
   position: absolute;
   left: 0;
-  right: 0;
+  right: var(--scrollbar-room);
   bottom: 0;
-  padding: 28px 32px 16px;
+  padding: 28px calc(32px - var(--scrollbar-room)) 16px 32px;
   background: linear-gradient(to bottom, transparent, var(--bg) 26px);
   pointer-events: none;
 }
@@ -3529,7 +3534,7 @@ body.is-resizing iframe {
   pointer-events: auto;
 }
 .thread.in-panel .thread-footer {
-  padding: 28px 4px 4px 0;
+  padding: 28px 0 4px 0;
 }
 .thread-composer {
   display: flex;

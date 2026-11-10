@@ -83,3 +83,22 @@ test("while questions wait, the box holds the comment on the answers", async ({ 
   await expect(page.getByRole("textbox", { name: "Comment to the agent" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Message to the agent" })).toHaveCount(0);
 });
+
+// The chat box floats over the bottom of a long thread; the thread's
+// scrollbar, drawn inside it, stays in view down to the end of its track.
+for (const inPanel of [false, true])
+  test(`the chat box leaves the thread's scrollbar uncovered${inPanel ? ", in a side panel" : ""}`, async ({
+    page,
+    request,
+  }) => {
+    const session = fresh();
+    for (let i = 0; i < 40; i++) await report(request, session, `Step ${i} of a long session`);
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await page.goto(inPanel ? `/#/sessions?open=claude-code/${session}` : `/#/sessions/claude-code/${session}`);
+    const items = page.locator(".thread-items");
+    await expect(items.getByText("Step 39 of a long session")).toBeVisible();
+    const scroller = (await items.boundingBox())!;
+    const footer = (await page.locator(".thread-footer").boundingBox())!;
+    // the strip the scrollbar takes at the right of the scrolling list
+    expect(footer.x + footer.width).toBeLessThanOrEqual(scroller.x + scroller.width - 10);
+  });
