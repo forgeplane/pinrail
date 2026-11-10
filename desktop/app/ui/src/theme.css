@@ -56,8 +56,9 @@
   /* a fully rounded shape, such as a pill or a dot */
   --radius-pill: 999px;
   /* the strip a scrollbar is drawn in at the edge of what scrolls, which
-     what floats over the content leaves uncovered */
-  --scrollbar-room: 12px;
+     what floats over the content leaves uncovered: as wide as the track
+     of macOS's overlay scrollbar when the pointer is over it */
+  --scrollbar-room: 16px;
   /* the text sizes: the body is base; small labels, keys and counts take
      the smaller steps, and titles the larger ones */
   --text-2xs: 10.5px;

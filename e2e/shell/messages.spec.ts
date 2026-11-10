@@ -99,6 +99,7 @@ for (const inPanel of [false, true])
     await expect(items.getByText("Step 39 of a long session")).toBeVisible();
     const scroller = (await items.boundingBox())!;
     const footer = (await page.locator(".thread-footer").boundingBox())!;
-    // the strip the scrollbar takes at the right of the scrolling list
-    expect(footer.x + footer.width).toBeLessThanOrEqual(scroller.x + scroller.width - 10);
+    // the strip the scrollbar takes at the right of the scrolling list: on
+    // macOS its track widens to 16px under the pointer
+    expect(footer.x + footer.width).toBeLessThanOrEqual(scroller.x + scroller.width - 16);
   });
