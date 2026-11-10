@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { diffRows } from "./diffView";
 import { onItemPrefixes, renderLinks, renderMarkdown, renderNote, setItemPrefixes } from "./markdown";
 
 describe("renderMarkdown", () => {
@@ -84,5 +85,70 @@ describe("work item keys", () => {
     setItemPrefixes([]);
     stop();
     expect(heard).toBe(1);
+  });
+});
+
+describe("a diff block", () => {
+  const diff = [
+    "```diff",
+    "diff --git a/src/lib.rs b/src/lib.rs",
+    "index 1111111..2222222 100644",
+    "--- a/src/lib.rs",
+    "+++ b/src/lib.rs",
+    "@@ -10,3 +10,3 @@ fn main() {",
+    " let a = 1;",
+    "-let b = 2;",
+    "+let b = 3;",
+    " let c = <b>;",
+    "\\ No newline at end of file",
+    "```",
+  ].join("\n");
+
+  test("shows each file, each hunk, and each line with its old and new numbers", () => {
+    expect(diffRows(diff.split("\n").slice(1, -1).join("\n"))).toEqual([
+      { kind: "file", path: "src/lib.rs" },
+      { kind: "hunk", text: "@@ -10,3 +10,3 @@ fn main() {" },
+      { kind: "same", old: 10, new: 10, text: "let a = 1;" },
+      { kind: "del", old: 11, new: null, text: "let b = 2;" },
+      { kind: "add", old: null, new: 11, text: "let b = 3;" },
+      { kind: "same", old: 12, new: 12, text: "let c = <b>;" },
+      { kind: "note", text: "No newline at end of file" },
+    ]);
+    const html = renderMarkdown(diff);
+    expect(html).toContain('<span class="md-diff-path">src/lib.rs</span>');
+    expect(html).toContain(
+      '<tr class="md-diff-line md-diff-del"><td class="md-diff-n">11</td><td class="md-diff-n"></td>',
+    );
+    // highlighted in the file's language, and escaped
+    expect(html).toContain('<span class="hljs-keyword">let</span>');
+    expect(html).toContain("&lt;b&gt;");
+  });
+
+  test("names a deleted file by its old path, and a diff without hunks has no numbers", () => {
+    const deleted = renderMarkdown("```diff\n--- a/old.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-gone\n```");
+    expect(deleted).toContain(">old.txt</span>");
+    const bare = renderMarkdown("```patch\n-before\n+after\n```");
+    expect(bare).not.toContain("md-diff-n");
+    expect(bare).toContain("md-diff-del");
+    expect(bare).toContain("md-diff-add");
+  });
+
+  test("shows one file at a time, with buttons to the others", () => {
+    const two = renderMarkdown(
+      "```diff\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-x\n+y\n--- a/b.ts\n+++ b/b.ts\n@@ -1 +1 @@\n-p\n+q\n```",
+    );
+    expect(two).toContain('data-files="2"');
+    // only the first file is drawn; the view keeps the text for the others
+    expect(two.match(/<table>/g)).toHaveLength(1);
+    expect(two).toContain("data-source=");
+    expect(two).toContain('<span class="md-diff-count">1 of 2</span>');
+    expect(two).toContain('aria-label="Next file"');
+    // one file has no buttons
+    expect(renderMarkdown(diff)).not.toContain("data-diff-step");
+  });
+
+  test("shows in a note too, and leaves other blocks as code", () => {
+    expect(renderNote(diff, () => null)).toContain('class="md-diff"');
+    expect(renderMarkdown("```rust\nlet a = 1;\n```")).toContain("<pre>");
   });
 });

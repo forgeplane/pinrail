@@ -4,6 +4,7 @@
 // `onAttachment`.
 
 import { useCallback, useMemo, type HTMLAttributes, type Ref } from "react";
+import { stepDiff } from "../lib/diffView";
 import { renderAs, useItemPrefixes, type MarkdownMode } from "../lib/markdown";
 import { openAgentLink } from "../lib/native";
 import { useOpenItem } from "./ItemChip";
@@ -48,6 +49,12 @@ export function MarkdownHtml({
       {...props}
       ref={ref as Ref<HTMLDivElement & HTMLSpanElement>}
       onClick={(event: React.MouseEvent<HTMLElement>) => {
+        // a diff view's previous and next file buttons
+        const step = (event.target as HTMLElement).closest<HTMLElement>("[data-diff-step]");
+        if (step) {
+          stepDiff(step);
+          return;
+        }
         const link = (event.target as HTMLElement).closest("a");
         if (!link) return;
         event.preventDefault();

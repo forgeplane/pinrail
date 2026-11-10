@@ -4485,6 +4485,121 @@ body.is-resizing iframe {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* a fenced diff in an agent's Markdown: a small diff view of one file at a
+   time, under a bar that names it, with the old and new line numbers. Its
+   tables have a fixed layout, so a resize of the window or a panel stays
+   cheap */
+.md-diff {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  /* a diff off screen is not laid out or painted: a session with many
+     diffs opens and resizes as fast as one with a few */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.md-diff-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  min-height: 26px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+.md-diff-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-diff-count {
+  color: var(--dim);
+  font-family: var(--font);
+  white-space: nowrap;
+}
+.md-diff-step {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+}
+.md-diff-step:hover:not(:disabled) {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+.md-diff-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.md-diff table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.md-diff-ncol {
+  width: calc(4ch + 12px);
+}
+/* over the borders and padding a note gives its tables */
+.md-diff th,
+.md-diff td {
+  border: 0;
+}
+.md-diff .md-diff-hunk td,
+.md-diff .md-diff-note td {
+  padding: 2px 10px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.md-diff .md-diff-hunk td {
+  background: var(--accent-bg);
+}
+.md-diff .md-diff-n {
+  padding: 0 6px;
+  overflow: hidden;
+  color: var(--faint);
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: top;
+  user-select: none;
+}
+.md-diff .md-diff-code {
+  padding: 0 10px 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md-diff-sign {
+  display: inline-block;
+  width: 1.5ch;
+  color: var(--faint);
+  user-select: none;
+}
+.md-diff-add {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.md-diff-add .md-diff-sign {
+  color: var(--ok);
+}
+.md-diff-del {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.md-diff-del .md-diff-sign {
+  color: var(--danger);
+}
+
 /* a question's own line, as inline Markdown: code set apart as in the inbox */
 .msg-question code {
   padding: 1px 5px;

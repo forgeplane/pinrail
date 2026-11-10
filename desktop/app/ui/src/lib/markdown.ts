@@ -4,6 +4,7 @@
 
 import MarkdownIt from "markdown-it";
 import { useSyncExternalStore } from "react";
+import { renderDiff } from "./diffView";
 import { highlight } from "./highlight";
 
 // a block of code in a language it names is highlighted; markdown-it
@@ -36,6 +37,17 @@ export function onItemPrefixes(listen: () => void): () => void {
 }
 
 export const itemPrefixesVersion = () => prefixVersion;
+
+// a block of code fenced as diff or patch shows as a diff view
+function diffFences(markdown: typeof md) {
+  const fence = markdown.renderer.rules.fence!;
+  markdown.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const language = tokens[idx].info.trim().split(/\s+/)[0].toLowerCase();
+    if (language === "diff" || language === "patch") return renderDiff(tokens[idx].content);
+    return fence(tokens, idx, options, env, self);
+  };
+}
+diffFences(md);
 
 type Rules = (typeof md)["core"]["ruler"];
 function linkKeys(rules: Rules) {
@@ -128,6 +140,7 @@ noteMd.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
 };
 
 linkKeys(noteMd.core.ruler);
+diffFences(noteMd);
 
 /** A note's Markdown, with the files it names at the addresses `fileUrl`
  *  gives. */
@@ -168,16 +181,36 @@ export type MarkdownMode = "markdown" | "note" | "inline" | "links";
 /** Renders `text` as `mode` says. `prefixes` is the version of the key
  *  prefixes the rendering is for, from useItemPrefixes: a memo of the HTML
  *  depends on it, and renders again when it changes. */
+// the HTML of the texts rendered last, by mode, prefixes and text: a
+// session opened again shows its contexts and diffs without rendering and
+// highlighting them again. A note's HTML depends on its files' addresses,
+// so it is rendered each time.
+const RENDERED_KEPT = 300;
+const rendered = new Map<string, string>();
+
 export function renderAs(
   mode: MarkdownMode,
   text: string,
   prefixes: number,
   fileUrl: (name: string) => string | null = () => null,
 ): string {
-  void prefixes;
+  if (mode === "note") return renderNote(text, fileUrl);
+  const key = `${mode}\u0000${prefixes}\u0000${text}`;
+  const kept = rendered.get(key);
+  if (kept !== undefined) {
+    // the most recently used last, so the oldest goes first
+    rendered.delete(key);
+    rendered.set(key, kept);
+    return kept;
+  }
+  const html = renderFresh(mode, text);
+  rendered.set(key, html);
+  if (rendered.size > RENDERED_KEPT) rendered.delete(rendered.keys().next().value!);
+  return html;
+}
+
+function renderFresh(mode: Exclude<MarkdownMode, "note">, text: string): string {
   switch (mode) {
-    case "note":
-      return renderNote(text, fileUrl);
     case "inline":
       return renderInline(text);
     case "links":

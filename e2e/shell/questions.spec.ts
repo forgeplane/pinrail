@@ -886,13 +886,11 @@ test("Send sends every question set of the session whose questions are all answe
 
 test("a long line of code in a question's context wraps inside the question", async ({ page }) => {
   const session = fresh();
-  const long = `+  const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\\n")[0].trim(); ${"x".repeat(80)}`;
+  const long = `const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\\n")[0].trim(); ${"x".repeat(80)}`;
   await send(page.request, {
     ...asked(session, "Thread: long code"),
     payload: {
-      questions: [
-        { id: "q1", question: "Commit the change?", answer: "yes-no", context: "```diff\n" + long + "\n```" },
-      ],
+      questions: [{ id: "q1", question: "Commit the change?", answer: "yes-no", context: "```js\n" + long + "\n```" }],
     },
   });
   await page.goto(`/#/sessions/claude-code/${session}`);
@@ -903,4 +901,50 @@ test("a long line of code in a question's context wraps inside the question", as
   const box = await block.boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(card!.x + card!.width);
   expect(await block.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+test("a diff in a question's context shows one file at a time, inside the question", async ({ page }) => {
+  const session = fresh();
+  const long = `+  const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\\n")[0]; ${"x".repeat(80)}`;
+  const diff = [
+    "diff --git a/src/render.ts b/src/render.ts",
+    "--- a/src/render.ts",
+    "+++ b/src/render.ts",
+    "@@ -40,2 +40,2 @@",
+    " const figure = find();",
+    "-const first = figure.text;",
+    long,
+    "diff --git a/src/view.css b/src/view.css",
+    "--- a/src/view.css",
+    "+++ b/src/view.css",
+    "@@ -7 +7 @@",
+    "-  overflow: auto;",
+    "+  overflow: hidden;",
+  ].join("\n");
+  await send(page.request, {
+    ...asked(session, "Thread: a diff"),
+    payload: {
+      questions: [
+        { id: "q1", question: "Commit the change?", answer: "yes-no", context: "```diff\n" + diff + "\n```" },
+      ],
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const view = question(page, "Commit the change?").locator(".md-diff");
+  await expect(view.locator(".md-diff-path:visible")).toHaveText("src/render.ts");
+  await expect(view.locator(".md-diff-count")).toHaveText("1 of 2");
+  await expect(view.locator("tr.md-diff-add:visible .md-diff-n").nth(1)).toHaveText("41");
+  // the long line wraps inside the question
+  const card = await question(page, "Commit the change?").boundingBox();
+  const box = await view.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(card!.x + card!.width);
+  expect(await view.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  await view.getByRole("button", { name: "Next file" }).click();
+  await expect(view.locator(".md-diff-path:visible")).toHaveText("src/view.css");
+  await expect(view.locator(".md-diff-count")).toHaveText("2 of 2");
+  await expect(view.locator("table:visible")).toContainText("overflow: hidden;");
+  await expect(view.getByRole("button", { name: "Next file" })).toBeDisabled();
+  await view.getByRole("button", { name: "Previous file" }).click();
+  await expect(view.locator(".md-diff-path:visible")).toHaveText("src/render.ts");
 });

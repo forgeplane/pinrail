@@ -46,6 +46,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 - `pinrail ask --suggest-reply` suggests the reply the agent expects. The
   empty comment box shows it, and Tab takes it.
 - ⌘1 to ⌘4 go to the Inbox, Sessions, Work items and Projects pages.
+- A fenced `diff` block in a question's context, a note or a work item
+  shows as a diff view, one file at a time, with the old and new line
+  numbers and the added and deleted lines marked. Buttons step through
+  the files of a diff that has several.
 
 ### Changed
 
