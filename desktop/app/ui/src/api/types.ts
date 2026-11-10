@@ -458,7 +458,22 @@ export type ServerSettings = {
   labs?: { sessions: boolean };
   /** the welcome screen was closed */
   welcome?: { seen: boolean };
+  /** usage data and crash reports, and when the notice about them was shown */
+  telemetry?: { usage: boolean; crashes: boolean; notice_shown: string | null };
   [key: string]: unknown;
+};
+
+/** Where usage data stands, as `GET /api/v1/telemetry` answers. */
+export type TelemetryStatus = {
+  usage: boolean;
+  crashes: boolean;
+  /** the environment variable that turns telemetry off, if one is set */
+  off_by: string | null;
+  notice_shown: string | null;
+  install: string | null;
+  session: string;
+  waiting: unknown[];
+  sent: unknown[];
 };
 
 export type Info = {

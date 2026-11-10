@@ -1,4 +1,5 @@
 import { CheckCheck, SearchX } from "lucide-react";
+import { TelemetryNotice } from "../components/TelemetryNotice";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
@@ -267,6 +268,7 @@ function Waiting() {
           onClear={() => setQ("")}
           layout={{ value: layout, set: setLayout }}
         />
+        <TelemetryNotice />
         {live.pendingUnloaded > 0 ? (
           <p className="notice" data-testid="inbox-capped">
             The inbox shows the newest {live.pending.length} of {live.pendingCount} pending reviews. Decide or withdraw

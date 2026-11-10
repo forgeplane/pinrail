@@ -18,6 +18,7 @@ import type {
   ReviewListing,
   ReviewView,
   ServerSettings,
+  TelemetryStatus,
   Session,
   SessionComment,
   SessionItemEvent,
@@ -284,6 +285,7 @@ export const api = {
   createTheme: (id: string, from: string) => request<{ path: string }>("POST", "/api/v1/themes", { id, from }),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
+  telemetry: () => request<TelemetryStatus>("GET", "/api/v1/telemetry"),
   /** counts a feature of the window in the usage data, while it is on */
   countFeature: (feature: string) => request<void>("POST", "/api/v1/telemetry/features", { feature }),
   /** the review rendered as markdown by the core, for the clipboard */

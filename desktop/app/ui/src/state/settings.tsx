@@ -54,6 +54,9 @@ export type Settings = {
   welcome: { seen: boolean };
   /** the release whose notes were last shown, or null if none has been */
   whats_new: { seen: string | null };
+  /** anonymous usage data and crash reports, and when the notice about
+   *  them was shown; nothing is recorded before it was */
+  telemetry: { usage: boolean; crashes: boolean; notice_shown: string | null };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -79,6 +82,7 @@ type Patch = {
   labs?: Partial<Settings["labs"]>;
   welcome?: Partial<Settings["welcome"]>;
   whats_new?: Partial<Settings["whats_new"]>;
+  telemetry?: Partial<Settings["telemetry"]>;
   autostart?: boolean;
 };
 
@@ -123,6 +127,7 @@ type Served = Pick<
   | "labs"
   | "welcome"
   | "whats_new"
+  | "telemetry"
 >;
 /** The sidebar's sessions as they are listed until the person changes it. */
 const SESSIONS: Settings["sidebar"]["sessions"] = { ...DEFAULT_CHOICES, collapsed: [] };
@@ -163,6 +168,11 @@ export const fromServer = (s: ServerSettings): Served => ({
   labs: { sessions: s.labs?.sessions ?? false },
   welcome: { seen: s.welcome?.seen ?? false },
   whats_new: { seen: s.whats_new?.seen ?? null },
+  telemetry: {
+    usage: s.telemetry?.usage ?? true,
+    crashes: s.telemetry?.crashes ?? true,
+    notice_shown: s.telemetry?.notice_shown ?? null,
+  },
 });
 
 const mergeLinks = (current: Settings["links"], patch?: Patch["links"]): Settings["links"] => {
@@ -207,6 +217,7 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     labs: { ...base.labs, ...patch.labs },
     welcome: { ...base.welcome, ...patch.welcome },
     whats_new: { ...base.whats_new, ...patch.whats_new },
+    telemetry: { ...base.telemetry, ...patch.telemetry },
   };
 }
 
@@ -231,6 +242,7 @@ export function patchBody(patch: Patch): Record<string, unknown> {
   if (patch.labs) body.labs = patch.labs;
   if (patch.welcome) body.welcome = patch.welcome;
   if (patch.whats_new) body.whats_new = patch.whats_new;
+  if (patch.telemetry) body.telemetry = patch.telemetry;
   return body;
 }
 
@@ -256,6 +268,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     labs: { sessions: false },
     welcome: { seen: false },
     whats_new: { seen: null },
+    telemetry: { usage: true, crashes: true, notice_shown: null },
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
@@ -398,7 +411,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         patch.agents ||
         patch.labs ||
         patch.welcome ||
-        patch.whats_new
+        patch.whats_new ||
+        patch.telemetry
       ) {
         const base = settingsRef.current;
         const next = mergeSettings(base, patch);

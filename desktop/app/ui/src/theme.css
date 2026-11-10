@@ -1842,6 +1842,38 @@ body.is-resizing iframe {
   color: var(--dim);
   margin: 0 0 14px;
 }
+/* the card about usage data, at the top of the inbox until it is answered */
+.telemetry-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text);
+}
+.telemetry-notice p {
+  margin: 0;
+  flex: 1;
+  line-height: 1.45;
+}
+.telemetry-notice-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+/* Settings › Privacy: what is sent, as JSON */
+.telemetry-sent {
+  margin: 0 14px 12px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+}
 .notice-round {
   border-color: var(--accent);
   background: var(--accent-bg);

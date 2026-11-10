@@ -14,6 +14,7 @@ import {
   Palette,
   Settings,
   Settings2,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -35,11 +36,12 @@ import { ThemeRows } from "./ThemeRows";
 import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
+import { PrivacySection } from "./PrivacySection";
 import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
 
 export type SettingsSection =
-  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "labs" | "about";
+  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "labs" | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
@@ -49,6 +51,7 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "agents", label: "Agents", icon: <Bot size={15} /> },
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
   { key: "data", label: "Data", icon: <Database size={15} /> },
+  { key: "privacy", label: "Privacy", icon: <ShieldCheck size={15} /> },
   { key: "labs", label: "Labs", icon: <FlaskConical size={15} /> },
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
@@ -574,6 +577,8 @@ export function SettingsDialog({
             </SettingsGroup>
           </SettingsPage>
         ) : null}
+
+        {section === "privacy" ? <PrivacySection /> : null}
 
         {section === "labs" ? (
           <SettingsPage title="Labs">
