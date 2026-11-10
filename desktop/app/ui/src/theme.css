@@ -4557,6 +4557,13 @@ body.is-resizing iframe {
   opacity: 0.35;
   cursor: default;
 }
+/* a long file scrolls inside the view, so a large diff does not stretch
+   the thread */
+.md-diff-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .md-diff table {
   width: 100%;
   table-layout: fixed;

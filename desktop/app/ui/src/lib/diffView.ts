@@ -159,6 +159,11 @@ function fileTable(file: File, numbered: boolean): string {
   return `<table>${cols}<tbody>${html.join("")}</tbody></table>`;
 }
 
+/** The box the shown file scrolls in, past a height of its own. */
+function scroller(table: string): string {
+  return `<div class="md-diff-scroll" tabindex="0">${table}</div>`;
+}
+
 /** A unified diff as a diff view: one file at a time, with a bar that names
  *  it and, for several files, buttons that step to the others. Only the
  *  file shown is in the page: the view keeps the diff's text, and draws
@@ -179,7 +184,7 @@ export function renderDiff(text: string): string {
         "</div>"
       : "";
   const source = several ? ` data-source="${escape(text)}"` : "";
-  return `<div class="md-diff" data-file="0" data-files="${files.length}"${source}>${bar}${fileTable(first, numbered)}</div>\n`;
+  return `<div class="md-diff" data-file="0" data-files="${files.length}"${source}>${bar}${scroller(fileTable(first, numbered))}</div>\n`;
 }
 
 /** Steps a diff view to the file before or after the one it shows, for its
@@ -191,8 +196,11 @@ export function stepDiff(button: HTMLElement) {
   const { files, numbered } = diffFiles(source);
   const at = Math.min(files.length - 1, Math.max(0, Number(view.dataset.file) + Number(button.dataset.diffStep)));
   view.dataset.file = String(at);
-  view.querySelector("table")?.insertAdjacentHTML("afterend", fileTable(files[at], numbered));
-  view.querySelector("table")?.remove();
+  const box = view.querySelector(".md-diff-scroll");
+  if (box) {
+    box.innerHTML = fileTable(files[at], numbered);
+    box.scrollTop = 0;
+  }
   const path = view.querySelector(".md-diff-path");
   if (path) path.textContent = files[at].path ?? "";
   const shown = view.querySelector(".md-diff-count");

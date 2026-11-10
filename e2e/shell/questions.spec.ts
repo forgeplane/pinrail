@@ -903,6 +903,30 @@ test("a long line of code in a question's context wraps inside the question", as
   expect(await block.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
+test("a long diff in a question's context scrolls inside its view", async ({ page }) => {
+  const session = fresh();
+  const lines = Array.from({ length: 300 }, (_, i) => `+const line${i} = ${i};`);
+  const diff = ["--- a/src/long.ts", "+++ b/src/long.ts", "@@ -0,0 +1,300 @@", ...lines].join("\n");
+  await send(page.request, {
+    ...asked(session, "Thread: a long diff"),
+    payload: {
+      questions: [{ id: "q1", question: "Add the file?", answer: "yes-no", context: "```diff\n" + diff + "\n```" }],
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const box = question(page, "Add the file?").locator(".md-diff-scroll");
+  await expect(box).toContainText("const line0");
+  const { height, scrolls } = await box.evaluate((el) => ({
+    height: el.getBoundingClientRect().height,
+    scrolls: el.scrollHeight > el.clientHeight,
+  }));
+  expect(height).toBeLessThanOrEqual(360);
+  expect(scrolls).toBe(true);
+  // the last line is there, further down the box
+  await box.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(box.getByText("const line299 = 299;")).toBeInViewport();
+});
+
 test("a diff in a question's context shows one file at a time, inside the question", async ({ page }) => {
   const session = fresh();
   const long = `+  const first = (figure.querySelector(".diagram-body").dataset.source || "").split("\\n")[0]; ${"x".repeat(80)}`;

@@ -49,7 +49,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A fenced `diff` block in a question's context, a note or a work item
   shows as a diff view, one file at a time, with the old and new line
   numbers and the added and deleted lines marked. Buttons step through
-  the files of a diff that has several.
+  the files of a diff that has several, and a long file scrolls inside
+  the view.
 
 ### Changed
 
