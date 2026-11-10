@@ -79,7 +79,7 @@ export const InboxRow = memo(function InboxRow({ review, here, focused, open, sh
       </span>
       {review.kind === "question" ? (
         <span className="review-row-plugin">
-          <span className="asks-chip">asks you</span>
+          <span className="asks-chip pill">asks you</span>
         </span>
       ) : (
         <span className="review-row-plugin" title={reviewLabel(review)}>

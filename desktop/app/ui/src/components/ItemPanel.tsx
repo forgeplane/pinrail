@@ -229,11 +229,11 @@ export function ItemPanel({
           </span>
         ) : null}
         {item.status === "in_progress" ? (
-          <button type="button" className="item-pill" onClick={() => void change({ claim: "release" })}>
+          <button type="button" className="item-pill pill" onClick={() => void change({ claim: "release" })}>
             Release
           </button>
         ) : item.status === "open" ? (
-          <button type="button" className="item-pill" onClick={() => void change({ claim: "take" })}>
+          <button type="button" className="item-pill pill" onClick={() => void change({ claim: "take" })}>
             Claim
           </button>
         ) : null}
@@ -265,7 +265,7 @@ export function ItemPanel({
         {item.status !== "done" && item.status !== "cancelled" ? (
           <button
             type="button"
-            className={`item-pill ${item.queue ? "is-queued" : ""}`}
+            className={`item-pill pill ${item.queue ? "is-queued" : ""}`}
             title={item.queue ? "Take it out of the queue (Q)" : "Queue it: agents take it first (Q)"}
             onClick={async () => {
               try {
@@ -668,12 +668,18 @@ function EditableLink({ link, onSave }: { link: string | null; onSave: (link: st
   };
   if (!editing)
     return link ? (
-      <button type="button" className="item-pill item-link" aria-label="Change the link" title={link} onClick={edit}>
+      <button
+        type="button"
+        className="item-pill pill item-link"
+        aria-label="Change the link"
+        title={link}
+        onClick={edit}
+      >
         <Link2 size={13} aria-hidden="true" />
         <span className="item-pill-text">{link.replace(/^https?:\/\//, "")}</span>
       </button>
     ) : (
-      <button type="button" className="item-pill is-empty" onClick={edit}>
+      <button type="button" className="item-pill pill is-empty" onClick={edit}>
         <Link2 size={13} aria-hidden="true" />
         Add link
       </button>

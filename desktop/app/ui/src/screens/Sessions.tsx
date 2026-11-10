@@ -218,7 +218,7 @@ export function Sessions() {
           </span>
         </span>
         <span className="session-row-waiting">
-          {waiting ? <span className="asks-chip">{contents(s.waiting)} waiting</span> : null}
+          {waiting ? <span className="asks-chip pill">{contents(s.waiting)} waiting</span> : null}
         </span>
         <span className="session-row-total">{contents(s.total)}</span>
         <span className="review-row-end">

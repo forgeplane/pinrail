@@ -58,7 +58,7 @@ export function ItemChip({
       <span
         role="link"
         tabIndex={-1}
-        className="item-chip"
+        className="item-chip pill pill-accent"
         title={`${item.key} ${item.title}`}
         data-testid="item-chip"
         onClick={(e) => {
@@ -73,7 +73,7 @@ export function ItemChip({
   return (
     <Link
       to={itemPath(item.key)}
-      className="item-chip"
+      className="item-chip pill pill-accent"
       title={`${item.key} ${item.title}`}
       data-testid="item-chip"
       onClick={(e) => onLinkClick(e, item.key)}

@@ -498,7 +498,7 @@ function ReviewBody({
                     <Link
                       to={linkTo(r.id)}
                       state={inPanel ? undefined : location.state}
-                      className={`round-pill round-${outcome.tone}${current ? " is-current" : unopened.has(r.id) ? " is-waiting" : ""}`}
+                      className={`round-pill pill round-${outcome.tone}${current ? " is-current" : unopened.has(r.id) ? " is-waiting" : ""}`}
                       aria-current={current ? "page" : undefined}
                     >
                       <span>{i + 1}</span>

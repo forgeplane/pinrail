@@ -138,6 +138,25 @@ code,
 .copyable {
   cursor: text;
 }
+/* a pill: a short label in a rounded box, such as a status, a count or a
+   filter; .pill-accent tints it with the accent, .pill-outline draws its
+   border */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+}
+.pill-accent {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.pill-outline {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--dim);
+}
 /* one line, cut short with an ellipsis when it does not fit */
 .truncate {
   overflow: hidden;
@@ -2201,8 +2220,6 @@ body.is-resizing iframe {
   background: color-mix(in srgb, var(--sev-major) 6%, transparent);
 }
 .asks-chip {
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 16%, transparent);
   color: var(--sev-major);
   font-size: 11.5px;
@@ -2679,14 +2696,6 @@ body.is-resizing iframe {
 }
 /* the files a review carries: a chip in the strip, and on a click the list */
 .attachments-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 1px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--dim);
   font: inherit;
   cursor: pointer;
 }
@@ -2788,14 +2797,11 @@ body.is-resizing iframe {
 /* each round in the colour of its outcome, the status badge's; the open one with a bolder border */
 .round-pill {
   --tone: var(--dim);
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
   min-width: 20px;
   height: 20px;
   padding: 0 4px;
   border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
-  border-radius: var(--radius-pill);
   font: 11px/1 var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--tone);
@@ -5789,9 +5795,6 @@ body.is-resizing iframe {
 }
 .welcome-pill {
   padding: 1px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bg);
-  color: var(--accent);
   font-size: 10.5px;
   font-weight: 500;
   white-space: nowrap;
@@ -7173,15 +7176,8 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 
 /* a work item named where something belongs to it */
 .item-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   min-width: 0;
   max-width: 260px;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--accent-bg);
-  color: var(--accent);
   font-size: 11.5px;
   text-decoration: none;
   cursor: pointer;
@@ -7348,14 +7344,8 @@ a.item-ref {
   margin: 0 0 10px;
 }
 .filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   padding: 2px 4px 2px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
   background: var(--bg-raised, var(--bg));
-  color: var(--dim);
   font-size: 12px;
 }
 .filter-chip-value {

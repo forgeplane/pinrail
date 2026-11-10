@@ -227,7 +227,7 @@ export function FilterChips({
   return (
     <div className="filter-chips" data-testid="filter-chips">
       {chips.map((c) => (
-        <span key={c.key} className="filter-chip" data-testid="filter-chip">
+        <span key={c.key} className="filter-chip pill pill-outline" data-testid="filter-chip">
           {c.mark ? <span className="filter-chip-mark">{c.mark}</span> : null}
           <span className="filter-chip-label">{c.value ? `${c.label}: ` : c.label}</span>
           {c.value ? <span className="filter-chip-value">{c.value}</span> : null}

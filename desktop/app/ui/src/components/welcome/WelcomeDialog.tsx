@@ -298,15 +298,17 @@ function AgentsSection() {
           const done = a.state === "connected";
           const pill =
             a.state === "connected" ? (
-              <span className="welcome-pill is-ok">Connected</span>
+              <span className="welcome-pill pill pill-accent is-ok">Connected</span>
             ) : a.state === "outdated" ? (
-              <span className="welcome-pill">Needs an update</span>
+              <span className="welcome-pill pill pill-accent">Needs an update</span>
             ) : a.state === "theirs" ? (
-              <span className="welcome-pill">Has a skill of your own</span>
+              <span className="welcome-pill pill pill-accent">Has a skill of your own</span>
             ) : busy === a.id ? (
-              <span className="welcome-pill">Connecting…</span>
+              <span className="welcome-pill pill pill-accent">Connecting…</span>
             ) : readsSkillOf(a, agents).length ? (
-              <span className="welcome-pill is-ok">Already uses {readsSkillOf(a, agents)[0]}'s skill</span>
+              <span className="welcome-pill pill pill-accent is-ok">
+                Already uses {readsSkillOf(a, agents)[0]}'s skill
+              </span>
             ) : null;
           return (
             <label
@@ -451,7 +453,7 @@ function PluginsStep({
                 <span className="welcome-plugin-text">
                   <span className="welcome-plugin-title">
                     {e.title}
-                    {e.recommended ? <span className="welcome-pill">Recommended</span> : null}
+                    {e.recommended ? <span className="welcome-pill pill pill-accent">Recommended</span> : null}
                   </span>
                   {(e.description ?? e.use_when) ? <span className="dim">{e.description ?? e.use_when}</span> : null}
                 </span>

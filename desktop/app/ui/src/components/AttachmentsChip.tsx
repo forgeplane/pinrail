@@ -90,7 +90,7 @@ export function AttachmentsChip({ reviewId, attachments }: Props) {
       <button
         ref={trigger}
         type="button"
-        className={`attachments-chip ${open ? "is-open" : ""}`}
+        className={`attachments-chip pill pill-outline ${open ? "is-open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
