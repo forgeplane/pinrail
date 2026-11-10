@@ -46,6 +46,8 @@ async function dragRow(page: Page, key: string) {
   await picked!.dispatchEvent("dragstart", { dataTransfer: transfer });
   return { transfer, end: () => picked!.dispatchEvent("dragend", { dataTransfer: transfer }) };
 }
+/** The rows' keys, read once: compare them with expect.poll, since the list
+ *  loads after the page and changes after each action. */
 const keys = (page: Page) => rows(page).evaluateAll((els) => els.map((e) => e.getAttribute("data-key")));
 
 /** Chooses `option` in a submenu of the Filter or the Display menu, and
@@ -128,16 +130,16 @@ test("sub-items are nested under their parent and fold with it, or flat, naming 
   const child = await add(request, repo, "Notes", { parent: parent.key });
   const grandchild = await add(request, repo, "Proofread", { parent: child.key });
   await open(page, repo);
-  expect(await keys(page)).toEqual([parent.key, child.key, grandchild.key]);
+  await expect.poll(() => keys(page)).toEqual([parent.key, child.key, grandchild.key]);
   // each level is indented further
   const indent = async (key: string) => row(page, key).evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft));
   expect(await indent(child.key)).toBeGreaterThan(await indent(parent.key));
   expect(await indent(grandchild.key)).toBeGreaterThan(await indent(child.key));
 
   await page.getByRole("button", { name: `Hide the sub-items of ${parent.key}`, exact: true }).click();
-  expect(await keys(page)).toEqual([parent.key]);
+  await expect.poll(() => keys(page)).toEqual([parent.key]);
   await page.getByRole("button", { name: `Show the sub-items of ${parent.key}`, exact: true }).click();
-  expect(await keys(page)).toEqual([parent.key, child.key, grandchild.key]);
+  await expect.poll(() => keys(page)).toEqual([parent.key, child.key, grandchild.key]);
 
   await pick(page, "Display options", "Sub-items", "Flat");
   await settingSaved(request, (s) => s.items.nesting, "flat");
@@ -158,7 +160,7 @@ test("nested, a sub-item whose parent the filters hide names its parent", async 
   await edit(request, parent.key, { claim: "claim" });
   // open items only: the parent, in progress, is left out
   await open(page, repo, "&status=open");
-  expect(await keys(page)).toEqual([child.key]);
+  await expect.poll(() => keys(page)).toEqual([child.key]);
   await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
 });
 
@@ -214,7 +216,7 @@ test("the filters narrow the items by status, author, what waits and words, and 
   });
   const personKey = ((await person.json()) as { key: string }).key;
   await open(page, repo);
-  expect(await keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
+  await expect.poll(() => keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
 
   // by default the list shows the items open or in progress, which it calls
   // open, and no chip says so: only the repository is a filter
@@ -669,7 +671,7 @@ test("the items are ordered as Display options says, sub-items under their paren
   const child1 = await add(request, repo, "Bravo", { parent: alpha.key });
   await edit(request, zulu.key, { claim: "claim" });
   await open(page, repo);
-  expect(await keys(page)).toEqual([zulu.key, alpha.key, child2.key, child1.key]);
+  await expect.poll(() => keys(page)).toEqual([zulu.key, alpha.key, child2.key, child1.key]);
 
   await pick(page, "Display options", "Ordering", "Title");
   await settingSaved(request, (s) => s.items.ordering, "title");
@@ -951,7 +953,7 @@ test("Q queues the focused item, its row shows its place, and ⇧↑ and ⇧↓ 
   await expect(place(third.key)).toHaveText("2");
   await expect(place(second.key)).toHaveCount(0);
   // the rows keep their places in the list
-  expect(await keys(page)).toEqual([first.key, second.key, third.key]);
+  await expect.poll(() => keys(page)).toEqual([first.key, second.key, third.key]);
 
   // ⇧↑ and ⇧↓ move the focused item in the queue; ⌥↑ and ⌥↓ stay the
   // keys that go to the waiting reviews
