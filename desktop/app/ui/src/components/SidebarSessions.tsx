@@ -4,6 +4,7 @@
 // lib/sidebarSessions; this draws them and keeps the choices in the
 // settings.
 
+import { CountBadge } from "./CountBadge";
 import { ChevronDown, ChevronRight, FilterX, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
@@ -261,7 +262,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             </span>
           </button>
         )}
-        {group.waiting > 0 ? <span className="nav-count">{group.waiting}</span> : null}
+        {group.waiting > 0 ? <CountBadge count={group.waiting} /> : null}
       </div>
     );
   };

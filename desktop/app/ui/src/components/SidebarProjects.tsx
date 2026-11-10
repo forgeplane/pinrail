@@ -2,6 +2,7 @@
 // reviews that wait, then each project with how many wait in it, which
 // filters the inbox.
 
+import { CountBadge } from "./CountBadge";
 import { FolderGit2 } from "lucide-react";
 import { useMemo } from "react";
 import { Link, NavLink } from "react-router";
@@ -63,14 +64,14 @@ export function SidebarProjects({ shown, openIn }: { shown: string | null; openI
             <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} />
               <span className="sidebar-review-title truncate">{project}</span>
-              <span className="nav-count">{perProject.get(project) ?? 0}</span>
+              <CountBadge count={perProject.get(project) ?? 0} />
             </NavLink>
           ))}
           {live.unassigned > 0 ? (
             <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
               <span className="sidebar-review-title truncate">No repository</span>
-              <span className="nav-count">{live.unassigned}</span>
+              <CountBadge count={live.unassigned} />
             </NavLink>
           ) : null}
         </section>

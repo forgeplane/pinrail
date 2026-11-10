@@ -82,7 +82,7 @@ test("a session shows whether it works or is done, and what waits sits under it"
   await expect(working).toHaveAttribute("data-state", "working");
   await expect(done).toHaveAttribute("data-state", "done");
   // the project counts what waits in it, and the session too
-  await expect(group(page, repo).locator(".nav-count")).toHaveText("1");
+  await expect(group(page, repo).locator(".count-badge")).toHaveText("1");
   await expect(working.getByTestId("sidebar-session-waiting")).toHaveText("1");
   // what waits first, the done one last
   await expect(

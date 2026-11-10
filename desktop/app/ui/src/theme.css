@@ -405,11 +405,15 @@ h1 {
   flex-direction: column;
   gap: 2px;
 }
+/* a whole number of pixels high, so the counts and icons in a row land on
+   whole pixels and stay centred */
 .app-nav a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
   border-radius: var(--radius-md);
   color: var(--dim);
 }
@@ -427,27 +431,48 @@ h1 {
   background: var(--accent-bg);
   color: var(--text);
 }
-.nav-count {
+/* a count in a small pill (CountBadge) */
+.count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-pill);
-  background: var(--accent-bg);
-  color: var(--accent);
   font-size: var(--text-2xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.count-badge.is-accent {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.count-badge.is-quiet {
+  color: var(--faint);
+}
+.count-badge.is-plain {
+  color: var(--dim);
+}
+/* the digits in a block of their own height, from the top of a capital to
+   the baseline: centring that block centres the digits. WebKit on macOS
+   places the text of a line box higher than other engines, and trims only
+   a block's text */
+.count-badge-number {
+  display: block;
   line-height: 1;
+  text-box: trim-both cap alphabetic;
 }
 .nav-search {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-sizing: border-box;
   width: 100%;
-  padding: 6px 10px;
+  height: 32px;
+  padding: 0 10px;
   border: 0;
   border-radius: var(--radius-md);
   background: none;
@@ -554,7 +579,7 @@ h1 {
 .sidebar-group-name svg.is-faint {
   opacity: 0.55;
 }
-.sidebar-group-head .nav-count {
+.sidebar-group-head .count-badge {
   margin-left: auto;
 }
 .sidebar-session {
@@ -934,7 +959,7 @@ h1 {
 .sidebar-review.active svg {
   color: var(--accent);
 }
-.sidebar-review .nav-count {
+.sidebar-review .count-badge {
   margin-left: auto;
 }
 /* the sidebar while sessions are off: what waits, then the projects */
@@ -964,7 +989,7 @@ h1 {
   font-size: var(--text-md);
   min-width: 0;
 }
-.sidebar-repo .nav-count {
+.sidebar-repo .count-badge {
   margin-left: auto;
 }
 .sidebar-repo svg.is-faint {
@@ -6656,20 +6681,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   justify-content: center;
   color: var(--dim);
 }
-.nav-count.is-quiet {
-  background: none;
-  color: var(--faint);
-}
 /* the work items in progress, before the count of all those not closed */
 .nav-counts {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-}
-.nav-count.is-working {
-  gap: 3px;
-  background: none;
-  color: var(--dim);
 }
 
 /* a line of keyboard hints: each key or combination in a plain cap, in the

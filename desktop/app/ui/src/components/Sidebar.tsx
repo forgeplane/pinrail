@@ -2,6 +2,7 @@
 // update notice, feedback and the connection, with an edge that resizes it
 // by dragging or with the arrow keys.
 
+import { CountBadge } from "./CountBadge";
 import { History, Inbox, LayoutGrid, ListChecks, MessageSquare, MessagesSquare, Search, Settings } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { NavLink } from "react-router";
@@ -99,11 +100,7 @@ export function Sidebar({
                     <Icon size={15} strokeWidth={1.75} />
                     {label}
                   </span>
-                  {key === "inbox" ? (
-                    <span className="nav-count" data-testid="inbox-count">
-                      {live.pendingCount}
-                    </span>
-                  ) : null}
+                  {key === "inbox" ? <CountBadge count={live.pendingCount} data-testid="inbox-count" /> : null}
                   {key === "items" && openItems ? (
                     <Tooltip
                       label={`${openItems} open or in progress${itemsInProgress ? `, ${itemsInProgress} of them in progress` : ""}`}
@@ -111,14 +108,14 @@ export function Sidebar({
                     >
                       <span className="nav-counts">
                         {itemsInProgress ? (
-                          <span className="nav-count is-working" data-testid="items-in-progress">
-                            <ItemStatusIcon status="in_progress" size={10} decorative />
-                            {itemsInProgress}
-                          </span>
+                          <CountBadge
+                            count={itemsInProgress}
+                            tone="plain"
+                            icon={<ItemStatusIcon status="in_progress" size={10} decorative />}
+                            data-testid="items-in-progress"
+                          />
                         ) : null}
-                        <span className="nav-count is-quiet" data-testid="items-count">
-                          {openItems}
-                        </span>
+                        <CountBadge count={openItems} tone="quiet" data-testid="items-count" />
                       </span>
                     </Tooltip>
                   ) : null}
