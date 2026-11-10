@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { WorkItem } from "../api/types";
-import { itemTree } from "./itemTree";
+import { itemTree, pageOfGroups, type ItemTreeRow } from "./itemTree";
 
 const item = (key: string, parent: string | null = null): WorkItem => ({ key, parent }) as WorkItem;
 const shape = (rows: ReturnType<typeof itemTree>) => rows.map((r) => `${"  ".repeat(r.depth)}${r.item.key}`);
@@ -45,5 +45,31 @@ describe("itemTree", () => {
       "A-4": 0,
       "A-5": 0,
     });
+  });
+});
+
+const keys = (groups: [string, ItemTreeRow[]][]) => groups.map(([g, rows]) => [g, rows.map((r) => r.item.key)]);
+
+describe("pageOfGroups", () => {
+  const tree = (list: WorkItem[]) => itemTree(list, { nested: true, folded: new Set() });
+  const groups: [string, ItemTreeRow[]][] = [
+    ["api", tree([item("A-1"), item("A-2"), item("A-3", "A-2"), item("A-4", "A-2")])],
+    ["web", tree([item("W-1"), item("W-2", "W-1"), item("W-3")])],
+  ];
+
+  test("counts the top-level rows, each with the rows under it", () => {
+    expect(pageOfGroups(groups, 1, 2)).toEqual({
+      groups: [["api", groups[0][1]]],
+      total: 4,
+    });
+  });
+
+  test("carries on across groups, and leaves out a group with nothing on the page", () => {
+    expect(keys(pageOfGroups(groups, 2, 2).groups)).toEqual([["web", ["W-1", "W-2", "W-3"]]]);
+    expect(keys(pageOfGroups(groups, 1, 3).groups)).toEqual([
+      ["api", ["A-1", "A-2", "A-3", "A-4"]],
+      ["web", ["W-1", "W-2"]],
+    ]);
+    expect(keys(pageOfGroups(groups, 3, 2).groups)).toEqual([]);
   });
 });

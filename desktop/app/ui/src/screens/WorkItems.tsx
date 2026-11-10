@@ -33,7 +33,8 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
-import { itemTree, type ItemTreeRow } from "../lib/itemTree";
+import { itemTree, pageOfGroups, type ItemTreeRow } from "../lib/itemTree";
+import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { useDragDrop } from "../lib/useDragDrop";
 import { useLatest } from "../lib/useLatest";
 import { useLoad } from "../lib/useLoad";
@@ -63,6 +64,10 @@ function statusIcon(value: string) {
     return <ItemStatusIcon status={value} decorative />;
   return <ListChecks size={13} aria-hidden="true" />;
 }
+
+/** How many top-level items a page shows, each with its sub-items, unless
+ *  the person chooses another size. */
+const ITEMS_PER_PAGE = 100;
 
 /** What a dragged row carries: its item's key. */
 const DRAGGED = "application/x-pinrail-item";
@@ -132,11 +137,13 @@ export function WorkItems() {
     [listing],
   );
 
+  // a filter changed starts again at the first page
   const setParam = (key: string, value: string | null) =>
     updateParams(
       (next) => {
         if (value) next.set(key, value);
         else next.delete(key);
+        next.delete("page");
       },
       { replace: true },
     );
@@ -165,11 +172,35 @@ export function WorkItems() {
     () => groups.map(([key, list]) => [key, itemTree(list, { nested, folded })] as [string, Shown[]]),
     [groups, nested, folded],
   );
-  const rows = useMemo(() => shownGroups.flatMap(([, r]) => r), [shownGroups]);
+  // one page of the top-level items, each with its sub-items: drawing
+  // thousands of rows at once makes the page slow to show and to use
+  const size = pageSizeOf(params.get("per"), ITEMS_PER_PAGE);
+  const topLevel = useMemo(
+    () => shownGroups.reduce((n, [, r]) => n + r.filter((row) => row.depth === 0).length, 0),
+    [shownGroups],
+  );
+  const pages = Math.max(1, Math.ceil(topLevel / size));
+  // a page past the end, after a filter or a change shrank the list: the last
+  const page = Math.min(pageOf(params.get("page")), pages);
+  const pageGroups = useMemo(() => pageOfGroups(shownGroups, page, size).groups, [shownGroups, page, size]);
+  const rows = useMemo(() => pageGroups.flatMap(([, r]) => r), [pageGroups]);
+  // each group's whole count, for its heading on any page
+  const groupTotals = useMemo(() => new Map(shownGroups.map(([key, r]) => [key, r.length])), [shownGroups]);
   const agents = useMemo(
     () => [...new Set((items ?? []).map((i) => i.created_by).filter((b) => b !== "person"))].sort(),
     [items],
   );
+
+  /** A page number, or a step from the page the URL is on. */
+  const setPage = (n: number | ((current: number) => number)) => {
+    updateParams((next) => {
+      const now = Math.min(pageOf(next.get("page")), pages);
+      const value = Math.min(Math.max(1, typeof n === "function" ? n(now) : n), pages);
+      if (value > 1) next.set("page", String(value));
+      else next.delete("page");
+    });
+    window.scrollTo({ top: 0 });
+  };
 
   /** Opens an item in the side panel, by its key. */
   const openKeyed = useCallback(
@@ -455,7 +486,7 @@ export function WorkItems() {
   const clearFilters = () =>
     updateParams(
       (next) => {
-        for (const key of ["q", "status", "repo", "project", "by", "waiting"]) next.delete(key);
+        for (const key of ["q", "status", "repo", "project", "by", "waiting", "page"]) next.delete(key);
       },
       { replace: true },
     );
@@ -484,7 +515,14 @@ export function WorkItems() {
         label: o.label,
         mark: o.project ? <ProjectAvatar project={o.project} size={14} /> : <FolderGit2 size={13} />,
       })),
-      onChange: (v) => updateParams((next) => setScope(next, v), { replace: true }),
+      onChange: (v) =>
+        updateParams(
+          (next) => {
+            setScope(next, v);
+            next.delete("page");
+          },
+          { replace: true },
+        ),
     },
     {
       key: "by",
@@ -601,7 +639,7 @@ export function WorkItems() {
                 Drop here to move it to the top level
               </div>
             ) : null}
-            {shownGroups.map(([key, shown]) =>
+            {pageGroups.map(([key, shown]) =>
               layout === "list" ? (
                 <div key="list" className="inbox-list">
                   {shown.map((s) => row(s, ++index, key))}
@@ -621,7 +659,11 @@ export function WorkItems() {
                       !!dragging && key !== dragging.group && reposOf(key).length > 0,
                     )}
                   >
-                    <GroupHeading groupKey={key} project={shown[0]?.item.project} count={shown.length} />
+                    <GroupHeading
+                      groupKey={key}
+                      project={shown[0]?.item.project}
+                      count={groupTotals.get(key) ?? shown.length}
+                    />
                   </summary>
                   {shown.map((s) => row(s, ++index, key))}
                 </details>
@@ -629,6 +671,22 @@ export function WorkItems() {
             )}
           </div>
         )}
+        {items ? (
+          <Pager
+            label="Work items"
+            page={page}
+            size={size}
+            total={topLevel}
+            onPage={setPage}
+            onSize={(per) =>
+              updateParams((next) => {
+                if (per === ITEMS_PER_PAGE) next.delete("per");
+                else next.set("per", String(per));
+                next.delete("page");
+              })
+            }
+          />
+        ) : null}
         <footer className="inbox-footer">
           <KeyHints
             hints={[

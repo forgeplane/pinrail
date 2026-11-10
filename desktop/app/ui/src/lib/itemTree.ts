@@ -31,3 +31,22 @@ export function itemTree(list: WorkItem[], { nested, folded }: { nested: boolean
   for (const root of roots) walk(root, 0);
   return out;
 }
+
+/** The rows of one page of grouped rows: the top-level rows from
+ *  `(page - 1) * size` on, `size` of them, each with the rows under it,
+ *  in groups that keep their order. A group with no row on the page is
+ *  left out. `total` is the number of top-level rows in every group. */
+export function pageOfGroups<K>(groups: [K, ItemTreeRow[]][], page: number, size: number) {
+  const start = (page - 1) * size;
+  const end = start + size;
+  let top = -1;
+  const shown: [K, ItemTreeRow[]][] = [];
+  for (const [key, rows] of groups) {
+    const here = rows.filter((row) => {
+      if (row.depth === 0) top++;
+      return top >= start && top < end;
+    });
+    if (here.length) shown.push([key, here]);
+  }
+  return { groups: shown, total: top + 1 };
+}

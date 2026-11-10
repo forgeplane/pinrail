@@ -12,10 +12,10 @@ import { Select } from "./Select";
 export const PAGE_SIZES = [25, 50, 100] as const;
 export const DEFAULT_PAGE_SIZE = 50;
 
-/** A page size from the URL, or the default when it is not one of the sizes. */
-export const pageSizeOf = (raw: string | null) => {
+/** A page size from the URL, or `fallback` when it is not one of the sizes. */
+export const pageSizeOf = (raw: string | null, fallback: number = DEFAULT_PAGE_SIZE) => {
   const n = Number(raw);
-  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : fallback;
 };
 
 /** A 1-based page number from the URL, at least 1. */

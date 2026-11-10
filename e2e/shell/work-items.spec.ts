@@ -1191,11 +1191,13 @@ test("a sub-item in another repository's group names its parent, though the pare
 }) => {
   const site = fresh("site");
   const plugins = site.replace("/site", "/plugins");
-  const parent = await add(request, site, "The release");
-  const child = await add(request, plugins, "A plugin for it", { parent: parent.key });
+  // a word of their own, to find them on the first page of a long list
+  const tag = `zebu${Date.now()}`;
+  const parent = await add(request, site, `The release ${tag}`);
+  const child = await add(request, plugins, `A plugin for it ${tag}`, { parent: parent.key });
   await request.patch(`${core}/api/v1/settings`, { data: { items: { layout: "repository" } } });
   await settingSaved(request, (s) => s.items.layout, "repository");
-  await page.goto("/#/items");
+  await page.goto(`/#/items?q=${tag}`);
   // each in its own repository's group: the child cannot sit under the parent
   await expect(row(page, parent.key)).toBeVisible();
   await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
