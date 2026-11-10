@@ -14,7 +14,7 @@ import {
   useEffectEvent,
 } from "react";
 import { api, subscribe } from "../api/client";
-import type { Notice, Plugin, ProjectRef, ProjectsListing, Review } from "../api/types";
+import type { Notice, NoticeItem, Plugin, ProjectRef, ProjectsListing, Review } from "../api/types";
 import { setItemPrefixes } from "../lib/markdown";
 import { ENDINGS, applyNotice } from "./pending";
 import { useLoad } from "../lib/useLoad";
@@ -193,9 +193,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           setHistoryVersion((v) => v + 1);
           refresh();
         }
-        if (notice.item) {
+        // a new prefix renames every item of its repository
+        const item = noticeItem(notice);
+        if (notice.kind === "prefix_changed") {
           setItemsVersion((v) => v + 1);
-          const prefix = notice.item.key.replace(/-\d+$/, "");
+          setPrefixesVersion((v) => v + 1);
+        } else if (item) {
+          setItemsVersion((v) => v + 1);
+          const prefix = item.key.replace(/-\d+$/, "");
           if (!prefixes.current.has(prefix)) setPrefixesVersion((v) => v + 1);
         }
         // a review that moved may have taken a linked folder as it is now
@@ -309,6 +314,11 @@ export const aboutItems = (notice: Notice) =>
   ["session_archived", "session_unarchived", "history_swept", "projects_changed", "repository_deleted"].includes(
     notice.kind,
   );
+
+/** The item a notice is about, if it is about one: a prefix change is about
+ *  every item of a repository. */
+export const noticeItem = (notice: Notice): NoticeItem | null =>
+  notice.item && "key" in notice.item ? notice.item : null;
 
 /** Whether a notice is about a work item itself. */
 export const anItem = (notice: Notice) => !!notice.item;

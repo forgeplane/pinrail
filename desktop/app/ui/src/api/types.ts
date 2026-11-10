@@ -370,9 +370,13 @@ export type Notice = {
   /** for session_status: the session and the status the agent reported */
   session?: { agent: string; id: string; status: SessionStatus };
   /** for item_changed and item_deleted: the item, and the agent and session
-   *  that changed it when an agent did */
-  item?: { id: string; key: string; agent: string | null; session: string | null };
+   *  that changed it when an agent did; for prefix_changed: the repository
+   *  and its new prefix */
+  item?: NoticeItem | { repo: string; prefix: string };
 };
+
+/** The item an item_changed or item_deleted notice is about. */
+export type NoticeItem = { id: string; key: string; agent: string | null; session: string | null };
 
 /** What an agent said it is doing, with `pinrail status`. */
 /** A file a note carries. */

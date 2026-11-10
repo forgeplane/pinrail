@@ -45,6 +45,9 @@ pub const REVIEW_DELETED: &str = "review_deleted";
 pub const REPOSITORY_DELETED: &str = "repository_deleted";
 /// A work item was added or changed, or commented on.
 pub const ITEM_CHANGED: &str = "item_changed";
+/// The prefix of a repository's work item keys changed, and with it the
+/// keys of its items.
+pub const PREFIX_CHANGED: &str = "prefix_changed";
 /// The person deleted a work item, with its sub-items.
 pub const ITEM_DELETED: &str = "item_deleted";
 /// Reviews past the history's keep-days were deleted.
@@ -60,13 +63,51 @@ pub struct Notice {
     /// The settings that changed, as JSON pointers, for `settings_changed`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<Vec<String>>,
-    /// The session and its new status, for `session_status`.
+    /// The session, for the `session_*` notices: with its new status, the
+    /// message sent or deleted, or the messages delivered.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<Value>,
     /// The item, for `item_changed` and `item_deleted`: its key, and the
-    /// agent and session that changed it, when an agent did.
+    /// agent and session that changed it, when an agent did. For
+    /// `prefix_changed`, the repository and its new prefix.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<Value>,
+}
+
+impl Notice {
+    /// The notice of a stored event, from its kind and the attributes it was
+    /// stored with: the same whether it is sent live or replayed later.
+    pub fn new(event_id: i64, kind: &str, attrs: &Value) -> Notice {
+        let about = |kinds: &[&str]| kinds.contains(&kind).then(|| attrs.clone());
+        Notice {
+            event_id,
+            kind: kind.to_string(),
+            review_id: None,
+            review: None,
+            keys: attrs.get("keys").and_then(Value::as_array).map(|keys| {
+                keys.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            }),
+            session: about(&[
+                SESSION_STATUS,
+                SESSION_MESSAGE_SENT,
+                SESSION_MESSAGE_DELETED,
+                SESSION_MESSAGES_DELIVERED,
+                SESSION_ARCHIVED,
+                SESSION_UNARCHIVED,
+            ]),
+            item: about(&[ITEM_CHANGED, ITEM_DELETED, PREFIX_CHANGED]),
+        }
+    }
+
+    /// The notice with the review it is about, without its payload.
+    pub fn about(mut self, review_id: Option<String>, review: Option<Value>) -> Notice {
+        self.review_id = review_id;
+        self.review = review;
+        self
+    }
 }
 
 #[derive(Debug, Clone)]

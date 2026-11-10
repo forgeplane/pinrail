@@ -396,6 +396,7 @@ export function subscribe(handlers: {
       "repository_deleted",
       "review_deleted",
       "item_changed",
+      "prefix_changed",
       "item_deleted",
       "history_swept",
     ]) {

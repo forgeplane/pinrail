@@ -462,25 +462,17 @@ impl Reviews {
                 ));
             }
         };
-        self.bus.publish(Notice {
-            event_id: added.event_id,
-            kind: events::SESSION_STATUS.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: Some(status_notice(agent, session, &added.status)),
-            item: None,
-        });
+        self.bus.publish(Notice::new(
+            added.event_id,
+            events::SESSION_STATUS,
+            &status_notice(agent, session, &added.status),
+        ));
         if let Some(event_id) = added.delivered {
-            self.bus.publish(Notice {
+            self.bus.publish(Notice::new(
                 event_id,
-                kind: events::SESSION_MESSAGES_DELIVERED.to_string(),
-                review_id: None,
-                review: None,
-                keys: None,
-                session: Some(delivered_notice(agent, session, &added.messages)),
-                item: None,
-            });
+                events::SESSION_MESSAGES_DELIVERED,
+                &delivered_notice(agent, session, &added.messages),
+            ));
         }
         Ok((added.messages, added.stage))
     }
@@ -507,15 +499,11 @@ impl Reviews {
         else {
             return Err(Error::NotFound(format!("session {session} of {agent}")));
         };
-        self.bus.publish(Notice {
+        self.bus.publish(Notice::new(
             event_id,
-            kind: events::SESSION_MESSAGE_SENT.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: Some(message_notice(agent, session, &message)),
-            item: None,
-        });
+            events::SESSION_MESSAGE_SENT,
+            &message_notice(agent, session, &message),
+        ));
         Ok(message)
     }
 
@@ -523,15 +511,11 @@ impl Reviews {
     pub fn delete_message(&self, agent: &str, session: &str, message: i64) -> Result<(), Error> {
         match self.db.delete_message(agent, session, message)? {
             Deleted::Yes(event_id, deleted) => {
-                self.bus.publish(Notice {
+                self.bus.publish(Notice::new(
                     event_id,
-                    kind: events::SESSION_MESSAGE_DELETED.to_string(),
-                    review_id: None,
-                    review: None,
-                    keys: None,
-                    session: Some(message_notice(agent, session, &deleted)),
-                    item: None,
-                });
+                    events::SESSION_MESSAGE_DELETED,
+                    &message_notice(agent, session, &deleted),
+                ));
                 Ok(())
             }
             Deleted::Delivered => Err(Error::Conflict(
@@ -560,15 +544,11 @@ impl Reviews {
         } else {
             events::SESSION_UNARCHIVED
         };
-        self.bus.publish(Notice {
+        self.bus.publish(Notice::new(
             event_id,
-            kind: kind.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: Some(serde_json::json!({ "agent": agent, "id": id })),
-            item: None,
-        });
+            kind,
+            &serde_json::json!({ "agent": agent, "id": id }),
+        ));
         Ok(())
     }
 
@@ -1114,27 +1094,14 @@ impl Reviews {
     }
 
     fn publish_plain(&self, event_id: i64, kind: &str) {
-        self.bus.publish(Notice {
-            event_id,
-            kind: kind.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: None,
-        });
+        self.bus.publish(Notice::new(event_id, kind, &Value::Null));
     }
 
     fn publish(&self, event_id: i64, kind: &str, review: &Review) {
-        self.bus.publish(Notice {
-            event_id,
-            kind: kind.to_string(),
-            review_id: Some(review.id.clone()),
-            review: Some(review.to_json(false)),
-            keys: None,
-            session: None,
-            item: None,
-        });
+        self.bus.publish(
+            Notice::new(event_id, kind, &Value::Null)
+                .about(Some(review.id.clone()), Some(review.to_json(false))),
+        );
     }
 
     /// Envelope checks that run before the plugin's schema, all at once.

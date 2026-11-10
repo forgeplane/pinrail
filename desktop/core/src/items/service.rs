@@ -168,15 +168,7 @@ impl Items {
             "session": session,
         });
         let event_id = self.db.append_event(None, kind, None, &attrs)?;
-        self.bus.publish(Notice {
-            event_id,
-            kind: kind.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: Some(attrs),
-        });
+        self.bus.publish(Notice::new(event_id, kind, &attrs));
         Ok(())
     }
 
@@ -574,15 +566,11 @@ impl Items {
             return Ok(());
         }
         if let Some((message, event_id)) = self.db.add_message(agent, session, text, &self.user)? {
-            self.bus.publish(Notice {
+            self.bus.publish(Notice::new(
                 event_id,
-                kind: events::SESSION_MESSAGE_SENT.to_string(),
-                review_id: None,
-                review: None,
-                keys: None,
-                session: Some(crate::db::message_notice(agent, session, &message)),
-                item: None,
-            });
+                events::SESSION_MESSAGE_SENT,
+                &crate::db::message_notice(agent, session, &message),
+            ));
         }
         Ok(())
     }
@@ -684,21 +672,12 @@ impl Items {
         self.db
             .set_repo_prefix(repo, prefix.trim())?
             .map_err(refused)?;
-        let event_id = self.db.append_event(
-            None,
-            events::ITEM_CHANGED,
-            None,
-            &json!({"repo": repo, "prefix": prefix}),
-        )?;
-        self.bus.publish(Notice {
-            event_id,
-            kind: events::ITEM_CHANGED.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: None,
-        });
+        let attrs = json!({"repo": repo, "prefix": prefix.trim()});
+        let event_id = self
+            .db
+            .append_event(None, events::PREFIX_CHANGED, None, &attrs)?;
+        self.bus
+            .publish(Notice::new(event_id, events::PREFIX_CHANGED, &attrs));
         Ok(())
     }
 

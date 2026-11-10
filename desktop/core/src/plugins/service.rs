@@ -307,15 +307,11 @@ impl PluginService {
         let event_id = self
             .db
             .append_event(None, events::PLUGINS_RELOADED, None, &Value::Null)?;
-        self.bus.publish(Notice {
+        self.bus.publish(Notice::new(
             event_id,
-            kind: events::PLUGINS_RELOADED.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: None,
-        });
+            events::PLUGINS_RELOADED,
+            &Value::Null,
+        ));
         Ok(())
     }
 }

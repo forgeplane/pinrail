@@ -197,15 +197,11 @@ impl Projects {
     }
 
     fn announce(&self, event_id: i64) {
-        self.bus.publish(Notice {
+        self.bus.publish(Notice::new(
             event_id,
-            kind: events::PROJECTS_CHANGED.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: None,
-        });
+            events::PROJECTS_CHANGED,
+            &Value::Null,
+        ));
     }
 }
 

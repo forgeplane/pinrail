@@ -15,7 +15,7 @@ import type {
   SessionStatus,
   WorkItem,
 } from "../../api/types";
-import { useNotice } from "../../state/live";
+import { noticeItem, useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
 import { useLatest } from "../../lib/useLatest";
 
@@ -29,11 +29,13 @@ export function aboutThread(
   reviews: Set<string>,
   items: Set<string>,
 ): { thread: boolean; item: boolean } {
-  // a change its agent made to an item, or any change to one of its items
+  // a change its agent made to an item, any change to one of its items, or
+  // a new prefix, which may rename them
+  const changed = noticeItem(notice);
   const item =
     !!named &&
-    !!notice.item &&
-    ((notice.item.agent === named.agent && notice.item.session === named.id) || items.has(notice.item.key));
+    (notice.kind === "prefix_changed" ||
+      (!!changed && ((changed.agent === named.agent && changed.session === named.id) || items.has(changed.key))));
   const thread =
     item ||
     (!!notice.review_id && reviews.has(notice.review_id)) ||

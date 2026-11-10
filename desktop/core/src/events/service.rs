@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
 use tokio::sync::broadcast;
 
 use super::{Bus, Notice};
@@ -56,35 +55,13 @@ impl Events {
         let reviews = self.db.reviews_by_id(&ids).unwrap_or_default();
         Ok(events
             .into_iter()
-            .map(|event| Notice {
-                item: [super::ITEM_CHANGED, super::ITEM_DELETED]
-                    .contains(&event.kind.as_str())
-                    .then(|| event.attrs.clone()),
-                session: [
-                    super::SESSION_STATUS,
-                    super::SESSION_ARCHIVED,
-                    super::SESSION_UNARCHIVED,
-                ]
-                .contains(&event.kind.as_str())
-                .then(|| event.attrs.clone()),
-                event_id: event.id,
-                kind: event.kind,
-                review: event
+            .map(|event| {
+                let review = event
                     .review_id
                     .as_deref()
                     .and_then(|id| reviews.get(id))
-                    .map(|review| review.to_json(false)),
-                review_id: event.review_id,
-                keys: event
-                    .attrs
-                    .get("keys")
-                    .and_then(Value::as_array)
-                    .map(|keys| {
-                        keys.iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_string)
-                            .collect()
-                    }),
+                    .map(|review| review.to_json(false));
+                Notice::new(event.id, &event.kind, &event.attrs).about(event.review_id, review)
             })
             .collect())
     }

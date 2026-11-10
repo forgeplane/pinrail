@@ -233,15 +233,8 @@ impl Themes {
         let event_id = self
             .db
             .append_event(None, events::THEMES_CHANGED, None, &json!({}))?;
-        self.bus.publish(Notice {
-            event_id,
-            kind: events::THEMES_CHANGED.to_string(),
-            review_id: None,
-            review: None,
-            keys: None,
-            session: None,
-            item: None,
-        });
+        self.bus
+            .publish(Notice::new(event_id, events::THEMES_CHANGED, &Value::Null));
         Ok(true)
     }
 

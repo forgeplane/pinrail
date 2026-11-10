@@ -81,21 +81,12 @@ impl SettingsService {
     }
 
     fn announce(&self, keys: &[String]) -> Result<(), Error> {
-        let event_id = self.db.append_event(
-            None,
-            events::SETTINGS_CHANGED,
-            None,
-            &json!({ "keys": keys }),
-        )?;
-        self.bus.publish(Notice {
-            event_id,
-            kind: events::SETTINGS_CHANGED.to_string(),
-            review_id: None,
-            review: None,
-            keys: Some(keys.to_vec()),
-            session: None,
-            item: None,
-        });
+        let attrs = json!({ "keys": keys });
+        let event_id = self
+            .db
+            .append_event(None, events::SETTINGS_CHANGED, None, &attrs)?;
+        self.bus
+            .publish(Notice::new(event_id, events::SETTINGS_CHANGED, &attrs));
         Ok(())
     }
 }
