@@ -9,6 +9,7 @@ import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
 import { finder, type Finder, type Found } from "../lib/findText";
 import { usePageRepo } from "../lib/pageRepo";
+import { countFeature } from "../lib/usage";
 import { FindBar, useFindBar } from "./FindBar";
 import { useUrlParams } from "../lib/url";
 import { timeline as entriesOf, fromSession, newestRounds, stages } from "../lib/sessions";
@@ -195,6 +196,9 @@ export function Thread({
     show: showFind,
     hide: hideFind,
   } = useFindBar();
+  useEffect(() => {
+    if (finding) countFeature("find_in_thread");
+  }, [finding]);
   const [found, setFound] = useState<Found | null>(null);
   const finderRef = useRef<Finder | null>(null);
   useWindowKey((event) => {

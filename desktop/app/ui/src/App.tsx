@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Layout } from "./components/Layout";
 import { Projects } from "./screens/Projects";
 import { useExternalLinks, useNativeRoutes } from "./lib/native";
+import { countFeature, pageFeature } from "./lib/usage";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
@@ -23,7 +25,11 @@ function ToHistoryTab() {
 function Shell() {
   useNativeRoutes();
   useExternalLinks();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    const page = pageFeature(pathname, search);
+    if (page) countFeature(page);
+  }, [pathname, search]);
   return (
     <Layout>
       <ErrorBoundary resetKey={pathname}>

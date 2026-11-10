@@ -14,6 +14,7 @@ import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
+import { countFeature } from "../lib/usage";
 import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
@@ -64,6 +65,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   const filters = labs.sessions ? FILTERS : FILTERS.filter((f) => f.key !== "stages");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  useEffect(() => countFeature("command_palette"), []);
   // the highlighted entry, the first again after each change of the search
   const [active, setActive] = useState(0);
   const search = (text: string) => {

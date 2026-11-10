@@ -18,7 +18,7 @@ use crate::items::Items;
 use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Registry};
 use crate::projects::Projects;
 use crate::reviews::Reviews;
-use crate::settings::SettingsService;
+use crate::settings::{SettingsReader, SettingsService};
 use crate::telemetry::Telemetry;
 use crate::themes::Themes;
 
@@ -175,20 +175,21 @@ impl Pinrail {
         let events = Events::new(db.clone());
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());
-        // tests do not depend on the DO_NOT_TRACK of whoever runs them
-        let telemetry = Arc::new(if cfg!(test) {
-            Telemetry::open_with(&config.data_dir, settings.reader(), |_| false)
-        } else {
+        let telemetry = Arc::new(if config.telemetry_env {
             Telemetry::open(&config.data_dir, settings.reader())
+        } else {
+            Telemetry::open_with(&config.data_dir, settings.reader(), |_| false)
         });
         let follows = telemetry.clone();
-        settings.follow(move |keys| {
-            if keys.iter().any(|k| k.starts_with("/telemetry")) {
-                follows.sync();
-            }
-        });
+        let reader = settings.reader();
+        settings.follow(move |keys| count_settings(&follows, &reader, keys));
         let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
-        let plugins = PluginService::new(db.clone(), registry.clone(), events.bus());
+        let plugins = PluginService::new(
+            db.clone(),
+            registry.clone(),
+            events.bus(),
+            telemetry.clone(),
+        );
         let attachments = Attachments::open(
             &config.attachments_dir(),
             db.clone(),
@@ -201,6 +202,7 @@ impl Pinrail {
             config.user.clone(),
             attachments.clone(),
             settings.reader(),
+            telemetry.clone(),
         );
         let reviews = Reviews::new(
             db.clone(),
@@ -208,6 +210,7 @@ impl Pinrail {
             events.bus(),
             config.user.clone(),
             attachments.clone(),
+            telemetry.clone(),
         );
         Ok(Self {
             config,
@@ -223,6 +226,42 @@ impl Pinrail {
             telemetry,
             _lock: lock,
         })
+    }
+}
+
+/// Brings telemetry in line with a change of its settings, and counts the
+/// changes of other settings that the usage data counts: the first launch,
+/// once the notice has been shown, a theme of the person's own chosen, and
+/// notifications paused.
+fn count_settings(telemetry: &Telemetry, settings: &SettingsReader, keys: &[String]) {
+    use crate::telemetry::{self, Event};
+    let changed = |key: &str| keys.iter().any(|k| k == key);
+    if keys.iter().any(|k| k.starts_with("/telemetry")) {
+        telemetry.sync();
+    }
+    if changed(telemetry::NOTICE_SHOWN) && !settings.value(telemetry::NOTICE_SHOWN).is_null() {
+        telemetry.record(Event::AppStarted { first_run: true });
+    }
+    let own_theme = ["/appearance/dark_theme", "/appearance/light_theme"]
+        .into_iter()
+        .filter(|key| changed(key))
+        .any(|key| {
+            settings
+                .value(key)
+                .as_str()
+                .is_some_and(|id| !crate::themes::is_bundled(id))
+        });
+    if own_theme {
+        telemetry.record(Event::FeatureUsed {
+            feature: telemetry::CUSTOM_THEME,
+        });
+    }
+    if changed("/notifications/paused_until")
+        && !settings.value("/notifications/paused_until").is_null()
+    {
+        telemetry.record(Event::FeatureUsed {
+            feature: telemetry::NOTIFICATIONS_PAUSED,
+        });
     }
 }
 

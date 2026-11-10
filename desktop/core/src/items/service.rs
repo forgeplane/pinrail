@@ -1,6 +1,7 @@
 //! Work items as an application operation: what the API and the CLI ask
 //! for, checked, applied through the database, and announced.
 
+use crate::telemetry::{Event as TelemetryEvent, Telemetry};
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -34,6 +35,7 @@ pub struct Items {
     /// the person's settings, for whether parents close with their last
     /// sub-item
     settings: SettingsReader,
+    telemetry: Arc<Telemetry>,
 }
 
 /// A refusal as the API answers it: an unknown item is not found, a rule
@@ -143,6 +145,7 @@ impl Items {
         user: String,
         attachments: Attachments,
         settings: SettingsReader,
+        telemetry: Arc<Telemetry>,
     ) -> Self {
         Items {
             db,
@@ -150,7 +153,16 @@ impl Items {
             user,
             attachments,
             settings,
+            telemetry,
         }
+    }
+
+    /// Counts a change of an item in the usage data.
+    fn count(&self, change: &'static str, actor: &Actor) {
+        self.telemetry.record(TelemetryEvent::ItemChanged {
+            change,
+            by_agent: matches!(actor, Actor::Agent { .. }),
+        });
     }
 
     /// Tells the app an item changed: its key, and the agent and session
@@ -310,6 +322,7 @@ impl Items {
             .item
         };
         self.announce(events::ITEM_CHANGED, &item, actor)?;
+        self.count("added", actor);
         Ok(item)
     }
 
@@ -349,6 +362,9 @@ impl Items {
         if let Some((_, first)) = added.first() {
             self.announce(events::ITEM_CHANGED, first, actor)?;
         }
+        for _ in &added {
+            self.count("added", actor);
+        }
         Ok(added)
     }
 
@@ -359,6 +375,7 @@ impl Items {
         let item = self.db.next_item(&repo, actor, claim, Utc::now())?;
         if claim && let Some(item) = &item {
             self.announce(events::ITEM_CHANGED, item, actor)?;
+            self.count("claimed", actor);
         }
         Ok(item)
     }
@@ -450,6 +467,15 @@ impl Items {
             }
         }
         self.announce(events::ITEM_CHANGED, &edited.item, actor)?;
+        if matches!(change.claim, Some(Claim::Take { .. })) {
+            self.count("claimed", actor);
+        }
+        match change.status {
+            Some(Status::Done) => self.count("done", actor),
+            Some(Status::Cancelled) => self.count("cancelled", actor),
+            Some(Status::OnHold) => self.count("held", actor),
+            _ => {}
+        }
         Ok(edited)
     }
 
@@ -533,6 +559,7 @@ impl Items {
             .queue_item(item, place, Utc::now())?
             .map_err(refused)?;
         self.announce(events::ITEM_CHANGED, &self.get(item, None)?, actor)?;
+        self.count("queued", actor);
         self.queued()
     }
 

@@ -23,6 +23,10 @@ pub struct Config {
     pub catalog_dir: Option<PathBuf>,
     /// The most one uploaded attachment may be, in bytes.
     pub max_attachment_bytes: u64,
+    /// Whether `DO_NOT_TRACK` and `PINRAIL_TELEMETRY` in the environment
+    /// turn telemetry off. Tests turn this off, so that they do not depend
+    /// on the environment of whoever runs them.
+    pub telemetry_env: bool,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -72,6 +76,7 @@ impl Config {
             sdk_dir: None,
             catalog_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
+            telemetry_env: true,
         }
     }
 

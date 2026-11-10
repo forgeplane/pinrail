@@ -284,6 +284,8 @@ export const api = {
   createTheme: (id: string, from: string) => request<{ path: string }>("POST", "/api/v1/themes", { id, from }),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
+  /** counts a feature of the window in the usage data, while it is on */
+  countFeature: (feature: string) => request<void>("POST", "/api/v1/telemetry/features", { feature }),
   /** the review rendered as markdown by the core, for the clipboard */
   reviewMarkdown: async (id: string) => {
     const response = await fetch(`${await serverUrl()}/api/v1/reviews/${seg(id)}?format=markdown`);

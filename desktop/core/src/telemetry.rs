@@ -127,6 +127,79 @@ impl Event {
     }
 }
 
+/// The features `feature_used` counts that the app's window reports, with
+/// `POST /api/v1/telemetry/features`.
+pub const WINDOW_FEATURES: &[&str] = &[
+    "command_palette",
+    "find_in_thread",
+    "list_filter",
+    "item_picker",
+    "quick_add",
+    "page_inbox",
+    "page_sessions",
+    "page_items",
+    "page_projects",
+    "page_history",
+];
+
+/// The features `feature_used` counts that the core sees happen itself.
+pub const ROUND_STARRED: &str = "round_starred";
+pub const SESSION_MESSAGE: &str = "session_message";
+pub const CUSTOM_THEME: &str = "custom_theme";
+pub const NOTIFICATIONS_PAUSED: &str = "notifications_paused";
+
+/// The window's feature `name` names, when it is one.
+pub fn window_feature(name: &str) -> Option<&'static str> {
+    WINDOW_FEATURES.iter().copied().find(|f| *f == name)
+}
+
+/// The commands of the `pinrail` CLI that `cli_used` names; any other is
+/// `other`.
+const CLI_COMMANDS: &[&str] = &[
+    "ask",
+    "status",
+    "submit",
+    "items",
+    "wait",
+    "show",
+    "rounds",
+    "events",
+    "list",
+    "decide",
+    "withdraw",
+    "discard",
+    "plugins",
+    "attachments",
+    "export",
+    "serve",
+    "docs",
+    "open",
+    "telemetry",
+];
+
+/// The CLI's command `name` names, or `other`.
+pub fn cli_command(name: &str) -> &'static str {
+    CLI_COMMANDS
+        .iter()
+        .copied()
+        .find(|c| *c == name)
+        .unwrap_or(OTHER)
+}
+
+/// What a decision amounts to, from the summary its plugin derives:
+/// `changes` when any count is a warning or a danger, such as rejected
+/// items or changes requested; `approved` otherwise; `unknown` when the
+/// plugin derives no summary.
+pub fn outcome_of(summary: Option<&Value>) -> &'static str {
+    let Some(counts) = summary.and_then(|s| s["counts"].as_array()) else {
+        return "unknown";
+    };
+    let against = counts
+        .iter()
+        .any(|c| matches!(c["tone"].as_str(), Some("warning" | "danger")));
+    if against { "changes" } else { "approved" }
+}
+
 /// Whether `name` is one of the official plugins the app carries, for the
 /// `official` field of `plugin_installed`.
 pub fn is_official(name: &str) -> bool {
@@ -345,7 +418,9 @@ mod tests {
 
     fn app() -> (tempfile::TempDir, Pinrail) {
         let dir = tempfile::tempdir().unwrap();
-        let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
+        let mut config = Config::new(dir.path(), 0);
+        config.telemetry_env = false;
+        let app = Pinrail::open(config).unwrap();
         (dir, app)
     }
 
@@ -353,6 +428,12 @@ mod tests {
         app.settings()
             .change(&json!({"telemetry": {"notice_shown": "2026-11-10T09:00:00Z"}}))
             .unwrap();
+        // the first launch, counted with the notice
+        let started = app.telemetry().take(MAX_WAITING);
+        assert_eq!(
+            started.iter().map(|r| &r.event).collect::<Vec<_>>(),
+            [&Event::AppStarted { first_run: true }]
+        );
     }
 
     fn waiting(t: &Telemetry) -> Vec<Value> {

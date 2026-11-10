@@ -327,6 +327,11 @@ fn bundled_id(path: &Path) -> &str {
         .expect("a bundled theme has a UTF-8 name")
 }
 
+/// Whether `id` is one of the themes the app carries.
+pub(crate) fn is_bundled(id: &str) -> bool {
+    BUNDLED.get_file(format!("{id}.json")).is_some()
+}
+
 fn bundled(id: &str) -> Option<Parsed> {
     let file = BUNDLED.get_file(format!("{id}.json"))?;
     parse(file.contents_utf8()?).ok()

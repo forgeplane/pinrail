@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOptionsMenu, type MenuOption } from "./OptionsMenu";
 import { Tooltip } from "./Tooltip";
+import { countFeature } from "../lib/usage";
 
 /** A choice of a filter: its value, label and picture. */
 export type FilterChoice = { value: string; label: string; mark?: ReactNode };
@@ -153,6 +154,7 @@ function FilterMenu({
             // a pick is the whole point of opening the menu: it closes
             onPick: () => {
               f.onChange(c.value);
+              if (c.value !== f.off) countFeature("list_filter");
               onClose();
             },
           })),
@@ -163,6 +165,7 @@ function FilterMenu({
         <span key={t.key}>
           {toggle(t.label, t.on, () => {
             t.onChange(!t.on);
+            if (!t.on) countFeature("list_filter");
             onClose();
           })}
         </span>

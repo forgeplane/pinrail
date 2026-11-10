@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { insertKey, offers, pickerQuery, type Offer } from "../lib/itemPicker";
+import { countFeature } from "../lib/usage";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 
 /** The text with the letters at `hits` marked. */
@@ -99,6 +100,7 @@ export function useItemPicker({
     caret.current = next.cursor;
     onChange(next.text);
     setOpen(null);
+    countFeature("item_picker");
   };
 
   // before the field's own keys, which save, cancel or leave on them

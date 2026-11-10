@@ -3,6 +3,7 @@
 //! with exit code 2 for a refusal (4xx) and 1 for a server error (5xx).
 
 use std::fmt;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -11,6 +12,35 @@ use ureq::Agent;
 
 /// The header that tells the app a request comes from this CLI.
 const CLIENT_HEADER: &str = "x-pinrail-client";
+/// The headers that name the command this run of the CLI is, such as
+/// `ask`, and the agent it runs under, for the app's usage data.
+const COMMAND_HEADER: &str = "x-pinrail-command";
+const AGENT_HEADER: &str = "x-pinrail-agent";
+
+/// The command and the agent every request names, set once by `main`.
+static CALLER: OnceLock<(String, String)> = OnceLock::new();
+
+/// Names the command this run is, and the agent it runs under (`none`
+/// outside one), in every request it makes.
+pub fn set_caller(command: &str, agent: Option<&str>) {
+    let _ = CALLER.set((command.to_string(), agent.unwrap_or("none").to_string()));
+}
+
+/// Adds the command and agent headers to a request, when `main` set them.
+fn name_caller(
+    mut request: ureq::http::Request<ureq::SendBody>,
+    next: ureq::middleware::MiddlewareNext,
+) -> Result<ureq::http::Response<ureq::Body>, ureq::Error> {
+    if let Some((command, agent)) = CALLER.get() {
+        let headers = request.headers_mut();
+        for (name, value) in [(COMMAND_HEADER, command), (AGENT_HEADER, agent)] {
+            if let Ok(value) = ureq::http::HeaderValue::from_str(value) {
+                headers.insert(name, value);
+            }
+        }
+    }
+    next.handle(request)
+}
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -91,6 +121,7 @@ impl Client {
 
     fn agent(timeout: Duration) -> Agent {
         let config = Agent::config_builder()
+            .middleware(name_caller)
             .http_status_as_error(false)
             .timeout_connect(Some(Duration::from_secs(5)))
             .timeout_global(Some(timeout))

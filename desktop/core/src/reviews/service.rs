@@ -6,6 +6,7 @@
 //! the database enforces that with the primary key on `outcomes`, so a
 //! review ends once, whichever way, and no two racing endings both win.
 
+use crate::telemetry::{self, Event as TelemetryEvent, Name, Telemetry};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -58,6 +59,7 @@ pub struct Reviews {
     bus: Bus,
     user: String,
     attachments: Attachments,
+    telemetry: Arc<Telemetry>,
 }
 
 /// A submission that passed every check, ready to store.
@@ -93,6 +95,7 @@ impl Reviews {
         bus: Bus,
         user: String,
         attachments: Attachments,
+        telemetry: Arc<Telemetry>,
     ) -> Self {
         Reviews {
             db,
@@ -100,6 +103,7 @@ impl Reviews {
             bus,
             user,
             attachments,
+            telemetry,
         }
     }
 
@@ -450,6 +454,7 @@ impl Reviews {
             Vec::new()
         };
         let origin = Review::normalize_origin(origin);
+        let first = self.db.session(agent, session, Utc::now())?.is_none();
         let added = match self
             .db
             .add_status(agent, session, text, kind, &origin, &attachments)?
@@ -467,6 +472,11 @@ impl Reviews {
             events::SESSION_STATUS,
             &status_notice(agent, session, &added.status),
         ));
+        if first {
+            self.telemetry.record(TelemetryEvent::SessionStarted {
+                agent: Name::of(agent),
+            });
+        }
         if let Some(event_id) = added.delivered {
             self.bus.publish(Notice::new(
                 event_id,
@@ -504,6 +514,9 @@ impl Reviews {
             events::SESSION_MESSAGE_SENT,
             &message_notice(agent, session, &message),
         ));
+        self.telemetry.record(TelemetryEvent::FeatureUsed {
+            feature: telemetry::SESSION_MESSAGE,
+        });
         Ok(message)
     }
 
@@ -668,6 +681,7 @@ impl Reviews {
         };
         let review = self.get(id)?;
         self.publish(event_id, events::DECIDED, &review);
+        self.count_decision(&review)?;
         Ok(review)
     }
 
@@ -811,6 +825,44 @@ impl Reviews {
         }
     }
 
+    /// Counts a decision in the usage data: a set of questions, with how
+    /// many were left unanswered and whether the reply was the one the agent
+    /// suggested, or a review, with its outcome, its rounds and how long it
+    /// waited.
+    fn count_decision(&self, review: &Review) -> Result<(), Error> {
+        if !self.telemetry.usage_on() {
+            return Ok(());
+        }
+        let Some(decision) = &review.decision else {
+            return Ok(());
+        };
+        let event = match review.kind {
+            Kind::Question => {
+                let payload = review.payload.as_ref().unwrap_or(&Value::Null);
+                let answers = decision.data["answers"].as_array();
+                let unanswered =
+                    answers.map_or(0, |a| a.iter().filter(|a| a["unanswered"] == true).count());
+                let suggested = payload["suggested_reply"].as_str();
+                TelemetryEvent::QuestionsAnswered {
+                    questions: payload["questions"].as_array().map_or(0, Vec::len) as u32,
+                    unanswered: unanswered as u32,
+                    suggested_reply_used: suggested.is_some()
+                        && review.agent_note.as_deref().map(str::trim) == suggested,
+                }
+            }
+            Kind::Review => TelemetryEvent::ReviewDecided {
+                plugin: Name::of(&review.plugin),
+                outcome: telemetry::outcome_of(decision.summary.as_ref()),
+                rounds: self.db.rounds(&review.id)?.len() as u32,
+                seconds_waiting: (decision.decided_at - review.created_at)
+                    .num_seconds()
+                    .max(0) as u64,
+            },
+        };
+        self.telemetry.record(event);
+        Ok(())
+    }
+
     /// The requester gives up.
     pub fn withdraw(
         &self,
@@ -872,6 +924,9 @@ impl Reviews {
         };
         let review = self.get(id)?;
         self.publish(event_id, events::DISCARDED, &review);
+        self.telemetry.record(TelemetryEvent::ReviewDiscarded {
+            plugin: Name::of(&review.plugin),
+        });
         Ok(review)
     }
 
@@ -909,6 +964,11 @@ impl Reviews {
             .db
             .append_event(Some(id), kind, Some(&self.user), &Value::Null)?;
         self.publish(event_id, kind, &self.get(id)?);
+        if starred {
+            self.telemetry.record(TelemetryEvent::FeatureUsed {
+                feature: telemetry::ROUND_STARRED,
+            });
+        }
         Ok(())
     }
 

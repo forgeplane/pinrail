@@ -815,6 +815,9 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     let parsed = command().try_get_matches().and_then(|matches| {
+        if let Some(name) = matches.subcommand_name() {
+            api::set_caller(name, agent::detect().as_deref());
+        }
         let mut cli = Cli::from_arg_matches(&matches)?;
         // which question each of ask's options follows
         if let (Command::Ask(args), Some(("ask", sub))) = (&mut cli.command, matches.subcommand()) {

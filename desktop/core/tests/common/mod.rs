@@ -83,6 +83,7 @@ fn open_with(adjust: impl FnOnce(&mut Config), sessions: bool) -> App {
     }
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
+    config.telemetry_env = false;
     adjust(&mut config);
     let state = Arc::new(Pinrail::open(config).unwrap());
     App {

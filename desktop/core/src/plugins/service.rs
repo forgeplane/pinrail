@@ -1,5 +1,6 @@
 //! Plugin operations shared by the HTTP API and other application interfaces.
 
+use crate::telemetry::{self, Event as TelemetryEvent, Name, Telemetry};
 use std::sync::Arc;
 
 use serde_json::{Value, json};
@@ -14,11 +15,22 @@ pub struct PluginService {
     db: Arc<Db>,
     registry: Arc<Registry>,
     bus: Bus,
+    telemetry: Arc<Telemetry>,
 }
 
 impl PluginService {
-    pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
-        Self { db, registry, bus }
+    pub(crate) fn new(
+        db: Arc<Db>,
+        registry: Arc<Registry>,
+        bus: Bus,
+        telemetry: Arc<Telemetry>,
+    ) -> Self {
+        Self {
+            db,
+            registry,
+            bus,
+            telemetry,
+        }
     }
 
     /// Each usable plugin described for an agent, or the one named.
@@ -161,6 +173,7 @@ impl PluginService {
     pub fn remove(&self, name: &str) -> Result<Value, Error> {
         let answer = install::remove(&self.db, &self.registry, name)?;
         self.announce()?;
+        self.count_install(name, true);
         Ok(answer)
     }
 
@@ -278,6 +291,15 @@ impl PluginService {
         self.installed(installed)
     }
 
+    /// Counts an install or a removal in the usage data.
+    fn count_install(&self, name: &str, removed: bool) {
+        self.telemetry.record(TelemetryEvent::PluginInstalled {
+            plugin: Name::of(name),
+            official: telemetry::is_official(name),
+            removed,
+        });
+    }
+
     /// An install's answer: the plugin's row, with the version it replaced.
     fn installed(
         &self,
@@ -285,6 +307,7 @@ impl PluginService {
     ) -> Result<Value, Error> {
         let (record, before) = installed?;
         self.announce()?;
+        self.count_install(&record.name, false);
         let mut row = self
             .registry
             .get(&record.name)

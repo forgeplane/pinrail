@@ -87,6 +87,10 @@ fn router_with(state: ApiState) -> Router {
         .merge(settings::routes())
         .merge(themes::routes())
         .merge(telemetry::routes())
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            telemetry::count_cli,
+        ))
         .layer(axum::extract::DefaultBodyLimit::max(guard::JSON_LIMIT))
         .layer(axum::middleware::from_fn(guard::body_limit))
         // inside CORS, so a preflight is answered before a write is judged
@@ -143,6 +147,11 @@ pub async fn serve(
     let state = ApiState::new(app);
     let listener = tokio::net::TcpListener::from_std(listener)?;
     server_info::write(state.app.config(), state.started_at)?;
+    // a first launch counts once the person has seen the notice
+    state
+        .app
+        .telemetry()
+        .record(crate::telemetry::Event::AppStarted { first_run: false });
 
     let sweeper = {
         let app = state.app.clone();
