@@ -6539,9 +6539,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 8px;
   min-width: 0;
 }
-.item-title-text {
-  font-weight: 500;
-}
 .item-parent,
 .item-repo {
   flex: none;
