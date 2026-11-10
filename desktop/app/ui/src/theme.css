@@ -736,6 +736,63 @@ h1 {
   box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.35);
   font-size: 12.5px;
 }
+/* the work items a # in a comment or a description offers: a list under
+   the field, as a menu is drawn */
+.item-picker {
+  position: fixed;
+  z-index: var(--z-popup);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.35);
+  font-size: 12.5px;
+}
+.item-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+.item-picker-row.is-active {
+  background: var(--bg-hover);
+}
+.item-picker-key {
+  flex: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.item-picker-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-picker-repo {
+  flex: none;
+  max-width: 35%;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-picker mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+.item-picker-empty {
+  padding: 6px 8px;
+  color: var(--dim);
+}
 .menu-sub {
   position: relative;
 }

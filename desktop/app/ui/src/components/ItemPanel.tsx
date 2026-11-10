@@ -38,6 +38,7 @@ import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { HoldItemDialog, stoppedByHold } from "./HoldItemDialog";
 import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
+import { useItemPicker } from "./ItemPicker";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { Select } from "./Select";
 import { sessionPath } from "./Thread";
@@ -298,6 +299,7 @@ export function ItemPanel({
         {editingBody ? (
           <EditableBody
             body={item.body}
+            repo={item.repo}
             taken={fileNames}
             onCancel={() => setEditingBody(false)}
             onSave={async (body, attachments) => {
@@ -451,6 +453,7 @@ export function ItemPanel({
             <CommentCard
               key={entry.id}
               comment={entry}
+              repo={item.repo}
               files={item.files}
               fileUrl={fileUrl}
               onEdit={async (body) => {
@@ -475,6 +478,7 @@ export function ItemPanel({
           )}
           field={
             <CommentField
+              repo={item.repo}
               taken={fileNames}
               onPost={async (body, attachments) => {
                 try {
@@ -600,11 +604,14 @@ function TitleField({
 /** The description as Markdown source: ⌘Enter saves, Esc leaves. */
 function EditableBody({
   body,
+  repo,
   taken,
   onSave,
   onCancel,
 }: {
   body: string;
+  /** the item's repository, whose items the picker offers first */
+  repo: string;
   /** the names of the files the description carries already */
   taken: string[];
   onSave: (body: string, attachments: Record<string, Attached>) => Promise<void>;
@@ -614,6 +621,7 @@ function EditableBody({
   const [draft, setDraft] = useState(body);
   const field = useRef<HTMLTextAreaElement>(null);
   const files = useAttach({ box: field, onChange: setDraft, taken, onError: (m) => toast(m, "danger") });
+  const picker = useItemPicker({ box: field, value: draft, onChange: setDraft, repo });
   useEffect(() => {
     field.current?.focus();
   }, []);
@@ -628,6 +636,7 @@ function EditableBody({
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={editKeys({ onSave: () => !files.busy && save(), onCancel, saveOn: "mod-enter" })}
       />
+      {picker}
       <div className="item-edit-actions">
         <AttachButton label="Attach a file to the description" onFiles={(f) => void files.attach(f)} />
         <span className="dim item-edit-hint">{files.busy ? "Uploading…" : "Drop or paste files to attach them"}</span>
@@ -730,12 +739,14 @@ function AddSubItem({ onAdd }: { onAdd: (title: string) => Promise<boolean> }) {
 
 function CommentCard({
   comment,
+  repo,
   files,
   fileUrl,
   onEdit,
   onDelete,
 }: {
   comment: ItemComment;
+  repo: string;
   files: { name: string; media_type: string }[];
   fileUrl: (n: string) => string | null;
   onEdit: (body: string) => Promise<boolean>;
@@ -765,7 +776,7 @@ function CommentCard({
         ) : null}
       </div>
       {editing ? (
-        <CommentEdit body={comment.body} onSave={onEdit} onDone={() => setEditing(false)} />
+        <CommentEdit body={comment.body} repo={repo} onSave={onEdit} onDone={() => setEditing(false)} />
       ) : (
         <Markdown text={comment.body} files={[...files, ...comment.files]} fileUrl={fileUrl} />
       )}
@@ -788,17 +799,22 @@ function CommentCard({
  *  ⌘Enter saves, Esc leaves. */
 function CommentEdit({
   body,
+  repo,
   onSave,
   onDone,
 }: {
   body: string;
+  repo: string;
   onSave: (body: string) => Promise<boolean>;
   onDone: () => void;
 }) {
   const [draft, setDraft] = useState(body);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useItemPicker({ box: field, value: draft, onChange: setDraft, repo });
   return (
     <div className="item-body-edit">
       <textarea
+        ref={field}
         aria-label="Comment"
         value={draft}
         rows={3}
@@ -810,15 +826,18 @@ function CommentEdit({
           saveOn: "mod-enter",
         })}
       />
+      {picker}
     </div>
   );
 }
 
 /** The field at the end of the timeline: ⌘Enter posts the comment. */
 function CommentField({
+  repo,
   taken,
   onPost,
 }: {
+  repo: string;
   /** the names the item's files already have */
   taken: string[];
   onPost: (body: string, attachments: Record<string, Attached>) => Promise<boolean>;
@@ -827,6 +846,7 @@ function CommentField({
   const [draft, setDraft] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   const files = useAttach({ box, onChange: setDraft, taken, onError: (m) => toast(m, "danger") });
+  const picker = useItemPicker({ box, value: draft, onChange: setDraft, repo });
   const post = async () => {
     const text = draft.trim();
     if (!text || files.busy) return;
@@ -850,6 +870,7 @@ function CommentField({
         tools={<AttachButton label="Attach a file to the comment" onFiles={(f) => void files.attach(f)} />}
         send={{ label: "Comment", keys: [MOD, "Enter"], disabled: !draft.trim() || files.busy }}
       />
+      {picker}
     </div>
   );
 }
