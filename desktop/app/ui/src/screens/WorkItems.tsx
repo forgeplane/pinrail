@@ -36,6 +36,7 @@ import { useDebounced } from "../lib/useDebounced";
 import { itemTree, type ItemTreeRow } from "../lib/itemTree";
 import { useDragDrop } from "../lib/useDragDrop";
 import { useLatest } from "../lib/useLatest";
+import { useLoad } from "../lib/useLoad";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -84,7 +85,6 @@ export function WorkItems() {
   const waiting = params.get("waiting") === "1";
   const openKey = params.get("open");
   const filtered = !!(query || status || scope || by || waiting);
-  const [items, setItems] = useState<WorkItem[] | null>(null);
   // each project's repositories, by its id: where an item dropped on it goes
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
@@ -94,17 +94,13 @@ export function WorkItems() {
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // the notices that can change the items, which load them again
   const itemNotices = useNoticeCount(aboutItems);
-  useEffect(() => {
-    let cancelled = false;
-    const wanted = STATUSES.find((s) => s.value === status)?.query;
-    api
-      .items({ status: wanted, q: debounced || undefined })
-      .then((d) => !cancelled && setItems(d.items))
-      .catch(() => !cancelled && setItems(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [status, debounced, itemNotices, reloads]);
+  const { data: items, error: loadError } = useLoad(
+    () =>
+      api
+        .items({ status: STATUSES.find((s) => s.value === status)?.query, q: debounced || undefined })
+        .then((d) => d.items),
+    [status, debounced, itemNotices, reloads],
+  );
   // the person's queue, in its order: the items agents take first
   const [queue, setQueue] = useState<WorkItem[]>([]);
   useEffect(() => {
@@ -580,6 +576,7 @@ export function WorkItems() {
             }
           }}
         />
+        {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
         {!items ? null : kept.length === 0 ? (
           <EmptyState
             title={filtered ? "No matching work items" : "No work items yet"}

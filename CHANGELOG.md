@@ -72,6 +72,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- The Sessions page and the history say why when their list cannot be
+  loaded. They showed an empty list.
 - Esc pressed the moment a review opens beside the list closes it. On a
   busy computer, the key could be lost while the review was loading.
 - In a narrow window, a review or a session opened beside the list covers

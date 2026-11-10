@@ -27,6 +27,7 @@ import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
 import { useNow } from "../lib/useNow";
+import { useLoad } from "../lib/useLoad";
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */
@@ -38,7 +39,6 @@ export function History() {
   const [params, updateParams, currentParams] = useUrlParams();
   const navigate = useNavigate();
   const { settings: prefs } = useSettings();
-  const [data, setData] = useState<ReviewListing | null>(null);
   const [menu, setMenu] = useState<{ review: Review; anchor: HTMLElement } | null>(null);
   const [deleting, setDeleting] = useState<Review | null>(null);
   // bumped after a delete made here, so the list shows it at once
@@ -64,10 +64,9 @@ export function History() {
   // The server filters and pages: the history can be far longer than any
   // one fetch. The search waits for typing to pause.
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .listReviews({
+  const { data, error: loadError } = useLoad<ReviewListing>(
+    () =>
+      api.listReviews({
         status: status || ENDED,
         include_revised: "true",
         q: debounced,
@@ -78,13 +77,9 @@ export function History() {
         offset: String((page - 1) * size),
         limit: String(size),
         include: "facets",
-      })
-      .then((p) => !cancelled && setData(p))
-      .catch(() => !cancelled && setData(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [status, debounced, plugin, repo, project, starred, page, size, live.historyVersion, reloads]);
+      }),
+    [status, debounced, plugin, repo, project, starred, page, size, live.historyVersion, reloads],
+  );
 
   const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;
@@ -202,6 +197,7 @@ export function History() {
           plugins={plugins}
           onClear={() => setQ("")}
         />
+        {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
         {!data ? null : total === 0 ? (
           <EmptyState
             title={filtered ? "No matching decisions" : "Your decisions belong here"}

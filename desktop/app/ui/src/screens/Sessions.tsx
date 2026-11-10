@@ -3,7 +3,7 @@
 // or on a page of its own.
 
 import { FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
 import type { Session } from "../api/types";
@@ -29,6 +29,7 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
+import { useLoad } from "../lib/useLoad";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -64,28 +65,22 @@ export function Sessions() {
   const filtered = !!(query || repo || project);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
-  const [data, setData] = useState<Awaited<ReturnType<typeof api.sessions>> | null>(null);
 
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // anything sent, answered or withdrawn moves the sessions
   const sessionNotices = useNoticeCount(aboutSessions);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .sessions({
+  const { data, error: loadError } = useLoad(
+    () =>
+      api.sessions({
         q: debounced,
         repo,
         project,
         include_archived: withArchived ? "true" : undefined,
         limit: String(size),
         offset: String((page - 1) * size),
-      })
-      .then((d) => !cancelled && setData(d))
-      .catch(() => !cancelled && setData(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [debounced, repo, project, withArchived, page, size, sessionNotices]);
+      }),
+    [debounced, repo, project, withArchived, page, size, sessionNotices],
+  );
 
   // grouped by project or by repository within the page shown, or one
   // list; J, K and Enter walk the rows in the order they are drawn
@@ -311,6 +306,7 @@ export function Sessions() {
           </div>
         </header>
         <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
+        {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
         {!data ? null : total === 0 ? (
           <EmptyState
             title={filtered ? "No matching sessions" : "Agents' sessions belong here"}

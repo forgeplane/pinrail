@@ -4,11 +4,12 @@
 // session's or a review's, else the one the page is narrowed to, else the
 // last one used here, else the first.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { WorkItem } from "../api/types";
 import { pageRepo } from "../lib/pageRepo";
+import { useLoad } from "../lib/useLoad";
 import { useToast } from "../state/toasts";
 import { QuickAddBox } from "./QuickAddBox";
 
@@ -17,30 +18,25 @@ const LAST_REPO = "pinrail.quickAdd.repo";
 export function QuickAddDialog({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const [params] = useSearchParams();
-  const [repos, setRepos] = useState<string[] | null>(null);
   // as the dialog opens: the page under it does not change while it shows
   const [shown] = useState(pageRepo);
-  const [items, setItems] = useState<WorkItem[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([api.projects(), api.items()])
-      .then(([projects, listed]) => {
-        if (cancelled) return;
-        setItems(listed.items);
-        setRepos([
+  const { data: loaded, error } = useLoad(
+    () =>
+      Promise.all([api.projects(), api.items()]).then(([projects, listed]) => ({
+        items: listed.items,
+        repos: [
           ...new Set([
             ...projects.projects.flatMap((p) => p.repos.map((r) => r.repo)),
             ...projects.loose.map((r) => r.repo),
             ...listed.items.map((i) => i.repo),
             ...(shown ? [shown] : []),
           ]),
-        ]);
-      })
-      .catch(() => !cancelled && setRepos([]));
-    return () => {
-      cancelled = true;
-    };
-  }, [shown]);
+        ],
+      })),
+    [shown],
+  );
+  const repos = loaded?.repos ?? null;
+  const items: WorkItem[] = loaded?.items ?? [];
 
   const last = (() => {
     try {
@@ -61,6 +57,7 @@ export function QuickAddDialog({ onClose }: { onClose: () => void }) {
         aria-label="Add a work item"
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {error ? <p className="notice notice-danger">{error}</p> : null}
         {repos ? (
           <QuickAddBox
             onClose={onClose}
