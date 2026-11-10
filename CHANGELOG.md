@@ -135,6 +135,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Updated rusqlite, whose bundled SQLite could return uninitialized
   memory when it opened a database with a crafted `-wal` file
   (CVE-2026-119375).
+- A review's preview page in the browser asks before it opens a link
+  that the plugin's view requests. It opened any web or email address,
+  which could carry the review's content to another site.
 
 ## [0.5.0]
 

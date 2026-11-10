@@ -110,8 +110,15 @@ const host = connectFrame(frame, {
   settings: () => settings,
   theme,
   label: (text) => (button.textContent = `Check: ${text}`),
+  // an address can carry the review's content out, so every link is asked
+  // about, naming where it goes: the host, or an email's recipient
   open: (url) => {
-    if (followable(url)) window.open(url, "_blank", "noreferrer");
+    if (!followable(url)) return;
+    const parsed = new URL(url);
+    const where = parsed.protocol === "mailto:" ? `an email to ${parsed.pathname || "no one"}` : parsed.host;
+    if (confirm(`The view asks to open a link to ${where}:\n\n${url.slice(0, 500)}\n\nOpen it?`)) {
+      window.open(url, "_blank", "noreferrer");
+    }
   },
   // the browser's clipboard, for a plugin that declares the capability, as
   // in the app; this page is not sandboxed, so it can reach the clipboard
