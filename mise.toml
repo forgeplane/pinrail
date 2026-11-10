@@ -71,6 +71,38 @@ description = "Desktop app with the UI dev server and live reload"
 dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
+[tasks."dev:telemetry"]
+description = "Desktop app in dev mode with usage data on, in a data folder of its own; prints each batch, or sends it with --send"
+dir = "{{config_root}}/desktop/app"
+usage = '''
+flag "--send" help="Send the batches to api.pinrail.dev instead of printing them"
+flag "--fresh" help="Start from an empty data folder"
+'''
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+data="${TMPDIR:-/tmp}/pinrail-telemetry"
+if [ "${usage_fresh:-false}" = "true" ]; then rm -rf "$data"; fi
+mkdir -p "$data"
+# the notice counts as shown, so events are recorded from the start; the
+# setup is skipped and sessions are on, as on a computer in use
+if [ ! -f "$data/settings.json" ]; then
+  printf '{"telemetry": {"notice_shown": "%s"}, "welcome": {"seen": true}, "labs": {"sessions": true}}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$data/settings.json"
+fi
+export PINRAIL_DATA_DIR="$data" PINRAIL_PORT=4848
+export PINRAIL_TELEMETRY_URL=https://api.pinrail.dev/v1/events
+if [ "${usage_send:-false}" = "true" ]; then
+  unset PINRAIL_TELEMETRY_DEBUG
+else
+  export PINRAIL_TELEMETRY_DEBUG=1
+fi
+unset DO_NOT_TRACK PINRAIL_TELEMETRY
+echo "Data in $data. What waits and what was sent:"
+echo "  curl -s http://127.0.0.1:4848/api/v1/telemetry | jq"
+exec npx tauri dev
+'''
+
 [tasks."linux-desktop"]
 description = "The desktop app on Linux in Docker, shown in a browser at http://localhost:6080; needs Docker"
 dir = "{{config_root}}"
