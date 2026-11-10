@@ -63,6 +63,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- The app shows every change made while it was disconnected, such as
+  while the computer slept. After more than 1000 changes, the inbox,
+  sessions and counts could miss some until the app was reloaded.
 - A page that fails to load now shows the error and a Reload button,
   and the sidebar and the other pages stay usable. An error on one page
   used to leave the window blank.

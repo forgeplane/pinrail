@@ -133,3 +133,45 @@ async fn a_reconnect_catches_up_from_last_event_id() {
     let (id, _) = next_event(&mut body, &mut buffered).await;
     assert_eq!(id, missed.event_id);
 }
+
+/// A client further behind than one page of the backlog gets every event
+/// it missed, then the live ones.
+#[tokio::test]
+async fn a_catch_up_longer_than_a_page_sends_every_missed_event() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    app.settings().change(&json!({"autostart": true})).unwrap();
+    let seen = app.events().after(0, 1).unwrap()[0].event_id;
+    for n in 0..1100 {
+        app.settings()
+            .change(&json!({"notifications": {"sound": n % 2 == 0}}))
+            .unwrap();
+    }
+    let missed: Vec<i64> = app
+        .events()
+        .after(seen, 5000)
+        .unwrap()
+        .iter()
+        .map(|n| n.event_id)
+        .collect();
+    assert!(missed.len() > 1000, "{}", missed.len());
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get(format!("/api/v1/events?after={seen}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    app.settings()
+        .change(&json!({"appearance": {"theme": "dark"}}))
+        .unwrap();
+    let live = app.events().after(*missed.last().unwrap(), 1).unwrap()[0].event_id;
+
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    for expected in missed.iter().chain([&live]) {
+        let (id, _) = next_event(&mut body, &mut buffered).await;
+        assert_eq!(id, *expected);
+    }
+}
