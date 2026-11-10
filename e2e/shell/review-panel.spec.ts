@@ -378,6 +378,27 @@ test("Escape pressed the moment the review shows in the panel closes it", async 
   await expect(panel(page)).toHaveCount(0);
 });
 
+test("Escape pressed before the panel is drawn still closes it", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  await createReview(request, { title: "Quick: Enter then Escape" });
+  await createReview(request, { title: "Quick: the other" });
+  await page.goto("/#/");
+  await expect(page.getByTestId("review-row")).toHaveCount(2);
+  await page.keyboard.press("j");
+  await expect(page.locator(".review-row.is-focused")).toBeFocused();
+  // Enter and Escape in one task: the address asks for the panel, and the
+  // inbox has not drawn it yet when the Escape comes
+  await page.evaluate(() => {
+    const key = (k: string) =>
+      document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+    key("Enter");
+    key("Escape");
+  });
+  await expect(page).not.toHaveURL(/open=/);
+  await expect(panel(page)).toHaveCount(0);
+});
+
 test("walking to another review never shows it maximized", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel: walk from" });

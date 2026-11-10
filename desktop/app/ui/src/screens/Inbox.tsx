@@ -212,7 +212,16 @@ function Waiting() {
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const el = event.target as HTMLElement | null;
-    if (isTyping(el) && event.key === "Escape") (el as HTMLElement).blur();
+    if (isTyping(el) && event.key === "Escape") {
+      (el as HTMLElement).blur();
+      return;
+    }
+    // a panel the address asks for but the inbox has not drawn yet, such
+    // as one Escape follows at once: it closes, in place of the step that
+    // asked for it
+    if (event.key === "Escape" && panelMode && new URLSearchParams(window.location.hash.split("?")[1]).has("open")) {
+      openInPanel(null, { replace: true });
+    }
   });
 
   // What a row does, as the same functions from one render to the next, so
