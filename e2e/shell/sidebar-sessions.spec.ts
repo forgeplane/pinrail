@@ -5,6 +5,10 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { clearInbox, core, onePayload, settingSaved } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 let n = 0;
 /** A project and sessions of each test's own, so other tests' sessions stay apart. */
 const fresh = () => `${Date.now()}-${++n}`;

@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { clearInbox, core, createReview, decide } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 /** The shell's requests to the core from now on whose path and query match. */
 function requests(page: Page, pattern: RegExp): string[] {
   const seen: string[] = [];

@@ -2,6 +2,10 @@ import fs from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { core, createReview } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 const bg = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
 

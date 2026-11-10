@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { core, corePort, settingsDialog, settingsSection } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 const served = async (request: import("@playwright/test").APIRequestContext) =>
   (await request.get(`${core}/api/v1/settings`)).json();
 

@@ -2,6 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
 import { clearInbox, core, createReview, decide, linkPlugin, onReviewPages } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 // these tests open a review from the inbox or the sidebar on a page of its own
 onReviewPages();
 

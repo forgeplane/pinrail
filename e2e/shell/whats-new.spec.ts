@@ -3,6 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { core, settingsDialog } from "./helpers";
 
+// a route handler may still be reading a response when the test ends, and
+// closing the page disposes it: such a handler's error is not the test's
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 /** Makes the app run as the given release by changing the version the core reports. */
 async function runAs(page: Page, version: string) {
   await page.route(`${core}/api/v1/info`, async (route) => {
