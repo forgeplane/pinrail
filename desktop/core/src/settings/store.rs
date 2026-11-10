@@ -262,6 +262,24 @@ const LEAVES: &[Leaf] = &[
         "Look for a new version of Pinrail at start and every few hours, and download it in the background. It is installed when Pinrail restarts.",
     ),
     (
+        "/telemetry/usage",
+        Kind::Bool,
+        || json!(true),
+        "Send anonymous usage data: which features are used and how often, never what you review. `DO_NOT_TRACK` or `PINRAIL_TELEMETRY`, set to any value, turns it off.",
+    ),
+    (
+        "/telemetry/crashes",
+        Kind::Bool,
+        || json!(true),
+        "Send a report when Pinrail crashes, with file paths and quoted text removed. `DO_NOT_TRACK` or `PINRAIL_TELEMETRY`, set to any value, turns it off.",
+    ),
+    (
+        "/telemetry/notice_shown",
+        Kind::NullableTime,
+        || Value::Null,
+        "When the notice about usage data was shown. Nothing is recorded or sent before it has been.",
+    ),
+    (
         "/whats_new/seen",
         Kind::NullableVersion,
         || Value::Null,

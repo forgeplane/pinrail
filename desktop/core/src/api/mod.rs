@@ -11,6 +11,7 @@ mod projects;
 mod reviews;
 mod settings;
 mod sse;
+mod telemetry;
 mod themes;
 
 use std::sync::Arc;
@@ -85,6 +86,7 @@ fn router_with(state: ApiState) -> Router {
         .merge(files::routes())
         .merge(settings::routes())
         .merge(themes::routes())
+        .merge(telemetry::routes())
         .layer(axum::extract::DefaultBodyLimit::max(guard::JSON_LIMIT))
         .layer(axum::middleware::from_fn(guard::body_limit))
         // inside CORS, so a preflight is answered before a write is judged

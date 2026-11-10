@@ -19,6 +19,7 @@ use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Regi
 use crate::projects::Projects;
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
+use crate::telemetry::Telemetry;
 use crate::themes::Themes;
 
 /// The running application, shared by the desktop and HTTP interfaces.
@@ -37,6 +38,7 @@ pub struct Pinrail {
     items: Items,
     attachments: Attachments,
     bundles: Bundles,
+    telemetry: Arc<Telemetry>,
     /// The data directory's lock, held until the application is dropped
     _lock: File,
 }
@@ -81,6 +83,11 @@ impl Pinrail {
     /// Settings reads and changes share validation, persistence and notifications.
     pub fn settings(&self) -> &SettingsService {
         &self.settings
+    }
+
+    /// Anonymous usage data: the events recorded, and where they wait.
+    pub fn telemetry(&self) -> &Arc<Telemetry> {
+        &self.telemetry
     }
 
     /// The bundled themes and the person's own.
@@ -168,6 +175,18 @@ impl Pinrail {
         let events = Events::new(db.clone());
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());
+        // tests do not depend on the DO_NOT_TRACK of whoever runs them
+        let telemetry = Arc::new(if cfg!(test) {
+            Telemetry::open_with(&config.data_dir, settings.reader(), |_| false)
+        } else {
+            Telemetry::open(&config.data_dir, settings.reader())
+        });
+        let follows = telemetry.clone();
+        settings.follow(move |keys| {
+            if keys.iter().any(|k| k.starts_with("/telemetry")) {
+                follows.sync();
+            }
+        });
         let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
         let plugins = PluginService::new(db.clone(), registry.clone(), events.bus());
         let attachments = Attachments::open(
@@ -201,6 +220,7 @@ impl Pinrail {
             items,
             attachments,
             bundles,
+            telemetry,
             _lock: lock,
         })
     }
