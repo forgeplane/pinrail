@@ -319,6 +319,27 @@ test("J and K move the focus to the row they light, and closing the panel gives 
   await expect(page.getByTestId("review-row").filter({ hasText: title! })).toBeFocused();
 });
 
+test("Escape pressed the moment the panel shows closes it", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  await createReview(request, { title: "Quick: open and close" });
+  await page.goto("/#/");
+  await expect(page.getByTestId("review-row")).toHaveCount(1);
+  // the Escape comes as soon as the panel is in the page, before the browser
+  // has painted it: as a quick person, or a busy machine, would press it
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('[data-testid="review-panel"]')) return;
+      observer.disconnect();
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+  await row(page, "Quick: open and close").click();
+  await expect(page).not.toHaveURL(/open=/);
+  await expect(panel(page)).toHaveCount(0);
+});
+
 test("walking to another review never shows it maximized", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel: walk from" });

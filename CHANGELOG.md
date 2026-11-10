@@ -72,6 +72,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Esc pressed the moment a review opens beside the list closes it. On a
+  busy computer, the key could be lost while the review was loading.
 - In a narrow window, a review or a session opened beside the list covers
   the whole list. It covered only part of it, with the list showing
   beside it.
