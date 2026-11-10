@@ -361,13 +361,19 @@ impl Client {
         name: &str,
         out: &mut impl std::io::Write,
     ) -> Result<u64> {
+        let path = format!(
+            "/api/v1/reviews/{}/attachments/{}",
+            segment(id),
+            segment(name)
+        );
+        self.download(&path, out)
+    }
+
+    /// Streams the file at `path`, such as a review's attachment or a work
+    /// item's file, into `out`.
+    pub fn download(&self, path: &str, out: &mut impl std::io::Write) -> Result<u64> {
         let mut resp = Self::agent(Duration::from_secs(60 * 60))
-            .get(format!(
-                "{}/api/v1/reviews/{}/attachments/{}",
-                self.base,
-                segment(id),
-                segment(name)
-            ))
+            .get(format!("{}{path}", self.base))
             .call()
             .map_err(|e| self.failed(e))?;
         let status = resp.status().as_u16();

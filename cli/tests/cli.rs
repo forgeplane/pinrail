@@ -4375,3 +4375,80 @@ fn ask_sends_the_reply_it_suggests() {
         "Yes, commit it and go on to PIN-55"
     );
 }
+
+#[test]
+fn items_show_saves_the_items_files_and_prints_where_they_are() {
+    use sha2::{Digest, Sha256};
+    let sha = |text: &str| format!("{:x}", Sha256::digest(text.as_bytes()));
+    let (screenshot, log) = ("the screenshot", "the run log");
+    let item = work_item(
+        "PIN-7",
+        "Lighter titles",
+        serde_json::json!({
+            "body": "![image.png](attachment:image.png)",
+            "files": [{"name": "image.png", "sha256": sha(screenshot), "size": screenshot.len(), "media_type": "image/png"}],
+            "timeline": [{
+                "type": "comment", "author": "person", "created_at": "2026-11-10T10:00:00Z", "body": "The log of the run",
+                "files": [{"name": "run.log", "sha256": sha(log), "size": log.len(), "media_type": "text/plain"}]
+            }],
+        }),
+    );
+    let (server, sent) = items_server(move |_, path| match path {
+        "/api/v1/items/w_PIN-7/files/image.png" => (200, screenshot.into()),
+        "/api/v1/items/w_PIN-7/files/run.log" => (200, log.into()),
+        _ => (200, item.clone()),
+    });
+    let tmp = std::env::temp_dir().join(format!("pinrail-show-files-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let show = || {
+        let out = pinrail()
+            .env_remove("PINRAIL_JSON")
+            .args(["items", "show", "PIN-7"])
+            .env("PINRAIL_URL", &server.url)
+            .env("TMPDIR", &tmp)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+
+    let out = show();
+    let dir = tmp.join("pinrail").join("items").join("PIN-7");
+    let image = dir.join("image.png");
+    let run_log = dir.join("run.log");
+    assert!(
+        out.contains(&format!(
+            "- image.png ({} bytes): {}",
+            screenshot.len(),
+            image.display()
+        )),
+        "{out}"
+    );
+    assert!(
+        out.contains(&format!(
+            "run.log ({} bytes): {}",
+            log.len(),
+            run_log.display()
+        )),
+        "{out}"
+    );
+    assert_eq!(std::fs::read_to_string(&image).unwrap(), screenshot);
+    assert_eq!(std::fs::read_to_string(&run_log).unwrap(), log);
+
+    // a file already saved with the same content is not fetched again
+    let fetched = |sent: &Recorded| {
+        sent.lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, p, _)| p.contains("/files/"))
+            .count()
+    };
+    assert_eq!(fetched(&sent), 2);
+    show();
+    assert_eq!(fetched(&sent), 2);
+    std::fs::remove_dir_all(&tmp).unwrap();
+}

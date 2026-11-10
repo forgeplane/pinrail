@@ -213,7 +213,8 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
 - **Read before you work.** Run `pinrail items show <key>` before you
   start or continue an item. Read its description, its comments, the
   decisions of its reviews, and the closing comments of the items it
-  depends on.
+  depends on. Its files, such as a screenshot the person attached, are
+  listed with a path on this computer: open them there.
 - **Record a plan of several steps as a breakdown.** Write the steps to a
   JSON file and add them in one request with `pinrail items add --file`.
   Give each step a `ref`, and list in `depends_on` the steps it needs

@@ -56,6 +56,10 @@ enum ItemsCommand {
     Next(NextArgs),
     /// Print a work item: its description, what it depends on and blocks,
     /// its sub-items, reviews, comments and sessions
+    ///
+    /// Its files, and those of its comments, are saved under their own names
+    /// in a folder in the system's temporary folder, and listed with their
+    /// paths, so you can open them there.
     Show(ShowArgs),
     /// Change a work item: its title, description, status, claim, parent,
     /// dependencies, link, repository or files
@@ -308,7 +312,8 @@ pub fn run(client: &Client, args: ItemsArgs, output: Output) -> Result<u8> {
         ItemsCommand::Next(args) => next(client, args, output),
         ItemsCommand::Show(args) => {
             let cx = Scope::of(&args.common);
-            let item = client.get(&cx.path(&args.item, ""), &[])?;
+            let mut item = client.get(&cx.path(&args.item, ""), &[])?;
+            save_files(client, &mut item);
             let markdown = show(client, &item);
             output.data(&item, |_| markdown);
             Ok(0)
@@ -742,6 +747,90 @@ fn closing(item: &Value) -> Option<(String, String)> {
     Some((by, comment))
 }
 
+/// Saves the item's files, and those of its comments, under their own
+/// names in a folder for the item in the system's temporary folder, so an
+/// agent can read them, and puts each file's `path` on its entry. A file
+/// saved before with the same content is kept as it is. A file that cannot
+/// be saved gets an `error` instead.
+fn save_files(client: &Client, item: &mut Value) {
+    let id = s(&item["id"]).to_string();
+    // the key names the folder; a key is letters, digits and a hyphen
+    let folder: String = s(&item["key"])
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    if id.is_empty() || folder.is_empty() {
+        return;
+    }
+    let dir = std::env::temp_dir()
+        .join("pinrail")
+        .join("items")
+        .join(folder);
+    let mut save = |file: &mut Value| {
+        let name = s(&file["name"]).to_string();
+        let path = format!("/api/v1/items/{}/files/{}", segment(&id), segment(&name));
+        match save_file(client, &dir, &name, s(&file["sha256"]), &path) {
+            Ok(saved) => file["path"] = json!(saved.display().to_string()),
+            Err(error) => file["error"] = json!(format!("{error:#}")),
+        }
+    };
+    if let Some(files) = item["files"].as_array_mut() {
+        files.iter_mut().for_each(&mut save);
+    }
+    if let Some(timeline) = item["timeline"].as_array_mut() {
+        for entry in timeline.iter_mut().filter(|e| e["type"] == "comment") {
+            if let Some(files) = entry["files"].as_array_mut() {
+                files.iter_mut().for_each(&mut save);
+            }
+        }
+    }
+}
+
+/// A file as `show` lists it: its name and size, and where it was saved.
+fn file_line(f: &Value) -> String {
+    let named = format!("{} ({} bytes)", s(&f["name"]), f["size"]);
+    match (f["path"].as_str(), f["error"].as_str()) {
+        (Some(path), _) => format!("{named}: {path}"),
+        (None, Some(error)) => format!("{named}, not saved: {error}"),
+        (None, None) => named,
+    }
+}
+
+/// Saves one file as `dir/name`, unless a file with that content is there
+/// already, and returns where it is.
+fn save_file(client: &Client, dir: &Path, name: &str, sha256: &str, path: &str) -> Result<PathBuf> {
+    use sha2::{Digest, Sha256};
+    // a name is a file's name, never a path out of the folder
+    if name.is_empty()
+        || name.starts_with('.')
+        || Path::new(name).file_name() != Some(name.as_ref())
+    {
+        anyhow::bail!("the name {name:?} is not a plain file name");
+    }
+    let target = dir.join(name);
+    let same = |p: &Path| {
+        std::fs::read(p)
+            .map(|bytes| format!("{:x}", Sha256::digest(&bytes)) == sha256)
+            .unwrap_or(false)
+    };
+    if !sha256.is_empty() && same(&target) {
+        return Ok(target);
+    }
+    std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    // written beside it, then moved in place, so a reader never sees half
+    let part = dir.join(format!(".{name}.{}.part", std::process::id()));
+    let result = std::fs::File::create(&part)
+        .with_context(|| format!("creating {}", part.display()))
+        .and_then(|mut out| client.download(path, &mut out))
+        .and_then(|_| {
+            std::fs::rename(&part, &target).with_context(|| format!("saving {}", target.display()))
+        });
+    if result.is_err() {
+        let _ = std::fs::remove_file(&part);
+    }
+    result.map(|_| target)
+}
+
 /// An item as an agent reads it before working on it.
 pub fn show(client: &Client, item: &Value) -> String {
     let mut out = format!("{} {}\n", s(&item["key"]), s(&item["title"]));
@@ -794,7 +883,7 @@ pub fn show(client: &Client, item: &Value) -> String {
     if !files.is_empty() {
         out.push_str("\n## Files\n");
         for f in files {
-            out.push_str(&format!("- {} ({} bytes)\n", s(&f["name"]), f["size"]));
+            out.push_str(&format!("- {}\n", file_line(f)));
         }
     }
     let depends = item["depends_on"]
@@ -912,6 +1001,9 @@ pub fn show(client: &Client, item: &Value) -> String {
                 day(&c["created_at"]),
                 s(&c["body"]).trim()
             ));
+            for f in c["files"].as_array().map(Vec::as_slice).unwrap_or_default() {
+                out.push_str(&format!("  - {}\n", file_line(f)));
+            }
         }
     }
     let sessions = item["sessions"]
