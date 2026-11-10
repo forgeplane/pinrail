@@ -55,6 +55,15 @@
   --radius-xl: 12px;
   /* a fully rounded shape, such as a pill or a dot */
   --radius-pill: 999px;
+  /* the text sizes: the body is base; small labels, keys and counts take
+     the smaller steps, and titles the larger ones */
+  --text-2xs: 10.5px;
+  --text-xs: 11.5px;
+  --text-sm: 12px;
+  --text-md: 12.5px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
   /* what stacks over what, lowest first: dialogs, a maximized view, menus
      and toasts, tooltips, then the popups opened from a menu or a dialog */
   --z-dialog: 10;
@@ -121,7 +130,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.5 var(--font);
+  font: var(--text-base)/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
   /* a desktop app: its own labels, lists and buttons are not text to
      select; what a person may copy is re-enabled below */
@@ -256,14 +265,14 @@ textarea,
   outline: none;
 }
 kbd {
-  font: 11px var(--mono);
+  font: var(--text-xs) var(--mono);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 1px 5px;
 }
 h1 {
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
   margin: 0;
 }
@@ -442,7 +451,7 @@ h1 {
   border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -468,7 +477,7 @@ h1 {
   gap: 2px;
 }
 .nav-keys kbd {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 0 4px;
   color: var(--faint);
   background: none;
@@ -481,7 +490,7 @@ h1 {
 .sidebar-sessions h2 {
   display: flex;
   align-items: center;
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--faint);
@@ -506,7 +515,7 @@ h1 {
 .sidebar-empty {
   margin: 4px 10px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .sidebar-group-head {
   display: flex;
@@ -543,7 +552,7 @@ h1 {
   border: 0;
   background: none;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text);
   text-align: left;
@@ -570,7 +579,7 @@ h1 {
   padding: 4px 10px 4px 28px;
   border-radius: var(--radius-md);
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   min-width: 0;
 }
 .sidebar-session.is-flat {
@@ -598,7 +607,7 @@ h1 {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .sidebar-session-details > * {
@@ -732,13 +741,13 @@ h1 {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 18%, transparent);
   color: var(--sev-major);
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .sidebar-review.sidebar-child {
   padding-left: 50px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .sidebar-group > .sidebar-review.sidebar-child {
   padding-left: 28px;
@@ -760,7 +769,7 @@ h1 {
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
   box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.35);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 /* the work items a # in a comment or a description offers: a list under
    the field, as a menu is drawn */
@@ -774,7 +783,7 @@ h1 {
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
   box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.35);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .item-picker-row {
   display: flex;
@@ -792,7 +801,7 @@ h1 {
   flex: none;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .item-picker-title {
   flex: 1;
@@ -802,7 +811,7 @@ h1 {
   flex: none;
   max-width: 35%;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .item-picker mark {
   background: none;
@@ -894,7 +903,7 @@ h1 {
   align-items: center;
   justify-content: space-between;
   padding: 5px 8px 3px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .menu-reset {
@@ -920,7 +929,7 @@ h1 {
   padding: 5px 10px;
   border-radius: var(--radius-md);
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   min-width: 0;
 }
 .sidebar-review:hover {
@@ -945,7 +954,7 @@ h1 {
 /* the sidebar while sessions are off: what waits, then the projects */
 .sidebar-repositories h2,
 .sidebar-waiting h2 {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--faint);
@@ -957,7 +966,7 @@ h1 {
 }
 .sidebar-more {
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .sidebar-repo {
   display: flex;
@@ -966,7 +975,7 @@ h1 {
   padding: 5px 10px;
   border-radius: var(--radius-md);
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   min-width: 0;
 }
 .sidebar-repo .nav-count {
@@ -989,7 +998,7 @@ h1 {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--faint);
 }
 .update-notice {
@@ -1001,7 +1010,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 /* a row like the navigation's, above the status row and pushed to the bottom with it */
 .sidebar-feedback {
@@ -1061,7 +1070,7 @@ h1 {
   font-weight: 500;
 }
 .update-notice-text small {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
 }
 .update-notice-go {
@@ -1105,7 +1114,7 @@ h1 {
   z-index: 1;
 }
 .topbar-title {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
   margin-right: auto;
   margin-left: 6px;
@@ -1118,7 +1127,7 @@ h1 {
   min-width: 0;
   flex: 1;
   margin-left: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .crumb-root {
   color: var(--dim);
@@ -1157,7 +1166,7 @@ h1 {
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .chrome-button:hover {
   background: var(--bg-hover);
@@ -1282,7 +1291,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: var(--tip-bg);
   color: var(--tip-text);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.3;
   white-space: nowrap;
   max-width: min(360px, calc(100vw - 16px));
@@ -1323,7 +1332,7 @@ body.is-resizing iframe {
   gap: 3px;
 }
 .tooltip-keys kbd {
-  font: 11px var(--mono);
+  font: var(--text-xs) var(--mono);
   min-width: 18px;
   text-align: center;
   padding: 1px 5px;
@@ -1343,7 +1352,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.5;
   max-width: 260px;
 }
@@ -1414,13 +1423,13 @@ body.is-resizing iframe {
   background: var(--bg-panel);
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   outline: none;
 }
 .select-empty {
   padding: 6px 10px;
   color: var(--faint);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 @media (prefers-reduced-motion: reduce) {
   .select-list.is-placed {
@@ -1436,7 +1445,7 @@ body.is-resizing iframe {
   padding: 6px 8px 6px 10px;
   border-radius: var(--radius-sm);
   cursor: default;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--text);
   white-space: nowrap;
 }
@@ -1472,7 +1481,7 @@ body.is-resizing iframe {
 .select-option-hint {
   margin-left: auto;
   padding-left: 12px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .select-option-hint + .select-option-check {
@@ -1508,7 +1517,7 @@ body.is-resizing iframe {
   flex: 1;
   border: 0;
   background: none;
-  font-size: 15px;
+  font-size: var(--text-lg);
   color: var(--text);
   padding: 2px 0;
 }
@@ -1527,7 +1536,7 @@ body.is-resizing iframe {
   border: 0;
   background: none;
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   padding: 4px 10px;
   border-radius: var(--radius-pill);
 }
@@ -1545,7 +1554,7 @@ body.is-resizing iframe {
   min-height: 120px;
 }
 .palette-group {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--faint);
@@ -1573,13 +1582,13 @@ body.is-resizing iframe {
 .palette-title {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .palette-meta {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--faint);
   flex: none;
 }
@@ -1594,14 +1603,14 @@ body.is-resizing iframe {
   padding: 28px 8px;
   text-align: center;
   color: var(--faint);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .palette-foot {
   display: flex;
   gap: 16px;
   padding: 8px 16px;
   border-top: 1px solid var(--border);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .palette-foot kbd {
@@ -1632,7 +1641,7 @@ body.is-resizing iframe {
 }
 .app-dialog h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-lg);
 }
 /* the What's new dialog shows one card at a time, with its picture at the top */
 .whats-new {
@@ -1654,7 +1663,7 @@ body.is-resizing iframe {
 }
 .whats-new-head h2 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--dim);
 }
@@ -1662,7 +1671,7 @@ body.is-resizing iframe {
   margin-left: auto;
 }
 .whats-new-tag {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1701,7 +1710,7 @@ body.is-resizing iframe {
 }
 .whats-new-text h3 {
   margin: 0;
-  font-size: 19px;
+  font-size: var(--text-xl);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1736,7 +1745,7 @@ body.is-resizing iframe {
 }
 .whats-new-count {
   margin-left: 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--faint);
 }
 .whats-new-spacer {
@@ -1768,7 +1777,7 @@ body.is-resizing iframe {
 .shortcuts-search input {
   width: 100%;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--text-lg);
 }
 .shortcuts-search input:focus,
 .shortcuts-search input:focus-visible {
@@ -1777,7 +1786,7 @@ body.is-resizing iframe {
 }
 .shortcuts-empty {
   margin: 4px 0 8px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .shortcuts-body {
   overflow-y: auto;
@@ -1790,12 +1799,12 @@ body.is-resizing iframe {
   grid-template-columns: 1fr auto;
   gap: 8px 20px;
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 /* a section of the app's keys: the page's own, General, the others */
 .shortcut-section-title {
   margin: 14px 0 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1811,7 +1820,7 @@ body.is-resizing iframe {
   border: 0;
   background: none;
   color: var(--accent);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 .shortcut-plugin-title {
@@ -1819,7 +1828,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 6px;
   margin: 16px 0 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--dim);
 }
@@ -1841,7 +1850,7 @@ body.is-resizing iframe {
   background: var(--bg-panel);
   border-radius: var(--radius-md);
   padding: 10px 14px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--dim);
   margin: 0 0 14px;
 }
@@ -1861,7 +1870,7 @@ body.is-resizing iframe {
   border-color: color-mix(in srgb, var(--sev-major) 55%, transparent);
   background: color-mix(in srgb, var(--sev-major) 12%, transparent);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .notice-warning > svg {
   flex: none;
@@ -1934,7 +1943,7 @@ body.is-resizing iframe {
 }
 .empty-state h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-lg);
   color: var(--text);
 }
 .empty-state p {
@@ -1950,7 +1959,7 @@ body.is-resizing iframe {
   display: inline-flex;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2004,7 +2013,7 @@ body.is-resizing iframe {
   padding: 2px 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font: 11px var(--mono);
+  font: var(--text-xs) var(--mono);
   color: var(--dim);
   background: var(--bg);
 }
@@ -2013,7 +2022,7 @@ body.is-resizing iframe {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .summary-count {
   padding: 2px 6px;
@@ -2075,7 +2084,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .search-field {
   position: relative;
@@ -2105,7 +2114,7 @@ body.is-resizing iframe {
   border-bottom: 2px solid transparent;
   padding: 6px 10px;
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .list-tabs button span {
   color: var(--faint);
@@ -2118,7 +2127,7 @@ body.is-resizing iframe {
 .list-sort {
   margin-left: auto;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 /* the rows a little apart, so that two highlighted rows never touch */
@@ -2164,7 +2173,7 @@ body.is-resizing iframe {
   align-items: center;
   min-height: 28px;
   padding: 4px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--dim);
   list-style: none;
 }
@@ -2228,7 +2237,7 @@ body.is-resizing iframe {
 .asks-chip {
   background: color-mix(in srgb, var(--sev-major) 16%, transparent);
   color: var(--sev-major);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .review-row-main {
@@ -2241,7 +2250,7 @@ body.is-resizing iframe {
 }
 .review-row-ref {
   margin-left: 8px;
-  font: 11px var(--mono);
+  font: var(--text-xs) var(--mono);
   color: var(--faint);
 }
 .review-row-meta {
@@ -2251,7 +2260,7 @@ body.is-resizing iframe {
   min-width: 0;
   /* what does not fit is cut at the row's own edge, not drawn over the next column */
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   white-space: nowrap;
 }
@@ -2269,14 +2278,14 @@ body.is-resizing iframe {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font: 11px var(--mono);
+  font: var(--text-xs) var(--mono);
   color: var(--dim);
 }
 .review-row-plugin svg {
   color: var(--faint);
 }
 .review-row-time {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -2341,7 +2350,7 @@ body.is-resizing iframe {
 }
 .discard-dialog p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.45;
 }
 .discard-what {
@@ -2352,14 +2361,14 @@ body.is-resizing iframe {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 .discard-reason {
   width: 100%;
   resize: vertical;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-base);
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -2382,19 +2391,19 @@ body.is-resizing iframe {
 }
 .feedback-dialog p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.45;
 }
 .feedback-field {
   display: grid;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 .feedback-input {
   width: 100%;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 400;
   padding: 7px 10px;
   border: 1px solid var(--border);
@@ -2414,7 +2423,7 @@ body.is-resizing iframe {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .feedback-attach-row .chrome-button {
   display: inline-flex;
@@ -2437,7 +2446,7 @@ body.is-resizing iframe {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .feedback-file-name {
   flex: 1;
@@ -2461,7 +2470,7 @@ body.is-resizing iframe {
 .feedback-diagnostics {
   display: grid;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .feedback-diagnostics-row {
   display: flex;
@@ -2472,7 +2481,7 @@ body.is-resizing iframe {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .feedback-show {
   padding: 0;
@@ -2492,7 +2501,7 @@ body.is-resizing iframe {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
-  font: 11.5px/1.45 var(--mono);
+  font: var(--text-xs)/1.45 var(--mono);
   user-select: text;
 }
 .feedback-actions {
@@ -2500,7 +2509,7 @@ body.is-resizing iframe {
 }
 .feedback-note {
   margin-right: auto;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .settings-skill-off {
   color: var(--faint);
@@ -2523,7 +2532,7 @@ body.is-resizing iframe {
   padding: 2px 4px 2px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .settings-link-forget {
   display: inline-flex;
@@ -2546,7 +2555,7 @@ body.is-resizing iframe {
   margin-bottom: 8px;
 }
 .link-target {
-  font-size: 17px;
+  font-size: var(--text-xl);
   font-weight: 600;
   margin: 0;
   overflow-wrap: anywhere;
@@ -2559,7 +2568,7 @@ body.is-resizing iframe {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
-  font-size: 12px;
+  font-size: var(--text-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -2589,7 +2598,7 @@ body.is-resizing iframe {
 }
 .inbox-footer {
   margin-top: 18px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 
@@ -2614,7 +2623,7 @@ body.is-resizing iframe {
   background: var(--bg-raised);
   color: var(--text);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.22);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.45;
   animation: toast-in 140ms ease-out;
 }
@@ -2672,7 +2681,7 @@ body.is-resizing iframe {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .strip-info {
@@ -2724,14 +2733,14 @@ body.is-resizing iframe {
   border-radius: var(--radius-lg);
   background: var(--bg-raised);
   box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.45);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .attachments-head {
   display: flex;
   justify-content: space-between;
   padding: 6px 8px 8px;
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .attachments-list {
   list-style: none;
@@ -2762,7 +2771,7 @@ body.is-resizing iframe {
 }
 .attachment-meta {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .attachment-save {
   display: inline-flex;
@@ -2794,7 +2803,7 @@ body.is-resizing iframe {
   gap: 4px;
 }
 .rounds-cap {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--faint);
@@ -2808,7 +2817,7 @@ body.is-resizing iframe {
   height: 20px;
   padding: 0 4px;
   border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
-  font: 11px/1 var(--mono);
+  font: var(--text-xs)/1 var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--tone);
   background: color-mix(in srgb, var(--tone) 8%, transparent);
@@ -2878,7 +2887,7 @@ body.is-resizing iframe {
   padding: 0 5px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  font: 500 10px/15px var(--mono);
+  font: 500 var(--text-2xs)/15px var(--mono);
   letter-spacing: 0.02em;
   color: var(--dim);
   vertical-align: 1px;
@@ -2894,10 +2903,10 @@ body.is-resizing iframe {
   background: color-mix(in srgb, var(--ok) 5%, transparent);
   border-radius: var(--radius-md);
   padding: 10px 14px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .decision-box .label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2920,7 +2929,7 @@ body.is-resizing iframe {
   background: var(--bg);
   padding: 8px;
   border-radius: var(--radius-sm);
-  font: 11.5px var(--mono);
+  font: var(--text-xs) var(--mono);
   color: var(--dim);
 }
 .plugin-frame-wrap {
@@ -2967,7 +2976,7 @@ body.is-resizing iframe {
 .frame-bar-title {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .plugin-frame {
@@ -3005,13 +3014,13 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .find-count {
   min-width: 72px;
   padding: 0 6px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -3068,7 +3077,7 @@ body.is-resizing iframe {
   border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
   background: color-mix(in srgb, var(--danger) 5%, transparent);
   border-radius: var(--radius-md);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--danger);
   display: grid;
   gap: 4px;
@@ -3113,7 +3122,7 @@ body.is-resizing iframe {
   padding: 4px 6px 6px 12px;
 }
 .composer-hint {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 /* the listening status for a view's dictation, in place of the composer's hint */
@@ -3167,7 +3176,7 @@ body.is-resizing iframe {
   background: var(--button-bg);
   color: var(--button-text);
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   gap: 7px;
 }
 .handover-button:hover:not(:disabled) {
@@ -3183,7 +3192,7 @@ body.is-resizing iframe {
   margin-left: 2px;
 }
 .handover-keys kbd {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 0 4px;
   border: 0;
   background: color-mix(in srgb, var(--button-text) 18%, transparent);
@@ -3223,7 +3232,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 18px;
   resize: none;
   overflow: hidden;
@@ -3246,7 +3255,7 @@ body.is-resizing iframe {
   min-width: 0;
   padding-left: 8px;
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .compose.is-wide .compose-keys {
   display: block;
@@ -3357,12 +3366,12 @@ body.is-resizing iframe {
   gap: 5px;
   min-width: 0;
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
   white-space: nowrap;
 }
 .thread.in-panel .thread-title h1 {
-  font-size: 14px;
+  font-size: var(--text-lg);
 }
 .thread-in {
   font-weight: 400;
@@ -3377,7 +3386,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 400;
 }
 /* the title, and beside it whether the session waits or has finished */
@@ -3400,7 +3409,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--ok) 14%, transparent);
   color: var(--ok);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 /* who works where, since when, and the session's id, on one quiet line */
@@ -3410,7 +3419,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 2px 16px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 /* the dot sits in the gap before each item; at the start of a line it
@@ -3441,7 +3450,7 @@ body.is-resizing iframe {
 .thread-meta .thread-ref {
   margin-left: 2px;
   padding: 0 6px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .thread-meta .thread-session {
   max-width: 100%;
@@ -3472,7 +3481,7 @@ body.is-resizing iframe {
 }
 .thread-session {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .thread-waiting {
   display: inline-flex;
@@ -3501,7 +3510,7 @@ body.is-resizing iframe {
 }
 .thread-counts {
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .thread-body {
   display: flex;
@@ -3552,7 +3561,7 @@ body.is-resizing iframe {
   padding: 8px 7px 6px 8px;
 }
 .thread-composer .compose textarea {
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 20px;
 }
 .thread-composer .compose-icon {
@@ -3594,7 +3603,7 @@ body.is-resizing iframe {
 /* how the agent receives a message, under the box */
 .thread-composer-hint {
   margin: 6px 4px 0;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 /* a message the person sent the agent: on the right, in a bubble, with
    whether the agent has received it under it */
@@ -3614,7 +3623,7 @@ body.is-resizing iframe {
   padding: 8px 12px;
   border-radius: var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl);
   background: var(--accent-bg);
-  font-size: 13px;
+  font-size: var(--text-base);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -3642,7 +3651,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 4px;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .thread-message.is-queued .thread-message-state {
   color: var(--sev-major);
@@ -3702,7 +3711,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 10px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .thread-divider::before,
 .thread-divider::after {
@@ -3735,7 +3744,7 @@ body.is-resizing iframe {
 .thread-note-body {
   overflow: hidden;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -3752,7 +3761,7 @@ body.is-resizing iframe {
 .thread-note-body h2,
 .thread-note-body h3 {
   margin: 12px 0 4px;
-  font-size: 13.5px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .thread-note-body ul,
@@ -3899,7 +3908,7 @@ body.is-resizing iframe {
   padding: 3px 4px 3px 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .note-file:hover {
   border-color: var(--border-strong);
@@ -3945,7 +3954,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--accent);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 .thread-status-line {
@@ -3954,7 +3963,7 @@ body.is-resizing iframe {
   gap: 8px;
   max-width: 100%;
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .thread-status-line .thread-status-icon {
   align-self: center;
@@ -3973,7 +3982,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--faint);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .thread-status-more:hover {
   color: var(--text);
@@ -4014,7 +4023,7 @@ body.is-resizing iframe {
   width: var(--details-width, 280px);
   padding: 20px;
   border-left: 1px solid var(--border);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 /* the edge that resizes the details draws their border */
 .thread-aside-resizer + .thread-aside {
@@ -4027,7 +4036,7 @@ body.is-resizing iframe {
 }
 .thread-aside h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4075,7 +4084,7 @@ body.is-resizing iframe {
   padding: 4px 6px;
   border-radius: var(--radius-md);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-decoration: none;
 }
 .thread-rail-link:hover {
@@ -4113,7 +4122,7 @@ body.is-resizing iframe {
 }
 .thread-rail-when {
   flex: none;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 /* what waits on the person, as compact rows like the stages: the kind's
    icon in the waiting colour, the title on up to two lines, and the
@@ -4126,7 +4135,7 @@ body.is-resizing iframe {
   padding: 3px 6px;
   border-radius: var(--radius-md);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.35;
   text-decoration: none;
 }
@@ -4206,7 +4215,7 @@ body.is-resizing iframe {
   -webkit-line-clamp: 2;
 }
 .thread-waiting-item-text .faint {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .thread-facts {
   display: grid;
@@ -4232,7 +4241,7 @@ body.is-resizing iframe {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-decoration: none;
   transition:
     border-color 0.2s,
@@ -4286,7 +4295,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--dim);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-align: left;
   cursor: pointer;
 }
@@ -4321,7 +4330,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 14%, transparent);
   color: var(--sev-major);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 .thread-revised-up {
@@ -4360,7 +4369,7 @@ body.is-resizing iframe {
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .msg-meta .text {
@@ -4373,7 +4382,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--sev-major) 14%, transparent);
   color: var(--sev-major);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .msg-question-block {
   display: flex;
@@ -4406,7 +4415,7 @@ body.is-resizing iframe {
   background: var(--bg-hover);
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   vertical-align: 1px;
 }
@@ -4422,7 +4431,7 @@ body.is-resizing iframe {
   gap: 8px;
   padding: 4px 4px 4px 10px;
   border-left: 2px solid var(--border-strong);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .msg-saved-label {
   flex: none;
@@ -4461,7 +4470,7 @@ body.is-resizing iframe {
 .msg-hint {
   margin-bottom: -4px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .msg-question {
   margin: 0;
@@ -4469,7 +4478,7 @@ body.is-resizing iframe {
 }
 .msg-context {
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 .msg-context > :first-child {
@@ -4480,7 +4489,7 @@ body.is-resizing iframe {
 }
 .msg-context code {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 /* a block of code, such as a diff: set apart as in a note, and wrapped,
    since a question is too narrow to scroll sideways in */
@@ -4505,7 +4514,7 @@ body.is-resizing iframe {
   content-visibility: auto;
   contain-intrinsic-size: auto 240px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .md-diff-bar {
@@ -4619,7 +4628,7 @@ body.is-resizing iframe {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .msg-answer-check {
@@ -4718,7 +4727,7 @@ body.is-resizing iframe {
   font-weight: 600;
 }
 .chip-key {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 0 4px;
 }
 .chip-star {
@@ -4727,7 +4736,7 @@ body.is-resizing iframe {
 }
 .set-ended {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 /* the sessions, as rows like the inbox's: the agent's icon, the title with
    the branch, the agent, project, id and newest status under it, then what
@@ -4746,7 +4755,7 @@ body.is-resizing iframe {
   max-width: 14ch;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .review-row-meta > .session-status {
   flex: 0 1 auto;
@@ -4761,7 +4770,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--dim);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   vertical-align: 1px;
 }
@@ -4786,7 +4795,7 @@ body.is-resizing iframe {
   color: var(--faint);
 }
 .session-row-total {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--dim);
   white-space: nowrap;
 }
@@ -4811,7 +4820,7 @@ body.is-resizing iframe {
   gap: 10px 16px;
   flex-wrap: wrap;
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .pager-range {
@@ -4895,7 +4904,7 @@ body.is-resizing iframe {
   border-right: 1px solid var(--border);
 }
 .settings-rail-title {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--faint);
   padding: 0 10px 10px;
@@ -4910,7 +4919,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: none;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--text-base);
   text-align: left;
 }
 .settings-rail button:hover {
@@ -4939,7 +4948,7 @@ body.is-resizing iframe {
 }
 .settings-page h2 {
   margin: 0 0 16px;
-  font-size: 18px;
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 .settings-group {
@@ -4948,7 +4957,7 @@ body.is-resizing iframe {
 .settings-intro {
   margin: 0 0 10px;
   max-width: 620px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   line-height: 1.5;
   color: var(--dim);
 }
@@ -4973,7 +4982,7 @@ body.is-resizing iframe {
 }
 .agent-group-title {
   margin: 0 0 6px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--faint);
 }
@@ -5043,19 +5052,19 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .agent-name {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--text);
 }
 .agent-where {
   margin-top: 1px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
   overflow-wrap: anywhere;
 }
 .agent-note {
   margin-top: 3px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .agent-note-ok {
@@ -5074,7 +5083,7 @@ body.is-resizing iframe {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--ok);
 }
@@ -5084,7 +5093,7 @@ body.is-resizing iframe {
   padding: 0;
   color: var(--faint);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 .agent-remove:hover {
@@ -5099,13 +5108,13 @@ body.is-resizing iframe {
 }
 .settings-group h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--dim);
 }
 .settings-caption-action {
   padding: 3px 8px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .settings-plugin + .settings-plugin {
   border-top: 1px solid var(--border);
@@ -5143,7 +5152,7 @@ body.is-resizing iframe {
   border-top: 1px solid var(--border);
 }
 .settings-subrows-title {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--dim);
 }
@@ -5154,7 +5163,7 @@ body.is-resizing iframe {
   gap: 6px 16px;
   margin: 0;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .settings-plugin-error {
   margin: 10px 12px 0;
@@ -5164,7 +5173,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 10px;
   padding: 0 12px 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .settings-plugin-details dt {
   color: var(--dim);
@@ -5189,7 +5198,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-md);
   background: var(--bg-panel);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .settings-input[type="text"] {
   width: 200px;
@@ -5199,7 +5208,7 @@ body.is-resizing iframe {
   border: 0;
   background: none;
   color: var(--accent);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .settings-reset-link:hover {
   text-decoration: underline;
@@ -5267,16 +5276,16 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .settings-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text);
 }
 .settings-desc {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
   margin-top: 1px;
 }
 .settings-note {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   margin-top: 3px;
 }
@@ -5308,7 +5317,7 @@ body.is-resizing iframe {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .shortcut-recorder-hint {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .settings-reset {
@@ -5377,7 +5386,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-sm);
   background: none;
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .segmented button:hover {
   color: var(--text);
@@ -5401,7 +5410,7 @@ body.is-resizing iframe {
   display: grid;
   gap: 12px;
   padding: 12px 14px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .install-panel p {
   margin: 0;
@@ -5469,7 +5478,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-align: left;
 }
 .install-menu button:hover,
@@ -5478,14 +5487,14 @@ body.is-resizing iframe {
   outline: none;
 }
 .install-menu .faint {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .install-seen-title {
-  font-size: 13.5px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 .install-seen .mono {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .install-runs {
   display: grid;
@@ -5510,7 +5519,7 @@ body.is-resizing iframe {
   transition: background 600ms ease-out;
 }
 .install-wait {
-  font-size: 12.5px;
+  font-size: var(--text-md);
   align-self: center;
 }
 /* the official plugins the field finds, or those not installed */
@@ -5523,7 +5532,7 @@ body.is-resizing iframe {
 .install-official-caption {
   padding: 8px 14px 4px;
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -5547,7 +5556,7 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .install-official-text .mono {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 .settings-plugin-update {
@@ -5581,14 +5590,14 @@ body.is-resizing iframe {
 }
 .welcome-rail h1 {
   margin: 14px 0 4px;
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 600;
   letter-spacing: -0.005em;
 }
 .welcome-rail > p {
   margin: 0 0 20px;
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 .welcome-rail ol {
@@ -5643,7 +5652,7 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .welcome-step-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
 }
 .is-current .welcome-step-label {
@@ -5651,7 +5660,7 @@ body.is-resizing iframe {
 }
 .welcome-step-detail {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 .welcome-dot {
@@ -5663,7 +5672,7 @@ body.is-resizing iframe {
   height: 22px;
   border: 1.5px solid var(--border-strong);
   border-radius: 50%;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--dim);
   background: var(--sidebar);
@@ -5703,25 +5712,25 @@ body.is-resizing iframe {
 }
 .welcome-eyebrow {
   color: var(--accent);
-  font: 600 10.5px var(--mono);
+  font: 600 var(--text-2xs) var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .welcome-content h2 {
   margin: -6px 0 0;
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 .welcome-content p {
   margin: 0;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.55;
 }
 .welcome-content code {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text);
 }
 @keyframes welcome-in {
@@ -5763,16 +5772,16 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .welcome-section-text b {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
 }
 .welcome-section-text > span {
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 .welcome-section-text .mono {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .welcome-section-body {
   display: grid;
@@ -5780,7 +5789,7 @@ body.is-resizing iframe {
   padding: 0 14px 12px 58px;
 }
 .welcome-section-body p {
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .welcome-section-row {
   display: flex;
@@ -5795,13 +5804,13 @@ body.is-resizing iframe {
   align-items: center;
   gap: 5px;
   color: var(--ok);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 500;
   white-space: nowrap;
 }
 .welcome-pill {
   padding: 1px 7px;
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -5843,14 +5852,14 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .welcome-agent-text b {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
   white-space: nowrap;
 }
 .welcome-agent-text .mono {
   overflow: hidden;
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5885,7 +5894,7 @@ body.is-resizing iframe {
   background: none;
   color: var(--faint);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 .welcome-skip:hover {
@@ -5934,12 +5943,12 @@ body.is-resizing iframe {
   flex: 1;
   gap: 2px;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .welcome-plugin-text .dim,
 .welcome-try-text > span {
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 .welcome-plugin-text .dim {
@@ -5953,7 +5962,7 @@ body.is-resizing iframe {
 }
 .welcome-try-text > .welcome-try-prompt {
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .welcome-plugin-title {
   display: flex;
@@ -5963,7 +5972,7 @@ body.is-resizing iframe {
 }
 .welcome-plugin-state {
   flex: none;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .welcome-wait {
   display: flex;
@@ -5975,7 +5984,7 @@ body.is-resizing iframe {
   border-radius: var(--radius-lg);
   background: var(--bg-hover);
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .welcome-wait b {
   color: var(--text);
@@ -6040,7 +6049,7 @@ body.is-resizing iframe {
 }
 .projects-intro h2 {
   margin: 0 0 2px;
-  font-size: 14px;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 .projects-intro p {
@@ -6068,7 +6077,7 @@ body.is-resizing iframe {
 }
 .project-group-head h2 {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--text-base);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -6089,12 +6098,12 @@ body.is-resizing iframe {
 .project-group-description {
   min-width: 0;
   max-width: 40%;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .project-dialog-note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .project-group-meta {
   display: flex;
@@ -6102,7 +6111,7 @@ body.is-resizing iframe {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--dim);
 }
 .project-group-meta .is-waiting,
@@ -6146,7 +6155,7 @@ body.is-resizing iframe {
   flex: none;
   width: 100px;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .project-row-menu {
@@ -6176,7 +6185,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .project-empty {
   padding: 7px 4px 7px 26px;
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
 .project-dialog {
@@ -6189,7 +6198,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 6px;
 }
 .repo-delete-confirm label {
-  font-size: 12px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 .repo-delete-confirm .dialog-actions {
@@ -6212,7 +6221,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .sidebar-session-repo-label {
   flex: none;
   max-width: 72px;
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   color: var(--faint);
 }
 .inbox-repo summary > strong,
@@ -6315,7 +6324,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   display: inline-flex;
 }
 .project-field-hint {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--faint);
 }
@@ -6332,7 +6341,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-lg);
   background: none;
   color: var(--faint);
-  font-size: 13px;
+  font-size: var(--text-base);
   text-align: left;
 }
 .item-quick-add:hover {
@@ -6378,7 +6387,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: none;
   box-shadow: none;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-base);
   outline: none;
 }
 .item-quick-controls {
@@ -6400,7 +6409,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-color: var(--border);
   border-radius: var(--radius-pill);
   background: var(--bg-hover);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .item-quick-action {
   display: inline-flex;
@@ -6439,7 +6448,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   padding: 6px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-hover);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .item-row {
@@ -6520,7 +6529,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   color: var(--danger);
 }
 .item-key {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   white-space: nowrap;
 }
@@ -6536,7 +6545,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-parent,
 .item-repo {
   flex: none;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   white-space: nowrap;
 }
@@ -6551,7 +6560,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 4px;
   padding: 1px 7px;
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .item-mark.is-waiting {
@@ -6567,7 +6576,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
@@ -6658,7 +6667,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 4px;
 }
 .item-panel-key {
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--dim);
 }
 .item-panel-button {
@@ -6676,7 +6685,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border: 0;
   background: none;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .item-crumb::after {
   content: " ›";
@@ -6686,7 +6695,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-panel-title {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-xl);
   font-weight: 600;
   line-height: 1.3;
 }
@@ -6708,11 +6717,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-base);
   outline: none;
 }
 .item-title-field {
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 .item-title-field:focus,
@@ -6741,7 +6750,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -6771,14 +6780,14 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   align-items: center;
   gap: 4px;
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .item-link-field {
   width: 260px;
   height: 24px;
   padding: 0 10px;
   border-radius: var(--radius-pill);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .item-created {
   display: flex;
@@ -6786,14 +6795,14 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 6px;
   margin: 10px 0 0;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .item-section h3 {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0 0 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -6808,7 +6817,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border: 0;
   background: none;
   color: var(--accent);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -6825,7 +6834,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
 }
 .item-related li > a,
 .item-related li > button {
@@ -6838,7 +6847,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-md);
   background: none;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-align: left;
   text-decoration: none;
 }
@@ -6847,7 +6856,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: var(--bg-hover);
 }
 .item-related .mono {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
 }
 .item-related-title {
@@ -6857,7 +6866,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-review-status {
   padding: 1px 7px;
   border-radius: var(--radius-pill);
-  font-size: 11px;
+  font-size: var(--text-xs);
   background: var(--bg-hover);
   color: var(--dim);
 }
@@ -6871,7 +6880,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-warning {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--faint);
 }
 .item-sub-field {
@@ -6884,7 +6893,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.5 var(--mono);
+  font: var(--text-base)/1.5 var(--mono);
   resize: vertical;
   outline: none;
 }
@@ -6899,7 +6908,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   margin-top: 6px;
 }
 .item-edit-hint {
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 /* a file of the description, with a button that removes it on hover */
 .item-files li {
@@ -6947,7 +6956,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   align-items: flex-start;
   gap: 10px;
   padding: 4px 0;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--dim);
 }
 /* the rail: one thin line down a run of changes, behind its icons */
@@ -7030,7 +7039,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   padding: 7px 6px 5px 6px;
 }
 .item-comment-field textarea {
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 20px;
 }
 .item-comment-field .compose-icon {
@@ -7050,7 +7059,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .item-comment-head time {
   color: var(--faint);
@@ -7068,11 +7077,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-me::before {
   content: "Y";
-  font-size: 9px;
+  font-size: var(--text-2xs);
 }
 .item-add-picker .select-trigger {
   padding: 1px 6px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 
 /* the dependency graph: three columns joined by curves */
@@ -7158,11 +7167,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   line-height: 1.25;
 }
 .dep-node-key {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   color: var(--faint);
 }
 .dep-node-title {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .dep-node-remove {
   position: absolute;
@@ -7184,7 +7193,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-chip {
   min-width: 0;
   max-width: 260px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-decoration: none;
   cursor: pointer;
 }
@@ -7194,7 +7203,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-chip .mono {
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .item-chip-title {
@@ -7207,7 +7216,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .review-item .select-trigger {
   padding: 1px 7px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 /* a chip in a review's header, with its × */
 .review-item-chip {
@@ -7246,7 +7255,7 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .thread-card-items,
 .msg-items {
@@ -7285,7 +7294,7 @@ a.item-ref {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
   color: var(--dim);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   text-align: center;
 }
 .item-top-drop.is-drop {
@@ -7352,7 +7361,7 @@ a.item-ref {
 .filter-chip {
   padding: 2px 4px 2px 9px;
   background: var(--bg-raised, var(--bg));
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .filter-chip-value {
   color: var(--text);
@@ -7378,7 +7387,7 @@ a.item-ref {
   border: 0;
   background: none;
   color: var(--faint);
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 .filter-chips-clear:hover {
@@ -7431,7 +7440,7 @@ a.item-ref {
   background: var(--accent-bg);
   color: var(--accent);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .item-pill.is-queued {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
@@ -7445,7 +7454,7 @@ a.item-ref {
 /* the reply the agent suggests: a line over the empty comment box */
 .suggested-reply {
   margin: 0 0 6px 14px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--faint);
   pointer-events: none;
 }
