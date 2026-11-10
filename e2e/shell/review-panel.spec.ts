@@ -340,6 +340,27 @@ test("Escape pressed the moment the panel shows closes it", async ({ page, reque
   await expect(panel(page)).toHaveCount(0);
 });
 
+test("Escape pressed the moment the review shows in the panel closes it", async ({ page, request }) => {
+  await openReviewsIn(request, "panel");
+  await clearInbox(request);
+  await createReview(request, { title: "Quick: close as it loads" });
+  await page.goto("/#/");
+  await expect(page.getByTestId("review-row")).toHaveCount(1);
+  // the Escape comes as soon as the review is in the panel, before the
+  // browser has painted it: the keys pass from the loading panel to the
+  // review then, and none may be lost on the way
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('[data-testid="review-panel"] [data-testid="review-title"]')) return;
+      observer.disconnect();
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+  await row(page, "Quick: close as it loads").click();
+  await expect(panel(page)).toHaveCount(0);
+});
+
 test("walking to another review never shows it maximized", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel: walk from" });

@@ -1,5 +1,5 @@
 import { Clock, Mic, Minimize2, RefreshCw, Send, TriangleAlert } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Review, Violation } from "../api/types";
@@ -239,7 +239,10 @@ function ReviewBody({
     frame.current?.focus();
   }, [findInView, hideFind]);
 
-  useEffect(() => {
+  // attached before the browser paints the review, since the loading
+  // panel's own Escape stops as the review shows: a key pressed then
+  // would reach neither
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // a dialog in front of the review has the keys
       if (modalOpen()) return;
