@@ -1265,12 +1265,14 @@ body.is-resizing iframe {
 .review-row.is-open.is-focused {
   background: var(--accent-bg);
 }
-/* in a narrow window, the side panel covers the list */
+/* in a narrow window, the side panel covers the list, over the width and
+   the room for the list that its style keeps beside a wider window */
 @media (max-width: 900px) {
   .has-panel > .review-panel {
     position: absolute;
     inset: 0;
     width: auto !important;
+    max-width: none !important;
     min-width: 0;
     z-index: 2;
   }

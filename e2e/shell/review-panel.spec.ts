@@ -92,6 +92,19 @@ test("a review opens beside the inbox, and closes with its button or Escape", as
   await expect(panel(page)).toHaveCount(0);
 });
 
+test("in a narrow window, the panel covers the whole list", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Panel: narrow window" });
+  await page.setViewportSize({ width: 860, height: 700 });
+  await page.goto("/#/");
+  await row(page, "Panel: narrow window").click();
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Panel: narrow window");
+  const split = await panel(page).locator("xpath=..").boundingBox();
+  const box = await panel(page).boundingBox();
+  expect(box!.x).toBeCloseTo(split!.x, 0);
+  expect(box!.width).toBeCloseTo(split!.width, 0);
+});
+
 test("a decision in the panel moves on to the next review, and the last one closes it", async ({ page }) => {
   await clearInbox(page.request);
   // newest first: Second, then First
