@@ -54,6 +54,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- The app and plugin views have the system's own scrollbars. On macOS
+  they are thin, drawn over the content and shown only while it
+  scrolls, as your scroll bar setting says, so a list's width no longer
+  changes when it starts to scroll.
 - The keyboard shortcuts dialog lists the keys in sections, those of the
   page you are on first. Show all shortcuts lists the others, and a search
   looks through every section.

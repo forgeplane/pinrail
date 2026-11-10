@@ -6,6 +6,13 @@ change to the protocol is a new major and a new path.
 
 ## [Unreleased]
 
+### Changed
+
+- Views have the system's own scrollbars, as the app does. On macOS they
+  are thin, drawn over the content and shown only while it scrolls, so a
+  view's width no longer changes when it starts to scroll. The
+  stylesheet styled them as narrow bars that took room from the content.
+
 ### Fixed
 
 - Find in a view now finds text across the space between two inline
@@ -30,7 +37,7 @@ change to the protocol is a new major and a new path.
   with `appearance` and on the frame's URL, and the SDK sets them on the root
   element before it calls `onAppearance`. A view styled with the tokens needs
   no change. `connectFrame` takes `tokens`, `themeFragment` builds the frame's
-  fragment, `mountPlugin` takes `tokens`, and the dev shell's *Theme* button
+  fragment, `mountPlugin` takes `tokens`, and the dev shell's _Theme_ button
   has a third entry with unusual colours.
 - A `--pinrail-button-text` token: the colour of text on a filled button.
   `.pinrail-btn-primary` and `.pinrail-compose-send` use it.

@@ -196,28 +196,11 @@ a {
   text-decoration: none;
 }
 
-/* narrow scrollbars everywhere; plugin frames carry the same rule in the SDK
-   stylesheet. The ::-webkit rules only: scrollbar-width would make WebKit fall
-   back to its own bar, which widens on hover */
-::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-sm);
-  border: 1.5px solid transparent;
-  background-clip: content-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--faint);
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* scrollbars are the system's own: on macOS thin, over the content and
+   shown while scrolling, as the person's settings say. A ::-webkit-scrollbar
+   rule would turn them into classic bars that take room from the content;
+   color-scheme in each theme gives them its colours. Plugin views get the
+   same through the SDK. */
 a:hover {
   text-decoration: underline;
 }
