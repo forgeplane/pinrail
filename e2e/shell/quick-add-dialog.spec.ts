@@ -145,3 +145,64 @@ test("the Enter that confirms an input method's text does not add the item", asy
     .poll(async () => (await listed(request, repo)).map((i) => i.title).sort())
     .toEqual(["Existing", "にほんご"]);
 });
+
+test("the quick add takes a description, with files pasted into it", async ({ page, request }) => {
+  const repo = fresh("described");
+  await add(request, repo, "Existing");
+  await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+Shift+C");
+  await field(page).fill("Fix the login redirect");
+
+  // Tab moves between the title and the description
+  const body = dialog(page).getByRole("textbox", { name: "Description" });
+  await page.keyboard.press("Tab");
+  await expect(body).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("It loops after a timeout.");
+  // Enter starts a new line in the description
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("See the screenshot: ");
+  await body.evaluate((el) => {
+    const data = new DataTransfer();
+    data.items.add(new File(["png"], "redirect loop.png", { type: "image/png" }));
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(body).toHaveValue(
+    "It loops after a timeout.\nSee the screenshot: ![redirect-loop.png](attachment:redirect-loop.png)",
+  );
+
+  // ⌘Enter adds it from the description
+  await body.press("ControlOrMeta+Enter");
+  await expect(dialog(page)).toHaveCount(0);
+  const [added] = (await listed(request, repo)).filter((i) => i.title === "Fix the login redirect");
+  const stored = (await (await request.get(`${core}/api/v1/items/${added.key}`)).json()) as {
+    body: string;
+    files: { name: string }[];
+  };
+  expect(stored.body).toBe(
+    "It loops after a timeout.\nSee the screenshot: ![redirect-loop.png](attachment:redirect-loop.png)",
+  );
+  expect(stored.files.map((f) => f.name)).toEqual(["redirect-loop.png"]);
+});
+
+test("⌘⇧Enter in the description adds the item and starts another", async ({ page, request }) => {
+  const repo = fresh("more");
+  await add(request, repo, "Existing");
+  await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+Shift+C");
+  await field(page).fill("First with a description");
+  const body = dialog(page).getByRole("textbox", { name: "Description" });
+  await body.fill("Some detail.");
+  await body.press("ControlOrMeta+Shift+Enter");
+  // the dialog stays, emptied, for the next one
+  await expect(field(page)).toBeFocused();
+  await expect(field(page)).toHaveValue("");
+  await expect(body).toHaveValue("");
+  await expect
+    .poll(async () => (await listed(request, repo)).map((i) => i.title))
+    .toContain("First with a description");
+});

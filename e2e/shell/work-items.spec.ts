@@ -314,10 +314,11 @@ test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, an
   await expect(hints).toHaveText([
     "EnterAdd and open",
     /\+EnterAdd and add more$/,
+    "TabDescription",
     /\+TabChange repository$/,
     "EscCancel",
   ]);
-  await expect(hints.locator(".key-cap")).toHaveCount(4);
+  await expect(hints.locator(".key-cap")).toHaveCount(5);
   // it starts in the repository the list is filtered to
   await expect(box.getByRole("button", { name: "Repository", exact: true })).toContainText(repo);
   // an empty title adds nothing

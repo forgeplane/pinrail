@@ -1,17 +1,23 @@
 // The quick add's open box: a title field, the repository and the parent
-// the item goes in, and the keys that add it. The Work items page shows it
-// at the top of its list, and the quick add dialog on any other page.
+// the item goes in, a description that takes pasted or dropped files, and
+// the keys that add it. The Work items page shows it at the top of its
+// list, and the quick add dialog on any other page.
 
 import { FolderGit2, Plus, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { api, errorMessage } from "../api/client";
+import { useAttach } from "../lib/attach";
 import type { WorkItem } from "../api/types";
 import { MOD, SHIFT, composing } from "../lib/keys";
 import { useToast } from "../state/toasts";
+import { useItemPicker } from "./ItemPicker";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { KeyHints } from "./KeyHints";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
+
+/** The tallest the description grows before it scrolls. */
+const BODY_MAX = 240;
 
 export type QuickAddBoxProps = {
   onClose: () => void;
@@ -42,6 +48,19 @@ export function QuickAddBox({
   const [parent, setParent] = useState(() => defaultParent ?? "");
   const [busy, setBusy] = useState(false);
   const field = useRef<HTMLInputElement>(null);
+  const [body, setBody] = useState("");
+  const bodyField = useRef<HTMLTextAreaElement>(null);
+  // the description's keys show while it has the focus
+  const [inBody, setInBody] = useState(false);
+  const files = useAttach({ box: bodyField, onChange: setBody, onError: (m) => toast(m, "danger") });
+  const picker = useItemPicker({ box: bodyField, value: body, onChange: setBody, repo: repo || null });
+  // the description grows with its text, up to a height it then scrolls past
+  useLayoutEffect(() => {
+    const el = bodyField.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, BODY_MAX)}px`;
+  }, [body]);
   // focused before it is shown, so no key typed after C goes elsewhere
   useLayoutEffect(() => {
     field.current?.focus();
@@ -50,11 +69,21 @@ export function QuickAddBox({
   const parents = items.filter((i) => i.repo === repo && i.status !== "done" && i.status !== "cancelled");
 
   const add = async (more: boolean) => {
-    if (!title.trim() || !repo || busy) return;
+    if (!title.trim() || !repo || busy || files.busy) return;
     setBusy(true);
     try {
-      const item = await api.addItem({ repo, title: title.trim(), ...(parent ? { parent } : {}) });
+      const text = body.trim();
+      const attachments = files.linked(text);
+      const item = await api.addItem({
+        repo,
+        title: title.trim(),
+        ...(text ? { body: text } : {}),
+        ...(Object.keys(attachments).length ? { attachments } : {}),
+        ...(parent ? { parent } : {}),
+      });
       setTitle("");
+      setBody("");
+      files.reset();
       onAdded(item, more);
     } catch (error) {
       toast(errorMessage(error), "danger");
@@ -77,8 +106,45 @@ export function QuickAddBox({
       event.preventDefault();
       setRepo(sorted[(sorted.indexOf(repo) + 1) % sorted.length]);
       setParent("");
+    } else if (event.key === "Tab" && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      // the description comes next, past the repository and parent controls
+      event.preventDefault();
+      bodyField.current?.focus();
     }
   };
+
+  // in the description, Enter starts a new line: ⌘Enter adds, and ⌘⇧Enter
+  // adds and starts another
+  const onBodyKey = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (composing(event)) return;
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      void add(event.shiftKey);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    } else if (event.key === "Tab" && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      // Tab moves between the title and the description
+      event.preventDefault();
+      field.current?.focus();
+    }
+  };
+
+  const hints = inBody
+    ? [
+        { keys: [MOD, "Enter"], label: enterHint },
+        { keys: [MOD, SHIFT, "Enter"], label: "Add and add more" },
+        { keys: ["Tab"], label: "Title" },
+        { keys: ["Esc"], label: "Cancel" },
+      ]
+    : [
+        { keys: ["Enter"], label: enterHint },
+        { keys: [MOD, "Enter"], label: "Add and add more" },
+        { keys: ["Tab"], label: "Description" },
+        { keys: [SHIFT, "Tab"], label: "Change repository" },
+        { keys: ["Esc"], label: "Cancel" },
+      ];
 
   return (
     <div className="item-quick-box" data-testid="item-quick-box">
@@ -128,7 +194,7 @@ export function QuickAddBox({
               type="button"
               className="item-quick-action is-add"
               aria-label="Add it"
-              disabled={!title.trim() || !repo || busy}
+              disabled={!title.trim() || !repo || busy || files.busy}
               onClick={() => void add(false)}
             >
               <Plus size={14} />
@@ -141,15 +207,23 @@ export function QuickAddBox({
           </Tooltip>
         </div>
       </div>
-      <div className="item-quick-keys">
-        <KeyHints
-          hints={[
-            { keys: ["Enter"], label: enterHint },
-            { keys: [MOD, "Enter"], label: "Add and add more" },
-            { keys: [SHIFT, "Tab"], label: "Change repository" },
-            { keys: ["Esc"], label: "Cancel" },
-          ]}
+      <div className="item-quick-body" {...files.handlers}>
+        <textarea
+          ref={bodyField}
+          aria-label="Description"
+          placeholder="Add a description… Paste or drop files to attach them, and type # to name an item."
+          rows={2}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={onBodyKey}
+          onFocus={() => setInBody(true)}
+          onBlur={() => setInBody(false)}
         />
+        {picker}
+      </div>
+      <div className="item-quick-keys">
+        <KeyHints hints={hints} />
+        {files.busy ? <span className="item-quick-note">Uploading…</span> : null}
         {repos.length === 0 ? (
           <span className="item-quick-note">Name a repository: an item belongs to one.</span>
         ) : null}

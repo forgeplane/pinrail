@@ -2,6 +2,7 @@
 // server's URL; in a browser (development, tests) it uses VITE_PINRAIL_URL or
 // the default port.
 
+import type { Attached } from "../lib/attach";
 import type {
   CatalogEntry,
   Info,
@@ -149,8 +150,14 @@ export const api = {
   /** takes an item out of the person's queue; answers the queue in order */
   unqueueItem: (key: string) => request<{ items: WorkItem[] }>("DELETE", `/api/v1/items/${seg(key)}/queue`),
   /** adds a work item, as the person */
-  addItem: (item: { repo: string; title: string; body?: string; parent?: string }) =>
-    request<WorkItem>("POST", "/api/v1/items", item),
+  addItem: (item: {
+    repo: string;
+    title: string;
+    body?: string;
+    /** the files the body shows, by the names it links them under */
+    attachments?: Record<string, Attached>;
+    parent?: string;
+  }) => request<WorkItem>("POST", "/api/v1/items", item),
   /** puts every round of a review under exactly these work items, by their keys */
   setReviewItems: (id: string, items: string[]) => request<void>("PUT", `/api/v1/reviews/${seg(id)}/items`, { items }),
   /** sets a repository's work item key prefix */
