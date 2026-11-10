@@ -451,3 +451,45 @@ async fn an_unknown_command_or_an_odd_agent_is_counted_as_other() {
         ]
     );
 }
+
+#[tokio::test]
+async fn an_uncaught_error_of_the_window_is_kept_scrubbed_while_crash_reports_are_on() {
+    let app = counting().await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/telemetry/crashes",
+        Some(json!({
+            "message": "Cannot read properties of undefined (reading 'title')",
+            "stack": "TypeError: x\n    at render (http://127.0.0.1:5173/src/screens/Inbox.tsx:12:5)"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, telemetry) = call(&app, "GET", "/api/v1/telemetry", None).await;
+    let crash = &telemetry["crash"];
+    assert_eq!(crash["kind"], "ui");
+    assert_eq!(
+        crash["message"],
+        "Cannot read properties of undefined (reading 'title')"
+    );
+    assert_eq!(crash["stack"], "TypeError: x\n    at render (…)");
+
+    // off: the report goes, and no other is kept
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(json!({"telemetry": {"crashes": false}})),
+    )
+    .await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/telemetry/crashes",
+        Some(json!({"message": "again", "stack": ""})),
+    )
+    .await;
+    let (_, telemetry) = call(&app, "GET", "/api/v1/telemetry", None).await;
+    assert_eq!(telemetry["crash"], Value::Null);
+}

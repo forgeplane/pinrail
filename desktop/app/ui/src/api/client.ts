@@ -286,6 +286,9 @@ export const api = {
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   telemetry: () => request<TelemetryStatus>("GET", "/api/v1/telemetry"),
+  /** keeps an uncaught error as a crash report, while crash reports are on */
+  reportCrash: (message: string, stack: string) =>
+    request<void>("POST", "/api/v1/telemetry/crashes", { message, stack }),
   /** counts a feature of the window in the usage data, while it is on */
   countFeature: (feature: string) => request<void>("POST", "/api/v1/telemetry/features", { feature }),
   /** the review rendered as markdown by the core, for the clipboard */

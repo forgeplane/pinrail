@@ -76,3 +76,21 @@ test("Show what is sent lists the waiting events as JSON", async ({ page, reques
   await settingsDialog(page).getByRole("button", { name: "Hide" }).click();
   await expect(sent).toHaveCount(0);
 });
+
+test("an uncaught error of the window waits as a crash report", async ({ page, request }) => {
+  // none waiting, with crash reports on: turning them off deletes one
+  await telemetry(request, { notice_shown: "2026-11-10T09:00:00Z", crashes: false });
+  await telemetry(request, { crashes: true });
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  await page.evaluate(() => {
+    setTimeout(() => {
+      throw new Error('Could not open "Acme payroll" from /Users/ana/acme');
+    });
+  });
+  await expect
+    .poll(async () => (await (await request.get(`${core}/api/v1/telemetry`)).json()).crash?.message)
+    .toBe('Could not open "…" from acme');
+  const crash = (await (await request.get(`${core}/api/v1/telemetry`)).json()).crash;
+  expect(crash.kind).toBe("ui");
+});

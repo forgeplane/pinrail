@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportCrash } from "../lib/crashes";
 import { TriangleAlert } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 
@@ -22,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     console.error("A screen failed to render", error, info.componentStack);
+    reportCrash(error);
   }
 
   render() {

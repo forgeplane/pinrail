@@ -60,7 +60,7 @@ export function PrivacySection() {
         </SettingsRow>
         <SettingsRow
           label="What is sent"
-          description="The events waiting to be sent and the last 100 sent, exactly as they leave your computer."
+          description="The events waiting to be sent, the last 100 sent and a crash report waiting, exactly as they leave your computer."
           note={error ?? undefined}
         >
           <button
@@ -78,7 +78,13 @@ export function PrivacySection() {
         {showing && status ? (
           <pre className="telemetry-sent" data-testid="telemetry-sent" tabIndex={0}>
             {JSON.stringify(
-              { install: status.install, session: status.session, waiting: status.waiting, sent: status.sent },
+              {
+                install: status.install,
+                session: status.session,
+                waiting: status.waiting,
+                sent: status.sent,
+                crash: status.crash,
+              },
               null,
               2,
             )}

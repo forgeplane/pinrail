@@ -24,7 +24,9 @@ use serde_json::{Value, json};
 use crate::plugins::Catalog;
 use crate::settings::SettingsReader;
 
+mod crash;
 mod send;
+pub use crash::{Kind as CrashKind, Report as CrashReport, catch_panics, crashes_url, scrub};
 pub use send::{Batch, Context, ENDPOINT, Sent, send};
 
 /// The settings that turn usage data and crash reports on and off, and the
@@ -237,6 +239,9 @@ pub struct Telemetry {
     off_by: Option<&'static str>,
     /// this launch's id, which groups its events
     session: String,
+    /// whether crash reports are on, kept where a panic can read it
+    /// without a lock, since it may have struck while one was held
+    crashes: std::sync::atomic::AtomicBool,
     state: Mutex<State>,
 }
 
@@ -272,6 +277,7 @@ impl Telemetry {
             settings,
             off_by: OFF_VARIABLES.into_iter().find(|key| is_set(key)),
             session: random_id(),
+            crashes: std::sync::atomic::AtomicBool::new(false),
             state: Mutex::new(State {
                 last_sent: Some(std::time::Instant::now()),
                 ..State::default()
@@ -407,6 +413,7 @@ impl Telemetry {
             "session": self.session,
             "waiting": state.retry.iter().flatten().chain(&state.waiting).collect::<Vec<_>>(),
             "sent": state.sent,
+            "crash": self.waiting_crash(),
         })
     }
 
@@ -433,6 +440,12 @@ impl Telemetry {
     /// is off, the install id is deleted and nothing waits. Called after
     /// every change of the settings.
     pub(crate) fn sync(&self) {
+        let crashes = self.crashes_on();
+        self.crashes
+            .store(crashes, std::sync::atomic::Ordering::Relaxed);
+        if !crashes {
+            crash::forget(&self.data_dir);
+        }
         if self.usage_on() {
             return;
         }
@@ -441,6 +454,12 @@ impl Telemetry {
         state.waiting.clear();
         state.retry = None;
         state.counted.clear();
+    }
+
+    /// Whether crash reports are on, as last brought in line with the
+    /// settings, read without a lock.
+    fn crashes_allowed(&self) -> bool {
+        self.crashes.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     fn read_id(&self) -> Option<String> {

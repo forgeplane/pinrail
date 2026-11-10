@@ -113,12 +113,17 @@ pub enum Sent {
 /// prints the batch to stderr instead, as `PINRAIL_TELEMETRY_DEBUG` asks.
 /// Blocks: call it off the async runtime.
 pub fn send(url: &str, debug: bool, batch: &Batch) -> Sent {
-    let body = match serde_json::to_string(batch) {
+    post(url, debug, batch)
+}
+
+/// Posts `body` as JSON to `url`, or prints it with `debug`.
+pub(super) fn post(url: &str, debug: bool, body: &impl Serialize) -> Sent {
+    let body = match serde_json::to_string(body) {
         Ok(body) => body,
         Err(_) => return Sent::Refused,
     };
     if debug {
-        eprintln!("pinrail: telemetry batch, not sent: {body}");
+        eprintln!("pinrail: telemetry, not sent to {url}: {body}");
         return Sent::Stored;
     }
     let agent: ureq::Agent = ureq::Agent::config_builder()
@@ -139,7 +144,7 @@ pub fn send(url: &str, debug: bool, batch: &Batch) -> Sent {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::telemetry::{Event, Name};
     use axum::Router;
@@ -162,18 +167,30 @@ mod tests {
         }
     }
 
+    /// What a test endpoint was sent: each request's headers and body.
+    pub(in crate::telemetry) type Got = Arc<Mutex<Vec<(HeaderMap, String)>>>;
+
     /// A server on a free port that answers `status` and keeps what it was
     /// sent; its URL.
-    fn endpoint(status: StatusCode, got: Arc<Mutex<Vec<(HeaderMap, String)>>>) -> String {
+    fn endpoint(status: StatusCode, got: Got) -> String {
+        endpoint_at("/v1/events", status, got)
+    }
+
+    /// [`endpoint`] at `path`.
+    pub(in crate::telemetry) fn endpoint_at(
+        path: &'static str,
+        status: StatusCode,
+        got: Got,
+    ) -> String {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
-        let url = format!("http://{}/v1/events", listener.local_addr().unwrap());
+        let url = format!("http://{}{path}", listener.local_addr().unwrap());
         std::thread::spawn(move || {
             tokio::runtime::Runtime::new()
                 .unwrap()
                 .block_on(async move {
                     let app = Router::new().route(
-                        "/v1/events",
+                        path,
                         post(move |headers: HeaderMap, body: String| async move {
                             got.lock().unwrap().push((headers, body));
                             status

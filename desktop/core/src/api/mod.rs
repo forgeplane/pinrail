@@ -203,6 +203,8 @@ pub async fn serve(
         })
     };
 
+    // a panic from now on is kept as a crash report, sent at the next start
+    crate::telemetry::catch_panics(state.app.telemetry().clone());
     let sender = state.app.config().telemetry_url.clone().map(|url| {
         let app = state.app.clone();
         tokio::spawn(send_usage(app, url))
@@ -221,11 +223,16 @@ pub async fn serve(
     result
 }
 
-/// Sends the usage data that waits to `url`, looking every 15 seconds for
-/// a batch that is due. `PINRAIL_TELEMETRY_DEBUG`, set to any value,
+/// Sends the crash report a run before this one left, then the usage
+/// data that waits to `url`, looking every 15 seconds for a batch that is
+/// due. `PINRAIL_TELEMETRY_DEBUG`, set to any value,
 /// prints each batch instead of sending it.
 async fn send_usage(app: Arc<Pinrail>, url: String) {
     let debug = std::env::var_os("PINRAIL_TELEMETRY_DEBUG").is_some_and(|v| !v.is_empty());
+    // the crash report a run before this one left
+    let crashes = crate::telemetry::crashes_url(&url);
+    let telemetry = app.telemetry().clone();
+    let _ = tokio::task::spawn_blocking(move || telemetry.send_crash(&crashes, debug)).await;
     let mut tick = tokio::time::interval(Duration::from_secs(15));
     loop {
         tick.tick().await;

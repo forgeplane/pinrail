@@ -29,6 +29,7 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/telemetry", get(show))
         .route("/api/v1/telemetry/features", post(feature))
+        .route("/api/v1/telemetry/crashes", post(crash))
 }
 
 async fn show(State(state): State<Arc<Pinrail>>) -> Json<Value> {
@@ -47,6 +48,25 @@ async fn feature(State(state): State<Arc<Pinrail>>, body: Bytes) -> Response {
     });
     match counted {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(error) => ApiError(error).into_response(),
+    }
+}
+
+/// Keeps an uncaught error of the window as a crash report, scrubbed, to
+/// send at the next start: `{"message", "stack"}`. Answers 204 whether it
+/// was kept or crash reports are off.
+async fn crash(State(state): State<Arc<Pinrail>>, body: Bytes) -> Response {
+    match parse_body(&body) {
+        Ok(body) => {
+            let text = |key: &str| body[key].as_str().unwrap_or_default().to_string();
+            let report = telemetry::CrashReport::new(
+                telemetry::CrashKind::Ui,
+                &text("message"),
+                &text("stack"),
+            );
+            state.telemetry().keep_crash(&report);
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(error) => ApiError(error).into_response(),
     }
 }

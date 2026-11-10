@@ -474,6 +474,8 @@ export type TelemetryStatus = {
   session: string;
   waiting: unknown[];
   sent: unknown[];
+  /** the crash report waiting to be sent at the next start */
+  crash: unknown | null;
 };
 
 export type Info = {

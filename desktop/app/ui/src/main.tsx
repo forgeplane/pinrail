@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { catchWindowErrors } from "./lib/crashes";
 import { limitFramesToServer } from "./lib/frames";
 import { placeWindowButtons } from "./lib/native";
 import { applySavedTheme, cachedAppearance } from "./lib/theme";
@@ -11,6 +12,7 @@ import { applyTextSize } from "./state/settings";
 import "@fontsource-variable/inter/wght.css";
 import "./theme.css";
 
+catchWindowErrors();
 applySavedTheme();
 applyTextSize(cachedAppearance().text_size);
 void placeWindowButtons();
