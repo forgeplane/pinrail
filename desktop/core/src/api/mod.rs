@@ -203,13 +203,43 @@ pub async fn serve(
         })
     };
 
+    let sender = state.app.config().telemetry_url.clone().map(|url| {
+        let app = state.app.clone();
+        tokio::spawn(send_usage(app, url))
+    });
+
     let result = axum::serve(listener, router_with(state.clone()))
         .with_graceful_shutdown(shutdown)
         .await;
     sweeper.abort();
     watcher.abort();
+    // a send under way is abandoned: quitting never waits for one
+    if let Some(sender) = sender {
+        sender.abort();
+    }
     server_info::remove(state.app.config());
     result
+}
+
+/// Sends the usage data that waits to `url`, looking every 15 seconds for
+/// a batch that is due. `PINRAIL_TELEMETRY_DEBUG`, set to any value,
+/// prints each batch instead of sending it.
+async fn send_usage(app: Arc<Pinrail>, url: String) {
+    let debug = std::env::var_os("PINRAIL_TELEMETRY_DEBUG").is_some_and(|v| !v.is_empty());
+    let mut tick = tokio::time::interval(Duration::from_secs(15));
+    loop {
+        tick.tick().await;
+        let Some(batch) = app.telemetry().due(std::time::Instant::now()) else {
+            continue;
+        };
+        let (url, sending) = (url.clone(), batch.clone());
+        let sent =
+            tokio::task::spawn_blocking(move || crate::telemetry::send(&url, debug, &sending))
+                .await
+                .unwrap_or(crate::telemetry::Sent::Failed);
+        app.telemetry()
+            .settle(batch, sent, std::time::Instant::now());
+    }
 }
 
 /// The origins the shell runs on: the desktop app's own origin, plus, in

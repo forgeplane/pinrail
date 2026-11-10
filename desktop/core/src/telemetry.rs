@@ -24,6 +24,9 @@ use serde_json::{Value, json};
 use crate::plugins::Catalog;
 use crate::settings::SettingsReader;
 
+mod send;
+pub use send::{Batch, Context, ENDPOINT, Sent, send};
+
 /// The settings that turn usage data and crash reports on and off, and the
 /// time the notice was shown.
 pub const USAGE: &str = "/telemetry/usage";
@@ -240,6 +243,10 @@ pub struct Telemetry {
 #[derive(Debug, Default)]
 struct State {
     waiting: VecDeque<Recorded>,
+    /// a batch whose send failed, tried once more before anything else
+    retry: Option<Vec<Recorded>>,
+    /// when a batch was last sent, or telemetry opened
+    last_sent: Option<std::time::Instant>,
     sent: VecDeque<Recorded>,
     /// the day the once-a-day events were last counted, and which were
     day: Option<NaiveDate>,
@@ -265,7 +272,10 @@ impl Telemetry {
             settings,
             off_by: OFF_VARIABLES.into_iter().find(|key| is_set(key)),
             session: random_id(),
-            state: Mutex::new(State::default()),
+            state: Mutex::new(State {
+                last_sent: Some(std::time::Instant::now()),
+                ..State::default()
+            }),
         };
         // an id left from a run that had usage data on, or a switch turned
         // off in settings.json while the app was closed
@@ -321,6 +331,52 @@ impl Telemetry {
         }
     }
 
+    /// The batch to send at `now`, if one is due: the batch whose last send
+    /// failed, or the waiting events once there are [`send::BATCH`] of
+    /// them or [`send::EVERY`] has passed since the last send. `None`
+    /// while usage data is off or nothing waits.
+    pub fn due(&self, now: std::time::Instant) -> Option<Batch> {
+        let install = self.install_id()?;
+        let mut state = self.lock();
+        let (events, retry) = match state.retry.take() {
+            Some(events) => (events, true),
+            None => {
+                let since = state.last_sent.map_or(send::EVERY, |last| now - last);
+                let full = state.waiting.len() >= send::BATCH;
+                if state.waiting.is_empty() || !(full || since >= send::EVERY) {
+                    return None;
+                }
+                let n = send::BATCH.min(state.waiting.len());
+                (state.waiting.drain(..n).collect(), false)
+            }
+        };
+        Some(Batch {
+            install,
+            session: self.session.clone(),
+            context: Context::of_this_system(),
+            events,
+            retry,
+        })
+    }
+
+    /// Records how sending `batch` went at `now`: sent events are kept for
+    /// *Show what is sent*; a batch the endpoint refused is dropped, since
+    /// it would be refused again; a batch that failed is tried once more at
+    /// the next send, then dropped.
+    pub fn settle(&self, batch: Batch, sent: Sent, now: std::time::Instant) {
+        match sent {
+            Sent::Stored => {
+                self.lock().last_sent = Some(now);
+                self.sent(batch.events);
+            }
+            Sent::Refused => self.lock().last_sent = Some(now),
+            Sent::Failed if !batch.retry && self.usage_on() => {
+                self.lock().retry = Some(batch.events);
+            }
+            Sent::Failed => self.lock().last_sent = Some(now),
+        }
+    }
+
     /// Takes up to `max` of the waiting events, oldest first, to send.
     pub fn take(&self, max: usize) -> Vec<Recorded> {
         let mut state = self.lock();
@@ -349,7 +405,7 @@ impl Telemetry {
             "notice_shown": self.settings.value(NOTICE_SHOWN),
             "install": self.read_id(),
             "session": self.session,
-            "waiting": state.waiting,
+            "waiting": state.retry.iter().flatten().chain(&state.waiting).collect::<Vec<_>>(),
             "sent": state.sent,
         })
     }
@@ -383,6 +439,7 @@ impl Telemetry {
         let _ = std::fs::remove_file(self.id_path());
         let mut state = self.lock();
         state.waiting.clear();
+        state.retry = None;
         state.counted.clear();
     }
 
@@ -643,6 +700,90 @@ mod tests {
         let sent = status["sent"].as_array().unwrap();
         assert_eq!(sent.len(), KEEP_SENT);
         assert_eq!(sent[KEEP_SENT - 1]["fields"]["rounds"], MAX_WAITING + 19);
+    }
+
+    /// `n` events recorded, at once.
+    fn record(t: &Telemetry, n: u32) {
+        for rounds in 0..n {
+            t.record(Event::ReviewDecided {
+                plugin: Name::of("list"),
+                outcome: "approved",
+                rounds,
+                seconds_waiting: 1,
+            });
+        }
+    }
+
+    #[test]
+    fn a_batch_is_due_at_fifty_events_or_after_five_minutes() {
+        use std::time::{Duration, Instant};
+        let (_dir, app) = app();
+        show_notice(&app);
+        let t = app.telemetry();
+        let start = Instant::now();
+        assert_eq!(t.due(start + send::EVERY), None);
+
+        record(t, 3);
+        assert_eq!(t.due(start), None);
+        let batch = t.due(start + send::EVERY).unwrap();
+        assert_eq!(batch.events.len(), 3);
+        assert_eq!(batch.install, t.install_id().unwrap());
+        assert_eq!(batch.session, t.session());
+        assert!(!batch.retry);
+        t.settle(batch, Sent::Stored, start + send::EVERY);
+        assert_eq!(t.status()["sent"].as_array().unwrap().len(), 3);
+
+        // a full batch goes at once, the rest after five minutes more
+        let later = start + send::EVERY + Duration::from_secs(1);
+        record(t, 60);
+        let batch = t.due(later).unwrap();
+        assert_eq!(batch.events.len(), send::BATCH);
+        t.settle(batch, Sent::Stored, later);
+        assert_eq!(t.due(later), None);
+        assert_eq!(t.due(later + send::EVERY).unwrap().events.len(), 10);
+    }
+
+    #[test]
+    fn a_failed_batch_is_tried_once_more_and_a_refused_one_is_dropped() {
+        use std::time::Instant;
+        let (_dir, app) = app();
+        show_notice(&app);
+        let t = app.telemetry();
+        let now = Instant::now() + send::EVERY;
+        record(t, 2);
+
+        let first = t.due(now).unwrap();
+        t.settle(first.clone(), Sent::Failed, now);
+        // it still waits, for Show what is sent
+        assert_eq!(t.status()["waiting"].as_array().unwrap().len(), 2);
+        let again = t.due(now).unwrap();
+        assert!(again.retry);
+        assert_eq!(again.events, first.events);
+        t.settle(again, Sent::Failed, now);
+        assert_eq!(t.due(now + send::EVERY), None);
+        assert!(t.status()["waiting"].as_array().unwrap().is_empty());
+
+        record(t, 1);
+        let refused = t.due(now + send::EVERY).unwrap();
+        t.settle(refused, Sent::Refused, now + send::EVERY);
+        assert_eq!(t.due(now + send::EVERY * 3), None);
+        assert!(t.status()["sent"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn nothing_is_due_while_usage_data_is_off() {
+        use std::time::Instant;
+        let (_dir, app) = app();
+        show_notice(&app);
+        let t = app.telemetry();
+        record(t, 60);
+        let failed = t.due(Instant::now()).unwrap();
+        t.settle(failed, Sent::Failed, Instant::now());
+        app.settings()
+            .change(&json!({"telemetry": {"usage": false}}))
+            .unwrap();
+        assert_eq!(t.due(Instant::now() + send::EVERY), None);
+        assert!(t.status()["waiting"].as_array().unwrap().is_empty());
     }
 
     #[test]

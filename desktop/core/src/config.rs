@@ -27,6 +27,10 @@ pub struct Config {
     /// turn telemetry off. Tests turn this off, so that they do not depend
     /// on the environment of whoever runs them.
     pub telemetry_env: bool,
+    /// Where usage data is sent: `PINRAIL_TELEMETRY_URL`, else Pinrail's
+    /// endpoint in a release build. `None` sends nothing, as a development
+    /// build and the tests do, so they never reach the real endpoint.
+    pub telemetry_url: Option<String>,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -65,6 +69,10 @@ impl Config {
             .filter(|u| !u.trim().is_empty())
             .unwrap_or_else(|| "pinrail".to_string());
         config.sdk_dir = env::var_os("PINRAIL_SDK_DIR").map(PathBuf::from);
+        config.telemetry_url = env::var("PINRAIL_TELEMETRY_URL")
+            .ok()
+            .filter(|url| !url.trim().is_empty())
+            .or_else(|| (!cfg!(debug_assertions)).then(|| crate::telemetry::ENDPOINT.to_string()));
         config
     }
 
@@ -77,6 +85,7 @@ impl Config {
             catalog_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
             telemetry_env: true,
+            telemetry_url: None,
         }
     }
 
