@@ -34,20 +34,33 @@ export function useThreadScroll(
     }
   }, [timelineRef, items, focus, session, stage]);
 
-  // While the newest message is in view, it stays there as an image loads
-  // and makes the thread taller. Scrolling away from it ends that.
+  // While the newest message is in view, it stays there as the thread
+  // grows under it: as an image loads, a question lays out, or the room
+  // kept for the chat box grows. Scrolling away from it ends that.
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
     const onScroll = () => (pinned.current = el.scrollHeight - el.clientHeight - el.scrollTop < 40);
-    const onLoad = () => {
+    const keepAtEnd = () => {
       if (pinned.current) el.scrollTop = el.scrollHeight;
     };
+    // the timeline and each entry in it, as entries come and go
+    const sizes = new ResizeObserver(keepAtEnd);
+    const observe = () => {
+      sizes.disconnect();
+      sizes.observe(el);
+      for (const entry of el.children) sizes.observe(entry);
+    };
+    observe();
+    const entries = new MutationObserver(observe);
+    entries.observe(el, { childList: true });
     el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("load", onLoad, true);
+    el.addEventListener("load", keepAtEnd, true);
     return () => {
+      sizes.disconnect();
+      entries.disconnect();
       el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("load", onLoad, true);
+      el.removeEventListener("load", keepAtEnd, true);
     };
   }, [timelineRef]);
 
