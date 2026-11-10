@@ -68,6 +68,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Choosing a filter or a display option closes the Filter or Display
+  options menu, in the inbox, the Sessions page and the Work items page.
 - The text of a session's thread, such as statuses, notes, messages and
   questions, can be selected and copied.
 - The app shows every change made while it was disconnected, such as

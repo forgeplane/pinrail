@@ -50,13 +50,13 @@ async function dragRow(page: Page, key: string) {
  *  loads after the page and changes after each action. */
 const keys = (page: Page) => rows(page).evaluateAll((els) => els.map((e) => e.getAttribute("data-key")));
 
-/** Chooses `option` in a submenu of the Filter or the Display menu, and
+/** Chooses `option` in a submenu of the Filter or the Display menu, which
  *  closes the menu. */
 async function pick(page: Page, menu: "Filter" | "Display options", submenu: string, option: string) {
   await page.getByRole("button", { name: menu, exact: true }).click();
   await page.getByRole("menuitem", { name: new RegExp(`^${submenu}`) }).click();
   await page.getByRole("menuitemradio", { name: option, exact: true }).click();
-  await page.keyboard.press("Escape");
+  await page.getByRole("menu").first().waitFor({ state: "detached" });
 }
 
 /** The page, filtered to one repository, or to a project with `project:`. */
@@ -243,7 +243,6 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await expect.poll(() => keys(page)).toEqual([ready.key, blocked.key, mine.key, personKey]);
   await page.getByRole("button", { name: "Filter", exact: true }).click();
   await page.getByRole("menuitemcheckbox", { name: "Waiting on you" }).click();
-  await page.keyboard.press("Escape");
   await expect(page.getByText("No matching work items")).toBeVisible();
   await expect(chips).toHaveText(["Project or repository: " + repo, "Waiting on you"]);
   await page.getByRole("button", { name: "Clear filters" }).click();
@@ -256,6 +255,28 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await expect(page.getByLabel("Search work items")).toBeFocused();
   await page.keyboard.type("theme ready");
   await expect.poll(() => keys(page)).toEqual([ready.key]);
+});
+
+test("a pick in the Filter or Display menu closes the menu", async ({ page, request }) => {
+  const repo = fresh("menus");
+  await add(request, repo, "Some work");
+  await open(page, repo);
+  const menu = (name: string) => page.getByRole("menu", { name });
+
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Status/ }).click();
+  await page.getByRole("menuitemradio", { name: "On hold", exact: true }).click();
+  await expect(menu("Filter work items")).toHaveCount(0);
+  await expect(page.getByTestId("filter-chip").filter({ hasText: "Status" })).toHaveText("Status: On hold");
+
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Waiting on you" }).click();
+  await expect(menu("Filter work items")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Display options", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Grouping/ }).click();
+  await page.getByRole("menuitemradio", { name: "None", exact: true }).click();
+  await expect(menu("Display options")).toHaveCount(0);
 });
 
 test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, and cancels with Esc", async ({
@@ -495,7 +516,6 @@ test("each choice of the status filter shows its status's icon, and its chip the
     await expect(option.locator(`.menu-mark ${mark}`)).toBeVisible();
   }
   await listbox.getByRole("menuitemradio", { name: "Done", exact: true }).click();
-  await page.keyboard.press("Escape");
   await expect(
     page.getByTestId("filter-chip").filter({ hasText: "Status" }).locator(".item-status.is-done"),
   ).toBeVisible();

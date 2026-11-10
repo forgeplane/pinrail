@@ -150,13 +150,22 @@ function FilterMenu({
             checked: c.value === f.value,
             radio: true,
             mark: c.mark,
-            onPick: () => f.onChange(c.value),
+            // a pick is the whole point of opening the menu: it closes
+            onPick: () => {
+              f.onChange(c.value);
+              onClose();
+            },
           })),
           f.searchable,
         ),
       )}
       {toggles.map((t) => (
-        <span key={t.key}>{toggle(t.label, t.on, () => t.onChange(!t.on))}</span>
+        <span key={t.key}>
+          {toggle(t.label, t.on, () => {
+            t.onChange(!t.on);
+            onClose();
+          })}
+        </span>
       ))}
     </div>,
     document.body,
@@ -186,7 +195,10 @@ function DisplayMenu({ anchor, displays, onClose }: { anchor: HTMLElement; displ
             checked: c.value === d.value,
             radio: true,
             icon: c.icon,
-            onPick: () => d.onChange(c.value),
+            onPick: () => {
+              d.onChange(c.value);
+              onClose();
+            },
           })),
         ),
       )}
