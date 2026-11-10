@@ -29,4 +29,4 @@ flowchart LR
   W -->|"the decision, as Markdown or JSON"| A
 ```
 
-The agent's own instructions say which steps need you. Each kind of review is a [plugin](/docs/concepts/plugins/): it defines what the agent sends, the view you decide in, and the decision that goes back. Everything stays on your machine.
+The agent's own instructions say which steps need you. Each kind of review is a [plugin](/docs/concepts/plugins/): it defines what the agent sends, the view you decide in, and the decision that goes back. Everything you review stays on your machine.

@@ -99,6 +99,16 @@ The *Install* field at the top installs a new plugin, and *Reload* reads every p
 | **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
 | **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`, so agents can run it. |
 
+## Privacy
+
+| Setting | What it does |
+|---|---|
+| **Send usage data** | Sends anonymous usage data: which features are used and how often. On by default. |
+| **Send crash reports** | Sends a report when Pinrail crashes, with file paths and quoted text removed. On by default. |
+| **What is sent** | *Show what is sent* shows the events waiting to be sent, the last 100 sent and a crash report waiting, as JSON. |
+
+When `DO_NOT_TRACK` or `PINRAIL_TELEMETRY` is set in the environment, both switches are off, and the page says which variable turned them off. See [Usage data and crash reports](/docs/using/privacy/).
+
 ## Labs
 
 Labs holds features that are still in the works. Each is off until you turn it on.

@@ -143,6 +143,7 @@ export default defineConfig({
             "docs/using/settings",
             "docs/using/themes",
             "docs/using/notifications",
+            "docs/using/privacy",
           ],
         },
         { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },

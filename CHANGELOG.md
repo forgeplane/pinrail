@@ -13,6 +13,13 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Anonymous usage data and crash reports. Pinrail records which features
+  are used and how often, never what you review, and sends a report when
+  it crashes, with file paths and quoted text removed. Both start once you
+  answer the notice in the inbox, and you can turn either off in Settings ›
+  Privacy, or with `DO_NOT_TRACK`. Show what is sent shows exactly what
+  leaves your computer. See the new Usage data and crash reports page in
+  the docs.
 - Work items. Record tasks in Pinrail, with sub-items and dependencies,
   on the new Work items page. Each repository numbers its items under a
   key prefix, such as `PIN-42`. Agents add, take and close them with

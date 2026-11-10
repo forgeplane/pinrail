@@ -30,8 +30,10 @@ answer back. Pinrail gives each of these moments a proper review:
 - **Your decision is structured.** The agent gets back what you accepted,
   what you rejected and your notes, as Markdown it can act on or JSON for a
   script.
-- **Everything stays on your machine.** The app serves its API on loopback
-  only, and keeps your reviews and decisions locally.
+- **Everything you review stays on your machine.** The app serves its API
+  on loopback only, and keeps your reviews and decisions locally. It sends
+  anonymous [usage data and crash reports](https://pinrail.dev/docs/using/privacy/),
+  which you can turn off.
 
 ## How it works
 
