@@ -4,7 +4,7 @@ All notable changes to the Pinrail app are recorded here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-Changes are grouped by kind. An *Unreleased* section is added while changes
+Changes are grouped by kind. An _Unreleased_ section is added while changes
 wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
@@ -63,6 +63,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A page that fails to load now shows the error and a Reload button,
+  and the sidebar and the other pages stay usable. An error on one page
+  used to leave the window blank.
 - A theme file saved twice in quick succession now shows its last
   colours. An earlier version could stay.
 - `pinrail` stops quietly when the program reading its output exits,
@@ -112,7 +115,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   Projects page leaves the field and keeps the search, so the page's keys
   act on the results.
 - Find in a plugin's view now finds text across the space between two
-  styled words, such as **bold** followed by *italic*.
+  styled words, such as **bold** followed by _italic_.
 - A long session's thread opens at its newest message at once, and stays
   there as its images load.
 - The Enter that confirms text typed with an input method, such as
@@ -264,7 +267,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   agents' skills. Every plugin's skill is off until you turn it on in the
   plugin's details in Settings › Plugins, where you can also open the
   skill's folder to read it, or with `pinrail plugins install
-  --allow-skill`. A plugin's row shows whether its skill is on.
+--allow-skill`. A plugin's row shows whether its skill is on.
 - `pinrail plugins skill <name>` prints a plugin's skill, or a file it
   names, for an agent without the `pinrail` skill installed, and
   `pinrail plugins` says which plugins have one.
@@ -276,9 +279,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   on any of them. Its skill tells your agents how to build a map from a
   change. Install it in Settings › Plugins.
 - The history opens a review in a panel beside the list, as the inbox
-  does. J and K step through the history from it. *Settings › General ›
-  Opening a review* applies to both.
-- *Settings › Agents › Update skills automatically* updates the skill of
+  does. J and K step through the history from it. _Settings › General ›
+  Opening a review_ applies to both.
+- _Settings › Agents › Update skills automatically_ updates the skill of
   each connected agent when Pinrail starts, after an update of Pinrail
   changed it. It is off by default.
 - Support for Hermes Agent. Settings › Agents installs the `pinrail`
@@ -357,7 +360,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   the review as a page when the view needs more room, closes with its
   button or Esc, and moves on to the next review after a decision. J
   and K step through the list from it, while the view has the keyboard
-  too. *Settings › General › Opening a review* switches back to opening
+  too. _Settings › General › Opening a review_ switches back to opening
   reviews as a page.
 - Esc closes the inbox's panel from inside the review's view too. When
   the view has something of its own open, such as a comment, the first
@@ -393,7 +396,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   in every view that uses the plugin SDK, with no change to the plugin.
 - The code review view highlights the syntax of the diff, of suggested
   changes and of code blocks, in the language of each file. If you
-  installed code review, update it to 1.1.0 in *Settings › Plugins*.
+  installed code review, update it to 1.1.0 in _Settings › Plugins_.
 
 ### Changed
 
@@ -435,7 +438,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
-- A review's *Discard*, *Copy decision as markdown* and *Maximize* buttons
+- A review's _Discard_, _Copy decision as markdown_ and _Maximize_ buttons
   are at the right of the review's header, beside its status, rather than
   in the window's top bar.
 

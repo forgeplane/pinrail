@@ -1,4 +1,5 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Layout } from "./components/Layout";
 import { Projects } from "./screens/Projects";
 import { useExternalLinks, useNativeRoutes } from "./lib/native";
@@ -22,18 +23,21 @@ function ToHistoryTab() {
 function Shell() {
   useNativeRoutes();
   useExternalLinks();
+  const { pathname } = useLocation();
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Inbox />} />
-        <Route path="/reviews/:id" element={<ReviewScreen />} />
-        <Route path="/history" element={<ToHistoryTab />} />
-        <Route path="/sessions" element={<SessionsPage />} />
-        <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/items" element={<WorkItems />} />
-        <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />
-      </Routes>
+      <ErrorBoundary resetKey={pathname}>
+        <Routes>
+          <Route path="/" element={<Inbox />} />
+          <Route path="/reviews/:id" element={<ReviewScreen />} />
+          <Route path="/history" element={<ToHistoryTab />} />
+          <Route path="/sessions" element={<SessionsPage />} />
+          <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/items" element={<WorkItems />} />
+          <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />
+        </Routes>
+      </ErrorBoundary>
     </Layout>
   );
 }
