@@ -216,7 +216,7 @@ export function Projects() {
     <li key={repo.repo} className="project-repo" data-testid="project-repo" {...drag.source(repo.repo)}>
       <GripVertical size={13} className="project-grip" aria-hidden />
       <FolderGit2 size={14} className="project-repo-icon" aria-hidden />
-      <span className="project-repo-name">{repo.repo}</span>
+      <span className="project-repo-name truncate">{repo.repo}</span>
       <span className={`project-col ${repo.waiting ? "is-waiting" : "faint"}`}>
         {repo.waiting ? `${repo.waiting} waiting` : "—"}
       </span>
@@ -259,7 +259,7 @@ export function Projects() {
         )}
         <h2>{title}</h2>
         {actions?.description ? (
-          <span className="project-group-description" title={actions.description}>
+          <span className="project-group-description truncate" title={actions.description}>
             {actions.description}
           </span>
         ) : null}

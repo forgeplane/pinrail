@@ -35,7 +35,7 @@ function Node({
         <ItemStatusIcon status={item.status} />
         <span className="dep-node-text">
           <span className="dep-node-key mono">{item.key}</span>
-          <span className="dep-node-title">{item.title}</span>
+          <span className="dep-node-title truncate">{item.title}</span>
         </span>
       </button>
       {onRemove ? (

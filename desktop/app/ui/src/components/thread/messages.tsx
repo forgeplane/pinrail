@@ -69,7 +69,7 @@ export const StatusGroup = memo(function StatusGroup({ statuses }: { statuses: S
       {shown.map((status) => (
         <div key={status.id} className="thread-status-line" data-testid="status">
           <Activity size={13} className="thread-status-icon" aria-hidden />
-          <span className="thread-status-text">
+          <span className="thread-status-text truncate">
             <Linked text={status.text} />
           </span>
           <span className="faint" title={stamp(status.at)}>
@@ -137,7 +137,7 @@ export const ItemEventLine = memo(function ItemEventLine({ events }: { events: S
     <div className="thread-statuses" data-testid="item-event">
       <div className="thread-status-line is-item-event">
         <ItemStatusIcon status={icon} size={13} decorative />
-        <span className="thread-status-text thread-item-event">
+        <span className="thread-status-text truncate thread-item-event">
           <span className="thread-item-event-did">{did}</span>
           {events.map((e) => (
             <ItemChip key={e.id} item={e.item} />
@@ -298,8 +298,8 @@ export const ReviewCard = memo(function ReviewCard({ review, round, to, state, o
     >
       <ReviewIcon review={review} size={16} />
       <span className="thread-card-text">
-        <span className="thread-card-title">{review.title}</span>
-        <span className="thread-card-meta faint" title={stamp(review.created_at)}>
+        <span className="thread-card-title truncate">{review.title}</span>
+        <span className="thread-card-meta truncate faint" title={stamp(review.created_at)}>
           Review · {review.plugin}
           {round ? ` · round ${round.n} of ${round.of}` : ""} · {age(review.created_at)} ago
         </span>
@@ -347,7 +347,7 @@ export const RevisedLine = memo(function RevisedLine({
   return (
     <button type="button" className="thread-revised" data-testid="revised" onClick={() => showCard(card.id, onOpen)}>
       <RefreshCw size={13} className="thread-revised-icon" aria-hidden />
-      <span className="thread-revised-text">
+      <span className="thread-revised-text truncate">
         Revised <span className="thread-revised-title">{review.title}</span>
         {round ? ` · round ${round}` : ""} ·{" "}
         <span className="thread-age" title={stamp(review.created_at)}>
@@ -379,7 +379,7 @@ export const WithdrawnLine = memo(function WithdrawnLine({
       onClick={() => showCard(card.id, onOpen)}
     >
       <Undo2 size={13} className="thread-revised-icon" aria-hidden />
-      <span className="thread-revised-text">
+      <span className="thread-revised-text truncate">
         {said} <span className="thread-revised-title">{review.title}</span> ·{" "}
         <span className="thread-age" title={stamp(at)}>
           {age(at)} ago

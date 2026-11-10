@@ -196,7 +196,7 @@ export function Sessions() {
       >
         <AgentIcon requestedBy={s.agent} size={15} />
         <span className="review-row-main">
-          <span className="review-row-title">
+          <span className="review-row-title truncate">
             {s.title ?? s.agent}
             {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
             {s.archived_at ? <span className="archived-chip">Archived</span> : null}
@@ -209,7 +209,7 @@ export function Sessions() {
             </span>
             {status ? (
               <span
-                className={`session-status ${status.kind === "done" ? "is-done" : ""}`}
+                className={`session-status truncate ${status.kind === "done" ? "is-done" : ""}`}
                 data-testid="session-status"
               >
                 {statusLine(status)}
@@ -375,7 +375,7 @@ export function SessionScreen() {
           Sessions
         </Link>
         <span className="crumb-sep">›</span>
-        <span className="crumb-title">{title ?? agent}</span>
+        <span className="crumb-title truncate">{title ?? agent}</span>
       </span>
     ),
     [agent, title],

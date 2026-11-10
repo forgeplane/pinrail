@@ -170,7 +170,7 @@ export function renderDiff(text: string): string {
   const several = files.length > 1;
   const bar =
     several || first.path
-      ? `<div class="md-diff-bar"><span class="md-diff-path">${escape(first.path ?? "")}</span>` +
+      ? `<div class="md-diff-bar"><span class="md-diff-path truncate">${escape(first.path ?? "")}</span>` +
         (several
           ? `<span class="md-diff-count">1 of ${files.length}</span>` +
             `<button type="button" class="md-diff-step" data-diff-step="-1" aria-label="Previous file" title="Previous file" disabled>${chevron("m15 18-6-6 6-6")}</button>` +

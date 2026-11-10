@@ -45,13 +45,13 @@ export function SidebarProjects({ shown, openIn }: { shown: string | null; openI
                 data-testid="waiting-review"
               >
                 <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
-                <span className="sidebar-review-title">{r.title}</span>
+                <span className="sidebar-review-title truncate">{r.title}</span>
               </Link>
             </Tooltip>
           ))}
           {waiting.length > WAITING_SHOWN ? (
             <NavLink to="/" end className="sidebar-review sidebar-more">
-              <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
+              <span className="sidebar-review-title truncate">{waiting.length - WAITING_SHOWN} more in the inbox</span>
             </NavLink>
           ) : null}
         </section>
@@ -62,14 +62,14 @@ export function SidebarProjects({ shown, openIn }: { shown: string | null; openI
           {live.projects.map((project) => (
             <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} />
-              <span className="sidebar-review-title">{project}</span>
+              <span className="sidebar-review-title truncate">{project}</span>
               <span className="nav-count">{perProject.get(project) ?? 0}</span>
             </NavLink>
           ))}
           {live.unassigned > 0 ? (
             <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo">
               <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
-              <span className="sidebar-review-title">No repository</span>
+              <span className="sidebar-review-title truncate">No repository</span>
               <span className="nav-count">{live.unassigned}</span>
             </NavLink>
           ) : null}

@@ -38,7 +38,7 @@ export function DeleteItemDialog({
       <div className="dialog-head">
         <h2 id="delete-item-title">Delete {item.key}?</h2>
       </div>
-      <p className="dim discard-what" title={item.title}>
+      <p className="dim discard-what truncate" title={item.title}>
         {item.title}
       </p>
       <p className="dim">

@@ -44,7 +44,7 @@ function ReviewTitle({ review }: { review: { id: string; title: string } }) {
   return (
     <Link
       to={`/reviews/${review.id}`}
-      className="activity-title"
+      className="activity-title truncate"
       title={plainInline(review.title)}
       dangerouslySetInnerHTML={{ __html: renderInline(review.title) }}
     />

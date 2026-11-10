@@ -50,7 +50,7 @@ export function ItemChip({
     <>
       <ListChecks size={12} aria-hidden="true" />
       <span className="mono">{item.key}</span>
-      {keyOnly ? null : <span className="item-chip-title">{item.title}</span>}
+      {keyOnly ? null : <span className="item-chip-title truncate">{item.title}</span>}
     </>
   );
   if (inLink)

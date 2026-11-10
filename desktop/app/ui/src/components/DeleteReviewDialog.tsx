@@ -39,7 +39,7 @@ export function DeleteReviewDialog({
       <div className="dialog-head">
         <h2 id="delete-review-title">{question ? "Delete these questions?" : "Delete this review?"}</h2>
       </div>
-      <p className="dim discard-what" title={review.title}>
+      <p className="dim discard-what truncate" title={review.title}>
         {review.title}
       </p>
       <p className="dim">

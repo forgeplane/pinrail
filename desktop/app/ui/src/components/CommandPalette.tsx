@@ -372,7 +372,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
                   onClick={() => pick(item)}
                 >
                   <span className="palette-icon">{item.icon}</span>
-                  <span className="palette-title">{item.title}</span>
+                  <span className="palette-title truncate">{item.title}</span>
                   {item.meta ? <span className="palette-meta">{item.meta}</span> : null}
                 </div>
               </div>

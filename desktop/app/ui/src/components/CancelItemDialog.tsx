@@ -25,7 +25,7 @@ export function CancelItemDialog({
       <div className="dialog-head">
         <h2 id="cancel-item-title">Cancel {item.key}?</h2>
       </div>
-      <p className="dim discard-what" title={item.title}>
+      <p className="dim discard-what truncate" title={item.title}>
         {item.title}
       </p>
       <p className="dim" data-testid="cancel-item-subs">

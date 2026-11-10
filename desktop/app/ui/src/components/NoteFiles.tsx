@@ -81,7 +81,7 @@ export function NoteFiles({
             ) : (
               <FileText size={14} className="note-file-icon" aria-hidden />
             )}
-            <span className="note-file-name">{file.name}</span>
+            <span className="note-file-name truncate">{file.name}</span>
             <span className="faint">{size(file.size)}</span>
             <button
               type="button"

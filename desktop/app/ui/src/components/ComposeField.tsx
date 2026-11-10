@@ -140,7 +140,7 @@ export function ComposeField({
         onKeyDown={onKeyDown}
         {...boxProps}
       />
-      {keys && !disabled ? <span className="compose-keys">{keys}</span> : null}
+      {keys && !disabled ? <span className="compose-keys truncate">{keys}</span> : null}
       {disabled ? null : (
         <span className="compose-tools">
           {canDictate ? (

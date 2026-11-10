@@ -132,7 +132,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
       data-testid="waiting-review"
     >
       <ReviewIcon review={review} size={13} strokeWidth={1.75} />
-      <span className="sidebar-review-title">{review.title}</span>
+      <span className="sidebar-review-title truncate">{review.title}</span>
     </Link>
   );
 
@@ -194,7 +194,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
               <AgentIcon requestedBy={s.agent} size={14} />
             </span>
             <span className="sidebar-session-text">
-              <span className="sidebar-review-title">{s.title ?? s.agent}</span>
+              <span className="sidebar-review-title truncate">{s.title ?? s.agent}</span>
               {details.length > 0 ? (
                 <span className="sidebar-session-details" title={stamp(s.last_at)}>
                   {details.map(({ key, part }, i) => (
@@ -207,7 +207,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
               ) : null}
             </span>
             {group.mixed && s.repo ? (
-              <span className="sidebar-session-repo-label" title={s.repo}>
+              <span className="sidebar-session-repo-label truncate" title={s.repo}>
                 {s.repo.split("/").pop()}
               </span>
             ) : null}
@@ -243,20 +243,20 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             className="sidebar-group-name"
           >
             {group.project ? <ProjectAvatar project={group.project} size={16} /> : null}
-            <span className="sidebar-review-title" data-testid="sidebar-group-name">
+            <span className="sidebar-review-title truncate" data-testid="sidebar-group-name">
               {group.label}
             </span>
           </NavLink>
         ) : group.kind === "repository" ? (
           <NavLink to={`/?repo=${encodeURIComponent(group.key || NO_PROJECT)}`} className="sidebar-group-name">
             <FolderGit2 size={14} strokeWidth={1.75} className={group.key ? "" : "is-faint"} />
-            <span className="sidebar-review-title" data-testid="sidebar-group-name">
+            <span className="sidebar-review-title truncate" data-testid="sidebar-group-name">
               {group.label}
             </span>
           </NavLink>
         ) : (
           <button type="button" className="sidebar-group-name" onClick={() => toggleGroup(group)}>
-            <span className="sidebar-review-title" data-testid="sidebar-group-name">
+            <span className="sidebar-review-title truncate" data-testid="sidebar-group-name">
               {group.label}
             </span>
           </button>

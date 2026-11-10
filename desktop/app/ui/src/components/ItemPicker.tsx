@@ -187,10 +187,10 @@ export function useItemPicker({
             <span className="item-picker-key">
               <Marked text={offer.item.key} hits={offer.keyHits} />
             </span>
-            <span className="item-picker-title">
+            <span className="item-picker-title truncate">
               <Marked text={offer.item.title} hits={offer.titleHits} />
             </span>
-            {offer.item.repo !== repo ? <span className="item-picker-repo">{offer.item.repo}</span> : null}
+            {offer.item.repo !== repo ? <span className="item-picker-repo truncate">{offer.item.repo}</span> : null}
           </div>
         ))
       )}

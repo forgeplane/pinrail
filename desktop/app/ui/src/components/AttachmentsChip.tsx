@@ -114,8 +114,8 @@ export function AttachmentsChip({ reviewId, attachments }: Props) {
                 {attachments.map((a) => (
                   <li key={a.name}>
                     <div className="attachment-text">
-                      <span className="attachment-name">{a.name}</span>
-                      <span className="attachment-meta">
+                      <span className="attachment-name truncate">{a.name}</span>
+                      <span className="attachment-meta truncate">
                         {size(a.size)} · {a.media_type} ·{" "}
                         <span className="mono" title={a.sha256}>
                           {a.sha256.slice(0, 12)}

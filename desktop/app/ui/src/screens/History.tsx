@@ -229,7 +229,7 @@ export function History() {
                 >
                   <span className={`review-row-marker is-ended status-${outcome.tone}`} aria-label={outcome.label} />
                   <span className="review-row-main">
-                    <span className="review-row-title">
+                    <span className="review-row-title truncate">
                       {r.title}
                       {r.origin.ref ? <span className="review-row-ref">{r.origin.ref}</span> : null}
                     </span>

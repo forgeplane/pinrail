@@ -44,7 +44,7 @@ export function HoldItemDialog({
       <div className="dialog-head">
         <h2 id="hold-item-title">Put {item.key} on hold?</h2>
       </div>
-      <p className="dim discard-what" title={item.title}>
+      <p className="dim discard-what truncate" title={item.title}>
         {item.title}
       </p>
       <ul className="hold-item-work" data-testid="hold-item-work">

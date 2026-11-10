@@ -115,7 +115,7 @@ describe("a diff block", () => {
       { kind: "note", text: "No newline at end of file" },
     ]);
     const html = renderMarkdown(diff);
-    expect(html).toContain('<span class="md-diff-path">src/lib.rs</span>');
+    expect(html).toContain('<span class="md-diff-path truncate">src/lib.rs</span>');
     expect(html).toContain(
       '<tr class="md-diff-line md-diff-del"><td class="md-diff-n">11</td><td class="md-diff-n"></td>',
     );

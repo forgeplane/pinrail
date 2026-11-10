@@ -53,7 +53,7 @@ export const InboxRow = memo(function InboxRow({ review, here, focused, open, sh
         <span className="review-row-marker" aria-label="Pending" />
       )}
       <span className="review-row-main">
-        <span className="review-row-title">
+        <span className="review-row-title truncate">
           {review.title}
           {review.origin.ref ? <span className="review-row-ref">{review.origin.ref}</span> : null}
         </span>

@@ -47,7 +47,7 @@ export function DiscardDialog({
       <div className="dialog-head">
         <h2 id="discard-title">{question ? "Decline to answer?" : "Discard this review?"}</h2>
       </div>
-      <p className="dim discard-what" title={review.title}>
+      <p className="dim discard-what truncate" title={review.title}>
         {review.title}
       </p>
       <p className="dim">

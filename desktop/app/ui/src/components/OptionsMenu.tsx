@@ -152,7 +152,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
           }}
         >
           {text}
-          <span className="menu-value">{value}</span>
+          <span className="menu-value truncate">{value}</span>
           <ChevronRight size={13} className="menu-chevron" />
         </button>
         {open === key ? (
@@ -202,7 +202,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
               >
                 {o.mark ? <span className="menu-icon menu-mark">{o.mark}</span> : null}
                 {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
-                <span className="menu-label">{o.label}</span>
+                <span className="menu-label truncate">{o.label}</span>
                 {o.checked ? <Check size={13} className="menu-check" /> : null}
               </button>
             ))}

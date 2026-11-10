@@ -186,7 +186,7 @@ export function Select({ value, options: all, onChange, label, icon, id, searcha
         onKeyDown={onKeyDown}
       >
         {(current?.icon ?? icon) ? <span className="select-icon">{current?.icon ?? icon}</span> : null}
-        <span className="select-value">{current?.label ?? label}</span>
+        <span className="select-value truncate">{current?.label ?? label}</span>
         <ChevronDown size={14} className="select-chevron" aria-hidden="true" />
       </button>
       {open

@@ -57,7 +57,7 @@ export function ReviewCrumb({
           ) : null}
           <Link
             to={sessionPath(fromSession)}
-            className="crumb-root crumb-session"
+            className="crumb-root crumb-session truncate"
             title={fromSession.title ?? fromSession.agent}
           >
             {fromSession.title ?? fromSession.agent}
@@ -69,7 +69,7 @@ export function ReviewCrumb({
         </Link>
       )}
       <span className="crumb-sep">›</span>
-      <span className="crumb-title copyable" title={title} data-testid="review-title">
+      <span className="crumb-title truncate copyable" title={title} data-testid="review-title">
         {title}
       </span>
       {originUrl ? <OriginLink url={originUrl} originRef={originRef} /> : null}

@@ -416,7 +416,7 @@ export function ItemPanel({
                   }
                 >
                   {r.kind === "question" ? <MessageCircleQuestion size={13} /> : <Check size={13} />}
-                  <span className="item-related-title">{r.title}</span>
+                  <span className="item-related-title truncate">{r.title}</span>
                   <span className={`item-review-status is-${r.status}`}>{r.status}</span>
                   <span className="dim">{r.kind === "question" ? "question" : r.plugin}</span>
                 </Link>
@@ -435,7 +435,7 @@ export function ItemPanel({
                 <Link to={sessionPath({ agent: s.agent, id: s.session })}>
                   <AgentIcon requestedBy={s.agent} size={13} />
                   <span className="mono dim">{s.session.slice(0, 8)}</span>
-                  <span className="item-related-title">{s.status ?? s.agent}</span>
+                  <span className="item-related-title truncate">{s.status ?? s.agent}</span>
                 </Link>
               </li>
             ))}

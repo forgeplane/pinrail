@@ -445,7 +445,7 @@ function ReviewBody({
     <div className={`review-page ${inPanel ? "in-panel" : ""}`}>
       {inPanel ? (
         <div className="panel-head" data-testid="panel-head">
-          <span className="panel-title copyable" title={review.title} data-testid="review-title">
+          <span className="panel-title truncate copyable" title={review.title} data-testid="review-title">
             {review.title}
           </span>
           {originUrl ? <OriginLink url={originUrl} originRef={review.origin.ref ?? null} /> : null}
@@ -654,7 +654,7 @@ function ReviewBody({
         >
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
-              <span className="frame-bar-title copyable">{review.title}</span>
+              <span className="frame-bar-title truncate copyable">{review.title}</span>
               <Tooltip label="Restore the view" keys={[MOD, SHIFT, "M"]} side="bottom">
                 <button
                   type="button"

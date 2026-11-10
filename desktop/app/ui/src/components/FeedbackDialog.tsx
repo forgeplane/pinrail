@@ -216,7 +216,7 @@ export function FeedbackDialog({
           <ul className="feedback-files" aria-label="Attachments">
             {files.map((file, i) => (
               <li key={`${file.name}-${i}`} className="feedback-file">
-                <span className="feedback-file-name" title={file.name}>
+                <span className="feedback-file-name truncate" title={file.name}>
                   {file.name}
                 </span>
                 <span className="dim">{size(file.size)}</span>

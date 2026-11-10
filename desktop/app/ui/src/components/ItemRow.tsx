@@ -85,7 +85,7 @@ export const ItemRow = memo(function ItemRow({
         <ItemStatusIcon status={item.status} />
         <span className="item-key mono">{item.key}</span>
         <span className="item-title">
-          <span className="item-title-text">{item.title}</span>
+          <span className="item-title-text truncate">{item.title}</span>
           {orphanOf ? <span className="item-parent">in {orphanOf}</span> : null}
           {showRepo ? <span className="item-repo">{item.repo}</span> : null}
         </span>

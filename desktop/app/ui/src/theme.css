@@ -138,6 +138,12 @@ code,
 .copyable {
   cursor: text;
 }
+/* one line, cut short with an ellipsis when it does not fit */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* a session's thread: what the agent and the person wrote can be selected
    and copied, across entries; its buttons stay controls */
 .thread-items {
@@ -622,11 +628,6 @@ h1 {
   flex: none;
   opacity: 0.7;
 }
-.stage-tip-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .stage-tip-review .faint {
   flex: none;
   margin-left: auto;
@@ -771,18 +772,12 @@ h1 {
 .item-picker-title {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .item-picker-repo {
   flex: none;
   max-width: 35%;
-  overflow: hidden;
   color: var(--faint);
   font-size: 11.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .item-picker mark {
   background: none;
@@ -830,17 +825,9 @@ h1 {
   background: none;
   cursor: default;
 }
-.menu-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .menu-value {
   margin-left: auto;
   max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--faint);
 }
 .menu-icon {
@@ -926,11 +913,6 @@ h1 {
 }
 .sidebar-review.active svg {
   color: var(--accent);
-}
-.sidebar-review-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .sidebar-review .nav-count {
   margin-left: auto;
@@ -1127,17 +1109,11 @@ h1 {
 .crumb-session {
   min-width: 0;
   max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .crumb-title {
   color: var(--text);
   font-weight: 500;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .crumb-link {
   width: 22px;
@@ -1250,9 +1226,6 @@ body.is-resizing iframe {
   flex: 1;
   min-width: 0;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .review-row.is-open,
 .review-row.is-open.is-focused {
@@ -1364,11 +1337,6 @@ body.is-resizing iframe {
 }
 .select-trigger.has-value .select-icon {
   color: var(--accent);
-}
-.select-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .select-chevron {
   flex: none;
@@ -1580,9 +1548,6 @@ body.is-resizing iframe {
 .palette-title {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 13px;
 }
 .palette-meta {
@@ -2250,9 +2215,6 @@ body.is-resizing iframe {
 }
 .review-row-title {
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .review-row-ref {
   margin-left: 8px;
@@ -2361,9 +2323,6 @@ body.is-resizing iframe {
 }
 .discard-what {
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 /* the work in progress a hold would stop */
 .hold-item-work {
@@ -2460,9 +2419,6 @@ body.is-resizing iframe {
 .feedback-file-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .feedback-file-remove {
   display: grid;
@@ -2788,16 +2744,10 @@ body.is-resizing iframe {
 .attachment-name {
   color: var(--text);
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .attachment-meta {
   color: var(--faint);
   font-size: 11.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .attachment-save {
   display: inline-flex;
@@ -3005,9 +2955,6 @@ body.is-resizing iframe {
 .frame-bar-title {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 12px;
   color: var(--dim);
 }
@@ -3288,9 +3235,6 @@ body.is-resizing iframe {
   padding-left: 8px;
   color: var(--faint);
   font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .compose.is-wide .compose-keys {
   display: block;
@@ -3759,9 +3703,6 @@ body.is-resizing iframe {
    as a quiet line between the messages, past their avatar */
 .thread-status-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 /* the pulse the mockup marks a status with, in the accent colour */
 .thread-status-icon {
@@ -3964,9 +3905,6 @@ body.is-resizing iframe {
 }
 .note-file-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .note-file-save {
   display: inline-flex;
@@ -4157,9 +4095,6 @@ body.is-resizing iframe {
 .thread-rail-text {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .is-last .thread-rail-text {
   font-weight: 600;
@@ -4303,15 +4238,7 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .thread-card-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-weight: 500;
-}
-.thread-card-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .thread-card-text > .summary-counts {
   margin-top: 4px;
@@ -4357,9 +4284,6 @@ body.is-resizing iframe {
 }
 .thread-revised-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 /* a withdrawn review's reason is the point of its line */
 .thread-withdrawn {
@@ -4584,11 +4508,8 @@ body.is-resizing iframe {
 .md-diff-path {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   color: var(--text);
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .md-diff-count {
   color: var(--dim);
@@ -6091,9 +6012,6 @@ body.is-resizing iframe {
 .session-status {
   display: block;
   max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--dim);
 }
 .session-status.is-done {
@@ -6162,9 +6080,6 @@ body.is-resizing iframe {
 .project-group-description {
   min-width: 0;
   max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 12px;
   color: var(--dim);
 }
@@ -6217,9 +6132,6 @@ body.is-resizing iframe {
 .project-repo-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .project-col {
   flex: none;
@@ -6291,9 +6203,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .sidebar-session-repo-label {
   flex: none;
   max-width: 72px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 10.5px;
   color: var(--faint);
 }
@@ -6484,11 +6393,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   background: var(--bg-hover);
   font-size: 11.5px;
 }
-.item-quick-controls .select-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .item-quick-action {
   display: inline-flex;
   align-items: center;
@@ -6619,9 +6523,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-title-text {
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .item-parent,
 .item-repo {
@@ -6943,9 +6844,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-related-title {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .item-review-status {
   padding: 1px 7px;
@@ -7076,9 +6974,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .activity-title {
   display: inline-block;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   vertical-align: bottom;
   color: var(--text);
 }
@@ -7258,9 +7153,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   color: var(--faint);
 }
 .dep-node-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 11.5px;
 }
 .dep-node-remove {
@@ -7304,9 +7196,6 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   white-space: nowrap;
 }
 .item-chip-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text);
 }
 .review-item {

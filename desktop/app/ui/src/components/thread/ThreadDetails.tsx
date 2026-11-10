@@ -248,7 +248,7 @@ export function ThreadDetails({
                               .map((r) => (
                                 <span key={r.id} className="stage-tip-review">
                                   <ReviewIcon review={r} size={12} />
-                                  <span className="stage-tip-title">{r.title}</span>
+                                  <span className="stage-tip-title truncate">{r.title}</span>
                                   <span className="faint">
                                     {r.status === "pending" ? "waiting" : outcomeOf(r).label}
                                   </span>
@@ -277,7 +277,7 @@ export function ThreadDetails({
                       <span className="thread-rail-dot" aria-hidden>
                         {stage.done ? <Check size={9} strokeWidth={3} /> : null}
                       </span>
-                      <span className="thread-rail-text">{stage.start.text}</span>
+                      <span className="thread-rail-text truncate">{stage.start.text}</span>
                       <span className="faint thread-rail-when">{took}</span>
                     </a>
                   </Tooltip>

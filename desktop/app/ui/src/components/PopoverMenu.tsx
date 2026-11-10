@@ -117,7 +117,7 @@ export function PopoverMenu({
             }}
           >
             {Icon ? <Icon size={14} className="menu-icon" aria-hidden /> : null}
-            <span className="menu-label">{entry.label}</span>
+            <span className="menu-label truncate">{entry.label}</span>
             {entry.checked ? <Check size={13} className="menu-check" /> : null}
           </button>
         );
