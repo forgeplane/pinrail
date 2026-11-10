@@ -1066,23 +1066,43 @@ impl Db {
     }
 
     /// Deletes an item and its sub-items, at any depth. Returns how many
-    /// went.
-    pub fn delete_item(&self, item: &ItemRef, repo: Option<&str>) -> Outcome<usize> {
+    /// went, and those that were in progress, each with who held it.
+    pub fn delete_item(
+        &self,
+        item: &ItemRef,
+        repo: Option<&str>,
+    ) -> Outcome<(usize, Vec<(Related, super::item_work::HeldBy)>)> {
         let mut conn = self.conn();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let id = match resolve(&tx, item, repo)? {
             Ok(id) => id,
             Err(refused) => return Ok(Err(refused)),
         };
-        let count: i64 = tx.query_row(
+        let mut stmt = tx.prepare(
             "WITH RECURSIVE tree(id) AS (
                SELECT ?1 UNION SELECT w.id FROM work_items w JOIN tree ON w.parent = tree.id
-             ) SELECT COUNT(*) FROM tree",
-            params![id],
-            |r| r.get(0),
+             ) SELECT w.id, w.status, w.claim_agent, w.claim_session
+                 FROM work_items w JOIN tree ON tree.id = w.id",
         )?;
+        type Row = (String, String, Option<String>, Option<String>);
+        let tree: Vec<Row> = stmt
+            .query_map(params![id], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        drop(stmt);
+        let mut held = Vec::new();
+        for (sub, status, agent, session) in &tree {
+            if status == "in_progress"
+                && let Some(agent) = agent
+            {
+                let related = super::item_work::related(&tx, sub)?;
+                held.push((related, Some((agent.clone(), session.clone()))));
+            }
+        }
+        held.sort_by_key(|(r, _)| sort_key(&r.key));
         tx.execute("DELETE FROM work_items WHERE id = ?1", params![id])?;
         tx.commit()?;
-        Ok(Ok(count as usize))
+        Ok(Ok((tree.len(), held)))
     }
 }

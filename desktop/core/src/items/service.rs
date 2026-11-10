@@ -410,9 +410,14 @@ impl Items {
                 "say why the item is cancelled, such as a duplicate of another",
             ));
         }
-        // who held it before, to tell them when the person puts it on hold
+        // who held it before, to tell them when it is put on hold or closed
+        // by someone else
         let held_by = match change.status {
-            Some(Status::OnHold) => self.get(item, repo)?.claim,
+            Some(Status::OnHold | Status::Done | Status::Cancelled) => {
+                self.get(item, repo)?.claim.filter(|(agent, session)| {
+                    agent != actor.name() || session.as_deref() != actor.session()
+                })
+            }
             _ => None,
         };
         let edited = self
@@ -429,6 +434,25 @@ impl Items {
                 let text = format!(
                     "{} {} is under {} {}, which is on hold now: stop working on it, and take another item.",
                     sub.key, sub.title, edited.item.key, edited.item.title
+                );
+                self.tell_holder(claim, &text)?;
+            }
+        }
+        let closed = match edited.item.status {
+            Status::Done => Some("marked done"),
+            Status::Cancelled => Some("cancelled"),
+            _ => None,
+        };
+        if let Some(closed) = closed {
+            let (key, title) = (&edited.item.key, &edited.item.title);
+            self.tell_holder(
+                &held_by,
+                &format!("{key} {title} was {closed}: stop working on it, and take another item."),
+            )?;
+            for (sub, claim) in &edited.cancelled_with {
+                let text = format!(
+                    "{} {} was cancelled with {key} {title}: stop working on it, and take another item.",
+                    sub.key, sub.title
                 );
                 self.tell_holder(claim, &text)?;
             }
@@ -610,7 +634,21 @@ impl Items {
             ));
         }
         let found = self.get(item, repo)?;
-        let count = self.db.delete_item(item, repo)?.map_err(refused)?;
+        let (count, held) = self.db.delete_item(item, repo)?.map_err(refused)?;
+        for (gone, claim) in &held {
+            let text = if gone.id == found.id {
+                format!(
+                    "{} {} was deleted: stop working on it, and take another item.",
+                    found.key, found.title
+                )
+            } else {
+                format!(
+                    "{} {} was deleted with {} {}: stop working on it, and take another item.",
+                    gone.key, gone.title, found.key, found.title
+                )
+            };
+            self.tell_holder(claim, &text)?;
+        }
         self.announce(events::ITEM_DELETED, &found, actor)?;
         Ok(count)
     }

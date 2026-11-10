@@ -388,7 +388,10 @@ fn deleting_an_item_deletes_its_sub_items_at_any_depth() {
     }
     under(&s, "PIN-2", "PIN-1").unwrap();
     under(&s, "PIN-3", "PIN-2").unwrap();
-    assert_eq!(s.db.delete_item(&r("PIN-1"), None).unwrap(), Ok(3));
+    assert_eq!(
+        s.db.delete_item(&r("PIN-1"), None).unwrap().map(|(n, _)| n),
+        Ok(3)
+    );
     assert_eq!(list(&s, &[]), ["PIN-4"]);
 }
 

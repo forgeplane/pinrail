@@ -64,8 +64,9 @@ pub struct Edited {
     pub parent_left_open: Option<Related>,
     /// the parents, at any depth, that closed with their last sub-item
     pub parents_closed: Vec<Related>,
-    /// the sub-items, at any depth, that were cancelled with it
-    pub cancelled_with: Vec<Related>,
+    /// the sub-items, at any depth, that were cancelled with it, each with
+    /// who held it
+    pub cancelled_with: Vec<(Related, HeldBy)>,
     /// the sub-items, at any depth, released as it went on hold, each with
     /// who held it
     pub released_with: Vec<(Related, HeldBy)>,
@@ -234,7 +235,7 @@ fn item_row(conn: &Connection, id: &str) -> rusqlite::Result<WorkItem> {
     )
 }
 
-fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
+pub(super) fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
     conn.query_row(
         "SELECT i.id, g.prefix || '-' || i.number, i.title,
            CASE WHEN i.held_at IS NOT NULL THEN 'on_hold' ELSE i.status END FROM work_items i
@@ -385,7 +386,7 @@ fn cancel_sub_items(
     id: &str,
     actor: &Actor,
     at: DateTime<Utc>,
-) -> rusqlite::Result<Vec<Related>> {
+) -> rusqlite::Result<Vec<(Related, HeldBy)>> {
     let key = key_of(conn, id)?;
     let mut stmt = conn.prepare(&format!(
         "WITH RECURSIVE tree(id) AS (
@@ -401,6 +402,7 @@ fn cancel_sub_items(
     drop(stmt);
     let mut cancelled = Vec::new();
     for (sub, from) in open {
+        let claim = item_row(conn, &sub)?.claim;
         status_in(conn, &sub, Status::Cancelled, at)?;
         item_event(
             conn,
@@ -410,9 +412,9 @@ fn cancel_sub_items(
             json!({"from": from, "to": "cancelled", "with": key}),
             at,
         )?;
-        cancelled.push(related(conn, &sub)?);
+        cancelled.push((related(conn, &sub)?, claim));
     }
-    cancelled.sort_by_key(|r| super::items::sort_key(&r.key));
+    cancelled.sort_by_key(|(r, _)| super::items::sort_key(&r.key));
     Ok(cancelled)
 }
 

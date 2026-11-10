@@ -2202,6 +2202,112 @@ async fn putting_a_parent_on_hold_releases_its_sub_items_and_tells_their_session
     );
 }
 
+/// Starts session `session` of claude-code, so messages can be queued for it.
+async fn start(app: &App, session: &str) {
+    agent(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/status"),
+        session,
+        json!({"text": "Working"}),
+    )
+    .await;
+}
+
+/// The texts of the messages waiting for session `session` of claude-code.
+async fn messages_for(app: &App, session: &str) -> Vec<String> {
+    let (_, answer) = agent(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/status"),
+        session,
+        json!({"text": "Still working"}),
+    )
+    .await;
+    answer["messages"]
+        .as_array()
+        .map(|m| {
+            m.iter()
+                .map(|m| m["text"].as_str().unwrap().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[tokio::test]
+async fn closing_an_item_tells_the_session_holding_it() {
+    let app = app();
+    add(&app, "Work").await;
+    add(&app, "Docs").await;
+    start(&app, "s-1").await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
+    let (code, body) = hold(&app, "PIN-1", "cancelled").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let (code, body) = hold(&app, "PIN-2", "done").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(
+        messages_for(&app, "s-1").await,
+        [
+            "PIN-1 Work was cancelled: stop working on it, and take another item.",
+            "PIN-2 Docs was marked done: stop working on it, and take another item.",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn an_agent_closing_its_own_item_is_not_told() {
+    let app = app();
+    add(&app, "Work").await;
+    start(&app, "s-1").await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    let (code, body) = done(&app, "PIN-1", "s-1", "Finished.").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert!(messages_for(&app, "s-1").await.is_empty());
+}
+
+#[tokio::test]
+async fn cancelling_a_parent_tells_the_sessions_holding_its_sub_items() {
+    let app = app();
+    add(&app, "Release").await;
+    add(&app, "Notes").await;
+    add(&app, "Draft").await;
+    edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await;
+    edit(&app, "PIN-3", "s-1", json!({"parent": "PIN-2"})).await;
+    start(&app, "s-2").await;
+    edit(&app, "PIN-3", "s-2", json!({"claim": "claim"})).await;
+    let (code, body) = hold(&app, "PIN-1", "cancelled").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(
+        messages_for(&app, "s-2").await,
+        [
+            "PIN-3 Draft was cancelled with PIN-1 Release: stop working on it, and take another item."
+        ]
+    );
+}
+
+#[tokio::test]
+async fn deleting_an_item_tells_the_sessions_holding_it_or_its_sub_items() {
+    let app = app();
+    add(&app, "Release").await;
+    add(&app, "Draft").await;
+    edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await;
+    start(&app, "s-1").await;
+    start(&app, "s-2").await;
+    edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
+    edit(&app, "PIN-2", "s-2", json!({"claim": "claim"})).await;
+    let (code, body) = call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(
+        messages_for(&app, "s-1").await,
+        ["PIN-1 Release was deleted: stop working on it, and take another item."]
+    );
+    assert_eq!(
+        messages_for(&app, "s-2").await,
+        ["PIN-2 Draft was deleted with PIN-1 Release: stop working on it, and take another item."]
+    );
+}
+
 #[tokio::test]
 async fn the_summary_list_leaves_the_bodies_out() {
     let app = app();
