@@ -29,18 +29,71 @@ test.afterEach(async ({ request }) => {
   await settings(request, { theme: "system", dark_theme: "dark", light_theme: "light" });
 });
 
+/** Records, for a test that fails now and then, what the page heard about
+ *  the themes: each event from the core, and each request for the themes
+ *  with its answer. `attach` saves them in the test's results, with the
+ *  themes the core lists at that moment. */
+async function recordThemes(page: Page) {
+  await page.addInitScript(() => {
+    const seen: unknown[] = [];
+    (window as unknown as { __themeEvents: unknown[] }).__themeEvents = seen;
+    const Original = window.EventSource;
+    window.EventSource = class extends Original {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init);
+        const at = () => Math.round(performance.now());
+        seen.push({ at: at(), what: "connect", url: String(url) });
+        this.addEventListener("open", () => seen.push({ at: at(), what: "open" }));
+        this.addEventListener("error", () => seen.push({ at: at(), what: "error" }));
+        this.addEventListener("themes_changed", (e) =>
+          seen.push({ at: at(), what: "themes_changed", id: (e as MessageEvent).lastEventId }),
+        );
+      }
+    };
+  });
+  const requests: unknown[] = [];
+  const start = Date.now();
+  page.on("response", async (response) => {
+    if (!new URL(response.url()).pathname.endsWith("/api/v1/themes")) return;
+    const body = await response.json().catch(() => null);
+    const ids = (body as { themes?: { id: string }[] } | null)?.themes?.map((t) => t.id);
+    requests.push({ at: Date.now() - start, status: response.status(), ids });
+  });
+  return async () => {
+    const events = await page
+      .evaluate(() => (window as unknown as { __themeEvents: unknown[] }).__themeEvents)
+      .catch(() => null);
+    const listed = await (await page.request.get(`${core}/api/v1/themes`)).json().catch(() => null);
+    const ids = (listed as { themes?: { id: string }[] } | null)?.themes?.map((t) => t.id);
+    // a file beside the trace, which the list reporter names
+    const file = test.info().outputPath("theme-diagnostics.json");
+    fs.writeFileSync(file, JSON.stringify({ events, requests, listedNow: ids }, null, 2));
+    await test.info().attach("theme-diagnostics", { path: file, contentType: "application/json" });
+  };
+}
+
+// It failed once in many full runs: the colours of a deleted theme stayed.
+// On a failure, the report has what the page heard, to tell whether the
+// core announced the change, the page asked again, or the answer still
+// listed the theme.
 test("a saved theme file changes the app without a reload", async ({ page }) => {
+  const attach = await recordThemes(page);
   const { id, path } = await newTheme(page.request, "live");
-  write(path, "Live", { bg: "#102030" });
-  await settings(page.request, { theme: "dark", dark_theme: id });
-  await page.goto("/#/history");
-  await expect.poll(() => bg(page)).toBe("#102030");
+  try {
+    write(path, "Live", { bg: "#102030" });
+    await settings(page.request, { theme: "dark", dark_theme: id });
+    await page.goto("/#/history");
+    await expect.poll(() => bg(page)).toBe("#102030");
 
-  write(path, "Live", { bg: "#203040" });
-  await expect.poll(() => bg(page)).toBe("#203040");
+    write(path, "Live", { bg: "#203040" });
+    await expect.poll(() => bg(page)).toBe("#203040");
 
-  fs.rmSync(path);
-  await expect.poll(() => bg(page)).toBe("#18191b");
+    fs.rmSync(path);
+    await expect.poll(() => bg(page)).toBe("#18191b");
+  } catch (error) {
+    await attach();
+    throw error;
+  }
 });
 
 test("a custom theme paints from the cache before the server answers", async ({ page }) => {
