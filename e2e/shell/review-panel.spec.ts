@@ -235,6 +235,23 @@ test("a second row clicked before the panel shows replaces the first in the hist
   await expect(panel(page)).toHaveCount(0);
 });
 
+test("Enter on the row lit opens the panel one step from the list", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Panel enter: one" });
+  await createReview(page.request, { title: "Panel enter: two" });
+
+  await page.goto("/#/");
+  await expect(page.getByTestId("review-row")).toHaveCount(2);
+  await page.keyboard.press("j");
+  await expect(page.locator(".review-row.is-focused")).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(panel(page).getByTestId("review-title")).toHaveText(/Panel enter/);
+  // one step back closes it: Enter added one entry to the history
+  await page.locator("body").press("ControlOrMeta+BracketLeft");
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(panel(page)).toHaveCount(0);
+});
+
 test("walking from the panel moves the highlight off the row under the pointer", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel highlight: oldest" });

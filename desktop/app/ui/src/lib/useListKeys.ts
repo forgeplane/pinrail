@@ -103,7 +103,12 @@ export function useListKeys<T>({
       if (modalOpen() || event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
       if (!items.length) return;
       if (event.key === "j" || event.key === "k") moveTo(step(focused, event.key === "j"));
-      else if (event.key === "Enter" && items[focused]) onOpen(items[focused]);
+      else if (event.key === "Enter" && items[focused]) {
+        // the row lit is often a focused link, which Enter would also
+        // follow: opening it twice puts it twice in the history
+        event.preventDefault();
+        onOpen(items[focused]);
+      }
     },
     { enabled: !openKey },
   );
