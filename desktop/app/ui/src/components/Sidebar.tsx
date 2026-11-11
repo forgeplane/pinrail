@@ -2,10 +2,11 @@
 // update notice, feedback and the connection, with an edge that resizes it
 // by dragging or with the arrow keys.
 
+import { pageLink } from "../lib/pageMemory";
 import { CountBadge } from "./CountBadge";
 import { History, Inbox, LayoutGrid, ListChecks, MessageSquare, MessagesSquare, Search, Settings } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useLocation } from "react-router";
 import { command } from "../lib/commands";
 import { MOD } from "../lib/keys";
 import { useLive } from "../state/live";
@@ -77,6 +78,9 @@ export function Sidebar({
   onSettings: (section: SettingsSection) => void;
   onFeedback: () => void;
 }) {
+  // drawn again on each change of the address, so that each page's link
+  // carries the query that page was last left with
+  useLocation();
   const live = useLive();
   return (
     <aside className="app-sidebar" aria-label="Workspace">
@@ -95,7 +99,12 @@ export function Sidebar({
           {SIDEBAR.filter((n) => sessionsOn || n.key !== "sessions").map(({ key, label, to, Icon, keys }) => (
             <Fragment key={key}>
               <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
-                <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
+                <NavLink
+                  // a list page comes back with the filters it was left with
+                  to={pageLink(to)}
+                  end={to === "/"}
+                  className={({ isActive }) => (isActive ? "is-active" : "")}
+                >
                   <span className="nav-label">
                     <Icon size={15} strokeWidth={1.75} />
                     {label}

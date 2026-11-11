@@ -4,7 +4,7 @@
 // shared.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { core, settingSaved, settingsDialog, settingsSection, shellOrigin } from "./helpers";
+import { core, pickIn, settingSaved, settingsDialog, settingsSection, shellOrigin } from "./helpers";
 
 let counter = 0;
 /** A repository no other test uses. */
@@ -1242,4 +1242,30 @@ test("Closed sub-items shows an open parent's done and cancelled sub-items under
 
   await toggleClosedSubItems(page);
   await expect(rows(page)).toHaveCount(2);
+});
+
+test("the filters are kept when the person leaves the page and comes back", async ({ page, request }) => {
+  const repo = fresh("kept");
+  const done = await add(request, repo, "Finished thing");
+  await add(request, repo, "Open thing");
+  await edit(request, done.key, { status: "done" });
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  await pickIn(page, "Filter", "Status", "Done");
+  await expect(rows(page)).toHaveCount(1);
+  const nav = page.getByRole("navigation", { name: "Main" });
+
+  // through the sidebar
+  await nav.getByRole("link", { name: /Inbox/ }).click();
+  await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: /Work items/ }).click();
+  await expect(page).toHaveURL(/status=done/);
+  await expect(rows(page)).toHaveCount(1);
+  await expect(row(page, done.key)).toBeVisible();
+
+  // and with the page's shortcut
+  await nav.getByRole("link", { name: /Projects/ }).click();
+  await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+3");
+  await expect(page).toHaveURL(/status=done/);
+  await expect(rows(page)).toHaveCount(1);
 });

@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { Projects } from "./screens/Projects";
 import { useExternalLinks, useNativeRoutes } from "./lib/native";
 import { countFeature, pageFeature } from "./lib/usage";
+import { rememberPage } from "./lib/pageMemory";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
@@ -29,6 +30,7 @@ function Shell() {
   useEffect(() => {
     const page = pageFeature(pathname, search);
     if (page) countFeature(page);
+    rememberPage(pathname, search);
   }, [pathname, search]);
   return (
     <Layout>

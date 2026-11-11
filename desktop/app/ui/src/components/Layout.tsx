@@ -21,6 +21,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
+import { pageLink } from "../lib/pageMemory";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { sendFeedback } from "../api/client";
@@ -181,11 +182,11 @@ export function Layout({ children }: { children: ReactNode }) {
   };
   const runs: Partial<Record<CommandId, CommandRun>> = {
     search: () => setPalette((p) => !p),
-    "go-inbox": () => void navigate("/"),
+    "go-inbox": () => void navigate(pageLink("/")),
     // Sessions is a page only while it is on in Settings › Labs
-    "go-sessions": () => (sessionsOn ? void navigate("/sessions") : false),
-    "go-items": () => void navigate("/items"),
-    "go-projects": () => void navigate("/projects"),
+    "go-sessions": () => (sessionsOn ? void navigate(pageLink("/sessions")) : false),
+    "go-items": () => void navigate(pageLink("/items")),
+    "go-projects": () => void navigate(pageLink("/projects")),
     "go-history": () => void navigate(HISTORY_PATH),
     "go-plugins": () => setSettings("plugins"),
     "next-waiting": () => walkWaiting(1),
