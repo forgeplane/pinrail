@@ -225,10 +225,14 @@ test("the inbox groups and filters by project, and names each review's repositor
 });
 
 test("the project or repository filter narrows its choices to what is typed", async ({ page, request }) => {
+  // names of its own: other specs add repositories to the same app, and
+  // a search such as "we" would match theirs too
+  const tag = `ty${Date.now().toString(36)}`;
+  const [app, web] = [`${tag}/app`, `${tag}/web`];
   await clearInbox(request);
-  await createReview(request, { title: "Type: app", origin: { repo: "typed/app" } });
-  await createReview(request, { title: "Type: web", origin: { repo: "typed/web" } });
-  await request.post(`${core}/api/v1/projects`, { data: { name: "Typed", repos: ["typed/app"] } });
+  await createReview(request, { title: "Type: app", origin: { repo: app } });
+  await createReview(request, { title: "Type: web", origin: { repo: web } });
+  await request.post(`${core}/api/v1/projects`, { data: { name: `Typed ${tag}`, repos: [app] } });
   await page.goto("/#/");
   const filter = page.getByRole("button", { name: "Filter", exact: true });
   const openScope = async () => {
@@ -241,15 +245,15 @@ test("the project or repository filter narrows its choices to what is typed", as
   await openScope();
   const search = page.getByRole("textbox", { name: "Filter project or repository" });
   await expect(search).toBeFocused();
-  await search.fill("we");
-  await expect(choices.locator(".menu-label")).toHaveText(["typed/web"]);
+  await search.fill(`${tag}/we`);
+  await expect(choices.locator(".menu-label")).toHaveText([web]);
 
   // the projects match by their names too; the arrow keys and Enter pick a match
-  await search.fill("TYPED");
-  await expect(choices.locator(".menu-label")).toHaveText(["Typed", "typed/app", "typed/web"]);
+  await search.fill(tag.toUpperCase());
+  await expect(choices.locator(".menu-label")).toHaveText([`Typed ${tag}`, app, web]);
   await search.press("ArrowDown");
   await search.press("Enter");
-  await expect(page).toHaveURL(/repo=typed%2Fapp/);
+  await expect(page).toHaveURL(new RegExp(`repo=${tag}%2Fapp`));
   await expect(page.getByTestId("review-row")).toHaveText([/Type: app/]);
 
   // a pick leaves the menu open for another filter, until Escape
@@ -262,7 +266,7 @@ test("the project or repository filter narrows its choices to what is typed", as
   await search.press("Escape");
   await expect(page.getByRole("menu", { name: "Project or repository" })).toHaveCount(0);
   await expect(filter).toBeFocused();
-  await expect(page).toHaveURL(/repo=typed%2Fapp/);
+  await expect(page).toHaveURL(new RegExp(`repo=${tag}%2Fapp`));
 });
 
 test("a project's avatar takes a colour and an icon, and shows where the project does", async ({ page, request }) => {
