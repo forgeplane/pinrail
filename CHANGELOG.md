@@ -24,8 +24,10 @@ The `pinrail` command ships inside the app and carries the app's version.
   on the new Work items page. Each repository numbers its items under a
   key prefix, such as `PIN-42`. Agents add, take and close them with
   `pinrail items`. The reviews and questions an agent sends belong to
-  every item it holds, or to the items it names with `--item`. A review
-  can belong to several items, which its header lets you change.
+  the item it holds, or to the items it names with `--item`; an agent
+  that holds several names them, or says with `--no-item` that it asks
+  about none. A review can belong to several items, which its header lets
+  you change.
 
 - Projects. Group repositories into a project on the new Projects page,
   by dragging them under it. A project has a name, an optional

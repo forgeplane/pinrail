@@ -4224,6 +4224,18 @@ fn submit_ask_and_list_name_work_items() {
         &["ask", "Watch or poll?", "--item", "PIN-4", "--timeout", "1"],
     );
     run(&["list", "--item", "PIN-4", "--all"]);
+    // for none of the items the session holds
+    run(&["submit", "list", "--title", "t", "--no-item"]);
+    items_run(
+        &server,
+        &[
+            "ask",
+            "Keep agent-docs in git?",
+            "--no-item",
+            "--timeout",
+            "1",
+        ],
+    );
     let sent = sent.lock().unwrap();
     let posted: Vec<&serde_json::Value> = sent
         .iter()
@@ -4236,6 +4248,9 @@ fn submit_ask_and_list_name_work_items() {
     assert!(!posted[2].as_object().unwrap().contains_key("items"));
     assert_eq!(posted[3]["kind"], "question");
     assert_eq!(posted[3]["items"], serde_json::json!(["PIN-4"]));
+    assert_eq!(posted[4]["items"], serde_json::json!([]));
+    assert_eq!(posted[5]["kind"], "question");
+    assert_eq!(posted[5]["items"], serde_json::json!([]));
     let listed = sent
         .iter()
         .find(|(m, p, _)| m == "GET" && p.starts_with("/api/v1/reviews?"))

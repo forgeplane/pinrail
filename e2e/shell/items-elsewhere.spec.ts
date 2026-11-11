@@ -159,6 +159,8 @@ test("a session's review cards and questions show their items", async ({ page, r
       origin: { repo },
       requested_by: "claude-code",
       session,
+      // the session holds both, so it names them
+      items: [one.key, two.key],
       payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
     },
   });

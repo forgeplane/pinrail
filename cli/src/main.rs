@@ -470,10 +470,13 @@ struct SubmitArgs {
     #[arg(long, value_name = "FILE", requires = "wait")]
     decision_out: Option<PathBuf>,
     /// The work item this is for, by its key or its number in the
-    /// checkout. Repeat it for several [default: every item the session
-    /// holds]
+    /// checkout. Repeat it for several [default: the item the session
+    /// holds; a session holding several must name them, or pass --no-item]
     #[arg(long, value_name = "ITEM")]
     item: Vec<String>,
+    /// It is for none of the work items the session holds
+    #[arg(long, conflicts_with = "item")]
+    no_item: bool,
     /// Do not start the server when it is not running
     #[arg(long)]
     no_start: bool,
@@ -1460,7 +1463,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if let Some(id) = &args.revises {
         body["revises"] = json!(id);
     }
-    for_items(&mut body, &args.item);
+    for_items(&mut body, &args.item, args.no_item);
     if let Some(at) = &args.expires_at {
         body["expires_at"] = json!(at);
     }
@@ -1596,10 +1599,13 @@ fn with_session(body: &mut Value) {
     }
 }
 
-/// The work items a review or a question is for: those named, or, left
-/// out, every one the session holds, which the app finds.
-fn for_items(body: &mut Value, items: &[String]) {
-    if !items.is_empty() {
+/// The work items a review or a question is for: those named, none with
+/// `--no-item`, or, left out, the one the session holds, which the app
+/// finds; the app refuses it when the session holds several.
+fn for_items(body: &mut Value, items: &[String], none: bool) {
+    if none {
+        body["items"] = json!([]);
+    } else if !items.is_empty() {
         body["items"] = json!(items);
     }
 }
@@ -1748,7 +1754,7 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
         body["payload"]["suggested_reply"] = json!(reply);
     }
     with_session(&mut body);
-    for_items(&mut body, &args.item);
+    for_items(&mut body, &args.item, args.no_item);
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }

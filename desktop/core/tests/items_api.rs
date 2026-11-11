@@ -1128,14 +1128,23 @@ async fn a_review_from_the_session_holding_one_item_belongs_to_it() {
 }
 
 #[tokio::test]
-async fn a_review_from_a_session_holding_two_items_belongs_to_both() {
+async fn a_session_holding_two_items_names_the_ones_a_review_is_for() {
     let app = app();
     add(&app, "One").await;
     add(&app, "Two").await;
     add(&app, "Three").await;
     edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
     edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
-    let (code, sent) = submit(&app, review("s-1", "Both", None)).await;
+    // unnamed, it could be about either, both or neither: the agent says
+    let (code, refused) = submit(&app, review("s-1", "Which?", None)).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["violations"][0]["path"], "/items");
+    assert_eq!(
+        refused["violations"][0]["message"],
+        "must name the work items it is for, since the session holds PIN-1 and PIN-2: \
+         name them with --item, or send it for none with --no-item"
+    );
+    let (code, sent) = submit(&app, review("s-1", "Both", Some(json!(["PIN-1", "PIN-2"])))).await;
     assert_eq!(code, StatusCode::CREATED, "{sent}");
     assert_eq!(item_keys(&sent), ["PIN-1", "PIN-2"]);
     for key in ["PIN-1", "PIN-2"] {
@@ -1144,7 +1153,9 @@ async fn a_review_from_a_session_holding_two_items_belongs_to_both() {
         assert_eq!(read["waiting"], 1, "{key}");
         assert!(timeline_kinds(&read).contains(&"review_sent".to_string()));
     }
-    // named items replace the default
+    // or one of them, or none
+    let (_, none) = submit(&app, review("s-1", "About Git", Some(json!([])))).await;
+    assert_eq!(none["items"], json!([]));
     let (_, named) = submit(&app, review("s-1", "Only two", Some(json!(["PIN-2"])))).await;
     assert_eq!(item_keys(&named), ["PIN-2"]);
     let (_, named) = submit(&app, review("s-1", "Others", Some(json!(["3", "PIN-1"])))).await;
@@ -1201,7 +1212,7 @@ async fn an_agent_cannot_mark_done_either_item_of_a_waiting_review() {
     add(&app, "Two").await;
     edit(&app, "PIN-1", "s-1", json!({"claim": "claim"})).await;
     edit(&app, "PIN-2", "s-1", json!({"claim": "claim"})).await;
-    let (_, sent) = submit(&app, review("s-1", "Both", None)).await;
+    let (_, sent) = submit(&app, review("s-1", "Both", Some(json!(["PIN-1", "PIN-2"])))).await;
     for key in ["PIN-1", "PIN-2"] {
         let (code, refused) = done(&app, key, "s-1", "Shipped").await;
         assert_eq!(code, StatusCode::CONFLICT, "{key}: {refused}");

@@ -115,10 +115,31 @@ impl Reviews {
         self.submit_once(body, actor).map(|(review, _)| review)
     }
 
+    /// Why a review from a session holding several items must name the
+    /// ones it is for: the keys it holds, and the two ways to say so.
+    fn name_the_items(&self, held: &[String]) -> Result<String, Error> {
+        let mut keys = Vec::new();
+        for id in held {
+            if let Ok(item) = self.db.item(&crate::items::ItemRef::Id(id.clone()), None)? {
+                keys.push(item.key.to_string());
+            }
+        }
+        keys.sort();
+        let listed = match keys.split_last() {
+            Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+            _ => keys.join(""),
+        };
+        Ok(format!(
+            "must name the work items it is for, since the session holds {listed}: \
+             name them with --item, or send it for none with --no-item"
+        ))
+    }
+
     /// The work items a new review belongs to: those `items` names, by
     /// their keys or their numbers in the origin's repository, none for an
     /// empty list; without `items`, those of the round it revises, or else
-    /// every item the session holds a claim of.
+    /// the item the session holds a claim of. A session that holds several
+    /// must name them, since only the agent knows which it is about.
     fn items_for(&self, attrs: &Map<String, Value>) -> Result<Vec<crate::db::ItemTag>, Error> {
         let ids: Vec<String> = match attrs.get("items") {
             Some(Value::Array(named)) => {
@@ -157,7 +178,14 @@ impl Reviews {
                 let session = attrs.get("session").and_then(Value::as_str);
                 match (revised, agent, session) {
                     (Some(revised), _, _) => self.db.items_of_review(revised)?,
-                    (None, Some(agent), Some(session)) => self.db.session_claims(agent, session)?,
+                    (None, Some(agent), Some(session)) => {
+                        let held = self.db.session_claims(agent, session)?;
+                        // with several, only the agent knows which it is about
+                        if held.len() > 1 {
+                            return Err(Error::invalid("/items", self.name_the_items(&held)?));
+                        }
+                        held
+                    }
                     _ => Vec::new(),
                 }
             }

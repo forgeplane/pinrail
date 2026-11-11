@@ -221,12 +221,13 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
   first. `pinrail items add --help` shows the file's format.
 - **Take the next item** with `pinrail items next --claim` when the
   person asks you to work through the items. Claim a given item with
-  `pinrail items edit <key> --claim`. While you hold items, the reviews
-  and questions you send belong to all of them. When one is about only
-  some of them, name each with `--item`, such as `--item PIN-35 --item
-  PIN-36`. The line `submit` and `ask` print on stderr names the items a
-  review went under: if they are wrong, send the next round with the
-  right `--item`.
+  `pinrail items edit <key> --claim`. While you hold one item, the
+  reviews and questions you send belong to it. While you hold several,
+  name the ones each is about with `--item`, such as `--item PIN-35
+  --item PIN-36`, or pass `--no-item` when it is about none of them, such
+  as a question about your tools. The line `submit` and `ask` print on
+  stderr names the items a review went under: if they are wrong, send the
+  next round with the right `--item`.
 - **Follow the person's queue.** `next` offers the items the person
   queued first, in their order; `pinrail items list --queued` shows the
   queue. Only the person changes it.
