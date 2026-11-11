@@ -29,6 +29,38 @@ test.afterEach(async ({ request }) => {
   await settings(request, { theme: "system", dark_theme: "dark", light_theme: "light" });
 });
 
+/** The last 30 events the core logged, as its event stream replays them
+ *  from the start: whether it announced a theme change the page never
+ *  heard of, or never noticed the change at all. */
+async function coreEvents(): Promise<{ id: string; kind: string }[]> {
+  const seen: { id: string; kind: string }[] = [];
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 2000);
+  try {
+    const response = await fetch(`${core}/api/v1/events?after=0`, { signal: stop.signal });
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+      let end;
+      while ((end = text.indexOf("\n\n")) >= 0) {
+        const block = text.slice(0, end);
+        text = text.slice(end + 2);
+        const field = (name: string) => block.match(new RegExp(`^${name}:\\s?(.*)$`, "m"))?.[1] ?? "";
+        if (field("id")) seen.push({ id: field("id"), kind: field("event") });
+      }
+    }
+  } catch {
+    // the stream stays open: the abort ends the read
+  } finally {
+    clearTimeout(timer);
+  }
+  return seen.slice(-30);
+}
+
 /** Records, for a test that fails now and then, what the page heard about
  *  the themes: each event from the core, and each request for the themes
  *  with its answer. `attach` saves them in the test's results, with the
@@ -65,9 +97,10 @@ async function recordThemes(page: Page) {
       .catch(() => null);
     const listed = await (await page.request.get(`${core}/api/v1/themes`)).json().catch(() => null);
     const ids = (listed as { themes?: { id: string }[] } | null)?.themes?.map((t) => t.id);
+    const logged = await coreEvents();
     // a file beside the trace, which the list reporter names
     const file = test.info().outputPath("theme-diagnostics.json");
-    fs.writeFileSync(file, JSON.stringify({ events, requests, listedNow: ids }, null, 2));
+    fs.writeFileSync(file, JSON.stringify({ events, requests, listedNow: ids, coreLog: logged }, null, 2));
     await test.info().attach("theme-diagnostics", { path: file, contentType: "application/json" });
   };
 }
