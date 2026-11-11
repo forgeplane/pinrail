@@ -104,6 +104,7 @@ Comment: Thanks for asking first.
 | `--yes-no` | A question answered with yes or no. |
 | `--recommend <choice>` | The answer the agent would choose, shown as recommended. |
 | `--context <markdown>` | More detail, shown below the question. `-` reads it from stdin, and `@<file>` from a file. |
+| `--attach <path[=name]>` | A file sent with the question it follows, listed under it, such as a screenshot or a log. The question's context shows an image in place with `![…](attachment:<name>)`. `path=name` sends it under another name. At most 10 files of up to 100 MB each, as for a note. |
 | `--suggest-reply <text>` | The reply the agent expects, one line of up to 500 characters. The app shows it in the person's empty comment box, and Tab takes it. It comes back as the comment. |
 | `--title <text>` | The title in the inbox. Without it, the title is the first question. |
 | `--data <json>` | The questions as JSON, `{"questions": [...]}`, in place of the options above. |

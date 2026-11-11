@@ -1758,6 +1758,12 @@ fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
+    // the questions' files go first, each only if the app lacks it
+    let files = attachments::read(&attachments::collect(None, Path::new(""), args.files())?)?;
+    if !files.is_empty() {
+        body["attachments"] = attachments::declare(&files);
+        attachments::upload(client, &files)?;
+    }
     origin::drop_unknown(&mut body);
     origin::fill_from_git(&mut body);
     let review = client.submit(&body)?;

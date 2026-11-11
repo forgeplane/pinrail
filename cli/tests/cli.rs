@@ -4467,3 +4467,68 @@ fn items_show_saves_the_items_files_and_prints_where_they_are() {
     assert_eq!(fetched(&sent), 2);
     std::fs::remove_dir_all(&tmp).unwrap();
 }
+
+#[test]
+fn ask_sends_each_file_with_the_question_it_follows() {
+    let sent = Arc::new(Mutex::new(Vec::<(String, String, String)>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        seen.lock()
+            .unwrap()
+            .push((method.into(), path.into(), body.into()));
+        match (method, path) {
+            ("HEAD", _) => (404, String::new()),
+            ("PUT", p) => (
+                201,
+                format!(
+                    r#"{{"sha256":"{}","size":1}}"#,
+                    p.rsplit('/').next().unwrap()
+                ),
+            ),
+            ("POST", "/api/v1/reviews") => (201, review("pending")),
+            // the wait, which this server never ends
+            _ => (200, review("pending")),
+        }
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("menu.png"), "menu png").unwrap();
+    std::fs::write(dir.join("run.log"), "the log").unwrap();
+    let (_, _, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "Does the menu look right?",
+            "--yes-no",
+            "--context",
+            "![The menu](attachment:menu.png)",
+            "--attach",
+            dir.join("menu.png").to_str().unwrap(),
+            "--ask",
+            "Why did the run fail?",
+            "--attach",
+            &format!("{}=failed.log", dir.join("run.log").display()),
+            "--no-start",
+            "--timeout",
+            "1",
+        ],
+    );
+    let sent = sent.lock().unwrap();
+    let puts = sent.iter().filter(|(m, _, _)| m == "PUT").count();
+    assert_eq!(puts, 2, "{stderr}");
+    let (_, _, body) = sent
+        .iter()
+        .find(|(m, p, _)| m == "POST" && p == "/api/v1/reviews")
+        .expect("the questions were sent");
+    let asked: serde_json::Value = serde_json::from_str(body).unwrap();
+    let questions = &asked["payload"]["questions"];
+    assert_eq!(questions[0]["files"], serde_json::json!(["menu.png"]));
+    assert_eq!(questions[1]["files"], serde_json::json!(["failed.log"]));
+    assert_eq!(
+        asked["attachments"]["menu.png"],
+        serde_json::json!({ "sha256": sha256("menu png"), "size": 8, "media_type": "image/png" })
+    );
+    assert_eq!(
+        asked["attachments"]["failed.log"]["sha256"],
+        sha256("the log")
+    );
+}

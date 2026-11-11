@@ -63,6 +63,10 @@ pinrail ask "Deploy to staging or production?" \
   paths and endpoints in backticks.
 - Put code, logs and diffs in `--context` inside a fenced block that names
   its language, such as ```` ```diff ````, so that they show as code.
+- `--attach` sends a file with the question it follows, such as a
+  screenshot, a chart or a log, listed under it. Show an image in place in
+  its `--context` with `![the menu](attachment:menu.png)`. At most 10
+  files.
 - `--suggest-reply` gives the reply you expect, such as "Yes, commit it
   and go on to PIN-55". The person sends it with Tab, or writes their own.
 - Ask up to 10 independent questions at once. A question that depends on

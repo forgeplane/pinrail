@@ -377,12 +377,18 @@ impl Reviews {
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
-        let attachments = self.attachments.check(
-            attrs.get("attachments"),
-            plugin.as_ref().and_then(|p| p.attachments.as_ref()),
-            &payload,
-            presence,
-        )?;
+        let attachments = match kind {
+            Kind::Question => {
+                self.attachments
+                    .check_questions(attrs.get("attachments"), &payload, presence)?
+            }
+            Kind::Review => self.attachments.check(
+                attrs.get("attachments"),
+                plugin.as_ref().and_then(|p| p.attachments.as_ref()),
+                &payload,
+                presence,
+            )?,
+        };
         let items = self.items_for(attrs)?;
         Ok(Checked {
             attrs,

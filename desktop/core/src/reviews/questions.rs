@@ -48,7 +48,13 @@ static PAYLOAD: LazyLock<Schema> = LazyLock::new(|| {
                             "items": { "type": "string", "minLength": 1, "maxLength": 200 }
                         },
                         "recommended": { "type": "string" },
-                        "context": { "type": "string", "maxLength": 20000 }
+                        "context": { "type": "string", "maxLength": 20000 },
+                        "files": {
+                            "description": "The files the question set carries that belong to this question, listed under it",
+                            "type": "array",
+                            "maxItems": 10,
+                            "items": { "type": "string", "minLength": 1, "maxLength": 255 }
+                        }
                     }
                 }
             },

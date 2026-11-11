@@ -54,6 +54,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Find text in a session's thread with ⌘F, as in a review's view.
 - `pinrail ask --suggest-reply` suggests the reply the agent expects. The
   empty comment box shows it, and Tab takes it.
+- `pinrail ask --attach` sends a file with a question, such as a
+  screenshot or a log. The question lists it, and its context can show an
+  image in place.
 - ⌘1 to ⌘4 go to the Inbox, Sessions, Work items and Projects pages.
 - A fenced `diff` block in a question's context, a note or a work item
   shows as a diff view, one file at a time, with the old and new line

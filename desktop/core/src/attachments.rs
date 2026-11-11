@@ -398,6 +398,59 @@ impl Attachments {
         }
     }
 
+    /// The files a question set carries, checked as a note's are: within a
+    /// note's limits, and each file a question's context shows as
+    /// `attachment:NAME` or lists in its `files` one the set carries.
+    pub fn check_questions(
+        &self,
+        declared: Option<&Value>,
+        payload: &Value,
+        presence: Presence,
+    ) -> Result<Vec<ReviewAttachment>, Error> {
+        let mut violations = Vec::new();
+        let empty = Map::new();
+        let map = declared_map(declared, &empty)?;
+        let limits = Limits {
+            max_size: NOTE_MAX_BYTES.min(self.max_bytes),
+            max_count: NOTE_MAX_COUNT,
+            max_total: NOTE_MAX_TOTAL_BYTES,
+            whose: "a question's files",
+        };
+        let attachments = self.entries(map, &limits, None, presence, &mut violations)?;
+        let questions = payload["questions"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for (i, question) in questions.iter().enumerate() {
+            let context = question["context"].as_str().unwrap_or_default();
+            for name in note_references(context) {
+                if !map.contains_key(&name) {
+                    violations.push(Violation::new(
+                        format!("/payload/questions/{i}/context"),
+                        format!("refers to attachment:{name}, which the questions do not carry"),
+                    ));
+                }
+            }
+            let files = question["files"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            for (j, name) in files.iter().enumerate() {
+                if !name.as_str().is_some_and(|n| map.contains_key(n)) {
+                    violations.push(Violation::new(
+                        format!("/payload/questions/{i}/files/{j}"),
+                        "names a file the questions do not carry",
+                    ));
+                }
+            }
+        }
+        if violations.is_empty() {
+            Ok(attachments)
+        } else {
+            Err(Error::Invalid(violations))
+        }
+    }
+
     /// Checks each declared file against the limits and, with `rules`, the
     /// plugin's accepted types, and with [`Presence::Stored`] that it is
     /// here with its size. Adds what is wrong to `violations`.

@@ -27,6 +27,49 @@ export function useNoteFileUrl(note: NoteOf | null): (name: string) => string | 
   );
 }
 
+/** Where a file a review or a question set carries is read from. */
+export function useReviewFileUrl(review: string): (name: string) => string | null {
+  const [base, setBase] = useState<string | null>(null);
+  useEffect(() => {
+    void serverUrl().then(setBase);
+  }, []);
+  return useCallback(
+    (name: string) =>
+      base ? `${base}/api/v1/reviews/${encodeURIComponent(review)}/attachments/${encodeURIComponent(name)}` : null,
+    [base, review],
+  );
+}
+
+/** Saves a file a review or a question set carries where the person
+ *  chooses, in the app; outside it, downloads it. */
+export function useSaveReviewFile(review: string, url: (name: string) => string | null) {
+  const toast = useToast();
+  return useCallback(
+    async (name: string) => {
+      if (inTauri()) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const saved = await invoke<string | null>("save_attachment", { review, name });
+          if (saved) toast(`Saved ${name} to ${saved}`);
+        } catch (error) {
+          toast(String(error), "danger");
+        }
+        return;
+      }
+      const href = url(name);
+      if (!href) return;
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = name;
+      link.rel = "noreferrer";
+      document.body.append(link);
+      link.click();
+      link.remove();
+    },
+    [review, url, toast],
+  );
+}
+
 /** Saves a note's file where the person chooses, in the app; outside it,
  *  downloads it. */
 export function useSaveNoteFile(note: NoteOf | null, url: (name: string) => string | null) {

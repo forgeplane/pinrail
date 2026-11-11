@@ -161,6 +161,8 @@ export type Question = {
   choices?: string[];
   recommended?: string;
   context?: string;
+  /** the files of the question set that belong to this question */
+  files?: string[];
 };
 
 /** The answer to one question, as the decision holds it: one of text,

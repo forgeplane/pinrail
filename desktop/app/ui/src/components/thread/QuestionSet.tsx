@@ -19,6 +19,7 @@ import { ComposeField } from "../ComposeField";
 import { DiscardDialog } from "../DiscardDialog";
 import { Tooltip } from "../Tooltip";
 import { Linked } from "./messages";
+import { NoteFiles, useReviewFileUrl, useSaveReviewFile } from "../NoteFiles";
 import { MarkdownHtml } from "../MarkdownHtml";
 
 /** Where the answers being written are kept, per question set, until they are sent. */
@@ -405,6 +406,16 @@ function QuestionMessage({
   index,
 }: MessageProps) {
   const pending = review.status === "pending";
+  // the files sent with this question, and its context's images
+  const carried = useMemo(() => review.attachments ?? [], [review.attachments]);
+  const files = carried.filter((a) => question.files?.includes(a.name));
+  const fileUrl = useReviewFileUrl(review.id);
+  const save = useSaveReviewFile(review.id, fileUrl);
+  const imageUrl = useCallback(
+    (name: string) =>
+      carried.some((a) => a.name === name && a.media_type.startsWith("image/")) ? fileUrl(name) : null,
+    [carried, fileUrl],
+  );
   // the question as it reads, for the labels of what answers it
   const asked = useMemo(() => plainInline(question.question), [question.question]);
   const options = optionsOf(question);
@@ -449,7 +460,18 @@ function QuestionMessage({
             </Tooltip>
           ) : null}
         </div>
-        {question.context ? <Context text={question.context} /> : null}
+        {question.context ? (
+          <MarkdownHtml
+            className="msg-context"
+            // only a set with files needs their addresses; the plain mode
+            // keeps its rendered contexts in a cache
+            mode={carried.length ? "note" : "markdown"}
+            text={question.context}
+            imageUrl={imageUrl}
+            onAttachment={(name) => void save(name)}
+          />
+        ) : null}
+        <NoteFiles files={files} url={fileUrl} onSave={(name) => void save(name)} />
         {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
         {pending && options.length > 0 ? (
           <div className="chips">
@@ -689,9 +711,4 @@ function AnswerLine({ question, answer, review }: { question: Question; answer?:
       ) : null}
     </div>
   );
-}
-
-/** A question's context, as Markdown, with its links opened in the browser. */
-function Context({ text }: { text: string }) {
-  return <MarkdownHtml className="msg-context" text={text} />;
 }

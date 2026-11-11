@@ -3,6 +3,7 @@
 //! `question` and answered in the app's own form.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::{ArgAction, ArgMatches, Args};
@@ -41,6 +42,17 @@ pub struct AskArgs {
     /// as - for stdin, or as @FILE
     #[arg(long, value_name = "MARKDOWN|-|@FILE", action = ArgAction::Append)]
     context: Vec<String>,
+    /// A file sent with the question it follows, listed under it: a
+    /// screenshot, a chart or a log. Its context shows an image in place
+    /// with ![…](attachment:NAME). PATH=NAME sends it under another name.
+    /// At most 10 files, as for a note
+    #[arg(
+        long = "attach",
+        value_name = "PATH[=NAME]",
+        value_parser = crate::attachments::parse_flag,
+        action = ArgAction::Append
+    )]
+    attach: Vec<(String, PathBuf)>,
     /// The reply you expect, one line: the app shows it in the person's
     /// empty reply box, and Tab accepts it. Such as "Yes, commit it and go
     /// on to PIN-55"
@@ -93,6 +105,7 @@ struct Places {
     yes_no: Vec<usize>,
     recommend: Vec<usize>,
     context: Vec<usize>,
+    attach: Vec<usize>,
 }
 
 impl AskArgs {
@@ -112,7 +125,13 @@ impl AskArgs {
             yes_no: at("yes_no"),
             recommend: at("recommend"),
             context: at("context"),
+            attach: at("attach"),
         };
+    }
+
+    /// The files to send with the questions, by name, from --attach.
+    pub fn files(&self) -> &[(String, PathBuf)] {
+        &self.attach
     }
 
     /// The questions to send, from --data or from the options.
@@ -183,6 +202,9 @@ impl AskArgs {
             }
             drafts[owner(*at)].once("--context", &read_context(spec)?, |d| &mut d.context)?;
         }
+        for (at, (name, _)) in self.places.attach.iter().zip(&self.attach) {
+            drafts[owner(*at)].files.push(name.clone());
+        }
         Ok(drafts.into_iter().map(Draft::into_question).collect())
     }
 }
@@ -195,6 +217,8 @@ struct Draft {
     yes_no: bool,
     recommended: Option<String>,
     context: Option<String>,
+    /// the names of the files sent with it
+    files: Vec<String>,
 }
 
 impl Draft {
@@ -206,6 +230,7 @@ impl Draft {
             yes_no: false,
             recommended: None,
             context: None,
+            files: Vec::new(),
         }
     }
 
@@ -255,6 +280,9 @@ impl Draft {
         }
         if let Some(context) = self.context {
             question.insert("context".into(), json!(context));
+        }
+        if !self.files.is_empty() {
+            question.insert("files".into(), json!(self.files));
         }
         Value::Object(question)
     }

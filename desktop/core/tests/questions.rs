@@ -458,3 +458,102 @@ async fn questions_carry_the_reply_the_agent_suggests() {
     body["payload"]["suggested_reply"] = json!("x".repeat(501));
     assert_eq!(refused(&app, body).await, ["/payload/suggested_reply"]);
 }
+
+/// Stores `bytes` as an uploaded file, as the CLI does before it sends.
+async fn upload(app: &App, bytes: &[u8]) -> String {
+    use sha2::Digest;
+    let hash = format!("{:x}", sha2::Sha256::digest(bytes));
+    let request = Request::builder()
+        .method("PUT")
+        .uri(format!("/api/v1/attachments/{hash}"))
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", "application/octet-stream")
+        .header("content-length", bytes.len().to_string())
+        .body(Body::from(bytes.to_vec()))
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    assert!(response.status().is_success());
+    hash
+}
+
+fn with_files(context: &str, files: Value, attachments: Value) -> Value {
+    json!({
+        "kind": "question",
+        "title": "Does the menu look right?",
+        "payload": {"questions": [
+            {"id": "q1", "question": "Does the menu look right?", "answer": "yes-no",
+             "context": context, "files": files}
+        ]},
+        "attachments": attachments
+    })
+}
+
+#[tokio::test]
+async fn a_question_carries_the_files_its_context_shows() {
+    let app = app();
+    let png = b"\x89PNG\r\n\x1a\n not really an image";
+    let log = b"the run's log";
+    let (png_hash, log_hash) = (upload(&app, png).await, upload(&app, log).await);
+    let files = json!({
+        "menu.png": {"sha256": png_hash, "size": png.len(), "media_type": "image/png"},
+        "run.log": {"sha256": log_hash, "size": log.len(), "media_type": "text/plain"}
+    });
+    let asked = ask(
+        &app,
+        with_files(
+            "The menu: ![open](attachment:menu.png)",
+            json!(["menu.png", "run.log"]),
+            files.clone(),
+        ),
+    )
+    .await;
+    let names: Vec<&str> = asked["attachments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["menu.png", "run.log"]);
+    assert_eq!(
+        asked["payload"]["questions"][0]["files"],
+        json!(["menu.png", "run.log"])
+    );
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/reviews/{}/attachments/menu.png",
+            asked["id"].as_str().unwrap()
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // a file named that the question set does not carry is refused
+    assert_eq!(
+        refused(
+            &app,
+            with_files("![gone](attachment:gone.png)", json!([]), files.clone())
+        )
+        .await,
+        ["/payload/questions/0/context"]
+    );
+    assert_eq!(
+        refused(&app, with_files("", json!(["gone.log"]), files)).await,
+        ["/payload/questions/0/files/0"]
+    );
+    // no more than a note's ten files
+    let many: serde_json::Map<String, Value> = (0..11)
+        .map(|i| {
+            (
+                format!("f{i}.log"),
+                json!({"sha256": log_hash, "size": log.len(), "media_type": "text/plain"}),
+            )
+        })
+        .collect();
+    assert_eq!(
+        refused(&app, with_files("", json!([]), Value::Object(many))).await,
+        ["/attachments"]
+    );
+}

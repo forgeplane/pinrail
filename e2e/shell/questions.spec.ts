@@ -4,6 +4,7 @@
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { clearInbox, core, onePayload, openReviewsIn, pickIn } from "./helpers";
@@ -971,4 +972,54 @@ test("a diff in a question's context shows one file at a time, inside the questi
   await expect(view.getByRole("button", { name: "Next file" })).toBeDisabled();
   await view.getByRole("button", { name: "Previous file" }).click();
   await expect(view.locator(".md-diff-path:visible")).toHaveText("src/render.ts");
+});
+
+test("a question shows the image its context names, and lists its files under it", async ({ page, request }) => {
+  // a one-pixel PNG, and a log
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const log = Buffer.from("the run's log");
+  const put = async (bytes: Buffer) => {
+    const sha = createHash("sha256").update(bytes).digest("hex");
+    const response = await request.put(`${core}/api/v1/attachments/${sha}`, {
+      data: bytes,
+      headers: { "content-type": "application/octet-stream" },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    return sha;
+  };
+  const session = fresh();
+  await send(request, {
+    kind: "question",
+    title: "Does the menu look right?",
+    origin: { repo: "acme/api", ref: "main" },
+    requested_by: "claude-code",
+    session,
+    payload: {
+      questions: [
+        {
+          id: "q1",
+          question: "Does the menu look right?",
+          answer: "yes-no",
+          context: "The menu, open: ![the menu](attachment:menu.png)",
+          files: ["menu.png", "run.log"],
+        },
+      ],
+    },
+    attachments: {
+      "menu.png": { sha256: await put(png), size: png.length, media_type: "image/png" },
+      "run.log": { sha256: await put(log), size: log.length, media_type: "text/plain" },
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const asked = question(page, "Does the menu look right?");
+  const image = asked.locator(".msg-context img");
+  await expect(image).toHaveAttribute("src", /\/attachments\/menu\.png$/);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1);
+  // on its own line, below the text before it
+  expect(await image.evaluate((img) => getComputedStyle(img).display)).toBe("block");
+  await expect(asked.getByTestId("note-file")).toHaveText([/menu\.png/, /run\.log/]);
+  await expect(asked.getByRole("button", { name: "Save run.log" })).toBeVisible();
 });
