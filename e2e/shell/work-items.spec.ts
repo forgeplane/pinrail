@@ -1202,3 +1202,44 @@ test("a sub-item in another repository's group names its parent, though the pare
   await expect(row(page, parent.key)).toBeVisible();
   await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
 });
+
+/** Turns Closed sub-items on or off, in the Status submenu's section of its own. */
+async function toggleClosedSubItems(page: Page) {
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Status/ }).click();
+  const status = page.getByRole("menu", { name: "Status" });
+  await expect(status.getByText("Also show")).toBeVisible();
+  // every choice shows, with no scrollbar
+  expect(await status.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+  await status.getByRole("menuitemcheckbox", { name: "Closed sub-items" }).click();
+  await page.getByRole("menu").first().waitFor({ state: "detached" });
+}
+
+test("Closed sub-items shows an open parent's done and cancelled sub-items under it", async ({ page, request }) => {
+  const repo = fresh("closed");
+  const parent = await add(request, repo, "Release 2.0");
+  const open = await add(request, repo, "Write the notes", { parent: parent.key });
+  const done = await add(request, repo, "Tag the build", { parent: parent.key });
+  const cancelled = await add(request, repo, "Drop the beta", { parent: parent.key });
+  await edit(request, done.key, { status: "done" });
+  await edit(request, cancelled.key, { status: "cancelled", comment: "Not needed" });
+  // closed, but its parent is closed too: it stays hidden
+  const other = await add(request, repo, "Release 1.9");
+  const old = await add(request, repo, "Old step", { parent: other.key });
+  await edit(request, old.key, { status: "done" });
+  await edit(request, other.key, { status: "done" });
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { nesting: "nested", ordering: "oldest" } } });
+
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  await expect(rows(page)).toHaveCount(2);
+  await toggleClosedSubItems(page);
+  await expect(page).toHaveURL(/closed=1/);
+  await expect(page.getByTestId("filter-chip")).toContainText(["Closed sub-items"]);
+  // under the parent, after its open sub-item, dimmed
+  await expect(rows(page).locator(".item-key")).toHaveText([parent.key, open.key, done.key, cancelled.key]);
+  await expect(row(page, done.key)).toHaveClass(/is-closed/);
+  await expect(row(page, old.key)).toHaveCount(0);
+
+  await toggleClosedSubItems(page);
+  await expect(rows(page)).toHaveCount(2);
+});

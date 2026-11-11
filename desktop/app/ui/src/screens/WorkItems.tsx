@@ -69,6 +69,15 @@ function statusIcon(value: string) {
  *  the person chooses another size. */
 const ITEMS_PER_PAGE = 100;
 
+/** The items listed, with the closed ones whose parent is listed after
+ *  them, so that each sits under its parent after its open siblings. */
+function withClosedSubItems(listed: WorkItem[], closed: WorkItem[]): WorkItem[] {
+  if (!closed.length) return listed;
+  const keys = new Set(listed.map((i) => i.key));
+  const under = closed.filter((i) => i.parent && keys.has(i.parent) && !keys.has(i.key));
+  return under.length ? [...listed, ...under] : listed;
+}
+
 /** What a dragged row carries: its item's key. */
 const DRAGGED = "application/x-pinrail-item";
 
@@ -88,8 +97,10 @@ export function WorkItems() {
   const scope = scopeOf(params);
   const by = params.get("by") ?? "";
   const waiting = params.get("waiting") === "1";
+  // the done and cancelled sub-items of the parents listed, under them
+  const closedSubs = params.get("closed") === "1";
   const openKey = params.get("open");
-  const filtered = !!(query || status || scope || by || waiting);
+  const filtered = !!(query || status || scope || by || waiting || closedSubs);
   // each project's repositories, by its id: where an item dropped on it goes
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
@@ -99,13 +110,16 @@ export function WorkItems() {
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // the notices that can change the items, which load them again
   const itemNotices = useNoticeCount(aboutItems);
-  const { data: items, error: loadError } = useLoad(
-    () =>
-      api
-        .items({ status: STATUSES.find((s) => s.value === status)?.query, q: debounced || undefined })
-        .then((d) => d.items),
-    [status, debounced, itemNotices, reloads],
-  );
+  // a status that already lists the closed items has no closed sub-items to add
+  const addClosed = closedSubs && !["done", "cancelled", "all"].includes(status);
+  const { data: items, error: loadError } = useLoad(async () => {
+    const q = debounced || undefined;
+    const [listed, closed] = await Promise.all([
+      api.items({ status: STATUSES.find((s) => s.value === status)?.query, q }).then((d) => d.items),
+      addClosed ? api.items({ status: "done,cancelled", q }).then((d) => d.items) : Promise.resolve([]),
+    ]);
+    return withClosedSubItems(listed, closed);
+  }, [status, debounced, itemNotices, reloads, addClosed]);
   // the person's queue, in its order: the items agents take first
   const [queue, setQueue] = useState<WorkItem[]>([]);
   useEffect(() => {
@@ -158,7 +172,13 @@ export function WorkItems() {
     [items, scope, by, waiting],
   );
   // in the order chosen; the groups and the sub-items keep it
-  const ordered = useMemo(() => orderItems(kept, prefs.items.ordering), [kept, prefs.items.ordering]);
+  // the closed sub-items added come after their open siblings
+  const ordered = useMemo(() => {
+    const list = orderItems(kept, prefs.items.ordering);
+    if (!addClosed) return list;
+    const ended = (i: WorkItem) => i.status === "done" || i.status === "cancelled";
+    return [...list.filter((i) => !ended(i)), ...list.filter(ended)];
+  }, [kept, prefs.items.ordering, addClosed]);
   const groups = useMemo(
     () =>
       layout === "list"
@@ -486,7 +506,7 @@ export function WorkItems() {
   const clearFilters = () =>
     updateParams(
       (next) => {
-        for (const key of ["q", "status", "repo", "project", "by", "waiting", "page"]) next.delete(key);
+        for (const key of ["q", "status", "repo", "project", "by", "waiting", "closed", "page"]) next.delete(key);
       },
       { replace: true },
     );
@@ -539,6 +559,15 @@ export function WorkItems() {
   ];
   const toggles: Toggle[] = [
     { key: "waiting", label: "Waiting on you", on: waiting, onChange: (on) => setParam("waiting", on ? "1" : null) },
+    {
+      key: "closed",
+      label: "Closed sub-items",
+      on: closedSubs,
+      onChange: (on) => setParam("closed", on ? "1" : null),
+      // with the statuses it adds to, in a section of its own
+      under: "status",
+      section: "Also show",
+    },
   ];
 
   let index = -1;

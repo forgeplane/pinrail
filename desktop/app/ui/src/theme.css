@@ -837,12 +837,14 @@ h1 {
 .menu-sub {
   position: relative;
 }
+/* a submenu shows all its choices, up to the window's height; one that
+   can be searched, such as the repositories, scrolls past 320px */
 .menu-submenu {
   position: absolute;
   top: -6px;
   left: calc(100% + 4px);
   min-width: 170px;
-  max-height: 320px;
+  max-height: calc(100vh - 16px);
   overflow-y: auto;
 }
 .menu-item {
@@ -890,6 +892,7 @@ h1 {
 /* a submenu with a search field, which stays at its top as in a select */
 .menu-submenu.is-searchable {
   min-width: 240px;
+  max-height: 320px;
   padding-top: 0;
 }
 .menu-submenu.is-searchable .select-search {

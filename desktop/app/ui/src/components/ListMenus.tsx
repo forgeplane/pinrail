@@ -26,8 +26,17 @@ export type Filter = {
   onChange: (value: string) => void;
 };
 
-/** A filter that is on or off, such as Waiting on you. */
-export type Toggle = { key: string; label: string; on: boolean; onChange: (on: boolean) => void };
+/** A filter that is on or off, such as Waiting on you: in the Filter menu,
+ *  or, with `under`, in that filter's submenu, in a section headed `section`
+ *  after its choices. */
+export type Toggle = {
+  key: string;
+  label: string;
+  on: boolean;
+  onChange: (on: boolean) => void;
+  under?: string;
+  section?: string;
+};
 
 /** A choice of how the list is shown, such as its grouping. */
 export type Display = {
@@ -145,31 +154,48 @@ function FilterMenu({
           f.key,
           f.label,
           f.choices.find((c) => c.value === f.value)?.label ?? "",
-          f.choices.map<MenuOption>((c) => ({
-            value: c.value,
-            label: c.label,
-            checked: c.value === f.value,
-            radio: true,
-            mark: c.mark,
-            // a pick is the whole point of opening the menu: it closes
-            onPick: () => {
-              f.onChange(c.value);
-              if (c.value !== f.off) countFeature("list_filter");
-              onClose();
-            },
-          })),
+          [
+            ...f.choices.map<MenuOption>((c) => ({
+              value: c.value,
+              label: c.label,
+              checked: c.value === f.value,
+              radio: true,
+              mark: c.mark,
+              // a pick is the whole point of opening the menu: it closes
+              onPick: () => {
+                f.onChange(c.value);
+                if (c.value !== f.off) countFeature("list_filter");
+                onClose();
+              },
+            })),
+            ...toggles
+              .filter((t) => t.under === f.key)
+              .map<MenuOption>((t, i) => ({
+                value: `toggle:${t.key}`,
+                label: t.label,
+                checked: t.on,
+                section: i === 0 ? t.section : undefined,
+                onPick: () => {
+                  t.onChange(!t.on);
+                  if (!t.on) countFeature("list_filter");
+                  onClose();
+                },
+              })),
+          ],
           f.searchable,
         ),
       )}
-      {toggles.map((t) => (
-        <span key={t.key}>
-          {toggle(t.label, t.on, () => {
-            t.onChange(!t.on);
-            if (!t.on) countFeature("list_filter");
-            onClose();
-          })}
-        </span>
-      ))}
+      {toggles
+        .filter((t) => !t.under)
+        .map((t) => (
+          <span key={t.key}>
+            {toggle(t.label, t.on, () => {
+              t.onChange(!t.on);
+              if (!t.on) countFeature("list_filter");
+              onClose();
+            })}
+          </span>
+        ))}
     </div>,
     document.body,
   );

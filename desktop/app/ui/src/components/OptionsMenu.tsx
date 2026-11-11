@@ -28,6 +28,9 @@ export type MenuOption = {
   mark?: ReactNode;
   /** why the option does not apply now, when it does not */
   disabled?: string;
+  /** a heading that starts a section of its own with this option, after
+   *  a separator */
+  section?: string;
 };
 
 /** Moves a submenu up, beside its item, as far as it runs past the
@@ -189,7 +192,13 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
             ) : null}
             {all.length === 0 ? <div className="menu-note">None yet</div> : null}
             {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
-            {options.map((o, i) => (
+            {options.map((o, i) => [
+              o.section ? <hr key={`${o.value}-separator`} className="menu-separator" /> : null,
+              o.section ? (
+                <div key={`${o.value}-heading`} className="menu-heading">
+                  {o.section}
+                </div>
+              ) : null,
               <button
                 key={o.value}
                 type="button"
@@ -204,8 +213,8 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
                 {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
                 <span className="menu-label truncate">{o.label}</span>
                 {o.checked ? <Check size={13} className="menu-check" /> : null}
-              </button>
-            ))}
+              </button>,
+            ])}
           </div>
         ) : null}
       </div>
