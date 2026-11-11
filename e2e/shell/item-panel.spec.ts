@@ -734,3 +734,35 @@ test("a comment changed elsewhere opens its editor with the new text", async ({ 
   await comment.getByRole("button", { name: "Edit" }).click();
   await expect(comment.getByLabel("Comment")).toHaveValue("Second words.");
 });
+
+test("a review is taken out of an item from the item's panel, and stays on its other items", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh();
+  const one = await add(request, repo, "Ship the loader");
+  const two = await add(request, repo, "Write the release notes");
+  const sent = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Keep the notes in git?",
+      origin: { repo },
+      requested_by: "claude-code",
+      session: "s-panel",
+      items: [one.key, two.key],
+      payload: { questions: [{ id: "q1", question: "Keep the notes in git?", answer: "yes-no" }] },
+    },
+  });
+  expect(sent.status(), await sent.text()).toBe(201);
+  const review = (await sent.json()) as { id: string };
+
+  await openItem(page, repo, one.key);
+  const reviews = panel(page).getByRole("region", { name: "Reviews" });
+  await expect(reviews).toContainText("Keep the notes in git?");
+  await reviews.getByRole("button", { name: "Keep the notes in git? actions" }).click();
+  await page.getByRole("menuitem", { name: `Remove from ${one.key}` }).click();
+  await expect(panel(page).getByRole("region", { name: "Reviews" })).toHaveCount(0);
+
+  const read = await (await request.get(`${core}/api/v1/reviews/${review.id}`)).json();
+  expect(read.items.map((i: { key: string }) => i.key)).toEqual([two.key]);
+});

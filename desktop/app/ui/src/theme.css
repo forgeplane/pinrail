@@ -6932,6 +6932,29 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-related a.is-ended .item-related-title {
   color: var(--dim);
 }
+/* a review's row in an item's panel, with its menu at the end, which
+   shows on hover, on focus and while it is open */
+.item-related li:has(> .item-related-menu) {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.item-related li > a {
+  min-width: 0;
+}
+.item-related .item-related-menu {
+  flex: none;
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+  color: var(--faint);
+  opacity: 0;
+}
+.item-related li:hover .item-related-menu,
+.item-related .item-related-menu:focus-visible,
+.item-related .item-related-menu[aria-expanded="true"] {
+  opacity: 1;
+}
 .item-review-kind {
   flex: none;
   color: var(--faint);

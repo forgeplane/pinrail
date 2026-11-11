@@ -12,6 +12,8 @@ import {
   Link2,
   ListOrdered,
   MessagesSquare,
+  MoreHorizontal,
+  Unlink,
   Pencil,
   Trash2,
   X,
@@ -39,6 +41,7 @@ import { DependencyGraph } from "./DependencyGraph";
 import { useItemPicker } from "./ItemPicker";
 import { ItemStatusIcon, STATUS_LABEL } from "./ItemStatusIcon";
 import { ReviewStatusIcon } from "./ReviewStatusIcon";
+import { PopoverMenu } from "./PopoverMenu";
 import { Select } from "./Select";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
@@ -95,6 +98,29 @@ export function ItemPanel({
       cancelled = true;
     };
   }, [itemKey, itemNotices, reloads, onOpen]);
+
+  // the menu of a review's row, and the button it opened from
+  const [reviewMenu, setReviewMenu] = useState<{ id: string; title: string; anchor: HTMLElement } | null>(null);
+
+  /** Takes a review, with all its rounds, out of this item; it stays on
+   *  the other items it belongs to. */
+  const removeReview = useCallback(
+    async (id: string) => {
+      if (!item) return;
+      try {
+        const review = await api.getReview(id);
+        await api.setReviewItems(
+          id,
+          (review.items ?? []).map((i) => i.key).filter((key) => key !== item.key),
+        );
+        setReloads((n) => n + 1);
+        onChanged();
+      } catch (error) {
+        toast(errorMessage(error), "danger");
+      }
+    },
+    [item, onChanged, toast],
+  );
 
   /** A change the person makes, then shown here and in the list. */
   const change = useCallback(
@@ -419,10 +445,36 @@ export function ItemPanel({
                   <span className="item-related-title truncate">{r.title}</span>
                   <span className="item-review-kind">{r.kind === "question" ? "question" : r.plugin}</span>
                 </Link>
+                <button
+                  type="button"
+                  className="bar-button item-related-menu"
+                  aria-label={`${r.title} actions`}
+                  aria-haspopup="menu"
+                  aria-expanded={reviewMenu?.id === r.id}
+                  onClick={(event) => setReviewMenu({ id: r.id, title: r.title, anchor: event.currentTarget })}
+                >
+                  <MoreHorizontal size={14} aria-hidden="true" />
+                </button>
               </li>
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {reviewMenu ? (
+        <PopoverMenu
+          anchor={reviewMenu.anchor}
+          label={reviewMenu.title}
+          align="right"
+          onClose={() => setReviewMenu(null)}
+          entries={[
+            {
+              label: `Remove from ${item.key}`,
+              icon: Unlink,
+              onPick: () => void removeReview(reviewMenu.id),
+            },
+          ]}
+        />
       ) : null}
 
       {item.sessions.length ? (
