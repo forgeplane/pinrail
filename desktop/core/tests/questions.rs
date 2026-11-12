@@ -402,7 +402,7 @@ async fn reviews_are_listed_by_kind() {
 }
 
 #[tokio::test]
-async fn a_question_is_refused_while_sessions_are_off() {
+async fn a_new_app_takes_questions() {
     let app = common::app_as_new();
     let question = json!({
         "kind": "question",
@@ -410,26 +410,15 @@ async fn a_question_is_refused_while_sessions_are_off() {
         "requested_by": "claude-code",
         "payload": { "questions": [{ "id": "q1", "question": "Ship it?", "answer": "yes-no" }] },
     });
-    let (code, body) = call(&app, "POST", "/api/v1/reviews", Some(question.clone())).await;
-    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
-    assert_eq!(body["error"], "off");
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("Settings › Labs"),
-        "{body}"
-    );
-    let (code, _) = call(&app, "POST", "/api/v1/reviews/validate", Some(question)).await;
-    assert_eq!(code, StatusCode::FORBIDDEN);
-    // a review still goes through
     let (code, body) = call(
         &app,
         "POST",
-        "/api/v1/reviews",
-        Some(json!({"plugin": "list", "title": "t", "payload": {"groups": [{"title": "g", "items": [{"id": 1, "title": "a"}]}]}})),
+        "/api/v1/reviews/validate",
+        Some(question.clone()),
     )
     .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let (code, body) = call(&app, "POST", "/api/v1/reviews", Some(question)).await;
     assert_eq!(code, StatusCode::CREATED, "{body}");
 }
 

@@ -32,8 +32,6 @@ pub enum Error {
     /// could not be reached or failed on its side: not the caller's
     /// mistake, and worth trying again later
     Unavailable(String),
-    /// A feature the person has turned off, as the message says
-    Off(String),
     /// Only the person may do this, as the message says
     Forbidden(String),
 }
@@ -61,7 +59,6 @@ impl Error {
             Error::Io(error) => format!("io: {error}"),
             Error::InUse(message) => message.clone(),
             Error::Unavailable(message) => message.clone(),
-            Error::Off(message) => message.clone(),
             Error::Forbidden(message) => message.clone(),
         }
     }
@@ -75,7 +72,6 @@ impl Error {
             Error::Internal(_) | Error::Database(_) | Error::Io(_) => ("internal", Vec::new()),
             Error::InUse(_) => ("in_use", Vec::new()),
             Error::Unavailable(_) => ("unavailable", Vec::new()),
-            Error::Off(_) => ("off", Vec::new()),
             Error::Forbidden(_) => ("forbidden", Vec::new()),
         };
         json!({ "error": kind, "message": self.message(), "violations": violations })

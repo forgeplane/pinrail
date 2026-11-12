@@ -59,10 +59,8 @@ const reviewText = (r: Review) => [r.title, r.plugin, r.requested_by, r.origin.r
 export function CommandPalette({ onClose, actions }: { onClose: () => void; actions: PaletteAction[] }) {
   const { pending: waiting } = useLive();
   const navigate = useNavigate();
-  const { inbox, labs } = useSettings().settings;
+  const { inbox } = useSettings().settings;
   const openIn = inbox.open_in;
-  // the stages belong to sessions, which are in Settings › Labs
-  const filters = labs.sessions ? FILTERS : FILTERS.filter((f) => f.key !== "stages");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   useEffect(() => countFeature("command_palette"), []);
@@ -127,7 +125,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   // the stages agents started, from the server, once something is typed
   useEffect(() => {
     // with nothing typed, the stages show only under their own filter
-    if (!labs.sessions || (filter !== "all" && filter !== "stages") || (!q && all)) return;
+    if ((filter !== "all" && filter !== "stages") || (!q && all)) return;
     let current = true;
     const timer = window.setTimeout(
       () => {
@@ -142,7 +140,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
       current = false;
       window.clearTimeout(timer);
     };
-  }, [q, filter, all, labs.sessions]);
+  }, [q, filter, all]);
 
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
@@ -210,7 +208,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
         });
       }
     }
-    if (labs.sessions && want("stages")) {
+    if (want("stages")) {
       for (const s of !q && all ? [] : stages) {
         out.push({
           key: `stage:${s.id}`,
@@ -268,7 +266,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, workItems, stages, plugins, actions, navigate, openIn, labs.sessions]);
+  }, [all, filter, q, waiting, history, workItems, stages, plugins, actions, navigate, openIn]);
 
   useEffect(() => {
     list.current?.querySelectorAll<HTMLElement>("[data-item]")[active]?.scrollIntoView({ block: "nearest" });
@@ -279,8 +277,8 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
     item.run();
   };
   const cycle = (dir: 1 | -1) => {
-    const at = filters.findIndex((f) => f.key === filter);
-    show(filters[(at + dir + filters.length) % filters.length].key);
+    const at = FILTERS.findIndex((f) => f.key === filter);
+    show(FILTERS[(at + dir + FILTERS.length) % FILTERS.length].key);
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
     event.stopPropagation();
@@ -338,7 +336,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
           />
         </label>
         <div className="palette-filters" role="tablist">
-          {filters.map((f) => (
+          {FILTERS.map((f) => (
             <button
               key={f.key}
               type="button"

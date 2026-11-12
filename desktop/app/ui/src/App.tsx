@@ -11,7 +11,7 @@ import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
 import { WorkItems } from "./screens/WorkItems";
 import { LiveProvider } from "./state/live";
-import { SettingsProvider, useSettings } from "./state/settings";
+import { SettingsProvider } from "./state/settings";
 import { ToastProvider } from "./state/toasts";
 import { TopBarProvider } from "./state/topbar";
 
@@ -39,7 +39,7 @@ function Shell() {
           <Route path="/" element={<Inbox />} />
           <Route path="/reviews/:id" element={<ReviewScreen />} />
           <Route path="/history" element={<ToHistoryTab />} />
-          <Route path="/sessions" element={<SessionsPage />} />
+          <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/items" element={<WorkItems />} />
@@ -48,14 +48,6 @@ function Shell() {
       </ErrorBoundary>
     </Layout>
   );
-}
-
-/** The Sessions page, while sessions are on in Settings › Labs; the inbox
- *  otherwise, once the settings say so. */
-function SessionsPage() {
-  const { settings, loaded } = useSettings();
-  if (loaded && !settings.labs.sessions) return <Navigate to="/" replace />;
-  return <Sessions />;
 }
 
 export function App() {

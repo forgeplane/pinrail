@@ -985,9 +985,8 @@ async fn a_status_answers_with_the_open_stage() {
 }
 
 #[tokio::test]
-async fn a_status_is_refused_while_sessions_are_off() {
+async fn a_new_app_takes_statuses() {
     let app = common::app_as_new();
     let (code, body) = status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
-    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
-    assert_eq!(body["error"], "off");
+    assert!(code.is_success(), "{body}");
 }

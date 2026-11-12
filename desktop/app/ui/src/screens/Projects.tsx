@@ -34,7 +34,6 @@ import { iconInput } from "../lib/projectAvatar";
 import { squarePng } from "../lib/projectImage";
 import { age, stamp } from "../lib/format";
 import { useLive, aboutItems, aboutSessions, useNoticeCount } from "../state/live";
-import { useSettings } from "../state/settings";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useToast } from "../state/toasts";
 import { Dialog } from "../components/Dialog";
@@ -61,8 +60,6 @@ export function Projects() {
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { settings: prefs } = useSettings();
-  const sessionsOn = prefs.labs.sessions;
   const [menu, setMenu] = useState<Menu | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const drag = useDragDrop(DRAGGED);
@@ -137,16 +134,12 @@ export function Projects() {
           disabled: row.waiting ? undefined : "Nothing waits in this repository",
           onPick: () => scoped("/?"),
         },
-        ...(sessionsOn
-          ? [
-              {
-                label: "Open its sessions",
-                icon: MessagesSquare,
-                disabled: row.sessions ? undefined : "This repository has no sessions",
-                onPick: () => scoped("/sessions?"),
-              } as MenuEntry,
-            ]
-          : []),
+        {
+          label: "Open its sessions",
+          icon: MessagesSquare,
+          disabled: row.sessions ? undefined : "This repository has no sessions",
+          onPick: () => scoped("/sessions?"),
+        },
         { label: "Open in the history", icon: History, onPick: () => scoped("/?tab=history&") },
         { kind: "separator" },
         { kind: "heading", label: `Move ${repo} to` },
@@ -183,15 +176,11 @@ export function Projects() {
           icon: Inbox,
           onPick: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
         },
-        ...(sessionsOn
-          ? [
-              {
-                label: "Open its sessions",
-                icon: MessagesSquare,
-                onPick: () => navigate(`/sessions?project=${encodeURIComponent(project.id)}`),
-              } as MenuEntry,
-            ]
-          : []),
+        {
+          label: "Open its sessions",
+          icon: MessagesSquare,
+          onPick: () => navigate(`/sessions?project=${encodeURIComponent(project.id)}`),
+        },
         { kind: "separator" },
         { label: "Edit…", icon: Pencil, onPick: () => setDialog({ kind: "edit", project }) },
         { kind: "separator" },
@@ -220,9 +209,7 @@ export function Projects() {
       <span className={`project-col ${repo.waiting ? "is-waiting" : "faint"}`}>
         {repo.waiting ? `${repo.waiting} waiting` : "—"}
       </span>
-      {sessionsOn ? (
-        <span className="project-col dim">{repo.sessions ? plural(repo.sessions, "session", "sessions") : ""}</span>
-      ) : null}
+      <span className="project-col dim">{repo.sessions ? plural(repo.sessions, "session", "sessions") : ""}</span>
       <span className="project-col faint" title={stamp(repo.last_at)}>
         {repo.last_at ? `${age(repo.last_at)} ago` : ""}
       </span>
@@ -360,7 +347,7 @@ export function Projects() {
               LayoutGrid,
               [
                 project.waiting ? `${project.waiting} waiting` : "Nothing waiting",
-                sessionsOn && project.sessions ? plural(project.sessions, "session", "sessions") : null,
+                project.sessions ? plural(project.sessions, "session", "sessions") : null,
                 project.last_at ? `Updated ${age(project.last_at)} ago` : null,
               ],
               project,

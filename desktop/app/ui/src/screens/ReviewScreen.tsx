@@ -356,11 +356,10 @@ function ReviewBody({
         back={back}
         backState={location.state}
         fromSession={fromSession}
-        sessionsShown={prefs.labs.sessions}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- back is made from fromHistory, which location.state holds
-    [review.title, review.origin.ref, originUrl, location.state, fromSession, prefs.labs.sessions],
+    [review.title, review.origin.ref, originUrl, location.state, fromSession],
   );
   // a page opened from the inbox can return to its side panel
   const showInPanel = !inPanel && !fromHistory && !fromSession && prefs.inbox.open_in === "panel" && pending;
@@ -370,7 +369,7 @@ function ReviewBody({
       hasView={!!plugin}
       inPanel={inPanel}
       showInPanel={showInPanel}
-      sessionLink={!besideThread && prefs.labs.sessions}
+      sessionLink={!besideThread}
       onDiscard={() => setDiscarding(true)}
       onDelete={() => setDeleting(true)}
       onMaximize={() => setMaximized(true)}

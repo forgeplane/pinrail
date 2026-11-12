@@ -3,10 +3,6 @@ title: Questions and sessions
 description: "How you answer the questions an agent asks, the thread of everything one agent session sent you, and the statuses that show what the agent is doing."
 ---
 
-:::note[In Labs]
-Questions and sessions are still in the works. Turn them on in *Settings › Labs*, then update the skill in *Settings › Agents*.
-:::
-
 An agent asks you short questions with `pinrail ask`, and reports what it is doing with `pinrail status`. Both belong to the agent's session: one run of the agent, such as a Claude Code conversation. Pinrail shows each session as a thread, with its questions, its reviews and its statuses in the order they happened.
 
 ![An agent session's thread: three questions waiting, the first answered with a note, and the box for a comment to the agent at the bottom.](screenshot:ask-thread "Questions waiting in a session's thread.")

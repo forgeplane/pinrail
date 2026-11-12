@@ -966,47 +966,6 @@ h1 {
 .sidebar-review .count-badge {
   margin-left: auto;
 }
-/* the sidebar while sessions are off: what waits, then the projects */
-.sidebar-repositories h2,
-.sidebar-waiting h2 {
-  font-size: var(--text-2xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
-  margin: 0 0 6px;
-  padding: 0 10px;
-}
-.sidebar-waiting {
-  margin-top: 14px;
-}
-.sidebar-more {
-  color: var(--faint);
-  font-size: var(--text-sm);
-}
-.sidebar-repo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  border-radius: var(--radius-md);
-  color: var(--dim);
-  font-size: var(--text-md);
-  min-width: 0;
-}
-.sidebar-repo .count-badge {
-  margin-left: auto;
-}
-.sidebar-repo svg.is-faint {
-  opacity: 0.55;
-}
-.sidebar-repo:hover {
-  background: var(--bg-hover);
-  text-decoration: none;
-}
-.sidebar-repo svg {
-  color: var(--faint);
-  flex: none;
-}
 .sidebar-bottom {
   margin-top: auto;
   display: flex;

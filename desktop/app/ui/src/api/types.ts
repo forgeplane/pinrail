@@ -456,8 +456,6 @@ export type ServerSettings = {
   updates?: { check: boolean };
   /** update the connected agents' skills when the app starts */
   agents?: { auto_update: boolean };
-  /** features to try, each off until turned on in Settings › Labs */
-  labs?: { sessions: boolean };
   /** the welcome screen was closed */
   welcome?: { seen: boolean };
   /** usage data and crash reports, and when the notice about them was shown */

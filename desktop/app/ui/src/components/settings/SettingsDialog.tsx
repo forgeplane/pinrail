@@ -6,7 +6,6 @@ import {
   Blocks,
   Bot,
   Database,
-  FlaskConical,
   FolderOpen,
   Info,
   Keyboard,
@@ -41,7 +40,7 @@ import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
 
 export type SettingsSection =
-  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "labs" | "about";
+  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
@@ -52,7 +51,6 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
   { key: "data", label: "Data", icon: <Database size={15} /> },
   { key: "privacy", label: "Privacy", icon: <ShieldCheck size={15} /> },
-  { key: "labs", label: "Labs", icon: <FlaskConical size={15} /> },
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
 
@@ -579,23 +577,6 @@ export function SettingsDialog({
         ) : null}
 
         {section === "privacy" ? <PrivacySection /> : null}
-
-        {section === "labs" ? (
-          <SettingsPage title="Labs">
-            <SettingsGroup caption="Features still in the works, each off until you turn it on">
-              <SettingsRow
-                label="Sessions and questions"
-                description="Agents ask you questions with pinrail ask and report what they do with pinrail status, in a thread for each session. Adds the Sessions page and lists the sessions in the sidebar. Update the skill in Settings › Agents after changing this."
-              >
-                <Toggle
-                  label="Sessions and questions"
-                  checked={settings.labs.sessions}
-                  onChange={(v) => update({ labs: { sessions: v } })}
-                />
-              </SettingsRow>
-            </SettingsGroup>
-          </SettingsPage>
-        ) : null}
 
         {section === "about" ? (
           <SettingsPage title="About">

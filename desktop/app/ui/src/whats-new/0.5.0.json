@@ -17,8 +17,8 @@
       "image": "ask-thread",
       "alt": "An agent session's thread: waiting questions with their choices, a note on the first answer, and the box for a comment to the agent",
       "action": {
-        "label": "Open Labs",
-        "settings": "labs"
+        "label": "Open Sessions",
+        "to": "/sessions"
       }
     },
     {
@@ -27,8 +27,8 @@
       "image": "sessions",
       "alt": "The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity",
       "action": {
-        "label": "Open Labs",
-        "settings": "labs"
+        "label": "Open Sessions",
+        "to": "/sessions"
       }
     },
     {
@@ -47,8 +47,8 @@
       "image": "status-note",
       "alt": "A session's thread with a note from the agent: a summary of a load test and its chart of p95 latency",
       "action": {
-        "label": "Open Labs",
-        "settings": "labs"
+        "label": "Open Sessions",
+        "to": "/sessions"
       }
     }
   ]

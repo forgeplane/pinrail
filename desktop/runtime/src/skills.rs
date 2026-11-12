@@ -127,60 +127,24 @@ pub const AGENTS: &[Agent] = &[
 ];
 
 /// The skill's description, in place of `{description}` in its front
-/// matter, with sessions and questions on and off.
+/// matter.
 const DESCRIPTION: &str = "Ask the person questions or submit a review to them through Pinrail and wait for their answer, or build a Pinrail plugin. Use when you need an answer only the person can give, or when a prompt, a skill or your instructions tell you to ask, check with, or get approval from the person through Pinrail.";
-const DESCRIPTION_WITHOUT_SESSIONS: &str = "Submit a review to the person through Pinrail and wait for their decision, or build a Pinrail plugin. Use when you need a decision only the person can make, or when a prompt, a skill or your instructions tell you to check with, or get approval from, the person through Pinrail.";
 
-/// The skill's text for one setting of Settings › Labs: a part between
-/// `<!-- sessions -->` and `<!-- end sessions -->` stays only while
-/// sessions and questions are on, and a part between `<!-- no sessions -->`
-/// and `<!-- end no sessions -->` only while they are off. The marker
-/// lines themselves go, and `{description}` becomes the description that
-/// fits.
-pub fn skill_text(text: &str, sessions: bool) -> String {
-    let mut out = String::with_capacity(text.len());
-    // the part being read: None outside a marked part, or whether it stays
-    let mut keep: Option<bool> = None;
-    for line in text.split_inclusive('\n') {
-        match line.trim_end() {
-            "<!-- sessions -->" => keep = Some(sessions),
-            "<!-- no sessions -->" => keep = Some(!sessions),
-            "<!-- end sessions -->" | "<!-- end no sessions -->" => keep = None,
-            _ if keep != Some(false) => out.push_str(line),
-            _ => {}
-        }
-    }
-    let description = if sessions {
-        DESCRIPTION
-    } else {
-        DESCRIPTION_WITHOUT_SESSIONS
-    };
-    out.replace("{description}", description)
+/// The skill's text, with `{description}` replaced by its description.
+pub fn skill_text(text: &str) -> String {
+    text.replace("{description}", DESCRIPTION)
 }
 
 #[cfg(test)]
 mod tests {
     use super::skill_text;
 
-    const TEXT: &str = "intro\n<!-- sessions -->\nask\n<!-- end sessions -->\n<!-- no sessions -->\nsubmit only\n<!-- end no sessions -->\nrules\n";
-
     #[test]
-    fn the_skill_keeps_the_parts_for_sessions_on_or_off() {
-        assert_eq!(skill_text(TEXT, true), "intro\nask\nrules\n");
-        assert_eq!(skill_text(TEXT, false), "intro\nsubmit only\nrules\n");
-        // a text without markers is left as it is
-        assert_eq!(skill_text("a\nb\n", false), "a\nb\n");
-    }
-
-    #[test]
-    fn the_description_fits_the_setting() {
-        let on = skill_text("description: {description}\n", true);
-        let off = skill_text("description: {description}\n", false);
+    fn the_skill_gets_its_description() {
+        let text = skill_text("description: {description}\n");
         assert!(
-            on.starts_with("description: Ask the person questions"),
-            "{on}"
+            text.starts_with("description: Ask the person questions"),
+            "{text}"
         );
-        assert!(off.starts_with("description: Submit a review"), "{off}");
-        assert!(!off.contains("questions or"), "{off}");
     }
 }

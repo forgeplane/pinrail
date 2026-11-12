@@ -56,11 +56,10 @@ export async function startApp({ build = true } = {}) {
   fs.mkdirSync(data, { recursive: true });
 
   // the settings of a returning user, with the setup and What's new marked
-  // as seen, so that neither dialog covers the screens, and sessions on in
-  // Settings › Labs, which the session scenes show
+  // as seen, so that neither dialog covers the screens
   fs.writeFileSync(
     path.join(data, "settings.json"),
-    JSON.stringify({ welcome: { seen: true }, whats_new: { seen: "999.0.0" }, labs: { sessions: true } }),
+    JSON.stringify({ welcome: { seen: true }, whats_new: { seen: "999.0.0" } }),
   );
 
   const corePort = await freePort();

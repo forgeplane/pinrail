@@ -38,12 +38,6 @@ async function asPerson(method: string, apiPath: string, body?: unknown) {
   return response.status === 204 ? null : response.json();
 }
 
-// two tests turn sessions on, which questions and statuses need; the
-// server is shared, so the file leaves the setting as it found it
-test.afterAll(async () => {
-  await asPerson("PATCH", "/api/v1/settings", { labs: { sessions: false } });
-});
-
 test("an agent works through a breakdown from next to done", async () => {
   const { dir, repo } = checkout();
   const env = session("loop-1");
@@ -183,7 +177,6 @@ test("a description comes inline, from a file or from stdin, and shows its files
 });
 
 test("comments come from agents and the person, and the person's reach the agent holding the item", async () => {
-  await asPerson("PATCH", "/api/v1/settings", { labs: { sessions: true } });
   const { dir } = checkout();
   const env = session("comment-1");
   const item = pinrailJson(["items", "add", "Watch the folder"], { cwd: dir, env });
@@ -210,7 +203,6 @@ test("comments come from agents and the person, and the person's reach the agent
 });
 
 test("reviews and questions name their item, or none, and the review list narrows to one item", async () => {
-  await asPerson("PATCH", "/api/v1/settings", { labs: { sessions: true } });
   const { dir } = checkout();
   const env = session("reviews-1");
   const one = pinrailJson(["items", "add", "One"], { cwd: dir, env });

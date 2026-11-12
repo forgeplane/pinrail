@@ -33,7 +33,7 @@ fn status(error: &Error) -> StatusCode {
         Error::Internal(_) | Error::Database(_) | Error::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
         Error::InUse(_) => StatusCode::CONFLICT,
         Error::Unavailable(_) => StatusCode::BAD_GATEWAY,
-        Error::Off(_) | Error::Forbidden(_) => StatusCode::FORBIDDEN,
+        Error::Forbidden(_) => StatusCode::FORBIDDEN,
     }
 }
 

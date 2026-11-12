@@ -31,7 +31,6 @@ export function ReviewCrumb({
   back,
   backState,
   fromSession,
-  sessionsShown,
 }: {
   title: string;
   originRef: string | null;
@@ -39,22 +38,16 @@ export function ReviewCrumb({
   back: { to: string; label: string };
   backState: unknown;
   fromSession: FromSession["session"] | null;
-  /** whether the Sessions page is on */
-  sessionsShown: boolean;
 }) {
   return (
     // it stretches across the bar, so its own empty space moves the window
     <span className="crumb" data-tauri-drag-region>
       {fromSession ? (
         <>
-          {sessionsShown ? (
-            <>
-              <Link to="/sessions" className="crumb-root">
-                Sessions
-              </Link>
-              <span className="crumb-sep">›</span>
-            </>
-          ) : null}
+          <Link to="/sessions" className="crumb-root">
+            Sessions
+          </Link>
+          <span className="crumb-sep">›</span>
           <Link
             to={sessionPath(fromSession)}
             className="crumb-root crumb-session truncate"

@@ -83,8 +83,7 @@ fn menu(file: &str, body: &str) -> Vec<(String, String)> {
 }
 
 fn parse(file: &'static str, source: &'static str) -> Brief {
-    // the skill as it reads with sessions and questions on: every command
-    let source = pinrail_runtime::skills::skill_text(source, true);
+    let source = pinrail_runtime::skills::skill_text(source);
     let (head, body) = source
         .strip_prefix("---\n")
         .and_then(|rest| rest.split_once("\n---\n"))

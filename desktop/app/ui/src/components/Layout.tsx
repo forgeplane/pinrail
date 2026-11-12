@@ -91,8 +91,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update } = useSettings();
   const sidebar = prefs.sidebar.open;
-  // sessions, their page and their list in the sidebar, are in Settings › Labs
-  const sessionsOn = prefs.labs.sessions;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
@@ -183,8 +181,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const runs: Partial<Record<CommandId, CommandRun>> = {
     search: () => setPalette((p) => !p),
     "go-inbox": () => void navigate(pageLink("/")),
-    // Sessions is a page only while it is on in Settings › Labs
-    "go-sessions": () => (sessionsOn ? void navigate(pageLink("/sessions")) : false),
+    "go-sessions": () => void navigate(pageLink("/sessions")),
     "go-items": () => void navigate(pageLink("/items")),
     "go-projects": () => void navigate(pageLink("/projects")),
     "go-history": () => void navigate(HISTORY_PATH),
@@ -296,9 +293,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <Sidebar
           width={sidebarWidth}
           toggle={sidebarButton}
-          sessionsOn={sessionsOn}
           shown={shown}
-          openIn={prefs.inbox.open_in}
           openItems={live.openItems}
           itemsInProgress={live.itemsInProgress}
           onSearch={() => setPalette(true)}

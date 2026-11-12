@@ -11,7 +11,6 @@ import { command } from "../lib/commands";
 import { MOD } from "../lib/keys";
 import { useLive } from "../state/live";
 import type { SettingsSection } from "./settings/SettingsDialog";
-import { SidebarProjects } from "./SidebarProjects";
 import { SidebarSessions } from "./SidebarSessions";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { Tooltip } from "./Tooltip";
@@ -54,9 +53,7 @@ export function useSidebarWidth() {
 export function Sidebar({
   width,
   toggle,
-  sessionsOn,
   shown,
-  openIn,
   openItems,
   itemsInProgress,
   onSearch,
@@ -66,11 +63,8 @@ export function Sidebar({
   width: ReturnType<typeof useSidebarWidth>;
   /** the button that hides the sidebar */
   toggle: ReactNode;
-  /** whether Sessions is on in Settings › Labs */
-  sessionsOn: boolean;
   /** the review shown, which the sidebar marks */
   shown: string | null;
-  openIn: "panel" | "page";
   /** how many work items are open or in progress */
   openItems: number;
   itemsInProgress: number;
@@ -96,7 +90,7 @@ export function Sidebar({
       </div>
       <div className="sidebar-scroll" data-testid="sidebar-scroll">
         <nav className="app-nav" aria-label="Main">
-          {SIDEBAR.filter((n) => sessionsOn || n.key !== "sessions").map(({ key, label, to, Icon, keys }) => (
+          {SIDEBAR.map(({ key, label, to, Icon, keys }) => (
             <Fragment key={key}>
               <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
                 <NavLink
@@ -143,7 +137,7 @@ export function Sidebar({
             </span>
           </button>
         </nav>
-        {sessionsOn ? <SidebarSessions shown={shown} /> : <SidebarProjects shown={shown} openIn={openIn} />}
+        <SidebarSessions shown={shown} />
         <UpdateNotice onDetails={() => onSettings("about")} />
         <button type="button" className="sidebar-feedback" onClick={onFeedback}>
           <MessageSquare size={15} strokeWidth={1.75} />

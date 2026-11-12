@@ -58,29 +58,15 @@ pub fn install(app: &App, ids: &[&str]) {
     .unwrap();
 }
 
-/// An app as a person first starts it: no settings written, so sessions
-/// and questions are off, as Settings › Labs starts them.
+/// An app as a person first starts it, with no settings written.
 pub fn app_as_new() -> App {
-    let app = open_with(|_| {}, false);
+    let app = open(|_| {});
     install(&app, &["forgeplane/list", "forgeplane/feedback"]);
     app
 }
 
 fn open(adjust: impl FnOnce(&mut Config)) -> App {
-    open_with(adjust, true)
-}
-
-/// Opens an app, with sessions and questions on when `sessions` says so,
-/// as most tests need.
-fn open_with(adjust: impl FnOnce(&mut Config), sessions: bool) -> App {
     let dir = tempfile::tempdir().unwrap();
-    if sessions {
-        std::fs::write(
-            dir.path().join("settings.json"),
-            r#"{"labs": {"sessions": true}}"#,
-        )
-        .unwrap();
-    }
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
     config.telemetry_env = false;
