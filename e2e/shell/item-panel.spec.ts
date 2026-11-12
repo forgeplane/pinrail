@@ -66,6 +66,8 @@ test("with the panel open, J and K open the item they move to", async ({ page, r
   const second = await add(request, repo, "Second");
   const third = await add(request, repo, "Third");
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  // J pressed before the list has loaded has no row to move to
+  await expect(row(page, third.key)).toBeVisible();
   // with the panel closed, J only moves
   await page.locator("body").press("j");
   await expect(row(page, second.key)).toHaveClass(/is-focused/);
@@ -483,8 +485,9 @@ test("an item is copied as Markdown", async ({ page, request, context }) => {
   const item = await add(request, repo, "Load themes", { body: "Read the files." });
   await openItem(page, repo, item.key);
   await panel(page).getByRole("button", { name: "Copy as Markdown" }).click();
+  // Windows keeps clipboard text with CRLF line endings
   await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).replaceAll("\r\n", "\n"))
     .toBe(`# ${item.key} Load themes\n\nRead the files.\n`);
 });
 
