@@ -117,6 +117,7 @@ fn pinrail() -> Command {
         .env_remove("CODEX_SANDBOX")
         .env_remove("CODEX_CI")
         .env_remove("CURSOR_AGENT")
+        .env_remove("CURSOR_CONVERSATION_ID")
         .env_remove("ANTIGRAVITY_AGENT")
         .env_remove("ANTIGRAVITY_CONVERSATION_ID")
         .env_remove("OPENCODE")

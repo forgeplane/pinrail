@@ -52,9 +52,10 @@ const MARKERS: [(&str, &[&str]); 14] = [
 ];
 
 /// The variable each agent keeps its session's id in.
-const SESSIONS: [(&str, &str); 11] = [
+const SESSIONS: [(&str, &str); 12] = [
     ("claude-code", "CLAUDE_CODE_SESSION_ID"),
     ("codex", "CODEX_SESSION_ID"),
+    ("cursor", "CURSOR_CONVERSATION_ID"),
     ("opencode", "OPENCODE_SESSION_ID"),
     ("grok", "GROK_SESSION_ID"),
     ("antigravity", "ANTIGRAVITY_CONVERSATION_ID"),
@@ -228,6 +229,26 @@ mod tests {
         assert_eq!(
             detect(&[("CURSOR_TRACE_ID", "abc"), ("ANTIGRAVITY_AGENT", " ")]),
             None
+        );
+    }
+
+    fn session(vars: &[(&str, &str)]) -> Option<String> {
+        let env: HashMap<&str, &str> = vars.iter().copied().collect();
+        super::session_with(|k| env.get(k).map(|v| v.to_string()))
+    }
+
+    #[test]
+    fn cursor_s_session_is_its_conversation() {
+        // what Cursor Agent 2026.11.11 sets in a tool shell
+        assert_eq!(
+            session(&[
+                ("CURSOR_AGENT", "1"),
+                ("CURSOR_INVOKED_AS", "cursor-agent"),
+                ("CURSOR_CONVERSATION_ID", "482560b1-6fc7"),
+                ("CURSOR_REQUEST_ID", "3e1e4aa4-b28d"),
+            ])
+            .as_deref(),
+            Some("482560b1-6fc7")
         );
     }
 }

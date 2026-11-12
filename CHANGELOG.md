@@ -9,6 +9,13 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
+## [Unreleased]
+
+### Fixed
+
+- `pinrail status` and the other session commands now find the session of
+  Cursor Agent.
+
 ## [0.6.0]
 
 ### Added
