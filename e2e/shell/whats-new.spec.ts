@@ -102,7 +102,9 @@ const firstCard = (
 test("the newest notes open again from ⌘K and from Settings › About, without changing what was seen", async ({
   page,
 }) => {
-  // a development build previews the notes, even though it reports an older release
+  // the suite serves a production build, which shows notes only up to the
+  // release it runs as
+  await runAs(page, newest!);
   await page.goto("/#/");
   await expect(page.getByTestId("inbox-total")).toBeVisible();
   const dialog = page.getByTestId("whats-new");
