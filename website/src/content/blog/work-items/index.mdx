@@ -1,0 +1,131 @@
+---
+title: Work items for your agents
+dek: An agent can work through a plan on its own if it knows what is ready, what someone else holds, and what still waits for you. Pinrail 0.6 adds work items, task tracking built for agents and linked to the sessions and reviews around them.
+description: How Pinrail 0.6's work items let coding agents take the next ready task, keep two agents off the same task, and tie each task to the sessions that worked on it and the reviews they sent, with dependencies, sub-items and strict state changes, and without tags, boards or deadlines.
+date: "2026-11-12"
+kind: Release
+minutes: 7
+---
+
+import Shot from "../../../components/blog/Shot.astro";
+import items from "./work-items.png";
+import session from "./session.png";
+import quickAdd from "./quick-add.png";
+
+<p class="lead">I ask an agent to add rate limiting to an API. It plans the work in five steps, and the plan lives in a Markdown file, or in the conversation. An hour later I start a second agent on the same repository. It cannot see which step the first one has taken, which steps wait for another, or which one I still have to approve. Neither can I, without reading both conversations.</p>
+
+Pinrail started as a place to review what agents make, and 0.5 added sessions: the questions, statuses and notes of one agent run, in one thread. What was missing was the work itself: the list of tasks that the reviews and the sessions are about. Pinrail 0.6 adds it as **work items**.
+
+## A task list an agent can work through
+
+A work item is a task, such as a feature, a bug or a step of a plan. It belongs to a repository, which gives it a key such as `API-3`, and it can have sub-items and depend on other items. You add items in the app, and agents add, take and close them with `pinrail items`.
+
+The point is that an agent can work through the items without asking you what to do next. Pinrail works out which items are **ready**: open, with every item they depend on done and no open sub-item. The agent takes the next one, does the work, and marks it done with a comment that says what changed:
+
+```text
+$ pinrail items next --claim
+API-3 Answer 429 with Retry-After over the limit
+in progress · claimed by claude-code (session 3c8d1f60-2b7a-4e19-…)
+…
+You hold API-3 now: the reviews and questions you send belong to it
+until you mark it done or release it.
+
+$ pinrail items done API-3 --comment "Retry-After in seconds, rounded up."
+Done: API-3 Answer 429 with Retry-After over the limit.
+Now ready: API-4 Load test the limiter
+Now ready: API-5 Document the limits for API users
+```
+
+Closing an item unblocks the ones that waited for it, and the command says so, so the agent can go on. When the last open sub-item of a parent is done, the parent is done too, unless you turn that off. An agent that plans a larger piece of work records the plan as a breakdown: one JSON file of items with their parents and dependencies, added in one request.
+
+## Items, sessions and reviews are linked
+
+A work item is not a separate list that you keep in sync by hand. While a session holds an item, the reviews and questions it sends belong to that item, and its comments on the item show in its thread. So each of them leads to the others:
+
+- An item lists the sessions that worked on it, the reviews and questions they sent, with what still waits for you, and the agents' comments.
+- A session's thread shows the items it holds, and lines where the agent took one, closed one or commented on it.
+- A review's header names the items it belongs to, and you can add it to another or take it out.
+
+<Shot
+  n={1}
+  src={items}
+  alt="The Work items page: a plan for rate limiting nested under its item, with one step done, one in progress and waiting on you, and two blocked by it. The step in progress is open beside the list, with its dependencies, a question that waits for the person, the two sessions that worked on it and the agent's comment."
+  caption="An item open beside the list. The question the agent asked about it waits for you, and the item names both sessions that worked on it."
+/>
+
+When I open an item, I see where it stands without opening a terminal: who holds it, what it waits on, what the agent asked and what it said it did. When I open a session, its details list the items it worked on and the reviews it sent, stage by stage.
+
+<Shot
+  n={2}
+  src={session}
+  alt="A session's page: the thread with a question about a diff of config/limits.toml, answered Yes, a note with a chart and a decided review. Beside it, the session's details: five work items with their status, two finished stages, and two decided reviews."
+  caption="A session's details: the work items it held, its stages and the reviews it sent."
+/>
+
+### The whole context in one command
+
+Linking them is what gives an agent context. An agent that takes an item does not start from a title. `pinrail items show` gives it, in one command, everything around the item: the description and its files, the items it depends on with what the agents that finished them said, the reviews and questions about it with their outcomes, the comments from you and from other agents, and the sessions that worked on it.
+
+```text
+$ pinrail items show API-3
+API-3 Answer 429 with Retry-After over the limit
+in progress · claimed by claude-code (session 9e41b7d2-5c3a-…)
+part of API-1 Rate limit the public API (1 of 4 done)
+
+## Description
+When a key's bucket is empty, answer `429 Too Many Requests` at once, …
+
+## Depends on
+- API-2 Token bucket for each API key, done by claude-code: "In Redis."
+
+## Reviews
+- r_01M77W… "Round Retry-After up to whole seconds?" (question), decided
+
+## Comments
+- claude-code, 2026-11-12: `Retry-After` is rounded up to whole seconds.
+
+## Sessions
+- claude-code 3c8d1f60-2b7a-…: "Opened pull request #214"
+```
+
+From there it reads a review's decision with `pinrail show`, or the files you attached. A second agent that picks up an item where the first stopped knows what was decided and why, without your explaining it again in a new conversation.
+
+:::tip[Context, not just a task list]
+Because items, sessions and reviews are linked, an item carries its own history: what was asked, what you answered, what was decided and what the agents said they did. Any agent that takes it gets all of it at once, and so do you when you open it.
+:::
+
+## One holder at a time, and strict rules
+
+Two agents in the same repository is where a plan in a Markdown file breaks: both read it, and both start on the first step. A work item has one holder at a time, one agent session or you. Pinrail refuses a claim on an item that someone else holds, and names who holds it. `pinrail items next` only offers items nobody holds. Taking an item over is a deliberate step: an agent has to ask for it with `--take`.
+
+The other rules exist for the same reason: an agent working on its own should leave a record you can trust.
+
+- An item cannot be done while one of its sub-items is open.
+- An agent cannot close an item while one of its reviews or questions still waits for you.
+- A dependency that would make items wait for each other in a circle is refused, with the circle.
+- An item you put on hold is out of reach: no agent takes it or its sub-items, and the agents working on one are told to stop.
+
+To choose what comes next, queue the items you want first. `pinrail items next` offers the first ready item of your queue before any other. There is no priority field.
+
+## What it leaves out
+
+We do not want to build another task manager. Work items have no tags, no boards, no assignees beyond the holder, no estimates and no deadlines. They track what an agent needs to know to take the next task, and what you need to know to see where the work stands. If your team plans in an issue tracker, keep it: an item has a link field for the issue it comes from.
+
+## Adding items yourself
+
+Most items come from agents, but ideas come up while you read a review or follow a session. Press <kbd>⌘⇧C</kbd> on any page to add an item without leaving it. The dialog starts on the repository of the session or review you are looking at, and `#` in the description links another item.
+
+<Shot
+  n={3}
+  src={quickAdd}
+  alt="The quick add dialog over a session's thread: the title Log the keys that hit the limit, the repository acme/api already chosen, no parent, and a description that names API-3."
+  caption="Adding an item while following a session. The repository is the session's."
+/>
+
+## Try it
+
+Work items come with Pinrail 0.6. After you update, update the Pinrail skill in *Settings › Agents*, so that your agents know `pinrail items`. Then ask an agent to plan a piece of work as work items, or add a few yourself, and ask it to work through them.
+
+Two limits are worth knowing. You still start and steer agents in their own terminals: Pinrail shows what a session sends and takes your answers, but it cannot give an agent a new prompt. And a comment you add to an item reaches the agent holding it only the next time the agent runs `pinrail status`.
+
+The docs explain [how work items work](/docs/concepts/work-items/), [the Work items page](/docs/using/work-items/) and [the commands an agent uses](/docs/agents/cli/#work-items).
