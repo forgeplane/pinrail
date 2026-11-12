@@ -199,9 +199,14 @@ test("the inbox groups and filters by project, and names each review's repositor
       name.appendChild(probe);
       const baseline = probe.getBoundingClientRect().bottom;
       probe.remove();
+      // the capitals' height measured at 1000px and scaled: Chromium on Linux
+      // rounds a glyph's bounds up to whole pixels, which at the name's size
+      // would move the centre by up to half a pixel
+      const style = getComputedStyle(name);
       const context = document.createElement("canvas").getContext("2d")!;
-      context.font = getComputedStyle(name).font;
-      const capCentre = baseline - context.measureText("P").actualBoundingBoxAscent / 2;
+      context.font = `${style.fontWeight} 1000px ${style.fontFamily}`;
+      const cap = (context.measureText("P").actualBoundingBoxAscent / 1000) * parseFloat(style.fontSize);
+      const capCentre = baseline - cap / 2;
       return [...h.querySelectorAll(":scope > svg, :scope > .project-avatar")].map((icon) => {
         const box = icon.getBoundingClientRect();
         return box.top + box.height / 2 - capCentre;
@@ -323,9 +328,11 @@ test("a project's avatar takes a colour and an icon, and shows where the project
       svg.top +
       (Number(text.getAttribute("y")) + parseFloat(text.getAttribute("dy")!) * Number(text.getAttribute("font-size"))) *
         scale;
+    // measured at 1000px and scaled, as Chromium on Linux rounds a glyph's
+    // bounds up to whole pixels
     const context = document.createElement("canvas").getContext("2d")!;
-    context.font = `${getComputedStyle(text).fontWeight} ${size}px ${getComputedStyle(text).fontFamily}`;
-    const cap = context.measureText("A").actualBoundingBoxAscent;
+    context.font = `${getComputedStyle(text).fontWeight} 1000px ${getComputedStyle(text).fontFamily}`;
+    const cap = (context.measureText("A").actualBoundingBoxAscent / 1000) * size;
     return baseline - cap / 2 - (svg.top + svg.height / 2);
   });
   expect(Math.abs(offset)).toBeLessThan(0.3);
