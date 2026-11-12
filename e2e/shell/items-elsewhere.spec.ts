@@ -398,6 +398,33 @@ test("a session's thread loads again only for changes to its own items", async (
   expect(loads).toBeGreaterThan(0);
 });
 
+test("a comment written before the app's event stream opens still shows in the thread", async ({ page, request }) => {
+  const repo = fresh("early");
+  const item = await add(request, repo, "Load themes");
+  const session = `s-early-${Date.now()}`;
+  await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Loading themes", kind: "start", origin: { repo } },
+  });
+  const comment = (body: string) =>
+    request.post(`${core}/api/v1/items/${item.key}/comments`, { data: { body, by: "claude-code", session } });
+  expect((await comment("Themes load from a folder.")).status()).toBe(201);
+
+  // the event stream opens only once the comment below is written, as on a
+  // slow computer where the thread loads first
+  let release!: () => void;
+  const held = new Promise<void>((done) => (release = done));
+  await page.route(/\/api\/v1\/events/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const cards = page.getByTestId("thread-comment");
+  await expect(cards).toHaveCount(1);
+  expect((await comment("Done: they reload when a file changes.")).status()).toBe(201);
+  release();
+  await expect(cards).toHaveCount(2);
+});
+
 test("a comment the session's agent writes on an item shows in its thread", async ({ page, request }) => {
   const repo = fresh("comment");
   const item = await add(request, repo, "Load themes");

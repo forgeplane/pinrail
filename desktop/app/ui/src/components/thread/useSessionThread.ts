@@ -3,7 +3,7 @@
 // items, and the items it holds or worked on, loaded again when a live
 // notice is about any of them.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, EVERY_ITEM_STATUS, errorMessage } from "../../api/client";
 import type {
   Notice,
@@ -15,7 +15,7 @@ import type {
   SessionStatus,
   WorkItem,
 } from "../../api/types";
-import { noticeItem, useNotice } from "../../state/live";
+import { noticeItem, useConnected, useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
 import { useLatest } from "../../lib/useLatest";
 
@@ -94,6 +94,14 @@ export function useSessionThread(
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     load();
   }, [load]);
+  // and again when the event stream opens: what changed before it opened,
+  // such as while the thread loaded at startup, reaches no notice
+  const connected = useConnected();
+  const wasConnected = useRef(connected);
+  useEffect(() => {
+    if (connected && !wasConnected.current) load();
+    wasConnected.current = connected;
+  }, [connected, load]);
 
   // anything about one of its reviews, or a new one from the session
   const ids = useLatest(new Set(items.map((r) => r.id)));
