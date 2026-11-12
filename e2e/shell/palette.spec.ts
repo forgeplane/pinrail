@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, core, createReview } from "./helpers";
 
 test("⌘K finds every review, discarded ones included", async ({ page }) => {

@@ -1,7 +1,7 @@
 // A session's thread opens at its newest message, and stays there while
 // what it shows finishes laying out.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let n = 0;

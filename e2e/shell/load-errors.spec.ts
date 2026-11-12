@@ -1,6 +1,6 @@
 // A list whose load fails says why, rather than showing an empty page.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 
 test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 

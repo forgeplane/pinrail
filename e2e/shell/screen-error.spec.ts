@@ -1,7 +1,7 @@
 // A screen that throws while it renders: the app shows what failed in its
 // place, and the sidebar and the other screens stay usable.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("a screen that fails to render leaves the rest of the app usable", async ({ page }) => {
   // a project the Projects screen cannot draw: its repositories are not a list

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("⌘⇧L switches the theme, and T is left to the plugins", async ({ page }) => {
   await page.goto("/#/history");

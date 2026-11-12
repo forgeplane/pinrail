@@ -1,7 +1,7 @@
 // The stages in a session's details: the latest shown, and the earlier ones
 // folded behind a button.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let n = 0;

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { createReview } from "./helpers";
 
 /** Tauri moves the window when the element pressed carries the drag region

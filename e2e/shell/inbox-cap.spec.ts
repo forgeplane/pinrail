@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // a route handler may still be reading a response when the test ends, and
 // closing the page disposes it: such a handler's error is not the test's

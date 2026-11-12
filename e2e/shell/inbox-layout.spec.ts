@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, core, createReview, pickIn, settingSaved, settingsDialog, shownIn } from "./helpers";
 
 // the layout is a setting the core keeps: each test leaves the default

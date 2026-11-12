@@ -2,7 +2,7 @@
 // from a session's thread or from under a session in the sidebar names the
 // session, and its decision leads back to the thread.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { core, onePayload, onReviewPages } from "./helpers";
 
 // these tests open a review on a page of its own, which the breadcrumb heads

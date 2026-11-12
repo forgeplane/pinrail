@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { clearInbox, core, onReviewPages } from "./helpers";
 
 // a review opened from the inbox or the sidebar is followed on its own page

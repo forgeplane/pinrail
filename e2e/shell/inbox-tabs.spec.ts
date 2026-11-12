@@ -1,6 +1,6 @@
 // The inbox's tabs: Pending, New rounds and History, under one filter bar.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, core, createReview, decide, shownIn, toggleFilter } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };

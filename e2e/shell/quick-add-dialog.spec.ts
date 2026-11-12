@@ -1,7 +1,7 @@
 // Adding a work item from any page with ⌘⇧C: a dialog with the Work items
 // page's quick add, which on that page opens in place.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let counter = 0;

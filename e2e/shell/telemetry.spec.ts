@@ -1,7 +1,7 @@
 // The notice about usage data at the top of the inbox, and Settings ›
 // Privacy: its switches and what is sent.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, settingSaved, settingsDialog } from "./helpers";
 
 const telemetry = (request: APIRequestContext, change: Record<string, unknown>) =>

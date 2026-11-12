@@ -23,7 +23,11 @@ async fn show(State(state): State<Arc<Pinrail>>) -> Json<Value> {
     Json(state.settings().get())
 }
 
-async fn change(State(state): State<Arc<Pinrail>>, body: Bytes) -> Response {
+async fn change(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    body: Bytes,
+) -> Response {
     match apply(&state, &body) {
         Ok(value) => Json(value).into_response(),
         Err(error) => ApiError(error).into_response(),

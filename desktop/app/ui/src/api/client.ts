@@ -1,6 +1,6 @@
 // The typed client for /api/v1. Inside the app the shell asks Tauri for the
-// server's URL; in a browser (development, tests) it uses VITE_PINRAIL_URL or
-// the default port.
+// server's URL and the person token; in a browser (development, tests) it uses
+// VITE_PINRAIL_URL or the default port, and VITE_PINRAIL_TOKEN.
 
 import type { Attached } from "../lib/attach";
 import type {
@@ -64,26 +64,43 @@ export function errorMessage(error: unknown, fallback = "Pinrail could not be re
   return error.violations[0]?.message ?? error.message;
 }
 
-let baseUrl: Promise<string> | undefined;
+type Server = { url: string; token: string };
+let server: Promise<Server> | undefined;
 
 export const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export function serverUrl(): Promise<string> {
-  baseUrl ??= (async () => {
+function serverInfo(): Promise<Server> {
+  server ??= (async () => {
     if (inTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
-      return invoke<string>("server_url");
+      return invoke<Server>("server_url");
     }
-    return import.meta.env.VITE_PINRAIL_URL ?? "http://127.0.0.1:4747";
+    return {
+      url: import.meta.env.VITE_PINRAIL_URL ?? "http://127.0.0.1:4747",
+      token: import.meta.env.VITE_PINRAIL_TOKEN ?? "",
+    };
   })();
-  return baseUrl;
+  return server;
+}
+
+export async function serverUrl(): Promise<string> {
+  return (await serverInfo()).url;
+}
+
+/** The headers of a write: the core takes a write from the window only
+ *  with the person token, which proves that the person made it. Reads go
+ *  without it. */
+async function writeHeaders(contentType?: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { authorization: `Bearer ${(await serverInfo()).token}` };
+  if (contentType) headers["content-type"] = contentType;
+  return headers;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${await serverUrl()}${path}`, {
     method,
     // the core refuses a write that does not say it is JSON, even an empty one
-    headers: method === "GET" ? {} : { "content-type": "application/json" },
+    headers: method === "GET" ? {} : await writeHeaders("application/json"),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return undefined as T;
@@ -203,7 +220,7 @@ export const api = {
     const sha256 = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
     const response = await fetch(`${await serverUrl()}/api/v1/attachments/${sha256}`, {
       method: "PUT",
-      headers: { "content-type": "application/octet-stream" },
+      headers: await writeHeaders("application/octet-stream"),
       body: bytes,
     });
     if (!response.ok) throw new ApiError(response.status, await errorBody(response));
@@ -213,7 +230,7 @@ export const api = {
   setProjectImage: async (id: string, png: Blob | null) => {
     const response = await fetch(`${await serverUrl()}/api/v1/projects/${seg(id)}/image`, {
       method: png ? "PUT" : "DELETE",
-      headers: png ? { "content-type": "image/png" } : {},
+      headers: await writeHeaders(png ? "image/png" : undefined),
       body: png ?? undefined,
     });
     if (!response.ok) throw new ApiError(response.status, await errorBody(response));

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { core, settingsSection } from "./helpers";
 
 // The browser build has no native side: the section is there, and says the

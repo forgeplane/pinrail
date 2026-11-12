@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";

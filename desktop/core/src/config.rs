@@ -31,6 +31,10 @@ pub struct Config {
     /// endpoint in a release build. `None` sends nothing, as a development
     /// build and the tests do, so they never reach the real endpoint.
     pub telemetry_url: Option<String>,
+    /// What the app's window proves it acts for the person with: 32 random
+    /// bytes in hex, new on every start, and never written to disk by the
+    /// core. Person actions need it as `Authorization: Bearer <token>`.
+    pub person_token: String,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -86,6 +90,7 @@ impl Config {
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
             telemetry_env: true,
             telemetry_url: None,
+            person_token: new_token(),
         }
     }
 
@@ -135,6 +140,13 @@ impl Config {
     pub fn plugins_dir(&self) -> PathBuf {
         self.data_dir.join("plugins")
     }
+}
+
+/// 32 random bytes, in hex.
+fn new_token() -> String {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("the operating system's random numbers");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The port to serve on: `PINRAIL_PORT` when it is a port, else the one

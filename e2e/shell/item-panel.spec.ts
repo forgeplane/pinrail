@@ -3,7 +3,7 @@
 // comments with the activity, and deleting it. Each test works in a
 // repository of its own, since the shard's core is shared.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { createHash } from "node:crypto";
 import { core, fakeRecognition, listening, shellOrigin, speak } from "./helpers";
 

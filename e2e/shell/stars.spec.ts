@@ -2,7 +2,7 @@
 // review's toolbar and its shortcut, from a row of the inbox and of the
 // history, and with the history's filter.
 
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import { clearInbox, core, createReview, decide, onePayload, openReviewsIn, toggleFilter } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };

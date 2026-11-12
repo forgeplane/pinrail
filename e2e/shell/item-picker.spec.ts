@@ -2,7 +2,7 @@
 // those of the item's repository first, and puts the chosen one's key in
 // the text.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let counter = 0;

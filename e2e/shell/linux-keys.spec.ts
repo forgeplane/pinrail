@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { settingsDialog, settingsSection } from "./helpers";
 
 // The app on Linux: keys are named as a Linux keyboard names them

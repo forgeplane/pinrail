@@ -44,6 +44,7 @@ async fn list(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError
 /// `repos`, moving any repository that is in another project: 201 with the
 /// project.
 async fn create(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
@@ -75,6 +76,7 @@ async fn create(
 /// them; an empty or `null` description, colour or emoji removes it: the
 /// project, or 404.
 async fn update(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
@@ -105,6 +107,7 @@ async fn update(
 
 /// Deletes a project, leaving its repositories in none: 204, or 404.
 async fn delete(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
@@ -116,6 +119,7 @@ async fn delete(
 /// `project_id`, taking it out of the one it was in; `null` puts it in
 /// none: 204, or 404 for an unknown project.
 async fn set_repo(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(repo): Path<String>,
     body: Bytes,
@@ -143,6 +147,7 @@ fn optional_text(body: &Value, key: &str) -> Result<Option<String>, Error> {
 /// Sets the PNG the project's avatar shows, sent as the body: the project,
 /// 404, or 422 for a body that is not a PNG or is over 512 KB.
 async fn set_image(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
@@ -152,6 +157,7 @@ async fn set_image(
 
 /// Removes the project's PNG: the project, or 404.
 async fn remove_image(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
@@ -199,6 +205,7 @@ async fn image(
 /// its project. Answers how many `reviews` and `sessions` went, and how
 /// many were `discarded`.
 async fn delete_repo(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(repo): Path<String>,
     headers: HeaderMap,
@@ -220,6 +227,7 @@ fn text(body: &Value, key: &str) -> Result<String, Error> {
 /// letters that no other repository has or had: its items' old keys still
 /// find them. Answers 204.
 async fn set_prefix(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(repo): Path<String>,
     body: Bytes,

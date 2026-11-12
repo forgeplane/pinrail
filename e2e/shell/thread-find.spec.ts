@@ -1,7 +1,7 @@
 // Finding text in a session's thread with ⌘F, as a browser's find in page
 // does, while a review open beside the thread keeps its own find.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, onePayload, openReviewsIn } from "./helpers";
 
 let n = 0;

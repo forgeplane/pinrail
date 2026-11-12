@@ -16,6 +16,12 @@ export const uiPort = 5199 + 10 * shard;
 /** The origin the shell runs on in these tests, which the core takes for the app's. */
 export const shellOrigin = `http://127.0.0.1:${uiPort}`;
 
+/** The person token this shard's core takes, from a file the config writes,
+ *  and the window is built with. */
+export const personToken = `shell-person-token-${shard}`;
+/** The header that makes a request the person's, as the window's are. */
+export const asPerson = { authorization: `Bearer ${personToken}` };
+
 /** A list review with one proposal, for when the content does not matter. */
 export const onePayload = {
   summary: "One proposal.",

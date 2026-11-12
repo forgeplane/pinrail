@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, createReview, decide } from "./helpers";
 
 test("history shows 50 a page, pages through the rest, and starts again at page 1 when filtered", async ({ page }) => {

@@ -30,12 +30,18 @@ use updater::Updates;
 /// The shell listens for this; the payload names the command.
 const COMMAND_EVENT: &str = "pinrail:command";
 
-/// Where the shell finds the server the app started.
-struct ServerUrl(String);
+/// Where the shell finds the server the app started, and the person token
+/// it proves with that it acts for the person. Only the window gets the
+/// token: the core keeps it in memory and never writes it down.
+#[derive(Clone, serde::Serialize)]
+struct ServerUrl {
+    url: String,
+    token: String,
+}
 
 #[tauri::command]
-fn server_url(url: State<'_, ServerUrl>) -> String {
-    url.0.clone()
+fn server_url(server: State<'_, ServerUrl>) -> ServerUrl {
+    server.inner().clone()
 }
 
 /// Where the window's buttons are, for the shell to place its title bar's
@@ -539,7 +545,10 @@ pub fn run() {
     }
 
     let config = Config::from_env();
-    let url = config.url();
+    let server = ServerUrl {
+        url: config.url(),
+        token: config.person_token.clone(),
+    };
 
     let app = tauri::Builder::default()
         // A second launch, with or without a URL, lands in the first one.
@@ -567,7 +576,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(ServerUrl(url))
+        .manage(server)
         .manage(Updates::new())
         .setup(move |app| {
             let mut config = config;

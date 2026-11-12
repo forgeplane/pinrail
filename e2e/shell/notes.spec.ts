@@ -1,7 +1,7 @@
 // Notes an agent sends with `pinrail status --note`: Markdown shown as a card
 // in the session's thread, which informs and changes nothing else.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { createHash } from "node:crypto";
 import { core } from "./helpers";
 

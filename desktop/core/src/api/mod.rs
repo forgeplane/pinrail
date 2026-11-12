@@ -94,6 +94,10 @@ fn router_with(state: ApiState) -> Router {
         .layer(axum::extract::DefaultBodyLimit::max(guard::JSON_LIMIT))
         .layer(axum::middleware::from_fn(guard::body_limit))
         // inside CORS, so a preflight is answered before a write is judged
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            guard::window_writes,
+        ))
         .layer(axum::middleware::from_fn(guard::json_writes))
         .layer(cors())
         // outermost: a request from a page that rebound its name to loopback
@@ -284,7 +288,10 @@ fn cors() -> CorsLayer {
             axum::http::Method::PUT,
             axum::http::Method::DELETE,
         ])
-        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
 }
 
 /// Parses an optional JSON body: empty means an empty object.

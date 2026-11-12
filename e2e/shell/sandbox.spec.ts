@@ -11,7 +11,7 @@
 // refusal could also come from the network, the test reads the policy's own
 // violation report and checks which rule fired.
 
-import { expect, test, type Frame } from "@playwright/test";
+import { expect, test, type Frame } from "./fixtures";
 import { clearInbox, core, corePort, createReview } from "./helpers";
 
 /** Live, reachable, and outside every source the frame's policy allows. */

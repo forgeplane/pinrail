@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pinrail, pinrailJson, tmpFile, type Run } from "../helpers/pinrail";
 import { scratch } from "../helpers/scratch";
-import { loadState } from "../helpers/state";
+import { loadState, personToken } from "../helpers/state";
 
 /** A git checkout of its own repository, so that its items number from 1. */
 function checkout(): { dir: string; repo: string } {
@@ -31,7 +31,11 @@ function ok(r: Run): Run {
 async function asPerson(method: string, apiPath: string, body?: unknown) {
   const response = await fetch(`${loadState().url}${apiPath}`, {
     method,
-    headers: { origin: "tauri://localhost", "content-type": "application/json" },
+    headers: {
+      origin: "tauri://localhost",
+      authorization: `Bearer ${personToken}`,
+      "content-type": "application/json",
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   expect(response.ok, await response.clone().text()).toBe(true);

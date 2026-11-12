@@ -1,7 +1,7 @@
 // The Projects page: projects made and changed in the app, listed by name,
 // each with its repositories, and the repositories in no project last.
 
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "./fixtures";
 import { clearInbox, core, createReview, pickIn, settingSaved, toast } from "./helpers";
 
 /** Deletes every project, so each test starts with none. */

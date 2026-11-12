@@ -14,11 +14,14 @@ pub struct Options {
     pub sdk_dir: Option<PathBuf>,
     /// plugin folders offered beside the app's official plugins, for tests
     pub catalog_dir: Option<PathBuf>,
+    /// a file holding the person token, for tests that act as the person
+    pub person_token_file: Option<PathBuf>,
 }
 
 /// Parses `--headless [--port N] [--data-dir D] [--sdk-dir S]
-/// [--catalog-dir C]`, the last for tests: the plugin folders in C are
-/// offered as official plugins beside the ones the app carries. Returns
+/// [--catalog-dir C] [--person-token-file F]`, the last two for tests: the
+/// plugin folders in C are offered as official plugins beside the ones the
+/// app carries, and F holds the person token the server takes. Returns
 /// `None` when `--headless` is absent, so the app starts normally.
 pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
     if !args.iter().any(|a| a == "--headless") {
@@ -47,6 +50,13 @@ pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
                 options.catalog_dir =
                     Some(iter.next().ok_or("--catalog-dir needs a value")?.into());
             }
+            "--person-token-file" => {
+                options.person_token_file = Some(
+                    iter.next()
+                        .ok_or("--person-token-file needs a value")?
+                        .into(),
+                );
+            }
             other => return Err(format!("unknown argument {other}")),
         }
     }
@@ -54,7 +64,7 @@ pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
 }
 
 /// The core's configuration: the environment's, with the flags over it.
-fn config(options: Options, exe: &std::path::Path) -> Config {
+fn config(options: Options, exe: &std::path::Path) -> Result<Config, String> {
     let mut config = Config::from_env();
     if let Some(port) = options.port {
         config.port = port;
@@ -69,12 +79,27 @@ fn config(options: Options, exe: &std::path::Path) -> Config {
         config.sdk_dir = crate::sdk_dir(exe);
     }
     config.catalog_dir = options.catalog_dir;
-    config
+    if let Some(file) = options.person_token_file {
+        let token = std::fs::read_to_string(&file)
+            .map_err(|error| format!("cannot read {}: {error}", file.display()))?;
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(format!("{} holds no person token", file.display()));
+        }
+        config.person_token = token.to_string();
+    }
+    Ok(config)
 }
 
 pub fn run(options: Options) -> i32 {
     let exe = std::env::current_exe().unwrap_or_default();
-    let config = config(options, &exe);
+    let config = match config(options, &exe) {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("pinrail: cannot start: {error}");
+            return 1;
+        }
+    };
     // the port first: a server already running on it keeps its data
     // directory to itself
     let listener = match api::bind(&config) {
@@ -151,9 +176,41 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(options.catalog_dir, Some(PathBuf::from("/tmp/catalog")));
-        let config = config(options, std::path::Path::new("/nowhere/Pinrail"));
+        let config = config(options, std::path::Path::new("/nowhere/Pinrail")).unwrap();
         assert_eq!(config.catalog_dir, Some(PathBuf::from("/tmp/catalog")));
         assert!(parse(&args(&["--catalog-dir"])).is_err());
+    }
+
+    #[test]
+    fn a_test_gives_the_person_token_in_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("token");
+        std::fs::write(&file, "test-token\n").unwrap();
+        let args = [
+            "Pinrail",
+            "--headless",
+            "--person-token-file",
+            file.to_str().unwrap(),
+        ]
+        .map(String::from);
+        let options = parse(&args).unwrap().unwrap();
+        let config = config(options, std::path::Path::new("/nowhere/Pinrail")).unwrap();
+        assert_eq!(config.person_token, "test-token");
+
+        // a missing or empty file stops the server rather than starting it
+        // with a token nobody holds
+        std::fs::write(&file, " ").unwrap();
+        let options = parse(&args).unwrap().unwrap();
+        assert!(config_err(options).contains("holds no person token"));
+        let options = Options {
+            person_token_file: Some(dir.path().join("missing")),
+            ..Options::default()
+        };
+        assert!(config_err(options).contains("cannot read"));
+    }
+
+    fn config_err(options: Options) -> String {
+        config(options, std::path::Path::new("/nowhere/Pinrail")).unwrap_err()
     }
 
     #[test]
@@ -182,7 +239,7 @@ mod tests {
         std::fs::create_dir_all(&sdk).unwrap();
         std::fs::write(sdk.join("pinrail-plugin.js"), "").unwrap();
 
-        let config = config(Options::default(), &exe);
+        let config = config(Options::default(), &exe).unwrap();
         assert_eq!(
             config.sdk_dir.map(|d| d.canonicalize().unwrap()),
             Some(sdk.canonicalize().unwrap())

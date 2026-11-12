@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import path from "node:path";
 import { clearInbox, createReview, decide, linkPlugin } from "./helpers";
 

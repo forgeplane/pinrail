@@ -5,7 +5,7 @@
 // fixtures give the same pictures on any machine, on any day.
 
 import { execFileSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -73,6 +73,12 @@ export async function startApp({ build = true } = {}) {
   const core = `http://127.0.0.1:${corePort}`;
   const ui = `http://127.0.0.1:${uiPort}`;
 
+  // the person token the core takes, the shell is served with and the seed
+  // sends as the app
+  const token = randomBytes(32).toString("hex");
+  const tokenFile = path.join(path.dirname(data), "person-token");
+  fs.writeFileSync(tokenFile, token, { mode: 0o600 });
+
   let server = null;
   const startCore = async () => {
     server = spawn(
@@ -85,6 +91,8 @@ export async function startApp({ build = true } = {}) {
         data,
         "--sdk-dir",
         path.join(desktop, "app", "sdk", "v1"),
+        "--person-token-file",
+        tokenFile,
       ],
       {
         env: { ...process.env, PINRAIL_SHELL_ORIGIN: ui },
@@ -105,7 +113,7 @@ export async function startApp({ build = true } = {}) {
   execFileSync("npm", ["run", "--silent", "sdk:build"], { cwd: path.join(desktop, "app"), stdio: "inherit" });
   const vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], {
     cwd: path.join(desktop, "app"),
-    env: { ...process.env, VITE_PINRAIL_URL: core },
+    env: { ...process.env, VITE_PINRAIL_URL: core, VITE_PINRAIL_TOKEN: token },
     stdio: ["ignore", "ignore", "inherit"],
   });
   await waitFor(ui, "the shell");

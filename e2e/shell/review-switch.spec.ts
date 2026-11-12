@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import path from "node:path";
 import { clearInbox, core, createReview, decide, linkPlugin, onReviewPages } from "./helpers";
 

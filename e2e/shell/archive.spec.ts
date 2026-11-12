@@ -2,7 +2,7 @@
 // Sessions page and with E, the Show archived filter, and new activity
 // bringing an archived session back.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { clearInbox, core, openReviewsIn, toggleFilter } from "./helpers";
 
 let n = 0;

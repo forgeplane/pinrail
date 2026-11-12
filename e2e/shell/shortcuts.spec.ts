@@ -1,7 +1,7 @@
 // The keyboard-shortcuts dialog: the keys in sections, those of the page
 // first, and every section on request or when searching.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 const dialog = (page: Page) => page.getByRole("dialog", { name: "Keyboard shortcuts" });

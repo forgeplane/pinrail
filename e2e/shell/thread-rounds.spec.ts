@@ -2,7 +2,7 @@
 // round was sent and names its round, and a line marks where a later round
 // was sent.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, onePayload } from "./helpers";
 
 let n = 0;

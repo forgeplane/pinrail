@@ -1,6 +1,6 @@
 // A link the agent writes in a session's thread opens in the browser.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let n = 0;

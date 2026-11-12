@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, createReview, decide, openReviewsIn } from "./helpers";
 
 test.afterEach(({ request }) => openReviewsIn(request, "panel"));

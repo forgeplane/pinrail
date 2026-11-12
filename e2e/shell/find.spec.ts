@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, createReview } from "./helpers";
 
 test("⌘F finds text in the view, from the page or the view, and Escape clears it", async ({ page }) => {

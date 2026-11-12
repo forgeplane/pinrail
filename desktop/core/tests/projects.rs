@@ -429,6 +429,10 @@ async fn raw(app: &App, method: &str, path: &str, body: Vec<u8>) -> (StatusCode,
         .uri(path)
         .header("host", "127.0.0.1:4747")
         .header("origin", "tauri://localhost")
+        .header(
+            "authorization",
+            format!("Bearer {}", app.state.config().person_token),
+        )
         .header("content-type", "image/png")
         .body(Body::from(body))
         .unwrap();

@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { corePort, shard, uiPort } from "./shell/helpers";
+import { corePort, personToken, shard, uiPort } from "./shell/helpers";
 
 // The desktop shell in a browser: the app's UI from vite against the
 // desktop core running headless on a scratch data directory. The
@@ -19,6 +19,10 @@ const feedbackUrl = "https://feedback.test/v1/feedback";
 const data = path.join(__dirname, ".state", `shell-data-${shard}`);
 const exe = process.platform === "win32" ? ".exe" : "";
 const core = path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
+// the person token the core takes and the window is built with
+const tokenFile = path.join(__dirname, ".state", `shell-token-${shard}`);
+fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
+fs.writeFileSync(tokenFile, personToken, { mode: 0o600 });
 
 // An official plugin at two versions, which the app does not carry, so an
 // installed older one is offered the newer: notes, made from hello.
@@ -63,7 +67,7 @@ export default defineConfig({
   webServer: [
     {
       // commands that sh and Windows' cmd both run
-      command: `${process.env.SHELL_BUILT ? "" : "cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && "}node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}"`,
+      command: `${process.env.SHELL_BUILT ? "" : "cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && "}node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}" --person-token-file "${tokenFile}"`,
       cwd: path.join(root, "desktop"),
       env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
@@ -79,7 +83,11 @@ export default defineConfig({
       command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && "}npx vite build --outDir "${ui}" --emptyOutDir --logLevel error && npx vite preview --outDir "${ui}" --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
       // feedback goes to an address the tests answer, never to the service
-      env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`, VITE_PINRAIL_FEEDBACK_URL: feedbackUrl },
+      env: {
+        VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`,
+        VITE_PINRAIL_TOKEN: personToken,
+        VITE_PINRAIL_FEEDBACK_URL: feedbackUrl,
+      },
       url: `http://127.0.0.1:${uiPort}`,
       reuseExistingServer: false,
       timeout: 120_000,

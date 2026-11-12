@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator } from "./fixtures";
 import { createReview, decide } from "./helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };

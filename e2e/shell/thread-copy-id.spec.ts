@@ -1,6 +1,6 @@
 // The button in a session's header copies the session's id.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { core } from "./helpers";
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });

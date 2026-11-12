@@ -24,7 +24,11 @@ async fn index(State(state): State<Arc<Pinrail>>) -> Json<Value> {
     Json(json!({ "themes": state.themes().list() }))
 }
 
-async fn create(State(state): State<Arc<Pinrail>>, body: Bytes) -> Response {
+async fn create(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    body: Bytes,
+) -> Response {
     match copy(&state, &body) {
         Ok(path) => (
             StatusCode::CREATED,

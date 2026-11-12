@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // macOS's web view bounces the whole page when a scroll goes past an edge,
 // so scrolling a sidebar with nothing more to show moved the window's

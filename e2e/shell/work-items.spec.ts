@@ -3,7 +3,7 @@
 // its own and opens the page filtered to them, since the shard's core is
 // shared.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, pickIn, settingSaved, settingsDialog, settingsSection, shellOrigin } from "./helpers";
 
 let counter = 0;

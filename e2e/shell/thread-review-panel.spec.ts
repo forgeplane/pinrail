@@ -1,7 +1,7 @@
 // Reviews a session's thread links to, opened in a side panel beside the
 // thread when reviews open in a panel, in place of the session's details.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, onePayload, openReviewsIn } from "./helpers";
 
 let n = 0;

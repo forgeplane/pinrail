@@ -2,7 +2,7 @@
 // and its inbox row, a session thread's items, item keys in Markdown, a
 // repository's key prefix on the Projects page, and the command palette.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, onReviewPages, openReviewsIn, shellOrigin } from "./helpers";
 
 // a review opens on a page of its own, where its header is

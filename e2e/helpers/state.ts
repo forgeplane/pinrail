@@ -5,6 +5,10 @@ export const root = path.resolve(__dirname, "..", "..");
 export const stateDir = path.resolve(__dirname, "..", ".state");
 const stateFile = path.join(stateDir, "current.json");
 
+/** The person token the server takes, for a test that acts as the app's window. */
+export const personToken = "e2e-person-token";
+const personTokenFile = path.join(stateDir, "person-token");
+
 export type State = {
   url: string;
   port: number;
@@ -50,6 +54,8 @@ const AGENT_VARS = [
 ];
 
 export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(personTokenFile, personToken, { mode: 0o600 });
   const inherited = { ...process.env };
   for (const name of AGENT_VARS) delete inherited[name];
   const env: NodeJS.ProcessEnv = {
@@ -64,7 +70,7 @@ export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
     // with its markdown parser and icons
     PINRAIL_SDK_DIR: path.join(root, "desktop", "app", "sdk", "v1"),
     // run by sh, or by cmd on Windows, which has no exec
-    PINRAIL_SERVER_CMD: `${process.platform === "win32" ? "" : "exec "}"${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`,
+    PINRAIL_SERVER_CMD: `${process.platform === "win32" ? "" : "exec "}"${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}" --person-token-file "${personTokenFile}"`,
   };
   return env;
 }

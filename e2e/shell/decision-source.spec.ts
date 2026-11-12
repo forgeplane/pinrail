@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator } from "./fixtures";
 import { clearInbox, core, decide, onePayload } from "./helpers";
 
 const decision = { decisions: [{ id: 1, action: "accept" }], undecided: [] };

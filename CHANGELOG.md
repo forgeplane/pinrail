@@ -11,6 +11,14 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ## [Unreleased]
 
+### Security
+
+- Only the Pinrail app can now act as you. Sending an agent a message,
+  changing settings, projects or themes, and any decision, discard or
+  work-item change made as you need a token that only the app's window
+  holds, so another program on your computer can no longer do these in
+  your name. The `pinrail` command still works as before.
+
 ### Fixed
 
 - `pinrail status` and the other session commands now find the session of

@@ -1,7 +1,7 @@
 // The Work items page shows its items a page at a time: 100 top-level
 // items, each with its sub-items.
 
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import { core } from "./helpers";
 
 let n = 0;

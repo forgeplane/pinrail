@@ -2,7 +2,7 @@
 // thread: from the inbox's side panel, on a page, declined, and asked with
 // the CLI as an agent does.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import os from "node:os";

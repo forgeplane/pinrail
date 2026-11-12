@@ -1,7 +1,7 @@
 // A plugin's view cannot open links by itself: it asks the app, and the app
 // asks the person, unless the person allowed that origin for that plugin.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import fs from "node:fs";
 import path from "node:path";
 import { clearInbox, core, createReview, linkPlugin, layout } from "./helpers";

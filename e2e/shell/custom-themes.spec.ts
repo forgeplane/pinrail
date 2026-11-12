@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core, createReview } from "./helpers";
 
 // a route handler may still be reading a response when the test ends, and

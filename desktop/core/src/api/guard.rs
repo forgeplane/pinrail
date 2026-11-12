@@ -15,12 +15,17 @@
 //! without a preflight, and the preflight is refused to every origin but
 //! the shell's.
 
+use std::sync::Arc;
+
 use axum::Json;
-use axum::extract::Request;
-use axum::http::{Method, StatusCode, header};
+use axum::extract::{FromRef, FromRequestParts, Request, State};
+use axum::http::request::Parts;
+use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
+
+use crate::Pinrail;
 
 /// The most a JSON body may be. Payloads carry text and small inlined
 /// images; files belong beside a review, not inside its JSON.
@@ -61,6 +66,80 @@ pub(crate) async fn json_writes(request: Request, next: Next) -> Response {
         StatusCode::UNSUPPORTED_MEDIA_TYPE,
         "unsupported_media_type",
         "a POST or PATCH must send Content-Type: application/json, even with no body".into(),
+    )
+}
+
+/// Refuses a write that comes from the app's window, by its `Origin`,
+/// without the person token. A program on this machine can send any
+/// `Origin`, and a decision, a discard or a work-item change from the
+/// window is recorded as the person's, so the origin alone proves nothing.
+/// Reads need no token, and a preflight is answered before this runs.
+pub(crate) async fn window_writes(
+    State(state): State<super::ApiState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let reads = matches!(
+        *request.method(),
+        Method::GET | Method::HEAD | Method::OPTIONS
+    );
+    let window = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|o| super::shell_origins().iter().any(|s| s == o));
+    if reads || !window || has_person_token(request.headers(), &state.app.config().person_token) {
+        return next.run(request).await;
+    }
+    unauthorized()
+}
+
+/// A handler's proof that the person made the request: it carries the
+/// person token. For what only the person does, such as sending an agent a
+/// message or changing settings.
+pub(crate) struct Person;
+
+impl<S> FromRequestParts<S> for Person
+where
+    Arc<Pinrail>: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Response> {
+        let app = Arc::<Pinrail>::from_ref(state);
+        if has_person_token(&parts.headers, &app.config().person_token) {
+            Ok(Person)
+        } else {
+            Err(unauthorized())
+        }
+    }
+}
+
+/// Whether `Authorization` is `Bearer <token>`, compared in constant time.
+fn has_person_token(headers: &HeaderMap, token: &str) -> bool {
+    let Some(given) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+    else {
+        return false;
+    };
+    let (given, token) = (given.trim().as_bytes(), token.as_bytes());
+    given.len() == token.len()
+        && !token.is_empty()
+        && given
+            .iter()
+            .zip(token)
+            .fold(0, |diff, (a, b)| diff | (a ^ b))
+            == 0
+}
+
+fn unauthorized() -> Response {
+    refuse(
+        StatusCode::UNAUTHORIZED,
+        "person_token",
+        "only the person can do this, from the Pinrail app".into(),
     )
 }
 

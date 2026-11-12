@@ -2,7 +2,7 @@
 // screen, the Hand over button, and the core behind them. The plugin suites
 // test each view against a stand-in shell; this is the real one.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";

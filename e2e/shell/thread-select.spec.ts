@@ -2,7 +2,7 @@
 // and the person wrote there. Its buttons stay unselectable, as elsewhere
 // in the app.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { core } from "./helpers";
 
 let n = 0;

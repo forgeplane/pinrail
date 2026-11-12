@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, createReview, fakeRecognition, listening, openReviewsIn, speak } from "./helpers";
 
 // Dictation, with the browser's speech recognition replaced by a fake that

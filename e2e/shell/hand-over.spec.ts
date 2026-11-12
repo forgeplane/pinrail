@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { clearInbox, createReview, onReviewPages } from "./helpers";
 
 // these tests open a review from the inbox or the sidebar on a page of its own

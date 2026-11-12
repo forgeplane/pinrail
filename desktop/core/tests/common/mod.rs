@@ -85,16 +85,19 @@ pub fn db(app: &App) -> pinrail_core::db::Db {
     pinrail_core::db::Db::open(&app.state.config().db_path()).unwrap()
 }
 
-/// A request as a local client sends it, answered as JSON, or the text when
-/// the answer is not JSON.
 /// A request as the app's window sends it: from the app's origin, so a
-/// decision or a discard made through it is recorded as the person's.
+/// decision or a discard made through it is recorded as the person's, and
+/// with the person token. Answered as JSON, or the text when it is not JSON.
 pub async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (StatusCode, Value) {
     let request = Request::builder()
         .method(method)
         .uri(path)
         .header("host", "127.0.0.1:4747")
         .header("origin", "tauri://localhost")
+        .header(
+            "authorization",
+            format!("Bearer {}", app.state.config().person_token),
+        )
         .header("content-type", "application/json")
         .body(
             body.map(|b| Body::from(b.to_string()))

@@ -377,6 +377,7 @@ pub(super) fn source(headers: &HeaderMap, body: &Value) -> Source {
 
 /// Stars a round of a review: 204, and 422 for a question.
 async fn star(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
@@ -386,6 +387,7 @@ async fn star(
 
 /// Removes the star of a round: 204.
 async fn unstar(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
@@ -394,6 +396,7 @@ async fn unstar(
 }
 
 async fn viewed(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
@@ -597,6 +600,7 @@ async fn sessions(
 
 /// Archives a session: 204, and 404 for an unknown one.
 async fn archive(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
@@ -606,6 +610,7 @@ async fn archive(
 
 /// Brings an archived session back: 204.
 async fn unarchive(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
@@ -714,6 +719,7 @@ async fn status(
 /// Sends the agent of the session a message, `text`, which waits until
 /// the agent next reports a status. Answers 201 with the message.
 async fn send_message(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
     Json(body): Json<Value>,
@@ -726,6 +732,7 @@ async fn send_message(
 /// Deletes a message the agent has not received yet. Answers 204, or 409
 /// once the agent has received it.
 async fn delete_message(
+    _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id, message)): Path<(String, String, i64)>,
 ) -> Result<StatusCode, ApiError> {

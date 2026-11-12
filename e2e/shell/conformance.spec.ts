@@ -1,7 +1,7 @@
 // The app against the conformance view, which speaks the raw plugin protocol:
 // the host a plugin ships into answers every message as protocol.md says.
 
-import { expect, test, type Frame, type Page } from "@playwright/test";
+import { expect, test, type Frame, type Page } from "./fixtures";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

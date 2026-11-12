@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import { core, createReview, decide } from "./helpers";
 
 const payload = (title: string) => ({ groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, title }] }] });

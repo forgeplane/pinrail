@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { clearInbox, core, createReview, decide } from "./helpers";
 
 // a route handler may still be reading a response when the test ends, and

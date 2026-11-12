@@ -2,7 +2,7 @@
 // a session that works or is done, what waits under the session that sent
 // it, and the heading's menu, whose choices the settings keep.
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import { clearInbox, core, onePayload, settingSaved } from "./helpers";
 
 // a route handler may still be reading a response when the test ends, and

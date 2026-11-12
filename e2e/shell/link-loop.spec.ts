@@ -1,7 +1,7 @@
 // Developing a plugin with a link: a pending review follows the folder, a
 // hand-over records the version the person saw, and the review keeps it
 // once the link and the folder are gone.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import fs from "node:fs";
 import path from "node:path";
 import { clearInbox, core, createReview, linkPlugin } from "./helpers";

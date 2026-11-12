@@ -1717,11 +1717,16 @@ async fn a_write_that_does_not_say_it_is_json_is_refused() {
     );
 
     // the same writes, saying they are JSON, go through; a charset is fine
+    let person = format!("Bearer {}", app.state.config().person_token);
     let (status, _) = raw(
         &app,
         "POST",
         &format!("/api/v1/reviews/{id}/viewed"),
-        &[host, ("content-type", "application/json")],
+        &[
+            host,
+            ("content-type", "application/json"),
+            ("authorization", &person),
+        ],
         "",
     )
     .await;
@@ -3899,6 +3904,13 @@ async fn post_as(
         .header("content-type", "application/json");
     for (name, value) in headers {
         request = request.header(*name, *value);
+    }
+    // the app's window proves it acts for the person
+    if headers.iter().any(|(name, _)| *name == "origin") {
+        request = request.header(
+            "authorization",
+            format!("Bearer {}", app.state.config().person_token),
+        );
     }
     let response = app
         .router

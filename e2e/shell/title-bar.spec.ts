@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { clearInbox, createReview, settingSaved } from "./helpers";
 
 /** The macOS title bar, where the window's buttons overlay the top left and
