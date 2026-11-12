@@ -453,7 +453,9 @@ jobs:
             cli-dist/*.tar.gz
 
   checksums:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # always(), as for the build: a test job skipped because main's CI ran
+    # would otherwise skip this job too
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.draft.result == 'success' && needs.build.result == 'success'
     needs: [draft, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
