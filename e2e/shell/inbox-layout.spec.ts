@@ -35,7 +35,9 @@ test("the inbox is grouped by project or one list, newest first, and remembers w
   await page.keyboard.press("k");
   await expect(rows.nth(2)).toHaveClass(/is-focused/);
 
-  // the choice outlasts a reload
+  // the choice outlasts a reload, once the core has it: a reload while it
+  // is being saved would lose it
+  await settingSaved(page.request, (s) => s.inbox.layout, "list");
   await page.reload();
   expect(await shownIn(page, "Display options", "Grouping")).toBe("None");
   await expect(rows).toHaveText([/Layout three/, /Layout two/, /Layout one/]);
