@@ -4,7 +4,7 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
-## [1.1.2] - Unreleased
+## [1.1.2] - Pinrail 0.6.0
 
 ### Fixed
 

@@ -9,7 +9,7 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
-## [Unreleased]
+## [0.6.0]
 
 ### Added
 
@@ -193,6 +193,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   set were left unsent.
 - The app connects within a moment of starting. It showed Reconnecting
   for a few seconds when its window loaded before its server.
+- A session's thread shows what its agent sent while the app was still
+  connecting, such as a comment written as the app started. It showed it
+  only once something else reloaded the thread.
 - Two sessions in one repository that ask the same question each get
   their own question. The second session's thread showed nothing, and the
   answer went to the first.
@@ -550,6 +553,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 Initial version of Pinrail.
 
+[0.6.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.6.0
 [0.5.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.5.0
 [0.4.1]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.1
 [0.4.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.0
