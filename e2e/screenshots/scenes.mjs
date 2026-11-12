@@ -267,7 +267,7 @@ export const scenes = [
     async run({ page, app, shot }) {
       await card(page);
       await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
-      await page.getByTestId("finished").waitFor();
+      await page.getByTestId("finished").last().waitFor();
       // from the start of the stage; the header says it has finished
       await page.locator(".thread-items").evaluate((el) => (el.scrollTop = 0));
       await settle(page, 400);
@@ -1119,6 +1119,45 @@ export const scenes = [
       await page.mouse.move(5, 600);
       await settle(page, 500);
       await shot("work-items");
+    },
+  },
+  {
+    // a session's page: its thread at the end, with a question about a diff,
+    // a note with a chart and a decided review, and its details beside it,
+    // with its work items, its two stages and its reviews unfolded
+    name: "session-details",
+    async run({ page, app, shot }) {
+      await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
+      await page.getByTestId("finished").last().waitFor();
+      const details = page.getByRole("complementary", { name: "Session details" });
+      const reviews = details.getByRole("button", { name: /^Reviews · \d+$/ });
+      if ((await reviews.getAttribute("aria-expanded")) !== "true") await reviews.click();
+      await page.getByTestId("question-set").last().scrollIntoViewIfNeeded();
+      await page.mouse.move(5, 890);
+      await settle(page, 600);
+      await shot("session-details");
+    },
+  },
+  {
+    // the quick add dialog over a session's thread: the session's repository
+    // chosen, and a description that names another item
+    name: "quick-add",
+    async run({ page, app, shot }) {
+      const key = (await app.api("GET", "/api/v1/items?repo=acme/api")).items.find((i) =>
+        i.title.startsWith("Answer 429"),
+      ).key;
+      await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
+      await page.getByTestId("finished").last().waitFor();
+      await page.keyboard.press("Meta+Shift+C");
+      const dialog = page.getByRole("dialog", { name: "Add a work item" });
+      await dialog.getByRole("textbox", { name: "What needs to be done?" }).fill("Log the keys that hit the limit");
+      await dialog
+        .getByRole("textbox", { name: "Description" })
+        .fill(`Count each key that gets a 429 from ${key}, so that support can see who is throttled.`);
+      await page.mouse.move(5, 890);
+      await settle(page, 500);
+      // the dialog and the thread around it, without the sidebars
+      await shot("quick-add", page, { clip: { x: 250, y: 0, width: 900, height: 420 } });
     },
   },
   {

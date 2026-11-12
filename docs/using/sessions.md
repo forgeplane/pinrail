@@ -3,7 +3,7 @@ title: Questions and sessions
 description: "How you answer the questions an agent asks, the thread of everything one agent session sent you, and the statuses that show what the agent is doing."
 ---
 
-An agent asks you short questions with `pinrail ask`, and reports what it is doing with `pinrail status`. Both belong to the agent's session: one run of the agent, such as a Claude Code conversation. Pinrail shows each session as a thread, with its questions, its reviews and its statuses in the order they happened.
+An agent asks you short questions with `pinrail ask`, and reports what it is doing with `pinrail status`. Both belong to the agent's session: one run of the agent, such as a Claude Code conversation. Pinrail shows each session as a thread, with its questions, its reviews and its statuses in the order they happened. [Sessions](/docs/concepts/sessions/), under Concepts, explains what a session holds.
 
 ![An agent session's thread: three questions waiting, the first answered with a note, and the box for a comment to the agent at the bottom.](screenshot:ask-thread "Questions waiting in a session's thread.")
 
@@ -31,11 +31,23 @@ Once you have sent them, the answers show under their questions, with your notes
 
 ## Sessions
 
-Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. A review the agent revised shows once, where its first round was sent, with its newest round and the round's number, such as *round 2 of 2*. Where the agent sent a later round, a *Revised* line names the review and says when the round waits for you. Click the line to scroll to the review. Where the agent withdrew a review, a line names the review and gives the agent's reason. The header's title is the stage of work the agent is on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you. The panel at the right lists what waits on you, and the session's details: the agent, the session id, the project, the branch, the folder the agent works in and its last activity.
+Each session's thread lists what the agent sent from it, oldest first: its questions, its reviews, which open when you click them, and its statuses. A review the agent revised shows once, where its first round was sent, with its newest round and the round's number, such as *round 2 of 2*. Where the agent sent a later round, a *Revised* line names the review and says when the round waits for you. Click the line to scroll to the review. Where the agent withdrew a review, a line names the review and gives the agent's reason. The header's title is the stage of work the agent is on, when it named one, with the agent, the project and the branch under it. The header also shows how many questions and reviews the session holds, and what waits for you.
 
-The panel lists the session's starred reviews under *Starred*, newest first, and marks a starred review with a star wherever it is listed. It also lists the session's reviews that have ended, with their outcomes, folded under *Reviews* until you open it. Click one to open it.
+### A session's details
 
-To hide the panel at the right, or show it again, use the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
+The panel at the right of a session's thread sums up the session, so that you can see where it stands without reading the whole thread.
+
+![A session's page: the thread with a question about a diff, a note with a chart and the agent saying it has finished, and beside it the session's details, with its work items, two stages and its decided reviews.](screenshot:session-details "A session's thread, and its details beside it.")
+
+- **Waiting on you:** the questions and reviews of the session that wait for your answer.
+- **Waiting on the agent:** messages for the agent, such as your comments on its work items, until the agent next runs `pinrail status` and receives them.
+- **Work items:** the items the session holds or worked on, with their status. Click one to open it beside the thread.
+- **Starred:** the session's starred reviews, newest first. A starred review shows a star wherever it is listed.
+- **Stages:** each stage the agent started, oldest first, with how long it took. Point at a stage to see when it started and the reviews sent during it, and click it to go to its start in the thread.
+- **Reviews:** the reviews of the session that have ended, with their outcomes, folded until you open it. Click one to open it.
+- **Session:** the agent, the session id, the project, the branch, the folder the agent works in and the last activity.
+
+Hide or show the panel with the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
 
 A question's thread links to its session's page with *session* and the id in its header. A review sent from a session has a button in its header, on its page and in the side panel, that opens the session's thread.
 

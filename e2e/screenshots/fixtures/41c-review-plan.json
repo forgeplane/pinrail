@@ -1,0 +1,14 @@
+{
+  "plugin": "markdown",
+  "title": "Rate limiting plan for the public API",
+  "requested_by": "claude-code",
+  "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+  "origin": { "repo": "acme/api", "ref": "rate-limit", "folder": "/Users/maya/code/acme-api" },
+  "age": "48m",
+  "payload": {
+    "path": "docs/rate-limiting.md",
+    "markdown": "# Rate limiting for the public API\n\n## Goal\n\nKeep one busy API key from slowing the API down for everyone else.\n\n## Design\n\nA token bucket for each API key, kept in Redis, refilled every second. A request over the limit gets `429 Too Many Requests` at once, with `Retry-After` set to the seconds until the next token.\n\n## Limits\n\n| Keys | Requests a minute |\n|---|---|\n| Customer keys | to be decided |\n| Internal keys | to be decided |\n\n## Out of scope\n\nLimits per IP address, and a dashboard of who is throttled.\n"
+  },
+  "decision": { "verdict": "approve", "comments": [] },
+  "decided": "45m"
+}

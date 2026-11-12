@@ -159,10 +159,12 @@ No open stage. Start one with pinrail status --start before new work.
 
 ### Messages from the person
 
-The person can send the agent messages from its session's thread. A message waits until the agent next runs `pinrail status`, of any kind, which prints every waiting message, oldest first, and marks it delivered. Each message is printed once:
+The person reaches an agent through the work items its session holds. A comment the person adds to such an item, or the person putting it on hold, is a message to the session. A message waits until the agent next runs `pinrail status`, of any kind, which prints every waiting message, oldest first, and marks it delivered. Each message is printed once:
 
 ```text
 Message from Sam, sent 2026-11-02 10:04:
+Comment on PIN-42 Load themes:
+
 Use the v2 endpoint, the v1 one is going away.
 ```
 

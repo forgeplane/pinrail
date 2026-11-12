@@ -52,6 +52,10 @@ An ended review never changes again. It moves from the inbox to your history, re
 
 Pinrail records where each decision, discard and withdrawal was made. One made in the app is recorded as yours. One made with `pinrail decide` or `pinrail discard`, or by another program through the local API, is not: it is recorded as made by the agent the command ran under, by the name the program gave, or by nobody. It says how it was made on the review, in the history and in what the agent receives, such as "Decided by claude-code at 09:14 UTC, with `pinrail decide`". When the command ran in the same agent session that submitted the review, the review page shows a warning: an agent should never decide its own review. A withdrawal is recorded the same way, with the agent that withdrew the review. The history shows who withdrew or discarded a review under the time, with the reason they gave in a tooltip. A round withdrawn because a newer round superseded it is recorded as withdrawn by the agent that submitted the newer round. Any program on your computer can claim to be the app, so this is a record of what the program said, not proof.
 
+## Questions
+
+A question that an agent asks with `pinrail ask` is a review of its own kind. It waits in the inbox, ends in the same ways, and the command that asked it exits with the same codes. It needs no plugin: you answer it in the agent's session thread, and declining it ends it as discarding a review does. See [Sessions](/docs/concepts/sessions/).
+
 ## Rounds
 
 Often you want some changes before you approve. The agent makes the changes and asks again, submitting a new review that **revises** the first. That is a new round.

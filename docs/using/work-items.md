@@ -3,7 +3,7 @@ title: Work items
 description: "Record the tasks you and your agents work on, with sub-items and dependencies, and let agents take the next one that is ready."
 ---
 
-A work item is a task recorded in Pinrail, such as a feature, a bug or a step of a plan. You add work items in the app, and agents add, take and close them with `pinrail items`. Each item belongs to a repository, and can have sub-items and depend on other items. Pinrail works out which items are ready, so that an agent can take the next one without asking you.
+A work item is a task recorded in Pinrail, such as a feature, a bug or a step of a plan. You add work items in the app, and agents add, take and close them with `pinrail items`. Each item belongs to a repository, and can have sub-items and depend on other items. Pinrail works out which items are ready, so that an agent can take the next one without asking you. [Work items](/docs/concepts/work-items/), under Concepts, explains how items, sessions and reviews connect.
 
 ## Keys
 
@@ -30,7 +30,7 @@ Open **Work items** in the sidebar. The count beside it is the number of items t
 
 ![The Work items page: a plan nested under its item, with one step done, one in progress and two waiting for it, and the step in progress open in the panel beside the list.](screenshot:work-items "Work items, with one open in the panel.")
 
-- **Add an item** with the field at the top of the page, or press <kbd>C</kbd>. Type its title, and choose its repository and, if you like, its parent. Press <kbd>Enter</kbd> to add it. From any other page, press <kbd>⌘⇧C</kbd>, or choose *Add a work item* in the command palette, to add one in a dialog without leaving the page. The dialog starts on the repository of the session or the review you are looking at, and a message names the item once it is added. <kbd>⌘Enter</kbd> adds it and keeps the dialog open for the next one.
+- **Add an item** with the field at the top of the page, or press <kbd>C</kbd>. Type its title, and choose its repository and, if you like, its parent. Press <kbd>Enter</kbd> to add it. From any other page, use the [quick add dialog](#add-an-item-from-any-page).
 - **Filter** the list with the **Filter** menu at the right of the header: by status, by a project or a repository, and by who created the item. *Open* shows the items that are open or in progress, and *Closed sub-items* adds the done and cancelled sub-items of the parents listed, after their open ones. **Waiting on you** shows the items with a review or a question that waits for you. Each filter that is on shows as a chip under the header: click its × to remove it, or **Clear filters** to remove them all. Search titles and descriptions with the search field, or press <kbd>/</kbd> to go to it, and press <kbd>Esc</kbd> to leave it and use the keys on the results. The page keeps its filters when you go to another page and come back.
 - **Display** the list as **Display options** says. *Grouping* groups the items by project or by repository, or shows them as one list. *Ordering* lists them oldest or newest first, recently updated first, by status, or by title, and orders sub-items under their parent the same way. *Sub-items* shows them nested under their parent, or each as a row of its own.
 - **Make an item a sub-item** by dragging it onto another item. An item dropped on an item of another repository stays in its own repository and keeps its key.
@@ -42,6 +42,19 @@ On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd
 Put an item on hold to keep it without starting it. No agent takes it, nor any of its sub-items: `pinrail items next` passes over them, and an agent that tries to claim one is told to ask you. An item on hold still blocks the items that depend on it. It is listed with the open items, dimmed; choose *On hold* in the status filter to list only the items on hold. Putting an item on hold releases it and each of its sub-items that is in progress, and each agent working on one is told to stop the next time it runs `pinrail status`. When there is such work, Pinrail lists it and asks you first. Only you put an item on hold or take it off.
 
 Queue the items you want done first, in the order you want them. Press <kbd>Q</kbd> on an item, or click *Queue* in its panel, to add it to the end of the queue, and press <kbd>Q</kbd> again to take it out. Each queued item shows the queue icon and its place in its row: press <kbd>⇧↑</kbd> and <kbd>⇧↓</kbd> on a queued item to move it up or down the queue. `pinrail items next` offers the first ready item of the queue in the agent's repository before any other, after the sub-items of what the agent already holds. An item stays queued while an agent works on it, and leaves the queue when it is done, cancelled or put on hold. There is one queue across all your repositories, and only you change it.
+
+## Add an item from any page
+
+When something comes up while you read a review or follow a session, add it as a work item without leaving the page. Press <kbd>⌘⇧C</kbd>, or choose *Add a work item* in the command palette, <kbd>⌘K</kbd>.
+
+![The quick add dialog over a session's thread: a title, the repository of the session, no parent yet, and a description that names another item by its key.](screenshot:quick-add "Adding a work item while you follow a session.")
+
+- **Title:** what needs to be done, in one line.
+- **Repository:** the repository of the session or the review you are looking at, else the one the page is filtered to, else the one you used last. Choose another from the list.
+- **Parent:** the item it is part of, if any.
+- **Description:** optional, in Markdown. Paste or drop files to attach them, and type `#` to link another item.
+
+Press <kbd>Enter</kbd> in the title, or click the arrow, to add the item and close the dialog. <kbd>⌘Enter</kbd> adds it and keeps the dialog open for the next one. <kbd>Tab</kbd> moves between the title and the description, and <kbd>⇧Tab</kbd> in the title switches to the next repository. In the description, <kbd>Enter</kbd> starts a new line: <kbd>⌘Enter</kbd> adds the item, and <kbd>⌘⇧Enter</kbd> adds it and keeps the dialog open. A message names the item once it is added, and <kbd>Esc</kbd> closes the dialog without adding anything.
 
 ## An item's panel
 

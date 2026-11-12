@@ -131,7 +131,16 @@ export default defineConfig({
             "docs/getting-started/first-review",
           ],
         },
-        { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
+        {
+          label: "Concepts",
+          items: [
+            "docs/concepts/reviews",
+            "docs/concepts/sessions",
+            "docs/concepts/work-items",
+            "docs/concepts/plugins",
+            "docs/concepts/trust",
+          ],
+        },
         {
           label: "Using Pinrail",
           items: [

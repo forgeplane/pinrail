@@ -1,0 +1,21 @@
+{
+  "kind": "question",
+  "title": "Keep the internal keys' limit in the config file?",
+  "requested_by": "claude-code",
+  "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
+  "origin": { "repo": "acme/api", "ref": "rate-limit", "folder": "/Users/maya/code/acme-api" },
+  "age": "11m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "Keep the internal keys' limit in the config file, as below?",
+        "answer": "yes-no",
+        "recommended": "yes",
+        "context": "One test sent 700 requests a minute with an internal key. Rather than raise the limit in code, the limits move to `config/limits.toml`:\n\n```diff\n--- a/config/limits.toml\n+++ b/config/limits.toml\n@@ -1,3 +1,5 @@\n [rate_limit]\n-per_minute = 120\n+customer_per_minute = 120\n+internal_per_minute = 600\n+burst = 20\n refill = \"1s\"\n```"
+      }
+    ]
+  },
+  "decision": { "answers": [{ "id": "q1", "yes": true }] },
+  "decided": "10m"
+}
