@@ -19,7 +19,7 @@ The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a co
 
 **Display options**, the button at the right of the header, chooses how *Pending* and *New rounds* list the reviews: grouped by project, grouped by repository, or in one list, newest first. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository. The app remembers your choice.
 
-The filters apply to every tab, and keep their values when you switch tabs. Each filter that is on shows as a chip under the tabs: click its × to remove it, or **Clear filters** to remove them all.
+The filters apply to every tab, and keep their values when you switch tabs or go to another page and come back. Each filter that is on shows as a chip under the tabs: click its × to remove it, or **Clear filters** to remove them all.
 
 - **Filter by project, repository or plugin.** The sidebar lists your projects or repositories. Click one, or choose one or a plugin in the **Filter** menu at the right of the header, to see only those reviews. Choosing a project shows the reviews from all of its repositories.
 - **Show the starred reviews.** Turn on **Starred** in the **Filter** menu. See [Stars](#stars).

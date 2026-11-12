@@ -42,6 +42,12 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 | **Custom themes** | *Open folder* opens the folder of your own themes, and *New theme…* creates one from the current theme. Any error in a theme file shows here. |
 | **Text size** | *Small*, *Default* or *Large*. |
 
+## Work items
+
+| Setting | What it does |
+|---|---|
+| **Close a parent with its last sub-item** | When the last open sub-item of a work item is done or cancelled, and at least one of them is done, the parent is done too, unless someone works on it or something of it waits for you. On by default. Turn it off to close parents yourself. See [Work items](/docs/using/work-items/#status). |
+
 ## Shortcuts
 
 | Setting | What it does |

@@ -31,13 +31,13 @@ Open **Work items** in the sidebar. The count beside it is the number of items t
 ![The Work items page: a plan nested under its item, with one step done, one in progress and two waiting for it, and the step in progress open in the panel beside the list.](screenshot:work-items "Work items, with one open in the panel.")
 
 - **Add an item** with the field at the top of the page, or press <kbd>C</kbd>. Type its title, and choose its repository and, if you like, its parent. Press <kbd>Enter</kbd> to add it. From any other page, press <kbd>⌘⇧C</kbd>, or choose *Add a work item* in the command palette, to add one in a dialog without leaving the page. The dialog starts on the repository of the session or the review you are looking at, and a message names the item once it is added. <kbd>⌘Enter</kbd> adds it and keeps the dialog open for the next one.
-- **Filter** the list with the **Filter** menu at the right of the header: by status, by a project or a repository, and by who created the item. *Open* shows the items that are open or in progress. **Waiting on you** shows the items with a review or a question that waits for you. Each filter that is on shows as a chip under the header: click its × to remove it, or **Clear filters** to remove them all. Search titles and descriptions with the search field, or press <kbd>/</kbd> to go to it, and press <kbd>Esc</kbd> to leave it and use the keys on the results.
+- **Filter** the list with the **Filter** menu at the right of the header: by status, by a project or a repository, and by who created the item. *Open* shows the items that are open or in progress, and *Closed sub-items* adds the done and cancelled sub-items of the parents listed, after their open ones. **Waiting on you** shows the items with a review or a question that waits for you. Each filter that is on shows as a chip under the header: click its × to remove it, or **Clear filters** to remove them all. Search titles and descriptions with the search field, or press <kbd>/</kbd> to go to it, and press <kbd>Esc</kbd> to leave it and use the keys on the results. The page keeps its filters when you go to another page and come back.
 - **Display** the list as **Display options** says. *Grouping* groups the items by project or by repository, or shows them as one list. *Ordering* lists them oldest or newest first, recently updated first, by status, or by title, and orders sub-items under their parent the same way. *Sub-items* shows them nested under their parent, or each as a row of its own.
 - **Make an item a sub-item** by dragging it onto another item. An item dropped on an item of another repository stays in its own repository and keeps its key.
 - **Move an item to another repository** by dragging it onto another group's heading, which is outlined while you drag. Grouped by project, a project with several repositories asks which one. The item takes the next number there, and its old key still finds it.
-- **Move** through the list with <kbd>J</kbd> and <kbd>K</kbd>, and open the selected item with <kbd>Enter</kbd>.
+- **Move** through the list with <kbd>J</kbd> and <kbd>K</kbd>, and open the selected item with <kbd>Enter</kbd>. The page lists 100 top-level items at a time, each with its sub-items: the buttons at the bottom go to the next and previous pages.
 
-On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd> marks it done or opens it again, <kbd>X</kbd> cancels it or opens it again, and <kbd>H</kbd> puts it on hold or takes it off hold.
+On the selected item, <kbd>S</kbd> claims it for you or releases it, <kbd>D</kbd> marks it done or opens it again, <kbd>X</kbd> cancels it or opens it again, and <kbd>H</kbd> puts it on hold or takes it off hold, and <kbd>⌘⌫</kbd> deletes it, after asking.
 
 Put an item on hold to keep it without starting it. No agent takes it, nor any of its sub-items: `pinrail items next` passes over them, and an agent that tries to claim one is told to ask you. An item on hold still blocks the items that depend on it. It is listed with the open items, dimmed; choose *On hold* in the status filter to list only the items on hold. Putting an item on hold releases it and each of its sub-items that is in progress, and each agent working on one is told to stop the next time it runs `pinrail status`. When there is such work, Pinrail lists it and asks you first. Only you put an item on hold or take it off.
 
@@ -54,6 +54,8 @@ An item opens in a panel beside the list. The panel shows:
 - its comments and activity: every change, with who made it and when.
 
 To attach an image or a file to the description or to a comment, paste it, drop it on the field, or use the paperclip. Pinrail uploads it and links it where the cursor is, and shows an image in place. The files of the description are listed under it: point at one and click its × to remove it, with its link.
+
+To link another work item in a description or a comment, type `#` and part of its key or title, then choose it from the list with the arrow keys and <kbd>Enter</kbd> or <kbd>Tab</kbd>. Pinrail puts the item's key in its place, which links to the item.
 
 Add a comment in the field at the end of the panel, and post it with ⌘Enter or the arrow. Enter starts a new line, and in the macOS app you can dictate the comment with the microphone. When a session holds the item, your comment reaches the agent the next time it runs `pinrail status`, like a message.
 
@@ -74,6 +76,8 @@ pinrail items next --claim
 pinrail items show PIN-42
 pinrail items done PIN-42 --comment "Loader in core/src/themes.rs, commit 3f2a1c."
 ```
+
+`pinrail items show` saves the files of the item and of its comments in a temporary folder, and prints the path of each, so that the agent can read a screenshot or a log you attached.
 
 `pinrail items next` chooses among the ready items of the current repository. A sub-item of an item the session already holds comes first, then the first ready item of your queue. After that, the item that unblocks the most other items comes first, then the oldest. There is no priority field: to choose what comes next, queue it.
 
