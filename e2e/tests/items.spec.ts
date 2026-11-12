@@ -78,7 +78,7 @@ test("an agent works through a breakdown from next to done", async () => {
   // a review sent while it holds the item belongs to it
   const data = tmpFile("payload.json", JSON.stringify({ groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] }));
   const review = pinrailJson(["submit", "list", "--title", "Theme loader", "--data", data], { cwd: dir, env });
-  expect(review.item.key).toBe(load);
+  expect(review.items.map((i: any) => i.key)).toEqual([load]);
 
   // not done while the review waits
   const refused = pinrail(["items", "done", load, "--comment", "Loader in core", "--markdown"], { cwd: dir, env });
@@ -108,13 +108,12 @@ test("an agent works through a breakdown from next to done", async () => {
     `this would make ${format} wait for itself: ${format} → ${picker} → ${load} → ${format}`,
   );
 
-  // the last sub-item done leaves its parent open, and says so
+  // the last sub-item done closes its parent too, and says so
   ok(pinrail(["items", "edit", picker, "--claim"], { cwd: dir, env }));
   const last = ok(pinrail(["items", "done", picker, "--markdown"], { cwd: dir, env }));
-  expect(last.stdout).toContain(`${themes} Custom themes has no open sub-item left but stays open`);
+  expect(last.stdout).toContain(`${themes} Custom themes is done too: its last open sub-item closed.`);
   const parent = pinrailJson(["items", "show", themes], { cwd: dir });
-  expect(parent.status).toBe("open");
-  expect(parent.ready).toBe(true);
+  expect(parent.status).toBe("done");
 });
 
 test("an item is named by its number inside its checkout and by its key anywhere", async () => {
@@ -209,12 +208,12 @@ test("reviews and questions name their item, or none, and the review list narrow
   const two = pinrailJson(["items", "add", "Two"], { cwd: dir, env });
   const data = tmpFile("payload.json", JSON.stringify({ groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] }));
   const named = pinrailJson(["submit", "list", "--title", "For two", "--data", data, "--item", "2"], { cwd: dir, env });
-  expect(named.item.key).toBe(two.key);
+  expect(named.items.map((i: any) => i.key)).toEqual([two.key]);
   ok(pinrail(["items", "edit", one.key, "--claim"], { cwd: dir, env }));
   const held = pinrailJson(["submit", "list", "--title", "For one", "--data", data], { cwd: dir, env });
-  expect(held.item.key).toBe(one.key);
+  expect(held.items.map((i: any) => i.key)).toEqual([one.key]);
   const none = pinrailJson(["submit", "list", "--title", "For none", "--data", data, "--no-item"], { cwd: dir, env });
-  expect(none.item).toBeNull();
+  expect(none.items).toEqual([]);
   const listed = pinrailJson(["list", "--item", one.key, "--all"], { cwd: dir });
   expect(listed.map((r: any) => r.title)).toEqual(["For one"]);
   // a question names its item too; it waits for the answer, so it times out
