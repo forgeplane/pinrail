@@ -1,12 +1,24 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
 import { clearInbox, core, decide, onePayload } from "./helpers";
 
 const decision = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
 
+/** Names this attempt's reviews apart from an earlier attempt's, which stay
+ *  in the history when a test is retried. */
+const run = Date.now().toString(36);
+
+/** Hovers once the web font has loaded: text drawn in the fallback font
+ *  first moves when it loads, and can move what is hovered from under the
+ *  pointer before its tooltip opens. */
+async function hover(target: Locator) {
+  await target.page().evaluate(() => document.fonts.ready);
+  await target.hover();
+}
+
 /** A review submitted from an agent's session, as the CLI submits one. */
 async function submitFrom(request: APIRequestContext, title: string, session: string) {
   const response = await request.post(`${core}/api/v1/reviews`, {
-    data: { plugin: "list", title, origin: { repo: "acme/api" }, payload: onePayload, session },
+    data: { plugin: "list", title: `${title} ${run}`, origin: { repo: "acme/api" }, payload: onePayload, session },
   });
   expect(response.status(), await response.text()).toBe(201);
   return ((await response.json()) as { id: string }).id;
@@ -42,7 +54,7 @@ test("a decision made outside the app says how, and warns when the asking sessio
   await expect(decided).toContainText("Decided by claude-code");
   await expect(badge).toHaveText("CLI");
   await expect(badge).toHaveClass(/is-own/);
-  await badge.hover();
+  await hover(badge);
   await expect(page.getByRole("tooltip")).toHaveText(
     "Decided with pinrail decide, from the agent session that submitted the review",
   );
@@ -52,7 +64,7 @@ test("a decision made outside the app says how, and warns when the asking sessio
   await expect(decided).toHaveText(/^Decided \S+ ago/);
   await expect(badge).toHaveText("API");
   await expect(badge).not.toHaveClass(/is-own/);
-  await badge.hover();
+  await hover(badge);
   await expect(page.getByRole("tooltip")).toHaveText("Decided by a program through the API");
 
   await page.goto(`/#/reviews/${inApp}`);
@@ -91,7 +103,7 @@ test("a withdrawn or discarded review shows who ended it and why", async ({ page
   );
   await expect(badge).toHaveText("CLI");
   await expect(badge).not.toHaveClass(/is-own/);
-  await badge.hover();
+  await hover(badge);
   await expect(page.getByRole("tooltip")).toHaveText(
     "Withdrawn with pinrail withdraw, from the agent session that submitted the review",
   );
@@ -102,10 +114,10 @@ test("a withdrawn or discarded review shows who ended it and why", async ({ page
   await expect(row("withdrawn by the asker").getByTestId("source-badge")).toHaveText("CLI");
   // the reason is in a tooltip on who ended the review, not in the row
   await expect(row("withdrawn by the asker")).not.toContainText("force-pushed");
-  await row("withdrawn by the asker").getByTestId("history-reason").hover();
+  await hover(row("withdrawn by the asker").getByTestId("history-reason"));
   await expect(page.getByRole("tooltip")).toHaveText("the branch was force-pushed");
   await expect(row("discarded by a script")).toContainText("Discarded");
   await expect(row("discarded by a script").getByTestId("source-badge")).toHaveText("API");
-  await row("discarded by a script").getByTestId("history-reason").hover();
+  await hover(row("discarded by a script").getByTestId("history-reason"));
   await expect(page.getByRole("tooltip")).toHaveText("wrong branch");
 });
