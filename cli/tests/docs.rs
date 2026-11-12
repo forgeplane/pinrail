@@ -66,7 +66,10 @@ fn every_items_command_and_option_the_docs_name_exists() {
             .unwrap();
         let help = String::from_utf8_lossy(&out.stdout);
         assert!(
-            out.status.success() && help.contains(&format!("Usage: pinrail items {command}")),
+            // clap names the program as it was run: pinrail.exe on Windows
+            out.status.success()
+                && (help.contains(&format!("Usage: pinrail items {command}"))
+                    || help.contains(&format!("Usage: pinrail.exe items {command}"))),
             "the docs name pinrail items {command}, which does not exist"
         );
         for (option, page) in options {

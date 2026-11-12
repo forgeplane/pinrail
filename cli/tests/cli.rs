@@ -4420,7 +4420,10 @@ fn items_show_saves_the_items_files_and_prints_where_they_are() {
             .env_remove("PINRAIL_JSON")
             .args(["items", "show", "PIN-7"])
             .env("PINRAIL_URL", &server.url)
+            // the temporary folder: TMPDIR on Unix, TMP and TEMP on Windows
             .env("TMPDIR", &tmp)
+            .env("TMP", &tmp)
+            .env("TEMP", &tmp)
             .output()
             .unwrap();
         assert!(

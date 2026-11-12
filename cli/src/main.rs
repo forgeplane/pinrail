@@ -805,8 +805,25 @@ fn end_on_closed_pipe() {
     }
 }
 
+/// Ends pinrail quietly when the program reading its output stops, as
+/// `end_on_closed_pipe` does on Unix. Windows has no SIGPIPE: the write
+/// fails with ERROR_NO_DATA (232) or ERROR_BROKEN_PIPE (109), and the failed
+/// `print!` panics, so the panic for those errors exits without a message.
+#[cfg(windows)]
+fn end_on_closed_pipe() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let message = info.payload_as_str().unwrap_or("");
+        let closed = message.starts_with("failed printing to std")
+            && (message.ends_with("(os error 232)") || message.ends_with("(os error 109)"));
+        if closed {
+            std::process::exit(1);
+        }
+        default(info);
+    }));
+}
+
 fn main() -> ExitCode {
-    #[cfg(unix)]
     end_on_closed_pipe();
     // the docs' CLI reference, from this definition; only in a docs build
     #[cfg(feature = "docs")]
