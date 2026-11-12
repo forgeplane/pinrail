@@ -219,6 +219,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Security
 
+- Updated rustix, whose extended attribute functions could mark unwritten
+  memory as initialized when given an empty buffer (RUSTSEC-2026-0486).
 - Updated rusqlite, whose bundled SQLite could return uninitialized
   memory when it opened a database with a crafted `-wal` file
   (CVE-2026-119375).
