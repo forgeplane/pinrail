@@ -54,7 +54,16 @@ const runs = Array.from({ length: shards }, (_, i) => {
       ],
       {
         cwd: here,
-        env: { ...process.env, SHELL_SHARD: String(n), SHELL_SDK_BUILT: "1", SHELL_BUILT: "1" },
+        env: {
+          ...process.env,
+          SHELL_SHARD: String(n),
+          SHELL_SDK_BUILT: "1",
+          SHELL_BUILT: "1",
+          // a transform cache of its own: on Windows every process shares
+          // one by default, and shards writing the same file at once fail
+          // with EPERM
+          PWTEST_CACHE_DIR: path.join(os.tmpdir(), `pinrail-shell-transform-cache-${n}`),
+        },
         shell: process.platform === "win32",
       },
     );
