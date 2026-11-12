@@ -28,6 +28,17 @@ The `pinrail` command ships inside the app and carries the app's version.
   that holds several names them, or says with `--no-item` that it asks
   about none. A review can belong to several items, which its header lets
   you change.
+- Open a work item in a panel beside the list, with its sub-items,
+  reviews, comments and files. Drag an item onto another to make it a
+  sub-item, or to another project or repository. Put items on hold, queue
+  them for agents to take first, and attach files to them.
+- Add a work item from any page with ⌘⇧C. Typing `#` in an item's text
+  suggests other items to link.
+- A session's work items open beside its thread, and the thread shows
+  the changes the agent made to them and its comments on them.
+- Open the Work items page from the menu bar icon's menu.
+- `pinrail items show` saves the item's files to a temporary folder and
+  prints the path of each.
 
 - Projects. Group repositories into a project on the new Projects page,
   by dragging them under it. A project has a name, an optional
@@ -50,6 +61,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   agents waiting on it stop.
 - Press `/` to search the Projects page and the official plugins in
   Settings, as in the inbox and the Sessions page.
+- Collapse all on the Projects page folds every group.
+- The sidebar shows a Clear filters button while a filter hides
+  sessions. Its Agent and Status filters show each agent's icon and each
+  status's mark.
+- A page keeps its filters when you leave it and come back.
 
 - Find text in a session's thread with ⌘F, as in a review's view.
 - `pinrail ask --suggest-reply` suggests the reply the agent expects. The
@@ -66,6 +82,11 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Sessions and questions are out of Labs and always on. Agents can ask
+  you questions with `pinrail ask` and report their progress with
+  `pinrail status`, and the Sessions page and the sidebar's sessions
+  show their threads. Update the Pinrail skill in Settings › Agents, so
+  your agents know these commands.
 - Reads from the database no longer wait for a write or for another slow
   read, so the app and the CLI answer at once while a large list loads.
 - The app and plugin views have the system's own scrollbars. On macOS
@@ -83,6 +104,15 @@ The `pinrail` command ships inside the app and carries the app's version.
   starred round still shows its star.
 - The inbox's Pending and New rounds tabs count what the filters show,
   and its title reads "3 of 11" while a filter is set.
+- J and K move the focus to the row they highlight, so a screen reader
+  reads it, and wrap around at the ends of every list. Closing the side
+  panel puts the focus back where it was.
+- A submenu stays open while the pointer moves toward it across other
+  rows.
+- Search and filter fields no longer complete, correct or capitalise what
+  you type.
+- The list plugin's warning about undecided items says how many of them
+  have a note, which is not sent.
 
 ### Fixed
 
@@ -163,6 +193,29 @@ The `pinrail` command ships inside the app and carries the app's version.
   set were left unsent.
 - The app connects within a moment of starting. It showed Reconnecting
   for a few seconds when its window loaded before its server.
+- Two sessions in one repository that ask the same question each get
+  their own question. The second session's thread showed nothing, and the
+  answer went to the first.
+- After the app reconnects, a session's thread shows the messages sent
+  to it while the app was disconnected.
+- Enter on a list row opens it once, so Back closes the side panel at
+  the first press.
+- A menu near the bottom of the window opens above its button, and the
+  sidebar's submenus stay inside the window.
+- In a narrow session thread, such as beside an open review, names and
+  times no longer break over several lines.
+- The chat box no longer hides the end of a session thread's scrollbar.
+- The change-map and code review plugins send a comment that was typed
+  but not added, and the code review plugin a rejection's reason that
+  was not saved. A review could go back approved without them.
+- The change-map plugin shows the review as read-only once it is sent,
+  and clears the comment field when another part is selected.
+- The code review plugin no longer shows the `diff --git` and `index`
+  lines of a `git diff` as part of the diff.
+- The image plugin keeps the regions drawn in a draft when the review is
+  sent before its images have loaded.
+- The markdown plugin limits a comment to the lengths the app accepts.
+  A very long comment or quote made a decision the app refused.
 
 ### Security
 
@@ -172,6 +225,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A review's preview page in the browser asks before it opens a link
   that the plugin's view requests. It opened any web or email address,
   which could carry the review's content to another site.
+- Updated the markdown plugin's Mermaid, DOMPurify, KaTeX and markdown-it
+  for advisories, a critical one in DOMPurify among them.
+- The code review plugin shows the change's link only for an `http` or
+  `https` address. A `javascript:` link could run script in the view.
 
 ## [0.5.0]
 
