@@ -1114,11 +1114,17 @@ export const scenes = [
       const key = (await app.api("GET", "/api/v1/items?repo=acme/api")).items.find((i) =>
         i.title.startsWith("Answer 429"),
       ).key;
+      // tall enough for the item's question, its sessions and the agent's
+      // comment under its description
+      await page.setViewportSize({ width: 1440, height: 1180 });
       await page.goto(`${app.ui}/#/items?open=${key}`);
       await page.getByTestId("item-panel").waitFor();
       await page.mouse.move(5, 600);
       await settle(page, 500);
       await shot("work-items");
+      // the landing page's, cut under the agent's comment
+      await shot("work-items-site", page, { site: true, clip: { x: 0, y: 0, width: 1440, height: 975 } });
+      await page.setViewportSize({ width: 1440, height: 900 });
     },
   },
   {

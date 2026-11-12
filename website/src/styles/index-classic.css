@@ -32,6 +32,71 @@
 .topnav .links a[aria-current] {
   color: var(--pen);
 }
+/* the Concepts menu: the page's sections, under one entry */
+.topnav .nav-menu {
+  position: relative;
+}
+.topnav .nav-menu summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+.topnav .nav-menu summary::-webkit-details-marker {
+  display: none;
+}
+.topnav .nav-menu summary::after {
+  content: " ▾";
+  font-size: 10px;
+}
+.topnav .nav-menu summary:hover,
+.topnav .nav-menu[open] summary {
+  color: var(--ink);
+}
+.topnav .nav-menu-list {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: -14px;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  background: var(--sheet);
+  box-shadow: 0 18px 40px -20px color-mix(in oklab, var(--ink) 45%, transparent);
+}
+.topnav .nav-menu-list a {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+.topnav .nav-menu-list a:hover {
+  background: var(--paper);
+}
+.topnav .nav-menu-list .c-new {
+  font-size: 10px;
+}
+
+/* the announcement above the header, for the newest feature */
+.c-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 13px var(--mono);
+  text-decoration: none;
+  text-align: center;
+}
+.c-banner:hover {
+  text-decoration: underline;
+}
+.c-banner .c-new {
+  margin-left: 0;
+}
+
 /* a page without the Classic/Review switch keeps no room for it */
 .no-switch {
   --switch-room: 28px;
@@ -217,15 +282,16 @@
   font-size: 18px;
 }
 
-/* sessions: the text, then the thread's clip across the column */
-.c-labs {
+/* sessions and work items: the text, then the picture across the column */
+.c-new {
   margin-left: 8px;
   padding: 2px 8px;
   border-radius: 99px;
-  background: var(--agent-wash);
-  color: var(--agent);
+  background: var(--pen);
+  color: var(--sheet);
   letter-spacing: 0.04em;
 }
+.c-items .c-head,
 .c-sessions .c-head {
   margin-bottom: 32px;
 }
@@ -355,7 +421,8 @@
 }
 
 @media (max-width: 960px) {
-  .topnav .links a:not([href^="/docs"], [aria-current]) {
+  .topnav .links a:not([href^="/docs"], [aria-current]),
+  .topnav .links .nav-menu {
     display: none;
   }
   .c-split {

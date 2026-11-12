@@ -2,6 +2,7 @@
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
 import SessionsClip from "../components/index/SessionsClip.astro";
+import WorkItemsShot from "../components/index/WorkItemsShot.astro";
 import { plugins } from "../components/plugins/plugins";
 import ThemeHead from "../components/ThemeHead.astro";
 import SocialCard from "../components/SocialCard.astro";
@@ -47,10 +48,17 @@ const shown = [...views, ...samples];
   <body class="classic">
     <a href="#main" class="skip">Skip to content</a>
 
+    <a class="c-banner" href="#work-items"><span class="c-new">New</span>Work items: task tracking for your agents, linked to their sessions and reviews <span aria-hidden="true">→</span></a>
+
     <header class="topnav">
       <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
       <nav class="links" aria-label="Main">
-        <a href="#how">How it works</a><a href="#views">Views</a><a href="#sessions">Sessions</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/plugins/">Plugins</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+        <details class="nav-menu">
+          <summary>Concepts</summary>
+          <div class="nav-menu-list">
+            <a href="#how">How it works</a><a href="#views">Views</a><a href="#sessions">Sessions</a><a href="#work-items">Work items <span class="c-new">New</span></a><a href="#cli">The CLI</a>
+          </div>
+        </details><a href="#faq">FAQ</a><a href="/plugins/">Plugins</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
       <ModeSwitch current="classic" />
     </header>
@@ -111,15 +119,27 @@ const shown = [...views, ...samples];
         <SessionsClip />
       </section>
 
+      <section class="c-section c-items" id="work-items">
+        <div class="c-head">
+          <p class="kicker">04 · Work items <span class="c-new">New</span></p>
+          <h2>The next task, <em>without asking you.</em></h2>
+          <p>Record the work as items with sub-items and dependencies. An agent takes the next ready item with <code>pinrail items next</code>, and the reviews and questions it sends belong to that item. One holder at a time, so two agents never take the same item, and an item is done only when its sub-items are.</p>
+          <p>Items, sessions and reviews are linked together. An item lists the sessions that worked on it and the reviews and questions they sent, with what still waits for you. A session's thread shows the items it holds and the agent's comments on them.</p>
+          <p>No tags, no boards, no deadlines: task tracking built for agents, beside the reviews it leads to.</p>
+          <p class="c-sessions-more"><a href="/docs/concepts/work-items/">How work items work →</a></p>
+        </div>
+        <WorkItemsShot />
+      </section>
+
       <section class="c-section c-split">
         <div>
-          <p class="kicker">04 · Rounds</p>
+          <p class="kicker">05 · Rounds</p>
           <h2>A no comes with a reason, <em>and the reason comes back.</em></h2>
           <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts and comments, so you see what changed and why, and a view can set the two rounds side by side to check each fix. Every round and every decision is kept, and can be opened again later.</p>
           <RoundDemo />
         </div>
         <div>
-          <p class="kicker">05 · Stop</p>
+          <p class="kicker">06 · Stop</p>
           <h2>“Stop” is <em>a real answer.</em></h2>
           <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. Every ending has its code:</p>
           <table class="codes">
@@ -130,7 +150,7 @@ const shown = [...views, ...samples];
 
       <section class="c-section c-cli" id="cli">
         <div class="c-head">
-          <p class="kicker">06 · The CLI</p>
+          <p class="kicker">07 · The CLI</p>
           <h2>For an agent, <em>and for a script.</em></h2>
           <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
         </div>
@@ -139,7 +159,7 @@ const shown = [...views, ...samples];
 
       <section class="c-section c-faq" id="faq">
         <div class="c-head">
-          <p class="kicker">07 · Questions</p>
+          <p class="kicker">08 · Questions</p>
           <h2>Before you <em>ask.</em></h2>
         </div>
         <div class="faq-list"><Faq /></div>
@@ -161,5 +181,20 @@ const shown = [...views, ...samples];
 
 
     <Footer other={{ href: "/review", label: "Review version" }} />
+    <script>
+      // the Concepts menu closes once a section is picked, or on a click or
+      // Esc elsewhere
+      for (const menu of document.querySelectorAll<HTMLDetailsElement>(".nav-menu")) {
+        menu.addEventListener("click", (event) => {
+          if ((event.target as Element).closest("a")) menu.open = false;
+        });
+        document.addEventListener("click", (event) => {
+          if (!menu.contains(event.target as Node)) menu.open = false;
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") menu.open = false;
+        });
+      }
+    </script>
   </body>
 </html>

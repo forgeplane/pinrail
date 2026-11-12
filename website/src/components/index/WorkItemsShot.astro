@@ -1,0 +1,44 @@
+---
+// The landing page's picture of the Work items page: an item open beside
+// the list, with the question it waits on, the sessions that worked on it
+// and the agent's comment, in the app's light and dark themes; the page
+// shows the one for its own, and a click opens it full size.
+import Zoom from "./Zoom.astro";
+import light from "../../assets/screenshots/work-items-site-light.png";
+import dark from "../../assets/screenshots/work-items-site-dark.png";
+
+const alt =
+  "The Work items page in Pinrail: a plan nested under its item, and the step in progress open beside the list, with its dependencies, a question that waits for the person, the two sessions that worked on it and the agent's comment.";
+---
+
+<div class="items-shot">
+  <Zoom
+    src={light}
+    dark={dark}
+    alt={alt}
+    caption="Work items: an item with its question, its sessions and the agent's comment"
+    sizes="(max-width: 1240px) 92vw, 1124px"
+  />
+</div>
+
+<style>
+  .items-shot {
+    overflow: hidden;
+    border: 1px solid var(--rule-strong);
+    border-radius: 12px;
+    background: var(--sheet);
+    box-shadow: 0 30px 70px -36px color-mix(in oklab, var(--ink) 50%, transparent);
+  }
+  .items-shot :global(.zoom) {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .items-shot :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+</style>

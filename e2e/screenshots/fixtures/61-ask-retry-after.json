@@ -1,0 +1,25 @@
+{
+  "kind": "question",
+  "title": "Round Retry-After up to whole seconds?",
+  "origin": {
+    "repo": "acme/api",
+    "ref": "retry-after",
+    "folder": "/Users/maya/code/acme-api"
+  },
+  "requested_by": "claude-code",
+  "session": "9e41b7d2-5c3a-4f80-b1e6-2d7c8a90f314",
+  "items": ["API-3"],
+  "age": "2m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "Should `Retry-After` round up to whole seconds, or send milliseconds in a separate header?",
+        "answer": "choice",
+        "choices": ["Round up to whole seconds", "Add Retry-After-Ms as well"],
+        "recommended": "Round up to whole seconds",
+        "context": "HTTP allows only whole seconds in `Retry-After`. Rounding up never lets a client retry too early."
+      }
+    ]
+  }
+}

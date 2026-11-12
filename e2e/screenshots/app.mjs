@@ -195,6 +195,9 @@ function pinDatabase(file, plan, statuses, items) {
     db.prepare("UPDATE review_payloads SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE events SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE review_attachments SET review_id = ? WHERE review_id = ?").run(id, old);
+    // the work items it belongs to, and their activity that names it
+    db.prepare("UPDATE review_items SET review_id = ? WHERE review_id = ?").run(id, old);
+    db.prepare("UPDATE work_item_events SET attrs = replace(attrs, ?, ?) WHERE attrs LIKE ?").run(old, id, `%${old}%`);
     if (times.outcome !== undefined)
       db.prepare("UPDATE outcomes SET at = ? WHERE review_id = ?").run(iso(NOW - times.outcome), id);
     const events = db.prepare("SELECT id FROM events WHERE review_id = ? ORDER BY id").all(id);

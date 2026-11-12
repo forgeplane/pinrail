@@ -30,7 +30,10 @@
       "session": "3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23",
       "age": "30m",
       "updated": "9m",
-      "state": "claim"
+      "state": "claim",
+      "comments": [
+        "`Retry-After` is the seconds until the next token, rounded up, so a client never retries too early. The integration test `over_the_limit_waits` covers a key at its limit."
+      ]
     },
     {
       "ref": "load",

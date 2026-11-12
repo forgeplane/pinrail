@@ -23,7 +23,9 @@
 // unless it has a parent, a `title` and a `body`; `by` and `session` when
 // an agent added it, and the person otherwise; `age` and `updated`; and
 // `state`, `claim`, `done` or `cancelled`, with an optional `comment`, which
-// the agent that added it, or the person, does.
+// the agent that added it, or the person, does; and `comments`, which that
+// agent, or the person, writes on it. A review or a question names the work
+// items it belongs to by their keys in `items`.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -149,6 +151,7 @@ export async function seed(app) {
       origin: f.origin,
       requested_by: f.requested_by,
       ...(f.session ? { session: f.session } : {}),
+      ...(f.items ? { items: f.items } : {}),
       payload: f.payload,
       ...(f.attachments ? { attachments: await upload(app, f.attachments) } : {}),
       ...(f.revises ? { revises: created[f.revises] } : {}),
@@ -208,5 +211,7 @@ async function addItems(app, list, pinned) {
     else if (w.state === "done") await app.api("POST", `/api/v1/items/${key}/done`, { ...comment, ...agent }, client);
     else if (w.state === "cancelled")
       await app.api("PATCH", `/api/v1/items/${key}`, { status: "cancelled", ...comment, ...agent }, client);
+    for (const body of w.comments ?? [])
+      await app.api("POST", `/api/v1/items/${key}/comments`, { body, ...agent }, client);
   }
 }
