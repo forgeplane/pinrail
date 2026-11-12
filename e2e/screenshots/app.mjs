@@ -56,10 +56,16 @@ export async function startApp({ build = true } = {}) {
   fs.mkdirSync(data, { recursive: true });
 
   // the settings of a returning user, with the setup and What's new marked
-  // as seen, so that neither dialog covers the screens
+  // as seen, so that neither dialog covers the screens, and the usage data
+  // notice answered with both switches off, so that it covers no inbox and
+  // nothing is sent
   fs.writeFileSync(
     path.join(data, "settings.json"),
-    JSON.stringify({ welcome: { seen: true }, whats_new: { seen: "999.0.0" } }),
+    JSON.stringify({
+      welcome: { seen: true },
+      whats_new: { seen: "999.0.0" },
+      telemetry: { usage: false, crashes: false, notice_shown: new Date(NOW).toISOString() },
+    }),
   );
 
   const corePort = await freePort();

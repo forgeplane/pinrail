@@ -195,12 +195,18 @@ async function addItems(app, list, pinned) {
       client,
     );
     keys[w.ref] = { key: item.key, repo: item.repo };
-    const comment = w.comment ? { comment: w.comment } : {};
-    if (w.state === "claim") await app.api("PATCH", `/api/v1/items/${item.key}`, { claim: "claim", ...agent }, client);
-    else if (w.state === "done")
-      await app.api("POST", `/api/v1/items/${item.key}/done`, { ...comment, ...agent }, client);
-    else if (w.state === "cancelled")
-      await app.api("PATCH", `/api/v1/items/${item.key}`, { status: "cancelled", ...comment, ...agent }, client);
     pinned.push({ id: item.id, created: ms(w.age), updated: ms(w.updated ?? w.age) });
+  }
+  // the states once every item exists: a parent closes with its last open
+  // sub-item, and takes no sub-item once closed
+  for (const w of list) {
+    const agent = w.by ? { by: w.by, session: w.session } : {};
+    const client = w.by ? "cli" : "app";
+    const { key } = keys[w.ref];
+    const comment = w.comment ? { comment: w.comment } : {};
+    if (w.state === "claim") await app.api("PATCH", `/api/v1/items/${key}`, { claim: "claim", ...agent }, client);
+    else if (w.state === "done") await app.api("POST", `/api/v1/items/${key}/done`, { ...comment, ...agent }, client);
+    else if (w.state === "cancelled")
+      await app.api("PATCH", `/api/v1/items/${key}`, { status: "cancelled", ...comment, ...agent }, client);
   }
 }

@@ -101,6 +101,29 @@ async function blogReview(app) {
 /** A What's new picture is the whole window at this size, the shape of the dialog's picture. */
 const card = (page) => page.setViewportSize({ width: 1180, height: 576 });
 
+/** Runs `fn` with two projects of several repositories, then deletes them. */
+async function withProjects(app, fn) {
+  // none left from an earlier run
+  for (const { id } of (await app.api("GET", "/api/v1/projects")).projects)
+    await app.api("DELETE", `/api/v1/projects/${id}`);
+  const made = [];
+  for (const data of [
+    {
+      name: "Northwind",
+      description: "The shop, its API and its infrastructure",
+      color: "blue",
+      repos: ["northwind/api", "northwind/web-app", "northwind/infra"],
+    },
+    { name: "Acme", color: "orange", repos: ["acme/api", "acme/web", "acme/helpdesk"] },
+  ])
+    made.push((await app.api("POST", "/api/v1/projects", data)).id);
+  try {
+    await fn();
+  } finally {
+    for (const id of made) await app.api("DELETE", `/api/v1/projects/${id}`);
+  }
+}
+
 export const scenes = [
   // What's new in 0.3.0: each saved into that release's folder
   {
@@ -284,6 +307,68 @@ export const scenes = [
       await app.api("PATCH", "/api/v1/settings", {
         appearance: { dark_theme: "dark", light_theme: "light" },
       });
+    },
+  },
+  // What's new in 0.6.0
+  {
+    // the Work items page, a plan nested under its item, with the step in
+    // progress open in the panel
+    name: "work-items-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      const key = (await app.api("GET", "/api/v1/items?repo=acme/api")).items.find((i) =>
+        i.title.startsWith("Answer 429"),
+      ).key;
+      await page.goto(`${app.ui}/#/items?open=${key}`);
+      await page.getByTestId("item-panel").waitFor();
+      await page.mouse.move(5, 570);
+      await settle(page, 500);
+      await shot("work-items-card");
+    },
+  },
+  {
+    // the Projects page, with two projects of several repositories
+    name: "projects-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await withProjects(app, async () => {
+        await page.goto(`${app.ui}/#/projects`);
+        await page.getByTestId("project-group").first().waitFor();
+        await page.mouse.move(5, 570);
+        await settle(page, 500);
+        await shot("projects-card");
+      });
+    },
+  },
+  {
+    // the inbox grouped by project
+    name: "inbox-projects-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await withProjects(app, async () => {
+        await app.api("PATCH", "/api/v1/settings", { inbox: { layout: "project" } });
+        try {
+          await page.goto(`${app.ui}/#/`);
+          await page.getByTestId("inbox-group").first().waitFor();
+          await page.mouse.move(5, 570);
+          await settle(page, 500);
+          await shot("inbox-projects-card");
+        } finally {
+          await app.api("PATCH", "/api/v1/settings", { inbox: { layout: "repository" } });
+        }
+      });
+    },
+  },
+  {
+    // the Sessions page, now that sessions are out of Labs
+    name: "sessions-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await page.goto(`${app.ui}/#/sessions`);
+      await page.getByTestId("session-row").first().waitFor();
+      await page.mouse.move(5, 570);
+      await settle(page, 400);
+      await shot("sessions-card");
     },
   },
   {
@@ -1041,29 +1126,13 @@ export const scenes = [
     // repositories in no project below them
     name: "projects",
     async run({ page, app, shot }) {
-      // none left from an earlier run
-      for (const { id } of (await app.api("GET", "/api/v1/projects")).projects)
-        await app.api("DELETE", `/api/v1/projects/${id}`);
-      const made = [];
-      for (const data of [
-        {
-          name: "Northwind",
-          description: "The shop, its API and its infrastructure",
-          color: "blue",
-          repos: ["northwind/api", "northwind/web-app", "northwind/infra"],
-        },
-        { name: "Acme", color: "orange", repos: ["acme/api", "acme/web", "acme/helpdesk"] },
-      ])
-        made.push((await app.api("POST", "/api/v1/projects", data)).id);
-      try {
+      await withProjects(app, async () => {
         await page.goto(`${app.ui}/#/projects`);
         await page.getByTestId("project-group").first().waitFor();
         await page.mouse.move(5, 600);
         await settle(page, 500);
         await shot("projects");
-      } finally {
-        for (const id of made) await app.api("DELETE", `/api/v1/projects/${id}`);
-      }
+      });
     },
   },
   {

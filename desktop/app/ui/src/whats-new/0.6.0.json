@@ -1,0 +1,45 @@
+{
+  "version": "0.6.0",
+  "cards": [
+    {
+      "title": "Work items",
+      "text": "Record the tasks you and your agents work on, with sub-items and dependencies, on the new Work items page. Agents take the next ready item with pinrail items, and the reviews and questions they send belong to it. Queue the items you want done first, and put on hold those to keep for later.",
+      "image": "work-items-card",
+      "alt": "The Work items page: a plan nested under its item, with one step done, one in progress and two waiting, and the step in progress open in the panel beside the list",
+      "action": {
+        "label": "Open Work items",
+        "to": "/items"
+      }
+    },
+    {
+      "title": "Projects",
+      "text": "Group the repositories of one piece of work into a project on the new Projects page, by dragging them under it. Give it a colour and an emoji or a few letters. Agents need no change.",
+      "image": "projects-card",
+      "alt": "The Projects page: two projects with their repositories, what waits in each and when it was updated",
+      "action": {
+        "label": "Open Projects",
+        "to": "/projects"
+      }
+    },
+    {
+      "title": "Your reviews by project",
+      "text": "Group the inbox, the Sessions page and the sidebar's sessions by project, and filter them by a project or a repository from a menu you can type in.",
+      "image": "inbox-projects-card",
+      "alt": "The inbox grouped by project, with the reviews of each project's repositories together",
+      "action": {
+        "label": "Open the inbox",
+        "to": "/"
+      }
+    },
+    {
+      "title": "Sessions and questions for everyone",
+      "text": "Sessions and questions are out of Labs. Agents ask you questions with pinrail ask and report their progress with pinrail status, in a thread for each session. Update the Pinrail skill in Settings › Agents, so that your agents use them.",
+      "image": "sessions-card",
+      "alt": "The Sessions page: agent sessions with what waits in each, what each works on, and its last activity",
+      "action": {
+        "label": "Open Agents settings",
+        "settings": "agents"
+      }
+    }
+  ]
+}
