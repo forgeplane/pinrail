@@ -84,10 +84,10 @@ set -euo pipefail
 data="${TMPDIR:-/tmp}/pinrail-telemetry"
 if [ "${usage_fresh:-false}" = "true" ]; then rm -rf "$data"; fi
 mkdir -p "$data"
-# the notice counts as shown, so events are recorded from the start; the
-# setup is skipped and sessions are on, as on a computer in use
+# the notice counts as shown, so events are recorded from the start, and
+# the setup is skipped, as on a computer in use
 if [ ! -f "$data/settings.json" ]; then
-  printf '{"telemetry": {"notice_shown": "%s"}, "welcome": {"seen": true}, "labs": {"sessions": true}}\n' \
+  printf '{"telemetry": {"notice_shown": "%s"}, "welcome": {"seen": true}}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$data/settings.json"
 fi
 export PINRAIL_DATA_DIR="$data" PINRAIL_PORT=4848
