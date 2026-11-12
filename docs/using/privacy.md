@@ -5,7 +5,7 @@ description: "What Pinrail sends to help improve it, what it never sends, and ho
 
 Everything you review stays on your computer. To learn which features are used and to fix crashes, Pinrail sends anonymous usage data and crash reports to its own server. Both are on by default, and you can turn either off at any time in *Settings › Privacy*.
 
-Nothing is recorded or sent until you have answered the notice about it. The notice appears at the top of the inbox the first time Pinrail starts. A Pinrail server that runs without the app's window, such as one started with `pinrail serve`, never shows the notice, so it records nothing.
+Nothing is recorded or sent until you have answered the notice about it. The notice appears at the top of the inbox the first time Pinrail starts.
 
 ## What usage data contains
 
@@ -65,4 +65,4 @@ To watch the batches instead of sending them, start Pinrail with `PINRAIL_TELEME
 Pinrail connects to the internet in two other cases:
 
 - **Updates**: while *Check automatically* is on, Pinrail looks for a new version on GitHub when it starts and every few hours. See [About](/docs/using/settings/#about).
-- **Send feedback**: what you write in *Send feedback*, the files you attach, and the diagnostics unless you leave them out, are sent to `api.pinrail.dev` only when you send them, with the version of Pinrail and of the operating system.
+- **Send feedback**: what you write in *Send feedback*, the files you attach, and the diagnostics unless you leave them out, are sent to our server only when you send them, with the version of Pinrail and of the operating system.
