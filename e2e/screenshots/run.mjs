@@ -4,6 +4,7 @@
 //   mise run screenshots                     # every scene
 //   mise run screenshots -- --only inbox     # scenes whose name starts with it
 //   mise run screenshots -- --no-build       # reuse the desktop binary as it is
+//   mise run screenshots -- --min-change 0   # write every picture, however little it changed
 //
 // A clean app is started on a scratch data directory, seeded from
 // fixtures/ through the API, and pinned: every time and id is rewritten to
@@ -59,6 +60,11 @@ const flag = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const elsewhere = flag("--out");
+/** The share of pixels, in percent, that must change for a picture to be
+ *  written again: below it the file stays as it is, so that a run does not
+ *  rewrite every picture for differences nobody can see. */
+const minChange = Number(flag("--min-change") ?? 5);
+if (!(minChange >= 0)) throw new Error("--min-change takes a percentage, such as 5");
 const out = path.resolve(elsewhere ?? path.join(root, "website", "public", "screenshots"));
 // shots the landing pages use go here, where Astro optimizes them
 const siteAssets = path.join(root, "website", "src", "assets", "screenshots");
@@ -119,7 +125,55 @@ async function webp(png) {
   }, png.toString("base64"));
   return Buffer.from(data, "base64");
 }
+/**
+ * The share of pixels, in percent, that differ visibly between two images of
+ * the same type, decoded by the browser. A pixel differs when one of its
+ * channels moves by more than 24 of 255, which leaves out antialiasing and
+ * WebP's compression noise. Images of different sizes are compared where
+ * they overlap, from the top left, and every pixel of one outside the other
+ * counts as changed: a view cut a few pixels shorter has barely changed.
+ */
+async function changed(before, after, type) {
+  encoder ??= await (await browser.newContext()).newPage();
+  return encoder.evaluate(
+    async ({ before, after, type }) => {
+      const pixels = async (base64) => {
+        const img = new Image();
+        img.src = `data:${type};base64,${base64}`;
+        await img.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const context = canvas.getContext("2d");
+        context.drawImage(img, 0, 0);
+        return context.getImageData(0, 0, img.width, img.height);
+      };
+      const [a, b] = await Promise.all([pixels(before), pixels(after)]);
+      const width = Math.min(a.width, b.width);
+      const height = Math.min(a.height, b.height);
+      const total = Math.max(a.width, b.width) * Math.max(a.height, b.height);
+      let differ = total - width * height;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * a.width + x) * 4;
+          const j = (y * b.width + x) * 4;
+          if (
+            Math.abs(a.data[i] - b.data[j]) > 24 ||
+            Math.abs(a.data[i + 1] - b.data[j + 1]) > 24 ||
+            Math.abs(a.data[i + 2] - b.data[j + 2]) > 24 ||
+            Math.abs(a.data[i + 3] - b.data[j + 3]) > 24
+          )
+            differ++;
+        }
+      }
+      return (differ / total) * 100;
+    },
+    { before: before.toString("base64"), after: after.toString("base64"), type },
+  );
+}
+
 let failed = false;
+let kept = 0;
 try {
   const reviews = await seed(app);
   fs.mkdirSync(out, { recursive: true });
@@ -160,9 +214,17 @@ try {
           const asWebp = !elsewhere && whatsNew.has(folder);
           const file = path.join(folder, `${name}-${theme}.${asWebp ? "webp" : "png"}`);
           if (asWebp) encoded ??= await webp(png);
-          fs.writeFileSync(file, asWebp ? encoded : png);
+          const bytes = asWebp ? encoded : png;
           made.add(path.relative(root, file));
-          console.log(`screenshots: ${path.relative(root, file)}`);
+          if (fs.existsSync(file) && minChange > 0) {
+            const share = await changed(fs.readFileSync(file), bytes, asWebp ? "image/webp" : "image/png");
+            if (share < minChange) {
+              kept++;
+              continue;
+            }
+            console.log(`screenshots: ${path.relative(root, file)} (${share.toFixed(1)}% changed)`);
+          } else console.log(`screenshots: ${path.relative(root, file)}`);
+          fs.writeFileSync(file, bytes);
         }
       };
       try {
@@ -179,6 +241,7 @@ try {
   await browser.close();
   await app.stop();
 }
+if (kept) console.log(`screenshots: ${kept} kept as they were, with less than ${minChange}% of their pixels changed`);
 if (failed) process.exit(1);
 
 // a full run into the website, every scene made: what an earlier run made
