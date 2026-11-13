@@ -3453,6 +3453,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pinrail-host"
+version = "0.6.0"
+dependencies = [
+ "chrono",
+ "getrandom 0.3.4",
+ "libc",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "pinrail-runtime"
 version = "0.6.0"
 dependencies = [
