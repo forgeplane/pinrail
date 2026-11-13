@@ -11,6 +11,19 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ## [Unreleased]
 
+### Added
+
+- Pinrail can show what each Claude Code session is doing. Turn on
+  **Report status** for Claude Code in Settings › Agents, and Pinrail adds
+  its hooks to Claude Code's settings, leaving your own settings as they
+  are.
+- Each session shows whether it needs you, finished a turn, is working,
+  is idle or has stopped. The mark appears on the session in the sidebar
+  and on the Sessions page, and a chip beside the session's title says
+  what it waits on or how long it has worked.
+- The sidebar's **Priority** sort lists the sessions that need you first,
+  and the Sessions page has a **Needs you only** filter.
+
 ### Security
 
 - Only the Pinrail app can now act as you. Sending an agent a message,
