@@ -7,6 +7,7 @@
 
 pub mod client;
 pub mod frame;
+pub mod launch;
 pub mod log;
 pub mod paths;
 pub mod registration;

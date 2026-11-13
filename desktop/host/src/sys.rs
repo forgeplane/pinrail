@@ -65,3 +65,54 @@ pub fn uid() -> u32 {
     // SAFETY: geteuid has no preconditions and cannot fail.
     unsafe { libc::geteuid() }
 }
+
+/// Leaves the caller's process tree: forks, the parent exits at once, and
+/// the child starts a new session with its standard streams on
+/// `/dev/null`. Returns in the child. Call it only while the process has
+/// one thread, before any runtime starts.
+pub fn daemonize() -> std::io::Result<()> {
+    // SAFETY: with one thread, the child of fork may run any code.
+    match unsafe { libc::fork() } {
+        -1 => return Err(std::io::Error::last_os_error()),
+        0 => {}
+        // SAFETY: _exit ends the parent without running destructors or
+        // flushing buffers that the child also holds.
+        _ => unsafe { libc::_exit(0) },
+    }
+    // SAFETY: setsid has no preconditions; the child of a fork is never a
+    // process group leader, so it succeeds.
+    if unsafe { libc::setsid() } == -1 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let null = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/null")?;
+    use std::os::fd::AsRawFd;
+    for fd in 0..=2 {
+        // SAFETY: both descriptors are open; dup2 replaces the standard
+        // stream with /dev/null.
+        if unsafe { libc::dup2(null.as_raw_fd(), fd) } == -1 {
+            return Err(std::io::Error::last_os_error());
+        }
+    }
+    Ok(())
+}
+
+/// Replaces this process's environment with `vars`. Call it only while
+/// the process has one thread.
+pub fn replace_env(vars: &[(String, String)]) {
+    let names: Vec<_> = std::env::vars_os().map(|(name, _)| name).collect();
+    for name in names {
+        // SAFETY: the process has one thread, so nothing reads the
+        // environment meanwhile.
+        unsafe { std::env::remove_var(name) };
+    }
+    for (name, value) in vars {
+        if name.is_empty() || name.contains('=') || name.contains('\0') || value.contains('\0') {
+            continue;
+        }
+        // SAFETY: as above.
+        unsafe { std::env::set_var(name, value) };
+    }
+}

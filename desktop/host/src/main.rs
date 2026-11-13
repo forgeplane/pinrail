@@ -19,6 +19,7 @@ mod cli {
     use std::time::Duration;
 
     use pinrail_host::client::Client;
+    use pinrail_host::launch;
     use pinrail_host::paths::{self, Paths};
     use pinrail_host::registration::Registration;
     use pinrail_host::server::{self, Config};
@@ -43,6 +44,8 @@ Options:
         command: String,
         data_dir: PathBuf,
         idle_exit: Duration,
+        daemonize: bool,
+        handshake: Option<PathBuf>,
     }
 
     fn parse() -> Result<Args, String> {
@@ -50,6 +53,8 @@ Options:
         let mut command = None;
         let mut data_dir = None;
         let mut idle_exit = server::IDLE_EXIT;
+        let mut daemonize = false;
+        let mut handshake = None;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--data-dir" => {
@@ -64,6 +69,12 @@ Options:
                         .ok_or("--idle-exit needs a number of seconds")?;
                     idle_exit = Duration::from_secs(seconds);
                 }
+                "--daemonize" => daemonize = true,
+                "--handshake" => {
+                    handshake = Some(PathBuf::from(
+                        args.next().ok_or("--handshake needs a socket")?,
+                    ))
+                }
                 "-h" | "--help" => return Err(String::new()),
                 "-V" | "--version" => {
                     println!("{}", pinrail_host::name());
@@ -77,6 +88,8 @@ Options:
             command: command.ok_or("")?,
             data_dir: data_dir.unwrap_or_else(paths::default_data_dir),
             idle_exit,
+            daemonize,
+            handshake,
         })
     }
 
@@ -92,13 +105,12 @@ Options:
             }
         };
         match args.command.as_str() {
-            "serve" => match server::serve(Config {
-                data_dir: args.data_dir,
-                idle_exit: args.idle_exit,
-            }) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(error) => fail(&error.to_string()),
-            },
+            "serve" => {
+                if let Err(error) = detach(&args) {
+                    return fail(&error.to_string());
+                }
+                serve(args)
+            }
             "status" => status(&args.data_dir),
             "stop" => stop(&args.data_dir),
             other => {
@@ -106,6 +118,33 @@ Options:
                 eprint!("{USAGE}");
                 ExitCode::from(2)
             }
+        }
+    }
+
+    /// Takes the environment the core sends, then leaves the core's
+    /// process tree, as `--handshake` and `--daemonize` ask, while the
+    /// process still has one thread.
+    fn detach(args: &Args) -> std::io::Result<()> {
+        let stream = match &args.handshake {
+            Some(socket) => Some(launch::receive_env(socket)?),
+            None => None,
+        };
+        if args.daemonize {
+            launch::daemonize()?;
+        }
+        if let Some(stream) = stream {
+            launch::report_detached(stream)?;
+        }
+        Ok(())
+    }
+
+    fn serve(args: Args) -> ExitCode {
+        match server::serve(Config {
+            data_dir: args.data_dir,
+            idle_exit: args.idle_exit,
+        }) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => fail(&error.to_string()),
         }
     }
 
