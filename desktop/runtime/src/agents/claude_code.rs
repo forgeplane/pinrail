@@ -1,4 +1,4 @@
-//! Claude Code: its hooks, as `runtime-spec.md` section 5.3 lists them.
+//! Claude Code: what each of its hooks reports about its session.
 
 use serde_json::Value;
 

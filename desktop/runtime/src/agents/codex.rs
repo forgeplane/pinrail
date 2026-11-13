@@ -1,4 +1,4 @@
-//! Codex: its hooks, as `runtime-spec.md` section 5.4 lists them. The
+//! Codex: what each of its hooks reports about its session. The
 //! fields are those of `codex-rs/hooks/schema/generated/`.
 
 use serde_json::Value;

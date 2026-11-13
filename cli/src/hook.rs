@@ -29,7 +29,8 @@ pub struct HookArgs {
 /// failure ends quietly: the agent goes on either way.
 pub fn run(args: &HookArgs, url: Option<&str>) {
     let started = Instant::now();
-    // the report's time, read before anything else (spec 5.5)
+    // the report's time, read before anything else, so that it is when
+    // the hook fired rather than when the command got round to it
     let at = Utc::now().to_rfc3339_opts(SecondsFormat::Micros, true);
     // to the end, whatever its size, so the agent never gets a write error
     let mut input = Vec::new();
