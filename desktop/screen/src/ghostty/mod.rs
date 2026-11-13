@@ -7,6 +7,7 @@
 #![allow(unsafe_code)]
 
 mod ffi;
+mod paint;
 
 use std::ffi::{CStr, c_void};
 use std::fmt;
@@ -86,6 +87,15 @@ impl Options {
 /// Focus reporting (DEC private mode 1004): the program wants `CSI I` and
 /// `CSI O` as the terminal gains and loses focus.
 const FOCUS_EVENT: ffi::Mode = ffi::mode(1004, false);
+
+/// An opaque copy of a terminal, for a viewer built on the same library
+/// build, which `format` names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinarySnapshot {
+    /// "ghostty-bin;vt-<version>"
+    pub format: String,
+    pub bytes: Vec<u8>,
+}
 
 /// What the host's view of the terminal tells a program that asks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,8 +195,71 @@ impl Terminal {
         check("ghostty_terminal_new", unsafe {
             ffi::ghostty_terminal_new(ptr::null(), &mut raw, options.cols, options.rows)
         })?;
+        let terminal = Self::wrap(raw, options, false)?;
+        terminal.set_size(ffi::OPT_CONTINUATION_MAX_BYTES, CONTINUATION_MAX_BYTES)?;
+        Ok(terminal)
+    }
+
+    /// A terminal restored from a binary snapshot, with history limited to
+    /// `scrollback_lines` as in [`Options`]. Its unfinished escape sequence,
+    /// if any, is kept, so the next write completes it.
+    pub fn restore(bytes: &[u8], scrollback_lines: usize) -> Result<Self, Error> {
+        let mut decoder = ptr::null_mut();
+        // SAFETY: the pointer and length describe `bytes`, which the
+        // decoder reads during the calls below, before `bytes` goes away.
+        check("ghostty_snapshot_decoder_new_buf", unsafe {
+            ffi::ghostty_snapshot_decoder_new_buf(
+                ptr::null(),
+                &mut decoder,
+                bytes.as_ptr(),
+                bytes.len(),
+            )
+        })?;
+        let (retain, limit) = (true, CONTINUATION_MAX_BYTES);
+        let mut raw = ptr::null_mut();
+        // SAFETY: the options take a bool* and a size_t*, read during the
+        // call; decode hands over a new terminal or leaves null; the
+        // decoder is freed once.
+        let decoded = unsafe {
+            ffi::ghostty_snapshot_decoder_set(
+                decoder,
+                ffi::DECODER_OPT_RETAIN_CONTINUATION,
+                (&raw const retain).cast(),
+            );
+            ffi::ghostty_snapshot_decoder_set(
+                decoder,
+                ffi::DECODER_OPT_MAX_CONTINUATION_BYTES,
+                (&raw const limit).cast(),
+            );
+            let decoded = ffi::ghostty_snapshot_decoder_decode(decoder, &mut raw);
+            ffi::ghostty_snapshot_decoder_free(decoder);
+            decoded
+        };
+        check("ghostty_snapshot_decoder_decode", decoded)?;
+        if raw.is_null() {
+            return Err(Error {
+                call: "ghostty_snapshot_decoder_decode",
+                code: ffi::INVALID_VALUE,
+            });
+        }
+        let (cols, rows) = Terminal::size_of(raw);
+        Self::wrap(
+            raw,
+            &Options {
+                cols,
+                rows,
+                scrollback_lines,
+            },
+            true,
+        )
+    }
+
+    /// Takes ownership of a terminal handle and sets what every terminal
+    /// needs: the callbacks, the history limits and grapheme clustering.
+    /// A `restored` terminal keeps the modes its program set.
+    fn wrap(raw: ffi::Terminal, options: &Options, restored: bool) -> Result<Self, Error> {
         // from here on, Drop frees the handle if a setting fails
-        let terminal = Terminal {
+        let mut terminal = Terminal {
             raw,
             sink: Box::new(Sink {
                 replies: Vec::new(),
@@ -199,22 +272,32 @@ impl Terminal {
         terminal.set_callbacks()?;
         terminal.set_size(ffi::OPT_SCROLLBACK_MAX_LINES, options.lines())?;
         terminal.set_size(ffi::OPT_SCROLLBACK_MAX_BYTES, options.scrollback_bytes())?;
-        terminal.set_size(ffi::OPT_CONTINUATION_MAX_BYTES, CONTINUATION_MAX_BYTES)?;
-        // the reset default, so that a reset by the program keeps it
-        let grapheme = ffi::ModeConfig {
-            mode: GRAPHEME_CLUSTER,
-            value: true,
-        };
-        // SAFETY: the option takes a pointer to a GhosttyTerminalModeConfig,
-        // read during the call.
-        check("ghostty_terminal_set(MODE_DEFAULT)", unsafe {
-            ffi::ghostty_terminal_set(
-                terminal.raw,
-                ffi::OPT_MODE_DEFAULT,
-                (&raw const grapheme).cast(),
-            )
-        })?;
+        // On as the reset default, so that a reset by the program keeps it.
+        // Setting the default also sets the mode now, so a restored terminal
+        // whose program had turned it off gets it turned off again.
+        let was_on = terminal.mode_set(GRAPHEME_CLUSTER);
+        terminal.set_mode(ffi::OPT_MODE_DEFAULT, GRAPHEME_CLUSTER, true)?;
+        if restored && !was_on {
+            terminal.set_mode(ffi::OPT_MODE, GRAPHEME_CLUSTER, false)?;
+        }
+        terminal.focus_reporting = terminal.mode_set(FOCUS_EVENT);
         Ok(terminal)
+    }
+
+    /// Sets a mode's value now (`OPT_MODE`) or as the reset default
+    /// (`OPT_MODE_DEFAULT`).
+    fn set_mode(
+        &self,
+        option: ffi::TerminalOption,
+        mode: ffi::Mode,
+        value: bool,
+    ) -> Result<(), Error> {
+        let config = ffi::ModeConfig { mode, value };
+        // SAFETY: both options take a pointer to a GhosttyTerminalModeConfig,
+        // read during the call.
+        check("ghostty_terminal_set(MODE)", unsafe {
+            ffi::ghostty_terminal_set(self.raw, option, (&raw const config).cast())
+        })
     }
 
     /// Gives the library the sink as userdata, and the callbacks that fill
@@ -351,7 +434,160 @@ impl Terminal {
 
     /// The size in cells, as columns and rows.
     pub fn size(&self) -> (u16, u16) {
-        (self.get(ffi::DATA_COLS), self.get(ffi::DATA_ROWS))
+        Self::size_of(self.raw)
+    }
+
+    fn size_of(raw: ffi::Terminal) -> (u16, u16) {
+        let (mut cols, mut rows) = (0u16, 0u16);
+        // SAFETY: both data items have a uint16_t as their output type.
+        unsafe {
+            ffi::ghostty_terminal_get(raw, ffi::DATA_COLS, (&raw mut cols).cast());
+            ffi::ghostty_terminal_get(raw, ffi::DATA_ROWS, (&raw mut rows).cast());
+        }
+        (cols, rows)
+    }
+
+    /// The title the program set, or an empty string.
+    pub fn title(&self) -> String {
+        let mut title = ffi::GhosttyString {
+            ptr: ptr::null(),
+            len: 0,
+        };
+        // SAFETY: DATA_TITLE's output type is a GhosttyString, which stays
+        // valid until the terminal next changes; it is copied at once.
+        unsafe { ffi::ghostty_terminal_get(self.raw, ffi::DATA_TITLE, (&raw mut title).cast()) };
+        text(title)
+    }
+
+    /// Whether the program shows the alternate screen.
+    pub fn alternate_screen(&self) -> bool {
+        self.get::<i32>(ffi::DATA_ACTIVE_SCREEN) == ffi::SCREEN_ALTERNATE
+    }
+
+    /// The text on the screen, a line per row, without styles.
+    pub fn screen_text(&self) -> String {
+        let (cols, rows) = self.size();
+        let selection = self.select(ffi::POINT_ACTIVE, (0, 0), (cols - 1, u32::from(rows) - 1));
+        self.plain(selection.as_ref())
+    }
+
+    /// The text of the history above the screen, a line per row.
+    pub fn history_text(&self) -> String {
+        let (cols, _) = self.size();
+        let lines = self.retained_lines() as u32;
+        if lines == 0 {
+            return String::new();
+        }
+        match self.select(ffi::POINT_HISTORY, (0, 0), (cols - 1, lines - 1)) {
+            Some(selection) => self.plain(Some(&selection)),
+            None => String::new(),
+        }
+    }
+
+    fn plain(&self, selection: Option<&ffi::Selection>) -> String {
+        let bytes = self.format(ffi::FORMAT_PLAIN, selection, ffi::EXTRAS_NONE, false);
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    /// A reference to the cell at a point, if the point exists.
+    fn grid_ref(&self, tag: i32, x: u16, y: u32) -> Option<ffi::GridRef> {
+        let point = ffi::Point {
+            tag,
+            value: ffi::PointValue {
+                coordinate: ffi::PointCoordinate { x, y },
+            },
+        };
+        let mut out = ffi::GridRef {
+            node: ptr::null_mut(),
+            x: 0,
+            y: 0,
+        };
+        // SAFETY: the point is passed by value, and `out` is a valid place
+        // for the reference, which stays valid until the terminal changes.
+        let found = unsafe { ffi::ghostty_terminal_grid_ref(self.raw, point, &mut out) };
+        (found == ffi::SUCCESS).then_some(out)
+    }
+
+    /// The cells from `start` to `end`, both included, in one coordinate
+    /// space.
+    fn select(&self, tag: i32, start: (u16, u32), end: (u16, u32)) -> Option<ffi::Selection> {
+        Some(ffi::Selection {
+            start: self.grid_ref(tag, start.0, start.1)?,
+            end: self.grid_ref(tag, end.0, end.1)?,
+            rectangle: false,
+        })
+    }
+
+    /// The selection (or the active screen) as plain text or VT sequences,
+    /// with `extras`. `trimmed` joins wrapped lines and trims their ends.
+    fn format(
+        &self,
+        emit: i32,
+        selection: Option<&ffi::Selection>,
+        extras: u32,
+        trimmed: bool,
+    ) -> Vec<u8> {
+        let mut formatter = ptr::null_mut();
+        // SAFETY: a null allocator selects the default; the formatter
+        // borrows the terminal, which outlives it, as it is freed below.
+        if unsafe { ffi::ghostty_formatter_terminal_new(ptr::null(), &mut formatter, self.raw) }
+            != ffi::SUCCESS
+        {
+            return Vec::new();
+        }
+        let joined = trimmed || emit == ffi::FORMAT_PLAIN;
+        // SAFETY: each option takes a pointer to a value of the type passed,
+        // read during the call; the formatter copies the selection.
+        unsafe {
+            ffi::ghostty_formatter_set(
+                formatter,
+                ffi::FORMATTER_OPT_EMIT,
+                (&raw const emit).cast(),
+            );
+            ffi::ghostty_formatter_set(
+                formatter,
+                ffi::FORMATTER_OPT_UNWRAP,
+                (&raw const joined).cast(),
+            );
+            ffi::ghostty_formatter_set(
+                formatter,
+                ffi::FORMATTER_OPT_TRIM,
+                (&raw const joined).cast(),
+            );
+            ffi::ghostty_formatter_set(
+                formatter,
+                ffi::FORMATTER_OPT_EXTRAS,
+                (&raw const extras).cast(),
+            );
+            if let Some(selection) = selection {
+                ffi::ghostty_formatter_set(
+                    formatter,
+                    ffi::FORMATTER_OPT_SELECTION,
+                    (selection as *const ffi::Selection).cast(),
+                );
+            }
+        }
+        // SAFETY: format_alloc hands over the output; the formatter is
+        // freed once.
+        let bytes = alloc(|out, len| unsafe {
+            ffi::ghostty_formatter_format_alloc(formatter, ptr::null(), out, len)
+        });
+        unsafe { ffi::ghostty_formatter_free(formatter) };
+        bytes.unwrap_or_default()
+    }
+
+    /// libghostty-vt's binary snapshot of the whole terminal: both screens,
+    /// all modes and the whole history, and an unfinished escape sequence.
+    /// Only a viewer built on the same library build reads it.
+    pub fn binary_snapshot(&self) -> Option<BinarySnapshot> {
+        // SAFETY: encode_alloc hands over the encoded bytes.
+        let bytes = alloc(|out, len| unsafe {
+            ffi::ghostty_snapshot_encode_alloc(self.raw, ptr::null(), out, len)
+        })?;
+        Some(BinarySnapshot {
+            format: format!("ghostty-bin;vt-{}", version()),
+            bytes,
+        })
     }
 
     /// The cursor's column and row on the screen, from zero.
@@ -381,23 +617,10 @@ impl Terminal {
     /// The bytes of an escape sequence or UTF-8 character that the last
     /// write left unfinished, or `None` when there is none to replay.
     pub fn continuation(&self) -> Option<Vec<u8>> {
-        let (mut out, mut len) = (ptr::null_mut(), 0usize);
-        // SAFETY: a null allocator selects the default; on success the
-        // library hands over `len` bytes at `out`, which are copied and then
-        // freed with the same allocator.
-        unsafe {
-            if ffi::ghostty_terminal_continuation_alloc(self.raw, ptr::null(), &mut out, &mut len)
-                != ffi::SUCCESS
-            {
-                return None;
-            }
-            if out.is_null() {
-                return Some(Vec::new());
-            }
-            let bytes = std::slice::from_raw_parts(out, len).to_vec();
-            ffi::ghostty_free(ptr::null(), out, len);
-            Some(bytes)
-        }
+        // SAFETY: continuation_alloc hands over the unfinished bytes.
+        alloc(|out, len| unsafe {
+            ffi::ghostty_terminal_continuation_alloc(self.raw, ptr::null(), out, len)
+        })
     }
 }
 
@@ -405,6 +628,26 @@ impl Drop for Terminal {
     fn drop(&mut self) {
         // SAFETY: the handle came from ghostty_terminal_new and is freed once.
         unsafe { ffi::ghostty_terminal_free(self.raw) }
+    }
+}
+
+/// Bytes the library allocates and hands over: copied, then freed with the
+/// default allocator, which `call` must have allocated them with. `None`
+/// when the call fails.
+fn alloc(call: impl FnOnce(*mut *mut u8, *mut usize) -> ffi::GhosttyResult) -> Option<Vec<u8>> {
+    let (mut out, mut len) = (ptr::null_mut(), 0usize);
+    if call(&mut out, &mut len) != ffi::SUCCESS {
+        return None;
+    }
+    if out.is_null() {
+        return Some(Vec::new());
+    }
+    // SAFETY: on success the library hands over `len` bytes at `out`,
+    // allocated with the default allocator, which are copied and freed once.
+    unsafe {
+        let bytes = std::slice::from_raw_parts(out, len).to_vec();
+        ffi::ghostty_free(ptr::null(), out, len);
+        Some(bytes)
     }
 }
 

@@ -2,8 +2,8 @@
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
-// icons in the official plugins, libghostty-vt and the font the window draws
-// in are added by hand. Each distinct licence
+// icons in the official plugins, libghostty-vt, the code adapted from
+// herdr-core and the font the window draws in are added by hand. Each distinct licence
 // text is printed once, after the packages that use it.
 //
 //   npm run build && npm run notices
@@ -101,6 +101,13 @@ const entries = [
     id: "MIT",
     text: fs.readFileSync(path.join(root, "licenses", "libghostty-vt.txt"), "utf8"),
     packages: ["libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host"],
+  },
+  // code the terminal host adapts from herdr-core, which says so in each file
+  {
+    name: "Apache License 2.0",
+    id: "Apache-2.0",
+    text: fs.readFileSync(path.join(root, "licenses", "herdr-core.txt"), "utf8"),
+    packages: ["herdr-core, adapted in the terminal host"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),
