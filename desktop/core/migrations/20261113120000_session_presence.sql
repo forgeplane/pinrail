@@ -4,6 +4,11 @@
 -- days without any of these. A flag, which ADD COLUMN appends.
 ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1));
 
+-- The agent's own transcript of the session, as its hooks name it: the
+-- whole conversation, which the session view can read beside what Pinrail
+-- keeps. One file per session id: clearing or forking makes a new one.
+ALTER TABLE sessions ADD COLUMN transcript_path TEXT;
+
 -- What a session's agent is doing now, from the reports of its hooks: one
 -- row per session that has reported, none for the others, whose state is
 -- unknown. Kept apart from `sessions`, since a report arrives with every
@@ -51,6 +56,9 @@ CREATE TABLE session_turns (
   agent      TEXT NOT NULL,
   session    TEXT NOT NULL,
   turn       INTEGER NOT NULL,
+  -- the agent's own id for the turn, which places it in the transcript:
+  -- Claude Code's prompt_id, Codex's turn_id
+  agent_turn TEXT,
   started_at TEXT NOT NULL,
   ended_at   TEXT,
   -- done, failed, interrupted, ended
@@ -58,12 +66,17 @@ CREATE TABLE session_turns (
   UNIQUE (agent, session, turn),
   FOREIGN KEY (agent, session) REFERENCES sessions (agent, id) ON DELETE CASCADE
 );
+CREATE INDEX session_turns_agent_turn ON session_turns (agent, session, agent_turn)
+  WHERE agent_turn IS NOT NULL;
 
--- The prompt and the reply of a turn: large, and read only by the thread.
+-- Excerpts of the prompt and the reply of a turn: large, and read only by
+-- the thread. The whole conversation is in the agent's transcript.
 CREATE TABLE session_turn_texts (
-  turn_id INTEGER PRIMARY KEY REFERENCES session_turns (id) ON DELETE CASCADE,
-  -- at most 4,000 characters
-  prompt  TEXT,
-  -- at most 8,000 characters
-  reply   TEXT
+  turn_id    INTEGER PRIMARY KEY REFERENCES session_turns (id) ON DELETE CASCADE,
+  -- at most 4,000 characters, and whether the prompt was longer
+  prompt     TEXT,
+  prompt_cut INTEGER NOT NULL DEFAULT 0 CHECK (prompt_cut IN (0, 1)),
+  -- at most 32,000 characters, and whether the reply was longer
+  reply      TEXT,
+  reply_cut  INTEGER NOT NULL DEFAULT 0 CHECK (reply_cut IN (0, 1))
 );

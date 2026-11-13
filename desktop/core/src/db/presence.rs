@@ -12,7 +12,7 @@ use super::sessions::activity;
 
 /// The longest prompt and reply kept of a turn, in characters.
 pub const PROMPT_CHARS: usize = 4_000;
-pub const REPLY_CHARS: usize = 8_000;
+pub const REPLY_CHARS: usize = 32_000;
 
 /// One report, as the core received it.
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +26,12 @@ pub struct Report {
     /// Where the session works: `repo`, `ref` and `folder`, as a status's
     /// origin gives them, used when the report creates the session.
     pub origin: Map<String, Value>,
+    /// The agent's own transcript of the session.
+    pub transcript_path: Option<String>,
+    /// The agent's own id for the turn the report is about.
+    pub agent_turn: Option<String>,
+    /// Whether the report's prompt or reply was cut to its excerpt.
+    pub cut: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -75,11 +81,15 @@ pub struct PresenceRow {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnRow {
     pub turn: i64,
+    /// The agent's own id for the turn, which places it in the transcript.
+    pub agent_turn: Option<String>,
     pub started_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
     pub end_kind: Option<String>,
     pub prompt: Option<String>,
+    pub prompt_cut: bool,
     pub reply: Option<String>,
+    pub reply_cut: bool,
 }
 
 /// How long after the last report a new one is taken whatever its hook's
@@ -163,6 +173,17 @@ fn next(event: &ReportEvent, stored: Option<&Stored>) -> Next {
     }
 }
 
+/// A reply as it is kept: at most its excerpt, and whether it was longer.
+struct Excerpt {
+    text: Option<String>,
+    cut: bool,
+}
+
+/// Whether a text is longer than `n` characters.
+fn longer(text: &Option<String>, n: usize) -> bool {
+    text.as_ref().is_some_and(|t| t.chars().nth(n).is_some())
+}
+
 /// At most `n` characters of a text.
 fn cut(text: &Option<String>, n: usize) -> Option<String> {
     text.as_ref().map(|t| t.chars().take(n).collect())
@@ -225,16 +246,13 @@ impl Db {
             at >= s.event_at || micros_between(&s.state_at, &now_at) > WINDOW_MICROS
         });
 
-        record_turns(
-            &tx,
-            agent,
-            id,
-            &report.event,
-            &at,
-            &now_at,
-            keep_texts,
-            !newer,
-        )?;
+        if let Some(path) = &report.transcript_path {
+            tx.execute(
+                "UPDATE sessions SET transcript_path = ?3 WHERE agent = ?1 AND id = ?2",
+                params![agent, id, path],
+            )?;
+        }
+        record_turns(&tx, agent, id, report, &at, &now_at, keep_texts, !newer)?;
 
         let finished = matches!(
             &report.event,
@@ -384,18 +402,22 @@ impl Db {
         let time = |s: String| crate::reviews::parse_datetime(&s).unwrap_or_default();
         let conn = self.read();
         let mut stmt = conn.prepare(
-            "SELECT t.turn, t.started_at, t.ended_at, t.end_kind, x.prompt, x.reply
+            "SELECT t.turn, t.agent_turn, t.started_at, t.ended_at, t.end_kind, x.prompt,
+               COALESCE(x.prompt_cut, 0), x.reply, COALESCE(x.reply_cut, 0)
              FROM session_turns t LEFT JOIN session_turn_texts x ON x.turn_id = t.id
              WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.started_at, t.turn",
         )?;
         stmt.query_map(params![agent, id], |r| {
             Ok(TurnRow {
                 turn: r.get(0)?,
-                started_at: time(r.get(1)?),
-                ended_at: r.get::<_, Option<String>>(2)?.map(time),
-                end_kind: r.get(3)?,
-                prompt: r.get(4)?,
-                reply: r.get(5)?,
+                agent_turn: r.get(1)?,
+                started_at: time(r.get(2)?),
+                ended_at: r.get::<_, Option<String>>(3)?.map(time),
+                end_kind: r.get(4)?,
+                prompt: r.get(5)?,
+                prompt_cut: r.get(6)?,
+                reply: r.get(7)?,
+                reply_cut: r.get(8)?,
             })
         })?
         .collect()
@@ -459,13 +481,13 @@ fn record_turns(
     conn: &Connection,
     agent: &str,
     id: &str,
-    event: &ReportEvent,
+    report: &Report,
     at: &str,
     now: &str,
     keep_texts: bool,
     late: bool,
 ) -> rusqlite::Result<()> {
-    match event {
+    match &report.event {
         ReportEvent::Prompt { prompt } => {
             conn.execute(
                 "UPDATE session_turns SET ended_at = ?3, end_kind = 'interrupted'
@@ -473,16 +495,20 @@ fn record_turns(
                 params![agent, id, at],
             )?;
             conn.execute(
-                "INSERT INTO session_turns (agent, session, turn, started_at)
+                "INSERT INTO session_turns (agent, session, turn, agent_turn, started_at)
                  VALUES (?1, ?2, (SELECT COALESCE(MAX(turn), 0) + 1 FROM session_turns
-                                  WHERE agent = ?1 AND session = ?2), ?3)",
-                params![agent, id, at],
+                                  WHERE agent = ?1 AND session = ?2), ?4, ?3)",
+                params![agent, id, at, report.agent_turn],
             )?;
             let turn_id = conn.last_insert_rowid();
             if keep_texts && prompt.is_some() {
                 conn.execute(
-                    "INSERT INTO session_turn_texts (turn_id, prompt) VALUES (?1, ?2)",
-                    params![turn_id, cut(prompt, PROMPT_CHARS)],
+                    "INSERT INTO session_turn_texts (turn_id, prompt, prompt_cut) VALUES (?1, ?2, ?3)",
+                    params![
+                        turn_id,
+                        cut(prompt, PROMPT_CHARS),
+                        report.cut || longer(prompt, PROMPT_CHARS)
+                    ],
                 )?;
             }
             late_prompt(conn, agent, id, turn_id, at, late)?;
@@ -499,13 +525,39 @@ fn record_turns(
             // an interrupt, such as Claude Code's idle prompt a minute
             // later, leaves a finished turn as it was
             let continued = end != "interrupted";
-            if let Some(turn) = turn_at(conn, agent, id, at, continued)? {
-                close(conn, turn, end, at, cut(reply, REPLY_CHARS), keep_texts)?;
+            // the agent's own turn id finds its turn exactly; without one,
+            // the turn that ran when the end fired
+            let named = match &report.agent_turn {
+                Some(turn) => conn
+                    .query_row(
+                        "SELECT id FROM session_turns
+                         WHERE agent = ?1 AND session = ?2 AND agent_turn = ?3
+                           AND (?4 OR ended_at IS NULL OR end_kind = 'interrupted')",
+                        params![agent, id, turn, continued],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
+                None => None,
+            };
+            let turn = match named {
+                Some(turn) => Some(turn),
+                None => turn_at(conn, agent, id, at, continued)?,
+            };
+            if let Some(turn) = turn {
+                let excerpt = Excerpt {
+                    text: cut(reply, REPLY_CHARS),
+                    cut: report.cut || longer(reply, REPLY_CHARS),
+                };
+                close(conn, turn, end, at, excerpt, keep_texts)?;
             }
         }
         ReportEvent::Ended { .. } => {
             if let Some(turn) = turn_at(conn, agent, id, at, false)? {
-                close(conn, turn, "ended", at, None, false)?;
+                let excerpt = Excerpt {
+                    text: None,
+                    cut: false,
+                };
+                close(conn, turn, "ended", at, excerpt, false)?;
             }
         }
         ReportEvent::Started { .. } | ReportEvent::Working | ReportEvent::NeedsInput { .. } => {}
@@ -566,13 +618,15 @@ fn late_prompt(
         )?;
         // the reply goes with its end
         conn.execute(
-            "INSERT INTO session_turn_texts (turn_id, reply)
-               SELECT ?2, reply FROM session_turn_texts WHERE turn_id = ?1 AND reply IS NOT NULL
-             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply",
+            "INSERT INTO session_turn_texts (turn_id, reply, reply_cut)
+               SELECT ?2, reply, reply_cut FROM session_turn_texts
+               WHERE turn_id = ?1 AND reply IS NOT NULL
+             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply,
+               reply_cut = excluded.reply_cut",
             params![previous, turn_id],
         )?;
         conn.execute(
-            "UPDATE session_turn_texts SET reply = NULL WHERE turn_id = ?1",
+            "UPDATE session_turn_texts SET reply = NULL, reply_cut = 0 WHERE turn_id = ?1",
             params![previous],
         )?;
     }
@@ -649,7 +703,7 @@ fn close(
     turn_id: i64,
     end: &str,
     at: &str,
-    reply: Option<String>,
+    reply: Excerpt,
     keep_texts: bool,
 ) -> rusqlite::Result<()> {
     conn.execute(
@@ -657,15 +711,16 @@ fn close(
         params![turn_id, at, end],
     )?;
     // the reply is the one of the end that closed the turn, none included
-    if keep_texts && reply.is_some() {
+    if keep_texts && reply.text.is_some() {
         conn.execute(
-            "INSERT INTO session_turn_texts (turn_id, reply) VALUES (?1, ?2)
-             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply",
-            params![turn_id, reply],
+            "INSERT INTO session_turn_texts (turn_id, reply, reply_cut) VALUES (?1, ?2, ?3)
+             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply,
+               reply_cut = excluded.reply_cut",
+            params![turn_id, reply.text, reply.cut],
         )?;
     } else {
         conn.execute(
-            "UPDATE session_turn_texts SET reply = NULL WHERE turn_id = ?1",
+            "UPDATE session_turn_texts SET reply = NULL, reply_cut = 0 WHERE turn_id = ?1",
             params![turn_id],
         )?;
     }

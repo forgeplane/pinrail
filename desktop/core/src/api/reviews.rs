@@ -725,7 +725,9 @@ async fn status(
 /// `source` with `started`, `wait` (`permission` or `question`) with
 /// `needs_input`, `end` (`done`, `failed` or `interrupted`) with
 /// `turn_ended`, and in `detail` the `tool`, `summary`, `prompt`, `reply`,
-/// `error` and `reason`. `process` names the agent's `pid` and when it
+/// `error`, `reason`, the agent's own `turn_id`, and `prompt_cut` or
+/// `reply_cut` when the CLI cut the text. `transcript_path` names the
+/// agent's own transcript of the session. `process` names the agent's `pid` and when it
 /// `started`, and `origin` where the session works. Answers 204, also for a
 /// report that arrived after a newer one.
 async fn report(
@@ -810,7 +812,18 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
+    let flag = |key: &str| {
+        body.get("detail")
+            .and_then(|d| d.get(key))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    };
     Ok(Report {
+        cut: flag("prompt_cut") || flag("reply_cut"),
+        agent_turn: detail("turn_id"),
+        transcript_path: text("transcript_path")
+            .filter(|p| !p.is_empty())
+            .map(str::to_string),
         event,
         at,
         process,

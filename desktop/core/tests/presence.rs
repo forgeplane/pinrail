@@ -182,6 +182,9 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         at: chrono::DateTime::parse_from_rfc3339(at).unwrap().to_utc(),
         process: None,
         origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
     };
     let now = chrono::Utc::now();
     // a time far ahead counts as now
@@ -582,6 +585,9 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
         at: chrono::DateTime::parse_from_rfc3339(&at).unwrap().to_utc(),
         process: None,
         origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
     };
     let now = chrono::Utc::now();
     // one report from a clock a minute ahead of the others
@@ -776,6 +782,9 @@ async fn a_prompt_whose_clock_stepped_back_moves_no_turn_s_end() {
         at: chrono::DateTime::parse_from_rfc3339(&at).unwrap().to_utc(),
         process: None,
         origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
     };
     let now = chrono::Utc::now();
     let prompt = || pinrail_core::db::ReportEvent::Prompt { prompt: None };
@@ -846,4 +855,58 @@ async fn turns_do_not_overlap_after_a_late_prompt() {
             (at(30), None)
         ]
     );
+}
+
+#[tokio::test]
+async fn a_turn_keeps_the_agent_s_id_its_transcript_and_whether_its_texts_were_cut() {
+    let app = app();
+    let path = "/Users/you/.claude/projects/app/s-1.jsonl";
+    report(
+        &app,
+        "s-1",
+        "prompt",
+        1,
+        json!({"transcript_path": path, "detail": {"prompt": "Go", "turn_id": "p-1", "prompt_cut": true}}),
+    )
+    .await;
+    report(
+        &app,
+        "s-1",
+        "prompt",
+        2,
+        json!({"detail": {"prompt": "Next", "turn_id": "p-2"}}),
+    )
+    .await;
+    // the end of the first turn arrives late, and names its turn
+    let long = "y".repeat(40_000);
+    report(
+        &app,
+        "s-1",
+        "turn_ended",
+        3,
+        json!({"end": "done", "detail": {"reply": long, "turn_id": "p-1"}}),
+    )
+    .await;
+    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let first = &turns[0];
+    assert_eq!(first.agent_turn.as_deref(), Some("p-1"));
+    assert_eq!(
+        (first.end_kind.as_deref(), first.prompt_cut),
+        (Some("done"), true)
+    );
+    assert_eq!(first.reply.as_deref().map(str::len), Some(32_000));
+    assert!(first.reply_cut);
+    assert_eq!(
+        (turns[1].end_kind.as_deref(), turns[1].prompt_cut),
+        (None, false)
+    );
+    let stored: Option<String> = rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .query_row(
+            "SELECT transcript_path FROM sessions WHERE id = 's-1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored.as_deref(), Some(path));
 }
