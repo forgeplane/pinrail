@@ -23,6 +23,7 @@ pub mod registration;
 pub mod server;
 mod sys;
 pub mod terminal;
+pub mod viewers;
 
 /// The protocol generation: the framing, `hello`, `host.info`,
 /// `terminal.list` and `host.stop`, which never change within one.

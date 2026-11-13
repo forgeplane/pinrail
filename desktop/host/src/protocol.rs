@@ -73,6 +73,11 @@ pub const METHODS: &[Method] = &[
         optional: &["lines"],
     },
     Method {
+        name: "terminal.attach",
+        required: &["terminal", "cols", "rows"],
+        optional: &["mode", "history", "formats", "resume_from"],
+    },
+    Method {
         name: "events.subscribe",
         required: &[],
         optional: &["after", "instance"],
@@ -89,6 +94,7 @@ pub const EVENTS: &[(&str, &[&str])] = &[
     ("notify", &["terminal", "title", "body"]),
     ("program_status", &["terminal", "state"]),
     ("input", &["terminal", "kind"]),
+    ("size", &["terminal", "cols", "rows"]),
     ("missed", &[]),
     ("ping", &[]),
 ];
@@ -224,7 +230,7 @@ mod tests {
         // an added method or optional parameter is not
         let mut added = schema();
         added["methods"]["terminal.stop"]["optional"] = json!(["grace_ms", "reason"]);
-        added["methods"]["terminal.attach"] = json!({"required": ["terminal"], "optional": []});
+        added["methods"]["terminal.rename"] = json!({"required": ["terminal"], "optional": []});
         assert!(breaking_changes(&schema(), &added).is_empty());
     }
 }

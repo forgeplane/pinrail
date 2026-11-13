@@ -26,7 +26,8 @@ use crate::probe::Probe;
 use crate::pty::{self, SpawnError};
 use crate::records::Records;
 use crate::registration::Registration;
-use crate::terminal::{self, Reason, SignalError, Terminal};
+use crate::terminal::{self, AttachError, Reason, SignalError, Terminal};
+use crate::viewers::AttachRequest;
 
 /// How long a host with no terminals and no controller waits before it
 /// exits.
@@ -260,6 +261,9 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     );
     let mut stop = false;
     let mut overflowed = false;
+    // this connection's terminal channels, and the terminal of each
+    let channels: Arc<Mutex<BTreeMap<u32, String>>> = Arc::default();
+    let next_channel = Arc::new(std::sync::atomic::AtomicU32::new(1));
     loop {
         tokio::select! {
             _ = &mut replaced => {
@@ -287,6 +291,9 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
                     if subscribe(&frame.payload, id, &out, &shared) {
                         continue;
                     }
+                    if attach(&frame.payload, id, &out, &shared, &channels, &next_channel) {
+                        continue;
+                    }
                     let (out, shared, stopping) = (out.clone(), shared.clone(), stopping.clone());
                     tokio::spawn(async move {
                         let (reply, stops) = answer(&frame.payload, &shared).await;
@@ -298,13 +305,37 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
                         }
                     });
                 }
-                // terminal channels come with terminal.attach
-                Ok(Some(_)) => {}
+                // a frame on a terminal channel, for its terminal's actor
+                Ok(Some(frame)) => {
+                    let terminal = channels
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .get(&frame.channel)
+                        .cloned();
+                    if let Some(terminal) = terminal {
+                        let channel = frame.channel;
+                        let closing = frame.kind == kind::CLOSE;
+                        if let Some(t) = shared.terminals.lock().unwrap_or_else(|e| e.into_inner()).get(&terminal) {
+                            t.channel((id, channel), frame);
+                        }
+                        if closing {
+                            channels.lock().unwrap_or_else(|e| e.into_inner()).remove(&channel);
+                        }
+                    }
+                }
                 Ok(None) | Err(_) => break,
             }
         }
     }
     shared.context.events.unsubscribe(id);
+    {
+        let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        for (channel, terminal) in channels.lock().unwrap_or_else(|e| e.into_inner()).iter() {
+            if let Some(t) = terminals.get(terminal) {
+                t.detach((id, *channel));
+            }
+        }
+    }
     drop(out);
     // a connection that reads nothing is closed at once; otherwise what is
     // queued, such as a stop's reply, gets a few seconds to go out
@@ -734,6 +765,113 @@ async fn submit(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         .await
         .map_err(|refused| Failure(refused.code(), format!("{refused:?}")))?;
     Ok(json!({"ok": true}))
+}
+
+/// `terminal.attach {terminal, mode, cols, rows, history, formats,
+/// resume_from?}`: opens a terminal channel, paused until the reply that
+/// names it has been queued, so the core always knows a channel before its
+/// first frame. Returns whether the message was one.
+fn attach(
+    payload: &[u8],
+    connection: u64,
+    out: &Outbox,
+    shared: &Arc<Shared>,
+    channels: &Arc<Mutex<BTreeMap<u32, String>>>,
+    next_channel: &Arc<std::sync::atomic::AtomicU32>,
+) -> bool {
+    let Ok(message) = serde_json::from_slice::<Value>(payload) else {
+        return false;
+    };
+    if message.get("method").and_then(Value::as_str) != Some("terminal.attach") {
+        return false;
+    }
+    let Some(id) = message.get("id").cloned() else {
+        return true;
+    };
+    let params = params(&message).clone();
+    let size = |key| {
+        params
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|n| u16::try_from(n).ok())
+            .filter(|&n| n > 0)
+    };
+    let (Some(cols), Some(rows)) = (size("cols"), size("rows")) else {
+        out.reply(&error(id, -32000, "invalid", "cols and rows are required"));
+        return true;
+    };
+    let request = AttachRequest {
+        cols,
+        rows,
+        history: params
+            .get("history")
+            .and_then(Value::as_u64)
+            .unwrap_or(5_000) as usize,
+        formats: params
+            .get("formats")
+            .and_then(Value::as_array)
+            .map(|f| {
+                f.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        resume_from: params.get("resume_from").and_then(Value::as_u64),
+    };
+    let terminal_id = params
+        .get("terminal")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let channel = next_channel.fetch_add(1, Ordering::Relaxed);
+    let viewer = (connection, channel);
+    let attached = {
+        let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        terminals
+            .get(&terminal_id)
+            .map(|t| t.attach(viewer, out.clone(), request))
+    };
+    let (out, shared, channels) = (out.clone(), shared.clone(), channels.clone());
+    tokio::spawn(async move {
+        let Some(attached) = attached else {
+            out.reply(&error(
+                id,
+                -32000,
+                "not_found",
+                &format!("no terminal {terminal_id:?}"),
+            ));
+            return;
+        };
+        match attached.await {
+            Ok(format) => {
+                channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .insert(channel, terminal_id.clone());
+                out.reply(&result(id, json!({"channel": channel, "format": format})));
+                if let Some(t) = shared
+                    .terminals
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .get(&terminal_id)
+                {
+                    t.resume(viewer);
+                }
+            }
+            Err(AttachError::Exited) => {
+                out.reply(&error(id, -32000, "exited", "the program has exited"));
+            }
+            Err(AttachError::Unsupported) => {
+                out.reply(&error(
+                    id,
+                    -32000,
+                    "unsupported",
+                    "none of these snapshot formats",
+                ));
+            }
+        }
+    });
+    true
 }
 
 /// `events.subscribe {after?, instance?}`, answered here so that the reply

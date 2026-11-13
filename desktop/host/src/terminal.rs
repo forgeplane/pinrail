@@ -10,16 +10,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use pinrail_screen::{Options, Screen, Signal, TextRange};
+use pinrail_screen::{ColorScheme, DisplayFacts, Options, Rgb, Screen, Signal, TextRange};
 use serde_json::{Value, json};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
 use crate::events::Events;
 use crate::filter::QueryFilter;
+use crate::frame::{Frame, kind};
 use crate::leader::{self, Leader};
+use crate::outbox::Outbox;
 use crate::pty::{self, Exit, Ready, Spawned};
 use crate::records::Records;
+use crate::viewers::{self, AttachRequest, ViewerId, Viewers};
 
 /// The most the reader reads at once.
 const CHUNK: usize = 64 * 1024;
@@ -185,9 +188,27 @@ struct Typing {
     pasted_at: Option<Instant>,
 }
 
+/// Why a viewer could not attach.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttachError {
+    /// The program has exited; its final screen is in `terminal.text`.
+    Exited,
+    /// None of the snapshot formats the viewer reads.
+    Unsupported,
+}
+
 enum Command {
     Exited(Exit),
     Focus(bool),
+    Attach {
+        viewer: ViewerId,
+        out: Outbox,
+        request: AttachRequest,
+        reply: oneshot::Sender<Result<String, AttachError>>,
+    },
+    Resume(ViewerId),
+    Channel(ViewerId, Frame),
+    Detach(ViewerId),
     Input(Vec<u8>, Input),
     Submit(Submit, oneshot::Sender<Result<(), SubmitError>>),
     Text {
@@ -300,6 +321,9 @@ impl Terminal {
             held: Vec::new(),
             filter: QueryFilter::default(),
             for_viewers: Vec::new(),
+            viewers: Viewers::default(),
+            size: (cols, rows),
+            ended: false,
             focus_reporting: false,
             focused: false,
         }));
@@ -372,6 +396,46 @@ impl Terminal {
             }
             answer.await.unwrap_or(Err(SubmitError::Exited))
         }
+    }
+
+    /// Opens a viewer on the terminal, paused until [`Terminal::resume`]:
+    /// answers with the snapshot format it gets.
+    pub fn attach(
+        &self,
+        viewer: ViewerId,
+        out: Outbox,
+        request: AttachRequest,
+    ) -> impl Future<Output = Result<String, AttachError>> + use<> {
+        let (reply, answer) = oneshot::channel();
+        let sent = self
+            .commands
+            .send(Command::Attach {
+                viewer,
+                out,
+                request,
+                reply,
+            })
+            .is_ok();
+        async move {
+            if !sent {
+                return Err(AttachError::Exited);
+            }
+            answer.await.unwrap_or(Err(AttachError::Exited))
+        }
+    }
+
+    /// Starts sending to a viewer, once its attach reply has been queued.
+    pub fn resume(&self, viewer: ViewerId) {
+        let _ = self.commands.send(Command::Resume(viewer));
+    }
+
+    /// A frame a viewer sent on its terminal channel.
+    pub fn channel(&self, viewer: ViewerId, frame: Frame) {
+        let _ = self.commands.send(Command::Channel(viewer, frame));
+    }
+
+    pub fn detach(&self, viewer: ViewerId) {
+        let _ = self.commands.send(Command::Detach(viewer));
     }
 
     /// Whether the controlling viewer's window is focused and shows the
@@ -448,6 +512,10 @@ struct Actor {
     /// Whether a controlling viewer's window is focused and shows the
     /// terminal.
     focused: bool,
+    viewers: Viewers,
+    /// The PTY's size, as columns and rows.
+    size: (u16, u16),
+    ended: bool,
 }
 
 /// Applies output and commands in the order they come, until the terminal
@@ -466,6 +534,7 @@ async fn actor(mut actor: Actor) {
                 actor.type_on();
             }
             () = tokio::time::sleep_until(next_look), if !ended => {
+                actor.viewers.prune();
                 actor.look_at_foreground();
                 let controlled = actor.context.controlled.load(Ordering::Relaxed);
                 next_look = Instant::now() + if controlled { LOOK_CONTROLLED } else { LOOK_IDLE };
@@ -484,6 +553,14 @@ async fn actor(mut actor: Actor) {
                 }
                 Some(Command::Input(bytes, from)) => actor.input(bytes, from),
                 Some(Command::Focus(focused)) => actor.set_focus(focused),
+                Some(Command::Attach { viewer, out, request, reply }) => {
+                    let _ = reply.send(actor.attach(viewer, out, &request));
+                }
+                Some(Command::Resume(viewer)) => actor.with_paint(|viewers, paint, size| {
+                    viewers.resume(viewer, paint, size);
+                }),
+                Some(Command::Channel(viewer, frame)) => actor.channel(viewer, frame),
+                Some(Command::Detach(viewer)) => actor.detach(viewer),
                 Some(Command::Submit(submit, reply)) => {
                     if ended {
                         let _ = reply.send(Err(SubmitError::Exited));
@@ -638,6 +715,192 @@ impl Actor {
         }
     }
 
+    /// Runs `act` with the viewers and a function that paints the screen
+    /// for them: the first paint, then the bytes the filter holds.
+    fn with_paint(
+        &mut self,
+        act: impl FnOnce(&mut Viewers, &dyn Fn(usize) -> Vec<u8>, (u16, u16)),
+    ) {
+        let (screen, filter) = (&self.screen, &self.filter);
+        let paint = |history: usize| {
+            let mut bytes = screen.first_paint(history);
+            bytes.extend_from_slice(filter.held());
+            bytes
+        };
+        act(&mut self.viewers, &paint, self.size);
+    }
+
+    /// Opens a viewer: the output it missed when it resumes and the ring
+    /// still holds it, otherwise a snapshot in the first format it reads
+    /// that the screen can produce.
+    fn attach(
+        &mut self,
+        viewer: ViewerId,
+        out: Outbox,
+        request: &AttachRequest,
+    ) -> Result<String, AttachError> {
+        if self.ended {
+            return Err(AttachError::Exited);
+        }
+        let channel = viewer.1;
+        let offset = self.viewers.offset();
+        let (format, frames) = if let Some(missed) = request
+            .resume_from
+            .and_then(|from| self.viewers.since(from))
+        {
+            let mut frames = vec![viewers::meta(
+                channel,
+                json!({"type": "resume", "offset": request.resume_from}),
+            )];
+            frames.extend(
+                viewers::snapshot_frames(channel, "resume", self.size, offset, &[], &missed)
+                    .split_off(2),
+            );
+            ("resume".to_string(), frames)
+        } else {
+            let binary = self.screen.binary_snapshot();
+            let wanted = |format: &str| {
+                request.formats.is_empty() || request.formats.iter().any(|f| f == format)
+            };
+            let chosen = request.formats.iter().find_map(|format| match &binary {
+                Some(snapshot) if *format == snapshot.format => Some(format.clone()),
+                _ if format == "vt" => Some(format.clone()),
+                _ => None,
+            });
+            let format = match chosen {
+                Some(format) => format,
+                None if wanted("vt") => "vt".to_string(),
+                None => return Err(AttachError::Unsupported),
+            };
+            let frames = match binary {
+                Some(snapshot) if snapshot.format == format => viewers::snapshot_frames(
+                    channel,
+                    &format,
+                    self.size,
+                    offset,
+                    &snapshot.bytes,
+                    self.filter.held(),
+                ),
+                _ => {
+                    let mut paint = self.screen.first_paint(request.history);
+                    paint.extend_from_slice(self.filter.held());
+                    viewers::snapshot_frames(channel, "vt", self.size, offset, &paint, &[])
+                }
+            };
+            (format, frames)
+        };
+        self.viewers
+            .add(viewer, out, (request.cols, request.rows), frames);
+        Ok(format)
+    }
+
+    /// A frame a viewer sent on its channel.
+    fn channel(&mut self, viewer: ViewerId, frame: Frame) {
+        if !self.viewers.contains(viewer) {
+            return;
+        }
+        let controller = self.viewers.is_controller(viewer);
+        match frame.kind {
+            // the first input makes its viewer the controller, at its size
+            kind::DATA => {
+                if !controller {
+                    self.take_control(viewer);
+                }
+                self.input(frame.payload, Input::Person);
+            }
+            kind::CREDIT => {
+                if let Ok(bytes) = <[u8; 4]>::try_from(frame.payload.as_slice()) {
+                    let bytes = u32::from_le_bytes(bytes);
+                    self.with_paint(|viewers, paint, size| {
+                        viewers.credit(viewer, bytes, paint, size)
+                    });
+                }
+            }
+            kind::RESIZE => {
+                if let Ok(size) = <[u8; 4]>::try_from(frame.payload.as_slice()) {
+                    let cols = u16::from_le_bytes([size[0], size[1]]);
+                    let rows = u16::from_le_bytes([size[2], size[3]]);
+                    if cols > 0 && rows > 0 {
+                        self.viewers.set_size(viewer, (cols, rows));
+                        if controller {
+                            self.resize((cols, rows));
+                        }
+                    }
+                }
+            }
+            kind::CONTROL => match serde_json::from_slice::<Value>(&frame.payload)
+                .ok()
+                .as_ref()
+                .and_then(Value::as_str)
+            {
+                Some("take") => self.take_control(viewer),
+                Some("release") if controller => {
+                    self.viewers.release(viewer);
+                    self.set_focus(false);
+                }
+                _ => {}
+            },
+            kind::FACTS if controller => {
+                if let Ok(facts) = serde_json::from_slice::<Value>(&frame.payload) {
+                    self.screen.set_facts(&display_facts(&facts));
+                }
+            }
+            kind::FOCUS if controller => {
+                self.set_focus(frame.payload.first() == Some(&1));
+            }
+            // a reply from the viewer's own emulator: written, but never
+            // the person's input and never a promotion
+            kind::REPLY if controller => self.input(frame.payload, Input::Reply),
+            kind::CLOSE => self.detach(viewer),
+            _ => {}
+        }
+    }
+
+    /// Makes a viewer the controller, and the terminal its size.
+    fn take_control(&mut self, viewer: ViewerId) {
+        if self.viewers.promote(viewer) {
+            self.set_focus(false);
+            if let Some(size) = self.viewers.size_of(viewer) {
+                self.resize(size);
+            }
+        }
+    }
+
+    fn detach(&mut self, viewer: ViewerId) {
+        let was_controller = self.viewers.is_controller(viewer);
+        if self.viewers.remove(viewer) && was_controller {
+            // the PTY keeps its size; nobody is watching it now
+            self.set_focus(false);
+        }
+    }
+
+    /// Resizes the PTY and the screen, which the next output is parsed at,
+    /// and tells the viewers.
+    fn resize(&mut self, size: (u16, u16)) {
+        if size == self.size || self.ended {
+            return;
+        }
+        {
+            let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(master) = &state.master {
+                let _ = pty::resize(master, size.0, size.1);
+            }
+            state.info.cols = size.0;
+            state.info.rows = size.1;
+        }
+        self.screen.resize(size.0, size.1, None);
+        self.size = size;
+        self.context.records.update(&self.id, |record| {
+            record["cols"] = json!(size.0);
+            record["rows"] = json!(size.1);
+        });
+        self.context.events.emit(
+            "size",
+            json!({"terminal": self.id, "cols": size.0, "rows": size.1}),
+        );
+        self.with_paint(|viewers, paint, size| viewers.resized(size, paint));
+    }
+
     /// Checks the guards and starts typing a message.
     fn start_typing(&mut self, submit: Submit, reply: oneshot::Sender<Result<(), SubmitError>>) {
         let refused = if self.typing.is_some() {
@@ -730,6 +993,7 @@ impl Actor {
         };
         self.for_viewers.clear();
         self.filter.push(bytes, &mut self.for_viewers, &mut feed);
+        self.viewers.output(&self.for_viewers);
         if !replies.is_empty()
             && let Some(input) = &self.input
         {
@@ -750,6 +1014,8 @@ impl Actor {
                 let key = text.trim_start_matches(is_spinner).to_string();
                 if self.title.as_ref() != Some(&key) {
                     self.title = Some(key);
+                    self.viewers
+                        .meta_all(&json!({"type": "title", "text": text}));
                     events.emit("title", json!({"terminal": terminal, "text": text}));
                 }
             }
@@ -836,7 +1102,40 @@ impl Actor {
             Exit::Code(code) => params["code"] = json!(code),
             Exit::Signal(signal) => params["signal"] = json!(signal),
         }
+        let mut last = params.clone();
+        last["type"] = json!("exit");
+        if let Some(fields) = last.as_object_mut() {
+            fields.remove("terminal");
+        }
+        self.viewers.close_all(&last);
+        self.ended = true;
         self.context.events.emit("exited", params);
+    }
+}
+
+/// Display facts from a FACTS frame: `{color_scheme, foreground,
+/// background, cursor}`, colours as `#rrggbb`.
+fn display_facts(facts: &Value) -> DisplayFacts {
+    let rgb = |key: &str| {
+        let hex = facts.get(key)?.as_str()?.strip_prefix('#')?;
+        let value = u32::from_str_radix(hex, 16)
+            .ok()
+            .filter(|_| hex.len() == 6)?;
+        Some(Rgb {
+            r: (value >> 16) as u8,
+            g: (value >> 8) as u8,
+            b: value as u8,
+        })
+    };
+    DisplayFacts {
+        color_scheme: match facts.get("color_scheme").and_then(Value::as_str) {
+            Some("dark") => Some(ColorScheme::Dark),
+            Some("light") => Some(ColorScheme::Light),
+            _ => None,
+        },
+        foreground: rgb("foreground"),
+        background: rgb("background"),
+        cursor: rgb("cursor"),
     }
 }
 

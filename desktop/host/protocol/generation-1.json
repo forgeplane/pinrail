@@ -85,6 +85,19 @@
         "lines"
       ]
     },
+    "terminal.attach": {
+      "required": [
+        "terminal",
+        "cols",
+        "rows"
+      ],
+      "optional": [
+        "mode",
+        "history",
+        "formats",
+        "resume_from"
+      ]
+    },
     "events.subscribe": {
       "required": [],
       "optional": [
@@ -131,6 +144,11 @@
     "input": [
       "terminal",
       "kind"
+    ],
+    "size": [
+      "terminal",
+      "cols",
+      "rows"
     ],
     "missed": [],
     "ping": []

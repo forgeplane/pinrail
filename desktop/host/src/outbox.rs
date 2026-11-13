@@ -76,6 +76,11 @@ impl Outbox {
         self.queue.send(Queued { frame, class, size }).is_ok()
     }
 
+    /// Whether the connection's writer has gone.
+    pub fn is_closed(&self) -> bool {
+        self.queue.is_closed()
+    }
+
     /// Queues a frame that no bound applies to.
     pub fn frame(&self, frame: Frame) -> bool {
         self.send(frame, Class::Other)
