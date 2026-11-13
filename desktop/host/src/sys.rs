@@ -116,3 +116,21 @@ pub fn replace_env(vars: &[(String, String)]) {
         unsafe { std::env::set_var(name, value) };
     }
 }
+
+/// Raises the soft limit of open files to the hard limit, at most
+/// `most`. launchd starts processes with 256 and systemd with 1,024, and
+/// the host holds a descriptor or more for each terminal.
+pub fn raise_open_files(most: u64) {
+    // SAFETY: rlimit is plain data, read and written by the two calls.
+    unsafe {
+        let mut limit: libc::rlimit = std::mem::zeroed();
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) != 0 {
+            return;
+        }
+        let wanted = (limit.rlim_max as u64).min(most) as libc::rlim_t;
+        if wanted > limit.rlim_cur {
+            limit.rlim_cur = wanted;
+            libc::setrlimit(libc::RLIMIT_NOFILE, &limit);
+        }
+    }
+}

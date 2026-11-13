@@ -13,6 +13,8 @@ use crate::registration::Registration;
 pub struct Client {
     stream: UnixStream,
     next_id: u64,
+    /// Notifications that arrived while a call waited for its result.
+    notifications: std::collections::VecDeque<Value>,
     /// What the host answered to `hello`.
     pub hello: Value,
 }
@@ -55,6 +57,7 @@ impl Client {
         let mut client = Self {
             stream,
             next_id: 0,
+            notifications: std::collections::VecDeque::new(),
             hello: Value::Null,
         };
         client.hello = client.call(
@@ -92,6 +95,10 @@ impl Client {
             let Ok(message) = serde_json::from_slice::<Value>(&frame.payload) else {
                 continue;
             };
+            if message.get("id").is_none() {
+                self.notifications.push_back(message);
+                continue;
+            }
             if message.get("id").and_then(Value::as_u64) != Some(id) {
                 continue;
             }
@@ -100,6 +107,29 @@ impl Client {
             }
             return Ok(message.get("result").cloned().unwrap_or(Value::Null));
         }
+    }
+
+    /// The next notification, waiting up to `within` for it.
+    pub fn notification(&mut self, within: Duration) -> Option<Value> {
+        if let Some(message) = self.notifications.pop_front() {
+            return Some(message);
+        }
+        self.stream.set_read_timeout(Some(within)).ok()?;
+        let found = loop {
+            let Ok(Some(frame)) = frame::read_blocking(&mut self.stream) else {
+                break None;
+            };
+            if frame.channel != CONTROL_CHANNEL || frame.kind != kind::DATA {
+                continue;
+            }
+            if let Ok(message) = serde_json::from_slice::<Value>(&frame.payload)
+                && message.get("id").is_none()
+            {
+                break Some(message);
+            }
+        };
+        let _ = self.stream.set_read_timeout(Some(Duration::from_secs(15)));
+        found
     }
 
     /// Waits until the host closes the connection, and returns its

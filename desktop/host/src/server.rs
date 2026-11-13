@@ -17,16 +17,20 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
 use crate::environment;
+use crate::events::Events;
 use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
 use crate::log::Log;
 use crate::paths::Paths;
 use crate::pty::{self, SpawnError};
+use crate::records::Records;
 use crate::registration::Registration;
-use crate::terminal::{self, Terminal};
+use crate::terminal::{self, Reason, SignalError, Terminal};
 
 /// How long a host with no terminals and no controller waits before it
 /// exits.
 pub const IDLE_EXIT: Duration = Duration::from_secs(10 * 60);
+/// Ended terminals kept, with their final screens, for at most 24 hours.
+const KEPT_ENDED: usize = 200;
 /// The most live terminals a host runs.
 pub const MAX_TERMINALS: usize = 64;
 /// The lines of history each terminal keeps.
@@ -74,6 +78,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
     let paths = Paths::new(&config.data_dir);
     paths.create()?;
     let _lock = take_lock(&paths)?;
+    crate::sys::raise_open_files(8_192);
     let boot_id = crate::boot_id().ok_or(Error::NoBootId)?;
     let log = Log::open(&paths.log());
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -127,6 +132,7 @@ struct Shared {
     idle_since: Mutex<Option<Instant>>,
     stop: Notify,
     terminals: Mutex<BTreeMap<String, Terminal>>,
+    context: terminal::Context,
 }
 
 async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> io::Result<String> {
@@ -144,6 +150,11 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
         idle_since: Mutex::new(Some(Instant::now())),
         stop: Notify::new(),
         terminals: Mutex::new(BTreeMap::new()),
+        context: terminal::Context {
+            events: Arc::new(Events::default()),
+            records: Arc::new(Records::new(paths.host_dir.join("terminals.json"))),
+            screens: paths.host_dir.join("screens"),
+        },
     });
     Registration {
         pid: std::process::id(),
@@ -161,6 +172,8 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
         std::process::id(),
         socket.display()
     ));
+    let records = shared.context.records.clone();
+    tokio::spawn(async move { records.writer().await });
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut tick = tokio::time::interval(idle_exit.min(Duration::from_secs(1)));
@@ -177,6 +190,7 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
             _ = terminate.recv() => return Ok("SIGTERM".to_string()),
             _ = interrupt.recv() => return Ok("SIGINT".to_string()),
             _ = tick.tick() => {
+                shared.prune();
                 let idle = *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner());
                 if shared.live_terminals() == 0
                     && idle.is_some_and(|since| since.elapsed() >= idle_exit)
@@ -225,6 +239,9 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
             }
             read = frame::read(&mut reader) => match read {
                 Ok(Some(frame)) if frame.channel == CONTROL_CHANNEL && frame.kind == kind::DATA => {
+                    if subscribe(&frame.payload, id, &out, &shared) {
+                        continue;
+                    }
                     let (reply, stops) = answer(&frame.payload, &shared).await;
                     if let Some(reply) = reply {
                         let _ = out.send(Frame::json(&reply));
@@ -240,6 +257,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
             }
         }
     }
+    shared.context.events.unsubscribe(id);
     drop(out);
     let _ = writer.await;
     {
@@ -327,7 +345,21 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             )),
             false,
         ),
-        "host.stop" => (Some(result(id, json!({}))), true),
+        "host.stop" => {
+            if params(&message)
+                .get("stop_terminals")
+                .and_then(Value::as_bool)
+                != Some(false)
+            {
+                shared.stop_all().await;
+            }
+            (Some(result(id, json!({}))), true)
+        }
+        "terminal.signal" => (
+            Some(reply(id, send_signal(params(&message), shared))),
+            false,
+        ),
+        "terminal.stop" => (Some(reply(id, stop(params(&message), shared))), false),
         "terminal.spawn" => (Some(reply(id, spawn(params(&message), shared))), false),
         "terminal.list" => {
             let list: Vec<Value> = shared
@@ -369,6 +401,45 @@ fn reply(id: Value, outcome: Result<Value, Failure>) -> Value {
 }
 
 impl Shared {
+    /// Stops every live terminal as the host shuts down, and waits until
+    /// they have ended.
+    async fn stop_all(&self) {
+        {
+            let terminals = self.terminals.lock().unwrap_or_else(|e| e.into_inner());
+            for terminal in terminals.values() {
+                let _ = terminal.stop(Duration::from_millis(2_000), Reason::HostShutdown);
+            }
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while self.live_terminals() > 0 && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    /// Forgets ended terminals beyond the newest 200 or older than 24
+    /// hours, with their final screens.
+    fn prune(&self) {
+        let mut terminals = self.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        let mut ended: Vec<(String, String)> = terminals
+            .values()
+            .filter_map(|t| {
+                let info = t.info();
+                Some((info.ended_at?, info.id))
+            })
+            .collect();
+        ended.sort();
+        let cutoff = (chrono::Utc::now() - chrono::Duration::hours(24))
+            .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+        let excess = ended.len().saturating_sub(KEPT_ENDED);
+        for (n, (ended_at, id)) in ended.into_iter().enumerate() {
+            if n < excess || ended_at < cutoff {
+                terminals.remove(&id);
+                self.context.records.remove(&id);
+                let _ = fs::remove_file(self.context.screens.join(format!("{id}.snap")));
+            }
+        }
+    }
+
     fn live_terminals(&self) -> usize {
         self.terminals
             .lock()
@@ -435,23 +506,147 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         cwd,
         terminal: &id,
     });
-    let spawned = pty::spawn(&argv, Path::new(cwd), &env, cols, rows).map_err(|e| match e {
-        SpawnError::FolderMissing => Failure("folder_missing", format!("{cwd} does not exist")),
-        SpawnError::NotFound(name) => Failure("not_found", format!("{name} was not found")),
-        SpawnError::Io(error) => Failure("spawn_failed", error.to_string()),
+    let mut record = json!({
+        "id": id,
+        "holder": null,
+        "pid": null,
+        "process_started": null,
+        "argv0": argv[0],
+        "cwd": cwd,
+        "labels": labels,
+        "cols": cols,
+        "rows": rows,
+        "started_at": crate::now(),
+        "ended_at": null,
+        "exit": null,
+    });
+    // written before the program starts, so a host that crashes during a
+    // spawn leaves a record of it
+    shared
+        .context
+        .records
+        .insert_now(&id, record.clone())
+        .map_err(|e| Failure("spawn_failed", e.to_string()))?;
+    let spawned = pty::spawn(&argv, Path::new(cwd), &env, cols, rows).map_err(|e| {
+        shared.context.records.remove(&id);
+        match e {
+            SpawnError::FolderMissing => Failure("folder_missing", format!("{cwd} does not exist")),
+            SpawnError::NotFound(name) => Failure("not_found", format!("{name} was not found")),
+            SpawnError::Io(error) => Failure("spawn_failed", error.to_string()),
+        }
     })?;
+    record["pid"] = json!(spawned.pid);
+    record["process_started"] = json!(spawned.started);
+    shared.context.records.update(&id, |r| *r = record);
     let screen = terminal::screen(cols, rows, SCROLLBACK_LINES)
         .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let pid = spawned.pid;
-    let terminal = Terminal::start(id.clone(), spawned, labels, cols, rows, screen)
-        .map_err(|e| Failure("spawn_failed", e.to_string()))?;
+    let terminal = Terminal::start(
+        id.clone(),
+        spawned,
+        labels.clone(),
+        (cols, rows),
+        screen,
+        shared.context.clone(),
+    )
+    .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let started_at = terminal.info().started_at;
     shared
         .terminals
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .insert(id.clone(), terminal);
+    shared.context.events.emit(
+        "spawned",
+        json!({"terminal": id, "pid": pid, "labels": labels, "cols": cols, "rows": rows}),
+    );
     Ok(json!({"terminal": id, "pid": pid, "started_at": started_at}))
+}
+
+/// The terminal a call names, or `not_found`.
+fn with_terminal<T>(
+    params: &Value,
+    shared: &Shared,
+    act: impl FnOnce(&Terminal) -> Result<T, Failure>,
+) -> Result<T, Failure> {
+    let id = params.get("terminal").and_then(Value::as_str).unwrap_or("");
+    let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
+    let terminal = terminals
+        .get(id)
+        .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
+    act(terminal)
+}
+
+fn signal_failure(error: SignalError) -> Failure {
+    match error {
+        SignalError::Exited => Failure("exited", "the program has exited".to_string()),
+        SignalError::Io(error) => Failure("signal_failed", error.to_string()),
+    }
+}
+
+/// `terminal.signal {terminal, signal}`.
+fn send_signal(params: &Value, shared: &Shared) -> Result<Value, Failure> {
+    let name = params.get("signal").and_then(Value::as_str).unwrap_or("");
+    let number = terminal::signal_number(name)
+        .ok_or_else(|| Failure("invalid_params", format!("no signal {name:?}")))?;
+    with_terminal(params, shared, |t| t.signal(number).map_err(signal_failure))?;
+    Ok(json!({}))
+}
+
+/// `terminal.stop {terminal, grace_ms}`.
+fn stop(params: &Value, shared: &Shared) -> Result<Value, Failure> {
+    let grace = params
+        .get("grace_ms")
+        .and_then(Value::as_u64)
+        .unwrap_or(2_000);
+    with_terminal(params, shared, |t| {
+        t.stop(Duration::from_millis(grace), Reason::Stopped)
+            .map_err(signal_failure)
+    })?;
+    Ok(json!({}))
+}
+
+/// `events.subscribe {after?, instance?}`, answered here so that the reply
+/// and the events after it go out in order. Returns whether the message
+/// was one.
+fn subscribe(
+    payload: &[u8],
+    connection: u64,
+    out: &mpsc::UnboundedSender<Frame>,
+    shared: &Shared,
+) -> bool {
+    let Ok(message) = serde_json::from_slice::<Value>(payload) else {
+        return false;
+    };
+    if message.get("method").and_then(Value::as_str) != Some("events.subscribe") {
+        return false;
+    }
+    let Some(id) = message.get("id").cloned() else {
+        return true;
+    };
+    let params = params(&message);
+    // an `after` from another instance, or with none, is not a position here
+    let after = params
+        .get("after")
+        .and_then(Value::as_u64)
+        .filter(|_| params.get("instance").and_then(Value::as_str) == Some(&shared.instance));
+    let terminals: Vec<Value> = shared
+        .terminals
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .values()
+        .map(|t| t.info().to_json())
+        .collect();
+    shared
+        .context
+        .events
+        .subscribe(connection, out, after, |seq| {
+            result(
+                id,
+                json!({"instance": shared.instance, "seq": seq, "terminals": terminals}),
+            )
+        });
+    true
 }
 
 /// `terminal.text`: the screen after up to `lines` lines of history.

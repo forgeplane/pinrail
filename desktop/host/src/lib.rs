@@ -7,11 +7,13 @@
 
 pub mod client;
 pub mod environment;
+pub mod events;
 pub mod frame;
 pub mod launch;
 pub mod log;
 pub mod paths;
 pub mod pty;
+pub mod records;
 pub mod registration;
 pub mod server;
 mod sys;
