@@ -1,0 +1,14 @@
+{
+  "session_id": "22751b4b-336a-4c33-baef-fbe1d334abab",
+  "transcript_path": "/Users/you/.claude/projects/-Users-you-code-app/22751b4b-336a-4c33-baef-fbe1d334abab.jsonl",
+  "cwd": "/Users/you/code/app",
+  "prompt_id": "7bf504f0-029d-4e13-a137-e4e2ad6a3a77",
+  "permission_mode": "auto",
+  "hook_event_name": "PermissionDenied",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "touch denied.txt"
+  },
+  "tool_use_id": "toolu_01",
+  "reason": "The person denied the call."
+}

@@ -3427,6 +3427,9 @@ dependencies = [
 [[package]]
 name = "pinrail-runtime"
 version = "0.6.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "piper"

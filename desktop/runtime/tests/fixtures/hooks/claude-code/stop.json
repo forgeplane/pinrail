@@ -1,0 +1,15 @@
+{
+  "session_id": "22751b4b-336a-4c33-baef-fbe1d334abab",
+  "transcript_path": "/Users/you/.claude/projects/-Users-you-code-app/22751b4b-336a-4c33-baef-fbe1d334abab.jsonl",
+  "cwd": "/Users/you/code/app",
+  "prompt_id": "7bf504f0-029d-4e13-a137-e4e2ad6a3a77",
+  "permission_mode": "auto",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "Done.\n\n- `echo hello` printed `hello`.\n- The general-purpose subagent ran `echo from-subagent` and reported the output `from-subagent`.\n- `touch denied.txt` was not denied: it completed without error, so `denied.txt` should now exist in `/Users/you/code/app`.",
+  "background_tasks": [],
+  "session_crons": []
+}

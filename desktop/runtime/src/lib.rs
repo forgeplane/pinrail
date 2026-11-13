@@ -2,8 +2,12 @@
 //! CLI: how to tell which agent a command runs under, and where each agent
 //! keeps its configuration and skills.
 
+pub mod agent;
+mod agents;
 pub mod detect;
+pub mod hooks;
 pub mod registry;
 pub mod skills;
 
+pub use agent::{Agent, Env, adapter};
 pub use registry::{AgentSpec, Folders, all, find};

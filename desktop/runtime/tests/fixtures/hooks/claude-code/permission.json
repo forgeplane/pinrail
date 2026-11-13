@@ -1,0 +1,30 @@
+{
+  "session_id": "4ae26beb-05c8-44cb-9b5b-8fa192789318",
+  "transcript_path": "/Users/you/.claude/projects/-Users-you-code-app/4ae26beb-05c8-44cb-9b5b-8fa192789318.jsonl",
+  "cwd": "/Users/you/code/app",
+  "prompt_id": "b671c9c3-867b-4f95-91a3-61d9215b870f",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "touch denied.txt",
+    "description": "Create empty file denied.txt"
+  },
+  "permission_suggestions": [
+    {
+      "type": "addDirectories",
+      "directories": [
+        "/Users/you/code/app"
+      ],
+      "destination": "session"
+    },
+    {
+      "type": "setMode",
+      "mode": "acceptEdits",
+      "destination": "session"
+    }
+  ]
+}
