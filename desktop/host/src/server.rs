@@ -13,7 +13,6 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 use tokio::net::UnixStream;
-use tokio::net::unix::OwnedWriteHalf;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
@@ -21,6 +20,7 @@ use crate::environment;
 use crate::events::Events;
 use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
 use crate::log::Log;
+use crate::outbox::Outbox;
 use crate::paths::Paths;
 use crate::probe::Probe;
 use crate::pty::{self, SpawnError};
@@ -43,6 +43,8 @@ const HELLO_WITHIN: Duration = Duration::from_secs(10);
 pub struct Config {
     pub data_dir: PathBuf,
     pub idle_exit: Duration,
+    /// How often the controller hears from an idle host.
+    pub ping_every: Duration,
 }
 
 #[derive(Debug)]
@@ -86,7 +88,13 @@ pub fn serve(config: Config) -> Result<(), Error> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let result = runtime.block_on(run(&paths, boot_id, &log, config.idle_exit));
+    let result = runtime.block_on(run(
+        &paths,
+        boot_id,
+        &log,
+        config.idle_exit,
+        config.ping_every,
+    ));
     let _ = fs::remove_file(paths.registration());
     let _ = fs::remove_file(paths.socket());
     match &result {
@@ -133,12 +141,19 @@ struct Shared {
     /// Since when the host has had no controller.
     idle_since: Mutex<Option<Instant>>,
     stop: Notify,
+    ping_every: Duration,
     terminals: Mutex<BTreeMap<String, Terminal>>,
     context: terminal::Context,
     probe: Probe,
 }
 
-async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> io::Result<String> {
+async fn run(
+    paths: &Paths,
+    boot_id: String,
+    log: &Log,
+    idle_exit: Duration,
+    ping_every: Duration,
+) -> io::Result<String> {
     let socket = paths.socket();
     // the lock is ours, so a socket left here is from a host that ended
     let _ = fs::remove_file(&socket);
@@ -152,6 +167,7 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
         controller: Mutex::new(None),
         idle_since: Mutex::new(Some(Instant::now())),
         stop: Notify::new(),
+        ping_every,
         terminals: Mutex::new(BTreeMap::new()),
         probe: Probe::default(),
         context: terminal::Context {
@@ -207,8 +223,14 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
     }
 }
 
-/// One connection: its `hello`, then JSON-RPC calls on channel 0 until it
-/// closes, is replaced, or stops the host.
+/// How long a closing connection's queued frames get to go out.
+const FLUSH_WITHIN: Duration = Duration::from_secs(5);
+/// How often the controller hears from an idle host.
+pub const PING_EVERY: Duration = Duration::from_secs(15);
+
+/// One connection: its `hello`, then JSON-RPC calls on channel 0, each
+/// answered by a task of its own, until it closes, is replaced, overflows
+/// or stops the host.
 async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     let (mut reader, writer) = stream.into_split();
     let Ok(Ok(Some(first))) = tokio::time::timeout(HELLO_WITHIN, frame::read(&mut reader)).await
@@ -218,8 +240,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     let Some(call_id) = hello_id(&first, &shared.secret) else {
         return;
     };
-    let (out, queue) = mpsc::unbounded_channel();
-    let writer = tokio::spawn(write_queue(writer, queue));
+    let (out, mut writer) = Outbox::new(writer);
     let (replace, mut replaced) = oneshot::channel();
     if let Some((_, previous)) = shared
         .controller
@@ -231,36 +252,53 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     }
     *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner()) = None;
     shared.context.controlled.store(true, Ordering::Relaxed);
-    let _ = out.send(Frame::json(&result(call_id, hello_result(&shared))));
+    out.reply(&result(call_id, hello_result(&shared)));
+    let (stopping, mut stop_asked) = mpsc::unbounded_channel::<()>();
+    let mut ping = tokio::time::interval_at(
+        tokio::time::Instant::now() + shared.ping_every,
+        shared.ping_every,
+    );
     let mut stop = false;
+    let mut overflowed = false;
     loop {
         tokio::select! {
             _ = &mut replaced => {
-                let _ = out.send(Frame {
+                out.frame(Frame {
                     channel: CONTROL_CHANNEL,
                     kind: kind::CLOSE,
                     payload: json!({"reason": "replaced"}).to_string().into_bytes(),
                 });
                 break;
             }
+            () = out.overflowed() => {
+                overflowed = true;
+                break;
+            }
+            Some(()) = stop_asked.recv() => {
+                stop = true;
+                break;
+            }
+            _ = ping.tick() => {
+                out.frame(Frame::json(&json!({"jsonrpc": "2.0", "method": "ping"})));
+            }
             read = frame::read(&mut reader) => match read {
                 Ok(Some(frame)) if frame.channel == CONTROL_CHANNEL && frame.kind == kind::DATA => {
+                    // answered in order with the events that follow it
                     if subscribe(&frame.payload, id, &out, &shared) {
                         continue;
                     }
-                    if submit(&frame.payload, &out, &shared) {
-                        continue;
-                    }
-                    let (reply, stops) = answer(&frame.payload, &shared).await;
-                    if let Some(reply) = reply {
-                        let _ = out.send(Frame::json(&reply));
-                    }
-                    if stops {
-                        stop = true;
-                        break;
-                    }
+                    let (out, shared, stopping) = (out.clone(), shared.clone(), stopping.clone());
+                    tokio::spawn(async move {
+                        let (reply, stops) = answer(&frame.payload, &shared).await;
+                        if let Some(reply) = reply {
+                            out.reply(&reply);
+                        }
+                        if stops {
+                            let _ = stopping.send(());
+                        }
+                    });
                 }
-                // there are no terminal channels yet
+                // terminal channels come with terminal.attach
                 Ok(Some(_)) => {}
                 Ok(None) | Err(_) => break,
             }
@@ -268,7 +306,15 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     }
     shared.context.events.unsubscribe(id);
     drop(out);
-    let _ = writer.await;
+    // a connection that reads nothing is closed at once; otherwise what is
+    // queued, such as a stop's reply, gets a few seconds to go out
+    let flushed = !overflowed
+        && tokio::time::timeout(FLUSH_WITHIN, &mut writer)
+            .await
+            .is_ok();
+    if !flushed {
+        writer.abort();
+    }
     {
         let mut controller = shared.controller.lock().unwrap_or_else(|e| e.into_inner());
         if controller.as_ref().is_some_and(|(c, _)| *c == id) {
@@ -279,15 +325,6 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
     }
     if stop {
         shared.stop.notify_one();
-    }
-}
-
-/// Writes the queued frames in order, the connection's only writer.
-async fn write_queue(mut writer: OwnedWriteHalf, mut queue: mpsc::UnboundedReceiver<Frame>) {
-    while let Some(frame) = queue.recv().await {
-        if frame::write(&mut writer, &frame).await.is_err() {
-            break;
-        }
     }
 }
 
@@ -329,7 +366,7 @@ fn hello_result(shared: &Shared) -> Value {
 async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
     let Ok(message) = serde_json::from_slice::<Value>(payload) else {
         return (
-            Some(error(Value::Null, -32700, "parse_error", "not JSON")),
+            Some(error(Value::Null, -32700, "invalid", "not JSON")),
             false,
         );
     };
@@ -352,6 +389,15 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
                     "os": std::env::consts::OS,
                     "arch": std::env::consts::ARCH,
                 }),
+            )),
+            false,
+        ),
+        "hello" => (
+            Some(error(
+                id,
+                -32000,
+                "invalid",
+                "this connection already said hello",
             )),
             false,
         ),
@@ -403,12 +449,16 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
                 .collect();
             (Some(result(id, Value::Array(list))), false)
         }
+        "terminal.submit" => (
+            Some(reply(id, submit(params(&message), shared).await)),
+            false,
+        ),
         "terminal.text" => (Some(reply(id, text(params(&message), shared).await)), false),
         _ => (
             Some(error(
                 id,
                 -32601,
-                "unknown_method",
+                "unsupported",
                 &format!("no method {method:?}"),
             )),
             false,
@@ -484,7 +534,7 @@ impl Shared {
 
 /// `terminal.spawn` (section 4.3 of the runtime specification).
 fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
-    let invalid = |what: &str| Failure("invalid_params", format!("{what} is missing or invalid"));
+    let invalid = |what: &str| Failure("invalid", format!("{what} is missing or invalid"));
     let argv: Vec<String> = params
         .get("argv")
         .and_then(Value::as_array)
@@ -623,7 +673,7 @@ fn signal_failure(error: SignalError) -> Failure {
 fn send_signal(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     let name = params.get("signal").and_then(Value::as_str).unwrap_or("");
     let number = terminal::signal_number(name)
-        .ok_or_else(|| Failure("invalid_params", format!("no signal {name:?}")))?;
+        .ok_or_else(|| Failure("invalid", format!("no signal {name:?}")))?;
     with_terminal(params, shared, |t| t.signal(number).map_err(signal_failure))?;
     Ok(json!({}))
 }
@@ -641,32 +691,17 @@ fn stop(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     Ok(json!({}))
 }
 
-/// `terminal.submit`, answered from a task of its own when the message has
-/// been typed, which can take seconds, so other calls are not held up.
-/// Returns whether the message was one.
-fn submit(payload: &[u8], out: &mpsc::UnboundedSender<Frame>, shared: &Shared) -> bool {
-    let Ok(message) = serde_json::from_slice::<Value>(payload) else {
-        return false;
-    };
-    if message.get("method").and_then(Value::as_str) != Some("terminal.submit") {
-        return false;
-    }
-    let Some(id) = message.get("id").cloned() else {
-        return true;
-    };
-    let params = params(&message);
+/// `terminal.submit`: answers once the message has been typed, which can
+/// take seconds; every call runs in a task of its own, so other calls are
+/// not held up.
+async fn submit(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     let millis = |key, default| {
         Duration::from_millis(params.get(key).and_then(Value::as_u64).unwrap_or(default))
     };
-    let Some(text) = params.get("text").and_then(Value::as_str) else {
-        let _ = out.send(Frame::json(&error(
-            id,
-            -32000,
-            "invalid_params",
-            "text is missing",
-        )));
-        return true;
-    };
+    let text = params
+        .get("text")
+        .and_then(Value::as_str)
+        .ok_or_else(|| Failure("invalid", "text is missing".to_string()))?;
     let request = terminal::Submit {
         text: text.to_string(),
         bracketed: params
@@ -694,30 +729,17 @@ fn submit(payload: &[u8], out: &mpsc::UnboundedSender<Frame>, shared: &Shared) -
             .and_then(Value::as_bool)
             .unwrap_or(false),
     };
-    let typed = with_terminal(params, shared, |t| Ok(t.submit(request)));
-    let out = out.clone();
-    tokio::spawn(async move {
-        let answer = match typed {
-            Err(failure) => reply(id, Err(failure)),
-            Ok(typed) => match typed.await {
-                Ok(()) => result(id, json!({"ok": true})),
-                Err(refused) => error(id, -32000, refused.code(), &format!("{refused:?}")),
-            },
-        };
-        let _ = out.send(Frame::json(&answer));
-    });
-    true
+    let typed = with_terminal(params, shared, |t| Ok(t.submit(request)))?;
+    typed
+        .await
+        .map_err(|refused| Failure(refused.code(), format!("{refused:?}")))?;
+    Ok(json!({"ok": true}))
 }
 
 /// `events.subscribe {after?, instance?}`, answered here so that the reply
 /// and the events after it go out in order. Returns whether the message
 /// was one.
-fn subscribe(
-    payload: &[u8],
-    connection: u64,
-    out: &mpsc::UnboundedSender<Frame>,
-    shared: &Shared,
-) -> bool {
+fn subscribe(payload: &[u8], connection: u64, out: &Outbox, shared: &Shared) -> bool {
     let Ok(message) = serde_json::from_slice::<Value>(payload) else {
         return false;
     };

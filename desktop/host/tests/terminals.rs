@@ -162,7 +162,7 @@ fn a_spawn_that_cannot_start_answers_why() {
     let no_size = client
         .call("terminal.spawn", json!({"argv": ["sh"], "cwd": "/"}))
         .unwrap_err();
-    assert_eq!(code(no_size), "invalid_params");
+    assert_eq!(code(no_size), "invalid");
     // nothing was started
     assert_eq!(client.call("terminal.list", json!({})).unwrap(), json!([]));
     let unknown = client

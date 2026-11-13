@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use pinrail_host::client::Client;
 use pinrail_host::events::Events;
 use pinrail_host::frame::Frame;
+use pinrail_host::outbox::Outbox;
 use pinrail_host::pty;
 use pinrail_host::records::Records;
 use pinrail_host::terminal::{self, Context, Input, Terminal};
@@ -86,8 +87,18 @@ fn terminal(
 ) {
     let dir = tempfile::tempdir().unwrap();
     let events = Arc::new(Events::default());
+    // the events reach a connection's outbox; read them from its other end
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    events.subscribe(1, &tx, None, |_| json!({}));
+    let (near, mut far) = tokio::io::duplex(1 << 20);
+    let (out, _writer) = Outbox::new(near);
+    events.subscribe(1, &out, None, |_| json!({}));
+    tokio::spawn(async move {
+        while let Ok(Some(frame)) = pinrail_host::frame::read(&mut far).await {
+            if tx.send(frame).is_err() {
+                break;
+            }
+        }
+    });
     let context = Context {
         events,
         records: Arc::new(Records::new(dir.path().join("terminals.json"))),

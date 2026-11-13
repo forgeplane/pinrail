@@ -41,7 +41,7 @@ fn the_host_registers_itself_and_answers_a_controller() {
     assert_eq!(info["terminals"], 0);
     assert_eq!(info["version"], env!("CARGO_PKG_VERSION"));
     let unknown = client.call("terminal.dance", json!({})).unwrap_err();
-    assert!(matches!(unknown, CallError::Rpc(e) if e["data"]["code"] == "unknown_method"));
+    assert!(matches!(unknown, CallError::Rpc(e) if e["data"]["code"] == "unsupported"));
 }
 
 #[test]

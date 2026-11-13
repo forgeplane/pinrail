@@ -1,0 +1,151 @@
+{
+  "generation": 1,
+  "methods": {
+    "hello": {
+      "required": [
+        "secret"
+      ],
+      "optional": [
+        "client",
+        "generation",
+        "features"
+      ]
+    },
+    "host.info": {
+      "required": [],
+      "optional": []
+    },
+    "host.stop": {
+      "required": [],
+      "optional": [
+        "stop_terminals",
+        "formats"
+      ]
+    },
+    "env.probe": {
+      "required": [],
+      "optional": [
+        "refresh"
+      ]
+    },
+    "terminal.spawn": {
+      "required": [
+        "argv",
+        "cwd",
+        "cols",
+        "rows"
+      ],
+      "optional": [
+        "env",
+        "session_env",
+        "labels",
+        "env_base"
+      ]
+    },
+    "terminal.list": {
+      "required": [],
+      "optional": []
+    },
+    "terminal.submit": {
+      "required": [
+        "terminal",
+        "text"
+      ],
+      "optional": [
+        "bracketed",
+        "settle_ms",
+        "max_ms",
+        "startup_quiet_ms",
+        "submit",
+        "expect_pid",
+        "idle_since",
+        "anyway"
+      ]
+    },
+    "terminal.signal": {
+      "required": [
+        "terminal",
+        "signal"
+      ],
+      "optional": []
+    },
+    "terminal.stop": {
+      "required": [
+        "terminal"
+      ],
+      "optional": [
+        "grace_ms"
+      ]
+    },
+    "terminal.text": {
+      "required": [
+        "terminal"
+      ],
+      "optional": [
+        "lines"
+      ]
+    },
+    "events.subscribe": {
+      "required": [],
+      "optional": [
+        "after",
+        "instance"
+      ]
+    }
+  },
+  "events": {
+    "spawned": [
+      "terminal",
+      "pid",
+      "labels",
+      "cols",
+      "rows"
+    ],
+    "exited": [
+      "terminal",
+      "reason"
+    ],
+    "title": [
+      "terminal",
+      "text"
+    ],
+    "foreground": [
+      "terminal",
+      "pid",
+      "name",
+      "args",
+      "cwd"
+    ],
+    "bell": [
+      "terminal"
+    ],
+    "notify": [
+      "terminal",
+      "title",
+      "body"
+    ],
+    "program_status": [
+      "terminal",
+      "state"
+    ],
+    "input": [
+      "terminal",
+      "kind"
+    ],
+    "missed": [],
+    "ping": []
+  },
+  "errors": [
+    "not_found",
+    "folder_missing",
+    "limit",
+    "used_since_idle",
+    "not_foreground",
+    "exited",
+    "busy",
+    "spawn_failed",
+    "signal_failed",
+    "unsupported",
+    "invalid"
+  ]
+}

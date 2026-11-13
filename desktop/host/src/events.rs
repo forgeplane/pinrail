@@ -4,10 +4,9 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-use serde_json::{Value, json};
-use tokio::sync::mpsc::UnboundedSender;
-
 use crate::frame::Frame;
+use crate::outbox::Outbox;
+use serde_json::{Value, json};
 
 /// How many recent events a subscriber can resume from.
 const RECENT: usize = 1024;
@@ -19,8 +18,8 @@ pub struct Events {
 struct Inner {
     seq: u64,
     recent: VecDeque<(u64, Value)>,
-    /// The subscribed connection's id and its frame queue.
-    subscriber: Option<(u64, UnboundedSender<Frame>)>,
+    /// The subscribed connection's id and its outbox.
+    subscriber: Option<(u64, Outbox)>,
 }
 
 impl Default for Events {
@@ -44,8 +43,11 @@ impl Events {
         params["seq"] = json!(inner.seq);
         let message = json!({"jsonrpc": "2.0", "method": method, "params": params});
         if let Some((_, out)) = &inner.subscriber
-            && out.send(Frame::json(&message)).is_err()
+            && !out.event(&message)
         {
+            // too many events wait unread: the subscriber is told, and
+            // resubscribes for a new snapshot
+            missed(out, inner.seq);
             inner.subscriber = None;
         }
         let seq = inner.seq;
@@ -62,15 +64,18 @@ impl Events {
     pub fn subscribe(
         &self,
         connection: u64,
-        out: &UnboundedSender<Frame>,
+        out: &Outbox,
         after: Option<u64>,
         reply: impl FnOnce(u64) -> Value,
     ) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = out.send(Frame::json(&reply(inner.seq)));
+        out.reply(&reply(inner.seq));
         if let Some(after) = after {
             for (_, message) in inner.recent.iter().filter(|(seq, _)| *seq > after) {
-                let _ = out.send(Frame::json(message));
+                if !out.event(message) {
+                    missed(out, inner.seq);
+                    return;
+                }
             }
         }
         inner.subscriber = Some((connection, out.clone()));
@@ -87,4 +92,11 @@ impl Events {
             inner.subscriber = None;
         }
     }
+}
+
+/// Tells a subscriber that it missed events, so it reconciles.
+fn missed(out: &Outbox, seq: u64) {
+    out.frame(Frame::json(
+        &json!({"jsonrpc": "2.0", "method": "missed", "params": {"seq": seq}}),
+    ));
 }

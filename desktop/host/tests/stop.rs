@@ -196,7 +196,7 @@ fn every_exit_says_why() {
     let error = client
         .call("terminal.signal", json!({"terminal": id, "signal": "USR1"}))
         .unwrap_err();
-    assert!(matches!(error, CallError::Rpc(e) if e["data"]["code"] == "invalid_params"));
+    assert!(matches!(error, CallError::Rpc(e) if e["data"]["code"] == "invalid"));
 }
 
 #[test]
