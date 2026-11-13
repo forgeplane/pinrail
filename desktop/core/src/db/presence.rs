@@ -79,6 +79,19 @@ pub struct PresenceRow {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A session whose agent works or waits on the person, with its process.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActiveSession {
+    pub agent: String,
+    pub id: String,
+    pub state: String,
+    pub pid: i64,
+    /// the process's start time, as `pinrail_runtime::process` reads it
+    pub started: String,
+    /// when its state began
+    pub since: DateTime<Utc>,
+}
+
 /// A turn of a session, with its texts when they were kept.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnRow {
@@ -437,6 +450,28 @@ impl Db {
         let event = insert_event(&tx, None, crate::events::SESSION_SEEN, None, &attrs)?;
         tx.commit()?;
         Ok(Some(Some((event, attrs))))
+    }
+
+    /// The sessions whose agent works or waits on the person, with the
+    /// process their hooks reported.
+    pub fn active_sessions(&self) -> rusqlite::Result<Vec<ActiveSession>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(
+            "SELECT agent, session, state, pid, proc_started, state_since FROM session_presence
+             WHERE state IN ('working', 'needs_input')
+               AND pid IS NOT NULL AND proc_started IS NOT NULL",
+        )?;
+        stmt.query_map([], |r| {
+            Ok(ActiveSession {
+                agent: r.get(0)?,
+                id: r.get(1)?,
+                state: r.get(2)?,
+                pid: r.get(3)?,
+                started: r.get(4)?,
+                since: crate::reviews::parse_datetime(&r.get::<_, String>(5)?).unwrap_or_default(),
+            })
+        })?
+        .collect()
     }
 
     /// The session's presence, if its hooks ever reported.

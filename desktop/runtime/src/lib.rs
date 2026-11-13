@@ -10,5 +10,5 @@ pub mod process;
 pub mod registry;
 pub mod skills;
 
-pub use agent::{Agent, Env, adapter};
+pub use agent::{Agent, Env, Hint, HintStatus, adapter};
 pub use registry::{AgentSpec, Folders, all, find};

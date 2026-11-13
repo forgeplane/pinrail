@@ -494,6 +494,58 @@ impl Reviews {
         }
     }
 
+    /// Looks again at each session whose agent works or waits on the person,
+    /// for what no hook reports: an agent whose process is gone has
+    /// stopped, and a Claude Code session whose own status file says it is
+    /// idle since after its state began was interrupted, which runs no
+    /// hook. `home` is where the agents keep their files.
+    pub fn check_presence(&self, home: &std::path::Path, now: DateTime<Utc>) -> Result<(), Error> {
+        let env = |key: &str| std::env::var(key).ok();
+        for crate::db::ActiveSession {
+            agent,
+            id,
+            state,
+            pid,
+            started,
+            since,
+        } in self.db.active_sessions()?
+        {
+            let event = if !crate::presence::alive(pid, &started) {
+                crate::db::ReportEvent::Ended {
+                    reason: Some("exited".to_string()),
+                }
+            } else {
+                let hint = pinrail_runtime::adapter(&agent).and_then(|adapter| {
+                    adapter.presence_hint(home, &env, u32::try_from(pid).ok()?, &id)
+                });
+                match hint {
+                    Some(hint)
+                        if state == "working"
+                            && hint.status == pinrail_runtime::HintStatus::Idle
+                            && hint.since_ms > since.timestamp_millis() =>
+                    {
+                        crate::db::ReportEvent::TurnEnded {
+                            end: "interrupted".to_string(),
+                            reply: None,
+                        }
+                    }
+                    _ => continue,
+                }
+            };
+            let report = crate::db::Report {
+                event,
+                at: now,
+                process: Some((pid, started)),
+                origin: Default::default(),
+                transcript_path: None,
+                agent_turn: None,
+                cut: false,
+            };
+            self.report(&agent, &id, &report, false, now)?;
+        }
+        Ok(())
+    }
+
     /// Deletes the sessions known only from their hooks that reported
     /// nothing for 7 days. Returns how many went.
     pub fn sweep_hidden_sessions(&self) -> Result<usize, Error> {

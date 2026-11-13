@@ -16,3 +16,7 @@ Code's `CLAUDE_CODE_SESSION_ID`, as Cursor and Grok do and `session-start-unknow
 
 **Codex, built from its schemas** in `codex-rs/hooks/schema/generated/`:
 every file in `codex/`.
+
+**Claude Code's status file**, `tests/fixtures/status/claude-code-idle.json`:
+`~/.claude/sessions/<pid>.json` of Claude Code 2.1.323, captured seconds after
+an interrupt, with its paths rewritten.

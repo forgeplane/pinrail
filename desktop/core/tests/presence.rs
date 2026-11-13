@@ -1362,3 +1362,105 @@ async fn a_hidden_session_shows_once_it_needs_the_person_is_messaged_or_works_on
     assert_eq!(commented, StatusCode::CREATED);
     assert!(shown(&app, "comments"));
 }
+
+/// A home folder of its own, with Claude Code's status file for this
+/// process saying `status` about `session` since `since_ms`.
+fn home_saying(name: &str, session: &str, status: &str, since_ms: i64) -> std::path::PathBuf {
+    let home = std::env::temp_dir().join(format!("pinrail-check-{name}-{}", std::process::id()));
+    let sessions = home.join(".claude/sessions");
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(
+        sessions.join(format!("{}.json", std::process::id())),
+        json!({"sessionId": session, "status": status, "statusUpdatedAt": since_ms}).to_string(),
+    )
+    .unwrap();
+    home
+}
+
+/// This process, as a hook reports the agent's.
+fn this_process() -> Value {
+    let me = std::process::id();
+    json!({"pid": me, "started": pinrail_runtime::process::process(me).unwrap().started})
+}
+
+#[tokio::test]
+async fn an_interrupted_claude_code_turn_ends_when_its_status_file_says_idle() {
+    let app = app();
+    report(&app, "s-1", "prompt", 1, json!({"process": this_process()})).await;
+    let later = chrono::Utc::now() + chrono::Duration::seconds(1);
+    let home = home_saying("idle", "s-1", "idle", later.timestamp_millis());
+    app.state.reviews().check_presence(&home, later).unwrap();
+    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    assert_eq!(presence.state, "idle");
+    assert_eq!(presence.finished_at, None);
+    let turn = db(&app).turns("claude-code", "s-1").unwrap().pop().unwrap();
+    assert_eq!(turn.end_kind.as_deref(), Some("interrupted"));
+    let _ = std::fs::remove_dir_all(home);
+}
+
+#[tokio::test]
+async fn a_session_that_still_works_or_whose_file_is_older_is_left_working() {
+    let app = app();
+    report(
+        &app,
+        "busy",
+        "prompt",
+        1,
+        json!({"process": this_process()}),
+    )
+    .await;
+    report(
+        &app,
+        "stale",
+        "prompt",
+        1,
+        json!({"process": this_process()}),
+    )
+    .await;
+    let now = chrono::Utc::now();
+    // busy, and idle from before the turn began
+    let busy = home_saying("busy", "busy", "busy", now.timestamp_millis());
+    app.state.reviews().check_presence(&busy, now).unwrap();
+    let stale = home_saying(
+        "stale",
+        "stale",
+        "idle",
+        (now - chrono::Duration::hours(1)).timestamp_millis(),
+    );
+    app.state.reviews().check_presence(&stale, now).unwrap();
+    for id in ["busy", "stale"] {
+        assert_eq!(
+            db(&app).presence("claude-code", id).unwrap().unwrap().state,
+            "working",
+            "{id}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(busy);
+    let _ = std::fs::remove_dir_all(stale);
+}
+
+#[tokio::test]
+async fn a_session_whose_agent_process_is_gone_has_stopped() {
+    let app = app();
+    // a process that ran once: this pid with another start
+    let gone = json!({"pid": std::process::id(), "started": "long ago"});
+    report(
+        &app,
+        "s-1",
+        "needs_input",
+        1,
+        json!({"wait": "permission", "process": gone}),
+    )
+    .await;
+    let nowhere = std::env::temp_dir().join("pinrail-check-nowhere");
+    app.state
+        .reviews()
+        .check_presence(&nowhere, chrono::Utc::now())
+        .unwrap();
+    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    assert_eq!(
+        (presence.state.as_str(), presence.stop_reason.as_deref()),
+        ("stopped", Some("exited"))
+    );
+}

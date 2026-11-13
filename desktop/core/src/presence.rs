@@ -90,6 +90,8 @@ pub fn next(
                 // Claude Code ends the session it clears with `clear`
                 stop_reason: Some(match reason.as_deref() {
                     Some("clear") => "cleared".to_string(),
+                    // the core found the agent's process gone
+                    Some("exited") => "exited".to_string(),
                     _ => "ended".to_string(),
                 }),
             }

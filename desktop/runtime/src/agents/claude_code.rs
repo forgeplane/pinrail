@@ -2,7 +2,9 @@
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use std::path::Path;
+
+use crate::agent::{Agent, Env, Hint, HintStatus, spec};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::registry::AgentSpec;
 
@@ -83,4 +85,36 @@ impl Agent for ClaudeCode {
             detail,
         })
     }
+
+    /// Claude Code keeps a file per running process, `sessions/<pid>.json`
+    /// in its configuration folder, with the session it holds and whether
+    /// it is busy, idle or waiting. It changes within seconds of an
+    /// interrupt, which runs no hook. The file is undocumented, so anything
+    /// unexpected gives no hint.
+    fn presence_hint(&self, home: &Path, env: Env, pid: u32, session: &str) -> Option<Hint> {
+        let folder = env("CLAUDE_CONFIG_DIR")
+            .filter(|d| !d.is_empty())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| home.join(".claude"));
+        let text =
+            std::fs::read_to_string(folder.join("sessions").join(format!("{pid}.json"))).ok()?;
+        status_hint(&serde_json::from_str(&text).ok()?, session)
+    }
+}
+
+/// The hint in a status file, if it is about `session`.
+fn status_hint(file: &Value, session: &str) -> Option<Hint> {
+    if file.get("sessionId")?.as_str()? != session {
+        return None;
+    }
+    let status = match file.get("status")?.as_str()? {
+        "busy" => HintStatus::Busy,
+        "idle" => HintStatus::Idle,
+        "waiting" => HintStatus::Waiting,
+        _ => return None,
+    };
+    Some(Hint {
+        status,
+        since_ms: file.get("statusUpdatedAt")?.as_i64()?,
+    })
 }

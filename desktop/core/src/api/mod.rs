@@ -177,6 +177,12 @@ pub async fn serve(
                 if let Err(error) = app.reviews().sweep_hidden_sessions() {
                     eprintln!("pinrail: hidden sessions sweep failed: {error}");
                 }
+                // what no hook reports: an agent gone, an interrupt
+                if let Some(home) = crate::config::home_dir()
+                    && let Err(error) = app.reviews().check_presence(&home, chrono::Utc::now())
+                {
+                    eprintln!("pinrail: presence check failed: {error}");
+                }
                 // after the history: what a swept review carried is free to go
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
                 if let Err(error) = app.attachments().sweep(hour_ago) {

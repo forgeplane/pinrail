@@ -1,0 +1,22 @@
+{
+  "pid": 3044,
+  "sessionId": "25322e8a-eaa0-4f8b-94e6-a79dc9f7752b",
+  "cwd": "/Users/you/code/app",
+  "startedAt": 1794578358364,
+  "procStart": "Fri Nov 13 13:59:03 2026",
+  "version": "2.1.323",
+  "peerProtocol": 1,
+  "peerFeatures": ["notify_idle", "reply_across_default_dirs", "artifact_yield"],
+  "kind": "interactive",
+  "entrypoint": "cli",
+  "pidDomain": "darwin",
+  "asksForConvertedSkills": false,
+  "tmux": "work:@3.%24",
+  "messagingSocketPath": "/tmp/cc-socks/3044.sock",
+  "name": "work-72",
+  "nameSource": "derived",
+  "nameSince": 1794578358364,
+  "status": "idle",
+  "updatedAt": 1794578438785,
+  "statusUpdatedAt": 1794578438785
+}

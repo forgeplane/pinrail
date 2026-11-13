@@ -29,8 +29,8 @@ pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;
 pub use presence::{
-    Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent, StoredState,
-    Transition, TurnRow,
+    ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,
+    StoredState, Transition, TurnRow,
 };
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
