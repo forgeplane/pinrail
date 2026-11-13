@@ -109,3 +109,18 @@ fn user_id() -> String {
     let output = Command::new("id").arg("-u").output().unwrap();
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn the_binary_names_pinrail_for_the_privacy_prompts() {
+    let binary = std::fs::read(env!("CARGO_BIN_EXE_pinrail-host")).unwrap();
+    let text = String::from_utf8_lossy(&binary);
+    assert!(text.contains("<string>dev.pinrail.host</string>"));
+    assert!(text.contains("<key>CFBundleName</key>\n  <string>Pinrail</string>"));
+    // in the section macOS reads
+    let output = Command::new("otool")
+        .args(["-l", env!("CARGO_BIN_EXE_pinrail-host")])
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&output.stdout).contains("sectname __info_plist"));
+}

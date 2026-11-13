@@ -4,7 +4,7 @@
   },
   "bundle": {
     "createUpdaterArtifacts": true,
-    "externalBin": ["binaries/pinrail-cli"],
+    "externalBin": ["binaries/pinrail-cli", "binaries/pinrail-host"],
     "resources": {
       "../sdk/v1": "sdk/v1",
       "../notices/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt"

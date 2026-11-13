@@ -9,6 +9,7 @@
     "build": "npm run sdk:build && tsc --noEmit && vite build",
     "sdk:build": "node scripts/build-sdk.mjs",
     "cli:build": "node scripts/build-cli.mjs",
+    "host:build": "node scripts/build-host.mjs",
     "notices": "node scripts/build-notices.mjs",
     "tauri": "tauri",
     "test": "tsc --noEmit && vitest run"

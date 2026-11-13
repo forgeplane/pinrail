@@ -1,6 +1,6 @@
 {
   "mainBinaryName": "pinrail-desktop",
   "bundle": {
-    "externalBin": ["binaries/pinrail"]
+    "externalBin": ["binaries/pinrail", "binaries/pinrail-host"]
   }
 }

@@ -248,6 +248,11 @@ jobs:
       - name: Build the CLI
         working-directory: desktop/app
         run: npm run cli:build -- ${{ matrix.triple }}
+      # and the terminal host as the pinrail-host sidecar, which the core
+      # copies into the data folder and starts from there
+      - name: Build the terminal host
+        working-directory: desktop/app
+        run: npm run host:build -- ${{ matrix.triple }}
       # a tag that cannot sign is a mistake, not an unsigned release
       - name: Refuse to build a tag with nowhere to upload
         if: startsWith(github.ref, 'refs/tags/v') && needs.draft.outputs.id == ''
