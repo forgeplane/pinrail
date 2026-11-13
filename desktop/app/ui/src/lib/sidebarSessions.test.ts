@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Review, Session, SessionStatus } from "../api/types";
-import { type Choices, DEFAULT_CHOICES, arrange, filtersSet, stateOf } from "./sidebarSessions";
+import type { Attention, Presence } from "../api/types";
+import { type Choices, DEFAULT_CHOICES, arrange, chipOf, filtersSet, stateOf, steadyOrder } from "./sidebarSessions";
 
 // noon, so the "today" and "yesterday" groups do not depend on the time zone's edges
 const NOW = new Date(2026, 9, 31, 12, 0, 0).getTime();
@@ -45,17 +46,41 @@ const review = (id: string, from: { agent?: string; session?: string; repo?: str
 const choose = (c: Partial<Choices>): Choices => ({ ...DEFAULT_CHOICES, ...c });
 const ids = (groups: ReturnType<typeof arrange>) => groups.map((g) => [g.label, g.rows.map((r) => r.session.id)]);
 
+/** What the server says of a session its hooks report on. */
+const presence = (attention: Attention): Pick<Session, "presence" | "attention"> => ({
+  attention,
+  presence: { attention, state: "idle", since: ago(1), turn: 1 } as Presence,
+});
+
 describe("stateOf", () => {
-  test("a status in the last five minutes is working, and done wins over it", () => {
+  test("without hooks, a status in the last five minutes is working, and done stops it", () => {
     expect(stateOf(session("a", { status: status(4) }), NOW)).toBe("working");
-    expect(stateOf(session("a", { status: status(6) }), NOW)).toBe("quiet");
-    expect(stateOf(session("a", { status: status(1, "done") }), NOW)).toBe("done");
-    expect(stateOf(session("a"), NOW)).toBe("quiet");
+    expect(stateOf(session("a", { status: status(6) }), NOW)).toBe("idle");
+    expect(stateOf(session("a", { status: status(1, "done") }), NOW)).toBe("stopped");
+    expect(stateOf(session("a"), NOW)).toBe("idle");
   });
 
-  test("a recent note is working too, but a note after the end leaves it done", () => {
+  test("without hooks, a recent note is working too, but a note after the end leaves it stopped", () => {
     expect(stateOf(session("a", { status: status(30) }, { reported_at: ago(2) }), NOW)).toBe("working");
-    expect(stateOf(session("a", { status: status(30, "done") }, { reported_at: ago(2) }), NOW)).toBe("done");
+    expect(stateOf(session("a", { status: status(30, "done") }, { reported_at: ago(2) }), NOW)).toBe("stopped");
+  });
+
+  test("a question or review waiting on the person needs them, with hooks or without", () => {
+    expect(stateOf(session("a", { status: status(4), waiting: 1 }), NOW)).toBe("needs_you");
+    expect(stateOf(session("a", { waiting: 1 }, presence("needs_you")), NOW)).toBe("needs_you");
+  });
+
+  test("with hooks, the server's attention is the state, whatever the statuses say", () => {
+    for (const attention of ["finished", "working", "idle", "stopped", "unknown"] as const)
+      expect(stateOf(session("a", { status: status(1, "done") }, presence(attention)), NOW)).toBe(attention);
+  });
+});
+
+describe("steadyOrder", () => {
+  test("keeps the rows shown in their place, and puts a new one where it now belongs", () => {
+    expect(steadyOrder(["a", "b", "c"], ["c", "a", "b"])).toEqual(["a", "b", "c"]);
+    expect(steadyOrder(["a", "b", "c"], ["c", "d", "a"])).toEqual(["a", "d", "c"]);
+    expect(steadyOrder([], ["b", "a"])).toEqual(["b", "a"]);
   });
 });
 
@@ -83,10 +108,31 @@ describe("arrange", () => {
 
   test("groups by status in a fixed order, what waits first", () => {
     expect(ids(arrange(sessions, [], choose({ grouping: "status" }), NOW))).toEqual([
-      ["Waiting for you", ["waiting-api"]],
+      ["Needs you", ["waiting-api"]],
       ["Working", ["working-web"]],
-      ["Quiet", ["quiet-api"]],
-      ["Done", ["done-web"]],
+      ["Idle", ["quiet-api"]],
+      ["Stopped", ["done-web"]],
+    ]);
+  });
+
+  test("puts what needs the person first, then finished turns, then work, and lists unknown with idle", () => {
+    const reported = [
+      session("stopped", { last: 1 }, presence("stopped")),
+      session("unknown", { last: 2 }, presence("unknown")),
+      session("idle", { last: 3 }, presence("idle")),
+      session("working", { last: 4 }, presence("working")),
+      session("finished", { last: 5 }, presence("finished")),
+      session("needs-you", { last: 6, waiting: 1 }, presence("needs_you")),
+    ];
+    expect(ids(arrange(reported, [], choose({ grouping: "none" }), NOW))).toEqual([
+      ["Sessions", ["needs-you", "finished", "working", "unknown", "idle", "stopped"]],
+    ]);
+    expect(ids(arrange(reported, [], choose({ grouping: "status" }), NOW))).toEqual([
+      ["Needs you", ["needs-you"]],
+      ["Finished", ["finished"]],
+      ["Working", ["working"]],
+      ["Idle", ["unknown", "idle"]],
+      ["Stopped", ["stopped"]],
     ]);
   });
 
@@ -190,7 +236,7 @@ describe("arrange", () => {
     expect(listed({ agents: ["codex"] })).toEqual(["codex-api"]);
     expect(listed({ repos: ["acme/web"] })).toEqual(["done-web", "working-web"]);
     expect(listed({ repos: ["-"] })).toEqual(["no-project"]);
-    expect(listed({ states: ["done", "working"] })).toEqual(["done-web", "working-web"]);
+    expect(listed({ states: ["stopped", "working"] })).toEqual(["done-web", "working-web"]);
     expect(listed({})).not.toContain("archived");
     expect(listed({ archived: true })).toContain("archived");
   });
@@ -203,4 +249,34 @@ describe("arrange", () => {
 test("filtersSet counts each filter once", () => {
   expect(filtersSet(DEFAULT_CHOICES)).toBe(0);
   expect(filtersSet(choose({ agents: ["a", "b"], archived: true }))).toBe(2);
+});
+
+describe("chipOf", () => {
+  const reported = (attention: Attention, more: Partial<Presence> = {}) => {
+    const s = session("a", {}, presence(attention));
+    return { ...s, presence: { ...s.presence!, ...more } };
+  };
+
+  test("says what needs the person: what waits, or the agent's own prompt", () => {
+    expect(chipOf(session("a", { waiting: 2 }), NOW)?.text).toBe("Needs you · 2 waiting");
+    const permission = reported("needs_you", { wait: { kind: "permission", tool: "Bash", summary: null } });
+    expect(chipOf(permission, NOW)?.text).toBe("Needs you · Bash permission");
+    const question = reported("needs_you", { wait: { kind: "question", tool: null, summary: null } });
+    expect(chipOf(question, NOW)?.text).toBe("Needs you · a question");
+  });
+
+  test("says how long a turn has worked, and why a session stopped", () => {
+    expect(chipOf(reported("working", { turn_started: ago(4) }), NOW)?.text).toBe("Working · 4m");
+    expect(chipOf(reported("finished"), NOW)?.text).toBe("Finished");
+    expect(chipOf(reported("idle"), NOW)?.text).toBe("Idle");
+    expect(chipOf(reported("stopped", { stop_reason: "exited" }), NOW)?.text).toBe("Stopped · process exited");
+    expect(chipOf(reported("stopped", { stop_reason: "ended" }), NOW)?.text).toBe("Stopped · session ended");
+    expect(chipOf(reported("unknown"), NOW)?.text).toBe("Status unknown");
+  });
+
+  test("without hooks, shows only what the statuses tell for sure", () => {
+    expect(chipOf(session("a", { status: status(1) }), NOW)?.text).toBe("Working");
+    expect(chipOf(session("a", { status: status(1, "done") }), NOW)?.text).toBe("Stopped");
+    expect(chipOf(session("a", { status: status(30) }), NOW)).toBeNull();
+  });
 });

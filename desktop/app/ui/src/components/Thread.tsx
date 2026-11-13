@@ -1,7 +1,7 @@
 // An agent session's thread: the questions it asked, as the agent's
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
-import { ArrowDown, CheckCircle2, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { ArrowDown, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
@@ -17,6 +17,7 @@ import { useSettings } from "../state/settings";
 import { ItemChip, ItemOpener } from "./ItemChip";
 import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
+import { PresenceChip } from "./PresenceChip";
 import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
 import { CopyButton } from "./CopyButton";
@@ -331,16 +332,7 @@ export function Thread({
               <h1 className={session?.title ? "thread-stage" : undefined}>
                 {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
               </h1>
-              {waiting.length > 0 ? (
-                <span className="thread-waiting">
-                  <span className="thread-waiting-dot" aria-hidden />
-                  Waiting for you · {waiting.length}
-                </span>
-              ) : session?.status?.kind === "done" ? (
-                <span className="thread-done" data-testid="head-finished">
-                  <CheckCircle2 size={12} aria-hidden /> Finished
-                </span>
-              ) : null}
+              {session ? <PresenceChip session={session} /> : null}
               {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
             </div>
             <div className="thread-meta">

@@ -12,7 +12,9 @@ import {
   type Detail,
   type Grouping,
   type Ordering,
-  type State,
+  type ListedState,
+  LISTED_STATES,
+  STATE_LABEL,
   NO_FILTERS,
   filtersSet,
 } from "../lib/sidebarSessions";
@@ -25,7 +27,7 @@ const GROUPINGS: [Grouping, string][] = [
   ["none", "None"],
 ];
 const ORDERINGS: [Ordering, string][] = [
-  ["status", "Status"],
+  ["status", "Priority"],
   ["updated", "Updated"],
 ];
 /** The icon of each grouping and ordering, by its value. */
@@ -43,11 +45,7 @@ const DETAILS: [Detail, string][] = [
   ["branch", "Branch"],
   ["agent", "Agent"],
 ];
-const STATES: [State, string][] = [
-  ["working", "Working"],
-  ["quiet", "Quiet"],
-  ["done", "Done"],
-];
+const STATES: [ListedState, string][] = LISTED_STATES.map((s) => [s, STATE_LABEL[s]]);
 
 /** A project or a repository the sessions can be filtered by. */
 export type ScopeChoice = { value: string; label: string; icon: ReactNode };

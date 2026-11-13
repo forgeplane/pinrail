@@ -678,15 +678,38 @@ h1 {
   flex: none;
   margin-left: auto;
 }
-/* what a session is doing, at the top right of its agent's icon: a pulsing
-   dot in the accent while it works, a green check once it is done */
+/* the attention a session asks of the person, in the colours the marks,
+   the chip and the menus share */
+:root {
+  --attention-warn: var(--sev-major);
+  --attention-done: var(--ok);
+  --attention-busy: var(--accent);
+}
+/* what a session asks of the person, at the top right of its agent's icon:
+   a triangle when it needs them, a dot once a turn finished, a pulsing dot
+   while it works, a ring while it is idle, and nothing once it stopped. Each
+   has its name in the accessible name and the tooltip, so none relies on
+   colour alone. */
+/* on a list's row, the ring around a mark is the row's own background */
+.session-row {
+  --mark-ring: var(--bg);
+}
+.session-row.is-focused {
+  --mark-ring: var(--bg-hover);
+}
+.session-row.is-open {
+  --mark-ring: var(--accent-bg);
+}
 .agent-mark {
   position: relative;
   flex: none;
   display: inline-flex;
 }
-.agent-mark.is-working::after,
-.agent-mark.is-done::after {
+.agent-mark::after,
+.state-mark {
+  box-sizing: border-box;
+}
+.agent-mark:is(.is-needs_you, .is-finished, .is-working, .is-idle)::after {
   content: "";
   position: absolute;
   top: -3px;
@@ -694,41 +717,57 @@ h1 {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  box-shadow: 0 0 0 1.5px var(--sidebar);
+  box-shadow: 0 0 0 1.5px var(--mark-ring, var(--sidebar));
 }
-.agent-mark.is-working::after {
-  background: var(--accent);
-  animation: agent-working 1.6s ease-in-out infinite;
-}
-.agent-mark.is-done::after {
-  width: 9px;
-  height: 9px;
+.agent-mark.is-needs_you::after {
   top: -4px;
   right: -4px;
-  background: var(--ok)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
-    center / 7px no-repeat;
+  width: 9px;
+  height: 8px;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--attention-warn);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
-/* the same marks on their own, in the sidebar menu's Status filter; a quiet
-   session has none, so a hollow dot stands for it */
+.agent-mark.is-finished::after {
+  background: var(--attention-done);
+}
+.agent-mark.is-working::after {
+  background: var(--attention-busy);
+  animation: agent-working 1.6s ease-in-out infinite;
+}
+.agent-mark.is-idle::after {
+  background: var(--mark-ring, var(--sidebar));
+  box-shadow:
+    inset 0 0 0 1.5px var(--faint),
+    0 0 0 1.5px var(--mark-ring, var(--sidebar));
+}
+/* the same marks on their own, in the sidebar menu's Status filter; a
+   stopped session has none, so a hollow square stands for it */
 .state-mark {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
 }
-.state-mark.is-working {
-  background: var(--accent);
+.state-mark.is-needs_you {
+  width: 9px;
+  border-radius: 0;
+  background: var(--attention-warn);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
-.state-mark.is-quiet {
+.state-mark.is-finished {
+  background: var(--attention-done);
+}
+.state-mark.is-working {
+  background: var(--attention-busy);
+}
+.state-mark.is-idle {
   box-shadow: inset 0 0 0 1.5px var(--faint);
 }
-.state-mark.is-done {
-  width: 10px;
-  height: 10px;
-  background: var(--ok)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
-    center / 7px no-repeat;
+.state-mark.is-stopped {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px var(--faint);
 }
 @keyframes agent-working {
   50% {
@@ -3408,17 +3447,44 @@ body.is-resizing iframe {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.thread-done {
+/* what the session asks of the person, beside its title: the same mark as
+   the sidebar's, and its name with what explains it */
+.presence-chip {
   display: inline-flex;
   flex: none;
+  white-space: nowrap;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--ok) 14%, transparent);
-  color: var(--ok);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  background: color-mix(in srgb, var(--faint) 14%, transparent);
+  color: var(--dim);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.presence-chip.is-needs_you {
+  background: color-mix(in srgb, var(--attention-warn) 14%, transparent);
+  color: var(--attention-warn);
+}
+.presence-chip.is-finished {
+  background: color-mix(in srgb, var(--attention-done) 14%, transparent);
+  color: var(--attention-done);
+}
+.presence-chip.is-working {
+  background: color-mix(in srgb, var(--attention-busy) 14%, transparent);
+  color: var(--attention-busy);
+}
+.state-mark.is-unknown {
+  display: none;
+}
+/* read out by a screen reader, and not shown */
+.presence-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* who works where, since when, and the session's id, on one quiet line */
 .thread-meta {
@@ -3490,24 +3556,6 @@ body.is-resizing iframe {
 .thread-session {
   font-family: var(--mono);
   font-size: var(--text-xs);
-}
-.thread-waiting {
-  display: inline-flex;
-  flex: none;
-  white-space: nowrap;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--sev-major) 14%, transparent);
-  color: var(--sev-major);
-  font-weight: 600;
-}
-.thread-waiting-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
 }
 .thread-head-end {
   display: inline-flex;

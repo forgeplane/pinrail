@@ -3,15 +3,31 @@
 // sessions, the waiting reviews, the choices and the time, so the component
 // only draws what they return.
 
-import type { Review, Session } from "../api/types";
+import type { Attention, Review, Session } from "../api/types";
+import { age } from "./format";
 
-/** A session sent a status this recently: it is working. */
+/** A session without hooks sent a status this recently: it is working. */
 export const WORKING_MS = 5 * 60_000;
 
 export type Grouping = "project" | "repository" | "status" | "updated" | "none";
 export type Ordering = "status" | "updated";
-/** What a session's icon shows: working, finished, or neither. */
-export type State = "working" | "quiet" | "done";
+/** What a session's mark shows: the attention it asks of the person. */
+export type State = Attention;
+/** The states the Status grouping and filter list; an unknown session is
+ *  listed as idle. */
+export const LISTED_STATES = ["needs_you", "finished", "working", "idle", "stopped"] as const;
+export type ListedState = (typeof LISTED_STATES)[number];
+/** The name of each state, as the marks, groups and filters show it. */
+export const STATE_LABEL: Record<State, string> = {
+  needs_you: "Needs you",
+  finished: "Finished",
+  working: "Working",
+  idle: "Idle",
+  stopped: "Stopped",
+  unknown: "Status unknown",
+};
+/** The state a session is listed under. */
+export const listedAs = (state: State): ListedState => (state === "unknown" ? "idle" : state);
 /** The details a session's second line can show. */
 export type Detail = "activity" | "status" | "repo" | "branch" | "agent";
 /** The details in the order the line shows them, whatever order they were chosen in. */
@@ -29,7 +45,7 @@ export type Choices = {
    *  "project:<id>"; none lists every one */
   repos: string[];
   /** states to list; none lists every state */
-  states: State[];
+  states: ListedState[];
   /** list the archived sessions too */
   archived: boolean;
 };
@@ -58,13 +74,72 @@ export const NO_FILTERS = {
 export const filtersSet = (c: Choices) =>
   (c.agents.length ? 1 : 0) + (c.repos.length ? 1 : 0) + (c.states.length ? 1 : 0) + (c.archived ? 1 : 0);
 
+/**
+ * What a session asks of the person: the server's attention when its
+ * agent's hooks report on it, and otherwise a guess from its statuses.
+ */
 export function stateOf(session: Session, now: number): State {
+  if (waitingCount(session) > 0) return "needs_you";
+  if (session.presence && session.attention) return session.attention;
   const status = session.status;
-  if (status?.kind === "done") return "done";
+  if (status?.kind === "done") return "stopped";
   // a note is not the latest status, but it is a report of work
   const at = session.reported_at ?? status?.at;
   if (at && now - Date.parse(at) < WORKING_MS) return "working";
-  return "quiet";
+  return "idle";
+}
+
+/** Why a session stopped, as its header says it. */
+const STOPPED: Record<string, string> = {
+  ended: "session ended",
+  exited: "process exited",
+  cleared: "cleared",
+};
+
+/**
+ * The chip beside a session's title: its state, and what explains it. A
+ * session without hooks shows one only for what its statuses say for sure.
+ */
+export function chipOf(session: Session, now: number): { state: State; text: string } | null {
+  const state = stateOf(session, now);
+  const p = session.presence;
+  const chip = (text: string) => ({ state, text });
+  switch (state) {
+    case "needs_you": {
+      const waiting = waitingCount(session);
+      if (waiting) return chip(`Needs you · ${waiting} waiting`);
+      if (p?.wait?.kind === "permission")
+        return chip(`Needs you · ${p.wait.tool ? `${p.wait.tool} permission` : "a permission"}`);
+      return chip("Needs you · a question");
+    }
+    case "finished":
+      return chip("Finished");
+    case "working":
+      return chip(p ? `Working · ${age(p.turn_started ?? p.since, now)}` : "Working");
+    case "idle":
+      return p ? chip("Idle") : null;
+    case "stopped": {
+      const why = p?.stop_reason ? STOPPED[p.stop_reason] : null;
+      return chip(why ? `Stopped · ${why}` : "Stopped");
+    }
+    case "unknown":
+      return p ? chip("Status unknown") : null;
+  }
+}
+
+/**
+ * The order to show while the pointer is over the list: the rows shown
+ * keep their places, a row that left goes, and a new row takes the place
+ * `next` gives it.
+ */
+export function steadyOrder(shown: string[], next: string[]): string[] {
+  const kept = new Set(next);
+  const order = shown.filter((key) => kept.has(key));
+  const known = new Set(order);
+  next.forEach((key, i) => {
+    if (!known.has(key)) order.splice(Math.min(i, order.length), 0, key);
+  });
+  return order;
 }
 
 /** How many questions and reviews wait for the person in a session. */
@@ -103,12 +178,7 @@ export const HEADINGS: Record<Grouping, string> = {
   none: "Sessions",
 };
 
-const STATUS_GROUPS = [
-  { key: "waiting", label: "Waiting for you" },
-  { key: "working", label: "Working" },
-  { key: "quiet", label: "Quiet" },
-  { key: "done", label: "Done" },
-];
+const STATUS_GROUPS = LISTED_STATES.map((key) => ({ key, label: STATE_LABEL[key] }));
 const UPDATED_GROUPS = [
   { key: "hour", label: "Last hour" },
   { key: "today", label: "Today" },
@@ -129,7 +199,8 @@ function updatedKey(iso: string, now: number): string {
   return at >= yesterday.getTime() ? "yesterday" : "earlier";
 }
 
-const statusRank = (row: Row) => (row.waiting > 0 ? 0 : row.state === "working" ? 1 : row.state === "quiet" ? 2 : 3);
+/** The Priority order: what needs the person, then finished turns, work, idle and stopped sessions. */
+const statusRank = (row: Row) => LISTED_STATES.indexOf(listedAs(row.state));
 
 /**
  * The groups the sidebar lists, in order, each with its sessions in order.
@@ -146,6 +217,8 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
     } else loose.push(review);
   }
 
+  // states saved before they were renamed are ignored
+  const states = choices.states.filter((s) => (LISTED_STATES as readonly string[]).includes(s));
   const listed = (repo: string | null | undefined, project?: { id: string } | null) =>
     !choices.repos.length ||
     choices.repos.includes(repo ?? "-") ||
@@ -160,7 +233,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
       reviews: bySession.get(sessionKey(session.agent, session.id)) ?? [],
       waiting: waitingCount(session),
     }))
-    .filter((row) => !choices.states.length || choices.states.includes(row.state));
+    .filter((row) => !states.length || states.includes(listedAs(row.state)));
 
   const recent = (a: Row, b: Row) => b.session.last_at.localeCompare(a.session.last_at);
   rows.sort(choices.ordering === "status" ? (a, b) => statusRank(a) - statusRank(b) || recent(a, b) : recent);
@@ -169,7 +242,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
   const looseShown = loose
     .filter((r) => listed(r.origin.repo, r.project))
     .filter((r) => !choices.agents.length || (!!r.requested_by && choices.agents.includes(r.requested_by)))
-    .filter(() => !choices.states.length);
+    .filter(() => !states.length || states.includes("needs_you"));
 
   const groups = new Map<string, Group>();
   /** the repositories seen in each group, to tell a mixed project */
@@ -204,8 +277,8 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
       case "repository":
         return [row.session.repo ?? "", row.session.repo ?? "No repository"];
       case "status": {
-        const key = row.waiting > 0 ? "waiting" : row.state;
-        return [key, STATUS_GROUPS.find((g) => g.key === key)!.label];
+        const key = listedAs(row.state);
+        return [key, STATE_LABEL[key]];
       }
       case "updated": {
         const key = updatedKey(row.session.last_at, now);
@@ -222,7 +295,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
       case "repository":
         return [review.origin.repo ?? "", review.origin.repo ?? "No repository"];
       case "status":
-        return ["waiting", STATUS_GROUPS[0].label];
+        return ["needs_you", STATE_LABEL.needs_you];
       case "updated": {
         const key = updatedKey(review.created_at, now);
         return [key, UPDATED_GROUPS.find((g) => g.key === key)!.label];

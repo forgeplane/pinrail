@@ -19,8 +19,10 @@ import {
   DETAILS,
   HEADINGS,
   NO_FILTERS,
+  STATE_LABEL,
   arrange,
   filtersSet,
+  steadyOrder,
 } from "../lib/sidebarSessions";
 import { NO_PROJECT } from "../lib/url";
 import { useLive, useNoticeCount } from "../state/live";
@@ -38,7 +40,52 @@ const TICK_MS = 30_000;
 /** At most this many sessions are fetched for the sidebar. */
 const FETCHED = 200;
 
-const STATE_LABEL = { working: "Working", quiet: "Quiet", done: "Done" } as const;
+/** How long a row keeps its place under the pointer after its state changes. */
+const HOLD_MS = 2_000;
+
+const rowKey = (row: Row) => `${row.session.agent}/${row.session.id}`;
+
+/** Each group's rows, by key, in the order shown. */
+const orderOf = (groups: Group[]) => new Map(groups.map((group) => [group.key, group.rows.map(rowKey)]));
+
+/** The groups with their rows in the order `held` keeps, where it keeps one. */
+function holding(groups: Group[], held: Map<string, string[]> | null): Group[] {
+  if (!held) return groups;
+  return groups.map((group) => {
+    const kept = held.get(group.key);
+    if (!kept) return group;
+    const byKey = new Map(group.rows.map((row) => [rowKey(row), row]));
+    return { ...group, rows: steadyOrder(kept, group.rows.map(rowKey)).map((key) => byKey.get(key)!) };
+  });
+}
+
+/**
+ * The groups as `arrange` orders them, except while the pointer is over the
+ * list: then the rows keep the places they had for 2 seconds after the
+ * order changes, so the list does not move under the cursor.
+ */
+function useSteadyGroups(groups: Group[], hovering: boolean): Group[] {
+  const [held, setHeld] = useState<Map<string, string[]> | null>(null);
+  const [before, setBefore] = useState(groups);
+  if (groups !== before) {
+    setBefore(groups);
+    if (hovering) {
+      // a new order, not just a new list, holds the rows again
+      const last = orderOf(before);
+      const moved = groups.some((group) => {
+        const kept = last.get(group.key);
+        return !!kept && kept.join("\n") !== group.rows.map(rowKey).join("\n");
+      });
+      if (moved) setHeld(orderOf(holding(before, held)));
+    }
+  }
+  useEffect(() => {
+    if (!held) return;
+    const timer = window.setTimeout(() => setHeld(null), HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [held]);
+  return hovering ? holding(groups, held) : groups;
+}
 
 /** No sessions, the same array each time, while none have loaded. */
 const NO_SESSIONS: Session[] = [];
@@ -54,7 +101,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   // a status may rename a session or mark it done, and archiving one moves
   // it in or out
   const reported = useNoticeCount((n) =>
-    ["session_status", "session_archived", "session_unarchived", "repository_deleted"].includes(n.kind),
+    [
+      "session_status",
+      "session_presence",
+      "session_seen",
+      "session_archived",
+      "session_unarchived",
+      "repository_deleted",
+    ].includes(n.kind),
   );
   const sessions =
     useLoad(
@@ -72,7 +126,9 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const groups = useMemo(() => arrange(sessions, live.pending, choices, now), [sessions, live.pending, choices, now]);
+  const [hovering, setHovering] = useState(false);
+  const arranged = useMemo(() => arrange(sessions, live.pending, choices, now), [sessions, live.pending, choices, now]);
+  const groups = useSteadyGroups(arranged, hovering && choices.ordering === "status");
   const agents = useMemo(() => [...new Set(sessions.map((s) => s.agent))].sort(), [sessions]);
   // the projects first, with their avatars, then the repositories, then
   // sessions with none, as the inbox's filter lists them
@@ -268,7 +324,12 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   };
 
   return (
-    <section className="sidebar-sessions" aria-label={HEADINGS[choices.grouping]}>
+    <section
+      className="sidebar-sessions"
+      aria-label={HEADINGS[choices.grouping]}
+      onPointerEnter={() => setHovering(true)}
+      onPointerLeave={() => setHovering(false)}
+    >
       <h2>
         {HEADINGS[choices.grouping]}
         <span className="sidebar-sessions-actions">

@@ -79,8 +79,9 @@ test("a session shows whether it works or is done, and what waits sits under it"
   const working = sessionRow(page, "claude-code", busy);
   const done = sessionRow(page, "codex", finished);
   await expect(working).toContainText("Build the sidebar");
-  await expect(working).toHaveAttribute("data-state", "working");
-  await expect(done).toHaveAttribute("data-state", "done");
+  // its question waits on the person
+  await expect(working).toHaveAttribute("data-state", "needs_you");
+  await expect(done).toHaveAttribute("data-state", "stopped");
   // the project counts what waits in it, and the session too
   await expect(group(page, repo).locator(".count-badge")).toHaveText("1");
   await expect(working.getByTestId("sidebar-session-waiting")).toHaveText("1");
@@ -120,7 +121,7 @@ test("a session shows whether it works or is done, and what waits sits under it"
 
   // the tooltip says what the mark means and what the agent last said
   await working.hover();
-  await expect(page.getByRole("tooltip")).toContainText("Working");
+  await expect(page.getByRole("tooltip")).toContainText("Needs you");
   await expect(page.getByRole("tooltip")).toContainText("Running the tests");
 
   // archiving takes a session out of the sidebar
@@ -151,7 +152,7 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   await expect(menu.getByRole("menuitemradio").locator(".menu-icon")).toHaveCount(5);
   await menu.getByRole("menuitemradio", { name: "Status" }).click();
   await expect(heading).toHaveText("Status");
-  await expect(group(page, "Waiting for you")).toBeVisible();
+  await expect(group(page, "Needs you")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
   await page.reload();
@@ -192,8 +193,14 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
 
   // each state with the mark its sessions show
   await menu.getByRole("menuitem", { name: /^Status/ }).click();
-  for (const state of ["working", "quiet", "done"]) {
-    const option = menu.getByRole("menuitemcheckbox", { name: state[0].toUpperCase() + state.slice(1) });
+  for (const [state, name] of [
+    ["needs_you", "Needs you"],
+    ["finished", "Finished"],
+    ["working", "Working"],
+    ["idle", "Idle"],
+    ["stopped", "Stopped"],
+  ]) {
+    const option = menu.getByRole("menuitemcheckbox", { name });
     await expect(option.locator(`.state-mark.is-${state}`)).toBeVisible();
   }
 });

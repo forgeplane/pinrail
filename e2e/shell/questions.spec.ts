@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { clearInbox, core, onePayload, openReviewsIn, pickIn } from "./helpers";
+import { clearInbox, core, onePayload, openReviewsIn, pickIn, toggleFilter } from "./helpers";
 
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
 const thread = (page: Page) => page.getByTestId("thread");
@@ -203,6 +203,17 @@ test("the Sessions page lists the sessions, those waiting first, and opens a ses
   await expect(rows.first()).toContainText(waiting);
   await expect(rows.first()).toContainText("1 question waiting");
   await expect(rows.filter({ hasText: answered })).toContainText("1 question");
+  // the mark says what each session asks of the person
+  await expect(rows.first().getByLabel("Needs you")).toBeVisible();
+  await expect(rows.filter({ hasText: answered }).getByLabel("Needs you")).toHaveCount(0);
+
+  // the filter leaves only what needs the person
+  await toggleFilter(page, "Needs you only");
+  await expect(page).toHaveURL(/attention=needs_you/);
+  await expect(rows.filter({ hasText: waiting })).toHaveCount(1);
+  await expect(rows.filter({ hasText: answered })).toHaveCount(0);
+  await toggleFilter(page, "Needs you only");
+  await expect(rows.filter({ hasText: answered })).toHaveCount(1);
 
   await page.getByRole("searchbox", { name: "Search sessions" }).fill(answered);
   await expect(rows).toHaveCount(1);
@@ -526,8 +537,8 @@ test("the statuses an agent reports show in its thread between the questions and
   await groups.last().getByRole("button", { name: "1 earlier" }).click();
   await expect(groups.last().getByTestId("status")).toHaveText([/Running the tests/, /Fixing a flaky test/]);
   await expect(thread(page).getByTestId("finished")).toContainText("Finished: Pushed the fix");
-  // with its questions waiting, the header says so rather than Finished
-  await expect(thread(page).getByTestId("head-finished")).toHaveCount(0);
+  // with its questions waiting, the header says they need the person
+  await expect(thread(page).getByTestId("presence-chip")).toHaveText(/^Needs you · \d+ waiting$/);
   // the stage in the panel, which goes to where it started
   const stage = page.getByRole("region", { name: "Stages" }).getByTestId("stage");
   await expect(stage).toHaveCount(1);
@@ -559,10 +570,10 @@ test("a status the agent reports shows in an open thread at once", async ({ page
   await expect(thread(page).getByTestId("status")).toHaveCount(0);
   await report(page.request, session, { text: "Waiting for the answers" });
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
-  // once nothing waits, a session the agent finished says so beside its title
+  // once nothing waits, a session whose agent said it is done has stopped
   await report(page.request, session, { kind: "done" });
   await clearInbox(page.request);
-  await expect(thread(page).getByTestId("head-finished")).toHaveText("Finished");
+  await expect(thread(page).getByTestId("presence-chip")).toHaveText("Stopped");
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
 });
 

@@ -22,6 +22,7 @@ import { age, stamp } from "../lib/format";
 import { modalOpen, isTyping } from "../lib/keys";
 import { scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive, aboutSessions, useNoticeCount } from "../state/live";
+import { STATE_LABEL, stateOf } from "../lib/sidebarSessions";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 import { ReviewView } from "./ReviewScreen";
@@ -62,24 +63,34 @@ export function Sessions() {
   const scope = scopeOf(params);
   // with the archived sessions among the others
   const withArchived = params.get("archived") === "1";
-  const filtered = !!(query || repo || project);
+  // only the sessions that need the person
+  const needsYou = params.get("attention") === "needs_you";
+  const filtered = !!(query || repo || project || needsYou);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
 
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // anything sent, answered or withdrawn moves the sessions
   const sessionNotices = useNoticeCount(aboutSessions);
+  // the time each list was loaded, which ages the sessions without hooks
+  const [now, setNow] = useState(() => Date.now());
   const { data, error: loadError } = useLoad(
     () =>
-      api.sessions({
-        q: debounced,
-        repo,
-        project,
-        include_archived: withArchived ? "true" : undefined,
-        limit: String(size),
-        offset: String((page - 1) * size),
-      }),
-    [debounced, repo, project, withArchived, page, size, sessionNotices],
+      api
+        .sessions({
+          q: debounced,
+          repo,
+          project,
+          include_archived: withArchived ? "true" : undefined,
+          attention: needsYou ? "needs_you" : undefined,
+          limit: String(size),
+          offset: String((page - 1) * size),
+        })
+        .then((d) => {
+          setNow(Date.now());
+          return d;
+        }),
+    [debounced, repo, project, withArchived, needsYou, page, size, sessionNotices],
   );
 
   // grouped by project or by repository within the page shown, or one
@@ -178,6 +189,9 @@ export function Sessions() {
     const waiting = s.waiting.questions + s.waiting.reviews;
     // the newest status, unless it is the start that titles the session
     const status = s.status && !(s.status.kind === "start" && s.title) ? s.status : null;
+    const state = stateOf(s, now);
+    // since the state last changed, for a session whose hooks report it
+    const since = s.presence?.since ?? s.last_at;
     return (
       <Link
         key={keyOf(s)}
@@ -189,7 +203,9 @@ export function Sessions() {
         data-testid="session-row"
         data-row={i}
       >
-        <AgentIcon requestedBy={s.agent} size={15} />
+        <span className={`agent-mark is-${state}`} role="img" aria-label={STATE_LABEL[state]}>
+          <AgentIcon requestedBy={s.agent} size={15} />
+        </span>
         <span className="review-row-main">
           <span className="review-row-title truncate">
             {s.title ?? s.agent}
@@ -217,8 +233,8 @@ export function Sessions() {
         </span>
         <span className="session-row-total">{contents(s.total)}</span>
         <span className="review-row-end">
-          <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
-            {age(s.last_at)}
+          <time className="review-row-time" dateTime={since} title={stamp(since)}>
+            {age(since)}
           </time>
           <ArchiveButton session={s} inRow />
         </span>
@@ -230,7 +246,7 @@ export function Sessions() {
   const clearFilters = () =>
     updateParams(
       (next) => {
-        for (const key of ["q", "repo", "project", "archived", "page"]) next.delete(key);
+        for (const key of ["q", "repo", "project", "archived", "attention", "page"]) next.delete(key);
       },
       { replace: true },
     );
@@ -259,6 +275,12 @@ export function Sessions() {
     },
   ];
   const toggles: Toggle[] = [
+    {
+      key: "attention",
+      label: "Needs you only",
+      on: needsYou,
+      onChange: (on) => setParam("attention", on ? "needs_you" : null),
+    },
     {
       key: "archived",
       label: "Show archived",
