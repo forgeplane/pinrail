@@ -256,6 +256,12 @@ const LEAVES: &[Leaf] = &[
         "Update the `pinrail` skill of every connected agent when Pinrail starts, after an update of Pinrail changed the skill.",
     ),
     (
+        "/runtime/record_turns",
+        Kind::Bool,
+        || json!(true),
+        "Keep the prompt and the reply of each turn an agent's hooks report, to show in its session's thread.",
+    ),
+    (
         "/updates/check",
         Kind::Bool,
         || json!(true),

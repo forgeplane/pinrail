@@ -225,7 +225,8 @@ pub(super) fn activity(at: DateTime<Utc>) -> String {
 }
 
 /// Creates the session, or records what it reports now: the project, the
-/// branch and the folder it gives, and its activity at `at`.
+/// branch and the folder it gives, and its activity at `at`. A session
+/// known only from its hooks is shown from then on.
 pub(super) fn touch(
     conn: &Connection,
     agent: &str,
@@ -243,7 +244,8 @@ pub(super) fn touch(
            ref = COALESCE(excluded.ref, ref),
            folder = COALESCE(excluded.folder, folder),
            last_at = MAX(last_at, excluded.last_at),
-           archived_at = NULL",
+           archived_at = NULL,
+           hidden = 0",
         params![
             agent,
             id,
@@ -306,13 +308,14 @@ impl Db {
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
         let conn = self.read();
         let mut stmt = conn.prepare(
-            "SELECT DISTINCT g.name FROM sessions s JOIN repos g ON g.id = s.repo_id ORDER BY 1",
+            "SELECT DISTINCT g.name FROM sessions s JOIN repos g ON g.id = s.repo_id
+             WHERE s.hidden = 0 ORDER BY 1",
         )?;
         let repos = stmt
             .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<String>>>()?;
         let unassigned = conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM sessions WHERE repo_id IS NULL)",
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE repo_id IS NULL AND hidden = 0)",
             [],
             |row| row.get(0),
         )?;
@@ -327,7 +330,8 @@ impl Db {
         now: DateTime<Utc>,
     ) -> rusqlite::Result<(Vec<SessionRow>, usize)> {
         let mut args: Vec<String> = vec![crate::reviews::iso(now)];
-        let mut wheres = Vec::new();
+        // a session known only from its hooks is in no list until it shows
+        let mut wheres = vec!["s.hidden = 0".to_string()];
         if let Some(agent) = &filters.agent {
             args.push(agent.clone());
             wheres.push(format!("s.agent = ?{}", args.len()));
@@ -367,10 +371,7 @@ impl Db {
         if filters.waiting {
             wheres.push(format!("{WAITING} > 0"));
         }
-        let wheres = match wheres.is_empty() {
-            true => String::new(),
-            false => format!(" WHERE {}", wheres.join(" AND ")),
-        };
+        let wheres = format!(" WHERE {}", wheres.join(" AND "));
         let sessions = format!("{}{wheres}", select());
         let conn = self.read();
         let total: i64 = conn.query_row(

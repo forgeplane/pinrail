@@ -52,6 +52,9 @@ const DELETED_REASON: &str = "The person deleted this repository from Pinrail, w
 /// What an agent waiting on a review is told when the person deletes it.
 const REVIEW_DELETED_REASON: &str = "The person deleted this review from Pinrail.";
 
+/// How long a session known only from its hooks stays without a report.
+pub const HIDDEN_DAYS: i64 = 7;
+
 #[derive(Debug, Clone)]
 pub struct Reviews {
     db: Arc<Db>,
@@ -435,6 +438,30 @@ impl Reviews {
             })
             .collect::<Result<_, _>>()?;
         Ok((session, items))
+    }
+
+    /// Records what the session's hooks report, creating the session,
+    /// hidden, when it is new. Returns whether the report was taken, rather
+    /// than ignored as older than the last.
+    pub fn report(
+        &self,
+        agent: &str,
+        session: &str,
+        report: &crate::db::Report,
+        keep_texts: bool,
+    ) -> Result<bool, Error> {
+        if agent.trim().is_empty() || session.trim().is_empty() {
+            return Err(Error::invalid("session", "name the agent and the session"));
+        }
+        Ok(self.db.record_report(agent, session, report, keep_texts)?)
+    }
+
+    /// Deletes the sessions known only from their hooks that reported
+    /// nothing for 7 days. Returns how many went.
+    pub fn sweep_hidden_sessions(&self) -> Result<usize, Error> {
+        Ok(self
+            .db
+            .delete_hidden_sessions(Utc::now() - chrono::Duration::days(HIDDEN_DAYS))?)
     }
 
     /// Records what the agent says it is doing in its session: one line of

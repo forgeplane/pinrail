@@ -414,4 +414,44 @@ mod tests {
             .unwrap();
         assert_eq!(left, 0);
     }
+
+    /// A database as 0.6.0 left it keeps every session, shown, with what
+    /// hangs off it, and no presence, which is unknown until a hook reports.
+    #[test]
+    fn sessions_from_before_presence_stay_shown_without_a_state() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.0 < 20261113120000)
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        conn.execute_batch(
+            "INSERT INTO sessions (agent, id, first_at, last_at, archived_at) VALUES \
+               ('claude-code', 's1', '2026-11-01T10:00:00.000000Z', '2026-11-01T10:00:00.000000Z', NULL), \
+               ('codex', 's2', '2026-11-02T10:00:00.000000Z', '2026-11-02T10:00:00.000000Z', '2026-11-03T10:00:00.000000Z'); \
+             INSERT INTO session_statuses (agent, session, text, kind, created_at) VALUES \
+               ('claude-code', 's1', 'Testing', 'step', '2026-11-01T10:00:00.000000Z'); \
+             INSERT INTO session_messages (agent, session, text, sent_by, sent_at) VALUES \
+               ('codex', 's2', 'Rebase first', 'you', '2026-11-02T10:00:00.000000Z');",
+        )
+        .unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT COUNT(*) FROM sessions WHERE hidden = 0"), 2);
+        assert_eq!(count("SELECT COUNT(*) FROM session_statuses"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM session_messages"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM session_presence"), 0);
+        // a flag is 0 or 1, and a presence belongs to a session
+        assert!(conn.execute("UPDATE sessions SET hidden = 2", []).is_err());
+        assert!(
+            conn.execute(
+                "INSERT INTO session_presence (agent, session, state, source, seq, state_since, updated_at) \
+                 VALUES ('codex', 'gone', 'idle', 'hook', 1, 'x', 'x')",
+                [],
+            )
+            .is_err()
+        );
+    }
 }

@@ -17,7 +17,9 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{MessageRow, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind};
+use crate::db::{
+    MessageRow, OpenStage, Report, ReportEvent, SessionFilters, SessionRow, StageRow, StatusKind,
+};
 use crate::error::Error;
 use crate::markdown::Head;
 use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
@@ -44,6 +46,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/stages", get(stages))
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
+        .route("/api/v1/sessions/{agent}/{id}/reports", post(report))
         .route("/api/v1/sessions/{agent}/{id}/messages", post(send_message))
         .route(
             "/api/v1/sessions/{agent}/{id}/messages/{message}",
@@ -714,6 +717,99 @@ async fn status(
         "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
         "stage": stage.as_ref().map(OpenStage::to_json),
     })))
+}
+
+/// What the session's hooks report, from `pinrail hook`: the `event`
+/// (`started`, `prompt`, `working`, `needs_input`, `turn_ended` or
+/// `ended`), its `seq`, which orders the reports, and what the event
+/// carries: `wait` (`permission` or `question`) with `needs_input`, `end`
+/// (`done`, `failed` or `interrupted`) with `turn_ended`, and in `detail`
+/// the `tool`, `summary`, `prompt`, `reply` and `reason`. `process` names
+/// the agent's `pid` and when it `started`, and `origin` where the session
+/// works. Answers 204, also for a report older than the last.
+async fn report(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<StatusCode, ApiError> {
+    let report = parse_report(&body)?;
+    let keep_texts = state
+        .settings()
+        .value("/runtime/record_turns")
+        .as_bool()
+        .unwrap_or(true);
+    state.reviews().report(&agent, &id, &report, keep_texts)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+fn parse_report(body: &Value) -> Result<Report, Error> {
+    let text = |key: &str| body.get(key).and_then(Value::as_str);
+    let detail = |key: &str| {
+        body.get("detail")
+            .and_then(|d| d.get(key))
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    let one_of = |key: &str, values: &[&str]| -> Result<String, Error> {
+        text(key)
+            .filter(|v| values.contains(v))
+            .map(str::to_string)
+            .ok_or_else(|| Error::invalid(key, format!("must be {}", values.join(", "))))
+    };
+    let event = match text("event") {
+        Some("started") => ReportEvent::Started,
+        Some("prompt") => ReportEvent::Prompt {
+            prompt: detail("prompt"),
+        },
+        Some("working") => ReportEvent::Working,
+        Some("needs_input") => ReportEvent::NeedsInput {
+            kind: one_of("wait", &["permission", "question"])?,
+            tool: detail("tool"),
+            summary: detail("summary").map(|s| s.chars().take(200).collect()),
+        },
+        Some("turn_ended") => ReportEvent::TurnEnded {
+            end: one_of("end", &["done", "failed", "interrupted"])?,
+            reply: detail("reply"),
+        },
+        Some("ended") => ReportEvent::Ended {
+            reason: detail("reason"),
+        },
+        _ => {
+            return Err(Error::invalid(
+                "event",
+                "must be started, prompt, working, needs_input, turn_ended or ended",
+            ));
+        }
+    };
+    let seq = body
+        .get("seq")
+        .and_then(Value::as_i64)
+        .filter(|s| *s > 0)
+        .ok_or_else(|| Error::invalid("seq", "must be a positive integer"))?;
+    let at = match text("at") {
+        Some(at) => crate::reviews::parse_datetime(at)
+            .ok_or_else(|| Error::invalid("at", "must be an ISO 8601 time"))?,
+        None => chrono::Utc::now(),
+    };
+    let process = body.get("process").and_then(|p| {
+        Some((
+            p.get("pid")?.as_i64()?,
+            p.get("started")?.as_str()?.to_string(),
+        ))
+    });
+    let origin = body
+        .get("origin")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    Ok(Report {
+        event,
+        seq,
+        at,
+        process,
+        origin,
+    })
 }
 
 /// Sends the agent of the session a message, `text`, which waits until

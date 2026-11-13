@@ -180,17 +180,17 @@ impl Db {
         // a repository with nothing left in it and in no project is not shown
         let mut stmt = conn.prepare(
             "SELECT g.name, g.project_id,
-               (SELECT COUNT(*) FROM sessions s WHERE s.repo_id = g.id AND s.archived_at IS NULL),
+               (SELECT COUNT(*) FROM sessions s WHERE s.repo_id = g.id AND s.archived_at IS NULL AND s.hidden = 0),
                (SELECT COUNT(*) FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
                 WHERE r.repo_id = g.id AND o.review_id IS NULL
                   AND (r.expires_at IS NULL OR r.expires_at > ?1)
                   AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
-               (SELECT MAX(s.last_at) FROM sessions s WHERE s.repo_id = g.id),
+               (SELECT MAX(s.last_at) FROM sessions s WHERE s.repo_id = g.id AND s.hidden = 0),
                (SELECT MAX(r.created_at) FROM reviews r WHERE r.repo_id = g.id),
                g.prefix
              FROM repos g
              WHERE g.project_id IS NOT NULL
-                OR EXISTS (SELECT 1 FROM sessions s WHERE s.repo_id = g.id)
+                OR EXISTS (SELECT 1 FROM sessions s WHERE s.repo_id = g.id AND s.hidden = 0)
                 OR EXISTS (SELECT 1 FROM reviews r WHERE r.repo_id = g.id)
                 OR EXISTS (SELECT 1 FROM work_items w WHERE w.repo_id = g.id)
              ORDER BY g.name",

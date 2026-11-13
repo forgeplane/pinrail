@@ -174,6 +174,9 @@ pub async fn serve(
                 if let Err(error) = app.reviews().sweep_history(keep_days) {
                     eprintln!("pinrail: history sweep failed: {error}");
                 }
+                if let Err(error) = app.reviews().sweep_hidden_sessions() {
+                    eprintln!("pinrail: hidden sessions sweep failed: {error}");
+                }
                 // after the history: what a swept review carried is free to go
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
                 if let Err(error) = app.attachments().sweep(hour_ago) {
