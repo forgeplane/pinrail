@@ -23,6 +23,12 @@ The `pinrail` command ships inside the app and carries the app's version.
   what it waits on or how long it has worked.
 - The sidebar's **Priority** sort lists the sessions that need you first,
   and the Sessions page has a **Needs you only** filter.
+- The inbox has an **Agents** section above the reviews. It lists the
+  sessions that wait for you in their terminal, such as for a permission,
+  and those that finished a turn you have not seen.
+- A finished session counts as seen once you have had it open for a
+  second. **Mark as unread** in the session header shows it as finished
+  again.
 
 ### Security
 
