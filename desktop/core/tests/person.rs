@@ -39,36 +39,89 @@ async fn send(
     )
 }
 
-/// What only the person does, through the app's window.
-const PERSON_ONLY: [(&str, &str); 16] = [
-    ("POST", "/api/v1/sessions/claude-code/s-1/messages"),
-    ("DELETE", "/api/v1/sessions/claude-code/s-1/messages/1"),
-    ("PUT", "/api/v1/sessions/claude-code/s-1/archive"),
-    ("DELETE", "/api/v1/sessions/claude-code/s-1/archive"),
+/// The writes only the person makes, through the app's window: they need
+/// the person token from whoever sends them. Every other write is open to
+/// programs, which act as themselves.
+const PERSON_ONLY: [(&str, &str); 19] = [
+    ("POST", "/api/v1/sessions/{agent}/{id}/messages"),
+    ("DELETE", "/api/v1/sessions/{agent}/{id}/messages/{message}"),
+    ("PUT", "/api/v1/sessions/{agent}/{id}/archive"),
+    ("DELETE", "/api/v1/sessions/{agent}/{id}/archive"),
+    ("PUT", "/api/v1/sessions/{agent}/{id}/seen"),
+    ("DELETE", "/api/v1/sessions/{agent}/{id}/seen"),
     ("PATCH", "/api/v1/settings"),
     ("POST", "/api/v1/projects"),
-    ("PATCH", "/api/v1/projects/p-1"),
-    ("DELETE", "/api/v1/projects/p-1"),
-    ("PUT", "/api/v1/repos/acme%2Fweb/project"),
-    ("PATCH", "/api/v1/repos/acme%2Fweb"),
+    ("PATCH", "/api/v1/projects/{id}"),
+    ("DELETE", "/api/v1/projects/{id}"),
+    ("PUT", "/api/v1/projects/{id}/image"),
+    ("DELETE", "/api/v1/projects/{id}/image"),
+    ("PUT", "/api/v1/repos/{repo}/project"),
+    ("PATCH", "/api/v1/repos/{repo}"),
+    ("DELETE", "/api/v1/repos/{repo}"),
     ("POST", "/api/v1/themes"),
-    ("PUT", "/api/v1/reviews/r-1/star"),
-    ("DELETE", "/api/v1/reviews/r-1/star"),
-    ("POST", "/api/v1/reviews/r-1/viewed"),
-    ("PUT", "/api/v1/sessions/claude-code/s-1/seen"),
-    ("DELETE", "/api/v1/sessions/claude-code/s-1/seen"),
+    ("PUT", "/api/v1/reviews/{id}/star"),
+    ("DELETE", "/api/v1/reviews/{id}/star"),
+    ("POST", "/api/v1/reviews/{id}/viewed"),
 ];
 
-/// What the CLI does too, and the app's window does as the person.
-const SHARED: [(&str, &str); 4] = [
-    ("POST", "/api/v1/reviews/r-1/decision"),
-    ("POST", "/api/v1/reviews/r-1/discard"),
-    ("DELETE", "/api/v1/reviews/r-1"),
-    ("PATCH", "/api/v1/items/PIN-1"),
-];
+/// Every write route the API declares, as its method and path, read from
+/// the router's source, so that a route added later is checked too.
+fn write_routes() -> Vec<(String, String)> {
+    let mut routes = Vec::new();
+    let folder = concat!(env!("CARGO_MANIFEST_DIR"), "/src/api");
+    for entry in std::fs::read_dir(folder).unwrap() {
+        let source = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+        let mut rest = source.as_str();
+        while let Some(at) = rest.find(".route(") {
+            // the call, up to its closing parenthesis
+            let call = &rest[at + ".route(".len()..];
+            let mut depth = 1;
+            let end = call
+                .char_indices()
+                .find(|(_, c)| {
+                    match c {
+                        '(' => depth += 1,
+                        ')' => depth -= 1,
+                        _ => {}
+                    }
+                    depth == 0
+                })
+                .map(|(i, _)| i)
+                .unwrap();
+            let call = &call[..end];
+            let path = call.split('"').nth(1).unwrap().to_string();
+            for method in ["post", "put", "patch", "delete"] {
+                let named = call
+                    .match_indices(&format!("{method}("))
+                    .any(|(i, _)| !call[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_'));
+                if named {
+                    routes.push((method.to_uppercase(), path.clone()));
+                }
+            }
+            rest = &rest[at + ".route(".len() + end..];
+        }
+    }
+    routes.sort();
+    routes
+}
+
+/// A path the route answers, with a value in each of its parameters.
+fn concrete(path: &str) -> String {
+    path.replace("{sha256}", &"0".repeat(64))
+        .replace("{agent}", "claude-code")
+        .replace("{repo}", "acme%2Fweb")
+        .replace("{message}", "1")
+        .split('/')
+        .map(|part| match part.starts_with('{') {
+            true => "x-1",
+            false => part,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
 
 #[tokio::test]
-async fn only_the_person_s_token_lets_a_program_act_as_the_person() {
+async fn every_write_needs_the_person_token_to_act_as_the_person() {
     let app = app();
     let token = app.state.config().person_token.clone();
     let bearer = format!("Bearer {token}");
@@ -81,11 +134,21 @@ async fn only_the_person_s_token_lets_a_program_act_as_the_person() {
         ("origin", "tauri://localhost"),
         ("authorization", "Bearer nope"),
     ];
-
+    let routes = write_routes();
+    assert!(routes.len() > 40, "{routes:?}");
+    // the list names routes that exist
     for (method, path) in PERSON_ONLY {
-        // a program on this machine, with or without the window's origin
-        for headers in [&[][..], &forged[..], &wrong[..]] {
-            let (status, body) = send(&app, method, path, headers).await;
+        assert!(
+            routes.contains(&(method.to_string(), path.to_string())),
+            "{method} {path} is no route"
+        );
+    }
+    for (method, path) in &routes {
+        let person_only = PERSON_ONLY.contains(&(method.as_str(), path.as_str()));
+        let at = concrete(path);
+        // saying it is the window is never enough
+        for headers in [&forged[..], &wrong[..]] {
+            let (status, body) = send(&app, method, &at, headers).await;
             assert_eq!(
                 status,
                 StatusCode::UNAUTHORIZED,
@@ -93,25 +156,19 @@ async fn only_the_person_s_token_lets_a_program_act_as_the_person() {
             );
             assert_eq!(body["error"], "person_token", "{method} {path}");
         }
-        let (status, _) = send(&app, method, path, &window).await;
-        assert_ne!(status, StatusCode::UNAUTHORIZED, "{method} {path}");
-    }
-
-    for (method, path) in SHARED {
-        // saying it is the window is not enough
-        for headers in [&forged[..], &wrong[..]] {
-            let (status, _) = send(&app, method, path, headers).await;
-            assert_eq!(
-                status,
-                StatusCode::UNAUTHORIZED,
-                "{method} {path} {headers:?}"
-            );
-        }
-        let (status, _) = send(&app, method, path, &window).await;
-        assert_ne!(status, StatusCode::UNAUTHORIZED, "{method} {path}");
-        // the CLI acts as itself, and is recorded so
-        let (status, _) = send(&app, method, path, &[("x-pinrail-client", "cli")]).await;
-        assert_ne!(status, StatusCode::UNAUTHORIZED, "{method} {path}");
+        let (status, _) = send(&app, method, &at, &window).await;
+        assert_ne!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "{method} {path} from the window"
+        );
+        // a program that acts as itself is refused only what the person does
+        let (status, _) = send(&app, method, &at, &[("x-pinrail-client", "cli")]).await;
+        assert_eq!(
+            status == StatusCode::UNAUTHORIZED,
+            person_only,
+            "{method} {path} from a program"
+        );
     }
 
     // reading needs no token, from the window or anywhere
