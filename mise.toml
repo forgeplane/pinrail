@@ -1,6 +1,9 @@
 # Rust comes from rust-toolchain.toml, which rustup reads on its own
 [tools]
 node = "24"
+# builds libghostty-vt for desktop/screen; its minor version must match
+# the one desktop/screen/ghostty.lock names
+zig = "0.17.1"
 
 [tasks.setup]
 description = "Install and build what the tests and linters need, as CI does: run once after cloning, and again when dependencies change"
@@ -111,13 +114,18 @@ run = [
   "docker run --rm -it --name pinrail-linux -p 6080:6080 -v {{config_root}}:/src:ro -v pinrail-linux-work:/work -v pinrail-linux-cache:/cache --shm-size=1g pinrail-linux-desktop",
 ]
 
+[tasks."ghostty:fetch"]
+description = "Download and check the libghostty-vt tarballs desktop/screen builds, for a build without network"
+run = "sh {{config_root}}/scripts/ghostty-fetch.sh"
+
 [tasks.lint]
 description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, ESLint and Prettier, dependency licences and sources"
 run = [
   "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
   "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
   "cargo clippy --manifest-path {{config_root}}/cli/Cargo.toml --all-targets -- -D warnings",
-  "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
+  # libghostty-vt is not built for clippy, so lint needs no Zig
+  "PINRAIL_GHOSTTY_STUB=1 cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
   "npm --prefix {{config_root}}/desktop/app test",
   "npm --prefix {{config_root}} run lint",
   "npm --prefix {{config_root}} run format:check",

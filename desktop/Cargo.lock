@@ -3435,6 +3435,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pinrail-screen"
+version = "0.6.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "piper"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

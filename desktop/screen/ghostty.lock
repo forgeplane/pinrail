@@ -1,0 +1,19 @@
+# libghostty-vt, the terminal emulator library pinrail-screen links. build.rs
+# downloads the two tarballs below from Ghostty's release server, checks each
+# against its SHA-256, and builds the static library with Zig, whose minor
+# version must be the one named here (mise.toml installs it). The sums are
+# those of the release's signed SHA256SUMS file.
+
+version = "1.0.0"
+tag = "vt-1.0.0"
+commit = "0fa3d577a5614150ff8e2c152de5fb9d5c6d2dec"
+zig = "0.17"
+
+[source]
+url = "https://release.files.ghostty.org/libghostty-vt/1.0.0/libghostty-vt-1.0.0.tar.gz"
+sha256 = "4a6ef758be721923e1969e7b81b443dcc92d8dd3fb5a39600c03a8817a753676"
+
+# the Zig packages the build needs, so that it never downloads anything
+[deps]
+url = "https://release.files.ghostty.org/libghostty-vt/1.0.0/libghostty-vt-1.0.0-deps.tar.gz"
+sha256 = "4d5ea5e448e4c7ea8fb55ccbaa8668f2a97d44f438cee831e2b7ecd162d85c29"

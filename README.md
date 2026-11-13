@@ -164,8 +164,8 @@ built with React, Vue, Svelte or any other framework. See
 
 ## Development
 
-Node is pinned in `mise.toml`, which `mise install` sets up, and Rust in
-`rust-toolchain.toml`, which rustup reads on its own.
+Node and Zig are pinned in `mise.toml`, which `mise install` sets up, and
+Rust in `rust-toolchain.toml`, which rustup reads on its own.
 
 ```sh
 mise run dev:desktop        # the app with live reload

@@ -1,0 +1,20 @@
+[package]
+name = "pinrail-screen"
+description = "The terminal screen of an agent's run: libghostty-vt, built from a pinned release"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+build = "build.rs"
+
+[features]
+default = ["ghostty"]
+# libghostty-vt, built by build.rs
+ghostty = []
+
+[build-dependencies]
+sha2 = "0.10"
+
+[lints]
+workspace = true

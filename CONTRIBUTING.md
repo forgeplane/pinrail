@@ -51,8 +51,11 @@ Remove the link to go back: `pinrail plugins remove review`.
 
 ## Setting up
 
-Node is pinned in `mise.toml`, and Rust in `rust-toolchain.toml`, which
-[rustup](https://rustup.rs) reads on its own. With rustup and
+Node and Zig are pinned in `mise.toml`, and Rust in `rust-toolchain.toml`,
+which [rustup](https://rustup.rs) reads on its own. Zig builds
+libghostty-vt, the terminal emulator in `desktop/screen`, which the first
+build downloads and checks against `desktop/screen/ghostty.lock`. For a
+build without network, run `mise run ghostty:fetch` first. With rustup and
 [mise](https://mise.jdx.dev) installed, run:
 
 ```sh

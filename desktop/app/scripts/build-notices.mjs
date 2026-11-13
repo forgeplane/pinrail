@@ -2,8 +2,8 @@
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
-// icons in the official plugins and the font the window draws in are added
-// by hand. Each distinct licence
+// icons in the official plugins, libghostty-vt and the font the window draws
+// in are added by hand. Each distinct licence
 // text is printed once, after the packages that use it.
 //
 //   npm run build && npm run notices
@@ -93,6 +93,14 @@ const entries = [
     id: "ISC",
     text: fs.readFileSync(path.join(root, "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons, in the official plugins"],
+  },
+  // the terminal emulator the terminal host links statically, with what is
+  // built into it, which cargo-about cannot see
+  {
+    name: "MIT License and others",
+    id: "MIT",
+    text: fs.readFileSync(path.join(root, "licenses", "libghostty-vt.txt"), "utf8"),
+    packages: ["libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),
