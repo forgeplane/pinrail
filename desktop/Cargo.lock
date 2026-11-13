@@ -3360,6 +3360,7 @@ dependencies = [
  "mime_guess",
  "minijinja",
  "pinrail-format",
+ "pinrail-runtime",
  "rusqlite",
  "serde",
  "serde_json",

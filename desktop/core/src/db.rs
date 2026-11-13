@@ -28,7 +28,10 @@ pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemS
 pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageRow, message_notice};
 pub use plugins::InstallRecord;
-pub use presence::{PROMPT_CHARS, PresenceRow, REPLY_CHARS, Report, ReportEvent, TurnRow};
+pub use presence::{
+    Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent, StoredState,
+    Transition, TurnRow,
+};
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;

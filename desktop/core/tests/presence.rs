@@ -7,6 +7,38 @@ use axum::http::StatusCode;
 use common::{App, app, call, db};
 use serde_json::{Value, json};
 
+/// A report recorded as the service records it, with the presence
+/// service's transition; answers whether it set the state.
+trait Record {
+    fn record(
+        &self,
+        agent: &str,
+        id: &str,
+        report: &pinrail_core::db::Report,
+        keep_texts: bool,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> rusqlite::Result<bool>;
+}
+
+impl Record for pinrail_core::db::Db {
+    fn record(
+        &self,
+        agent: &str,
+        id: &str,
+        report: &pinrail_core::db::Report,
+        keep_texts: bool,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> rusqlite::Result<bool> {
+        let transition = |event: &pinrail_core::db::ReportEvent,
+                          stored: Option<&pinrail_core::db::StoredState>,
+                          process: Option<&(i64, String)>| {
+            pinrail_core::presence::next(event, stored, process, &pinrail_core::presence::alive)
+        };
+        self.record_report(agent, id, report, keep_texts, now, &transition)
+            .map(|r| r.taken)
+    }
+}
+
 /// When the hook fired for a report `s` seconds into a morning in the past,
 /// so that the core never caps it.
 fn at(s: i64) -> String {
@@ -188,7 +220,7 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
     };
     let now = chrono::Utc::now();
     // a time far ahead counts as now
-    db.record_report(
+    db.record(
         "claude-code",
         "s-1",
         &report(
@@ -212,7 +244,7 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         )
     };
     let taken = db
-        .record_report(
+        .record(
             "claude-code",
             "s-1",
             &ended(),
@@ -227,7 +259,7 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
     );
     // later than that, whatever its clock says, it does
     let taken = db
-        .record_report(
+        .record(
             "claude-code",
             "s-1",
             &ended(),
@@ -591,7 +623,7 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
     };
     let now = chrono::Utc::now();
     // one report from a clock a minute ahead of the others
-    db.record_report(
+    db.record(
         "claude-code",
         "s-1",
         &report(pinrail_core::db::ReportEvent::Working, at(60)),
@@ -599,7 +631,7 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
         now,
     )
     .unwrap();
-    db.record_report(
+    db.record(
         "claude-code",
         "s-1",
         &report(
@@ -617,7 +649,7 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
     // state: the window runs from that one, not from the last arrival, so
     // the third is taken
     for i in 0..3 {
-        db.record_report(
+        db.record(
             "claude-code",
             "s-1",
             &report(pinrail_core::db::ReportEvent::Working, at(0)),
@@ -793,12 +825,12 @@ async fn a_prompt_whose_clock_stepped_back_moves_no_turn_s_end() {
         reply: Some("Done".into()),
     };
     let late = now + chrono::Duration::seconds(21);
-    db.record_report("claude-code", "s-1", &report(prompt(), at(0)), true, now)
+    db.record("claude-code", "s-1", &report(prompt(), at(0)), true, now)
         .unwrap();
-    db.record_report("claude-code", "s-1", &report(done, at(50)), true, now)
+    db.record("claude-code", "s-1", &report(done, at(50)), true, now)
         .unwrap();
     // 20 seconds later, from a clock that stepped back 30 seconds
-    db.record_report("claude-code", "s-1", &report(prompt(), at(40)), true, late)
+    db.record("claude-code", "s-1", &report(prompt(), at(40)), true, late)
         .unwrap();
     let turns = db.turns("claude-code", "s-1").unwrap();
     assert_eq!(turns[0].reply.as_deref(), Some("Done"));
@@ -909,4 +941,346 @@ async fn a_turn_keeps_the_agent_s_id_its_transcript_and_whether_its_texts_were_c
         )
         .unwrap();
     assert_eq!(stored.as_deref(), Some(path));
+}
+
+/// One step of a sequence: the event, the second its hook fired, and what
+/// the report adds.
+type Step = (&'static str, i64, Value);
+
+/// The state, the turn, whether the session finished, and its attention
+/// that a sequence of reports should leave.
+type Expected = (&'static str, i64, bool, &'static str);
+
+/// The state, the turn, whether the session finished, and its attention
+/// after a sequence of reports.
+async fn after(steps: Vec<Step>) -> (String, i64, bool, String) {
+    let app = app();
+    for (event, s, extra) in steps {
+        report(&app, "s-1", event, s, extra).await;
+    }
+    // a status shows the session, so the list carries its attention
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    let attention = listing["sessions"][0]["attention"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    // the list's attention, worked out in SQL, is the presence service's
+    let derived = pinrail_core::presence::attention(Some(&presence), false, chrono::Utc::now());
+    assert_eq!(attention, derived.as_str());
+    (
+        presence.state,
+        presence.turn,
+        presence.finished_at.is_some(),
+        attention,
+    )
+}
+
+#[tokio::test]
+async fn each_kind_of_report_leaves_the_session_in_its_state_and_attention() {
+    let process = |pid: u32| json!({"pid": pid, "started": "x"});
+    let me = std::process::id();
+    let cases: Vec<(&str, Vec<Step>, Expected)> = vec![
+        (
+            "a finished turn",
+            vec![
+                ("prompt", 1, json!({})),
+                ("turn_ended", 2, json!({"end": "done"})),
+            ],
+            ("idle", 1, true, "finished"),
+        ),
+        (
+            "an interrupt, as Claude Code's idle prompt reports it",
+            vec![
+                ("prompt", 1, json!({})),
+                ("turn_ended", 2, json!({"end": "interrupted"})),
+            ],
+            ("idle", 1, false, "idle"),
+        ),
+        (
+            "a permission the agent waits on",
+            vec![
+                ("prompt", 1, json!({})),
+                ("needs_input", 2, json!({"wait": "permission"})),
+            ],
+            ("needs_input", 1, false, "needs_you"),
+        ),
+        (
+            "a compaction while working",
+            vec![
+                ("prompt", 1, json!({})),
+                ("started", 2, json!({"source": "compact"})),
+            ],
+            ("working", 1, false, "working"),
+        ),
+        (
+            "a turn end with no open turn",
+            vec![
+                ("started", 1, json!({})),
+                ("turn_ended", 2, json!({"end": "done"})),
+            ],
+            ("idle", 0, true, "finished"),
+        ),
+        (
+            "an end from a second process while the first runs",
+            vec![
+                (
+                    "prompt",
+                    1,
+                    json!({"process": {"pid": me, "started": pinrail_runtime_start(me)}}),
+                ),
+                ("ended", 2, json!({"process": process(1)})),
+            ],
+            ("working", 1, false, "working"),
+        ),
+        (
+            "the session's own end",
+            vec![
+                ("prompt", 1, json!({"process": process(me)})),
+                ("ended", 2, json!({"process": process(me)})),
+            ],
+            ("stopped", 1, false, "stopped"),
+        ),
+    ];
+    for (name, steps, (state, turn, finished, attention)) in cases {
+        let got = after(steps).await;
+        assert_eq!(
+            got,
+            (state.to_string(), turn, finished, attention.to_string()),
+            "{name}"
+        );
+    }
+}
+
+/// This process's start time, as the core reads it.
+fn pinrail_runtime_start(pid: u32) -> String {
+    pinrail_runtime::process::process(pid).unwrap().started
+}
+
+#[tokio::test]
+async fn a_session_seen_while_it_works_is_finished_when_the_turn_ends() {
+    let app = app();
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"text": "Go"})),
+    )
+    .await;
+    report(&app, "s-1", "prompt", 1, json!({})).await;
+    let (code, _) = call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    report(&app, "s-1", "turn_ended", 2, json!({"end": "done"})).await;
+    let listed = |listing: &Value| {
+        listing["sessions"][0]["attention"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listed(&listing), "finished");
+    // seen now: idle; marked unread: finished again
+    call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listed(&listing), "idle");
+    call(
+        &app,
+        "DELETE",
+        "/api/v1/sessions/claude-code/s-1/seen",
+        None,
+    )
+    .await;
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listed(&listing), "finished");
+    assert_eq!(listing["sessions"][0]["presence"]["seen_at"], Value::Null);
+    // a session no hook reported has nothing to be seen
+    let (code, _) = call(&app, "PUT", "/api/v1/sessions/claude-code/other/seen", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_list_filters_and_sorts_sessions_by_the_attention_they_ask() {
+    let app = app();
+    for id in ["idle", "working", "finished", "waiting", "quiet"] {
+        let path = format!("/api/v1/sessions/claude-code/{id}/status");
+        call(&app, "POST", &path, Some(json!({"text": "Go"}))).await;
+    }
+    report(&app, "idle", "started", 1, json!({})).await;
+    report(&app, "working", "prompt", 1, json!({})).await;
+    report(&app, "finished", "prompt", 1, json!({})).await;
+    report(&app, "finished", "turn_ended", 2, json!({"end": "done"})).await;
+    report(
+        &app,
+        "waiting",
+        "needs_input",
+        1,
+        json!({"wait": "question"}),
+    )
+    .await;
+    let ids = |listing: &Value| -> Vec<String> {
+        listing["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions?sort=priority", None).await;
+    assert_eq!(
+        ids(&listing),
+        ["waiting", "finished", "working", "idle", "quiet"]
+    );
+    let (_, listing) = call(
+        &app,
+        "GET",
+        "/api/v1/sessions?attention=needs_you,finished",
+        None,
+    )
+    .await;
+    let mut got = ids(&listing);
+    got.sort();
+    assert_eq!(got, ["finished", "waiting"]);
+    assert_eq!(listing["total"], 2);
+    let (code, _) = call(&app, "GET", "/api/v1/sessions?attention=sleepy", None).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);
+    let (code, _) = call(&app, "GET", "/api/v1/sessions?sort=loudest", None).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn presence_and_turns_are_announced_only_when_they_change() {
+    let app = app();
+    report(&app, "s-1", "prompt", 1, json!({})).await;
+    for s in 2..6 {
+        report(&app, "s-1", "working", s, json!({})).await;
+    }
+    report(&app, "s-1", "turn_ended", 6, json!({"end": "done"})).await;
+    call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
+    let kinds: Vec<String> = conn
+        .prepare("SELECT kind FROM events WHERE kind LIKE 'session_%' ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        kinds,
+        [
+            // the prompt: working, and turn 1 opened
+            "session_presence",
+            "session_turn",
+            // the repeated reports announce nothing; the turn end does
+            "session_presence",
+            "session_turn",
+            "session_seen",
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_session_that_works_and_reports_nothing_for_half_an_hour_is_not_known() {
+    let app = app();
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"text": "Go"})),
+    )
+    .await;
+    report(&app, "s-1", "prompt", 1, json!({})).await;
+    let old = (chrono::Utc::now() - chrono::Duration::minutes(31))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .execute("UPDATE session_presence SET updated_at = ?1", [&old])
+        .unwrap();
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listing["sessions"][0]["attention"], "unknown");
+    assert_eq!(listing["sessions"][0]["presence"]["updated_at"], old);
+    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let derived = pinrail_core::presence::attention(Some(&presence), false, chrono::Utc::now());
+    assert_eq!(derived.as_str(), "unknown");
+}
+
+#[tokio::test]
+async fn a_question_waiting_on_the_person_needs_them_whatever_the_agent_does() {
+    let app = app();
+    report(&app, "s-1", "prompt", 1, json!({})).await;
+    let question = json!({
+        "kind": "question",
+        "title": "Deploy?",
+        "requested_by": "claude-code",
+        "session": "s-1",
+        "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}
+    });
+    let (code, _) = call(&app, "POST", "/api/v1/reviews", Some(question)).await;
+    assert_eq!(code, StatusCode::CREATED);
+    let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert_eq!(listing["sessions"][0]["attention"], "needs_you");
+    assert_eq!(listing["sessions"][0]["presence"]["state"], "working");
+    // the next change the agent reports carries it too
+    report(&app, "s-1", "turn_ended", 2, json!({"end": "done"})).await;
+    let attrs: String = rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .query_row(
+            "SELECT attrs FROM events WHERE kind = 'session_presence' ORDER BY id DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let attrs: Value = serde_json::from_str(&attrs).unwrap();
+    assert_eq!(
+        (attrs["agent"].as_str(), attrs["id"].as_str()),
+        (Some("claude-code"), Some("s-1"))
+    );
+    assert_eq!(attrs["presence"]["state"], "idle");
+    assert_eq!(attrs["presence"]["attention"], "needs_you");
+}
+
+#[tokio::test]
+async fn a_session_whose_hooks_never_reported_has_nothing_to_see() {
+    let app = app();
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"text": "Go"})),
+    )
+    .await;
+    for method in ["PUT", "DELETE"] {
+        let (code, _) = call(&app, method, "/api/v1/sessions/claude-code/s-1/seen", None).await;
+        assert_eq!(code, StatusCode::NO_CONTENT, "{method}");
+    }
+}
+
+#[tokio::test]
+async fn a_new_wait_is_announced_and_a_repeated_one_is_not() {
+    let app = app();
+    let announced = |app: &App| -> i64 {
+        rusqlite::Connection::open(app.state.config().db_path())
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE kind = 'session_presence'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    let wait = |tool: &str, summary: &str| json!({"wait": "permission", "detail": {"tool": tool, "summary": summary}});
+    report(&app, "s-1", "needs_input", 1, wait("Bash", "npm test")).await;
+    let first = announced(&app);
+    // another call waits, of the same kind
+    report(&app, "s-1", "needs_input", 2, wait("Edit", "src/app.rs")).await;
+    assert_eq!(announced(&app), first + 1);
+    // the same wait again, as Claude Code's notification repeats it
+    report(&app, "s-1", "needs_input", 3, json!({"wait": "permission"})).await;
+    assert_eq!(announced(&app), first + 1);
 }

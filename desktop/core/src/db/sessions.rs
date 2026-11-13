@@ -37,6 +37,11 @@ pub struct SessionRow {
     pub reported_at: Option<DateTime<Utc>>,
     /// the project its repository is in
     pub project: Option<super::ProjectRef>,
+    /// what its agent's hooks reported, if they ever did
+    pub presence: Option<super::PresenceRow>,
+    /// the attention it asks of the person: needs_you, finished, working,
+    /// idle, stopped or unknown
+    pub attention: String,
 }
 
 /// What a status says: a step of the agent's work, the start of a task,
@@ -211,6 +216,11 @@ pub struct SessionFilters {
     pub text: Option<String>,
     /// only sessions with something waiting for the person
     pub waiting: bool,
+    /// only sessions that ask one of these attentions of the person
+    pub attention: Vec<String>,
+    /// those that need the person first, then those finished unseen,
+    /// working, idle and the rest, rather than waiting first then newest
+    pub priority: bool,
     /// the archived sessions too, which a listing leaves out otherwise
     pub include_archived: bool,
     pub limit: usize,
@@ -371,6 +381,14 @@ impl Db {
         if filters.waiting {
             wheres.push(format!("{WAITING} > 0"));
         }
+        if !filters.attention.is_empty() {
+            let mut slots = Vec::new();
+            for attention in &filters.attention {
+                args.push(attention.clone());
+                slots.push(format!("?{}", args.len()));
+            }
+            wheres.push(format!("({ATTENTION}) IN ({})", slots.join(", ")));
+        }
         let wheres = format!(" WHERE {}", wheres.join(" AND "));
         let sessions = format!("{}{wheres}", select());
         let conn = self.read();
@@ -379,7 +397,15 @@ impl Db {
             params_from_iter(args.iter()),
             |row| row.get(0),
         )?;
-        let mut sql = format!("{sessions} ORDER BY {WAITING} > 0 DESC, s.last_at DESC");
+        let order = if filters.priority {
+            format!(
+                "CASE ({ATTENTION}) WHEN 'needs_you' THEN 0 WHEN 'finished' THEN 1 \
+                 WHEN 'working' THEN 2 WHEN 'idle' THEN 3 ELSE 4 END, s.last_at DESC"
+            )
+        } else {
+            format!("{WAITING} > 0 DESC, s.last_at DESC")
+        };
+        let mut sql = format!("{sessions} ORDER BY {order}");
         if filters.limit > 0 {
             sql.push_str(&format!(
                 " LIMIT {} OFFSET {}",
@@ -606,6 +632,25 @@ impl Db {
 /// How many of the session's questions and reviews wait for the person.
 const WAITING: &str = "(COALESCE(c.waiting_questions, 0) + COALESCE(c.waiting_reviews, 0))";
 
+/// The attention a session asks of the person, as `presence::attention`
+/// derives it, for the filter and the Priority sort: a question
+/// or a review waiting, or the agent waiting, needs them; a turn that ended
+/// done or failed after they last looked is finished; a session that works
+/// but reported nothing for 30 minutes is unknown. ?1 is the time now.
+const ATTENTION: &str = "CASE \
+  WHEN (COALESCE(c.waiting_questions, 0) + COALESCE(c.waiting_reviews, 0)) > 0 \
+    OR p.state = 'needs_input' THEN 'needs_you' \
+  WHEN p.state IS NULL THEN 'unknown' \
+  WHEN p.state = 'working' AND p.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', ?1, '-30 minutes') \
+    THEN 'unknown' \
+  WHEN p.state = 'working' THEN 'working' \
+  WHEN p.finished_at IS NOT NULL AND (p.seen_at IS NULL OR p.seen_at < p.finished_at) \
+    AND (p.state = 'idle' OR (p.state = 'stopped' AND p.stop_reason = 'exited')) \
+    THEN 'finished' \
+  WHEN p.state = 'idle' THEN 'idle' \
+  WHEN p.state = 'stopped' THEN 'stopped' \
+  ELSE 'unknown' END";
+
 /// The sessions with what their reviews hold, before the `WHERE`; `?1` is
 /// the time now, for what still waits. The reviews are counted once per
 /// session, in `c`, and each status is read once per session.
@@ -642,9 +687,17 @@ fn select() -> String {
     s.archived_at,
     (SELECT t.created_at FROM session_statuses t
      WHERE t.agent = s.agent AND t.session = s.id ORDER BY t.id DESC LIMIT 1) AS reported_at,
-    {project}
+    {project},
+    ({attention}) AS attention,
+    p.state AS p_state, p.wait_kind AS p_wait_kind, p.wait_tool AS p_wait_tool,
+    p.wait_summary AS p_wait_summary, p.stop_reason AS p_stop_reason, p.source AS p_source,
+    p.pid AS p_pid, p.event_at AS p_event_at, p.state_since AS p_state_since,
+    p.turn AS p_turn, p.turn_started AS p_turn_started, p.finished_at AS p_finished_at,
+    p.seen_at AS p_seen_at, p.updated_at AS p_updated_at
   FROM sessions s
-  LEFT JOIN c ON c.agent = s.agent AND c.id = s.id",
+  LEFT JOIN c ON c.agent = s.agent AND c.id = s.id
+  LEFT JOIN session_presence p ON p.agent = s.agent AND p.session = s.id",
+        attention = ATTENTION,
         id = status("id"),
         text = status("text"),
         kind = status("kind"),
@@ -702,5 +755,32 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
             .get::<_, Option<String>>(17)?
             .and_then(|s| parse_datetime(&s)),
         project: super::ProjectRef::from_column(row.get(18)?),
+        attention: row.get("attention")?,
+        presence: match row.get::<_, Option<String>>("p_state")? {
+            None => None,
+            Some(state) => {
+                let at = |name: &str| -> rusqlite::Result<Option<DateTime<Utc>>> {
+                    Ok(row
+                        .get::<_, Option<String>>(name)?
+                        .and_then(|s| parse_datetime(&s)))
+                };
+                Some(super::PresenceRow {
+                    state,
+                    wait_kind: row.get("p_wait_kind")?,
+                    wait_tool: row.get("p_wait_tool")?,
+                    wait_summary: row.get("p_wait_summary")?,
+                    stop_reason: row.get("p_stop_reason")?,
+                    source: row.get("p_source")?,
+                    pid: row.get("p_pid")?,
+                    event_at: at("p_event_at")?.unwrap_or_default(),
+                    state_since: at("p_state_since")?.unwrap_or_default(),
+                    turn: row.get("p_turn")?,
+                    turn_started: at("p_turn_started")?,
+                    finished_at: at("p_finished_at")?,
+                    seen_at: at("p_seen_at")?,
+                    updated_at: at("p_updated_at")?.unwrap_or_default(),
+                })
+            }
+        },
     })
 }

@@ -47,6 +47,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
         .route("/api/v1/sessions/{agent}/{id}/reports", post(report))
+        .route(
+            "/api/v1/sessions/{agent}/{id}/seen",
+            put(seen).delete(unseen),
+        )
         .route("/api/v1/sessions/{agent}/{id}/messages", post(send_message))
         .route(
             "/api/v1/sessions/{agent}/{id}/messages/{message}",
@@ -552,6 +556,21 @@ pub(super) async fn serve_attachment(
         .into_response())
 }
 
+/// A turn of the session, as the thread shows it.
+fn turn_json(turn: &crate::db::TurnRow) -> Value {
+    json!({
+        "turn": turn.turn,
+        "agent_turn": turn.agent_turn,
+        "started_at": iso(turn.started_at),
+        "ended_at": turn.ended_at.map(iso),
+        "end_kind": turn.end_kind,
+        "prompt": turn.prompt,
+        "prompt_cut": turn.prompt_cut,
+        "reply": turn.reply,
+        "reply_cut": turn.reply_cut,
+    })
+}
+
 /// A session as the API gives it: who, where, when, and what it holds.
 fn session_json(session: &SessionRow) -> Value {
     json!({
@@ -569,13 +588,21 @@ fn session_json(session: &SessionRow) -> Value {
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
         "waiting": { "questions": session.waiting_questions, "reviews": session.waiting_reviews },
+        "attention": session.attention,
+        "presence": session.presence.as_ref().map(|p| {
+            let attention = crate::presence::Attention::parse(&session.attention)
+                .unwrap_or(crate::presence::Attention::Unknown);
+            crate::presence::to_json(p, attention)
+        }),
     })
 }
 
 /// A page of sessions, those waiting for the person first, then the
-/// newest: `sessions`, `total`, and `facets` with the projects of all the
-/// sessions. Filters: `agent`, `repo` (`-` for no project), `q` and
-/// `waiting=true`; pages by `limit` and `offset`.
+/// newest, or with `sort=priority` by the attention they ask of the person:
+/// `sessions`, `total`, and `facets` with the projects of all the sessions.
+/// Filters: `agent`, `repo` (`-` for no project), `q`, `waiting=true` and
+/// `attention`, a comma-separated list such as `needs_you,finished`; pages
+/// by `limit` and `offset`.
 async fn sessions(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
@@ -588,6 +615,27 @@ async fn sessions(
         project: text("project"),
         text: text("q"),
         waiting: params.get("waiting").is_some_and(|v| v == "true"),
+        attention: match text("attention") {
+            None => Vec::new(),
+            Some(list) => list
+                .split(',')
+                .map(|a| {
+                    crate::presence::Attention::parse(a.trim())
+                        .map(|a| a.as_str().to_string())
+                        .ok_or_else(|| {
+                            Error::invalid(
+                                "attention",
+                                "must list needs_you, finished, working, idle, stopped or unknown",
+                            )
+                        })
+                })
+                .collect::<Result<_, _>>()?,
+        },
+        priority: match text("sort").as_deref() {
+            None | Some("recent") => false,
+            Some("priority") => true,
+            Some(_) => return Err(Error::invalid("sort", "must be recent or priority").into()),
+        },
         include_archived: params.get("include_archived").is_some_and(|v| v == "true"),
         limit: number("limit"),
         offset: number("offset"),
@@ -599,6 +647,27 @@ async fn sessions(
         "total": total,
         "facets": {"repos": repos, "unassigned": unassigned},
     })))
+}
+
+/// The person saw the session: 204, and 404 for an unknown session.
+async fn seen(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().set_seen(&agent, &id, true)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Mark as unread: the session is Finished again if its last turn
+/// finished. 204, and 404 for an unknown session.
+async fn unseen(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().set_seen(&agent, &id, false)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Archives a session: 204, and 404 for an unknown one.
@@ -651,6 +720,7 @@ async fn session(
     let (session, items) = state.reviews().session(&agent, &id)?;
     let statuses = state.reviews().statuses(&agent, &id)?;
     let messages = state.reviews().messages(&agent, &id)?;
+    let turns = state.reviews().turns(&agent, &id)?;
     // what the session's agent said about work items, which the thread
     // shows among its statuses
     let comments = state
@@ -680,6 +750,7 @@ async fn session(
         "comments": comments,
         "item_events": item_events,
         "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
+        "turns": turns.iter().map(turn_json).collect::<Vec<_>>(),
         "items": items
             .iter()
             .map(|r| r.to_json(r.kind == Kind::Question))

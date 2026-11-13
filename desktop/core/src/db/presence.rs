@@ -5,7 +5,9 @@
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
+
+use super::events::insert_event;
 
 use super::Db;
 use super::sessions::activity;
@@ -97,80 +99,59 @@ pub struct TurnRow {
 /// closer than this may arrive out of order, and later ones are newer.
 const WINDOW_MICROS: i64 = 2_000_000;
 
+/// The state stored before a report, as the presence service decides
+/// from it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredState {
+    pub state: String,
+    pub wait_kind: Option<String>,
+    pub wait_tool: Option<String>,
+    pub wait_summary: Option<String>,
+    pub stop_reason: Option<String>,
+    pub pid: Option<i64>,
+    pub proc_started: Option<String>,
+}
+
+impl StoredState {
+    /// The session's agent process, as reported: its pid and start time.
+    pub fn process(&self) -> Option<(i64, &str)> {
+        Some((self.pid?, self.proc_started.as_deref()?))
+    }
+}
+
 /// What a report needs of the presence stored before it.
 struct Stored {
-    state: String,
-    wait_kind: Option<String>,
-    wait_tool: Option<String>,
-    wait_summary: Option<String>,
-    stop_reason: Option<String>,
+    state: StoredState,
     event_at: String,
     state_at: String,
     state_since: String,
 }
 
-/// The state a report sets: the state, what it waits for, why it stopped.
-struct Next {
-    state: String,
-    wait: Option<(String, Option<String>, Option<String>)>,
-    stop_reason: Option<String>,
+/// The state a report sets: the state, what it waits for (its kind, tool and
+/// summary), why it stopped.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Next {
+    pub state: String,
+    pub wait: Option<(String, Option<String>, Option<String>)>,
+    pub stop_reason: Option<String>,
 }
 
-/// The state `event` leaves, from the state stored before it, if any.
-fn next(event: &ReportEvent, stored: Option<&Stored>) -> Next {
-    let plain = |state: &str| Next {
-        state: state.to_string(),
-        wait: None,
-        stop_reason: None,
-    };
-    match event {
-        // a start says the session is there, and idle only when nothing
-        // else is known: Claude Code also fires it after compacting in the
-        // middle of a turn
-        ReportEvent::Started { .. } => match stored {
-            Some(s) if s.state != "stopped" => Next {
-                state: s.state.clone(),
-                wait: s
-                    .wait_kind
-                    .clone()
-                    .map(|k| (k, s.wait_tool.clone(), s.wait_summary.clone())),
-                stop_reason: s.stop_reason.clone(),
-            },
-            _ => plain("idle"),
-        },
-        ReportEvent::TurnEnded { .. } => plain("idle"),
-        ReportEvent::Prompt { .. } | ReportEvent::Working => plain("working"),
-        ReportEvent::NeedsInput {
-            kind,
-            tool,
-            summary,
-        } => {
-            // the same wait keeps what an earlier report said of it:
-            // Claude Code's notification follows its permission request
-            // without the tool. A report that names the call names all of it.
-            let detail = match (tool, summary) {
-                (None, None) => stored
-                    .filter(|s| s.state == "needs_input" && s.wait_kind.as_deref() == Some(kind))
-                    .map(|s| (s.wait_tool.clone(), s.wait_summary.clone()))
-                    .unwrap_or((None, None)),
-                _ => (tool.clone(), summary.clone()),
-            };
-            Next {
-                state: "needs_input".to_string(),
-                wait: Some((kind.clone(), detail.0, detail.1)),
-                stop_reason: None,
-            }
-        }
-        ReportEvent::Ended { reason } => Next {
-            state: "stopped".to_string(),
-            wait: None,
-            // Claude Code ends the session it clears with `clear`
-            stop_reason: Some(match reason.as_deref() {
-                Some("clear") => "cleared".to_string(),
-                _ => "ended".to_string(),
-            }),
-        },
-    }
+/// How the presence service moves a session's state on a report: from the
+/// event, the state stored, and the report's process. `None` means the
+/// report changes nothing.
+pub type Transition<'a> =
+    &'a dyn Fn(&ReportEvent, Option<&StoredState>, Option<&(i64, String)>) -> Option<Next>;
+
+/// What a report changed, with the events stored for it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Recorded {
+    /// Whether it set the session's state, rather than arriving after a
+    /// newer report or being ignored.
+    pub taken: bool,
+    /// `session_presence`, when the state, the wait or the finish changed.
+    pub presence: Option<(i64, Value)>,
+    /// `session_turn`, when a turn opened or ended.
+    pub turn: Option<(i64, Value)>,
 }
 
 /// A reply as it is kept: at most its excerpt, and whether it was longer.
@@ -215,7 +196,8 @@ impl Db {
         report: &Report,
         keep_texts: bool,
         now: DateTime<Utc>,
-    ) -> rusqlite::Result<bool> {
+        transition: Transition,
+    ) -> rusqlite::Result<Recorded> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let now_at = activity(now);
@@ -225,16 +207,20 @@ impl Db {
         let stored = tx
             .query_row(
                 "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, event_at,
-                   state_at, state_since
+                   state_at, state_since, pid, proc_started
                  FROM session_presence WHERE agent = ?1 AND session = ?2",
                 params![agent, id],
                 |r| {
                     Ok(Stored {
-                        state: r.get(0)?,
-                        wait_kind: r.get(1)?,
-                        wait_tool: r.get(2)?,
-                        wait_summary: r.get(3)?,
-                        stop_reason: r.get(4)?,
+                        state: StoredState {
+                            state: r.get(0)?,
+                            wait_kind: r.get(1)?,
+                            wait_tool: r.get(2)?,
+                            wait_summary: r.get(3)?,
+                            stop_reason: r.get(4)?,
+                            pid: r.get(8)?,
+                            proc_started: r.get(9)?,
+                        },
                         event_at: r.get(5)?,
                         state_at: r.get(6)?,
                         state_since: r.get(7)?,
@@ -242,9 +228,20 @@ impl Db {
                 },
             )
             .optional()?;
+        let before = read_presence(&tx, agent, id)?;
         let newer = stored.as_ref().is_none_or(|s| {
             at >= s.event_at || micros_between(&s.state_at, &now_at) > WINDOW_MICROS
         });
+        // the presence service decides the state; a report it ignores
+        // changes nothing at all
+        let Some(next) = transition(
+            &report.event,
+            stored.as_ref().map(|s| &s.state),
+            report.process.as_ref(),
+        ) else {
+            tx.commit()?;
+            return Ok(Recorded::default());
+        };
 
         if let Some(path) = &report.transcript_path {
             tx.execute(
@@ -252,7 +249,7 @@ impl Db {
                 params![agent, id, path],
             )?;
         }
-        record_turns(&tx, agent, id, report, &at, &now_at, keep_texts, !newer)?;
+        let turned = record_turns(&tx, agent, id, report, &at, &now_at, keep_texts, !newer)?;
 
         let finished = matches!(
             &report.event,
@@ -282,10 +279,10 @@ impl Db {
                         kind,
                         tool,
                         summary,
-                    } if s.state == "needs_input"
-                        && s.wait_kind.as_deref() == Some(kind)
-                        && s.wait_tool.is_none()
-                        && s.wait_summary.is_none() =>
+                    } if s.state.state == "needs_input"
+                        && s.state.wait_kind.as_deref() == Some(kind)
+                        && s.state.wait_tool.is_none()
+                        && s.state.wait_summary.is_none() =>
                     {
                         (tool.clone(), summary.clone())
                     }
@@ -314,17 +311,19 @@ impl Db {
                 )?;
             }
             _ => {
-                let next = next(&report.event, stored.as_ref());
                 let wait_kind = next.wait.as_ref().map(|w| w.0.clone());
                 // the state keeps its start while it stays the same
                 let state_since = match &stored {
-                    Some(s) if s.state == next.state && s.wait_kind == wait_kind => {
+                    Some(s) if s.state.state == next.state && s.state.wait_kind == wait_kind => {
                         s.state_since.clone()
                     }
                     _ => now_at.clone(),
                 };
-                let (wait_tool, wait_summary) =
-                    next.wait.map(|w| (w.1, w.2)).unwrap_or((None, None));
+                let (wait_tool, wait_summary) = next
+                    .wait
+                    .clone()
+                    .map(|w| (w.1, w.2))
+                    .unwrap_or((None, None));
                 tx.execute(
                     "INSERT INTO session_presence (agent, session, state, wait_kind, wait_tool,
                        wait_summary, stop_reason, source, pid, proc_started, event_at,
@@ -362,39 +361,83 @@ impl Db {
                 )?;
             }
         }
+        // the events of what changed, stored with it
+        let mut recorded = Recorded {
+            taken: newer,
+            ..Recorded::default()
+        };
+        // announced when anything the window shows changed: the state, the
+        // wait and what it is about, the turn, the finish
+        let row = read_presence(&tx, agent, id)?;
+        let shown = |p: &PresenceRow| {
+            (
+                p.state.clone(),
+                p.wait_kind.clone(),
+                p.wait_tool.clone(),
+                p.wait_summary.clone(),
+                p.stop_reason.clone(),
+                p.turn,
+                p.turn_started,
+                p.finished_at,
+            )
+        };
+        let changed = match (&before, &row) {
+            (Some(b), Some(r)) => shown(b) != shown(r),
+            _ => true,
+        };
+        if let Some(row) = row.filter(|_| changed) {
+            let attrs = presence_attrs(&tx, agent, id, &row, now)?;
+            let event = insert_event(&tx, None, crate::events::SESSION_PRESENCE, None, &attrs)?;
+            recorded.presence = Some((event, attrs));
+        }
+        if let Some((turn, end_kind)) = turned {
+            let attrs = json!({"agent": agent, "id": id, "turn": turn, "end_kind": end_kind});
+            let event = insert_event(&tx, None, crate::events::SESSION_TURN, None, &attrs)?;
+            recorded.turn = Some((event, attrs));
+        }
         tx.commit()?;
-        Ok(newer)
+        Ok(recorded)
+    }
+
+    /// Records that the person saw the session at `at`, or, with `None`,
+    /// that they marked it unread. Returns `None` when there is no such
+    /// session, `Some(None)` when its agent's hooks never reported, which
+    /// leaves nothing to see, and otherwise the `session_seen` event with its
+    /// attributes.
+    #[allow(clippy::type_complexity)]
+    pub fn set_seen(
+        &self,
+        agent: &str,
+        id: &str,
+        at: Option<DateTime<Utc>>,
+        now: DateTime<Utc>,
+    ) -> rusqlite::Result<Option<Option<(i64, Value)>>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE agent = ?1 AND id = ?2)",
+            params![agent, id],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            return Ok(None);
+        }
+        let changed = tx.execute(
+            "UPDATE session_presence SET seen_at = ?3 WHERE agent = ?1 AND session = ?2",
+            params![agent, id, at.map(activity)],
+        )?;
+        let Some(row) = read_presence(&tx, agent, id)?.filter(|_| changed > 0) else {
+            return Ok(Some(None));
+        };
+        let attrs = presence_attrs(&tx, agent, id, &row, now)?;
+        let event = insert_event(&tx, None, crate::events::SESSION_SEEN, None, &attrs)?;
+        tx.commit()?;
+        Ok(Some(Some((event, attrs))))
     }
 
     /// The session's presence, if its hooks ever reported.
     pub fn presence(&self, agent: &str, id: &str) -> rusqlite::Result<Option<PresenceRow>> {
-        let time = |s: String| crate::reviews::parse_datetime(&s).unwrap_or_default();
-        self.read()
-            .query_row(
-                "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, source, pid,
-                   event_at, state_since, turn, turn_started, finished_at, seen_at, updated_at
-                 FROM session_presence WHERE agent = ?1 AND session = ?2",
-                params![agent, id],
-                |r| {
-                    Ok(PresenceRow {
-                        state: r.get(0)?,
-                        wait_kind: r.get(1)?,
-                        wait_tool: r.get(2)?,
-                        wait_summary: r.get(3)?,
-                        stop_reason: r.get(4)?,
-                        source: r.get(5)?,
-                        pid: r.get(6)?,
-                        event_at: time(r.get(7)?),
-                        state_since: time(r.get(8)?),
-                        turn: r.get(9)?,
-                        turn_started: r.get::<_, Option<String>>(10)?.map(time),
-                        finished_at: r.get::<_, Option<String>>(11)?.map(time),
-                        seen_at: r.get::<_, Option<String>>(12)?.map(time),
-                        updated_at: time(r.get(13)?),
-                    })
-                },
-            )
-            .optional()
+        read_presence(&self.read(), agent, id)
     }
 
     /// The session's turns, oldest first, with their texts.
@@ -435,6 +478,65 @@ impl Db {
             params![activity(before)],
         )
     }
+}
+
+/// What a presence event carries: the session and its presence, with the
+/// attention it asks of the person, which a question or a review waiting
+/// on them raises to `needs_you` whatever the agent does.
+fn presence_attrs(
+    conn: &Connection,
+    agent: &str,
+    id: &str,
+    row: &PresenceRow,
+    now: DateTime<Utc>,
+) -> rusqlite::Result<Value> {
+    let waiting: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+           WHERE r.requested_by = ?1 AND r.session = ?2 AND o.review_id IS NULL
+             AND (r.expires_at IS NULL OR r.expires_at > ?3))",
+        params![agent, id, activity(now)],
+        |r| r.get(0),
+    )?;
+    let attention = crate::presence::attention(Some(row), waiting, now);
+    Ok(json!({
+        "agent": agent,
+        "id": id,
+        "presence": crate::presence::to_json(row, attention),
+    }))
+}
+
+/// The session's presence, as `conn` sees it.
+fn read_presence(
+    conn: &Connection,
+    agent: &str,
+    id: &str,
+) -> rusqlite::Result<Option<PresenceRow>> {
+    let time = |s: String| crate::reviews::parse_datetime(&s).unwrap_or_default();
+    conn.query_row(
+        "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, source, pid,
+           event_at, state_since, turn, turn_started, finished_at, seen_at, updated_at
+         FROM session_presence WHERE agent = ?1 AND session = ?2",
+        params![agent, id],
+        |r| {
+            Ok(PresenceRow {
+                state: r.get(0)?,
+                wait_kind: r.get(1)?,
+                wait_tool: r.get(2)?,
+                wait_summary: r.get(3)?,
+                stop_reason: r.get(4)?,
+                source: r.get(5)?,
+                pid: r.get(6)?,
+                event_at: time(r.get(7)?),
+                state_since: time(r.get(8)?),
+                turn: r.get(9)?,
+                turn_started: r.get::<_, Option<String>>(10)?.map(time),
+                finished_at: r.get::<_, Option<String>>(11)?.map(time),
+                seen_at: r.get::<_, Option<String>>(12)?.map(time),
+                updated_at: time(r.get(13)?),
+            })
+        },
+    )
+    .optional()
 }
 
 /// Creates the session the report names, hidden, if there is none yet.
@@ -486,8 +588,8 @@ fn record_turns(
     now: &str,
     keep_texts: bool,
     late: bool,
-) -> rusqlite::Result<()> {
-    match &report.event {
+) -> rusqlite::Result<Option<(i64, Option<String>)>> {
+    let changed = match &report.event {
         ReportEvent::Prompt { prompt } => {
             conn.execute(
                 "UPDATE session_turns SET ended_at = ?3, end_kind = 'interrupted'
@@ -512,6 +614,11 @@ fn record_turns(
                 )?;
             }
             late_prompt(conn, agent, id, turn_id, at, late)?;
+            let number: i64 = conn.query_row(
+                "SELECT turn FROM session_turns WHERE id = ?1",
+                [turn_id],
+                |r| r.get(0),
+            )?;
             // a new turn is the session's activity, and brings it back from
             // the archive
             conn.execute(
@@ -519,6 +626,7 @@ fn record_turns(
                  WHERE agent = ?1 AND id = ?2",
                 params![agent, id, now],
             )?;
+            Some((number, None))
         }
         ReportEvent::TurnEnded { end, reply } => {
             // only work that finished continues a turn that already ended:
@@ -543,26 +651,41 @@ fn record_turns(
                 Some(turn) => Some(turn),
                 None => turn_at(conn, agent, id, at, continued)?,
             };
-            if let Some(turn) = turn {
-                let excerpt = Excerpt {
-                    text: cut(reply, REPLY_CHARS),
-                    cut: report.cut || longer(reply, REPLY_CHARS),
-                };
-                close(conn, turn, end, at, excerpt, keep_texts)?;
+            match turn {
+                Some(turn) => {
+                    let excerpt = Excerpt {
+                        text: cut(reply, REPLY_CHARS),
+                        cut: report.cut || longer(reply, REPLY_CHARS),
+                    };
+                    close(conn, turn, end, at, excerpt, keep_texts)?;
+                    Some((number_of(conn, turn)?, Some(end.clone())))
+                }
+                None => None,
             }
         }
-        ReportEvent::Ended { .. } => {
-            if let Some(turn) = turn_at(conn, agent, id, at, false)? {
+        ReportEvent::Ended { .. } => match turn_at(conn, agent, id, at, false)? {
+            Some(turn) => {
                 let excerpt = Excerpt {
                     text: None,
                     cut: false,
                 };
                 close(conn, turn, "ended", at, excerpt, false)?;
+                Some((number_of(conn, turn)?, Some("ended".to_string())))
             }
-        }
-        ReportEvent::Started { .. } | ReportEvent::Working | ReportEvent::NeedsInput { .. } => {}
-    }
-    Ok(())
+            None => None,
+        },
+        ReportEvent::Started { .. } | ReportEvent::Working | ReportEvent::NeedsInput { .. } => None,
+    };
+    Ok(changed)
+}
+
+/// The number of a turn, by its row id.
+fn number_of(conn: &Connection, turn_id: i64) -> rusqlite::Result<i64> {
+    conn.query_row(
+        "SELECT turn FROM session_turns WHERE id = ?1",
+        [turn_id],
+        |r| r.get(0),
+    )
 }
 
 /// Puts a prompt that arrived after reports that fired later in its place:

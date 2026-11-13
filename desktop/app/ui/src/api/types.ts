@@ -202,6 +202,30 @@ export type Session = {
   last_at: string;
   total: { questions: number; reviews: number };
   waiting: { questions: number; reviews: number };
+  /** the attention the session asks of the person */
+  attention?: Attention;
+  /** what its agent's hooks reported, if they ever did */
+  presence?: Presence | null;
+};
+
+/** Whether a session needs the person, finished since they last looked,
+ *  works, idles, stopped, or is not known. */
+export type Attention = "needs_you" | "finished" | "working" | "idle" | "stopped" | "unknown";
+
+/** What an agent's hooks reported about its session. */
+export type Presence = {
+  state: "working" | "needs_input" | "idle" | "stopped";
+  wait: { kind: "permission" | "question"; tool: string | null; summary: string | null } | null;
+  stop_reason: string | null;
+  /** when the state began */
+  since: string;
+  /** the number of the latest turn, and when it began */
+  turn: number;
+  turn_started: string | null;
+  /** when a turn last ended done or failed, and when the person last saw the session */
+  finished_at: string | null;
+  seen_at: string | null;
+  attention: Attention;
 };
 
 export type ReviewListing = {

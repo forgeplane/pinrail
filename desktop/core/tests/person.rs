@@ -40,7 +40,7 @@ async fn send(
 }
 
 /// What only the person does, through the app's window.
-const PERSON_ONLY: [(&str, &str); 14] = [
+const PERSON_ONLY: [(&str, &str); 16] = [
     ("POST", "/api/v1/sessions/claude-code/s-1/messages"),
     ("DELETE", "/api/v1/sessions/claude-code/s-1/messages/1"),
     ("PUT", "/api/v1/sessions/claude-code/s-1/archive"),
@@ -55,6 +55,8 @@ const PERSON_ONLY: [(&str, &str); 14] = [
     ("PUT", "/api/v1/reviews/r-1/star"),
     ("DELETE", "/api/v1/reviews/r-1/star"),
     ("POST", "/api/v1/reviews/r-1/viewed"),
+    ("PUT", "/api/v1/sessions/claude-code/s-1/seen"),
+    ("DELETE", "/api/v1/sessions/claude-code/s-1/seen"),
 ];
 
 /// What the CLI does too, and the app's window does as the person.

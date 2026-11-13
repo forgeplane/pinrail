@@ -29,6 +29,12 @@ pub const SESSION_STATUS: &str = "session_status";
 pub const SESSION_MESSAGE_SENT: &str = "session_message_sent";
 pub const SESSION_MESSAGE_DELETED: &str = "session_message_deleted";
 pub const SESSION_MESSAGES_DELIVERED: &str = "session_messages_delivered";
+/// What an agent's hooks report changed its session's state, wait or
+/// finish; a turn opened or ended; the person saw the session, or marked it
+/// unread.
+pub const SESSION_PRESENCE: &str = "session_presence";
+pub const SESSION_TURN: &str = "session_turn";
+pub const SESSION_SEEN: &str = "session_seen";
 /// The person archived a session, or brought it back.
 pub const SESSION_ARCHIVED: &str = "session_archived";
 pub const SESSION_UNARCHIVED: &str = "session_unarchived";
@@ -97,6 +103,9 @@ impl Notice {
                 SESSION_MESSAGES_DELIVERED,
                 SESSION_ARCHIVED,
                 SESSION_UNARCHIVED,
+                SESSION_PRESENCE,
+                SESSION_TURN,
+                SESSION_SEEN,
             ]),
             item: about(&[ITEM_CHANGED, ITEM_DELETED, PREFIX_CHANGED]),
         }

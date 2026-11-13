@@ -441,8 +441,10 @@ impl Reviews {
     }
 
     /// Records what the session's hooks report at `now`, creating the
-    /// session, hidden, when it is new. Returns whether the report set the
-    /// session's state, rather than arriving after a newer one.
+    /// session, hidden, when it is new, and announces what changed: the
+    /// session's presence and its turns. Returns whether the report set the
+    /// session's state, rather than arriving after a newer one or being one
+    /// the presence service ignores.
     pub fn report(
         &self,
         agent: &str,
@@ -454,9 +456,42 @@ impl Reviews {
         if agent.trim().is_empty() || session.trim().is_empty() {
             return Err(Error::invalid("session", "name the agent and the session"));
         }
-        Ok(self
-            .db
-            .record_report(agent, session, report, keep_texts, now)?)
+        let transition = |event: &crate::db::ReportEvent,
+                          stored: Option<&crate::db::StoredState>,
+                          process: Option<&(i64, String)>| {
+            crate::presence::next(event, stored, process, &crate::presence::alive)
+        };
+        let recorded =
+            self.db
+                .record_report(agent, session, report, keep_texts, now, &transition)?;
+        for (event, attrs, kind) in [
+            recorded
+                .presence
+                .map(|(e, a)| (e, a, events::SESSION_PRESENCE)),
+            recorded.turn.map(|(e, a)| (e, a, events::SESSION_TURN)),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            self.bus.publish(Notice::new(event, kind, &attrs));
+        }
+        Ok(recorded.taken)
+    }
+
+    /// Records that the person saw the session now, or with `false`, marks
+    /// it unread, and announces it. A session its hooks never reported has
+    /// nothing to see, and is left as it is.
+    pub fn set_seen(&self, agent: &str, session: &str, seen: bool) -> Result<(), Error> {
+        let now = Utc::now();
+        match self.db.set_seen(agent, session, seen.then_some(now), now)? {
+            None => Err(Error::NotFound(format!("session {session} of {agent}"))),
+            Some(None) => Ok(()),
+            Some(Some((event, attrs))) => {
+                self.bus
+                    .publish(Notice::new(event, events::SESSION_SEEN, &attrs));
+                Ok(())
+            }
+        }
     }
 
     /// Deletes the sessions known only from their hooks that reported
@@ -633,6 +668,11 @@ impl Reviews {
     /// newest first.
     pub fn stages(&self, text: Option<&str>, limit: usize) -> Result<Vec<StageRow>, Error> {
         Ok(self.db.stages(text, limit)?)
+    }
+
+    /// The session's turns, oldest first, with their excerpts.
+    pub fn turns(&self, agent: &str, session: &str) -> Result<Vec<crate::db::TurnRow>, Error> {
+        Ok(self.db.turns(agent, session)?)
     }
 
     pub fn statuses(&self, agent: &str, session: &str) -> Result<Vec<StatusRow>, Error> {
