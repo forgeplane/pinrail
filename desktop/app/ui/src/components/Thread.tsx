@@ -1,7 +1,7 @@
 // An agent session's thread: the questions it asked, as the agent's
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
-import { ArrowDown, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { ArrowDown, CircleDot, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
@@ -18,6 +18,7 @@ import { ItemChip, ItemOpener } from "./ItemChip";
 import { AgentIcon } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { PresenceChip } from "./PresenceChip";
+import { useMarkSeen } from "./thread/useMarkSeen";
 import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
 import { CopyButton } from "./CopyButton";
@@ -161,6 +162,7 @@ export function Thread({
     focus,
     onSession,
   );
+  const { markUnread } = useMarkSeen(session);
   // what the session holds now, in its header
   const held = sessionItems.filter(
     (i) => i.status === "in_progress" && i.claim?.agent === named?.agent && i.claim?.session === named?.id,
@@ -378,6 +380,13 @@ export function Thread({
                   .filter(Boolean)
                   .join(" · ")}
               </span>
+            ) : null}
+            {markUnread && !focus ? (
+              <Tooltip label="Mark as unread" side="bottom">
+                <button type="button" className="bar-button" aria-label="Mark as unread" onClick={markUnread}>
+                  <CircleDot size={15} />
+                </button>
+              </Tooltip>
             ) : null}
             {named && !focus ? <ArchiveButton session={{ ...named, archived_at: session?.archived_at }} /> : null}
             {inPanel && named ? (
