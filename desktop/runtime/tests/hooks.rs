@@ -134,6 +134,15 @@ fn a_claude_code_subagent_neither_speaks_for_the_session_nor_starts_a_turn() {
 }
 
 #[test]
+fn a_background_task_s_notification_is_work_in_the_turn_not_a_prompt() {
+    // Claude Code hands itself a finished background command as a prompt
+    assert_eq!(
+        event("claude-code", "prompt", "task-notification-prompt"),
+        Some(HookEvent::Working)
+    );
+}
+
+#[test]
 fn only_claude_code_s_own_hooks_report() {
     let c = "claude-code";
     // Cursor and Grok run Claude Code's hooks without its session's id

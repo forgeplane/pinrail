@@ -8,6 +8,10 @@ their input: `session-start`, `prompt`, `handback-prompt` (the prompt that
 hands a subagent's result back), `tool-done`, `subagent-tool-done`,
 `permission`, `stop` and `session-end`.
 
+**Claude Code 2.1.323, recorded by Pinrail** from an interactive session:
+`task-notification-prompt`, the prompt that says a background command
+finished, with its paths replaced.
+
 **Claude Code, built from the documented fields**, for events a headless run
 does not fire: `permission-denied`, `notification-*`, `stop-failure`,
 `cursor-fired` (Cursor running Claude Code's hooks), `grok-fired` (Grok,

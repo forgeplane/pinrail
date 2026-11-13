@@ -11,10 +11,11 @@ use crate::registry::AgentSpec;
 
 pub struct ClaudeCode;
 
-/// How Claude Code begins the prompt that hands a subagent's result back to
-/// the main session. It fires `UserPromptSubmit` without an `agent_id`, but
-/// the turn goes on.
-const HANDBACK: &str = "<agent-message ";
+/// How Claude Code begins the prompts it gives itself rather than the
+/// person: a subagent's result handed back to the main session, and the
+/// notice that a background command finished. Each fires
+/// `UserPromptSubmit` without an `agent_id`, but the turn goes on.
+const OWN_PROMPTS: [&str; 2] = ["<agent-message ", "<task-notification>"];
 
 impl Agent for ClaudeCode {
     fn spec(&self) -> &'static AgentSpec {
@@ -41,7 +42,10 @@ impl Agent for ClaudeCode {
             },
             "prompt" => {
                 let prompt = text(input, "prompt");
-                if prompt.as_deref().is_some_and(|p| p.starts_with(HANDBACK)) {
+                if prompt
+                    .as_deref()
+                    .is_some_and(|p| OWN_PROMPTS.iter().any(|own| p.starts_with(own)))
+                {
                     HookEvent::Working
                 } else {
                     detail.prompt = prompt;
