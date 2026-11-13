@@ -721,12 +721,13 @@ async fn status(
 
 /// What the session's hooks report, from `pinrail hook`: the `event`
 /// (`started`, `prompt`, `working`, `needs_input`, `turn_ended` or
-/// `ended`), its `seq`, which orders the reports, and what the event
-/// carries: `wait` (`permission` or `question`) with `needs_input`, `end`
-/// (`done`, `failed` or `interrupted`) with `turn_ended`, and in `detail`
-/// the `tool`, `summary`, `prompt`, `reply` and `reason`. `process` names
-/// the agent's `pid` and when it `started`, and `origin` where the session
-/// works. Answers 204, also for a report older than the last.
+/// `ended`), `at`, when the hook fired, and what the event carries:
+/// `source` with `started`, `wait` (`permission` or `question`) with
+/// `needs_input`, `end` (`done`, `failed` or `interrupted`) with
+/// `turn_ended`, and in `detail` the `tool`, `summary`, `prompt`, `reply`,
+/// `error` and `reason`. `process` names the agent's `pid` and when it
+/// `started`, and `origin` where the session works. Answers 204, also for a
+/// report that arrived after a newer one.
 async fn report(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
@@ -738,7 +739,9 @@ async fn report(
         .value("/runtime/record_turns")
         .as_bool()
         .unwrap_or(true);
-    state.reviews().report(&agent, &id, &report, keep_texts)?;
+    state
+        .reviews()
+        .report(&agent, &id, &report, keep_texts, chrono::Utc::now())?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -758,19 +761,28 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
             .ok_or_else(|| Error::invalid(key, format!("must be {}", values.join(", "))))
     };
     let event = match text("event") {
-        Some("started") => ReportEvent::Started,
+        Some("started") => ReportEvent::Started {
+            source: match text("source") {
+                None => None,
+                Some(_) => Some(one_of(
+                    "source",
+                    &["startup", "resume", "clear", "compact", "fork"],
+                )?),
+            },
+        },
         Some("prompt") => ReportEvent::Prompt {
             prompt: detail("prompt"),
         },
         Some("working") => ReportEvent::Working,
         Some("needs_input") => ReportEvent::NeedsInput {
             kind: one_of("wait", &["permission", "question"])?,
-            tool: detail("tool"),
+            tool: detail("tool").map(|s| s.chars().take(200).collect()),
             summary: detail("summary").map(|s| s.chars().take(200).collect()),
         },
         Some("turn_ended") => ReportEvent::TurnEnded {
             end: one_of("end", &["done", "failed", "interrupted"])?,
-            reply: detail("reply"),
+            // a failed turn's error stands for its reply
+            reply: detail("reply").or_else(|| detail("error")),
         },
         Some("ended") => ReportEvent::Ended {
             reason: detail("reason"),
@@ -782,11 +794,6 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
             ));
         }
     };
-    let seq = body
-        .get("seq")
-        .and_then(Value::as_i64)
-        .filter(|s| *s > 0)
-        .ok_or_else(|| Error::invalid("seq", "must be a positive integer"))?;
     let at = match text("at") {
         Some(at) => crate::reviews::parse_datetime(at)
             .ok_or_else(|| Error::invalid("at", "must be an ISO 8601 time"))?,
@@ -805,7 +812,6 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
         .unwrap_or_default();
     Ok(Report {
         event,
-        seq,
         at,
         process,
         origin,

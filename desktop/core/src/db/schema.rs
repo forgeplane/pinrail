@@ -447,8 +447,8 @@ mod tests {
         assert!(conn.execute("UPDATE sessions SET hidden = 2", []).is_err());
         assert!(
             conn.execute(
-                "INSERT INTO session_presence (agent, session, state, source, seq, state_since, updated_at) \
-                 VALUES ('codex', 'gone', 'idle', 'hook', 1, 'x', 'x')",
+                "INSERT INTO session_presence (agent, session, state, source, event_at, state_at, state_since, updated_at) \
+                 VALUES ('codex', 'gone', 'idle', 'hook', 'x', 'x', 'x', 'x')",
                 [],
             )
             .is_err()

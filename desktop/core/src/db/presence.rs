@@ -18,9 +18,8 @@ pub const REPLY_CHARS: usize = 8_000;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Report {
     pub event: ReportEvent,
-    /// Orders the reports of a session: one not greater than the last
-    /// accepted is older, and is ignored.
-    pub seq: i64,
+    /// When the agent's hook fired, which orders two reports that arrive
+    /// close together, and dates the turn it starts or ends.
     pub at: DateTime<Utc>,
     /// The agent's process: its pid and when it started.
     pub process: Option<(i64, String)>,
@@ -31,7 +30,10 @@ pub struct Report {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ReportEvent {
-    Started,
+    /// The session started, or was resumed, cleared, compacted or forked.
+    Started {
+        source: Option<String>,
+    },
     Prompt {
         prompt: Option<String>,
     },
@@ -60,11 +62,13 @@ pub struct PresenceRow {
     pub stop_reason: Option<String>,
     pub source: String,
     pub pid: Option<i64>,
-    pub seq: i64,
+    pub event_at: DateTime<Utc>,
     pub state_since: DateTime<Utc>,
     pub turn: i64,
     pub turn_started: Option<DateTime<Utc>>,
-    pub seen_turn: i64,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub seen_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A turn of a session, with its texts when they were kept.
@@ -78,48 +82,82 @@ pub struct TurnRow {
     pub reply: Option<String>,
 }
 
+/// How long after the last report a new one is taken whatever its hook's
+/// time says: hooks run as separate processes, so two reports that arrive
+/// closer than this may arrive out of order, and later ones are newer.
+const WINDOW_MICROS: i64 = 2_000_000;
+
 /// What a report needs of the presence stored before it.
 struct Stored {
-    seq: i64,
     state: String,
     wait_kind: Option<String>,
+    wait_tool: Option<String>,
+    wait_summary: Option<String>,
+    stop_reason: Option<String>,
+    event_at: String,
+    state_at: String,
     state_since: String,
-    turn: i64,
-    turn_started: Option<String>,
 }
 
-/// The state a report leaves: the state, what it waits for, why it stopped.
+/// The state a report sets: the state, what it waits for, why it stopped.
 struct Next {
-    state: &'static str,
+    state: String,
     wait: Option<(String, Option<String>, Option<String>)>,
-    stop_reason: Option<&'static str>,
+    stop_reason: Option<String>,
 }
 
-fn next(event: &ReportEvent) -> Next {
-    let plain = |state| Next {
-        state,
+/// The state `event` leaves, from the state stored before it, if any.
+fn next(event: &ReportEvent, stored: Option<&Stored>) -> Next {
+    let plain = |state: &str| Next {
+        state: state.to_string(),
         wait: None,
         stop_reason: None,
     };
     match event {
-        ReportEvent::Started | ReportEvent::TurnEnded { .. } => plain("idle"),
+        // a start says the session is there, and idle only when nothing
+        // else is known: Claude Code also fires it after compacting in the
+        // middle of a turn
+        ReportEvent::Started { .. } => match stored {
+            Some(s) if s.state != "stopped" => Next {
+                state: s.state.clone(),
+                wait: s
+                    .wait_kind
+                    .clone()
+                    .map(|k| (k, s.wait_tool.clone(), s.wait_summary.clone())),
+                stop_reason: s.stop_reason.clone(),
+            },
+            _ => plain("idle"),
+        },
+        ReportEvent::TurnEnded { .. } => plain("idle"),
         ReportEvent::Prompt { .. } | ReportEvent::Working => plain("working"),
         ReportEvent::NeedsInput {
             kind,
             tool,
             summary,
-        } => Next {
-            state: "needs_input",
-            wait: Some((kind.clone(), tool.clone(), summary.clone())),
-            stop_reason: None,
-        },
+        } => {
+            // the same wait keeps what an earlier report said of it:
+            // Claude Code's notification follows its permission request
+            // without the tool. A report that names the call names all of it.
+            let detail = match (tool, summary) {
+                (None, None) => stored
+                    .filter(|s| s.state == "needs_input" && s.wait_kind.as_deref() == Some(kind))
+                    .map(|s| (s.wait_tool.clone(), s.wait_summary.clone()))
+                    .unwrap_or((None, None)),
+                _ => (tool.clone(), summary.clone()),
+            };
+            Next {
+                state: "needs_input".to_string(),
+                wait: Some((kind.clone(), detail.0, detail.1)),
+                stop_reason: None,
+            }
+        }
         ReportEvent::Ended { reason } => Next {
-            state: "stopped",
+            state: "stopped".to_string(),
             wait: None,
             // Claude Code ends the session it clears with `clear`
             stop_reason: Some(match reason.as_deref() {
-                Some("clear") => "cleared",
-                _ => "ended",
+                Some("clear") => "cleared".to_string(),
+                _ => "ended".to_string(),
             }),
         },
     }
@@ -130,130 +168,184 @@ fn cut(text: &Option<String>, n: usize) -> Option<String> {
     text.as_ref().map(|t| t.chars().take(n).collect())
 }
 
+/// Microseconds between two stored times, `b` after `a`.
+fn micros_between(a: &str, b: &str) -> i64 {
+    match (
+        crate::reviews::parse_datetime(a),
+        crate::reviews::parse_datetime(b),
+    ) {
+        (Some(a), Some(b)) => (b - a).num_microseconds().unwrap_or(i64::MAX),
+        _ => i64::MAX,
+    }
+}
+
 impl Db {
-    /// Records a report of the session's hooks, creating the session, hidden,
-    /// if it is new. Returns whether it was taken: a report whose `seq` is
-    /// not greater than the last one's changes nothing. A prompt opens a
-    /// turn and counts as the session's activity; the end of a turn or of
-    /// the session closes it. The texts are kept when `keep_texts` is set.
+    /// Records a report of the session's hooks at `now`, creating the
+    /// session, hidden, if it is new. Returns whether it set the session's
+    /// state: a report that arrives within 2 seconds of the one that set it
+    /// but fired before that one does not. Turns are kept whatever the order: a prompt
+    /// opens one and counts as the session's activity, and the end of a
+    /// turn or of the session closes the turn that was open when it fired.
+    /// The texts are kept when `keep_texts` is set.
     pub fn record_report(
         &self,
         agent: &str,
         id: &str,
         report: &Report,
         keep_texts: bool,
+        now: DateTime<Utc>,
     ) -> rusqlite::Result<bool> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        create_hidden(&tx, agent, id, &report.origin, report.at)?;
-        let current = tx
+        let now_at = activity(now);
+        // a hook's clock is never later than the core's
+        let at = activity(report.at.min(now));
+        create_hidden(&tx, agent, id, &report.origin, now)?;
+        let stored = tx
             .query_row(
-                "SELECT seq, state, wait_kind, state_since, turn, turn_started
+                "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, event_at,
+                   state_at, state_since
                  FROM session_presence WHERE agent = ?1 AND session = ?2",
                 params![agent, id],
                 |r| {
                     Ok(Stored {
-                        seq: r.get(0)?,
-                        state: r.get(1)?,
-                        wait_kind: r.get(2)?,
-                        state_since: r.get(3)?,
-                        turn: r.get(4)?,
-                        turn_started: r.get(5)?,
+                        state: r.get(0)?,
+                        wait_kind: r.get(1)?,
+                        wait_tool: r.get(2)?,
+                        wait_summary: r.get(3)?,
+                        stop_reason: r.get(4)?,
+                        event_at: r.get(5)?,
+                        state_at: r.get(6)?,
+                        state_since: r.get(7)?,
                     })
                 },
             )
             .optional()?;
-        if current.as_ref().is_some_and(|c| c.seq >= report.seq) {
-            return Ok(false);
-        }
-        let at = activity(report.at);
-        let next = next(&report.event);
-        let (mut turn, mut turn_started) = current
-            .as_ref()
-            .map(|c| (c.turn, c.turn_started.clone()))
-            .unwrap_or((0, None));
-        let wait_kind = next.wait.as_ref().map(|w| w.0.clone());
-        // the state keeps its start while it stays the same
-        let state_since = match &current {
-            Some(c) if c.state == next.state && c.wait_kind == wait_kind => c.state_since.clone(),
-            _ => at.clone(),
-        };
+        let newer = stored.as_ref().is_none_or(|s| {
+            at >= s.event_at || micros_between(&s.state_at, &now_at) > WINDOW_MICROS
+        });
 
-        match &report.event {
-            ReportEvent::Prompt { prompt } => {
-                // a turn left open was cut short: hooks report no interrupt
-                close_turn(&tx, agent, id, turn, "interrupted", &at, None, false)?;
-                turn += 1;
-                turn_started = Some(at.clone());
-                tx.execute(
-                    "INSERT INTO session_turns (agent, session, turn, started_at)
-                     VALUES (?1, ?2, ?3, ?4)",
-                    params![agent, id, turn, at],
-                )?;
-                if keep_texts && prompt.is_some() {
-                    tx.execute(
-                        "INSERT INTO session_turn_texts (turn_id, prompt) VALUES (?1, ?2)",
-                        params![tx.last_insert_rowid(), cut(prompt, PROMPT_CHARS)],
-                    )?;
-                }
-                // a new turn is the session's activity, and brings it back
-                // from the archive
-                tx.execute(
-                    "UPDATE sessions SET last_at = MAX(last_at, ?3), archived_at = NULL
-                     WHERE agent = ?1 AND id = ?2",
-                    params![agent, id, at],
-                )?;
-            }
-            ReportEvent::TurnEnded { end, reply } => {
-                let reply = cut(reply, REPLY_CHARS);
-                close_turn(&tx, agent, id, turn, end, &at, reply, keep_texts)?;
-            }
-            ReportEvent::Ended { .. } => {
-                close_turn(&tx, agent, id, turn, "ended", &at, None, false)?;
-            }
-            ReportEvent::Started | ReportEvent::Working | ReportEvent::NeedsInput { .. } => {}
-        }
+        record_turns(
+            &tx,
+            agent,
+            id,
+            &report.event,
+            &at,
+            &now_at,
+            keep_texts,
+            !newer,
+        )?;
 
-        let (wait_tool, wait_summary) = next.wait.map(|w| (w.1, w.2)).unwrap_or((None, None));
+        let finished = matches!(
+            &report.event,
+            ReportEvent::TurnEnded { end, .. } if end == "done" || end == "failed"
+        );
         let (pid, started) = report
             .process
             .clone()
             .map(|(pid, started)| (Some(pid), Some(started)))
             .unwrap_or((None, None));
-        tx.execute(
-            "INSERT INTO session_presence (agent, session, state, wait_kind, wait_tool,
-               wait_summary, stop_reason, source, pid, proc_started, seq, state_since,
-               turn, turn_started, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'hook', ?8, ?9, ?10, ?11, ?12, ?13, ?14)
-             ON CONFLICT (agent, session) DO UPDATE SET
-               state = excluded.state, wait_kind = excluded.wait_kind,
-               wait_tool = excluded.wait_tool, wait_summary = excluded.wait_summary,
-               stop_reason = excluded.stop_reason, source = excluded.source,
-               pid = COALESCE(excluded.pid, pid),
-               proc_started = COALESCE(excluded.proc_started, proc_started),
-               seq = excluded.seq, state_since = excluded.state_since,
-               turn = excluded.turn, turn_started = excluded.turn_started,
-               updated_at = excluded.updated_at
-             WHERE excluded.seq > session_presence.seq",
-            params![
-                agent,
-                id,
-                next.state,
-                wait_kind,
-                wait_tool,
-                wait_summary,
-                next.stop_reason,
-                pid,
-                started,
-                report.seq,
-                state_since,
-                turn,
-                turn_started,
-                at,
-            ],
-        )?;
+        let (turn, turn_started): (i64, Option<String>) = tx
+            .query_row(
+                "SELECT turn, started_at FROM session_turns WHERE agent = ?1 AND session = ?2
+                 ORDER BY started_at DESC, turn DESC LIMIT 1",
+                params![agent, id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?
+            .unwrap_or((0, None));
+
+        match (&stored, newer) {
+            // older than the state: only the turns, the finish and the
+            // process change, and what a wait still lacks
+            (Some(s), false) => {
+                let fills = match &report.event {
+                    ReportEvent::NeedsInput {
+                        kind,
+                        tool,
+                        summary,
+                    } if s.state == "needs_input"
+                        && s.wait_kind.as_deref() == Some(kind)
+                        && s.wait_tool.is_none()
+                        && s.wait_summary.is_none() =>
+                    {
+                        (tool.clone(), summary.clone())
+                    }
+                    _ => (None, None),
+                };
+                tx.execute(
+                    "UPDATE session_presence SET turn = ?3, turn_started = ?4,
+                       finished_at = CASE WHEN ?5 THEN ?6 ELSE finished_at END,
+                       pid = COALESCE(?7, pid), proc_started = COALESCE(?8, proc_started),
+                       wait_tool = COALESCE(wait_tool, ?9),
+                       wait_summary = COALESCE(wait_summary, ?10),
+                       updated_at = ?6
+                     WHERE agent = ?1 AND session = ?2",
+                    params![
+                        agent,
+                        id,
+                        turn,
+                        turn_started,
+                        finished,
+                        now_at,
+                        pid,
+                        started,
+                        fills.0,
+                        fills.1,
+                    ],
+                )?;
+            }
+            _ => {
+                let next = next(&report.event, stored.as_ref());
+                let wait_kind = next.wait.as_ref().map(|w| w.0.clone());
+                // the state keeps its start while it stays the same
+                let state_since = match &stored {
+                    Some(s) if s.state == next.state && s.wait_kind == wait_kind => {
+                        s.state_since.clone()
+                    }
+                    _ => now_at.clone(),
+                };
+                let (wait_tool, wait_summary) =
+                    next.wait.map(|w| (w.1, w.2)).unwrap_or((None, None));
+                tx.execute(
+                    "INSERT INTO session_presence (agent, session, state, wait_kind, wait_tool,
+                       wait_summary, stop_reason, source, pid, proc_started, event_at,
+                       state_at, state_since, turn, turn_started, finished_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'hook', ?8, ?9, ?10, ?15, ?11, ?12,
+                       ?13, CASE WHEN ?14 THEN ?15 END, ?15)
+                     ON CONFLICT (agent, session) DO UPDATE SET
+                       state = excluded.state, wait_kind = excluded.wait_kind,
+                       wait_tool = excluded.wait_tool, wait_summary = excluded.wait_summary,
+                       stop_reason = excluded.stop_reason, source = excluded.source,
+                       pid = COALESCE(excluded.pid, pid),
+                       proc_started = COALESCE(excluded.proc_started, proc_started),
+                       event_at = excluded.event_at, state_at = excluded.state_at,
+                       state_since = excluded.state_since,
+                       turn = excluded.turn, turn_started = excluded.turn_started,
+                       finished_at = CASE WHEN ?14 THEN ?15 ELSE finished_at END,
+                       updated_at = excluded.updated_at",
+                    params![
+                        agent,
+                        id,
+                        next.state,
+                        wait_kind,
+                        wait_tool,
+                        wait_summary,
+                        next.stop_reason,
+                        pid,
+                        started,
+                        at,
+                        state_since,
+                        turn,
+                        turn_started,
+                        finished,
+                        now_at,
+                    ],
+                )?;
+            }
+        }
         tx.commit()?;
-        Ok(true)
+        Ok(newer)
     }
 
     /// The session's presence, if its hooks ever reported.
@@ -262,7 +354,7 @@ impl Db {
         self.read()
             .query_row(
                 "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, source, pid,
-                   seq, state_since, turn, turn_started, seen_turn
+                   event_at, state_since, turn, turn_started, finished_at, seen_at, updated_at
                  FROM session_presence WHERE agent = ?1 AND session = ?2",
                 params![agent, id],
                 |r| {
@@ -274,11 +366,13 @@ impl Db {
                         stop_reason: r.get(4)?,
                         source: r.get(5)?,
                         pid: r.get(6)?,
-                        seq: r.get(7)?,
+                        event_at: time(r.get(7)?),
                         state_since: time(r.get(8)?),
                         turn: r.get(9)?,
                         turn_started: r.get::<_, Option<String>>(10)?.map(time),
-                        seen_turn: r.get(11)?,
+                        finished_at: r.get::<_, Option<String>>(11)?.map(time),
+                        seen_at: r.get::<_, Option<String>>(12)?.map(time),
+                        updated_at: time(r.get(13)?),
                     })
                 },
             )
@@ -292,7 +386,7 @@ impl Db {
         let mut stmt = conn.prepare(
             "SELECT t.turn, t.started_at, t.ended_at, t.end_kind, x.prompt, x.reply
              FROM session_turns t LEFT JOIN session_turn_texts x ON x.turn_id = t.id
-             WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.turn",
+             WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.started_at, t.turn",
         )?;
         stmt.query_map(params![agent, id], |r| {
             Ok(TurnRow {
@@ -354,39 +448,225 @@ fn create_hidden(
     Ok(())
 }
 
-/// Ends the session's turn `turn`, if it is still open, as `end`, with the
-/// agent's reply when the texts are kept.
+/// Keeps the session's turns as the report says, whenever it fired: a
+/// prompt opens a turn and ends one still open before it as interrupted,
+/// since hooks report no interrupt; the end of a turn closes the latest
+/// turn that started before it, even one that already ended, whose end and
+/// reply it then replaces; the end of the session closes the open turn as
+/// `ended`.
 #[allow(clippy::too_many_arguments)]
-fn close_turn(
+fn record_turns(
     conn: &Connection,
     agent: &str,
     id: &str,
-    turn: i64,
+    event: &ReportEvent,
+    at: &str,
+    now: &str,
+    keep_texts: bool,
+    late: bool,
+) -> rusqlite::Result<()> {
+    match event {
+        ReportEvent::Prompt { prompt } => {
+            conn.execute(
+                "UPDATE session_turns SET ended_at = ?3, end_kind = 'interrupted'
+                 WHERE agent = ?1 AND session = ?2 AND ended_at IS NULL AND started_at <= ?3",
+                params![agent, id, at],
+            )?;
+            conn.execute(
+                "INSERT INTO session_turns (agent, session, turn, started_at)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(turn), 0) + 1 FROM session_turns
+                                  WHERE agent = ?1 AND session = ?2), ?3)",
+                params![agent, id, at],
+            )?;
+            let turn_id = conn.last_insert_rowid();
+            if keep_texts && prompt.is_some() {
+                conn.execute(
+                    "INSERT INTO session_turn_texts (turn_id, prompt) VALUES (?1, ?2)",
+                    params![turn_id, cut(prompt, PROMPT_CHARS)],
+                )?;
+            }
+            late_prompt(conn, agent, id, turn_id, at, late)?;
+            // a new turn is the session's activity, and brings it back from
+            // the archive
+            conn.execute(
+                "UPDATE sessions SET last_at = MAX(last_at, ?3), archived_at = NULL
+                 WHERE agent = ?1 AND id = ?2",
+                params![agent, id, now],
+            )?;
+        }
+        ReportEvent::TurnEnded { end, reply } => {
+            // only work that finished continues a turn that already ended:
+            // an interrupt, such as Claude Code's idle prompt a minute
+            // later, leaves a finished turn as it was
+            let continued = end != "interrupted";
+            if let Some(turn) = turn_at(conn, agent, id, at, continued)? {
+                close(conn, turn, end, at, cut(reply, REPLY_CHARS), keep_texts)?;
+            }
+        }
+        ReportEvent::Ended { .. } => {
+            if let Some(turn) = turn_at(conn, agent, id, at, false)? {
+                close(conn, turn, "ended", at, None, false)?;
+            }
+        }
+        ReportEvent::Started { .. } | ReportEvent::Working | ReportEvent::NeedsInput { .. } => {}
+    }
+    Ok(())
+}
+
+/// Puts a prompt that arrived after reports that fired later in its place:
+/// an end that arrived before it, and fired after it, is its turn's, and a
+/// turn that started after it ends it. The turns are numbered again in the
+/// order they started.
+///
+/// An end that arrived before its prompt had first closed the turn before,
+/// replacing that turn's end and reply, which cannot be restored: the turn
+/// before is left ending where this one began, with no reply. Claude Code
+/// runs its hooks one at a time, so this needs a turn that ends within
+/// moments of its prompt and hooks that run apart, as Codex's do.
+fn late_prompt(
+    conn: &Connection,
+    agent: &str,
+    id: &str,
+    turn_id: i64,
+    at: &str,
+    late: bool,
+) -> rusqlite::Result<()> {
+    // a turn before it that a later prompt cut short was cut short here
+    conn.execute(
+        "UPDATE session_turns SET ended_at = ?4
+         WHERE agent = ?1 AND session = ?2 AND id <> ?3 AND started_at < ?4
+           AND end_kind = 'interrupted' AND ended_at > ?4",
+        params![agent, id, turn_id, at],
+    )?;
+    // the turn before it, if an end that fired after this prompt closed it.
+    // Only a prompt that arrived after a newer report is late: one whose
+    // hook clock merely stepped back leaves the turns as they are
+    if !late {
+        return renumber_after(conn, agent, id, turn_id, at);
+    }
+    let before: Option<(i64, String, String)> = conn
+        .query_row(
+            "SELECT id, ended_at, end_kind FROM session_turns
+             WHERE agent = ?1 AND session = ?2 AND id <> ?3 AND started_at < ?4
+               AND ended_at > ?4 AND end_kind <> 'interrupted'
+             ORDER BY started_at DESC LIMIT 1",
+            params![agent, id, turn_id, at],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?;
+    if let Some((previous, ended_at, end_kind)) = before {
+        conn.execute(
+            "UPDATE session_turns SET ended_at = ?2, end_kind = ?3 WHERE id = ?1",
+            params![turn_id, ended_at, end_kind],
+        )?;
+        // its own end is not known any more: it was cut short here
+        conn.execute(
+            "UPDATE session_turns SET ended_at = ?2, end_kind = 'interrupted' WHERE id = ?1",
+            params![previous, at],
+        )?;
+        // the reply goes with its end
+        conn.execute(
+            "INSERT INTO session_turn_texts (turn_id, reply)
+               SELECT ?2, reply FROM session_turn_texts WHERE turn_id = ?1 AND reply IS NOT NULL
+             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply",
+            params![previous, turn_id],
+        )?;
+        conn.execute(
+            "UPDATE session_turn_texts SET reply = NULL WHERE turn_id = ?1",
+            params![previous],
+        )?;
+    }
+    renumber_after(conn, agent, id, turn_id, at)
+}
+
+/// Ends the turn where a later one starts, if one does, and numbers the
+/// turns again in the order they started.
+fn renumber_after(
+    conn: &Connection,
+    agent: &str,
+    id: &str,
+    turn_id: i64,
+    at: &str,
+) -> rusqlite::Result<()> {
+    let next: Option<String> = conn
+        .query_row(
+            "SELECT MIN(started_at) FROM session_turns
+             WHERE agent = ?1 AND session = ?2 AND started_at > ?3",
+            params![agent, id, at],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    if let Some(next) = next {
+        conn.execute(
+            "UPDATE session_turns SET ended_at = ?2, end_kind = 'interrupted'
+             WHERE id = ?1 AND ended_at IS NULL",
+            params![turn_id, next],
+        )?;
+        conn.execute(
+            "UPDATE session_turns SET turn = -turn WHERE agent = ?1 AND session = ?2",
+            params![agent, id],
+        )?;
+        conn.execute(
+            "UPDATE session_turns SET turn = (
+               SELECT COUNT(*) FROM session_turns t
+               WHERE t.agent = session_turns.agent AND t.session = session_turns.session
+                 AND (t.started_at < session_turns.started_at
+                      OR (t.started_at = session_turns.started_at AND t.id <= session_turns.id)))
+             WHERE agent = ?1 AND session = ?2",
+            params![agent, id],
+        )?;
+    }
+    Ok(())
+}
+
+/// The turn that ran at `at`: the latest that started by then. With
+/// `continued`, also one that already ended, since work that went on after
+/// its end, such as a subagent's result handed back, belongs to it; without,
+/// only one still open, or ended as interrupted by a later prompt.
+fn turn_at(
+    conn: &Connection,
+    agent: &str,
+    id: &str,
+    at: &str,
+    continued: bool,
+) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT id FROM session_turns
+         WHERE agent = ?1 AND session = ?2 AND started_at < ?3
+           AND (?4 OR ended_at IS NULL OR (end_kind = 'interrupted' AND ended_at >= ?3))
+         ORDER BY started_at DESC, turn DESC LIMIT 1",
+        params![agent, id, at, continued],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
+/// Ends the turn as `end` at `at`, with the agent's reply when the texts are
+/// kept.
+fn close(
+    conn: &Connection,
+    turn_id: i64,
     end: &str,
     at: &str,
     reply: Option<String>,
     keep_texts: bool,
 ) -> rusqlite::Result<()> {
-    let open: Option<i64> = conn
-        .query_row(
-            "SELECT id FROM session_turns
-             WHERE agent = ?1 AND session = ?2 AND turn = ?3 AND ended_at IS NULL",
-            params![agent, id, turn],
-            |r| r.get(0),
-        )
-        .optional()?;
-    let Some(turn_id) = open else {
-        return Ok(());
-    };
     conn.execute(
         "UPDATE session_turns SET ended_at = ?2, end_kind = ?3 WHERE id = ?1",
         params![turn_id, at, end],
     )?;
+    // the reply is the one of the end that closed the turn, none included
     if keep_texts && reply.is_some() {
         conn.execute(
             "INSERT INTO session_turn_texts (turn_id, reply) VALUES (?1, ?2)
              ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply",
             params![turn_id, reply],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE session_turn_texts SET reply = NULL WHERE turn_id = ?1",
+            params![turn_id],
         )?;
     }
     Ok(())

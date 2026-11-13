@@ -25,15 +25,20 @@ CREATE TABLE session_presence (
   -- the agent's process, which tells a stopped agent from a silent one
   pid          INTEGER,
   proc_started TEXT,
-  -- the order of the reports: a report with a lower seq is older, and
-  -- is ignored
-  seq          INTEGER NOT NULL,
+  -- when the agent's hook fired for the report that set the state, and
+  -- when that report arrived. The core takes reports in the order they
+  -- arrive, and uses the first only to tell which of two that arrive
+  -- within 2 seconds of each other is the newer
+  event_at     TEXT NOT NULL,
+  state_at     TEXT NOT NULL,
   state_since  TEXT NOT NULL,
-  -- the turns: the number of the latest, when it began, and the latest
-  -- the person has seen
+  -- the number of the latest turn and when it began, for the timeline
   turn         INTEGER NOT NULL DEFAULT 0,
   turn_started TEXT,
-  seen_turn    INTEGER NOT NULL DEFAULT 0,
+  -- when a turn last ended done or failed, and when the person last saw
+  -- the session: it has finished unseen when the first is later
+  finished_at  TEXT,
+  seen_at      TEXT,
   updated_at   TEXT NOT NULL,
   PRIMARY KEY (agent, session),
   FOREIGN KEY (agent, session) REFERENCES sessions (agent, id) ON DELETE CASCADE
