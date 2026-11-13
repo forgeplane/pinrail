@@ -128,9 +128,11 @@ fn cache_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    // cargo marks the target folder's root with CACHEDIR.TAG
+    // cargo marks the target folder with CACHEDIR.TAG, and the folder of
+    // each --target inside it too: the outermost is the one all share
     out.ancestors()
-        .find(|dir| dir.join("CACHEDIR.TAG").exists())
+        .filter(|dir| dir.join("CACHEDIR.TAG").exists())
+        .last()
         .unwrap_or(&out)
         .join("ghostty")
 }
