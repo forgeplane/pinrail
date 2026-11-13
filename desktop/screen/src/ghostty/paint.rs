@@ -7,6 +7,7 @@
 //! escape sequence the last write left unfinished.
 
 use super::{Terminal, ffi};
+use crate::Screen;
 
 /// What the paint starts with. CAN abandons any sequence the viewer was in
 /// the middle of. A soft reset leaves the mouse, focus, paste,
@@ -31,7 +32,7 @@ impl Terminal {
     /// alternate screen over it when the program uses one, with styles,
     /// cursor, modes and title, but not the palette, so the viewer's theme
     /// applies. History is best effort, as the library prunes it by page.
-    pub fn first_paint(&self, history: usize) -> Vec<u8> {
+    pub(super) fn paint(&self, history: usize) -> Vec<u8> {
         let (cols, rows) = self.size();
         let last = (cols.saturating_sub(1), u32::from(rows).saturating_sub(1));
         let alternate = self.alternate_screen();
@@ -44,7 +45,7 @@ impl Terminal {
             && let Ok(mut primary) = Terminal::restore(&snapshot.bytes, usize::MAX)
         {
             primary.write(b"\x18\x1b[?1049l");
-            out = primary.first_paint(history);
+            out = primary.paint(history);
         }
         let available = self.retained_lines() as u32;
         if history > 0 && available > 0 && !alternate {
@@ -70,8 +71,7 @@ impl Terminal {
             let screen = self.format(ffi::FORMAT_VT, Some(&selection), extras, false);
             out.extend(strip(&screen, &LEFT_OUT));
         }
-        let title = self.title();
-        if !title.is_empty() {
+        if let Some(title) = self.title() {
             out.extend(format!("\x1b]2;{title}\x1b\\").as_bytes());
         }
         if let Some(unfinished) = self.continuation() {

@@ -13,6 +13,9 @@ default = ["ghostty"]
 # libghostty-vt, built by build.rs
 ghostty = []
 
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
+
 [build-dependencies]
 sha2 = "0.10"
 

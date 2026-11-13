@@ -13,16 +13,12 @@ use std::ffi::{CStr, c_void};
 use std::fmt;
 use std::ptr;
 
-/// The most lines of history a terminal keeps.
-pub const MAX_SCROLLBACK_LINES: usize = 100_000;
-/// The bytes of history allowed for every 10,000 lines: about six times
-/// what 10,000 lines of 120 columns take, so that the line limit applies in
-/// normal use and the byte limit only stops a very wide or heavily styled
-/// terminal from growing without bound.
-pub const SCROLLBACK_BYTES_PER_10K_LINES: usize = 64 * 1024 * 1024;
-/// The longest unfinished escape sequence kept, so that a snapshot can be
-/// taken while the parser is inside one.
-pub const CONTINUATION_MAX_BYTES: usize = 64 * 1024;
+use crate::{
+    BinarySnapshot, CONTINUATION_MAX_BYTES, Cell, Color, ColorScheme, Cursor, DisplayFacts,
+    InputModes, MouseFormat, MouseTracking, Options, ProgramState, ProgramStatus, ProgramWait, Rgb,
+    Screen, Signal, Style, TextRange, Underline,
+};
+
 /// Grapheme clustering (DEC private mode 2027), so that emoji with VS16 and
 /// ZWJ sequences take the width the agents' renderers expect.
 const GRAPHEME_CLUSTER: ffi::Mode = ffi::mode(2027, false);
@@ -62,100 +58,9 @@ fn check(call: &'static str, code: ffi::GhosttyResult) -> Result<(), Error> {
     }
 }
 
-/// How a terminal is created.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Options {
-    pub cols: u16,
-    pub rows: u16,
-    /// Lines of history to keep, at most [`MAX_SCROLLBACK_LINES`]. The
-    /// library prunes by page, so it may keep somewhat fewer or more.
-    pub scrollback_lines: usize,
-}
-
-impl Options {
-    /// The byte limit of the history: [`SCROLLBACK_BYTES_PER_10K_LINES`]
-    /// for every 10,000 lines of the line limit.
-    pub fn scrollback_bytes(&self) -> usize {
-        self.lines() * SCROLLBACK_BYTES_PER_10K_LINES / 10_000
-    }
-
-    fn lines(&self) -> usize {
-        self.scrollback_lines.min(MAX_SCROLLBACK_LINES)
-    }
-}
-
 /// Focus reporting (DEC private mode 1004): the program wants `CSI I` and
 /// `CSI O` as the terminal gains and loses focus.
 const FOCUS_EVENT: ffi::Mode = ffi::mode(1004, false);
-
-/// An opaque copy of a terminal, for a viewer built on the same library
-/// build, which `format` names.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BinarySnapshot {
-    /// "ghostty-bin;vt-<version>"
-    pub format: String,
-    pub bytes: Vec<u8>,
-}
-
-/// What the host's view of the terminal tells a program that asks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ColorScheme {
-    Light,
-    Dark,
-}
-
-/// Something the program told its terminal while it was parsed, other than
-/// screen content.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Signal {
-    Title(String),
-    Bell,
-    /// A desktop notification (OSC 9 or OSC 777).
-    Notify {
-        title: Option<String>,
-        body: String,
-    },
-    /// A program status report (OSC 7501).
-    ProgramStatus(ProgramStatus),
-    /// The program turned focus reporting (mode 1004) on or off.
-    FocusReporting(bool),
-}
-
-/// A program status report (OSC 7501), as the Program Status Protocol
-/// defines it. The text is the program's own, decoded, with no control
-/// characters.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProgramStatus {
-    pub state: ProgramState,
-    /// What a blocked program waits for, when it says.
-    pub wait: Option<ProgramWait>,
-    /// How far along the work is, from 0 to 100, when the program says.
-    pub progress: Option<u8>,
-    /// The record it is about; empty for the program itself.
-    pub id: String,
-    pub app: String,
-    pub title: String,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProgramState {
-    Idle,
-    Working,
-    Done,
-    Blocked,
-    Error,
-    /// Removes the record with this id and those beneath it; an empty id
-    /// removes every record.
-    Clear,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProgramWait {
-    Permission,
-    Question,
-    Auth,
-}
 
 /// What the callbacks collect while the library parses, and what they
 /// answer from. It lives on the heap so that its address, which the
@@ -270,7 +175,7 @@ impl Terminal {
             focus_reporting: false,
         };
         terminal.set_callbacks()?;
-        terminal.set_size(ffi::OPT_SCROLLBACK_MAX_LINES, options.lines())?;
+        terminal.set_size(ffi::OPT_SCROLLBACK_MAX_LINES, options.scrollback_lines())?;
         terminal.set_size(ffi::OPT_SCROLLBACK_MAX_BYTES, options.scrollback_bytes())?;
         // On as the reset default, so that a reset by the program keeps it.
         // Setting the default also sets the mode now, so a restored terminal
@@ -374,53 +279,6 @@ impl Terminal {
         self.feed(bytes, &mut replies, &mut signals);
     }
 
-    /// Parses program output into the screen. The answers to the queries
-    /// in it are appended to `replies`, in order, for the program; what it
-    /// tells its terminal otherwise is appended to `signals`.
-    pub fn feed(&mut self, bytes: &[u8], replies: &mut Vec<u8>, signals: &mut Vec<Signal>) {
-        // SAFETY: the pointer and length describe `bytes`, which the library
-        // reads during the call only. The callbacks it makes meanwhile reach
-        // the sink, which nothing else touches during the call.
-        unsafe { ffi::ghostty_terminal_vt_write(self.raw, bytes.as_ptr(), bytes.len()) }
-        replies.append(&mut self.sink.replies);
-        signals.append(&mut self.sink.signals);
-        let focus_reporting = self.mode_set(FOCUS_EVENT);
-        if focus_reporting != self.focus_reporting {
-            self.focus_reporting = focus_reporting;
-            signals.push(Signal::FocusReporting(focus_reporting));
-        }
-    }
-
-    /// The colour scheme the viewer shows, for a program that asks; `None`
-    /// leaves the question unanswered.
-    pub fn set_color_scheme(&mut self, scheme: Option<ColorScheme>) {
-        self.sink.color_scheme = scheme;
-    }
-
-    /// Changes the size in cells, and the cell size in pixels that image
-    /// protocols and size reports use, which stays as it was when `None`.
-    pub fn resize(
-        &mut self,
-        cols: u16,
-        rows: u16,
-        cell_px: Option<(u16, u16)>,
-    ) -> Result<(), Error> {
-        if cols == 0 || rows == 0 {
-            return Err(Error {
-                call: "ghostty_terminal_resize",
-                code: ffi::INVALID_VALUE,
-            });
-        }
-        let (width, height) = match cell_px {
-            Some((w, h)) => (u32::from(w), u32::from(h)),
-            None => self.cell_px(),
-        };
-        // SAFETY: the handle is valid, and the sizes are nonzero.
-        check("ghostty_terminal_resize", unsafe {
-            ffi::ghostty_terminal_resize(self.raw, cols, rows, width, height)
-        })
-    }
-
     /// The cell size in pixels, from the terminal's size in pixels.
     fn cell_px(&self) -> (u32, u32) {
         let (cols, rows) = self.size();
@@ -430,11 +288,6 @@ impl Terminal {
             width / u32::from(cols.max(1)),
             height / u32::from(rows.max(1)),
         )
-    }
-
-    /// The size in cells, as columns and rows.
-    pub fn size(&self) -> (u16, u16) {
-        Self::size_of(self.raw)
     }
 
     fn size_of(raw: ffi::Terminal) -> (u16, u16) {
@@ -447,41 +300,25 @@ impl Terminal {
         (cols, rows)
     }
 
-    /// The title the program set, or an empty string.
-    pub fn title(&self) -> String {
-        let mut title = ffi::GhosttyString {
-            ptr: ptr::null(),
-            len: 0,
+    /// Sets a default colour, or clears it with `None`.
+    fn set_color(&self, option: ffi::TerminalOption, color: Option<Rgb>) {
+        let rgb = color.map(|c| ffi::ColorRgb {
+            r: c.r,
+            g: c.g,
+            b: c.b,
+        });
+        let value = match &rgb {
+            Some(rgb) => (rgb as *const ffi::ColorRgb).cast(),
+            None => ptr::null(),
         };
-        // SAFETY: DATA_TITLE's output type is a GhosttyString, which stays
-        // valid until the terminal next changes; it is copied at once.
-        unsafe { ffi::ghostty_terminal_get(self.raw, ffi::DATA_TITLE, (&raw mut title).cast()) };
-        text(title)
+        // SAFETY: the colour options take a GhosttyColorRgb*, read during the
+        // call, or null to clear the colour.
+        unsafe { ffi::ghostty_terminal_set(self.raw, option, value) };
     }
 
     /// Whether the program shows the alternate screen.
     pub fn alternate_screen(&self) -> bool {
         self.get::<i32>(ffi::DATA_ACTIVE_SCREEN) == ffi::SCREEN_ALTERNATE
-    }
-
-    /// The text on the screen, a line per row, without styles.
-    pub fn screen_text(&self) -> String {
-        let (cols, rows) = self.size();
-        let selection = self.select(ffi::POINT_ACTIVE, (0, 0), (cols - 1, u32::from(rows) - 1));
-        self.plain(selection.as_ref())
-    }
-
-    /// The text of the history above the screen, a line per row.
-    pub fn history_text(&self) -> String {
-        let (cols, _) = self.size();
-        let lines = self.retained_lines() as u32;
-        if lines == 0 {
-            return String::new();
-        }
-        match self.select(ffi::POINT_HISTORY, (0, 0), (cols - 1, lines - 1)) {
-            Some(selection) => self.plain(Some(&selection)),
-            None => String::new(),
-        }
     }
 
     fn plain(&self, selection: Option<&ffi::Selection>) -> String {
@@ -576,28 +413,66 @@ impl Terminal {
         bytes.unwrap_or_default()
     }
 
-    /// libghostty-vt's binary snapshot of the whole terminal: both screens,
-    /// all modes and the whole history, and an unfinished escape sequence.
-    /// Only a viewer built on the same library build reads it.
-    pub fn binary_snapshot(&self) -> Option<BinarySnapshot> {
-        // SAFETY: encode_alloc hands over the encoded bytes.
-        let bytes = alloc(|out, len| unsafe {
-            ffi::ghostty_snapshot_encode_alloc(self.raw, ptr::null(), out, len)
-        })?;
-        Some(BinarySnapshot {
-            format: format!("ghostty-bin;vt-{}", version()),
-            bytes,
-        })
+    /// The cell a grid reference points to.
+    fn cell(&self, at: &ffi::GridRef) -> Cell {
+        let mut raw: ffi::Cell = 0;
+        // SAFETY: `at` came from grid_ref and the terminal has not changed
+        // since; `raw` is a valid place for the cell.
+        if unsafe { ffi::ghostty_grid_ref_cell(at, &mut raw) } != ffi::SUCCESS {
+            return Cell::default();
+        }
+        let get = |data: i32, out: *mut c_void| {
+            // SAFETY: each data item read here has the output type `out`
+            // points to.
+            unsafe { ffi::ghostty_cell_get(raw, data, out) }
+        };
+        let (mut wide, mut content, mut linked) = (0i32, 0i32, false);
+        get(ffi::CELL_DATA_WIDE, (&raw mut wide).cast());
+        get(ffi::CELL_DATA_CONTENT_TAG, (&raw mut content).cast());
+        get(ffi::CELL_DATA_HAS_HYPERLINK, (&raw mut linked).cast());
+        let mut style = convert_style(&self.raw_style(at));
+        // a blank cell may hold only a background colour, outside any style
+        match content {
+            ffi::CELL_CONTENT_BG_COLOR_PALETTE => {
+                let mut index = 0u8;
+                get(ffi::CELL_DATA_COLOR_PALETTE, (&raw mut index).cast());
+                style.background = Color::Palette(index);
+            }
+            ffi::CELL_CONTENT_BG_COLOR_RGB => {
+                let mut rgb = ffi::ColorRgb::default();
+                get(ffi::CELL_DATA_COLOR_RGB, (&raw mut rgb).cast());
+                style.background = Color::Rgb(Rgb {
+                    r: rgb.r,
+                    g: rgb.g,
+                    b: rgb.b,
+                });
+            }
+            _ => {}
+        }
+        Cell {
+            text: graphemes(at),
+            width: match wide {
+                ffi::CELL_WIDE => 2,
+                ffi::CELL_SPACER_TAIL => 0,
+                _ => 1,
+            },
+            style,
+            hyperlink: linked.then(|| hyperlink(at)).flatten(),
+        }
     }
 
-    /// The cursor's column and row on the screen, from zero.
-    pub fn cursor(&self) -> (u16, u16) {
-        (self.get(ffi::DATA_CURSOR_X), self.get(ffi::DATA_CURSOR_Y))
-    }
-
-    /// The lines of history the terminal holds now.
-    pub fn retained_lines(&self) -> usize {
-        self.get(ffi::DATA_SCROLLBACK_ROWS)
+    fn raw_style(&self, at: &ffi::GridRef) -> ffi::Style {
+        let mut style = ffi::Style {
+            fg_color: NO_COLOR,
+            bg_color: NO_COLOR,
+            underline_color: NO_COLOR,
+            flags: 0,
+            reserved: 0,
+        };
+        // SAFETY: `at` is valid as in `cell`; `style` is a valid place for
+        // the style, left as it is if the call fails.
+        unsafe { ffi::ghostty_grid_ref_style(at, &mut style) };
+        style
     }
 
     /// Whether a mode is set, by its number, for an ANSI mode or a DEC
@@ -614,6 +489,15 @@ impl Terminal {
         config.value
     }
 
+    /// The first of `modes` that is set, by DEC private mode number.
+    fn first_set<T: Copy + Default>(&self, modes: &[(u16, T)]) -> T {
+        modes
+            .iter()
+            .find(|(number, _)| self.mode(*number, false))
+            .map(|(_, value)| *value)
+            .unwrap_or_default()
+    }
+
     /// The bytes of an escape sequence or UTF-8 character that the last
     /// write left unfinished, or `None` when there is none to replay.
     pub fn continuation(&self) -> Option<Vec<u8>> {
@@ -622,6 +506,221 @@ impl Terminal {
             ffi::ghostty_terminal_continuation_alloc(self.raw, ptr::null(), out, len)
         })
     }
+}
+
+impl Screen for Terminal {
+    fn feed(&mut self, bytes: &[u8], replies: &mut Vec<u8>, signals: &mut Vec<Signal>) {
+        // SAFETY: the pointer and length describe `bytes`, which the library
+        // reads during the call only. The callbacks it makes meanwhile reach
+        // the sink, which nothing else touches during the call.
+        unsafe { ffi::ghostty_terminal_vt_write(self.raw, bytes.as_ptr(), bytes.len()) }
+        replies.append(&mut self.sink.replies);
+        signals.append(&mut self.sink.signals);
+        let focus_reporting = self.mode_set(FOCUS_EVENT);
+        if focus_reporting != self.focus_reporting {
+            self.focus_reporting = focus_reporting;
+            signals.push(Signal::FocusReporting(focus_reporting));
+        }
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16, cell_px: Option<(u16, u16)>) {
+        if cols == 0 || rows == 0 {
+            return;
+        }
+        let (width, height) = match cell_px {
+            Some((w, h)) => (u32::from(w), u32::from(h)),
+            None => self.cell_px(),
+        };
+        // SAFETY: the handle is valid, and the sizes are nonzero. The call
+        // fails only when out of memory, which leaves the old size.
+        unsafe { ffi::ghostty_terminal_resize(self.raw, cols, rows, width, height) };
+    }
+
+    fn set_facts(&mut self, facts: &DisplayFacts) {
+        self.sink.color_scheme = facts.color_scheme;
+        self.set_color(ffi::OPT_COLOR_FOREGROUND, facts.foreground);
+        self.set_color(ffi::OPT_COLOR_BACKGROUND, facts.background);
+        self.set_color(ffi::OPT_COLOR_CURSOR, facts.cursor);
+    }
+
+    fn first_paint(&self, history_lines: usize) -> Vec<u8> {
+        self.paint(history_lines)
+    }
+
+    /// libghostty-vt's binary snapshot of the whole terminal: both screens,
+    /// all modes and the whole history, and an unfinished escape sequence.
+    fn binary_snapshot(&self) -> Option<BinarySnapshot> {
+        // SAFETY: encode_alloc hands over the encoded bytes.
+        let bytes = alloc(|out, len| unsafe {
+            ffi::ghostty_snapshot_encode_alloc(self.raw, ptr::null(), out, len)
+        })?;
+        Some(BinarySnapshot {
+            format: format!("ghostty-bin;vt-{}", version()),
+            bytes,
+        })
+    }
+
+    fn text(&self, range: TextRange) -> String {
+        let (cols, rows) = self.size();
+        let selection = match range {
+            TextRange::Screen => {
+                self.select(ffi::POINT_ACTIVE, (0, 0), (cols - 1, u32::from(rows) - 1))
+            }
+            TextRange::History => match self.retained_lines() as u32 {
+                0 => None,
+                lines => self.select(ffi::POINT_HISTORY, (0, 0), (cols - 1, lines - 1)),
+            },
+        };
+        match selection {
+            Some(selection) => self.plain(Some(&selection)),
+            None => String::new(),
+        }
+    }
+
+    fn modes(&self) -> InputModes {
+        InputModes {
+            application_cursor: self.mode(1, false),
+            application_keypad: self.mode(66, false),
+            bracketed_paste: self.mode(2004, false),
+            focus_reporting: self.mode_set(FOCUS_EVENT),
+            mouse_tracking: self.first_set(&[
+                (1003, MouseTracking::Any),
+                (1002, MouseTracking::Button),
+                (1000, MouseTracking::Normal),
+                (9, MouseTracking::X10),
+            ]),
+            mouse_format: self.first_set(&[
+                (1016, MouseFormat::SgrPixels),
+                (1006, MouseFormat::Sgr),
+                (1015, MouseFormat::Urxvt),
+                (1005, MouseFormat::Utf8),
+            ]),
+            kitty_keyboard: self.get(ffi::DATA_KITTY_KEYBOARD_FLAGS),
+            alternate_screen: self.alternate_screen(),
+        }
+    }
+
+    fn title(&self) -> Option<String> {
+        let mut title = ffi::GhosttyString {
+            ptr: ptr::null(),
+            len: 0,
+        };
+        // SAFETY: DATA_TITLE's output type is a GhosttyString, which stays
+        // valid until the terminal next changes; it is copied at once.
+        unsafe { ffi::ghostty_terminal_get(self.raw, ffi::DATA_TITLE, (&raw mut title).cast()) };
+        Some(text(title)).filter(|title| !title.is_empty())
+    }
+
+    fn retained_lines(&self) -> usize {
+        self.get(ffi::DATA_SCROLLBACK_ROWS)
+    }
+
+    fn size(&self) -> (u16, u16) {
+        Self::size_of(self.raw)
+    }
+
+    fn cursor(&self) -> Cursor {
+        Cursor {
+            x: self.get(ffi::DATA_CURSOR_X),
+            y: self.get(ffi::DATA_CURSOR_Y),
+            visible: self.get(ffi::DATA_CURSOR_VISIBLE),
+        }
+    }
+
+    fn row(&self, y: u16) -> Vec<Cell> {
+        let (cols, _) = self.size();
+        (0..cols)
+            .map_while(|x| self.grid_ref(ffi::POINT_ACTIVE, x, u32::from(y)))
+            .map(|at| self.cell(&at))
+            .collect()
+    }
+}
+
+const NO_COLOR: ffi::StyleColor = ffi::StyleColor {
+    tag: 0,
+    value: ffi::StyleColorValue { palette: 0 },
+};
+
+fn convert_color(color: &ffi::StyleColor) -> Color {
+    // SAFETY: the tag says which field of the union the library wrote.
+    unsafe {
+        match color.tag {
+            ffi::STYLE_COLOR_PALETTE => Color::Palette(color.value.palette),
+            ffi::STYLE_COLOR_RGB => {
+                let rgb = color.value.rgb;
+                Color::Rgb(Rgb {
+                    r: rgb.r,
+                    g: rgb.g,
+                    b: rgb.b,
+                })
+            }
+            _ => Color::Default,
+        }
+    }
+}
+
+fn convert_style(style: &ffi::Style) -> Style {
+    let flag = |bit: u16| style.flags & bit != 0;
+    Style {
+        foreground: convert_color(&style.fg_color),
+        background: convert_color(&style.bg_color),
+        underline_color: convert_color(&style.underline_color),
+        underline: match (style.flags & ffi::STYLE_UNDERLINE_MASK) >> ffi::STYLE_UNDERLINE_SHIFT {
+            0 => Underline::None,
+            2 => Underline::Double,
+            3 => Underline::Curly,
+            4 => Underline::Dotted,
+            5 => Underline::Dashed,
+            _ => Underline::Single,
+        },
+        bold: flag(ffi::STYLE_BOLD),
+        italic: flag(ffi::STYLE_ITALIC),
+        faint: flag(ffi::STYLE_FAINT),
+        blink: flag(ffi::STYLE_BLINK),
+        inverse: flag(ffi::STYLE_INVERSE),
+        invisible: flag(ffi::STYLE_INVISIBLE),
+        strikethrough: flag(ffi::STYLE_STRIKETHROUGH),
+        overline: flag(ffi::STYLE_OVERLINE),
+    }
+}
+
+/// The grapheme cluster of the cell a grid reference points to.
+fn graphemes(at: &ffi::GridRef) -> String {
+    let mut buf = vec![0u32; 8];
+    let mut written = 0usize;
+    // SAFETY: `buf` holds `buf.len()` codepoints, and `written` is a valid
+    // place for the count; a buffer too small is left unwritten.
+    let mut result =
+        unsafe { ffi::ghostty_grid_ref_graphemes(at, buf.as_mut_ptr(), buf.len(), &mut written) };
+    if result == ffi::OUT_OF_SPACE {
+        buf.resize(written, 0);
+        // SAFETY: as above, with a buffer of the size the library asked for.
+        result = unsafe {
+            ffi::ghostty_grid_ref_graphemes(at, buf.as_mut_ptr(), buf.len(), &mut written)
+        };
+    }
+    if result != ffi::SUCCESS {
+        return String::new();
+    }
+    buf[..written.min(buf.len())]
+        .iter()
+        .filter_map(|&c| char::from_u32(c))
+        .collect()
+}
+
+/// The hyperlink URI of the cell a grid reference points to.
+fn hyperlink(at: &ffi::GridRef) -> Option<String> {
+    let mut len = 0usize;
+    // SAFETY: a null buffer of length 0 asks for the size only.
+    let result = unsafe { ffi::ghostty_grid_ref_hyperlink_uri(at, ptr::null_mut(), 0, &mut len) };
+    if result != ffi::OUT_OF_SPACE {
+        return None;
+    }
+    let mut buf = vec![0u8; len];
+    // SAFETY: `buf` holds the `len` bytes the library asked for.
+    let result =
+        unsafe { ffi::ghostty_grid_ref_hyperlink_uri(at, buf.as_mut_ptr(), len, &mut len) };
+    (result == ffi::SUCCESS).then(|| String::from_utf8_lossy(&buf[..len]).into_owned())
 }
 
 impl Drop for Terminal {

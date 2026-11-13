@@ -13,6 +13,7 @@ pub type GhosttyResult = i32;
 pub const SUCCESS: GhosttyResult = 0;
 pub const OUT_OF_MEMORY: GhosttyResult = -1;
 pub const INVALID_VALUE: GhosttyResult = -2;
+pub const OUT_OF_SPACE: GhosttyResult = -3;
 
 /// `GhosttyTerminalOption` (terminal.h).
 pub type TerminalOption = i32;
@@ -23,6 +24,9 @@ pub const OPT_XTVERSION: TerminalOption = 5;
 pub const OPT_TITLE_CHANGED: TerminalOption = 6;
 pub const OPT_SIZE: TerminalOption = 7;
 pub const OPT_COLOR_SCHEME: TerminalOption = 8;
+pub const OPT_COLOR_FOREGROUND: TerminalOption = 12;
+pub const OPT_COLOR_BACKGROUND: TerminalOption = 13;
+pub const OPT_COLOR_CURSOR: TerminalOption = 14;
 pub const OPT_DESKTOP_NOTIFICATION: TerminalOption = 30;
 pub const OPT_PROGRAM_STATUS: TerminalOption = 47;
 pub const OPT_SCROLLBACK_MAX_BYTES: TerminalOption = 28;
@@ -37,6 +41,8 @@ pub const DATA_COLS: TerminalData = 1;
 pub const DATA_ROWS: TerminalData = 2;
 pub const DATA_CURSOR_X: TerminalData = 3;
 pub const DATA_CURSOR_Y: TerminalData = 4;
+pub const DATA_CURSOR_VISIBLE: TerminalData = 7;
+pub const DATA_KITTY_KEYBOARD_FLAGS: TerminalData = 8;
 pub const DATA_SCROLLBACK_ROWS: TerminalData = 15;
 pub const DATA_WIDTH_PX: TerminalData = 16;
 pub const DATA_HEIGHT_PX: TerminalData = 17;
@@ -129,6 +135,79 @@ pub struct Selection {
     pub start: GridRef,
     pub end: GridRef,
     pub rectangle: bool,
+}
+
+/// `GhosttyCell` (screen.h): a cell's packed value, read with
+/// `ghostty_cell_get`.
+pub type Cell = u64;
+
+/// `GhosttyCellData` (screen.h).
+pub const CELL_DATA_CONTENT_TAG: i32 = 2;
+pub const CELL_DATA_WIDE: i32 = 3;
+pub const CELL_DATA_HAS_HYPERLINK: i32 = 7;
+pub const CELL_DATA_COLOR_PALETTE: i32 = 10;
+pub const CELL_DATA_COLOR_RGB: i32 = 11;
+
+/// `GhosttyCellContentTag` (screen.h): a cell holding only a background
+/// colour.
+pub const CELL_CONTENT_BG_COLOR_PALETTE: i32 = 2;
+pub const CELL_CONTENT_BG_COLOR_RGB: i32 = 3;
+
+/// `GhosttyCellWide` (screen.h).
+pub const CELL_WIDE: i32 = 1;
+pub const CELL_SPACER_TAIL: i32 = 2;
+
+/// `GhosttyColorRgb` (color.h).
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct ColorRgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+/// `GhosttyStyleColorTag` (style.h).
+pub const STYLE_COLOR_PALETTE: u8 = 1;
+pub const STYLE_COLOR_RGB: u8 = 2;
+
+/// `GhosttyStyleColorValue` (style.h).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union StyleColorValue {
+    pub palette: u8,
+    pub rgb: ColorRgb,
+}
+
+/// `GhosttyStyleColor` (style.h).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct StyleColor {
+    pub tag: u8,
+    pub value: StyleColorValue,
+}
+
+/// `GhosttyStyleFlags` (style.h): one bit per attribute, and the underline
+/// style (`GhosttySgrUnderline`) in bits 8 to 10.
+pub const STYLE_BOLD: u16 = 1 << 0;
+pub const STYLE_ITALIC: u16 = 1 << 1;
+pub const STYLE_FAINT: u16 = 1 << 2;
+pub const STYLE_BLINK: u16 = 1 << 3;
+pub const STYLE_INVERSE: u16 = 1 << 4;
+pub const STYLE_INVISIBLE: u16 = 1 << 5;
+pub const STYLE_STRIKETHROUGH: u16 = 1 << 6;
+pub const STYLE_OVERLINE: u16 = 1 << 7;
+pub const STYLE_UNDERLINE_SHIFT: u16 = 8;
+pub const STYLE_UNDERLINE_MASK: u16 = 0x7 << STYLE_UNDERLINE_SHIFT;
+
+/// `GhosttyStyle` (style.h).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Style {
+    pub fg_color: StyleColor,
+    pub bg_color: StyleColor,
+    pub underline_color: StyleColor,
+    pub flags: u16,
+    pub reserved: u16,
 }
 
 /// `GhosttyString` (types.h): borrowed bytes, not NUL-terminated.
@@ -233,6 +312,22 @@ unsafe extern "C" {
         point: Point,
         out_ref: *mut GridRef,
     ) -> GhosttyResult;
+    pub fn ghostty_grid_ref_cell(grid_ref: *const GridRef, out_cell: *mut Cell) -> GhosttyResult;
+    pub fn ghostty_grid_ref_graphemes(
+        grid_ref: *const GridRef,
+        buf: *mut u32,
+        buf_len: usize,
+        out_written: *mut usize,
+    ) -> GhosttyResult;
+    pub fn ghostty_grid_ref_hyperlink_uri(
+        grid_ref: *const GridRef,
+        buf: *mut u8,
+        buf_len: usize,
+        out_written: *mut usize,
+    ) -> GhosttyResult;
+    pub fn ghostty_grid_ref_style(grid_ref: *const GridRef, out_style: *mut Style)
+    -> GhosttyResult;
+    pub fn ghostty_cell_get(cell: Cell, data: i32, out: *mut c_void) -> GhosttyResult;
     pub fn ghostty_formatter_terminal_new(
         allocator: *const c_void,
         formatter: *mut Formatter,
@@ -283,4 +378,5 @@ const _: () = {
     assert!(std::mem::size_of::<SizeReportSize>() == 12);
     assert!(std::mem::size_of::<GridRef>() == 16);
     assert!(std::mem::size_of::<Point>() == 24);
+    assert!(std::mem::size_of::<Style>() == 16);
 };
