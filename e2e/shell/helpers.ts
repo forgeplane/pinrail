@@ -91,6 +91,20 @@ export async function clearInbox(request: APIRequestContext) {
     const response = await request.post(`${core}/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
     expect(response.status(), `discarding ${r.id}: ${await response.text()}`).toBe(200);
   }
+  // and the inbox's Agents section: finished sessions are seen, and agents
+  // waiting in their terminal end
+  const sessions = (await (await request.get(`${core}/api/v1/sessions?attention=needs_you,finished&limit=500`)).json())
+    .sessions as { agent: string; id: string; attention: string; presence: { state: string } | null }[];
+  for (const s of sessions) {
+    const at = `${core}/api/v1/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
+    if (s.attention === "finished") {
+      const response = await request.put(`${at}/seen`);
+      expect(response.status(), `marking ${s.id} seen`).toBe(204);
+    } else if (s.presence?.state === "needs_input") {
+      const response = await request.post(`${at}/reports`, { data: { event: "ended" } });
+      expect(response.status(), `ending ${s.id}`).toBe(204);
+    }
+  }
 }
 
 /** The settings dialog. */

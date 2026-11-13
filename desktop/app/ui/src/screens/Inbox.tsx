@@ -22,6 +22,14 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useLatest } from "../lib/useLatest";
+import { InboxAgents, useInboxAgents } from "../components/InboxAgents";
+import { sessionPath } from "../components/Thread";
+import type { AgentRow } from "../lib/inboxAgents";
+import { api } from "../api/client";
+
+/** A row J and K walk: an agent's session in the Agents section, or a review. */
+type Entry = { agent: AgentRow } | { review: Review };
+const entryKey = (e: Entry) => ("agent" in e ? `session:${e.agent.session.agent}/${e.agent.session.id}` : e.review.id);
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -183,19 +191,32 @@ function Waiting() {
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
 
+  // the Agents section's rows, walked before the reviews
+  const agents = useInboxAgents();
+  const entries = useMemo<Entry[]>(
+    () => [...agents.rows.map((agent) => ({ agent })), ...shown.map((review) => ({ review }))],
+    [agents.rows, shown],
+  );
+  const walked = useMemo<Entry[]>(() => ordered.map((review) => ({ review })), [ordered]);
+  const offset = agents.rows.length;
+
   // J, K and Enter, and walking the side panel through every page of the
-  // list, as in the other lists
-  const { focused, setFocused, hover } = useListKeys({
-    items: shown,
-    walkItems: ordered,
+  // list, as in the other lists; the panel walks the reviews alone
+  const { focused, setFocused, hover } = useListKeys<Entry>({
+    items: entries,
+    walkItems: walked,
     // the waiting reviews, which ⌥↓ and ⌥↑ go to everywhere
     altWalk: true,
-    keyOf: (r) => r.id,
+    keyOf: entryKey,
     openKey: openId,
-    onOpen: (r) => navigate(hrefFor(r.id)),
-    onWalk: (r) => openInPanel(r.id, { replace: true }),
-    rowOf: (i) => document.querySelector<HTMLElement>(`[data-testid="review-row"][data-row="${i}"]`),
+    onOpen: (e) => navigate("agent" in e ? sessionPath(e.agent.session) : hrefFor(e.review.id)),
+    onWalk: (e) => {
+      if ("review" in e) openInPanel(e.review.id, { replace: true });
+    },
+    rowOf: (i) => document.querySelector<HTMLElement>(`.inbox-side [data-row="${i}"]`),
   });
+  const focusedEntry = entries[focused];
+  const focusedReview = focusedEntry && "review" in focusedEntry ? focusedEntry.review : null;
   useSlashSearch(search);
 
   useWindowKey((event) => {
@@ -207,10 +228,19 @@ function Waiting() {
     if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
       // the key must not land in the reason field that opens
       event.preventDefault();
-      if (!discarding && shown[focused]) setDiscarding(shown[focused]);
+      if (!discarding && focusedReview) setDiscarding(focusedReview);
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
+    // E marks a finished session in the Agents section seen
+    if ((event.key === "e" || event.key === "E") && !event.shiftKey && !isTyping(event.target)) {
+      const row = focusedEntry && "agent" in focusedEntry ? focusedEntry.agent : null;
+      if (row?.session.attention === "finished") {
+        event.preventDefault();
+        void api.setSeen(row.session.agent, row.session.id, true).catch(() => {});
+      }
+      return;
+    }
     const el = event.target as HTMLElement | null;
     if (isTyping(el) && event.key === "Escape") {
       (el as HTMLElement).blur();
@@ -284,7 +314,8 @@ function Waiting() {
             some to see the rest.
           </p>
         ) : null}
-        {groups.length === 0 ? (
+        <InboxAgents rows={agents.rows} more={agents.more} now={agents.now} focused={focused} hover={hover} />
+        {groups.length === 0 && agents.rows.length > 0 ? null : groups.length === 0 ? (
           <EmptyState
             title={filtered ? "No matching reviews" : "All caught up"}
             icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <CheckCheck size={28} strokeWidth={1.5} />}
@@ -312,7 +343,7 @@ function Waiting() {
               : "New reviews appear here when an agent needs you."}
           </EmptyState>
         ) : layout === "list" ? (
-          <div className="inbox-list">{shown.map((review, i) => row(review, i))}</div>
+          <div className="inbox-list">{shown.map((review, i) => row(review, offset + i))}</div>
         ) : (
           <div className="inbox-groups">
             {groups.map(([key, items], g) => (
@@ -320,7 +351,7 @@ function Waiting() {
                 <summary data-testid="inbox-group-heading">
                   <GroupHeading groupKey={key} project={items[0].project} count={groupCounts.get(key) ?? 0} />
                 </summary>
-                {items.map((review, i) => row(review, starts[g] + i))}
+                {items.map((review, i) => row(review, offset + starts[g] + i))}
               </details>
             ))}
           </div>

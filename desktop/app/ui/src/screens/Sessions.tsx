@@ -63,9 +63,11 @@ export function Sessions() {
   const scope = scopeOf(params);
   // with the archived sessions among the others
   const withArchived = params.get("archived") === "1";
-  // only the sessions that need the person
-  const needsYou = params.get("attention") === "needs_you";
-  const filtered = !!(query || repo || project || needsYou);
+  // only the sessions that ask this of the person, such as needs_you, or
+  // needs_you,finished from the inbox's Agents section
+  const attention = params.get("attention") ?? "";
+  const needsYou = attention === "needs_you";
+  const filtered = !!(query || repo || project || attention);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
 
@@ -82,7 +84,7 @@ export function Sessions() {
           repo,
           project,
           include_archived: withArchived ? "true" : undefined,
-          attention: needsYou ? "needs_you" : undefined,
+          attention: attention || undefined,
           limit: String(size),
           offset: String((page - 1) * size),
         })
@@ -90,7 +92,7 @@ export function Sessions() {
           setNow(Date.now());
           return d;
         }),
-    [debounced, repo, project, withArchived, needsYou, page, size, sessionNotices],
+    [debounced, repo, project, withArchived, attention, page, size, sessionNotices],
   );
 
   // grouped by project or by repository within the page shown, or one

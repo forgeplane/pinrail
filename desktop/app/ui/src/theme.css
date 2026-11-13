@@ -3447,6 +3447,31 @@ body.is-resizing iframe {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* the inbox's Agents section, above the reviews */
+.inbox-agents {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+.inbox-agents-title {
+  margin: 4px 10px 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.agent-row {
+  --mark-ring: var(--bg);
+}
+.agent-row.is-focused {
+  --mark-ring: var(--bg-hover);
+}
+.inbox-agents-more {
+  align-self: flex-start;
+  margin: 4px 10px 0;
+  font-size: var(--text-sm);
+}
 /* what the session asks of the person, beside its title: the same mark as
    the sidebar's, and its name with what explains it */
 .presence-chip {
