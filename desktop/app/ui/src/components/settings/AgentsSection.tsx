@@ -21,7 +21,11 @@ export type AgentStatus = {
   state: "absent" | "connected" | "outdated" | "theirs";
   /** the other agents whose skill folders this one also reads */
   also_reads?: string[];
+  /** Pinrail's status hooks, for an agent whose hooks Pinrail installs */
+  hooks?: { file: string; state: HookState } | null;
 };
+
+export type HookState = "absent" | "current" | "outdated" | "modified" | "unreadable";
 
 const invoke = <T,>(command: string, args?: Record<string, unknown>) =>
   import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command, args));
@@ -74,7 +78,67 @@ export function useAgents(open: boolean) {
     }
   }, []);
 
-  return { agents, busy, error, act };
+  const setHooks = useCallback(async (id: string, on: boolean) => {
+    setBusy(id);
+    setError(null);
+    try {
+      setAgents(await invoke<AgentStatus[]>("set_agent_hooks", { id, on }));
+    } catch (e) {
+      setError({ id, message: String(e) });
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
+  return { agents, busy, error, act, setHooks };
+}
+
+/** The Report status switch of an agent, and what its settings file holds. */
+function ReportStatus({
+  agent,
+  busy,
+  setHooks,
+}: {
+  agent: AgentStatus;
+  busy: boolean;
+  setHooks: (id: string, on: boolean) => void;
+}) {
+  const hooks = agent.hooks;
+  if (!hooks) return null;
+  const file = where(hooks.file);
+  const on = hooks.state !== "absent" && hooks.state !== "unreadable";
+  let note: ReactNode = null;
+  if (hooks.state === "outdated" || hooks.state === "modified")
+    note = (
+      <>
+        {hooks.state === "outdated"
+          ? "The hooks were installed by another version of Pinrail."
+          : `One of Pinrail's hooks in ${file} was changed by hand.`}{" "}
+        <button type="button" className="agent-inline-action" onClick={() => setHooks(agent.id, true)} disabled={busy}>
+          Update
+        </button>
+      </>
+    );
+  else if (hooks.state === "unreadable")
+    note = <>Pinrail cannot read {file}, so it leaves the file as it is. Fix the file to turn this on.</>;
+  return (
+    <div className="agent-status" data-testid={`agent-status-${agent.id}`}>
+      <Toggle
+        label={`Report ${agent.name}'s status`}
+        checked={on}
+        onChange={(value) => setHooks(agent.id, value)}
+        disabled={busy || hooks.state === "unreadable"}
+      />
+      <div className="agent-status-text">
+        <div className="agent-status-label">Report status</div>
+        <div className="agent-note">
+          {note ?? (
+            <>Installs hooks in {agent.name}'s settings so Pinrail can show when it works, waits for you or finishes.</>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** The agent's mark, as the inbox shows it beside a review. */
@@ -92,6 +156,7 @@ function AgentCard({
   busy,
   error,
   act,
+  setHooks,
 }: {
   agent: AgentStatus;
   /** the connected agents whose skill this one reads */
@@ -99,6 +164,7 @@ function AgentCard({
   busy: boolean;
   error: string | null;
   act: (command: "connect_agent" | "disconnect_agent", id: string) => void;
+  setHooks: (id: string, on: boolean) => void;
 }) {
   const skill = where(agent.skill);
   const config = skill.replace(/\/skills\/pinrail$/, "");
@@ -184,6 +250,7 @@ function AgentCard({
         {note ? <div className="agent-note">{note}</div> : null}
       </div>
       {side ? <div className="agent-side">{side}</div> : null}
+      {agent.found ? <ReportStatus agent={agent} busy={busy} setHooks={setHooks} /> : null}
     </div>
   );
 }
@@ -211,7 +278,7 @@ function AnotherAgent() {
 }
 
 export function AgentsSection({ open }: { open: boolean }) {
-  const { agents, busy, error, act } = useAgents(open);
+  const { agents, busy, error, act, setHooks } = useAgents(open);
   const { settings, update } = useSettings();
   const [updating, setUpdating] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
@@ -289,6 +356,7 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
+                        setHooks={setHooks}
                       />
                     ))}
                   </div>
@@ -316,6 +384,7 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
+                        setHooks={setHooks}
                       />
                     ))}
                   </div>

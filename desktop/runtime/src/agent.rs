@@ -29,6 +29,14 @@ pub trait Agent: Send + Sync {
     fn presence_hint(&self, _home: &Path, _env: Env, _pid: u32, _session: &str) -> Option<Hint> {
         None
     }
+
+    /// Where the agent keeps its hooks under `home` (or where `env` moved
+    /// its configuration), and the hooks Pinrail installs there so that it
+    /// can show the agent's status; `None` for an agent whose hooks Pinrail
+    /// does not install.
+    fn hook_plan(&self, _home: &Path, _env: Env) -> Option<crate::integration::HookPlan> {
+        None
+    }
 }
 
 /// What an agent's own file says its session is doing.

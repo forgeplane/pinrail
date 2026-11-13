@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::agent::{Agent, Env, Hint, HintStatus, spec};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
+use crate::integration::{HookEntry, HookPlan};
 use crate::registry::AgentSpec;
 
 pub struct ClaudeCode;
@@ -86,20 +87,52 @@ impl Agent for ClaudeCode {
         })
     }
 
+    /// Claude Code's own `settings.json`, with a hook for each event that
+    /// says what the session does: its start, each prompt, a permission it
+    /// asks or that is refused, a notification that it waits on the person,
+    /// each tool call that ends, and the end of each turn and of the session.
+    fn hook_plan(&self, home: &Path, env: Env) -> Option<HookPlan> {
+        let entry = |event, matcher, hook| HookEntry::new("claude-code", event, matcher, hook);
+        Some(HookPlan {
+            file: config_folder(home, env).join("settings.json"),
+            entries: vec![
+                entry("SessionStart", None, "session-start"),
+                entry("UserPromptSubmit", None, "prompt"),
+                entry("PermissionRequest", Some("*"), "permission"),
+                entry("PermissionDenied", Some("*"), "permission-denied"),
+                entry(
+                    "Notification",
+                    Some("permission_prompt|elicitation_dialog|agent_needs_input"),
+                    "notification",
+                ),
+                entry("PostToolUse", Some("*"), "tool-done"),
+                entry("PostToolUseFailure", Some("*"), "tool-done"),
+                entry("Stop", None, "stop"),
+                entry("StopFailure", None, "stop-failure"),
+                entry("SessionEnd", None, "session-end"),
+            ],
+        })
+    }
+
     /// Claude Code keeps a file per running process, `sessions/<pid>.json`
     /// in its configuration folder, with the session it holds and whether
     /// it is busy, idle or waiting. It changes within seconds of an
     /// interrupt, which runs no hook. The file is undocumented, so anything
     /// unexpected gives no hint.
     fn presence_hint(&self, home: &Path, env: Env, pid: u32, session: &str) -> Option<Hint> {
-        let folder = env("CLAUDE_CONFIG_DIR")
-            .filter(|d| !d.is_empty())
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| home.join(".claude"));
+        let folder = config_folder(home, env);
         let text =
             std::fs::read_to_string(folder.join("sessions").join(format!("{pid}.json"))).ok()?;
         status_hint(&serde_json::from_str(&text).ok()?, session)
     }
+}
+
+/// Claude Code's configuration folder: `CLAUDE_CONFIG_DIR`, or `~/.claude`.
+fn config_folder(home: &Path, env: Env) -> std::path::PathBuf {
+    env("CLAUDE_CONFIG_DIR")
+        .filter(|d| !d.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| home.join(".claude"))
 }
 
 /// The hint in a status file, if it is about `session`.

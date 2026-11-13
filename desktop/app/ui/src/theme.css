@@ -5093,6 +5093,34 @@ body.is-resizing iframe {
   gap: 4px;
   color: var(--ok);
 }
+.agent-card:has(.agent-status) {
+  flex-wrap: wrap;
+}
+.agent-status {
+  flex-basis: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-left: 42px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.agent-status-text {
+  min-width: 0;
+}
+.agent-status-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+.agent-inline-action {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
 .agent-side {
   flex: none;
   display: inline-flex;

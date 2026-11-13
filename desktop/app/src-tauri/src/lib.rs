@@ -350,6 +350,24 @@ async fn disconnect_agent(
     .map_err(|e| e.to_string())?
 }
 
+/// Installs or removes Pinrail's status hooks for an agent, then reports as
+/// `agents_status`.
+#[tauri::command]
+async fn set_agent_hooks(
+    native: State<'_, Native>,
+    id: String,
+    on: bool,
+) -> Result<Vec<agent_skills::AgentStatus>, String> {
+    let state = native.state.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = home()?;
+        agent_skills::set_hooks(&home, &id, on)?;
+        Ok(agent_skills::status(&home, &current_skill(&state)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn cli_status() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -765,6 +783,7 @@ pub fn run() {
             agent_skill,
             connect_agent,
             disconnect_agent,
+            set_agent_hooks,
             open_notices,
             save_attachment,
             save_note_attachment,

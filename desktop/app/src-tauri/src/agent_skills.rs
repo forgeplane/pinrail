@@ -163,6 +163,17 @@ pub struct AgentStatus {
     pub state: State,
     /// the other agents whose skill folders this one also reads
     pub also_reads: Vec<&'static str>,
+    /// Pinrail's status hooks in the agent's settings, for an agent whose
+    /// hooks Pinrail installs
+    pub hooks: Option<Hooks>,
+}
+
+/// Pinrail's status hooks for one agent: the file they go in, and what it
+/// holds of them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Hooks {
+    pub file: String,
+    pub state: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -269,8 +280,33 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
                 .filter_map(|id| pinrail_runtime::find(id))
                 .map(|a| a.label)
                 .collect(),
+            hooks: hook_plan(home, agent.id).map(|plan| Hooks {
+                file: plan.file.display().to_string(),
+                state: pinrail_runtime::integration::file_state(&plan).as_str(),
+            }),
         })
         .collect()
+}
+
+/// Where an agent keeps its hooks and the hooks Pinrail installs there, as
+/// this computer's environment places them.
+fn hook_plan(home: &Path, id: &str) -> Option<pinrail_runtime::integration::HookPlan> {
+    pinrail_runtime::adapter(id)?.hook_plan(home, &|key| std::env::var(key).ok())
+}
+
+/// Installs Pinrail's status hooks in an installed agent's settings, or
+/// removes them. Only Pinrail's entries change.
+pub fn set_hooks(home: &Path, id: &str, on: bool) -> Result<(), String> {
+    let (agent, folders) = find(id)?;
+    let plan = hook_plan(home, id)
+        .ok_or_else(|| format!("Pinrail cannot report the status of {} yet", agent.label))?;
+    if on && !home.join(folders.config).is_dir() {
+        return Err(format!(
+            "{} is not installed: ~/{} is not there",
+            agent.label, folders.config
+        ));
+    }
+    pinrail_runtime::integration::apply(&plan, on).map(|_| ())
 }
 
 fn find(id: &str) -> Result<Installable, String> {
