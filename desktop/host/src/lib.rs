@@ -12,6 +12,7 @@ pub mod frame;
 pub mod launch;
 pub mod log;
 pub mod paths;
+pub mod probe;
 pub mod pty;
 pub mod records;
 pub mod registration;

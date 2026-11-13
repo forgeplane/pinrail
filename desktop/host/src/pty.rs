@@ -297,3 +297,28 @@ pub fn wait_writable(master: &impl AsRawFd) -> io::Result<()> {
         return Ok(());
     }
 }
+
+/// Waits up to `within` until `fd` can be read; `false` when the time ran
+/// out first.
+pub fn readable_within(fd: &impl AsRawFd, within: std::time::Duration) -> io::Result<bool> {
+    let mut entry = libc::pollfd {
+        fd: fd.as_raw_fd(),
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    let millis = within.as_millis().min(i32::MAX as u128) as i32;
+    // SAFETY: `entry` is a valid pollfd for the call.
+    let result = unsafe { libc::poll(&mut entry, 1, millis) };
+    match result {
+        -1 => {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                Ok(false)
+            } else {
+                Err(error)
+            }
+        }
+        0 => Ok(false),
+        _ => Ok(true),
+    }
+}

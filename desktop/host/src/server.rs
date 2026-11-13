@@ -21,6 +21,7 @@ use crate::events::Events;
 use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
 use crate::log::Log;
 use crate::paths::Paths;
+use crate::probe::Probe;
 use crate::pty::{self, SpawnError};
 use crate::records::Records;
 use crate::registration::Registration;
@@ -133,6 +134,7 @@ struct Shared {
     stop: Notify,
     terminals: Mutex<BTreeMap<String, Terminal>>,
     context: terminal::Context,
+    probe: Probe,
 }
 
 async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> io::Result<String> {
@@ -150,6 +152,7 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
         idle_since: Mutex::new(Some(Instant::now())),
         stop: Notify::new(),
         terminals: Mutex::new(BTreeMap::new()),
+        probe: Probe::default(),
         context: terminal::Context {
             events: Arc::new(Events::default()),
             records: Arc::new(Records::new(paths.host_dir.join("terminals.json"))),
@@ -360,7 +363,29 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             false,
         ),
         "terminal.stop" => (Some(reply(id, stop(params(&message), shared))), false),
-        "terminal.spawn" => (Some(reply(id, spawn(params(&message), shared))), false),
+        "terminal.spawn" => (
+            Some(reply(
+                id,
+                tokio::task::block_in_place(|| spawn(params(&message), shared)),
+            )),
+            false,
+        ),
+        "env.probe" => {
+            let refresh = params(&message)
+                .get("refresh")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let outcome = tokio::task::block_in_place(|| shared.probe.get(refresh));
+            let mut answer = json!({
+                "ok": outcome.failure.is_none(),
+                "path_entries": outcome.path_entries(),
+                "elapsed_ms": outcome.elapsed.as_millis() as u64,
+            });
+            if let Some(reason) = outcome.failure {
+                answer["reason"] = json!(reason);
+            }
+            (Some(result(id, answer)), false)
+        }
         "terminal.list" => {
             let list: Vec<Value> = shared
                 .terminals
@@ -497,8 +522,11 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         ));
     }
     let id = format!("t_{}", crate::random_hex(8));
-    // the login environment comes with the probe; until then the host's own
-    let base: Vec<(String, String)> = std::env::vars().collect();
+    // the person's login environment, unless the core asks for the host's
+    let base: Vec<(String, String)> = match params.get("env_base").and_then(Value::as_str) {
+        Some("host") => std::env::vars().collect(),
+        _ => shared.probe.get(false).vars,
+    };
     let env = environment::build(&environment::Request {
         base: &base,
         env: &strings("env"),

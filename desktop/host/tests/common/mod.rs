@@ -12,6 +12,8 @@ pub struct Folders {
     _root: tempfile::TempDir,
     pub data: PathBuf,
     pub runtime: PathBuf,
+    /// The host's home folder, whose `.profile` the login probe reads.
+    pub home: PathBuf,
 }
 
 pub fn folders() -> Folders {
@@ -23,7 +25,10 @@ pub fn folders() -> Folders {
     let data = root.path().join("data");
     let runtime = root.path().join("run");
     std::fs::create_dir(&runtime).unwrap();
+    let home = root.path().join("home");
+    std::fs::create_dir(&home).unwrap();
     Folders {
+        home,
         data,
         runtime,
         _root: root,
@@ -38,6 +43,9 @@ pub fn command(folders: &Folders, args: &[&str]) -> Command {
         .arg(&folders.data)
         .env("TMPDIR", &folders.runtime)
         .env("XDG_RUNTIME_DIR", &folders.runtime)
+        // a login shell of the test's own, not the person's
+        .env("SHELL", "/bin/sh")
+        .env("HOME", &folders.home)
         .stdin(Stdio::null());
     command
 }
