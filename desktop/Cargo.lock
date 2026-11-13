@@ -3460,6 +3460,7 @@ dependencies = [
  "getrandom 0.3.4",
  "libc",
  "pinrail-runtime",
+ "pinrail-screen",
  "serde_json",
  "sha2",
  "tempfile",

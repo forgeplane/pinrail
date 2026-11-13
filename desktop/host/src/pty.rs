@@ -234,3 +234,66 @@ pub fn foreground_group(master: &OwnedFd) -> Option<u32> {
     let pgid = unsafe { libc::tcgetpgrp(master.as_raw_fd()) };
     u32::try_from(pgid).ok().filter(|&p| p > 0)
 }
+
+/// What [`wait_readable`] saw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ready {
+    /// The master has output, or has hung up, so the next read tells.
+    Master,
+    /// The wake descriptor was written: the reader should stop.
+    Wake,
+}
+
+/// Waits until the master can be read or the wake descriptor is written.
+/// Called only when a read would block, so a busy terminal reads without
+/// a poll per read.
+pub fn wait_readable(master: &impl AsRawFd, wake: &impl AsRawFd) -> io::Result<Ready> {
+    let mut fds = [
+        libc::pollfd {
+            fd: wake.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        },
+        libc::pollfd {
+            fd: master.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        },
+    ];
+    loop {
+        // SAFETY: `fds` holds two valid pollfd entries for the call.
+        let result = unsafe { libc::poll(fds.as_mut_ptr(), 2, -1) };
+        if result == -1 {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(error);
+        }
+        if fds[0].revents != 0 {
+            return Ok(Ready::Wake);
+        }
+        return Ok(Ready::Master);
+    }
+}
+
+/// Waits until the master accepts more input.
+pub fn wait_writable(master: &impl AsRawFd) -> io::Result<()> {
+    let mut fd = libc::pollfd {
+        fd: master.as_raw_fd(),
+        events: libc::POLLOUT,
+        revents: 0,
+    };
+    loop {
+        // SAFETY: `fd` is a valid pollfd for the call.
+        let result = unsafe { libc::poll(&mut fd, 1, -1) };
+        if result == -1 {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(error);
+        }
+        return Ok(());
+    }
+}

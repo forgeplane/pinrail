@@ -2,10 +2,11 @@
 //! registration, and answers one controller at a time until it is stopped
 //! or has been idle too long.
 
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -15,14 +16,21 @@ use tokio::net::unix::OwnedWriteHalf;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
+use crate::environment;
 use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
 use crate::log::Log;
 use crate::paths::Paths;
+use crate::pty::{self, SpawnError};
 use crate::registration::Registration;
+use crate::terminal::{self, Terminal};
 
 /// How long a host with no terminals and no controller waits before it
 /// exits.
 pub const IDLE_EXIT: Duration = Duration::from_secs(10 * 60);
+/// The most live terminals a host runs.
+pub const MAX_TERMINALS: usize = 64;
+/// The lines of history each terminal keeps.
+pub const SCROLLBACK_LINES: usize = 10_000;
 /// How long a connection has to send its `hello`.
 const HELLO_WITHIN: Duration = Duration::from_secs(10);
 
@@ -68,7 +76,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
     let _lock = take_lock(&paths)?;
     let boot_id = crate::boot_id().ok_or(Error::NoBootId)?;
     let log = Log::open(&paths.log());
-    let runtime = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let result = runtime.block_on(run(&paths, boot_id, &log, config.idle_exit));
@@ -118,6 +126,7 @@ struct Shared {
     /// Since when the host has had no controller.
     idle_since: Mutex<Option<Instant>>,
     stop: Notify,
+    terminals: Mutex<BTreeMap<String, Terminal>>,
 }
 
 async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> io::Result<String> {
@@ -134,6 +143,7 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
         controller: Mutex::new(None),
         idle_since: Mutex::new(Some(Instant::now())),
         stop: Notify::new(),
+        terminals: Mutex::new(BTreeMap::new()),
     });
     Registration {
         pid: std::process::id(),
@@ -168,7 +178,9 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
             _ = interrupt.recv() => return Ok("SIGINT".to_string()),
             _ = tick.tick() => {
                 let idle = *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner());
-                if idle.is_some_and(|since| since.elapsed() >= idle_exit) {
+                if shared.live_terminals() == 0
+                    && idle.is_some_and(|since| since.elapsed() >= idle_exit)
+                {
                     return Ok("idle".to_string());
                 }
             }
@@ -213,7 +225,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
             }
             read = frame::read(&mut reader) => match read {
                 Ok(Some(frame)) if frame.channel == CONTROL_CHANNEL && frame.kind == kind::DATA => {
-                    let (reply, stops) = answer(&frame.payload, &shared);
+                    let (reply, stops) = answer(&frame.payload, &shared).await;
                     if let Some(reply) = reply {
                         let _ = out.send(Frame::json(&reply));
                     }
@@ -286,7 +298,7 @@ fn hello_result(shared: &Shared) -> Value {
 
 /// The reply to a JSON-RPC message, if it is a call, and whether the host
 /// stops after sending it.
-fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
+async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
     let Ok(message) = serde_json::from_slice::<Value>(payload) else {
         return (
             Some(error(Value::Null, -32700, "parse_error", "not JSON")),
@@ -308,15 +320,26 @@ fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
                     "features": [],
                     "boot_id": shared.boot_id,
                     "started_at": shared.started_at,
-                    "terminals": 0,
+                    "terminals": shared.live_terminals(),
                     "os": std::env::consts::OS,
                     "arch": std::env::consts::ARCH,
                 }),
             )),
             false,
         ),
-        // with no terminals yet, there is nothing to stop or hand over
         "host.stop" => (Some(result(id, json!({}))), true),
+        "terminal.spawn" => (Some(reply(id, spawn(params(&message), shared))), false),
+        "terminal.list" => {
+            let list: Vec<Value> = shared
+                .terminals
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .values()
+                .map(|t| t.info().to_json())
+                .collect();
+            (Some(result(id, Value::Array(list))), false)
+        }
+        "terminal.text" => (Some(reply(id, text(params(&message), shared).await)), false),
         _ => (
             Some(error(
                 id,
@@ -327,6 +350,125 @@ fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             false,
         ),
     }
+}
+
+/// A call's params, or an empty object.
+fn params(message: &Value) -> &Value {
+    static EMPTY: std::sync::LazyLock<Value> = std::sync::LazyLock::new(|| json!({}));
+    message.get("params").unwrap_or(&EMPTY)
+}
+
+/// A method's failure: its `data.code` and message.
+struct Failure(&'static str, String);
+
+fn reply(id: Value, outcome: Result<Value, Failure>) -> Value {
+    match outcome {
+        Ok(value) => result(id, value),
+        Err(Failure(code, message)) => error(id, -32000, code, &message),
+    }
+}
+
+impl Shared {
+    fn live_terminals(&self) -> usize {
+        self.terminals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .filter(|t| t.live())
+            .count()
+    }
+}
+
+/// `terminal.spawn` (section 4.3 of the runtime specification).
+fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
+    let invalid = |what: &str| Failure("invalid_params", format!("{what} is missing or invalid"));
+    let argv: Vec<String> = params
+        .get("argv")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .filter(|a: &Vec<String>| !a.is_empty())
+        .ok_or_else(|| invalid("argv"))?;
+    let cwd = params
+        .get("cwd")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("cwd"))?;
+    let size = |key| {
+        params
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|n| u16::try_from(n).ok())
+            .filter(|&n| n > 0)
+    };
+    let (cols, rows) = (
+        size("cols").ok_or_else(|| invalid("cols"))?,
+        size("rows").ok_or_else(|| invalid("rows"))?,
+    );
+    let strings = |key| -> BTreeMap<String, String> {
+        params
+            .get(key)
+            .and_then(Value::as_object)
+            .map(|m| {
+                m.iter()
+                    .filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let labels = params.get("labels").cloned().unwrap_or_else(|| json!({}));
+    if shared.live_terminals() >= MAX_TERMINALS {
+        return Err(Failure(
+            "limit",
+            format!("the host runs {MAX_TERMINALS} terminals already"),
+        ));
+    }
+    let id = format!("t_{}", crate::random_hex(8));
+    // the login environment comes with the probe; until then the host's own
+    let base: Vec<(String, String)> = std::env::vars().collect();
+    let env = environment::build(&environment::Request {
+        base: &base,
+        env: &strings("env"),
+        session_env: &strings("session_env"),
+        cwd,
+        terminal: &id,
+    });
+    let spawned = pty::spawn(&argv, Path::new(cwd), &env, cols, rows).map_err(|e| match e {
+        SpawnError::FolderMissing => Failure("folder_missing", format!("{cwd} does not exist")),
+        SpawnError::NotFound(name) => Failure("not_found", format!("{name} was not found")),
+        SpawnError::Io(error) => Failure("spawn_failed", error.to_string()),
+    })?;
+    let screen = terminal::screen(cols, rows, SCROLLBACK_LINES)
+        .map_err(|e| Failure("spawn_failed", e.to_string()))?;
+    let pid = spawned.pid;
+    let terminal = Terminal::start(id.clone(), spawned, labels, cols, rows, screen)
+        .map_err(|e| Failure("spawn_failed", e.to_string()))?;
+    let started_at = terminal.info().started_at;
+    shared
+        .terminals
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id.clone(), terminal);
+    Ok(json!({"terminal": id, "pid": pid, "started_at": started_at}))
+}
+
+/// `terminal.text`: the screen after up to `lines` lines of history.
+async fn text(params: &Value, shared: &Shared) -> Result<Value, Failure> {
+    let id = params.get("terminal").and_then(Value::as_str).unwrap_or("");
+    let lines = params.get("lines").and_then(Value::as_u64).unwrap_or(0) as usize;
+    let request = {
+        let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        let terminal = terminals
+            .get(id)
+            .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
+        terminal.text_request(lines)
+    };
+    let text = request
+        .await
+        .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
+    Ok(json!({"text": text}))
 }
 
 fn result(id: Value, result: Value) -> Value {
