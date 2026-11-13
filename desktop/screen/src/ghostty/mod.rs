@@ -83,9 +83,87 @@ impl Options {
     }
 }
 
+/// Focus reporting (DEC private mode 1004): the program wants `CSI I` and
+/// `CSI O` as the terminal gains and loses focus.
+const FOCUS_EVENT: ffi::Mode = ffi::mode(1004, false);
+
+/// What the host's view of the terminal tells a program that asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorScheme {
+    Light,
+    Dark,
+}
+
+/// Something the program told its terminal while it was parsed, other than
+/// screen content.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Signal {
+    Title(String),
+    Bell,
+    /// A desktop notification (OSC 9 or OSC 777).
+    Notify {
+        title: Option<String>,
+        body: String,
+    },
+    /// A program status report (OSC 7501).
+    ProgramStatus(ProgramStatus),
+    /// The program turned focus reporting (mode 1004) on or off.
+    FocusReporting(bool),
+}
+
+/// A program status report (OSC 7501), as the Program Status Protocol
+/// defines it. The text is the program's own, decoded, with no control
+/// characters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramStatus {
+    pub state: ProgramState,
+    /// What a blocked program waits for, when it says.
+    pub wait: Option<ProgramWait>,
+    /// How far along the work is, from 0 to 100, when the program says.
+    pub progress: Option<u8>,
+    /// The record it is about; empty for the program itself.
+    pub id: String,
+    pub app: String,
+    pub title: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramState {
+    Idle,
+    Working,
+    Done,
+    Blocked,
+    Error,
+    /// Removes the record with this id and those beneath it; an empty id
+    /// removes every record.
+    Clear,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramWait {
+    Permission,
+    Question,
+    Auth,
+}
+
+/// What the callbacks collect while the library parses, and what they
+/// answer from. It lives on the heap so that its address, which the
+/// library holds as userdata, stays the same while the terminal moves.
+struct Sink {
+    replies: Vec<u8>,
+    signals: Vec<Signal>,
+    /// "Pinrail <version>", for XTVERSION
+    name: Vec<u8>,
+    color_scheme: Option<ColorScheme>,
+}
+
 /// One terminal's screen and history.
 pub struct Terminal {
     raw: ffi::Terminal,
+    sink: Box<Sink>,
+    /// whether focus reporting was on after the last write
+    focus_reporting: bool,
 }
 
 // SAFETY: the library has no thread affinity. A terminal must not be used
@@ -108,7 +186,17 @@ impl Terminal {
             ffi::ghostty_terminal_new(ptr::null(), &mut raw, options.cols, options.rows)
         })?;
         // from here on, Drop frees the handle if a setting fails
-        let terminal = Terminal { raw };
+        let terminal = Terminal {
+            raw,
+            sink: Box::new(Sink {
+                replies: Vec::new(),
+                signals: Vec::new(),
+                name: format!("Pinrail {}", env!("CARGO_PKG_VERSION")).into_bytes(),
+                color_scheme: None,
+            }),
+            focus_reporting: false,
+        };
+        terminal.set_callbacks()?;
         terminal.set_size(ffi::OPT_SCROLLBACK_MAX_LINES, options.lines())?;
         terminal.set_size(ffi::OPT_SCROLLBACK_MAX_BYTES, options.scrollback_bytes())?;
         terminal.set_size(ffi::OPT_CONTINUATION_MAX_BYTES, CONTINUATION_MAX_BYTES)?;
@@ -127,6 +215,54 @@ impl Terminal {
             )
         })?;
         Ok(terminal)
+    }
+
+    /// Gives the library the sink as userdata, and the callbacks that fill
+    /// it. Every callback runs on this thread, inside a write.
+    fn set_callbacks(&self) -> Result<(), Error> {
+        let sink: *const Sink = &*self.sink;
+        let callbacks: [(ffi::TerminalOption, *const c_void); 8] = [
+            (
+                ffi::OPT_WRITE_PTY,
+                on_write_pty as ffi::WritePtyFn as *const c_void,
+            ),
+            (ffi::OPT_BELL, on_bell as ffi::BellFn as *const c_void),
+            (
+                ffi::OPT_XTVERSION,
+                on_xtversion as ffi::XtversionFn as *const c_void,
+            ),
+            (
+                ffi::OPT_TITLE_CHANGED,
+                on_title_changed as ffi::TitleChangedFn as *const c_void,
+            ),
+            (ffi::OPT_SIZE, on_size as ffi::SizeFn as *const c_void),
+            (
+                ffi::OPT_COLOR_SCHEME,
+                on_color_scheme as ffi::ColorSchemeFn as *const c_void,
+            ),
+            (
+                ffi::OPT_DESKTOP_NOTIFICATION,
+                on_desktop_notification as ffi::DesktopNotificationFn as *const c_void,
+            ),
+            (
+                ffi::OPT_PROGRAM_STATUS,
+                on_program_status as ffi::ProgramStatusFn as *const c_void,
+            ),
+        ];
+        // SAFETY: USERDATA takes the pointer itself, which stays valid as
+        // long as the terminal, since the box is dropped after the handle
+        // is freed.
+        check("ghostty_terminal_set(USERDATA)", unsafe {
+            ffi::ghostty_terminal_set(self.raw, ffi::OPT_USERDATA, sink.cast())
+        })?;
+        for (option, callback) in callbacks {
+            // SAFETY: each option takes a function pointer of the type it
+            // was cast from, which matches the header's typedef.
+            check("ghostty_terminal_set(callback)", unsafe {
+                ffi::ghostty_terminal_set(self.raw, option, callback)
+            })?;
+        }
+        Ok(())
     }
 
     /// Sets an option whose input type is `size_t*`.
@@ -148,11 +284,34 @@ impl Terminal {
         value
     }
 
-    /// Parses program output into the screen.
+    /// Parses program output into the screen, ignoring what it answers
+    /// or reports.
     pub fn write(&mut self, bytes: &[u8]) {
+        let (mut replies, mut signals) = (Vec::new(), Vec::new());
+        self.feed(bytes, &mut replies, &mut signals);
+    }
+
+    /// Parses program output into the screen. The answers to the queries
+    /// in it are appended to `replies`, in order, for the program; what it
+    /// tells its terminal otherwise is appended to `signals`.
+    pub fn feed(&mut self, bytes: &[u8], replies: &mut Vec<u8>, signals: &mut Vec<Signal>) {
         // SAFETY: the pointer and length describe `bytes`, which the library
-        // reads during the call only.
+        // reads during the call only. The callbacks it makes meanwhile reach
+        // the sink, which nothing else touches during the call.
         unsafe { ffi::ghostty_terminal_vt_write(self.raw, bytes.as_ptr(), bytes.len()) }
+        replies.append(&mut self.sink.replies);
+        signals.append(&mut self.sink.signals);
+        let focus_reporting = self.mode_set(FOCUS_EVENT);
+        if focus_reporting != self.focus_reporting {
+            self.focus_reporting = focus_reporting;
+            signals.push(Signal::FocusReporting(focus_reporting));
+        }
+    }
+
+    /// The colour scheme the viewer shows, for a program that asks; `None`
+    /// leaves the question unanswered.
+    pub fn set_color_scheme(&mut self, scheme: Option<ColorScheme>) {
+        self.sink.color_scheme = scheme;
     }
 
     /// Changes the size in cells, and the cell size in pixels that image
@@ -208,10 +367,11 @@ impl Terminal {
     /// Whether a mode is set, by its number, for an ANSI mode or a DEC
     /// private one.
     pub fn mode(&self, number: u16, ansi: bool) -> bool {
-        let mut config = ffi::ModeConfig {
-            mode: ffi::mode(number, ansi),
-            value: false,
-        };
+        self.mode_set(ffi::mode(number, ansi))
+    }
+
+    fn mode_set(&self, mode: ffi::Mode) -> bool {
+        let mut config = ffi::ModeConfig { mode, value: false };
         // SAFETY: DATA_MODE reads and writes a GhosttyTerminalModeConfig
         // whose `mode` is set first. An unknown mode fails and leaves false.
         unsafe { ffi::ghostty_terminal_get(self.raw, ffi::DATA_MODE, (&raw mut config).cast()) };
@@ -246,4 +406,169 @@ impl Drop for Terminal {
         // SAFETY: the handle came from ghostty_terminal_new and is freed once.
         unsafe { ffi::ghostty_terminal_free(self.raw) }
     }
+}
+
+/// The sink a callback's userdata points to.
+///
+/// # Safety
+///
+/// `userdata` is the pointer `set_callbacks` gave, to the terminal's live
+/// sink, and the callback runs inside a write that holds the terminal
+/// mutably, so no other reference to the sink exists meanwhile.
+unsafe fn sink<'a>(userdata: *mut c_void) -> &'a mut Sink {
+    // SAFETY: as the function's contract states.
+    unsafe { &mut *userdata.cast::<Sink>() }
+}
+
+/// Borrowed text from the library, copied.
+fn text(s: ffi::GhosttyString) -> String {
+    if s.ptr.is_null() || s.len == 0 {
+        return String::new();
+    }
+    // SAFETY: the library passes `len` valid bytes at `ptr`, borrowed for
+    // the duration of the callback, during which they are copied.
+    String::from_utf8_lossy(unsafe { std::slice::from_raw_parts(s.ptr, s.len) }).into_owned()
+}
+
+extern "C" fn on_write_pty(_: ffi::Terminal, userdata: *mut c_void, data: *const u8, len: usize) {
+    if data.is_null() {
+        return;
+    }
+    // SAFETY: see `sink`; the library passes `len` valid bytes at `data`.
+    unsafe {
+        sink(userdata)
+            .replies
+            .extend_from_slice(std::slice::from_raw_parts(data, len))
+    }
+}
+
+extern "C" fn on_bell(_: ffi::Terminal, userdata: *mut c_void) {
+    // SAFETY: see `sink`.
+    unsafe { sink(userdata).signals.push(Signal::Bell) }
+}
+
+extern "C" fn on_xtversion(_: ffi::Terminal, userdata: *mut c_void) -> ffi::GhosttyString {
+    // SAFETY: see `sink`. The name lives in the sink, longer than the call.
+    let name = unsafe { &sink(userdata).name };
+    ffi::GhosttyString {
+        ptr: name.as_ptr(),
+        len: name.len(),
+    }
+}
+
+extern "C" fn on_title_changed(terminal: ffi::Terminal, userdata: *mut c_void) {
+    let mut title = ffi::GhosttyString {
+        ptr: ptr::null(),
+        len: 0,
+    };
+    // SAFETY: the header says to read DATA_TITLE inside this callback; its
+    // output type is a GhosttyString, valid during the callback.
+    unsafe { ffi::ghostty_terminal_get(terminal, ffi::DATA_TITLE, (&raw mut title).cast()) };
+    let title = text(title);
+    // SAFETY: see `sink`.
+    unsafe { sink(userdata).signals.push(Signal::Title(title)) }
+}
+
+extern "C" fn on_size(
+    terminal: ffi::Terminal,
+    _: *mut c_void,
+    out: *mut ffi::SizeReportSize,
+) -> bool {
+    if out.is_null() {
+        return false;
+    }
+    let get = |data, out: *mut c_void| {
+        // SAFETY: each data item read here has the output type `out`
+        // points to.
+        unsafe { ffi::ghostty_terminal_get(terminal, data, out) };
+    };
+    let (mut cols, mut rows, mut width, mut height) = (0u16, 0u16, 0u32, 0u32);
+    get(ffi::DATA_COLS, (&raw mut cols).cast());
+    get(ffi::DATA_ROWS, (&raw mut rows).cast());
+    get(ffi::DATA_WIDTH_PX, (&raw mut width).cast());
+    get(ffi::DATA_HEIGHT_PX, (&raw mut height).cast());
+    // SAFETY: `out` is the library's zeroed struct, writable during the call.
+    unsafe {
+        *out = ffi::SizeReportSize {
+            rows,
+            columns: cols,
+            cell_width: width / u32::from(cols.max(1)),
+            cell_height: height / u32::from(rows.max(1)),
+        };
+    }
+    true
+}
+
+extern "C" fn on_color_scheme(_: ffi::Terminal, userdata: *mut c_void, out: *mut i32) -> bool {
+    // SAFETY: see `sink`.
+    let Some(scheme) = (unsafe { sink(userdata).color_scheme }) else {
+        return false;
+    };
+    if out.is_null() {
+        return false;
+    }
+    // SAFETY: `out` is the library's value, writable during the call.
+    unsafe {
+        *out = match scheme {
+            ColorScheme::Light => ffi::COLOR_SCHEME_LIGHT,
+            ColorScheme::Dark => ffi::COLOR_SCHEME_DARK,
+        };
+    }
+    true
+}
+
+extern "C" fn on_desktop_notification(
+    _: ffi::Terminal,
+    userdata: *mut c_void,
+    notification: *const ffi::DesktopNotification,
+) {
+    // SAFETY: the library passes a valid notification for the call.
+    let Some(notification) = (unsafe { notification.as_ref() }) else {
+        return;
+    };
+    let title = text(notification.title);
+    let signal = Signal::Notify {
+        title: (!title.is_empty()).then_some(title),
+        body: text(notification.body),
+    };
+    // SAFETY: see `sink`.
+    unsafe { sink(userdata).signals.push(signal) }
+}
+
+extern "C" fn on_program_status(
+    _: ffi::Terminal,
+    userdata: *mut c_void,
+    report: *const ffi::ProgramStatus,
+) {
+    // SAFETY: the library passes a valid report for the call.
+    let Some(report) = (unsafe { report.as_ref() }) else {
+        return;
+    };
+    let state = match report.state {
+        ffi::PROGRAM_STATUS_IDLE => ProgramState::Idle,
+        ffi::PROGRAM_STATUS_WORKING => ProgramState::Working,
+        ffi::PROGRAM_STATUS_DONE => ProgramState::Done,
+        ffi::PROGRAM_STATUS_BLOCKED => ProgramState::Blocked,
+        ffi::PROGRAM_STATUS_ERROR => ProgramState::Error,
+        ffi::PROGRAM_STATUS_CLEAR => ProgramState::Clear,
+        // a state a later version adds
+        _ => return,
+    };
+    let wait = match report.kind {
+        ffi::PROGRAM_STATUS_KIND_PERMISSION => Some(ProgramWait::Permission),
+        ffi::PROGRAM_STATUS_KIND_QUESTION => Some(ProgramWait::Question),
+        ffi::PROGRAM_STATUS_KIND_AUTH => Some(ProgramWait::Auth),
+        _ => None,
+    };
+    let status = ProgramStatus {
+        state,
+        wait,
+        progress: u8::try_from(report.progress).ok(),
+        id: text(report.id),
+        app: text(report.app),
+        title: text(report.title),
+        message: text(report.message),
+    };
+    // SAFETY: see `sink`.
+    unsafe { sink(userdata).signals.push(Signal::ProgramStatus(status)) }
 }

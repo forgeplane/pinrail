@@ -16,6 +16,15 @@ pub const INVALID_VALUE: GhosttyResult = -2;
 
 /// `GhosttyTerminalOption` (terminal.h).
 pub type TerminalOption = i32;
+pub const OPT_USERDATA: TerminalOption = 1;
+pub const OPT_WRITE_PTY: TerminalOption = 2;
+pub const OPT_BELL: TerminalOption = 3;
+pub const OPT_XTVERSION: TerminalOption = 5;
+pub const OPT_TITLE_CHANGED: TerminalOption = 6;
+pub const OPT_SIZE: TerminalOption = 7;
+pub const OPT_COLOR_SCHEME: TerminalOption = 8;
+pub const OPT_DESKTOP_NOTIFICATION: TerminalOption = 30;
+pub const OPT_PROGRAM_STATUS: TerminalOption = 47;
 pub const OPT_SCROLLBACK_MAX_BYTES: TerminalOption = 28;
 pub const OPT_SCROLLBACK_MAX_LINES: TerminalOption = 29;
 pub const OPT_CONTINUATION_MAX_BYTES: TerminalOption = 32;
@@ -30,6 +39,7 @@ pub const DATA_CURSOR_Y: TerminalData = 4;
 pub const DATA_SCROLLBACK_ROWS: TerminalData = 15;
 pub const DATA_WIDTH_PX: TerminalData = 16;
 pub const DATA_HEIGHT_PX: TerminalData = 17;
+pub const DATA_TITLE: TerminalData = 12;
 pub const DATA_MODE: TerminalData = 37;
 
 /// `GhosttyMode` (modes.h): the mode's number in bits 0 to 14, and bit 15
@@ -47,6 +57,70 @@ pub struct ModeConfig {
     pub mode: Mode,
     pub value: bool,
 }
+
+/// `GhosttyString` (types.h): borrowed bytes, not NUL-terminated.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct GhosttyString {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+/// `GhosttySizeReportSize` (size_report.h).
+#[repr(C)]
+pub struct SizeReportSize {
+    pub rows: u16,
+    pub columns: u16,
+    pub cell_width: u32,
+    pub cell_height: u32,
+}
+
+/// `GhosttyColorScheme` (device.h).
+pub const COLOR_SCHEME_LIGHT: i32 = 0;
+pub const COLOR_SCHEME_DARK: i32 = 1;
+
+/// `GhosttyTerminalDesktopNotification` (terminal.h), whose layout is
+/// frozen.
+#[repr(C)]
+pub struct DesktopNotification {
+    pub title: GhosttyString,
+    pub body: GhosttyString,
+}
+
+/// `GhosttyProgramStatusState` (terminal.h).
+pub const PROGRAM_STATUS_IDLE: i32 = 0;
+pub const PROGRAM_STATUS_WORKING: i32 = 1;
+pub const PROGRAM_STATUS_DONE: i32 = 2;
+pub const PROGRAM_STATUS_BLOCKED: i32 = 3;
+pub const PROGRAM_STATUS_ERROR: i32 = 4;
+pub const PROGRAM_STATUS_CLEAR: i32 = 5;
+
+/// `GhosttyProgramStatusKind` (terminal.h).
+pub const PROGRAM_STATUS_KIND_PERMISSION: i32 = 1;
+pub const PROGRAM_STATUS_KIND_QUESTION: i32 = 2;
+pub const PROGRAM_STATUS_KIND_AUTH: i32 = 3;
+
+/// `GhosttyTerminalProgramStatus` (terminal.h), whose layout is frozen.
+#[repr(C)]
+pub struct ProgramStatus {
+    pub state: i32,
+    pub kind: i32,
+    /// 0 to 100, or -1 for none
+    pub progress: i8,
+    pub id: GhosttyString,
+    pub app: GhosttyString,
+    pub title: GhosttyString,
+    pub message: GhosttyString,
+}
+
+pub type WritePtyFn = extern "C" fn(Terminal, *mut c_void, *const u8, usize);
+pub type BellFn = extern "C" fn(Terminal, *mut c_void);
+pub type XtversionFn = extern "C" fn(Terminal, *mut c_void) -> GhosttyString;
+pub type TitleChangedFn = extern "C" fn(Terminal, *mut c_void);
+pub type SizeFn = extern "C" fn(Terminal, *mut c_void, *mut SizeReportSize) -> bool;
+pub type ColorSchemeFn = extern "C" fn(Terminal, *mut c_void, *mut i32) -> bool;
+pub type DesktopNotificationFn = extern "C" fn(Terminal, *mut c_void, *const DesktopNotification);
+pub type ProgramStatusFn = extern "C" fn(Terminal, *mut c_void, *const ProgramStatus);
 
 unsafe extern "C" {
     pub fn ghostty_terminal_new(
@@ -83,3 +157,11 @@ unsafe extern "C" {
     pub fn ghostty_free(allocator: *const c_void, ptr: *mut u8, len: usize);
     pub fn ghostty_version() -> *const std::ffi::c_char;
 }
+
+// the sizes the headers give for the frozen structs on 64-bit targets
+#[cfg(target_pointer_width = "64")]
+const _: () = {
+    assert!(std::mem::size_of::<ProgramStatus>() == 80);
+    assert!(std::mem::size_of::<DesktopNotification>() == 32);
+    assert!(std::mem::size_of::<SizeReportSize>() == 12);
+};
