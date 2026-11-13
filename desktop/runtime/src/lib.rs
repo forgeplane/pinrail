@@ -9,6 +9,7 @@ pub mod hooks;
 pub mod integration;
 pub mod process;
 pub mod registry;
+pub mod scrub;
 pub mod skills;
 
 pub use agent::{Agent, Env, Hint, HintStatus, adapter};
