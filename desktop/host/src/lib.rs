@@ -10,6 +10,7 @@ pub mod environment;
 pub mod events;
 pub mod frame;
 pub mod launch;
+pub mod leader;
 pub mod log;
 pub mod paths;
 pub mod probe;

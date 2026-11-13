@@ -7,6 +7,7 @@ use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -157,6 +158,7 @@ async fn run(paths: &Paths, boot_id: String, log: &Log, idle_exit: Duration) -> 
             events: Arc::new(Events::default()),
             records: Arc::new(Records::new(paths.host_dir.join("terminals.json"))),
             screens: paths.host_dir.join("screens"),
+            controlled: Arc::new(AtomicBool::new(false)),
         },
     });
     Registration {
@@ -228,6 +230,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
         let _ = previous.send(());
     }
     *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    shared.context.controlled.store(true, Ordering::Relaxed);
     let _ = out.send(Frame::json(&result(call_id, hello_result(&shared))));
     let mut stop = false;
     loop {
@@ -268,6 +271,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
         if controller.as_ref().is_some_and(|(c, _)| *c == id) {
             *controller = None;
             *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+            shared.context.controlled.store(false, Ordering::Relaxed);
         }
     }
     if stop {

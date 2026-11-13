@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::fd::OwnedFd;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -15,6 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
 use crate::events::Events;
+use crate::leader::{self, Leader};
 use crate::pty::{self, Exit, Ready, Spawned};
 use crate::records::Records;
 
@@ -113,8 +115,19 @@ enum Output {
     Done,
 }
 
+/// Where input to a terminal comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Input {
+    /// A key, paste or mouse click the person sent from a viewer.
+    Person,
+    /// What a viewer's own emulator answered to a query, which is not the
+    /// person's input.
+    Reply,
+}
+
 enum Command {
     Exited(Exit),
+    Input(Vec<u8>, Input),
     Text {
         lines: usize,
         reply: oneshot::Sender<String>,
@@ -130,6 +143,8 @@ struct State {
     master: Option<OwnedFd>,
     /// Set by a stop, so the exit is reported with its reason.
     stopping: Option<Reason>,
+    /// When the person last typed, pasted or clicked in the terminal.
+    last_input_at: Option<String>,
 }
 
 /// What a terminal reports to and keeps for the rest of the host.
@@ -139,6 +154,9 @@ pub struct Context {
     pub records: Arc<Records>,
     /// Where the final screen is kept.
     pub screens: PathBuf,
+    /// Whether a controller is connected, which makes the foreground
+    /// process read more often.
+    pub controlled: Arc<AtomicBool>,
 }
 
 /// A running or ended terminal. Dropping it ends its actor.
@@ -180,6 +198,7 @@ impl Terminal {
             },
             master: Some(spawned.master.try_clone()?),
             stopping: None,
+            last_input_at: None,
         }));
         let (wake_read, wake_write) = io::pipe()?;
         let (output_tx, output_rx) = mpsc::channel(QUEUED_CHUNKS);
@@ -211,6 +230,8 @@ impl Terminal {
             commands: commands_rx,
             context,
             title: None,
+            foreground: None,
+            in_paste: false,
         }));
         Ok(Self { state, commands })
     }
@@ -264,6 +285,17 @@ impl Terminal {
         Ok(())
     }
 
+    /// Writes input to the program, in order with everything else the
+    /// actor does.
+    pub fn input(&self, bytes: Vec<u8>, from: Input) {
+        let _ = self.commands.send(Command::Input(bytes, from));
+    }
+
+    /// When the person last typed, pasted or clicked in the terminal.
+    pub fn last_input_at(&self) -> Option<String> {
+        self.lock().last_input_at.clone()
+    }
+
     /// The screen's text, after up to `lines` lines of history, once the
     /// actor answers. The request is made at once, so that no lock is held
     /// while it is awaited.
@@ -308,6 +340,10 @@ struct Actor {
     context: Context,
     /// The last title reported, without a leading spinner.
     title: Option<String>,
+    /// The foreground process last reported.
+    foreground: Option<Leader>,
+    /// Whether the person's input is inside a bracketed paste.
+    in_paste: bool,
 }
 
 /// Applies output and commands in the order they come, until the terminal
@@ -317,9 +353,15 @@ async fn actor(mut actor: Actor) {
     let mut reader_done = false;
     let mut drain_until = Instant::now();
     let mut ended = false;
+    let mut next_look = Instant::now();
     loop {
         let draining = exit.is_some() && !ended;
         tokio::select! {
+            () = tokio::time::sleep_until(next_look), if !ended => {
+                actor.look_at_foreground();
+                let controlled = actor.context.controlled.load(Ordering::Relaxed);
+                next_look = Instant::now() + if controlled { LOOK_CONTROLLED } else { LOOK_IDLE };
+            }
             output = actor.output.recv(), if !reader_done => match output {
                 Some(Output::Bytes(bytes)) => {
                     actor.apply(&bytes);
@@ -332,6 +374,7 @@ async fn actor(mut actor: Actor) {
                     exit = Some(status);
                     drain_until = Instant::now() + EXIT_DRAIN;
                 }
+                Some(Command::Input(bytes, from)) => actor.input(bytes, from),
                 Some(Command::Text { lines, reply }) => {
                     let _ = reply.send(actor.text(lines));
                 }
@@ -351,6 +394,28 @@ async fn actor(mut actor: Actor) {
     }
 }
 
+/// How often the foreground process is read while a controller is
+/// connected, and otherwise.
+const LOOK_CONTROLLED: Duration = Duration::from_millis(500);
+const LOOK_IDLE: Duration = Duration::from_secs(2);
+
+/// Whether the person's input is an interrupt: a Ctrl-C or an Escape on its
+/// own, not the start of a sequence and not inside a paste. Tracks whether
+/// the input is inside a bracketed paste.
+fn is_interrupt(bytes: &[u8], in_paste: &mut bool) -> bool {
+    let was_in_paste = *in_paste;
+    if let Some(start) = find(bytes, b"\x1b[200~") {
+        *in_paste = find(&bytes[start..], b"\x1b[201~").is_none();
+    } else if find(bytes, b"\x1b[201~").is_some() {
+        *in_paste = false;
+    }
+    !was_in_paste && (bytes == b"\x03" || bytes == b"\x1b")
+}
+
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
 /// Characters an agent spins at the start of its title.
 fn is_spinner(c: char) -> bool {
     ('\u{2800}'..='\u{28ff}').contains(&c) || "✳✶✻✽✢·*⠂⠐◐◓◑◒|/-\\".contains(c) || c.is_whitespace()
@@ -362,6 +427,47 @@ fn trimmed(text: &str, max: usize) -> String {
 }
 
 impl Actor {
+    /// Writes input to the program; the person's input counts as activity,
+    /// and a standalone interrupt is reported.
+    fn input(&mut self, bytes: Vec<u8>, from: Input) {
+        if from == Input::Person {
+            let interrupt = is_interrupt(&bytes, &mut self.in_paste);
+            self.state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .last_input_at = Some(crate::now());
+            if interrupt {
+                self.context
+                    .events
+                    .emit("input", json!({"terminal": self.id, "kind": "interrupt"}));
+            }
+        }
+        if let Some(input) = &self.input {
+            let _ = input.send(bytes);
+        }
+    }
+
+    /// Reads the PTY's foreground process group's leader, and reports it
+    /// when it changed.
+    fn look_at_foreground(&mut self) {
+        let group = {
+            let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            state.master.as_ref().and_then(pty::foreground_group)
+        };
+        let leader = group.and_then(leader::read);
+        // another process or another program: arguments and folder alone
+        // do not count, and may not be readable yet right after an exec
+        let key = |l: &Option<Leader>| l.as_ref().map(|l| (l.pid, l.name.clone()));
+        if leader.is_some() && key(&leader) != key(&self.foreground) {
+            self.foreground = leader.clone();
+            if let Some(leader) = leader {
+                let mut params = leader.to_json();
+                params["terminal"] = json!(self.id);
+                self.context.events.emit("foreground", params);
+            }
+        }
+    }
+
     fn apply(&mut self, bytes: &[u8]) {
         let (mut replies, mut signals) = (Vec::new(), Vec::<Signal>::new());
         self.screen.feed(bytes, &mut replies, &mut signals);
@@ -539,4 +645,34 @@ pub fn screen(cols: u16, rows: u16, scrollback_lines: usize) -> io::Result<Box<d
     })
     .map(|t| Box::new(t) as Box<dyn Screen>)
     .map_err(io::Error::other)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_standalone_ctrl_c_or_escape_is_an_interrupt() {
+        let mut in_paste = false;
+        assert!(is_interrupt(b"\x03", &mut in_paste));
+        assert!(is_interrupt(b"\x1b", &mut in_paste));
+        // the start of a sequence, or a key with others
+        assert!(!is_interrupt(b"\x1b[A", &mut in_paste));
+        assert!(!is_interrupt(b"ab\x03", &mut in_paste));
+        assert!(!is_interrupt(b"q", &mut in_paste));
+    }
+
+    #[test]
+    fn nothing_inside_a_paste_is_an_interrupt() {
+        let mut in_paste = false;
+        assert!(!is_interrupt(b"\x1b[200~first part", &mut in_paste));
+        assert!(in_paste);
+        assert!(!is_interrupt(b"\x03", &mut in_paste));
+        assert!(!is_interrupt(b"rest\x1b[201~", &mut in_paste));
+        assert!(!in_paste);
+        assert!(is_interrupt(b"\x03", &mut in_paste));
+        // a paste that starts and ends in one chunk
+        assert!(!is_interrupt(b"\x1b[200~x\x1b[201~", &mut in_paste));
+        assert!(!in_paste);
+    }
 }
