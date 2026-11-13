@@ -248,6 +248,9 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
                     if subscribe(&frame.payload, id, &out, &shared) {
                         continue;
                     }
+                    if submit(&frame.payload, &out, &shared) {
+                        continue;
+                    }
                     let (reply, stops) = answer(&frame.payload, &shared).await;
                     if let Some(reply) = reply {
                         let _ = out.send(Frame::json(&reply));
@@ -636,6 +639,74 @@ fn stop(params: &Value, shared: &Shared) -> Result<Value, Failure> {
             .map_err(signal_failure)
     })?;
     Ok(json!({}))
+}
+
+/// `terminal.submit`, answered from a task of its own when the message has
+/// been typed, which can take seconds, so other calls are not held up.
+/// Returns whether the message was one.
+fn submit(payload: &[u8], out: &mpsc::UnboundedSender<Frame>, shared: &Shared) -> bool {
+    let Ok(message) = serde_json::from_slice::<Value>(payload) else {
+        return false;
+    };
+    if message.get("method").and_then(Value::as_str) != Some("terminal.submit") {
+        return false;
+    }
+    let Some(id) = message.get("id").cloned() else {
+        return true;
+    };
+    let params = params(&message);
+    let millis = |key, default| {
+        Duration::from_millis(params.get(key).and_then(Value::as_u64).unwrap_or(default))
+    };
+    let Some(text) = params.get("text").and_then(Value::as_str) else {
+        let _ = out.send(Frame::json(&error(
+            id,
+            -32000,
+            "invalid_params",
+            "text is missing",
+        )));
+        return true;
+    };
+    let request = terminal::Submit {
+        text: text.to_string(),
+        bracketed: params
+            .get("bracketed")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        settle: millis("settle_ms", 300),
+        max: millis("max_ms", 2_000),
+        startup_quiet: millis("startup_quiet_ms", 800),
+        submit: params
+            .get("submit")
+            .and_then(Value::as_str)
+            .unwrap_or("\r")
+            .to_string(),
+        expect_pid: params
+            .get("expect_pid")
+            .and_then(Value::as_u64)
+            .and_then(|p| u32::try_from(p).ok()),
+        idle_since: params
+            .get("idle_since")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        anyway: params
+            .get("anyway")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    };
+    let typed = with_terminal(params, shared, |t| Ok(t.submit(request)));
+    let out = out.clone();
+    tokio::spawn(async move {
+        let answer = match typed {
+            Err(failure) => reply(id, Err(failure)),
+            Ok(typed) => match typed.await {
+                Ok(()) => result(id, json!({"ok": true})),
+                Err(refused) => error(id, -32000, refused.code(), &format!("{refused:?}")),
+            },
+        };
+        let _ = out.send(Frame::json(&answer));
+    });
+    true
 }
 
 /// `events.subscribe {after?, instance?}`, answered here so that the reply

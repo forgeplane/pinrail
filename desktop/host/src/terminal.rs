@@ -125,9 +125,69 @@ pub enum Input {
     Reply,
 }
 
+/// A message to type into the program, with `terminal.submit`'s guards.
+#[derive(Debug, Clone)]
+pub struct Submit {
+    pub text: String,
+    /// Whether to type the text inside a bracketed paste.
+    pub bracketed: bool,
+    /// How long the output must be quiet after the paste before the
+    /// submit keys.
+    pub settle: Duration,
+    /// The longest wait after the paste.
+    pub max: Duration,
+    /// In the program's first 10 seconds, how long its output must be
+    /// quiet before the paste; zero turns the rule off.
+    pub startup_quiet: Duration,
+    /// The keys that submit, such as a carriage return.
+    pub submit: String,
+    /// The process that must hold the terminal.
+    pub expect_pid: Option<u32>,
+    /// When the agent last became idle; input since then refuses.
+    pub idle_since: Option<String>,
+    /// Types even if the person used the terminal since `idle_since`.
+    pub anyway: bool,
+}
+
+/// Why a message was not typed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubmitError {
+    /// The program has exited.
+    Exited,
+    /// Another process holds the terminal.
+    NotForeground,
+    /// The person used the terminal since the agent became idle.
+    UsedSinceIdle,
+    /// Another message is being typed.
+    Busy,
+}
+
+impl SubmitError {
+    pub fn code(self) -> &'static str {
+        match self {
+            SubmitError::Exited => "exited",
+            SubmitError::NotForeground => "not_foreground",
+            SubmitError::UsedSinceIdle => "used_since_idle",
+            SubmitError::Busy => "busy",
+        }
+    }
+}
+
+/// How long after the program starts the startup rule applies.
+const STARTUP: Duration = Duration::from_secs(10);
+
+/// A message being typed.
+struct Typing {
+    submit: Submit,
+    reply: oneshot::Sender<Result<(), SubmitError>>,
+    /// When the paste was written, once it was.
+    pasted_at: Option<Instant>,
+}
+
 enum Command {
     Exited(Exit),
     Input(Vec<u8>, Input),
+    Submit(Submit, oneshot::Sender<Result<(), SubmitError>>),
     Text {
         lines: usize,
         reply: oneshot::Sender<String>,
@@ -232,6 +292,10 @@ impl Terminal {
             title: None,
             foreground: None,
             in_paste: false,
+            started: Instant::now(),
+            last_output: Instant::now(),
+            typing: None,
+            held: Vec::new(),
         }));
         Ok(Self { state, commands })
     }
@@ -291,6 +355,19 @@ impl Terminal {
         let _ = self.commands.send(Command::Input(bytes, from));
     }
 
+    /// Types a message, once its guards pass, and answers when the submit
+    /// keys were written.
+    pub fn submit(&self, submit: Submit) -> impl Future<Output = Result<(), SubmitError>> + use<> {
+        let (reply, answer) = oneshot::channel();
+        let sent = self.commands.send(Command::Submit(submit, reply)).is_ok();
+        async move {
+            if !sent {
+                return Err(SubmitError::Exited);
+            }
+            answer.await.unwrap_or(Err(SubmitError::Exited))
+        }
+    }
+
     /// When the person last typed, pasted or clicked in the terminal.
     pub fn last_input_at(&self) -> Option<String> {
         self.lock().last_input_at.clone()
@@ -344,6 +421,12 @@ struct Actor {
     foreground: Option<Leader>,
     /// Whether the person's input is inside a bracketed paste.
     in_paste: bool,
+    started: Instant,
+    /// When the program last wrote output.
+    last_output: Instant,
+    typing: Option<Typing>,
+    /// The person's input held while a message is typed.
+    held: Vec<Vec<u8>>,
 }
 
 /// Applies output and commands in the order they come, until the terminal
@@ -356,7 +439,11 @@ async fn actor(mut actor: Actor) {
     let mut next_look = Instant::now();
     loop {
         let draining = exit.is_some() && !ended;
+        let typing_at = actor.typing_due();
         tokio::select! {
+            () = tokio::time::sleep_until(typing_at.unwrap_or(next_look)), if typing_at.is_some() => {
+                actor.type_on();
+            }
             () = tokio::time::sleep_until(next_look), if !ended => {
                 actor.look_at_foreground();
                 let controlled = actor.context.controlled.load(Ordering::Relaxed);
@@ -375,6 +462,13 @@ async fn actor(mut actor: Actor) {
                     drain_until = Instant::now() + EXIT_DRAIN;
                 }
                 Some(Command::Input(bytes, from)) => actor.input(bytes, from),
+                Some(Command::Submit(submit, reply)) => {
+                    if ended {
+                        let _ = reply.send(Err(SubmitError::Exited));
+                    } else {
+                        actor.start_typing(submit, reply);
+                    }
+                }
                 Some(Command::Text { lines, reply }) => {
                     let _ = reply.send(actor.text(lines));
                 }
@@ -391,6 +485,32 @@ async fn actor(mut actor: Actor) {
             actor.end(status);
             ended = true;
         }
+    }
+}
+
+/// The bytes of a message's paste: the text, inside a bracketed paste when
+/// asked, with every end-of-paste marker removed from it, so that the text
+/// cannot end the paste early and have its rest read as typed keys.
+fn paste(submit: &Submit) -> Vec<u8> {
+    if !submit.bracketed {
+        return submit.text.clone().into_bytes();
+    }
+    let mut bytes = b"\x1b[200~".to_vec();
+    bytes.extend(submit.text.replace("\x1b[201~", "").into_bytes());
+    bytes.extend(b"\x1b[201~");
+    bytes
+}
+
+/// Whether the person's last input came after `idle_since`.
+fn used_since(last_input_at: &Option<String>, idle_since: &Option<String>) -> bool {
+    let parse = |t: &Option<String>| {
+        t.as_deref()
+            .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+    };
+    match (parse(last_input_at), parse(idle_since)) {
+        (Some(input), Some(idle)) => input > idle,
+        // input with no idle time to compare is not since then
+        _ => false,
     }
 }
 
@@ -430,6 +550,16 @@ impl Actor {
     /// Writes input to the program; the person's input counts as activity,
     /// and a standalone interrupt is reported.
     fn input(&mut self, bytes: Vec<u8>, from: Input) {
+        if from == Input::Person && self.typing.is_some() {
+            // held, so the person's keys cannot land between the paste and
+            // the submit keys
+            self.state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .last_input_at = Some(crate::now());
+            self.held.push(bytes);
+            return;
+        }
         if from == Input::Person {
             let interrupt = is_interrupt(&bytes, &mut self.in_paste);
             self.state
@@ -468,7 +598,87 @@ impl Actor {
         }
     }
 
+    /// Checks the guards and starts typing a message.
+    fn start_typing(&mut self, submit: Submit, reply: oneshot::Sender<Result<(), SubmitError>>) {
+        let refused = if self.typing.is_some() {
+            Some(SubmitError::Busy)
+        } else {
+            let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let foreground = state.master.as_ref().and_then(pty::foreground_group);
+            if state.master.is_none() {
+                Some(SubmitError::Exited)
+            } else if submit.expect_pid.is_some() && foreground != submit.expect_pid {
+                Some(SubmitError::NotForeground)
+            } else if !submit.anyway && used_since(&state.last_input_at, &submit.idle_since) {
+                Some(SubmitError::UsedSinceIdle)
+            } else {
+                None
+            }
+        };
+        if let Some(error) = refused {
+            let _ = reply.send(Err(error));
+            return;
+        }
+        self.typing = Some(Typing {
+            submit,
+            reply,
+            pasted_at: None,
+        });
+        self.type_on();
+    }
+
+    /// When the message being typed can go on, if one is.
+    fn typing_due(&self) -> Option<Instant> {
+        let typing = self.typing.as_ref()?;
+        let submit = &typing.submit;
+        Some(match typing.pasted_at {
+            // wait for a starting program to go quiet, within its first
+            // 10 seconds
+            None => {
+                let startup_ends = self.started + STARTUP;
+                if submit.startup_quiet.is_zero() {
+                    Instant::now()
+                } else {
+                    (self.last_output + submit.startup_quiet).min(startup_ends)
+                }
+            }
+            // after the paste, wait for the output to settle, or `max`
+            Some(pasted_at) => {
+                ((self.last_output.max(pasted_at)) + submit.settle).min(pasted_at + submit.max)
+            }
+        })
+    }
+
+    /// Writes the paste or the submit keys, when their time has come.
+    fn type_on(&mut self) {
+        let Some(due) = self.typing_due() else {
+            return;
+        };
+        if Instant::now() < due {
+            return;
+        }
+        let Some(typing) = self.typing.as_mut() else {
+            return;
+        };
+        let Some(input) = &self.input else {
+            return;
+        };
+        if typing.pasted_at.is_none() {
+            let _ = input.send(paste(&typing.submit));
+            typing.pasted_at = Some(Instant::now());
+            return;
+        }
+        let _ = input.send(typing.submit.submit.clone().into_bytes());
+        for held in self.held.drain(..) {
+            let _ = input.send(held);
+        }
+        if let Some(typing) = self.typing.take() {
+            let _ = typing.reply.send(Ok(()));
+        }
+    }
+
     fn apply(&mut self, bytes: &[u8]) {
+        self.last_output = Instant::now();
         let (mut replies, mut signals) = (Vec::new(), Vec::<Signal>::new());
         self.screen.feed(bytes, &mut replies, &mut signals);
         if !replies.is_empty()
@@ -549,6 +759,10 @@ impl Actor {
             pty::reap(self.pid);
             (reason, ended_at)
         };
+        if let Some(typing) = self.typing.take() {
+            let _ = typing.reply.send(Err(SubmitError::Exited));
+        }
+        self.held.clear();
         if let Some(mut wake) = self.wake.take() {
             let _ = wake.write_all(b"x");
         }
@@ -660,6 +874,44 @@ mod tests {
         assert!(!is_interrupt(b"\x1b[A", &mut in_paste));
         assert!(!is_interrupt(b"ab\x03", &mut in_paste));
         assert!(!is_interrupt(b"q", &mut in_paste));
+    }
+
+    fn submit(text: &str, bracketed: bool) -> Submit {
+        Submit {
+            text: text.to_string(),
+            bracketed,
+            settle: Duration::ZERO,
+            max: Duration::ZERO,
+            startup_quiet: Duration::ZERO,
+            submit: "\r".to_string(),
+            expect_pid: None,
+            idle_since: None,
+            anyway: false,
+        }
+    }
+
+    #[test]
+    fn a_bracketed_paste_cannot_be_ended_by_its_text() {
+        assert_eq!(
+            paste(&submit("a\x1b[201~b\x1b[201~c", true)),
+            b"\x1b[200~abc\x1b[201~"
+        );
+        assert_eq!(paste(&submit("plain", false)), b"plain");
+    }
+
+    #[test]
+    fn input_after_the_agent_became_idle_counts() {
+        let at = |t: &str| Some(t.to_string());
+        assert!(used_since(
+            &at("2026-11-13T10:00:05.000000Z"),
+            &at("2026-11-13T10:00:00Z")
+        ));
+        assert!(!used_since(
+            &at("2026-11-13T09:59:00.000000Z"),
+            &at("2026-11-13T10:00:00Z")
+        ));
+        assert!(!used_since(&None, &at("2026-11-13T10:00:00Z")));
+        assert!(!used_since(&at("2026-11-13T10:00:05Z"), &None));
     }
 
     #[test]
