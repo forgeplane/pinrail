@@ -78,6 +78,38 @@ pub struct InstallRequest<'a> {
     pub link: bool,
 }
 
+/// Posts a hook's report to the session, within `left`, and says whether the
+/// server took it. Nothing is printed: `pinrail hook` ends quietly whatever
+/// happens. A hosted run's token goes with it, so the core knows the run.
+pub fn post_report(
+    base: &str,
+    agent: &str,
+    session: &str,
+    body: &Value,
+    run_token: Option<&str>,
+    left: Duration,
+) -> bool {
+    let config = Agent::config_builder()
+        .http_status_as_error(false)
+        .timeout_global(Some(left))
+        .build();
+    let mut request = Agent::new_with_config(config)
+        .post(format!(
+            "{}/api/v1/sessions/{}/{}/reports",
+            base.trim_end_matches('/'),
+            segment(agent),
+            segment(session)
+        ))
+        .header("content-type", "application/json")
+        .header(CLIENT_HEADER, "cli");
+    if let Some(token) = run_token {
+        request = request.header("authorization", format!("Run {token}"));
+    }
+    request
+        .send(body.to_string())
+        .is_ok_and(|response| response.status().is_success())
+}
+
 impl Client {
     /// What a request that reached no server says: where it looked, and
     /// what to do about it.

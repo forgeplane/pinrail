@@ -13,6 +13,9 @@ pub struct AgentSpec {
     pub aliases: &'static [&'static str],
     /// Its name, as the app shows it.
     pub label: &'static str,
+    /// The names its process can have, which the walk up from a hook's
+    /// process looks for.
+    pub binaries: &'static [&'static str],
     /// Environment variables that mean this agent runs the command.
     pub markers: &'static [&'static str],
     /// The variable holding its session's id, if it sets one.
@@ -51,6 +54,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "claude-code",
         aliases: &["claude"],
         label: "Claude Code",
+        binaries: &["claude"],
         markers: &["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"],
         session_var: Some("CLAUDE_CODE_SESSION_ID"),
         folders: Some(Folders {
@@ -63,6 +67,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "codex",
         aliases: &[],
         label: "Codex",
+        binaries: &["codex"],
         markers: &["CODEX_THREAD_ID", "CODEX_SANDBOX", "CODEX_CI"],
         session_var: Some("CODEX_SESSION_ID"),
         folders: Some(Folders {
@@ -75,6 +80,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "cursor",
         aliases: &[],
         label: "Cursor",
+        binaries: &["cursor-agent", "agent"],
         // not CURSOR_TRACE_ID: the editor sets it in a person's terminals too
         markers: &["CURSOR_AGENT"],
         session_var: Some("CURSOR_CONVERSATION_ID"),
@@ -88,6 +94,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "antigravity",
         aliases: &["agy"],
         label: "Antigravity CLI",
+        binaries: &["agy"],
         markers: &["ANTIGRAVITY_AGENT", "ANTIGRAVITY_CONVERSATION_ID"],
         session_var: Some("ANTIGRAVITY_CONVERSATION_ID"),
         folders: Some(Folders {
@@ -100,6 +107,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "opencode",
         aliases: &[],
         label: "OpenCode",
+        binaries: &["opencode"],
         markers: &["OPENCODE", "OPENCODE_PID", "OPENCODE_CLIENT"],
         session_var: Some("OPENCODE_SESSION_ID"),
         folders: Some(Folders {
@@ -114,6 +122,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "grok",
         aliases: &[],
         label: "Grok CLI",
+        binaries: &["grok"],
         markers: &["GROK_AGENT", "GROK_SESSION_ID"],
         session_var: Some("GROK_SESSION_ID"),
         folders: Some(Folders {
@@ -128,6 +137,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "pi",
         aliases: &[],
         label: "Pi",
+        binaries: &["pi"],
         markers: &["PI_CODING_AGENT"],
         session_var: Some("PI_SESSION_ID"),
         folders: Some(Folders {
@@ -140,6 +150,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "goose",
         aliases: &[],
         label: "Goose",
+        binaries: &["goose"],
         // Goose's shell tool sets only AGENT_SESSION_ID; GOOSE_TERMINAL and
         // AGENT=goose are set for its other commands. Detection checks
         // Goose last, since the name is generic.
@@ -160,6 +171,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "amp",
         aliases: &[],
         label: "Amp",
+        binaries: &["amp"],
         // detection checks Amp before Claude Code: older versions of Amp
         // also set CLAUDECODE
         markers: &["AMP_CURRENT_THREAD_ID"],
@@ -178,6 +190,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "copilot",
         aliases: &[],
         label: "Copilot CLI",
+        binaries: &["copilot"],
         markers: &["COPILOT_CLI"],
         session_var: Some("COPILOT_AGENT_SESSION_ID"),
         folders: Some(Folders {
@@ -190,6 +203,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "kiro",
         aliases: &[],
         label: "Kiro CLI",
+        binaries: &["kiro-cli"],
         markers: &["KIRO_SESSION_ID"],
         session_var: Some("KIRO_SESSION_ID"),
         folders: Some(Folders {
@@ -202,6 +216,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "augment",
         aliases: &["auggie"],
         label: "Augment CLI",
+        binaries: &["auggie"],
         markers: &["AUGMENT_AGENT"],
         session_var: None,
         folders: Some(Folders {
@@ -217,6 +232,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "cline",
         aliases: &[],
         label: "Cline",
+        binaries: &["cline"],
         // CLINE_ACTIVE on the terminals of Cline's VS Code extension, and
         // CLINE_WRAPPER_PATH from the launcher of its CLI
         markers: &["CLINE_ACTIVE", "CLINE_WRAPPER_PATH"],
@@ -231,6 +247,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "hermes-agent",
         aliases: &["hermes"],
         label: "Hermes Agent",
+        binaries: &["hermes"],
         markers: &["HERMES_SESSION_ID"],
         session_var: Some("HERMES_SESSION_ID"),
         folders: Some(Folders {
@@ -243,6 +260,7 @@ const AGENTS: &[AgentSpec] = &[
         id: "kimi",
         aliases: &[],
         label: "Kimi Code",
+        binaries: &["kimi"],
         // named only by AI_AGENT or AGENT: it sets no variable of its own
         markers: &[],
         session_var: None,

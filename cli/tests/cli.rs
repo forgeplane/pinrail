@@ -140,6 +140,8 @@ fn pinrail() -> Command {
         .env_remove("CLAUDE_CODE_SESSION_ID")
         .env_remove("CODEX_SESSION_ID")
         .env_remove("OPENCODE_SESSION_ID")
+        .env_remove("CLAUDE_PID")
+        .env_remove("PINRAIL_RUN_TOKEN")
         .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd
@@ -4535,4 +4537,155 @@ fn ask_sends_each_file_with_the_question_it_follows() {
         asked["attachments"]["failed.log"]["sha256"],
         sha256("the log")
     );
+}
+
+/// The hook input of a fixture `pinrail-runtime` keeps for its parsers.
+fn hook_input(agent: &str, name: &str) -> String {
+    std::fs::read_to_string(format!(
+        "{}/../desktop/runtime/tests/fixtures/hooks/{agent}/{name}.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap()
+}
+
+/// Runs `pinrail hook` with `input` on stdin and `env` set, answering its
+/// exit code, its output and how long it took.
+fn hook(args: &[&str], input: &str, env: &[(&str, &str)]) -> (i32, String, std::time::Duration) {
+    let mut cmd = pinrail();
+    cmd.arg("hook")
+        .args(args)
+        .current_dir(std::env::temp_dir())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for (key, value) in env {
+        cmd.env(key, value);
+    }
+    let started = std::time::Instant::now();
+    let mut child = cmd.spawn().unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    (out.status.code().unwrap_or(-1), printed, started.elapsed())
+}
+
+const HOOK_SESSION: &str = "22751b4b-336a-4c33-baef-fbe1d334abab";
+
+#[test]
+fn a_hook_posts_its_report_to_the_session_and_prints_nothing() {
+    let posted = Arc::new(Mutex::new(Vec::new()));
+    let kept = posted.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        kept.lock().unwrap().push(body.to_string());
+        (204, String::new())
+    }));
+    let me = std::process::id().to_string();
+    let (code, printed, _) = hook(
+        &["claude-code", "stop"],
+        &hook_input("claude-code", "stop"),
+        &[
+            ("PINRAIL_URL", server.url.as_str()),
+            ("CLAUDE_CODE_SESSION_ID", HOOK_SESSION),
+            ("CLAUDE_PID", me.as_str()),
+            ("PINRAIL_RUN_TOKEN", "t-1"),
+        ],
+    );
+    assert_eq!((code, printed.as_str()), (0, ""));
+    assert_eq!(
+        server.requests(),
+        [format!(
+            "POST /api/v1/sessions/claude-code/{HOOK_SESSION}/reports"
+        )]
+    );
+    let body: serde_json::Value = serde_json::from_str(&posted.lock().unwrap()[0]).unwrap();
+    assert_eq!(
+        (body["event"].as_str(), body["end"].as_str()),
+        (Some("turn_ended"), Some("done"))
+    );
+    assert!(
+        body["detail"]["reply"]
+            .as_str()
+            .unwrap()
+            .starts_with("Done.")
+    );
+    assert_eq!(body["process"]["pid"], std::process::id());
+    assert!(!body["process"]["started"].as_str().unwrap().is_empty());
+    // the time is read first, to the microsecond
+    let at = body["at"].as_str().unwrap();
+    assert_eq!(at.len(), "2026-11-13T10:00:00.000000Z".len(), "{at}");
+    assert_eq!(body["origin"]["folder"], "/Users/you/code/app");
+}
+
+#[test]
+fn a_hook_that_reports_nothing_posts_nothing() {
+    let server = MockServer::start(Box::new(|_, _, _| (204, String::new())));
+    let url = [
+        ("PINRAIL_URL", server.url.as_str()),
+        ("CLAUDE_CODE_SESSION_ID", HOOK_SESSION),
+    ];
+    // a subagent's hook, input that is not JSON, and an agent with no adapter
+    for (args, input) in [
+        (
+            ["claude-code", "tool-done"],
+            hook_input("claude-code", "subagent-tool-done"),
+        ),
+        (["claude-code", "stop"], "not json".to_string()),
+        (["goose", "stop"], hook_input("claude-code", "stop")),
+    ] {
+        let (code, printed, _) = hook(&args, &input, &url);
+        assert_eq!((code, printed.as_str()), (0, ""));
+    }
+    assert!(server.requests().is_empty());
+}
+
+#[test]
+fn a_hook_never_starts_the_server_and_never_waits_long() {
+    let dir = std::env::temp_dir().join(format!("pinrail-hook-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let marker = dir.join("started");
+    let start = format!("touch '{}'", marker.display());
+    let env = [
+        ("CLAUDE_CODE_SESSION_ID", HOOK_SESSION),
+        ("PINRAIL_SERVER_CMD", start.as_str()),
+    ];
+    // nothing listens
+    let free = TcpListener::bind("127.0.0.1:0").unwrap();
+    let nowhere = format!("http://{}", free.local_addr().unwrap());
+    drop(free);
+    let (code, printed, _) = hook(
+        &["claude-code", "stop"],
+        &hook_input("claude-code", "stop"),
+        &[env[0], env[1], ("PINRAIL_URL", nowhere.as_str())],
+    );
+    assert_eq!((code, printed.as_str()), (0, ""));
+    // and without a URL at all, as an agent runs it
+    let (code, _, _) = hook(
+        &["claude-code", "stop"],
+        &hook_input("claude-code", "stop"),
+        &env,
+    );
+    assert_eq!(code, 0);
+    assert!(!marker.exists(), "pinrail hook started the server");
+
+    // a server that takes the connection and never answers
+    let stalled = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", stalled.local_addr().unwrap());
+    let (code, printed, took) = hook(
+        &["claude-code", "stop"],
+        &hook_input("claude-code", "stop"),
+        &[env[0], ("PINRAIL_URL", url.as_str())],
+    );
+    assert_eq!((code, printed.as_str()), (0, ""));
+    assert!(took < std::time::Duration::from_millis(1_500), "{took:?}");
+    drop(stalled);
+    let _ = std::fs::remove_dir_all(&dir);
 }

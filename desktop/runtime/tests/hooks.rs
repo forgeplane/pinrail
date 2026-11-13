@@ -224,3 +224,54 @@ fn an_adapter_is_found_by_any_name_of_its_agent() {
     assert_eq!(adapter("claude").unwrap().spec().id, "claude-code");
     assert_eq!(adapter("codex").unwrap().spec().id, "codex");
 }
+
+#[test]
+fn a_report_is_sent_as_the_core_reads_it() {
+    let c = "claude-code";
+    let body = |agent: &str, event: &str, name: &str| parse(agent, event, name).unwrap().to_body();
+    let start = body(c, "session-start", "session-start");
+    assert_eq!(
+        (start["event"].as_str(), start["source"].as_str()),
+        (Some("started"), Some("startup"))
+    );
+    let permission = body(c, "permission", "permission");
+    assert_eq!(permission["event"], "needs_input");
+    assert_eq!(permission["wait"], "permission");
+    assert_eq!(permission["detail"]["tool"], "Bash");
+    assert_eq!(permission["detail"]["summary"], "touch denied.txt");
+    // a failed turn's error is its reply; the transcript and the agent's
+    // turn id place the turn in the agent's own record
+    let failed = body(c, "stop-failure", "stop-failure");
+    assert_eq!(failed["event"], "turn_ended");
+    assert_eq!(failed["end"], "failed");
+    assert_eq!(failed["detail"]["reply"], "rate_limit");
+    assert!(
+        failed["transcript_path"]
+            .as_str()
+            .unwrap()
+            .ends_with(".jsonl")
+    );
+    assert_eq!(
+        failed["detail"]["turn_id"],
+        "7bf504f0-029d-4e13-a137-e4e2ad6a3a77"
+    );
+    let codex = parse("codex", "stop", "stop").unwrap().to_body();
+    assert_eq!(
+        codex["detail"]["turn_id"],
+        "019a7f3e-6a00-7c00-8000-000000000001"
+    );
+    // the prompt is cut to what the core keeps
+    let mut input = input(c, "prompt");
+    input["prompt"] = serde_json::json!("x".repeat(5_000));
+    let report = adapter(c)
+        .unwrap()
+        .parse_hook("prompt", &input, &|k| {
+            (k == "CLAUDE_CODE_SESSION_ID").then(|| CLAUDE_SESSION.to_string())
+        })
+        .unwrap();
+    let cut = report.to_body();
+    assert_eq!(cut["detail"]["prompt"].as_str().unwrap().len(), 4_000);
+    assert_eq!(cut["detail"]["prompt_cut"], true);
+    // a reply that fits is not marked
+    assert!(body(c, "stop", "stop")["detail"].get("reply_cut").is_none());
+}

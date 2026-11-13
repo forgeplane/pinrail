@@ -6,6 +6,7 @@ pub mod agent;
 mod agents;
 pub mod detect;
 pub mod hooks;
+pub mod process;
 pub mod registry;
 pub mod skills;
 

@@ -10,6 +10,7 @@ mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod hook;
 mod items;
 mod md;
 mod origin;
@@ -244,6 +245,14 @@ enum Command {
     /// no stage is open, followed by any messages from the person.
     #[command(verbatim_doc_comment)]
     Status(StatusArgs),
+    /// Report what an agent's hook says about its session to the app
+    ///
+    /// The hooks Pinrail installs in an agent run this command, with the
+    /// hook's JSON on stdin; there is no need to run it yourself. It prints
+    /// nothing, always exits 0, never starts the server, and gives up after
+    /// one second, so it never slows the agent down.
+    #[command(verbatim_doc_comment)]
+    Hook(hook::HookArgs),
     /// Submit a review, and with --wait, wait for the decision and print it
     ///
     /// The options build the review: the plugin, --title, and the payload
@@ -1020,6 +1029,11 @@ fn run(cli: Cli) -> Result<u8> {
         return Ok(0);
     }
 
+    if let Command::Hook(args) = &cli.command {
+        hook::run(args, cli.url.as_deref());
+        return Ok(0);
+    }
+
     let auto_start = match &cli.command {
         Command::Submit(args) => !args.no_start,
         Command::Ask(args) => !args.no_start,
@@ -1416,7 +1430,7 @@ fn run(cli: Cli) -> Result<u8> {
             output.data(&json!({ "url": url }), |_| format!("{url}\n"));
             Ok(0)
         }
-        Command::Serve | Command::Docs { .. } => unreachable!(),
+        Command::Serve | Command::Docs { .. } | Command::Hook(_) => unreachable!(),
     }
 }
 

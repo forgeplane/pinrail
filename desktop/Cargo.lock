@@ -3428,6 +3428,7 @@ dependencies = [
 name = "pinrail-runtime"
 version = "0.6.0"
 dependencies = [
+ "libc",
  "serde_json",
 ]
 
