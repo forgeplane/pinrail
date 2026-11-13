@@ -163,3 +163,24 @@ async fn the_person_s_input_reaches_the_program_and_counts_as_activity() {
         .stop(Duration::from_millis(100), terminal::Reason::Stopped)
         .unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_program_that_asks_for_focus_reports_is_told_the_truth() {
+    // reads the report it gets on asking, then one more
+    let (terminal, _rx, _dir) = terminal(
+        "stty raw -echo; printf '\\033[?1004h'; \
+         a=$(dd bs=1 count=3 2>/dev/null | od -An -c | tr -d ' \\n'); printf '\\r\\nfirst:%s\\r\\n' \"$a\"; \
+         b=$(dd bs=1 count=3 2>/dev/null | od -An -c | tr -d ' \\n'); printf 'then:%s\\r\\n' \"$b\"; sleep 5",
+    );
+    // with no viewer, the terminal is not focused
+    let screen = screen_shows(&terminal, "first:").await;
+    assert!(screen.contains("first:033[O"), "{screen}");
+    terminal.set_focus(true);
+    let screen = screen_shows(&terminal, "then:").await;
+    assert!(screen.contains("then:033[I"), "{screen}");
+    // the same focus again tells nothing new
+    terminal.set_focus(true);
+    terminal
+        .stop(Duration::from_millis(100), terminal::Reason::Stopped)
+        .unwrap();
+}

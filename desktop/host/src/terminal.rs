@@ -16,6 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
 use crate::events::Events;
+use crate::filter::QueryFilter;
 use crate::leader::{self, Leader};
 use crate::pty::{self, Exit, Ready, Spawned};
 use crate::records::Records;
@@ -186,6 +187,7 @@ struct Typing {
 
 enum Command {
     Exited(Exit),
+    Focus(bool),
     Input(Vec<u8>, Input),
     Submit(Submit, oneshot::Sender<Result<(), SubmitError>>),
     Text {
@@ -296,6 +298,10 @@ impl Terminal {
             last_output: Instant::now(),
             typing: None,
             held: Vec::new(),
+            filter: QueryFilter::default(),
+            for_viewers: Vec::new(),
+            focus_reporting: false,
+            focused: false,
         }));
         Ok(Self { state, commands })
     }
@@ -368,6 +374,12 @@ impl Terminal {
         }
     }
 
+    /// Whether the controlling viewer's window is focused and shows the
+    /// terminal, which a program that asked for focus reports is told.
+    pub fn set_focus(&self, focused: bool) {
+        let _ = self.commands.send(Command::Focus(focused));
+    }
+
     /// When the person last typed, pasted or clicked in the terminal.
     pub fn last_input_at(&self) -> Option<String> {
         self.lock().last_input_at.clone()
@@ -427,6 +439,15 @@ struct Actor {
     typing: Option<Typing>,
     /// The person's input held while a message is typed.
     held: Vec<Vec<u8>>,
+    filter: QueryFilter,
+    /// The last output as the viewers see it, without the answered
+    /// queries.
+    for_viewers: Vec<u8>,
+    /// Whether the program asked for focus reports (mode 1004).
+    focus_reporting: bool,
+    /// Whether a controlling viewer's window is focused and shows the
+    /// terminal.
+    focused: bool,
 }
 
 /// Applies output and commands in the order they come, until the terminal
@@ -462,6 +483,7 @@ async fn actor(mut actor: Actor) {
                     drain_until = Instant::now() + EXIT_DRAIN;
                 }
                 Some(Command::Input(bytes, from)) => actor.input(bytes, from),
+                Some(Command::Focus(focused)) => actor.set_focus(focused),
                 Some(Command::Submit(submit, reply)) => {
                     if ended {
                         let _ = reply.send(Err(SubmitError::Exited));
@@ -598,6 +620,24 @@ impl Actor {
         }
     }
 
+    /// Tells a program that asked for focus reports whether the terminal
+    /// now has a focused controlling viewer.
+    fn set_focus(&mut self, focused: bool) {
+        if focused != self.focused {
+            self.focused = focused;
+            if self.focus_reporting {
+                self.write_focus();
+            }
+        }
+    }
+
+    fn write_focus(&self) {
+        if let Some(input) = &self.input {
+            let report = if self.focused { b"\x1b[I" } else { b"\x1b[O" };
+            let _ = input.send(report.to_vec());
+        }
+    }
+
     /// Checks the guards and starts typing a message.
     fn start_typing(&mut self, submit: Submit, reply: oneshot::Sender<Result<(), SubmitError>>) {
         let refused = if self.typing.is_some() {
@@ -680,7 +720,16 @@ impl Actor {
     fn apply(&mut self, bytes: &[u8]) {
         self.last_output = Instant::now();
         let (mut replies, mut signals) = (Vec::new(), Vec::<Signal>::new());
-        self.screen.feed(bytes, &mut replies, &mut signals);
+        // the screen answers the program's queries; the filter keeps the
+        // answered ones from the viewers, which would answer them again
+        let screen = &mut self.screen;
+        let mut feed = |bytes: &[u8]| {
+            let before = replies.len();
+            screen.feed(bytes, &mut replies, &mut signals);
+            replies.len() - before
+        };
+        self.for_viewers.clear();
+        self.filter.push(bytes, &mut self.for_viewers, &mut feed);
         if !replies.is_empty()
             && let Some(input) = &self.input
         {
@@ -726,8 +775,14 @@ impl Actor {
                 }
                 events.emit("program_status", params);
             }
-            // reported to viewers with the focus work
-            Signal::FocusReporting(_) => {}
+            // a program that asks for focus reports learns at once whether
+            // a focused viewer controls the terminal
+            Signal::FocusReporting(on) => {
+                self.focus_reporting = on;
+                if on {
+                    self.write_focus();
+                }
+            }
         }
     }
 

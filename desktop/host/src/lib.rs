@@ -8,6 +8,7 @@
 pub mod client;
 pub mod environment;
 pub mod events;
+pub mod filter;
 pub mod frame;
 pub mod launch;
 pub mod leader;
