@@ -1284,3 +1284,81 @@ async fn a_new_wait_is_announced_and_a_repeated_one_is_not() {
     report(&app, "s-1", "needs_input", 3, json!({"wait": "permission"})).await;
     assert_eq!(announced(&app), first + 1);
 }
+
+/// A request as an agent sends it, from outside the app's window, naming
+/// itself and its session in the body.
+async fn as_agent(app: &App, method: &str, path: &str, session: &str, body: Value) -> StatusCode {
+    let mut body = body;
+    body["by"] = json!("claude-code");
+    body["session"] = json!(session);
+    let request = axum::http::Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(body.to_string()))
+        .unwrap();
+    use tower::ServiceExt;
+    app.router.clone().oneshot(request).await.unwrap().status()
+}
+
+#[tokio::test]
+async fn a_hidden_session_shows_once_it_needs_the_person_is_messaged_or_works_on_an_item() {
+    let app = app();
+    let shown = |app: &App, id: &str| -> bool {
+        let hidden: i64 = rusqlite::Connection::open(app.state.config().db_path())
+            .unwrap()
+            .query_row(
+                "SELECT hidden FROM sessions WHERE agent = 'claude-code' AND id = ?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        hidden == 0
+    };
+    for id in ["waits", "messaged", "adds", "comments"] {
+        report(&app, id, "prompt", 1, json!({})).await;
+        assert!(!shown(&app, id), "{id}");
+    }
+    // it needs the person
+    report(
+        &app,
+        "waits",
+        "needs_input",
+        2,
+        json!({"wait": "permission"}),
+    )
+    .await;
+    assert!(shown(&app, "waits"));
+    // the person sends it a message, from a notification's thread
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/messaged/messages",
+        Some(json!({"text": "Use the staging database"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+    assert!(shown(&app, "messaged"));
+    // it adds a work item, or comments on one
+    let created = as_agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "adds",
+        json!({"repo": "acme/web", "title": "Fix login"}),
+    )
+    .await;
+    assert_eq!(created, StatusCode::CREATED);
+    assert!(shown(&app, "adds"));
+    let commented = as_agent(
+        &app,
+        "POST",
+        "/api/v1/items/WEB-1/comments",
+        "comments",
+        json!({"body": "Started on it"}),
+    )
+    .await;
+    assert_eq!(commented, StatusCode::CREATED);
+    assert!(shown(&app, "comments"));
+}

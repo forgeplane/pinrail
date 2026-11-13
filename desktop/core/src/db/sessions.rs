@@ -269,6 +269,16 @@ pub(super) fn touch(
     Ok(())
 }
 
+/// Shows a session known only from its agent's hooks, from now on: it
+/// needs the person, the person messaged it, or it worked on an item.
+pub(super) fn reveal(conn: &Connection, agent: &str, id: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE sessions SET hidden = 0 WHERE agent = ?1 AND id = ?2 AND hidden = 1",
+        params![agent, id],
+    )?;
+    Ok(())
+}
+
 /// Records activity in the session of the review, if it names one.
 pub(super) fn touch_review(conn: &Connection, review_id: &str) -> rusqlite::Result<()> {
     conn.execute(

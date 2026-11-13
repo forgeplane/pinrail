@@ -96,7 +96,8 @@ impl Db {
         let tx = conn.transaction()?;
         let now = Utc::now();
         let changed = tx.execute(
-            "UPDATE sessions SET last_at = MAX(last_at, ?3) WHERE agent = ?1 AND id = ?2",
+            // the person messaged it, so it shows from now on
+            "UPDATE sessions SET last_at = MAX(last_at, ?3), hidden = 0 WHERE agent = ?1 AND id = ?2",
             params![agent, id, activity(now)],
         )?;
         if changed == 0 {

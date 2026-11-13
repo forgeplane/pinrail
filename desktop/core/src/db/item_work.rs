@@ -203,6 +203,10 @@ pub(super) fn item_event(
     attrs: Value,
     at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
+    // a session that works on an item shows from now on
+    if let Some(session) = actor.session() {
+        super::sessions::reveal(conn, actor.name(), session)?;
+    }
     conn.execute(
         "INSERT INTO work_item_events (item_id, kind, actor, session, at, attrs)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -1537,6 +1541,9 @@ fn insert_comment(
     at: DateTime<Utc>,
 ) -> rusqlite::Result<Result<Comment, Refused>> {
     let id = crate::id::next_comment();
+    if let Some(session) = actor.session() {
+        super::sessions::reveal(conn, actor.name(), session)?;
+    }
     conn.execute(
         "INSERT INTO work_item_comments (id, item_id, body, author, session, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
