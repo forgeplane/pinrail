@@ -2,6 +2,8 @@
 //! Closing the window hides it; the app lives in the menu bar until "Quit".
 
 mod agent_skills;
+#[cfg(test)]
+mod agents_json;
 mod cli_install;
 mod feedback;
 mod headless;

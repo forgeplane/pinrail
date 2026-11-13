@@ -3,4 +3,7 @@
 //! keeps its configuration and skills.
 
 pub mod detect;
+pub mod registry;
 pub mod skills;
+
+pub use registry::{AgentSpec, Folders, all, find};

@@ -108,7 +108,7 @@ test("Connect lists only the agents found, and connects the ones chosen", async 
       };
     },
     [
-      agent("claude", "Claude Code", true, "connected"),
+      agent("claude-code", "Claude Code", true, "connected"),
       agent("codex", "Codex", true, "absent"),
       agent("cursor", "Cursor", true, "absent"),
       agent("antigravity", "Antigravity CLI", false, "absent"),
@@ -125,7 +125,7 @@ test("Connect lists only the agents found, and connects the ones chosen", async 
   expect(
     await agents.getByTestId(/^welcome-agent-/).evaluateAll((rows) => rows.map((r) => r.getAttribute("data-testid"))),
   ).toEqual([
-    "welcome-agent-claude",
+    "welcome-agent-claude-code",
     "welcome-agent-codex",
     "welcome-agent-cursor",
     "welcome-agent-grok",
@@ -133,8 +133,8 @@ test("Connect lists only the agents found, and connects the ones chosen", async 
   ]);
 
   // connected ones stay ticked; the others found are chosen to begin with
-  await expect(agents.getByTestId("welcome-agent-claude").getByRole("checkbox")).toBeChecked();
-  await expect(agents.getByTestId("welcome-agent-claude").getByRole("checkbox")).toBeDisabled();
+  await expect(agents.getByTestId("welcome-agent-claude-code").getByRole("checkbox")).toBeChecked();
+  await expect(agents.getByTestId("welcome-agent-claude-code").getByRole("checkbox")).toBeDisabled();
   await expect(agents.getByRole("button", { name: /^Connect \d+ agents?$/ })).toHaveText("Connect 4 agents");
 
   await agents.getByTestId("welcome-agent-cursor").getByRole("checkbox").uncheck();

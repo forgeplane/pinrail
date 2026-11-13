@@ -4,69 +4,21 @@
 //! `AGENT` (known names only, since other tools use it too), then each
 //! agent's own markers. An agent none of these name asks as `pinrail-cli`.
 
-/// The name a review gives each agent Pinrail knows, as the app shows it.
-const KNOWN: [(&str, &str); 15] = [
-    ("claude-code", "claude"),
-    ("codex", "codex"),
-    ("cursor", "cursor"),
-    ("antigravity", "agy"),
-    ("opencode", "opencode"),
-    ("kimi", "kimi"),
-    ("grok", "grok"),
-    ("pi", "pi"),
-    ("goose", "goose"),
-    ("amp", "amp"),
-    ("copilot", "copilot"),
-    ("kiro", "kiro"),
-    ("augment", "auggie"),
-    ("cline", "cline"),
-    ("hermes-agent", "hermes"),
-];
+use crate::registry::{AgentSpec, all, find};
 
-/// Each agent's own markers, in the order they are checked.
-const MARKERS: [(&str, &[&str]); 14] = [
-    // before Claude Code: older versions of Amp also set CLAUDECODE
-    ("amp", &["AMP_CURRENT_THREAD_ID"]),
-    ("claude-code", &["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"]),
-    ("codex", &["CODEX_THREAD_ID", "CODEX_SANDBOX", "CODEX_CI"]),
-    // not CURSOR_TRACE_ID: the editor sets it in a person's terminals too
-    ("cursor", &["CURSOR_AGENT"]),
-    (
-        "antigravity",
-        &["ANTIGRAVITY_AGENT", "ANTIGRAVITY_CONVERSATION_ID"],
-    ),
-    ("opencode", &["OPENCODE", "OPENCODE_PID", "OPENCODE_CLIENT"]),
-    ("grok", &["GROK_AGENT", "GROK_SESSION_ID"]),
-    ("pi", &["PI_CODING_AGENT"]),
-    ("copilot", &["COPILOT_CLI"]),
-    ("kiro", &["KIRO_SESSION_ID"]),
-    ("augment", &["AUGMENT_AGENT"]),
-    // CLINE_ACTIVE on the terminals of Cline's VS Code extension, and
-    // CLINE_WRAPPER_PATH from the launcher of its CLI
-    ("cline", &["CLINE_ACTIVE", "CLINE_WRAPPER_PATH"]),
-    ("hermes-agent", &["HERMES_SESSION_ID"]),
-    // Goose's shell tool sets only AGENT_SESSION_ID; GOOSE_TERMINAL and
-    // AGENT=goose are set for its other commands. Checked last, since the
-    // name is generic.
-    ("goose", &["GOOSE_TERMINAL", "AGENT_SESSION_ID"]),
-];
-
-/// The variable each agent keeps its session's id in.
-const SESSIONS: [(&str, &str); 12] = [
-    ("claude-code", "CLAUDE_CODE_SESSION_ID"),
-    ("codex", "CODEX_SESSION_ID"),
-    ("cursor", "CURSOR_CONVERSATION_ID"),
-    ("opencode", "OPENCODE_SESSION_ID"),
-    ("grok", "GROK_SESSION_ID"),
-    ("antigravity", "ANTIGRAVITY_CONVERSATION_ID"),
-    ("pi", "PI_SESSION_ID"),
-    // a generic name, read only when Goose is the detected agent
-    ("goose", "AGENT_SESSION_ID"),
-    ("amp", "AMP_CURRENT_THREAD_ID"),
-    ("copilot", "COPILOT_AGENT_SESSION_ID"),
-    ("kiro", "KIRO_SESSION_ID"),
-    ("hermes-agent", "HERMES_SESSION_ID"),
-];
+/// The order agents' own markers are checked in: Amp before Claude Code,
+/// since older versions of Amp also set CLAUDECODE, and Goose last, since
+/// its variable's name is generic. The others in the registry's order.
+fn by_markers() -> Vec<&'static AgentSpec> {
+    let rank = |agent: &AgentSpec| match agent.id {
+        "amp" => 0,
+        "goose" => 2,
+        _ => 1,
+    };
+    let mut agents: Vec<_> = all().iter().collect();
+    agents.sort_by_key(|agent| rank(agent));
+    agents
+}
 
 pub fn detect() -> Option<String> {
     detect_with(|key| std::env::var(key).ok())
@@ -80,7 +32,7 @@ pub fn session() -> Option<String> {
 
 pub fn session_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
     let agent = detect_with(&var)?;
-    let (_, key) = SESSIONS.iter().find(|(name, _)| *name == agent)?;
+    let key = find(&agent)?.session_var?;
     var(key)
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
@@ -94,20 +46,16 @@ pub fn detect_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
     if let Some(name) = set("AGENT").and_then(|v| known(&v)) {
         return Some(name);
     }
-    MARKERS
-        .iter()
-        .find(|(_, keys)| keys.iter().any(|k| set(k).is_some()))
-        .map(|(name, _)| name.to_string())
+    by_markers()
+        .into_iter()
+        .find(|agent| agent.markers.iter().any(|k| set(k).is_some()))
+        .map(|agent| agent.id.to_string())
 }
 
 /// The review's name for an agent a value names: `claude-code_2-1-281_agent`,
 /// `Claude`, `agy` and `antigravity` all say which one it is.
 fn known(value: &str) -> Option<String> {
-    let word = first_word(value);
-    KNOWN
-        .iter()
-        .find(|(name, short)| word == *name || word == *short)
-        .map(|(name, _)| name.to_string())
+    find(&first_word(value)).map(|agent| agent.id.to_string())
 }
 
 /// A value's leading name, lowercase: `claude-code_2-1-281_agent` is

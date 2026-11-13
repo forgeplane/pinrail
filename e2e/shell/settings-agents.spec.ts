@@ -34,7 +34,7 @@ test("Agents fits its width, whatever an agent's message says", async ({ page })
       state: "outdated",
     });
     const agents = [
-      agent("claude", "Claude Code", ".claude/skills"),
+      agent("claude-code", "Claude Code", ".claude/skills"),
       agent("antigravity", "Antigravity CLI", ".gemini/config/skills"),
     ];
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {
@@ -64,7 +64,7 @@ test("Update all updates every agent whose skill is outdated", async ({ page }) 
       state,
     });
     const agents = [
-      agent("claude", "Claude Code", "outdated"),
+      agent("claude-code", "Claude Code", "outdated"),
       agent("codex", "Codex", "outdated"),
       agent("cursor", "Cursor", "absent"),
     ];
@@ -88,11 +88,11 @@ test("Update all updates every agent whose skill is outdated", async ({ page }) 
   await expect(updateAll).toHaveText("Update all 2");
   await updateAll.click();
   await expect(page.getByTestId("agent-codex")).toHaveClass(/\bis-connected\b/);
-  await expect(page.getByTestId("agent-claude")).toHaveClass(/\bis-connected\b/);
+  await expect(page.getByTestId("agent-claude-code")).toHaveClass(/\bis-connected\b/);
   // an agent that was never connected stays as it was
   await expect(page.getByTestId("agent-cursor")).toHaveClass(/\bis-absent\b/);
   expect(await page.evaluate(() => (window as unknown as { __connected: string[] }).__connected)).toEqual([
-    "claude",
+    "claude-code",
     "codex",
   ]);
   await expect(updateAll).toHaveCount(0);
@@ -104,7 +104,7 @@ test("OpenCode can be connected beside Claude Code, whose skill it already uses"
   await page.evaluate(() => {
     const agents = [
       {
-        id: "claude",
+        id: "claude-code",
         name: "Claude Code",
         found: true,
         skill: "/Users/you/.claude/skills/pinrail/SKILL.md",
@@ -154,7 +154,7 @@ test("Agents groups the agents into connected, not connected and not found, each
     });
     const agents = [
       agent("grok", "Grok CLI", true, "connected"),
-      agent("claude", "Claude Code", true, "connected"),
+      agent("claude-code", "Claude Code", true, "connected"),
       agent("pi", "Pi", true, "absent"),
       agent("codex", "Codex", true, "absent"),
       agent("kiro", "Kiro CLI", false, "absent"),
@@ -174,7 +174,7 @@ test("Agents groups the agents into connected, not connected and not found, each
       .getByTestId(`agent-group-${group}`)
       .locator("[data-testid^=agent-]:not([data-testid^=agent-group])")
       .evaluateAll((cards) => cards.map((c) => c.getAttribute("data-testid")));
-  await expect.poll(() => ids("Connected")).toEqual(["agent-claude", "agent-grok"]);
+  await expect.poll(() => ids("Connected")).toEqual(["agent-claude-code", "agent-grok"]);
   expect(await ids("Not connected")).toEqual(["agent-codex", "agent-pi"]);
 
   // the agents not found stay folded away until asked for
@@ -198,7 +198,7 @@ test("an agent that reads a connected agent's skill says it already uses it", as
       also_reads,
     });
     const agents = [
-      agent("claude", "Claude Code", "connected"),
+      agent("claude-code", "Claude Code", "connected"),
       agent("cursor", "Cursor", "absent"),
       agent("grok", "Grok CLI", "absent", ["Claude Code", "Cursor"]),
       agent("opencode", "OpenCode", "absent", ["Claude Code"]),
@@ -235,7 +235,7 @@ test("Update skills automatically is off at first, and turned on it updates the 
       state,
       also_reads: [],
     });
-    const agents = [agent("claude", "Claude Code", "outdated"), agent("codex", "Codex", "connected")];
+    const agents = [agent("claude-code", "Claude Code", "outdated"), agent("codex", "Codex", "connected")];
     const w = window as unknown as Record<string, unknown>;
     w.__connected = [] as string[];
     w.__TAURI_INTERNALS__ = {
@@ -256,8 +256,10 @@ test("Update skills automatically is off at first, and turned on it updates the 
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByTestId("agent-claude")).toHaveClass(/\bis-connected\b/);
-  expect(await page.evaluate(() => (window as unknown as { __connected: string[] }).__connected)).toEqual(["claude"]);
+  await expect(page.getByTestId("agent-claude-code")).toHaveClass(/\bis-connected\b/);
+  expect(await page.evaluate(() => (window as unknown as { __connected: string[] }).__connected)).toEqual([
+    "claude-code",
+  ]);
   await expect
     .poll(async () => (await (await page.request.get(`${core}/api/v1/settings`)).json()).agents?.auto_update)
     .toBe(true);

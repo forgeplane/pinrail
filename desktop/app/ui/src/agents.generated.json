@@ -1,0 +1,85 @@
+[
+  {
+    "id": "claude-code",
+    "label": "Claude Code",
+    "aliases": [
+      "claude"
+    ]
+  },
+  {
+    "id": "codex",
+    "label": "Codex",
+    "aliases": []
+  },
+  {
+    "id": "cursor",
+    "label": "Cursor",
+    "aliases": []
+  },
+  {
+    "id": "antigravity",
+    "label": "Antigravity CLI",
+    "aliases": [
+      "agy"
+    ]
+  },
+  {
+    "id": "opencode",
+    "label": "OpenCode",
+    "aliases": []
+  },
+  {
+    "id": "grok",
+    "label": "Grok CLI",
+    "aliases": []
+  },
+  {
+    "id": "pi",
+    "label": "Pi",
+    "aliases": []
+  },
+  {
+    "id": "goose",
+    "label": "Goose",
+    "aliases": []
+  },
+  {
+    "id": "amp",
+    "label": "Amp",
+    "aliases": []
+  },
+  {
+    "id": "copilot",
+    "label": "Copilot CLI",
+    "aliases": []
+  },
+  {
+    "id": "kiro",
+    "label": "Kiro CLI",
+    "aliases": []
+  },
+  {
+    "id": "augment",
+    "label": "Augment CLI",
+    "aliases": [
+      "auggie"
+    ]
+  },
+  {
+    "id": "cline",
+    "label": "Cline",
+    "aliases": []
+  },
+  {
+    "id": "hermes-agent",
+    "label": "Hermes Agent",
+    "aliases": [
+      "hermes"
+    ]
+  },
+  {
+    "id": "kimi",
+    "label": "Kimi Code",
+    "aliases": []
+  }
+]

@@ -19,7 +19,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pinrail_runtime::skills::{AGENTS, Agent, skill_text};
+use pinrail_runtime::skills::skill_text;
+use pinrail_runtime::{AgentSpec, Folders};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -204,8 +205,19 @@ fn links_to_commands(
     out
 }
 
-fn skill_path(home: &Path, agent: &Agent) -> PathBuf {
-    home.join(agent.skills).join("pinrail").join("SKILL.md")
+/// An agent the app installs the skill for, with its folders.
+type Installable = (&'static AgentSpec, &'static Folders);
+
+/// Every agent the app installs the skill for: those with folders, in the
+/// order Settings lists them.
+fn agents() -> impl Iterator<Item = Installable> {
+    pinrail_runtime::all()
+        .iter()
+        .filter_map(|agent| Some((agent, agent.folders.as_ref()?)))
+}
+
+fn skill_path(home: &Path, folders: &Folders) -> PathBuf {
+    home.join(folders.skills).join("pinrail").join("SKILL.md")
 }
 
 /// What is in an agent's place for the skill.
@@ -244,42 +256,40 @@ fn sha<'a>(text: &'a str, key: &str) -> Option<&'a str> {
 
 /// Every agent the app knows, found or not.
 pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
-    AGENTS
-        .iter()
-        .map(|agent| AgentStatus {
+    agents()
+        .map(|(agent, folders)| AgentStatus {
             id: agent.id,
-            name: agent.name,
-            found: home.join(agent.config).is_dir(),
-            skill: skill_path(home, agent).display().to_string(),
-            state: state_of(&skill_path(home, agent), skill),
-            also_reads: agent
+            name: agent.label,
+            found: home.join(folders.config).is_dir(),
+            skill: skill_path(home, folders).display().to_string(),
+            state: state_of(&skill_path(home, folders), skill),
+            also_reads: folders
                 .also_reads
                 .iter()
-                .filter_map(|id| AGENTS.iter().find(|a| a.id == *id))
-                .map(|a| a.name)
+                .filter_map(|id| pinrail_runtime::find(id))
+                .map(|a| a.label)
                 .collect(),
         })
         .collect()
 }
 
-fn find(id: &str) -> Result<&'static Agent, String> {
-    AGENTS
-        .iter()
-        .find(|a| a.id == id)
+fn find(id: &str) -> Result<Installable, String> {
+    agents()
+        .find(|(agent, _)| agent.id == id)
         .ok_or_else(|| format!("Pinrail does not know an agent called {id}"))
 }
 
 /// Writes the skill for an agent that is installed, or brings an older one
 /// up to date. A `pinrail` skill of the person's own is never replaced.
 pub fn connect(home: &Path, id: &str, skill: &Skill) -> Result<(), String> {
-    let agent = find(id)?;
-    if !home.join(agent.config).is_dir() {
+    let (agent, folders) = find(id)?;
+    if !home.join(folders.config).is_dir() {
         return Err(format!(
             "{} is not installed: ~/{} is not there",
-            agent.name, agent.config
+            agent.label, folders.config
         ));
     }
-    let path = skill_path(home, agent);
+    let path = skill_path(home, folders);
     if state_of(&path, skill) == State::Theirs {
         return Err(format!(
             "{} is a skill of yours, not Pinrail's; it is left alone",
@@ -320,16 +330,15 @@ pub fn update_outdated(home: &Path, skill: &Skill) -> Vec<&'static str> {
 /// the names of the agents it rewrote. A skill an older app wrote waits for
 /// the person, or for the update at start when they asked for one.
 pub fn refresh_plugins(home: &Path, skill: &Skill) -> Vec<&'static str> {
-    AGENTS
-        .iter()
-        .filter(|agent| home.join(agent.config).is_dir())
-        .filter(|agent| {
-            let path = skill_path(home, agent);
+    agents()
+        .filter(|(_, folders)| home.join(folders.config).is_dir())
+        .filter(|(_, folders)| {
+            let path = skill_path(home, folders);
             state_of(&path, skill) == State::Outdated
                 && fs::read_to_string(&path).is_ok_and(|text| sha(&text, "base") == Some(BASE))
         })
-        .filter(|agent| connect(home, agent.id, skill).is_ok())
-        .map(|agent| agent.name)
+        .filter(|(agent, _)| connect(home, agent.id, skill).is_ok())
+        .map(|(agent, _)| agent.label)
         .collect()
 }
 
@@ -362,8 +371,8 @@ fn remove_generated(dir: &Path) -> Result<(), String> {
 /// Removes the app's skill from an agent, and its folder when nothing else
 /// is in it. A skill of the person's own stays.
 pub fn disconnect(home: &Path, id: &str) -> Result<(), String> {
-    let agent = find(id)?;
-    let path = skill_path(home, agent);
+    let (_, folders) = find(id)?;
+    let path = skill_path(home, folders);
     match fs::read_to_string(&path) {
         Err(_) => return Ok(()),
         Ok(text) if !managed(&text) => {
@@ -519,7 +528,7 @@ mod tests {
         assert_ne!(skill.sha, none().sha, "the hash covers the plugins");
 
         let home = home_with(&[".claude"]);
-        connect(home.path(), "claude", &skill).unwrap();
+        connect(home.path(), "claude-code", &skill).unwrap();
         let dir = home.path().join(".claude/skills/pinrail");
         assert_eq!(
             fs::read_to_string(dir.join("plugins/change-map/scripts/files.mjs")).unwrap(),
@@ -545,7 +554,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let with = Skill::with(&plugins(root.path()));
         let home = home_with(&[".claude", ".codex"]);
-        connect(home.path(), "claude", &with).unwrap();
+        connect(home.path(), "claude-code", &with).unwrap();
         connect(home.path(), "codex", &with).unwrap();
         // Codex's skill as an older app wrote it: its base differs
         let codex = home.path().join(".codex/skills/pinrail/SKILL.md");
@@ -618,8 +627,8 @@ mod tests {
             .filter(|a| a.found)
             .map(|a| a.id)
             .collect();
-        assert_eq!(found, vec!["claude", "opencode"]);
-        let claude = state(home.path(), "claude");
+        assert_eq!(found, vec!["claude-code", "opencode"]);
+        let claude = state(home.path(), "claude-code");
         assert_eq!(claude.state, State::Absent);
         assert!(
             Path::new(&claude.skill).ends_with(".claude/skills/pinrail/SKILL.md"),
@@ -670,16 +679,16 @@ mod tests {
     #[test]
     fn a_skill_with_other_contents_is_outdated_and_connecting_updates_it() {
         let home = home_with(&[".claude"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let dir = home.path().join(".claude/skills/pinrail");
         // as an older app wrote it: another hash, and a reference since dropped
         let older = none().text().replace(&none().sha, "0123");
         fs::write(dir.join("SKILL.md"), &older).unwrap();
         fs::write(dir.join("references/dropped.md"), "# Dropped\n").unwrap();
-        assert_eq!(state(home.path(), "claude").state, State::Outdated);
+        assert_eq!(state(home.path(), "claude-code").state, State::Outdated);
 
-        connect(home.path(), "claude", &none()).unwrap();
-        assert_eq!(state(home.path(), "claude").state, State::Connected);
+        connect(home.path(), "claude-code", &none()).unwrap();
+        assert_eq!(state(home.path(), "claude-code").state, State::Connected);
         assert_eq!(
             fs::read_to_string(dir.join("SKILL.md")).unwrap(),
             none().text()
@@ -690,7 +699,7 @@ mod tests {
     #[test]
     fn updating_outdated_skills_leaves_the_others_alone() {
         let home = home_with(&[".claude", ".codex", ".cursor", ".config/opencode"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         connect(home.path(), "codex", &none()).unwrap();
         // Claude Code's skill as an older app wrote it
         let claude = home.path().join(".claude/skills/pinrail/SKILL.md");
@@ -711,12 +720,12 @@ mod tests {
     #[test]
     fn only_the_hash_decides_whether_a_skill_is_current() {
         let home = home_with(&[".claude"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         // a reference changed by hand does not make the skill outdated, nor
         // does any other change that keeps the hash
         let dir = home.path().join(".claude/skills/pinrail");
         fs::write(dir.join("references/building.md"), "# Building\n").unwrap();
-        assert_eq!(state(home.path(), "claude").state, State::Connected);
+        assert_eq!(state(home.path(), "claude-code").state, State::Connected);
     }
 
     #[test]
@@ -754,10 +763,10 @@ mod tests {
     #[test]
     fn removing_keeps_files_of_the_persons_own_beside_the_skill() {
         let home = home_with(&[".claude"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let dir = home.path().join(".claude/skills/pinrail");
         fs::write(dir.join("notes.md"), "mine").unwrap();
-        disconnect(home.path(), "claude").unwrap();
+        disconnect(home.path(), "claude-code").unwrap();
         assert!(!dir.join("SKILL.md").exists());
         assert!(!dir.join("references").exists());
         assert!(dir.join("notes.md").exists());
@@ -766,7 +775,7 @@ mod tests {
     #[test]
     fn opencode_gets_its_own_skill_beside_claude_codes() {
         let home = home_with(&[".claude", ".config/opencode"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let opencode = state(home.path(), "opencode");
         assert_eq!(opencode.state, State::Absent);
         assert_eq!(opencode.also_reads, ["Claude Code"]);
@@ -774,7 +783,7 @@ mod tests {
         let path = home.path().join(".config/opencode/skills/pinrail/SKILL.md");
         assert_eq!(fs::read_to_string(path).unwrap(), none().text());
         assert_eq!(state(home.path(), "opencode").state, State::Connected);
-        assert_eq!(state(home.path(), "claude").state, State::Connected);
+        assert_eq!(state(home.path(), "claude-code").state, State::Connected);
     }
 
     #[test]
@@ -789,7 +798,7 @@ mod tests {
     #[test]
     fn grok_gets_its_own_skill_beside_claude_codes_and_cursors() {
         let home = home_with(&[".grok", ".claude", ".cursor"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         connect(home.path(), "cursor", &none()).unwrap();
         let grok = state(home.path(), "grok");
         assert!(grok.found);
@@ -804,7 +813,7 @@ mod tests {
     #[test]
     fn goose_gets_its_own_skill_beside_claude_codes() {
         let home = home_with(&[".claude", ".config/goose"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let goose = state(home.path(), "goose");
         assert!(goose.found);
         assert_eq!(goose.state, State::Absent);
@@ -818,7 +827,7 @@ mod tests {
     #[test]
     fn amp_gets_its_own_skill_beside_claude_codes() {
         let home = home_with(&[".claude", ".config/amp"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let amp = state(home.path(), "amp");
         assert!(amp.found);
         assert_eq!(amp.state, State::Absent);
@@ -852,7 +861,7 @@ mod tests {
     #[test]
     fn augment_gets_its_own_skill_beside_claude_codes() {
         let home = home_with(&[".claude", ".augment"]);
-        connect(home.path(), "claude", &none()).unwrap();
+        connect(home.path(), "claude-code", &none()).unwrap();
         let augment = state(home.path(), "augment");
         assert!(augment.found);
         assert_eq!(augment.state, State::Absent);
@@ -876,11 +885,11 @@ mod tests {
     #[test]
     fn hermes_agent_keeps_its_skills_in_its_folder() {
         let home = home_with(&[".hermes"]);
-        assert!(state(home.path(), "hermes").found);
-        connect(home.path(), "hermes", &none()).unwrap();
+        assert!(state(home.path(), "hermes-agent").found);
+        connect(home.path(), "hermes-agent", &none()).unwrap();
         let path = home.path().join(".hermes/skills/pinrail/SKILL.md");
         assert_eq!(fs::read_to_string(path).unwrap(), none().text());
-        assert_eq!(state(home.path(), "hermes").state, State::Connected);
+        assert_eq!(state(home.path(), "hermes-agent").state, State::Connected);
     }
 
     #[test]
