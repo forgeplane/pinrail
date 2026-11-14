@@ -224,3 +224,65 @@ async fn a_link_that_cannot_reach_its_host_keeps_trying_and_calls_fail_as_offlin
     .await
     .unwrap();
 }
+
+/// A host that answers `hello` and the subscription, then closes the
+/// connection, `times` times.
+async fn host_that_drops(listener: tokio::net::UnixListener, times: usize) {
+    use pinrail_host::frame::{self, Frame};
+    for _ in 0..times {
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
+        let (mut reader, mut writer) = stream.into_split();
+        let _hello = frame::read(&mut reader).await;
+        let hello = json!({"jsonrpc": "2.0", "id": 0,
+                           "result": {"generation": pinrail_host::GENERATION, "instance": "i1"}});
+        frame::write(&mut writer, &Frame::json(&hello))
+            .await
+            .unwrap();
+        let Ok(Some(subscribe)) = frame::read(&mut reader).await else {
+            return;
+        };
+        let subscribe: Value = serde_json::from_slice(&subscribe.payload).unwrap();
+        let answer = json!({"jsonrpc": "2.0", "id": subscribe["id"], "result": {"terminals": []}});
+        frame::write(&mut writer, &Frame::json(&answer))
+            .await
+            .unwrap();
+        // ready for a moment, then gone
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
+#[tokio::test]
+async fn each_reconnect_after_a_ready_connection_starts_the_backoff_again() {
+    let dir = tempfile::Builder::new()
+        .prefix("pl")
+        .tempdir_in("/tmp")
+        .unwrap();
+    let socket = dir.path().join("host.sock");
+    let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+    tokio::spawn(host_that_drops(listener, 3));
+    let link = HostLink::start(
+        Connector::Socket {
+            socket,
+            secret: "secret".to_string(),
+        },
+        "test",
+    );
+    let mut states = link.watch();
+    let mut attempts = Vec::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    while attempts.len() < 3 {
+        tokio::select! {
+            changed = states.changed() => changed.unwrap(),
+            () = tokio::time::sleep_until(deadline) => panic!("{attempts:?}"),
+        }
+        let state = states.borrow().clone();
+        if let HostState::Reconnecting { attempt, .. } = state {
+            attempts.push(attempt);
+        }
+    }
+    link.stop();
+    // every connection became ready, so each retry starts from the first delay
+    assert_eq!(attempts, [1, 1, 1]);
+}

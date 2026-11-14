@@ -277,9 +277,10 @@ impl HostLink {
             let reason = tokio::select! {
                 () = self.inner.stop.notified() => break,
                 outcome = self.connect_once(&mut resume) => match outcome {
-                    Ok(()) => {
+                    // a connection that was ready starts the delays again
+                    Ok(reason) => {
                         attempt = 0;
-                        "the connection closed".to_string()
+                        reason
                     }
                     Err(Fatal(reason)) => {
                         self.inner.state.send_replace(HostState::Incompatible { reason });
@@ -333,7 +334,9 @@ impl HostLink {
     }
 
     /// One connection, from finding the host to the connection's end.
-    async fn connect_once(&self, resume: &mut Option<(String, u64)>) -> Result<(), Failure> {
+    /// Returns why it ended: `Ok` when it had become ready, `Err` when it
+    /// never did.
+    async fn connect_once(&self, resume: &mut Option<(String, u64)>) -> Result<String, Failure> {
         self.inner.state.send_replace(HostState::Connecting);
         let (socket, secret) = match &self.inner.connector {
             Connector::Socket { socket, secret } => (socket.clone(), secret.clone()),
@@ -459,6 +462,9 @@ impl HostLink {
         };
         write.abort();
         *resume = Some((instance, last_seq));
+        if matches!(*self.inner.state.borrow(), HostState::Ready { .. }) {
+            return Ok(reason);
+        }
         Err(Retry(reason))
     }
 
