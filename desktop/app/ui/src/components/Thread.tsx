@@ -38,6 +38,7 @@ import { store, stored } from "./thread/storage";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useResizableWidth } from "../lib/useResizableWidth";
 import { useLatest } from "../lib/useLatest";
+import { readStored } from "../lib/storage";
 
 /** Whether the box under a thread sends the agent messages. Off until
  *  Pinrail can reach an agent that waits for nothing: until then a message
@@ -47,6 +48,9 @@ const MESSAGES = false;
 /** Whether the session's details show beside the thread, and their width,
  *  stored on this machine. */
 const DETAILS_SHOWN = "pinrail.thread.details";
+/** The session header's and the terminal bar's heights. */
+const HEAD_HEIGHT = 72;
+const TERMINAL_BAR_HEIGHT = 26;
 /** Whether a side panel shows the session's details, which it hides at first. */
 const DETAILS_SHOWN_PANEL = "pinrail.thread.panel-details";
 const DETAILS_WIDTH = "pinrail.thread.detailsWidth";
@@ -85,6 +89,16 @@ export const sessionPath = (s: { agent: string; id: string }) =>
   `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
 
 /** The session of a review, when the agent that sent it said which. */
+/** The space a session page's terminal has in the main area `main`: less
+ *  the header and the terminal bar, and the details when they are shown. */
+export function terminalArea(main: DOMRect): { width: number; height: number } {
+  const details = stored(DETAILS_SHOWN) !== "hidden" ? Number(readStored(DETAILS_WIDTH)) || 280 : 0;
+  return {
+    width: Math.max(0, main.width - details),
+    height: Math.max(0, main.height - HEAD_HEIGHT - TERMINAL_BAR_HEIGHT),
+  };
+}
+
 export function sessionOf(review: Review): { agent: string; id: string } | null {
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }

@@ -7716,3 +7716,108 @@ a.item-ref {
 .thread-main[hidden] {
   display: none;
 }
+
+/* The Start an agent dialog. */
+.start-agent-dialog {
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.start-agent-label {
+  margin-top: 8px;
+  color: var(--dim);
+  font: 500 var(--text-xs) var(--font);
+}
+.start-agent-folder {
+  display: flex;
+  gap: 8px;
+}
+.start-agent-folder input,
+.start-agent-more input,
+.start-agent-task {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-sm) var(--mono);
+}
+.start-agent-task {
+  font-family: var(--font);
+  resize: vertical;
+}
+.start-agent-folders {
+  margin: 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+.start-agent-folders li {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.start-agent-folders li:hover,
+.start-agent-folders li[aria-selected="true"] {
+  background: var(--bg-hover);
+}
+.start-agent-folders li.is-gone {
+  cursor: default;
+  opacity: 0.6;
+}
+.start-agent-folder-path {
+  font: var(--text-sm) var(--mono);
+}
+.start-agent-folder-where {
+  font-size: var(--text-xs);
+}
+.start-agent-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.start-agent-agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-sm) var(--font);
+  cursor: pointer;
+}
+.start-agent-agent.is-chosen {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.start-agent-agent:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.start-agent-agent kbd {
+  font: var(--text-2xs) var(--mono);
+  color: var(--faint);
+}
+.start-agent-more {
+  margin-top: 6px;
+}
+.start-agent-more summary {
+  color: var(--dim);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.start-agent-more input {
+  width: 100%;
+  margin-top: 4px;
+}

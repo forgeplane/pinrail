@@ -28,6 +28,7 @@ describe("the commands", () => {
     expect(by("3", mod)).toEqual(["go-items"]);
     expect(by("I", mod)).toEqual(["go-inbox"]);
     expect(by("C", { ...mod, shiftKey: true })).toEqual(["add-item"]);
+    expect(by("n", mod)).toEqual(["start-agent"]);
     expect(by("ArrowDown", { altKey: true })).toEqual(["next-waiting"]);
     expect(by("c", mod)).toEqual([]);
     expect(by("K", { ...mod, shiftKey: true })).toEqual(isMac ? [] : ["search"]);

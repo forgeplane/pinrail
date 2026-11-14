@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   ListChecks,
   ListPlus,
+  SquareTerminal,
   MessageSquare,
   Moon,
   PanelLeft,
@@ -33,6 +34,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, modalOpen, isTyping } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { StartAgentDialog } from "./StartAgentDialog";
 import { HISTORY_PATH, Sidebar, useSidebarWidth } from "./Sidebar";
 import { useWelcome } from "./useWelcome";
 import { useWhatsNew } from "./useWhatsNew";
@@ -90,6 +92,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update } = useSettings();
+  // ⌘N starts an agent, while the agent runtime is on; the sidebar's
+  // button asks for the dialog with an event
+  const [startAgent, setStartAgent] = useState(false);
+  const runtimeOn = prefs.labs.runtime;
+  useEffect(() => {
+    const open = () => setStartAgent(true);
+    window.addEventListener("pinrail:start-agent", open);
+    return () => window.removeEventListener("pinrail:start-agent", open);
+  }, []);
   const sidebar = prefs.sidebar.open;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
@@ -191,6 +202,9 @@ export function Layout({ children }: { children: ReactNode }) {
     "add-item": () => {
       if (!modalOpen()) startQuickAdd();
     },
+    "start-agent": () => {
+      if (runtimeOn && !modalOpen()) setStartAgent(true);
+    },
     settings: () => setSettings((s) => (s ? null : "general")),
     "toggle-theme": () => void toggleTheme(),
     "toggle-sidebar": () => void toggleSidebar(),
@@ -221,6 +235,7 @@ export function Layout({ children }: { children: ReactNode }) {
     fromCommand("go-history", History),
     fromCommand("go-items", ListChecks),
     { ...fromCommand("add-item", ListPlus), run: startQuickAdd },
+    ...(runtimeOn ? [fromCommand("start-agent", SquareTerminal)] : []),
     fromCommand("go-projects", LayoutGrid),
     {
       id: "new-project",
@@ -334,6 +349,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
+      {startAgent && runtimeOn ? <StartAgentDialog onClose={() => setStartAgent(false)} /> : null}
       {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}

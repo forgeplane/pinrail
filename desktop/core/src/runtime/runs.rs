@@ -144,7 +144,7 @@ impl super::Runtime {
         if let Some(arg) = pinrail_runtime::denied_arg(agent, &start.args) {
             return Err(RunError::invalid(
                 "args",
-                format!("{arg} turns the agent's permission checks off"),
+                format!("Pinrail does not start agents with permission checks turned off ({arg})."),
             ));
         }
         if start.folder.trim().is_empty() {
@@ -416,32 +416,18 @@ impl super::Runtime {
         if let Some(path) = self.run_env.get("PATH") {
             params["path"] = json!(path);
         }
-        let reply = match link.call("programs.find", params).await {
-            Ok(reply) => reply,
+        let found = match link.call("programs.find", params).await {
+            Ok(reply) => reply["programs"].as_array().cloned().unwrap_or_default(),
             Err(HostError::Refused { message, .. }) => return Err(RunError::StartFailed(message)),
             Err(_) => return Err(RunError::HostOffline),
         };
-        let found = reply["programs"].as_array().cloned().unwrap_or_default();
         let last = self
             .db
             .runs(&RunFilters::default())?
             .into_iter()
             .next()
             .map(|run| run.agent);
-        Ok(agents
-            .iter()
-            .zip(found.iter().chain(std::iter::repeat(&Value::Null)))
-            .map(|((spec, program), found)| {
-                json!({
-                    "id": spec.id,
-                    "name": spec.label,
-                    "program": program,
-                    "installed": found["path"].is_string(),
-                    "version": found["version"],
-                    "last_used": last.as_deref() == Some(spec.id),
-                })
-            })
-            .collect())
+        Ok(startable_list(&agents, &found, last.as_deref()))
     }
 
     fn ready_host(&self) -> Option<HostLink> {
@@ -526,4 +512,53 @@ fn new_uuid() -> String {
         &hex[16..20],
         &hex[20..32]
     )
+}
+
+/// The agents Pinrail can start, from what the host found of their
+/// programs.
+fn startable_list(
+    agents: &[(&pinrail_runtime::AgentSpec, String)],
+    found: &[Value],
+    last: Option<&str>,
+) -> Vec<Value> {
+    agents
+        .iter()
+        .enumerate()
+        .map(|(i, (spec, program))| {
+            let one = found.get(i).unwrap_or(&Value::Null);
+            json!({
+                "id": spec.id,
+                "name": spec.label,
+                "program": program,
+                "installed": one["path"].is_string(),
+                "version": one["version"],
+                "last_used": last == Some(spec.id),
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agents() -> Vec<(&'static pinrail_runtime::AgentSpec, String)> {
+        ["claude-code", "codex"]
+            .iter()
+            .map(|id| (pinrail_runtime::find(id).unwrap(), id.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn the_list_says_what_the_host_found() {
+        let found = [
+            json!({"name": "claude", "path": "/bin/claude", "version": "2.1.325"}),
+            json!({"name": "codex", "path": null, "version": null}),
+        ];
+        let list = startable_list(&agents(), &found, Some("codex"));
+        assert_eq!(list[0]["installed"], true);
+        assert_eq!(list[0]["version"], "2.1.325");
+        assert_eq!(list[1]["installed"], false);
+        assert_eq!(list[1]["last_used"], true);
+    }
 }

@@ -43,6 +43,7 @@ export const SHORTCUTS: Shortcut[] = [
     ],
   },
   { section: "General", what: "Add a work item from any page", keys: [[MOD, SHIFT, "C"]] },
+  { section: "General", what: "Start an agent (Labs)", keys: [[MOD, "N"]] },
   { section: "General", what: "Settings", keys: [[MOD, ","]] },
   { section: "General", what: "Switch theme", keys: [[MOD, SHIFT, "L"]] },
   { section: "General", what: "Show or hide the sidebar", keys: [[MOD, "B"]] },

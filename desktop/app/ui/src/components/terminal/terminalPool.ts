@@ -228,6 +228,24 @@ export class TerminalPool {
     for (const entry of this.entries.values()) void entry.then((p) => p.restyle(look));
   }
 
+  /** The grid a terminal shown in an area of `width` × `height` pixels
+   *  will fit, measured by the renderer itself in a hidden view. */
+  async gridFor(width: number, height: number): Promise<Grid> {
+    const renderer = await this.deps.renderer();
+    const element = document.createElement("div");
+    element.style.cssText = `position: fixed; left: -10000px; top: 0; width: ${width}px; height: ${height}px; visibility: hidden`;
+    document.body.append(element);
+    const view = renderer.create();
+    try {
+      await view.mount(element, { cols: 80, rows: 24, scrollback: 0, ...this.deps.appearance() });
+      const { cols, rows } = view.measure();
+      return { cols, rows };
+    } finally {
+      view.dispose();
+      element.remove();
+    }
+  }
+
   /** Detaches every terminal. */
   clear() {
     for (const entry of this.entries.values()) void entry.then((p) => p.dispose());

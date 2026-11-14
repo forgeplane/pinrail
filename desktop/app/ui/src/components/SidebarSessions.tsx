@@ -5,12 +5,21 @@
 // settings.
 
 import { CountBadge } from "./CountBadge";
-import { ChevronDown, ChevronRight, FilterX, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FilterX,
+  FolderGit2,
+  GitBranch,
+  SlidersHorizontal,
+  SquareTerminal,
+} from "lucide-react";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
+import { MOD } from "../lib/keys";
 import { fromSession } from "../lib/sessions";
 import {
   type Choices,
@@ -333,6 +342,18 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
       <h2>
         {HEADINGS[choices.grouping]}
         <span className="sidebar-sessions-actions">
+          {settings.labs.runtime ? (
+            <Tooltip label="Start an agent" keys={[MOD, "N"]} side="bottom">
+              <button
+                type="button"
+                className="bar-button sidebar-sessions-button"
+                aria-label="Start an agent"
+                onClick={() => window.dispatchEvent(new CustomEvent("pinrail:start-agent"))}
+              >
+                <SquareTerminal size={13} />
+              </button>
+            </Tooltip>
+          ) : null}
           {/* while a filter hides sessions, a way to show them all again */}
           {filtersSet(choices) ? (
             <Tooltip label="Clear filters" side="bottom">

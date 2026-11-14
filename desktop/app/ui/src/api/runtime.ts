@@ -21,7 +21,43 @@ export type Run = {
   session: { agent: string; id: string } | null;
 };
 
+/** An agent Pinrail can start, as the host finds it. */
+export type StartableAgent = {
+  id: string;
+  name: string;
+  program: string;
+  installed: boolean;
+  version: string | null;
+  last_used: boolean;
+};
+
+/** A folder agents worked in lately. */
+export type RecentFolder = {
+  folder: string;
+  repo: string | null;
+  branch: string | null;
+  exists: boolean;
+  used_at: string;
+};
+
+export type StartRequest = {
+  agent: string;
+  folder: string;
+  task?: string;
+  args?: string[];
+  cols: number;
+  rows: number;
+  local_id: string;
+};
+
 export const runtime = {
+  startable: async () => (await request<{ agents: StartableAgent[] }>("GET", "/api/v1/agents/startable")).agents,
+  recentFolders: async () => (await request<{ folders: RecentFolder[] }>("GET", "/api/v1/folders/recent")).folders,
+  start: (body: StartRequest) =>
+    request<{ run: Run; session: { agent: string; id: string } | null }>("POST", "/api/v1/runs", {
+      host: "local",
+      ...body,
+    }),
   status: () => request<{ enabled: boolean; state?: string }>("GET", "/api/v1/runtime"),
   run: (id: string) => request<Run>("GET", `/api/v1/runs/${seg(id)}`),
   runs: (filter: { state?: "live" | "ended"; session?: string } = {}) => {

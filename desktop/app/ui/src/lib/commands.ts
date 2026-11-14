@@ -17,6 +17,7 @@ export type CommandId =
   | "next-waiting"
   | "previous-waiting"
   | "add-item"
+  | "start-agent"
   | "settings"
   | "toggle-theme"
   | "toggle-sidebar"
@@ -79,6 +80,7 @@ export const COMMANDS: Command[] = [
   { id: "next-waiting", keys: [[ALT, "↓"]], matches: withAlt("ArrowDown") },
   { id: "previous-waiting", keys: [[ALT, "↑"]], matches: withAlt("ArrowUp") },
   { id: "add-item", label: "Add a work item", keys: [[MOD, SHIFT, "C"]], matches: withMod("c", true) },
+  { id: "start-agent", label: "Start an agent…", keys: [[MOD, "N"]], matches: withMod("n") },
   { id: "settings", label: "Open settings", keys: [[MOD, ","]], matches: withMod(","), menu: true },
   { id: "toggle-theme", label: "Switch theme", keys: [[MOD, SHIFT, "L"]], matches: withMod("l", true), menu: true },
   { id: "toggle-sidebar", label: "Show or hide the sidebar", keys: [[MOD, "B"]], matches: withMod("b"), menu: true },

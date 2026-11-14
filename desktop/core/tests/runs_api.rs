@@ -200,6 +200,22 @@ async fn a_start_that_cannot_happen_answers_with_its_reason() {
         );
     }
 
+    // a flag that turns permission checks off is refused in the spec's words
+    let (_, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder,
+                    "args": ["--model", "opus", "--dangerously-skip-permissions"]})),
+    )
+    .await;
+    assert_eq!(
+        answer["violations"][0]["message"],
+        "Pinrail does not start agents with permission checks turned off \
+         (--dangerously-skip-permissions).",
+        "{answer}"
+    );
+
     app.state
         .settings()
         .change(&json!({"labs": {"runtime": false}}))
