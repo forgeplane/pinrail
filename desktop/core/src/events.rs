@@ -83,6 +83,10 @@ pub struct Notice {
     /// `prefix_changed`, the repository and its new prefix.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<Value>,
+    /// The run, for the `run_*` notices: the run, and the session it moved
+    /// to or the reason it ended.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run: Option<Value>,
 }
 
 impl Notice {
@@ -113,6 +117,7 @@ impl Notice {
                 SESSION_SEEN,
             ]),
             item: about(&[ITEM_CHANGED, ITEM_DELETED, PREFIX_CHANGED]),
+            run: about(&[RUN_STARTED, RUN_BOUND, RUN_ENDED]),
         }
     }
 

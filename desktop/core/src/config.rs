@@ -43,6 +43,10 @@ pub struct Config {
     /// `--host-socket`. The core then connects to it instead of starting
     /// one.
     pub host_socket: Option<(PathBuf, String)>,
+    /// Variables added to the environment of every run Pinrail starts,
+    /// over the person's own. Empty but in tests, which put a stand-in
+    /// agent on `PATH` with it.
+    pub run_env: std::collections::BTreeMap<String, String>,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -105,6 +109,7 @@ impl Config {
             person_token: new_token(),
             host_binary: None,
             host_socket: None,
+            run_env: Default::default(),
         }
     }
 

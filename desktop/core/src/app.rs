@@ -218,6 +218,7 @@ impl Pinrail {
             attachments.clone(),
             telemetry.clone(),
         );
+        let runtime = crate::runtime::Runtime::new(db, events.bus(), config.run_env.clone());
         Ok(Self {
             config,
             events,
@@ -230,7 +231,7 @@ impl Pinrail {
             attachments,
             bundles,
             telemetry,
-            runtime: crate::runtime::Runtime::default(),
+            runtime,
             _lock: lock,
         })
     }

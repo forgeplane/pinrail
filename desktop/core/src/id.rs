@@ -30,6 +30,11 @@ pub fn next_project() -> String {
     format!("p_{}", &next()[PREFIX.len()..])
 }
 
+/// The next run id: `run_` and a ULID from the same sequence.
+pub fn next_run() -> String {
+    format!("run_{}", &next()[PREFIX.len()..])
+}
+
 /// The next work item id: `w_` and a ULID from the same sequence.
 pub fn next_item() -> String {
     format!("w_{}", &next()[PREFIX.len()..])
