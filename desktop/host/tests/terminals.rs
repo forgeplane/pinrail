@@ -185,3 +185,19 @@ fn a_live_terminal_counts_in_the_host_s_info() {
     assert_eq!(list[0]["terminal"], id.as_str());
     assert!(list[0].get("ended_at").is_none());
 }
+
+#[test]
+fn the_spawn_names_its_process_as_pinrail_runtime_reads_it() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = connect(&host);
+    let spawned = spawn(&mut client, "sleep 30", "/").unwrap();
+    let pid = spawned["pid"].as_u64().unwrap() as u32;
+    let process = pinrail_runtime::process::process(pid).unwrap();
+    assert_eq!(spawned["process_started"], process.started.as_str());
+    let list = client.call("terminal.list", json!({})).unwrap();
+    assert_eq!(list[0]["process_started"], process.started.as_str());
+    client
+        .call("terminal.stop", json!({"terminal": spawned["terminal"]}))
+        .unwrap();
+}

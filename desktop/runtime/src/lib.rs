@@ -12,5 +12,5 @@ pub mod registry;
 pub mod scrub;
 pub mod skills;
 
-pub use agent::{Agent, Env, Hint, HintStatus, adapter};
+pub use agent::{Agent, Env, Hint, HintStatus, StartPlan, StartRequest, adapter, denied_arg};
 pub use registry::{AgentSpec, Folders, all, find};

@@ -3,7 +3,7 @@
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{Agent, Env, StartPlan, StartRequest, push_task, spec};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::registry::AgentSpec;
 
@@ -56,5 +56,26 @@ impl Agent for Codex {
             event,
             detail,
         })
+    }
+
+    /// `codex --no-daemon [extra args] [task]`. Without the daemon, the
+    /// session, its hooks and its tool commands run in the terminal's own
+    /// process, so they see the run's environment. Codex chooses the
+    /// session's id, which the run learns from its first `SessionStart`.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec!["codex".to_string(), "--no-daemon".to_string()];
+        argv.extend(request.extra_args.iter().cloned());
+        push_task(&mut argv, request.task);
+        Some(StartPlan {
+            argv,
+            session: None,
+        })
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &[
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--dangerously-bypass-hook-trust",
+        ]
     }
 }

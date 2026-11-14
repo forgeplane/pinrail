@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use std::path::Path;
 
-use crate::agent::{Agent, Env, Hint, HintStatus, spec};
+use crate::agent::{Agent, Env, Hint, HintStatus, StartPlan, StartRequest, push_task, spec};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::integration::{HookEntry, HookPlan};
 use crate::registry::AgentSpec;
@@ -128,6 +128,29 @@ impl Agent for ClaudeCode {
         let text =
             std::fs::read_to_string(folder.join("sessions").join(format!("{pid}.json"))).ok()?;
         status_hint(&serde_json::from_str(&text).ok()?, session)
+    }
+
+    /// `claude --session-id <uuid> [extra args] [task]`: Pinrail chooses the
+    /// id, so the session exists from the start.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec![
+            "claude".to_string(),
+            "--session-id".to_string(),
+            request.session_id.to_string(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        push_task(&mut argv, request.task);
+        Some(StartPlan {
+            argv,
+            session: Some(request.session_id.to_string()),
+        })
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &[
+            "--dangerously-skip-permissions",
+            "--allow-dangerously-skip-permissions",
+        ]
     }
 }
 

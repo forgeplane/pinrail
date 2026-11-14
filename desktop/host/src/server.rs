@@ -666,7 +666,7 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         shared.context.clone(),
     )
     .map_err(|e| Failure("spawn_failed", e.to_string()))?;
-    let started_at = terminal.info().started_at;
+    let info = terminal.info();
     shared
         .terminals
         .lock()
@@ -676,7 +676,10 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         "spawned",
         json!({"terminal": id, "pid": pid, "labels": labels, "cols": cols, "rows": rows}),
     );
-    Ok(json!({"terminal": id, "pid": pid, "started_at": started_at}))
+    Ok(
+        json!({"terminal": id, "pid": pid, "process_started": info.process_started,
+               "started_at": info.started_at}),
+    )
 }
 
 /// The terminal a call names, or `not_found`.

@@ -40,6 +40,9 @@ const EXIT_DRAIN: Duration = Duration::from_millis(200);
 pub struct Info {
     pub id: String,
     pub pid: u32,
+    /// The program's start time, as `pinrail-runtime` reads it, which
+    /// tells the core this process from a later one with the same pid.
+    pub process_started: Option<String>,
     pub labels: Value,
     pub cols: u16,
     pub rows: u16,
@@ -53,6 +56,7 @@ impl Info {
         let mut value = json!({
             "terminal": self.id,
             "pid": self.pid,
+            "process_started": self.process_started,
             "labels": self.labels,
             "cols": self.cols,
             "rows": self.rows,
@@ -272,6 +276,7 @@ impl Terminal {
             info: Info {
                 id: id.clone(),
                 pid,
+                process_started: spawned.started.clone(),
                 labels,
                 cols,
                 rows,

@@ -37,6 +37,71 @@ pub trait Agent: Send + Sync {
     fn hook_plan(&self, _home: &Path, _env: Env) -> Option<crate::integration::HookPlan> {
         None
     }
+
+    /// How Pinrail starts a new session of the agent in a terminal; `None`
+    /// for an agent Pinrail does not start.
+    fn start(&self, _request: &StartRequest) -> Option<StartPlan> {
+        None
+    }
+
+    /// Flags that turn the agent's permission checks off, which Pinrail
+    /// refuses in a person's extra arguments, beside the shared list.
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &[]
+    }
+}
+
+/// A new session Pinrail is asked to start.
+#[derive(Debug, Clone, Copy)]
+pub struct StartRequest<'a> {
+    /// The first task, if the person gave one.
+    pub task: Option<&'a str>,
+    /// The person's extra arguments, already checked against the deny list.
+    pub extra_args: &'a [String],
+    /// A new UUID, the session's id for an agent that lets Pinrail choose it.
+    pub session_id: &'a str,
+}
+
+/// How to start the agent: the command, and what Pinrail knows of the
+/// session before it reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartPlan {
+    pub argv: Vec<String>,
+    /// The session's id, when the agent let Pinrail choose it; otherwise
+    /// the run learns it from the agent's first `SessionStart`.
+    pub session: Option<String>,
+}
+
+/// Adds the first task to a command as its last argument, after `--`, so
+/// that a task that starts with `-` is never read as a flag.
+pub(crate) fn push_task(argv: &mut Vec<String>, task: Option<&str>) {
+    if let Some(task) = task.filter(|t| !t.trim().is_empty()) {
+        argv.push("--".to_string());
+        argv.push(task.to_string());
+    }
+}
+
+/// Flags that turn permission checks off in more than one agent.
+const DENIED_EVERYWHERE: &[&str] = &[
+    "--dangerously-skip-permissions",
+    "--allow-dangerously-skip-permissions",
+    "--yolo",
+];
+
+/// The first of `args` that turns the agent's permission checks off, as
+/// written. A flag counts alone or with `=value`, and `--permission-mode`
+/// counts with the value `bypassPermissions`.
+pub fn denied_arg<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str> {
+    let denied =
+        |flag: &str| DENIED_EVERYWHERE.contains(&flag) || agent.deny_flags().contains(&flag);
+    args.iter().enumerate().find_map(|(i, arg)| {
+        let (flag, value) = match arg.split_once('=') {
+            Some((flag, value)) => (flag, Some(value)),
+            None => (arg.as_str(), args.get(i + 1).map(String::as_str)),
+        };
+        let bypass = flag == "--permission-mode" && value == Some("bypassPermissions");
+        (denied(flag) || bypass).then_some(arg.as_str())
+    })
 }
 
 /// What an agent's own file says its session is doing.
