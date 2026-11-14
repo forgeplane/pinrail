@@ -542,3 +542,32 @@ async fn a_run_keeps_what_it_was_started_with_and_its_last_output() {
     assert_eq!(status, StatusCode::OK, "{output}");
     assert_eq!(output["text"], "stand-in agent starting");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_ended_run_gives_its_screen_as_a_paint_with_its_size() {
+    let app = linked().await;
+    let work = folder(&app, "ends");
+    std::fs::write(format!("{work}/exit"), "0").unwrap();
+    let body = json!({"agent": "claude-code", "folder": work, "cols": 132, "rows": 40});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    run_becomes(&app, &id, |run| run["state"] == "ended").await;
+
+    let path = format!("/api/v1/runs/{id}/screen");
+    let (status, _) = call_as(&app, "GET", &path, None, &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, screen) = call(&app, "GET", &path, None).await;
+    assert_eq!(status, StatusCode::OK, "{screen}");
+    assert!(
+        screen["paint"]
+            .as_str()
+            .unwrap()
+            .contains("stand-in agent starting"),
+        "{screen}"
+    );
+    assert_eq!(
+        (screen["cols"].as_u64(), screen["rows"].as_u64()),
+        (Some(132), Some(40))
+    );
+}

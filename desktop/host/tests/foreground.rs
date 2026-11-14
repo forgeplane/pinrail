@@ -262,3 +262,22 @@ async fn a_program_that_leaves_the_alternate_screen_as_it_exits_keeps_that_scree
     assert!(text.contains("the interface"), "{text}");
     assert!(!text.contains("bye"), "{text}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stopped_program_s_screen_is_kept_as_a_paint_with_its_colours_and_size() {
+    let (terminal, _rx, _dir) = terminal(
+        "trap 'printf \"\\033[2J\\033[H\"; exit 0' HUP; \
+         printf '\\033[31mred words\\033[0m\\n'; while true; do sleep 1; done",
+    );
+    screen_shows(&terminal, "red words").await;
+    terminal
+        .stop(Duration::from_secs(2), terminal::Reason::Stopped)
+        .unwrap();
+    ended_text(&terminal).await;
+    let (paint, size) = terminal.paint_request().await.unwrap();
+    let paint = String::from_utf8_lossy(&paint);
+    assert!(paint.contains("red words"), "{paint:?}");
+    // the colour the program set, as an escape sequence
+    assert!(paint.contains("31m") || paint.contains("38;"), "{paint:?}");
+    assert_eq!(size, (80, 24));
+}

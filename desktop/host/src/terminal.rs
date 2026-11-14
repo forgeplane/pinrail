@@ -39,6 +39,15 @@ const KEEP_WITHIN: Duration = Duration::from_millis(200);
 /// for that screen to be the one it ended with.
 const LEFT_WITHIN: Duration = Duration::from_secs(3);
 
+/// A screen kept as the one a terminal ended with: its text, its paint
+/// any emulator reads, and its size.
+#[derive(Debug, Clone)]
+struct Kept {
+    text: String,
+    paint: Vec<u8>,
+    size: (u16, u16),
+}
+
 /// Where `bytes` leave the alternate screen (modes 1049, 1047 or 47).
 fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
     [&b"\x1b[?1049l"[..], b"\x1b[?1047l", b"\x1b[?47l"]
@@ -238,6 +247,8 @@ enum Command {
         lines: usize,
         reply: oneshot::Sender<String>,
     },
+    /// The screen as a paint any emulator reads, with its size.
+    Paint(oneshot::Sender<(Vec<u8>, (u16, u16))>),
     HandOver {
         file: std::path::PathBuf,
         formats: Vec<String>,
@@ -550,6 +561,19 @@ impl Terminal {
     /// The screen's text, after up to `lines` lines of history, once the
     /// actor answers. The request is made at once, so that no lock is held
     /// while it is awaited.
+    /// The screen as a paint any emulator reads, with its columns and
+    /// rows: the one it ended with, once it has.
+    pub fn paint_request(&self) -> impl Future<Output = Option<(Vec<u8>, (u16, u16))>> + use<> {
+        let (reply, answer) = oneshot::channel();
+        let sent = self.commands.send(Command::Paint(reply)).is_ok();
+        async move {
+            if !sent {
+                return None;
+            }
+            answer.await.ok()
+        }
+    }
+
     pub fn text_request(&self, lines: usize) -> impl Future<Output = Option<String>> + use<> {
         let (reply, answer) = oneshot::channel();
         let sent = self.commands.send(Command::Text { lines, reply }).is_ok();
@@ -616,9 +640,9 @@ struct Actor {
     /// The screen the terminal ended with, when it is not the one the
     /// program left: the screen when it was asked to stop, or the
     /// alternate screen it left as it exited.
-    kept: Option<String>,
+    kept: Option<Kept>,
     /// The alternate screen the program last left, and when.
-    left_alternate: Option<(String, Instant)>,
+    left_alternate: Option<(Kept, Instant)>,
     /// Tells the holder the host is done with the terminal.
     forget: Option<Box<dyn FnOnce() + Send>>,
 }
@@ -683,9 +707,12 @@ async fn actor(mut actor: Actor) {
                 }
                 Some(Command::Keep(done)) => {
                     if actor.kept.is_none() {
-                        actor.kept = Some(actor.text(KEPT_LINES));
+                        actor.kept = Some(actor.keep());
                     }
                     let _ = done.send(());
+                }
+                Some(Command::Paint(reply)) => {
+                    let _ = reply.send(actor.paint());
                 }
                 Some(Command::Text { lines, reply }) => {
                     let _ = reply.send(actor.text(lines));
@@ -1175,6 +1202,7 @@ impl Actor {
         let (mut replies, mut signals) = (Vec::new(), Vec::<Signal>::new());
         // the screen answers the program's queries; the filter keeps the
         // answered ones from the viewers, which would answer them again
+        let size = self.size;
         let screen = &mut self.screen;
         let mut left = None;
         let mut feed = |bytes: &[u8]| {
@@ -1185,7 +1213,11 @@ impl Actor {
                 && screen.modes().alternate_screen
             {
                 screen.feed(&rest[..at], &mut replies, &mut signals);
-                left = Some(screen.text(TextRange::Screen));
+                left = Some(Kept {
+                    text: screen.text(TextRange::Screen),
+                    paint: screen.first_paint(0),
+                    size,
+                });
                 rest = &rest[at..];
             }
             screen.feed(rest, &mut replies, &mut signals);
@@ -1193,8 +1225,8 @@ impl Actor {
         };
         self.for_viewers.clear();
         self.filter.push(bytes, &mut self.for_viewers, &mut feed);
-        if let Some(text) = left {
-            self.left_alternate = Some((text, Instant::now()));
+        if let Some(kept) = left {
+            self.left_alternate = Some((kept, Instant::now()));
         }
         self.viewers
             .output(&self.for_viewers, std::time::Instant::now());
@@ -1295,11 +1327,30 @@ impl Actor {
         std::fs::rename(partial, file)
     }
 
+    /// The screen as it is now, with its history, to keep as the one the
+    /// terminal ended with.
+    fn keep(&self) -> Kept {
+        Kept {
+            text: self.text(KEPT_LINES),
+            paint: self.screen.first_paint(KEPT_LINES),
+            size: self.size,
+        }
+    }
+
+    /// The screen as a paint, with its size: the one kept once the
+    /// terminal has ended with one, otherwise the screen now.
+    fn paint(&self) -> (Vec<u8>, (u16, u16)) {
+        match &self.kept {
+            Some(kept) if self.ended => (kept.paint.clone(), kept.size),
+            _ => (self.screen.first_paint(KEPT_LINES), self.size),
+        }
+    }
+
     fn text(&self, lines: usize) -> String {
         if self.ended
             && let Some(kept) = &self.kept
         {
-            return kept.clone();
+            return kept.text.clone();
         }
         let history = self.screen.text(TextRange::History);
         let kept: Vec<&str> = history.lines().collect();
@@ -1318,10 +1369,10 @@ impl Actor {
         // a program that left the alternate screen as it exited ended
         // with what that screen showed
         if self.kept.is_none()
-            && let Some((text, at)) = self.left_alternate.take()
+            && let Some((kept, at)) = self.left_alternate.take()
             && at.elapsed() < LEFT_WITHIN
         {
-            self.kept = Some(text);
+            self.kept = Some(kept);
         }
         let (reason, ended_at) = {
             let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());

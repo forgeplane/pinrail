@@ -674,6 +674,10 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             false,
         ),
         "terminal.text" => (Some(reply(id, text(params(&message), shared).await)), false),
+        "terminal.screen" => (
+            Some(reply(id, screen(params(&message), shared).await)),
+            false,
+        ),
         _ => (
             Some(error(
                 id,
@@ -1169,6 +1173,23 @@ async fn text(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         .await
         .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
     Ok(json!({"text": text}))
+}
+
+/// `terminal.screen`: the screen as a paint any emulator reads, with its
+/// size, which for an ended terminal is the one it ended with.
+async fn screen(params: &Value, shared: &Shared) -> Result<Value, Failure> {
+    let id = params.get("terminal").and_then(Value::as_str).unwrap_or("");
+    let request = {
+        let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        let terminal = terminals
+            .get(id)
+            .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
+        terminal.paint_request()
+    };
+    let (paint, (cols, rows)) = request
+        .await
+        .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
+    Ok(json!({"paint": String::from_utf8_lossy(&paint), "cols": cols, "rows": rows}))
 }
 
 fn result(id: Value, result: Value) -> Value {

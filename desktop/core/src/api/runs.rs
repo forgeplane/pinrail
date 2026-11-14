@@ -26,6 +26,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/folders/recent", get(recent_folders))
         .route("/api/v1/runs/{run}", get(show))
         .route("/api/v1/runs/{run}/output", get(output))
+        .route("/api/v1/runs/{run}/screen", get(screen))
         .route("/api/v1/runs/{run}/stop", post(stop))
         .route("/api/v1/hosts/{host}", get(host))
 }
@@ -228,6 +229,20 @@ async fn output(
         .min(500);
     match state.runtime().output(&id, lines).await {
         Ok(text) => Json(json!({ "text": text })).into_response(),
+        Err(error) => run_error(error),
+    }
+}
+
+/// A run's screen as a paint any emulator reads, with its columns and
+/// rows: for an ended run, the screen it ended with. Only the person reads
+/// a terminal.
+async fn screen(
+    State(state): State<Arc<Pinrail>>,
+    _person: Person,
+    Path(id): Path<String>,
+) -> Response {
+    match state.runtime().screen(&id).await {
+        Ok(screen) => Json(screen).into_response(),
         Err(error) => run_error(error),
     }
 }

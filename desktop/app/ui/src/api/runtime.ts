@@ -78,6 +78,12 @@ export const runtime = {
         asPerson: true,
       })
     ).text,
+  /** A run's screen as a paint any emulator reads, with its size: for an
+   *  ended run, the screen it ended with. */
+  screen: (id: string) =>
+    request<{ paint: string; cols: number; rows: number }>("GET", `/api/v1/runs/${seg(id)}/screen`, undefined, {
+      asPerson: true,
+    }),
   stop: (id: string, force = false) => request<void>("POST", `/api/v1/runs/${seg(id)}/stop`, { force }),
   /** A ticket that opens one attach to `terminal` within 30 seconds. */
   ticket: async (terminal: string) =>

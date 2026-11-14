@@ -259,22 +259,41 @@ const endedRun = (session: string, over: Record<string, unknown>) => ({
   ...over,
 });
 
+/** A screen 200 columns wide, wider than the view, in colour. */
+const WIDE = {
+  paint: `\x1b[31m${"✻ Worked for 12m ".repeat(11)}\x1b[0m\r\n> Fixed the login redirect.`,
+  cols: 200,
+  rows: 30,
+};
+
+/** Whether the ended run's screen fits its view: no horizontal scroll,
+ *  and the screen scaled to the view's width. */
+const fits = (page: Page) =>
+  page.evaluate(() => {
+    const area = document.querySelector<HTMLElement>(".ended-run-screen")!;
+    const frame = document.querySelector<HTMLElement>(".ended-run-frame")!;
+    return area.scrollWidth <= area.clientWidth && frame.getBoundingClientRect().width <= area.clientWidth;
+  });
+
 for (const [how, over, banner] of [
   ["exited", { exit_code: 0 }, "Claude Code exited with code 0."],
   ["was stopped", { end_reason: "stopped", exit_code: null, exit_signal: "TERM" }, "Claude Code was stopped by you."],
 ] as const) {
-  test(`a session whose agent ${how} shows how over its last screen`, async ({ page }) => {
+  test(`a session whose agent ${how} shows how over its last screen, fitted to the view`, async ({ page }) => {
     const session = await aSession(page);
     await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [endedRun(session, over)] } }));
-    await page.route(/\/api\/v1\/runs\/run_ended\/output/, (route) =>
-      route.fulfill({ json: { text: "✻ Worked for 12m\n> Fixed the login redirect." } }),
-    );
+    await page.route(/\/api\/v1\/runs\/run_ended\/screen/, (route) => route.fulfill({ json: WIDE }));
     await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
     const view = page.getByTestId("ended-run");
     await expect(view.getByRole("status")).toHaveText(banner);
-    await expect(view.getByLabel("Claude Code's last screen")).toHaveText(
-      "✻ Worked for 12m\n> Fixed the login redirect.",
-    );
+    await expect(view.getByRole("img", { name: "Claude Code's last screen" })).toBeVisible();
+    // wider than the view, it is scaled down to fit, and again on a resize
+    await expect.poll(() => fits(page)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector<HTMLElement>(".ended-run-surface")!.style.transform))
+      .toMatch(/scale\(0\./);
+    await page.setViewportSize({ width: 900, height: 700 });
+    await expect.poll(() => fits(page)).toBe(true);
     // and no terminal to attach to
     await expect(page.getByTestId("terminal-bar")).toHaveCount(0);
   });
@@ -283,7 +302,7 @@ for (const [how, over, banner] of [
 test("an ended run whose last screen is gone says so", async ({ page }) => {
   const session = await aSession(page);
   await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [endedRun(session, {})] } }));
-  await page.route(/\/api\/v1\/runs\/run_ended\/output/, (route) =>
+  await page.route(/\/api\/v1\/runs\/run_ended\/screen/, (route) =>
     route.fulfill({ status: 404, json: { error: "not_found", message: "no terminal" } }),
   );
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);

@@ -424,6 +424,31 @@ impl super::Runtime {
         Ok(last_lines(reply["text"].as_str().unwrap_or(""), lines))
     }
 
+    /// A run's screen as a paint any emulator reads, with its size: the
+    /// screen it ended with, once it has, while the host keeps it.
+    pub async fn screen(&self, id: &str) -> Result<Value, RunError> {
+        let run = self
+            .db
+            .run(id)?
+            .ok_or_else(|| RunError::NotFound(format!("run {id}")))?;
+        let terminal = run
+            .terminal
+            .ok_or_else(|| RunError::NotFound(format!("the terminal of run {id}")))?;
+        let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        match link
+            .call("terminal.screen", json!({ "terminal": terminal }))
+            .await
+        {
+            Ok(reply) => Ok(json!({
+                "paint": reply["paint"],
+                "cols": reply["cols"],
+                "rows": reply["rows"],
+            })),
+            Err(HostError::Refused { message, .. }) => Err(RunError::NotFound(message)),
+            Err(_) => Err(RunError::HostOffline),
+        }
+    }
+
     /// The agents Pinrail can start as the host last found them, with
     /// when it looked, and whether it should look again: on `refresh`,
     /// after a start found an agent missing, or after an hour. Only the

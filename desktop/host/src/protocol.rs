@@ -78,6 +78,11 @@ pub const METHODS: &[Method] = &[
         optional: &["lines"],
     },
     Method {
+        name: "terminal.screen",
+        required: &["terminal"],
+        optional: &[],
+    },
+    Method {
         name: "terminal.attach",
         required: &["terminal", "cols", "rows"],
         optional: &["mode", "history", "formats", "resume_from"],
