@@ -168,6 +168,16 @@ fn winsize(cols: u16, rows: u16) -> libc::winsize {
     }
 }
 
+/// The PTY's size, as columns and rows.
+pub fn size(master: &OwnedFd) -> io::Result<(u16, u16)> {
+    let mut size = winsize(0, 0);
+    // SAFETY: TIOCGWINSZ writes a winsize into the struct it is given.
+    if unsafe { libc::ioctl(master.as_raw_fd(), libc::TIOCGWINSZ as _, &mut size) } == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok((size.ws_col.max(1), size.ws_row.max(1)))
+}
+
 /// Sets the PTY's size, which sends the program `SIGWINCH`.
 pub fn resize(master: &OwnedFd, cols: u16, rows: u16) -> io::Result<()> {
     let size = winsize(cols, rows);

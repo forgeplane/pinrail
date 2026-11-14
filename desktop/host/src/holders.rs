@@ -64,6 +64,16 @@ impl Link {
     }
 }
 
+/// A terminal a holder keeps, as a host that starts takes it back.
+pub struct Kept {
+    pub holder: String,
+    pub terminal: String,
+    pub spawned: Spawned,
+    pub ring: Option<OwnedFd>,
+    /// How the program ended, if it has.
+    pub exit: Option<Exit>,
+}
+
 /// The holders this host talks to.
 pub struct Holders {
     paths: Paths,
@@ -178,12 +188,15 @@ impl Holders {
         cwd: &str,
         env: &BTreeMap<String, String>,
         (cols, rows): (u16, u16),
+        ring: Option<&OwnedFd>,
     ) -> Result<(String, Spawned), SpawnError> {
+        use std::os::fd::AsRawFd;
         let link = self.holder()?;
+        let fds: Vec<i32> = ring.map(AsRawFd::as_raw_fd).into_iter().collect();
         let (answer, fds) = link.request(
             json!({"op": "spawn", "terminal": terminal, "argv": argv, "cwd": cwd,
                    "env": env, "cols": cols, "rows": rows}),
-            &[],
+            &fds,
         )?;
         match answer["error"].as_str() {
             Some("folder_missing") => return Err(SpawnError::FolderMissing),
@@ -214,6 +227,53 @@ impl Holders {
                 master,
             },
         ))
+    }
+
+    /// Connects to every holder that runs, and takes back the terminals
+    /// they keep, with their master and ring descriptors: what a host that
+    /// starts adopts.
+    pub fn adopt(&self) -> Vec<Kept> {
+        let mut kept = Vec::new();
+        let mut links = self.links.lock().unwrap_or_else(|e| e.into_inner());
+        for instance in holder::instances(&self.paths.socket_dir) {
+            let Ok(link) = self.connect(&instance) else {
+                continue;
+            };
+            let Ok((listed, fds)) = link.request(json!({"op": "list"}), &[]) else {
+                continue;
+            };
+            let mut fds = fds.into_iter();
+            for entry in listed["terminals"].as_array().into_iter().flatten() {
+                let Some(master) = fds.next() else { break };
+                let ring = if entry["ring"] == true {
+                    fds.next()
+                } else {
+                    None
+                };
+                let exit = match (&entry["exit"]["code"], &entry["exit"]["signal"]) {
+                    (Value::Number(code), _) => {
+                        Some(Exit::Code(code.as_i64().unwrap_or(-1) as i32))
+                    }
+                    (_, Value::Number(signal)) => {
+                        Some(Exit::Signal(signal.as_i64().unwrap_or(-1) as i32))
+                    }
+                    _ => None,
+                };
+                kept.push(Kept {
+                    holder: instance.clone(),
+                    terminal: entry["terminal"].as_str().unwrap_or_default().to_string(),
+                    spawned: Spawned {
+                        pid: entry["pid"].as_u64().unwrap_or_default() as u32,
+                        started: entry["started"].as_str().map(str::to_string),
+                        master,
+                    },
+                    ring,
+                    exit,
+                });
+            }
+            links.insert(instance, link);
+        }
+        kept
     }
 
     /// Tells the holder `instance` that the host is done with `terminal`:

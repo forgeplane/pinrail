@@ -123,6 +123,9 @@ pub struct Viewers {
     controller: Option<ViewerId>,
     ring: Ring,
     gathered: Gathered,
+    /// The same output in shared memory, which the holder keeps for a host
+    /// that starts after a crash.
+    shared: Option<crate::ring::SharedRing>,
 }
 
 /// A META frame.
@@ -167,6 +170,14 @@ pub fn snapshot_frames(
 }
 
 impl Viewers {
+    /// Viewers whose output is also kept in `shared`.
+    pub fn with_shared(shared: Option<crate::ring::SharedRing>) -> Self {
+        Viewers {
+            shared,
+            ..Viewers::default()
+        }
+    }
+
     /// The stream offset of the next output byte, once the output
     /// gathered so far has gone out.
     pub fn offset(&mut self) -> u64 {
@@ -327,6 +338,9 @@ impl Viewers {
         }
         let bytes = std::mem::take(&mut self.gathered.bytes);
         self.ring.push(&bytes);
+        if let Some(shared) = &mut self.shared {
+            shared.write(&bytes);
+        }
         for viewer in self.viewers.values_mut() {
             for frame in data(viewer.channel, &bytes) {
                 viewer.push(frame);

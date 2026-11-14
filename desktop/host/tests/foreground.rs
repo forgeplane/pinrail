@@ -117,7 +117,10 @@ fn terminal(
         (80, 24),
         screen,
         context,
-        Box::new(move || pty::reap(pid)),
+        pinrail_host::terminal::Holding {
+            forget: Box::new(move || pty::reap(pid)),
+            ring: None,
+        },
     )
     .unwrap();
     // the program is this process's child, not a holder's

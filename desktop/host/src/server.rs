@@ -180,7 +180,7 @@ async fn run(
         probe: Probe::default(),
         context: terminal::Context {
             events: Arc::new(Events::default()),
-            records: Arc::new(Records::new(paths.host_dir.join("terminals.json"))),
+            records: Arc::new(Records::open(paths.host_dir.join("terminals.json"))),
             screens: paths.host_dir.join("screens"),
             controlled: Arc::new(AtomicBool::new(false)),
         },
@@ -204,6 +204,11 @@ async fn run(
     ));
     let records = shared.context.records.clone();
     tokio::spawn(async move { records.writer().await });
+    // the terminals the holders kept while no host ran
+    let adopting = shared.clone();
+    tokio::task::spawn_blocking(move || adopt(&adopting))
+        .await
+        .map_err(io::Error::other)?;
     // the exits the holders report, to their terminals
     let exits_to = shared.clone();
     tokio::spawn(async move {
@@ -239,6 +244,71 @@ async fn run(
                 }
             }
         }
+    }
+}
+
+/// Takes back the terminals the holders keep. A terminal with a record
+/// gets a screen at the PTY's size, rebuilt from its output ring with
+/// replies and signals discarded, since they are old; the program is then
+/// asked to redraw, as the ring may begin in the middle of a screen it has
+/// since changed. A terminal without a record, or whose record says it
+/// ended, belongs to no host any more: it is stopped and forgotten.
+fn adopt(shared: &Arc<Shared>) {
+    for kept in shared.holders.adopt() {
+        let crate::holders::Kept {
+            holder,
+            terminal: id,
+            spawned,
+            ring,
+            exit,
+        } = kept;
+        let record = shared
+            .context
+            .records
+            .get(&id)
+            .filter(|r| r["ended_at"].is_null());
+        let Some(record) = record else {
+            let _ = crate::pty::signal_group(spawned.pid, libc::SIGKILL);
+            shared.holders.forget(&holder, &id);
+            continue;
+        };
+        let (cols, rows) = crate::pty::size(&spawned.master).unwrap_or((80, 24));
+        let Ok(mut screen) = terminal::screen(cols, rows, SCROLLBACK_LINES) else {
+            continue;
+        };
+        let ring = ring.and_then(|fd| crate::ring::SharedRing::open(fd).ok());
+        if let Some(ring) = &ring {
+            let (mut replies, mut signals) = (Vec::new(), Vec::new());
+            screen.feed(&ring.read(), &mut replies, &mut signals);
+        }
+        // a different size, then the size again: the program redraws
+        let _ = crate::pty::resize(&spawned.master, cols.saturating_sub(1).max(1), rows);
+        let _ = crate::pty::resize(&spawned.master, cols, rows);
+        let labels = record["labels"].clone();
+        let forget = {
+            let (holders, holder, id) = (shared.holders.clone(), holder.clone(), id.clone());
+            Box::new(move || holders.forget(&holder, &id))
+        };
+        let Ok(terminal) = Terminal::start(
+            id.clone(),
+            spawned,
+            labels,
+            (cols, rows),
+            screen,
+            shared.context.clone(),
+            terminal::Holding { forget, ring },
+        ) else {
+            continue;
+        };
+        terminal.adopted();
+        if let Some(exit) = exit {
+            terminal.exited(exit);
+        }
+        shared
+            .terminals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, terminal);
     }
 }
 
@@ -665,9 +735,18 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         shared.context.records.remove(&id);
         return Err(Failure("folder_missing", format!("{cwd} does not exist")));
     }
+    // the recent output, kept for a host that starts after a crash
+    let ring = crate::ring::SharedRing::create().ok();
     let (holder, spawned) = shared
         .holders
-        .spawn(&id, &argv, cwd, &env, (cols, rows))
+        .spawn(
+            &id,
+            &argv,
+            cwd,
+            &env,
+            (cols, rows),
+            ring.as_ref().map(|r| r.fd()),
+        )
         .map_err(|e| {
             shared.context.records.remove(&id);
             match e {
@@ -696,7 +775,7 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         (cols, rows),
         screen,
         shared.context.clone(),
-        forget,
+        terminal::Holding { forget, ring },
     )
     .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let info = terminal.info();

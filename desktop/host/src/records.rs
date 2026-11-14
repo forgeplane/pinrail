@@ -33,6 +33,34 @@ impl Records {
         }
     }
 
+    /// The records at `path`, with those a previous host wrote, so that a
+    /// host that starts can tell the terminals it adopts.
+    pub fn open(path: PathBuf) -> Self {
+        let records = Self::new(path);
+        let written: Vec<Value> = std::fs::read_to_string(&records.path)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default();
+        {
+            let mut entries = records.entries.lock().unwrap_or_else(|e| e.into_inner());
+            for record in written {
+                if let Some(id) = record["id"].as_str() {
+                    entries.insert(id.to_string(), record.clone());
+                }
+            }
+        }
+        records
+    }
+
+    /// A terminal's record.
+    pub fn get(&self, id: &str) -> Option<Value> {
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(id)
+            .cloned()
+    }
+
     /// Records a terminal and writes the file now.
     pub fn insert_now(&self, id: &str, record: Value) -> io::Result<()> {
         self.entries

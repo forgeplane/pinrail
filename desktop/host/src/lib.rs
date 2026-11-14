@@ -26,6 +26,7 @@ pub mod protocol;
 pub mod pty;
 pub mod records;
 pub mod registration;
+pub mod ring;
 #[cfg(feature = "server")]
 pub mod server;
 mod sys;

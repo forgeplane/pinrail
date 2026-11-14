@@ -246,6 +246,15 @@ pub struct Context {
     pub controlled: Arc<AtomicBool>,
 }
 
+/// What the holder keeps for a terminal, as the terminal sees it.
+pub struct Holding {
+    /// Runs once the terminal has ended and nothing signals the program
+    /// any more, for the holder to forget it and reap the program.
+    pub forget: Box<dyn FnOnce() + Send>,
+    /// The output ring in shared memory, which the holder keeps too.
+    pub ring: Option<crate::ring::SharedRing>,
+}
+
 /// A running or ended terminal. Dropping it ends its actor.
 pub struct Terminal {
     state: Arc<Mutex<State>>,
@@ -264,8 +273,7 @@ impl Terminal {
     /// Starts the threads and the actor of a spawned program, whose screen
     /// is `screen`. Must be called inside the runtime.
     /// Starts reading a terminal whose program has been spawned. The
-    /// program's exit comes through [`Terminal::exited`]; `forget` runs once
-    /// the terminal has ended and nothing signals the program any more.
+    /// program's exit comes through [`Terminal::exited`].
     pub fn start(
         id: String,
         spawned: Spawned,
@@ -273,8 +281,9 @@ impl Terminal {
         (cols, rows): (u16, u16),
         screen: Box<dyn Screen>,
         context: Context,
-        forget: Box<dyn FnOnce() + Send>,
+        holding: Holding,
     ) -> io::Result<Self> {
+        let Holding { forget, ring } = holding;
         let pid = spawned.pid;
         let state = Arc::new(Mutex::new(State {
             info: Info {
@@ -322,7 +331,7 @@ impl Terminal {
             held: Vec::new(),
             filter: QueryFilter::default(),
             for_viewers: Vec::new(),
-            viewers: Viewers::default(),
+            viewers: Viewers::with_shared(ring),
             size: (cols, rows),
             ended: false,
             focus_reporting: false,
@@ -330,6 +339,13 @@ impl Terminal {
             forget: Some(forget),
         }));
         Ok(Self { state, commands })
+    }
+
+    /// Marks the terminal as adopted after a crash: input from before it
+    /// is unknown, so it counts as just now, and the input guard holds a
+    /// message until the agent is next idle.
+    pub fn adopted(&self) {
+        self.lock().last_input_at = Some(crate::now());
     }
 
     /// The program exited, as its holder reports.
