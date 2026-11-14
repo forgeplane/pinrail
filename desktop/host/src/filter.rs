@@ -34,6 +34,10 @@ pub struct QueryFilter {
     /// The sequence being held, from its ESC.
     held: Vec<u8>,
     kind: Option<Kind>,
+    /// Bytes for the screen that cannot be queries, fed in one call before
+    /// the next possible query and at the end of each chunk: each call to
+    /// the screen has a cost of its own.
+    pending: Vec<u8>,
 }
 
 impl QueryFilter {
@@ -49,13 +53,27 @@ impl QueryFilter {
         let mut i = 0;
         while i < chunk.len() {
             let Some(kind) = self.kind else {
-                // a plain run up to the next ESC, fed in one call
-                let end = chunk[i..]
-                    .iter()
-                    .position(|&b| b == ESC)
-                    .map_or(chunk.len(), |p| i + p);
+                // a run up to the next ESC that starts anything but a whole
+                // CSI sequence that cannot be a query, copied in one go:
+                // most output is text and such sequences, as for colours
+                let mut end = i;
+                loop {
+                    match chunk[end..].iter().position(|&b| b == ESC) {
+                        None => {
+                            end = chunk.len();
+                            break;
+                        }
+                        Some(p) => match plain_csi(&chunk[end + p..]) {
+                            Some(len) => end += p + len,
+                            None => {
+                                end += p;
+                                break;
+                            }
+                        },
+                    }
+                }
                 if end > i {
-                    feed(&chunk[i..end]);
+                    self.pending.extend_from_slice(&chunk[i..end]);
                     viewers.extend_from_slice(&chunk[i..end]);
                 }
                 if end < chunk.len() {
@@ -93,6 +111,25 @@ impl QueryFilter {
                     });
                 }
                 Kind::Csi => {
+                    // the parameters up to the final byte, in one copy
+                    if !(0x40..=0x7e).contains(&byte) && !matches!(byte, CAN | SUB | ESC) {
+                        let run = chunk[i..]
+                            .iter()
+                            .position(|b| {
+                                (0x40..=0x7e).contains(b) || matches!(*b, CAN | SUB | ESC)
+                            })
+                            .unwrap_or(chunk.len() - i);
+                        let room = (CSI_CAP + 1).saturating_sub(self.held.len() + 1);
+                        if run > 0 && run <= room {
+                            self.held.push(byte);
+                            self.held.extend_from_slice(&chunk[i..i + run]);
+                            i += run;
+                            if self.held.len() > CSI_CAP {
+                                self.pass(viewers, feed);
+                            }
+                            continue;
+                        }
+                    }
                     if byte == CAN || byte == SUB || byte == ESC {
                         self.abandon(byte, viewers, feed);
                         continue;
@@ -115,6 +152,20 @@ impl QueryFilter {
                     }
                 }
                 Kind::String => {
+                    // the content up to a byte that may end it, in one copy
+                    if self.held.last() != Some(&ESC) && !matches!(byte, CAN | SUB | ESC | BEL) {
+                        let run = chunk[i..]
+                            .iter()
+                            .position(|b| matches!(*b, CAN | SUB | ESC | BEL))
+                            .unwrap_or(chunk.len() - i);
+                        let room = (STRING_CAP + 1).saturating_sub(self.held.len() + 1);
+                        if run > 0 && run <= room {
+                            self.held.push(byte);
+                            self.held.extend_from_slice(&chunk[i..i + run]);
+                            i += run;
+                            continue;
+                        }
+                    }
                     if byte == CAN || byte == SUB {
                         self.abandon(byte, viewers, feed);
                         continue;
@@ -140,26 +191,41 @@ impl QueryFilter {
                 }
             }
         }
+        self.flush(feed);
+    }
+
+    /// Feeds the screen what waits for it.
+    fn flush(&mut self, feed: &mut impl FnMut(&[u8]) -> usize) {
+        if !self.pending.is_empty() {
+            feed(&self.pending);
+            self.pending.clear();
+        }
     }
 
     /// A complete sequence: a query is fed alone and removed from the
     /// viewers' stream if the screen answered it; anything else passes.
     fn finish(&mut self, viewers: &mut Vec<u8>, feed: &mut impl FnMut(&[u8]) -> usize) {
-        let held = std::mem::take(&mut self.held);
         self.kind = None;
-        let answered = feed(&held) > 0;
-        if !(may_be_query(&held) && answered) {
-            viewers.extend_from_slice(&held);
+        if !may_be_query(&self.held) {
+            self.pending.extend_from_slice(&self.held);
+            viewers.extend_from_slice(&self.held);
+            self.held.clear();
+            return;
         }
+        self.flush(feed);
+        if feed(&self.held) == 0 {
+            viewers.extend_from_slice(&self.held);
+        }
+        self.held.clear();
     }
 
     /// A sequence too long to hold: it passes unchanged, and the rest of
     /// it, as it arrives, is plain output.
-    fn pass(&mut self, viewers: &mut Vec<u8>, feed: &mut impl FnMut(&[u8]) -> usize) {
-        let held = std::mem::take(&mut self.held);
+    fn pass(&mut self, viewers: &mut Vec<u8>, _feed: &mut impl FnMut(&[u8]) -> usize) {
         self.kind = None;
-        feed(&held);
-        viewers.extend_from_slice(&held);
+        self.pending.extend_from_slice(&self.held);
+        viewers.extend_from_slice(&self.held);
+        self.held.clear();
     }
 
     /// CAN or SUB cancels the sequence, and an ESC starts a new one: what
@@ -170,7 +236,7 @@ impl QueryFilter {
             self.held.push(ESC);
             self.kind = Some(Kind::Escape);
         } else {
-            feed(&[byte]);
+            self.pending.push(byte);
             viewers.push(byte);
         }
     }
@@ -179,6 +245,22 @@ impl QueryFilter {
     pub fn held(&self) -> &[u8] {
         &self.held
     }
+}
+
+/// The length of the CSI sequence `bytes` starts with, when it is whole,
+/// within the cap, and cannot be a query.
+fn plain_csi(bytes: &[u8]) -> Option<usize> {
+    if bytes.get(1) != Some(&b'[') {
+        return None;
+    }
+    let end = bytes
+        .iter()
+        .skip(2)
+        .take(CSI_CAP - 1)
+        .position(|b| (0x40..=0x7e).contains(b) || matches!(*b, CAN | SUB | ESC))?
+        + 2;
+    let sequence = &bytes[..=end];
+    ((0x40..=0x7e).contains(&bytes[end]) && !may_be_query(sequence)).then_some(end + 1)
 }
 
 /// Whether a complete sequence can be a query: a CSI sequence ending in

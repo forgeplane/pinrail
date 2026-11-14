@@ -126,3 +126,26 @@ fn cancelled_and_interrupted_sequences_pass_unchanged() {
     assert_eq!(viewers, b"a\x1b[1\x18b\x1b]0;halfc");
     assert!(!replies.is_empty());
 }
+
+#[test]
+fn output_without_a_query_reaches_the_screen_in_one_call_per_chunk() {
+    // each call to the screen has a cost of its own, so colour sequences
+    // and text go together
+    let mut filter = QueryFilter::default();
+    let (mut viewers, mut calls) = (Vec::new(), Vec::new());
+    let chunk: &[u8] = b"\x1b[1;31mred\x1b[0m \x1b]2;title\x07\x1b[?2026hframe\x1b[?2026l\r\n";
+    filter.push(chunk, &mut viewers, &mut |bytes: &[u8]| {
+        calls.push(bytes.to_vec());
+        0
+    });
+    assert_eq!(viewers, chunk);
+    assert_eq!(calls, [chunk.to_vec()]);
+}
+
+#[test]
+fn a_query_among_colours_is_still_answered_and_removed() {
+    let (viewers, replies, text) = run(&[b"\x1b[32mgreen\x1b[0m\x1b[6n\x1b[1mbold\x1b[0m"]);
+    assert_eq!(viewers, b"\x1b[32mgreen\x1b[0m\x1b[1mbold\x1b[0m");
+    assert!(replies.starts_with(b"\x1b[1;"), "{replies:?}");
+    assert!(text.contains("greenbold"), "{text}");
+}
