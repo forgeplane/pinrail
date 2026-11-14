@@ -341,6 +341,18 @@ impl Db {
             .collect()
     }
 
+    /// The agent of the latest run, if there is one.
+    pub fn latest_run_agent(&self) -> rusqlite::Result<Option<String>> {
+        use rusqlite::OptionalExtension;
+        self.conn()
+            .query_row(
+                "SELECT agent FROM runs ORDER BY started_at DESC, id DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+    }
+
     pub fn run(&self, id: &str) -> rusqlite::Result<Option<RunRow>> {
         get(&self.read(), id)
     }

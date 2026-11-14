@@ -35,6 +35,13 @@ pub struct Runtime {
     run_env: BTreeMap<String, String>,
     #[cfg(unix)]
     spawns: Mutex<runs::Spawns>,
+    #[cfg(unix)]
+    startable: Mutex<runs::Startable>,
+    #[cfg(unix)]
+    checking_startable: tokio::sync::Mutex<()>,
+    /// A background check of the agents waits to begin.
+    #[cfg(unix)]
+    startable_waiting: std::sync::atomic::AtomicBool,
 }
 
 impl std::fmt::Debug for Runtime {
@@ -52,6 +59,12 @@ impl Runtime {
             run_env,
             #[cfg(unix)]
             spawns: Mutex::default(),
+            #[cfg(unix)]
+            startable: Mutex::default(),
+            #[cfg(unix)]
+            checking_startable: tokio::sync::Mutex::new(()),
+            #[cfg(unix)]
+            startable_waiting: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -215,6 +228,7 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
     // a link that connected before this listened
     if matches!(link.state(), HostState::Ready { .. }) {
         reconcile_listed(&app, &link).await;
+        check_startable_later(app.clone(), just_before());
     }
     let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
     loop {
@@ -222,6 +236,10 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
             event = events.recv() => match event {
                 Ok(HostEvent::Connected { terminals, .. }) => {
                     reconcile(&app, &link, &terminals).await;
+                    // the agents this host finds, for the Start an agent
+                    // dialog; a connect can be seen twice, as a ready
+                    // link and as its event, and checks once
+                    check_startable_later(app.clone(), just_before());
                 }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
                     match app.runtime().exited(&params) {
@@ -247,6 +265,29 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
             }
         }
     }
+}
+
+/// Asks the host again which agents it finds, in the background, unless
+/// a check began at `since` or later. One check waiting to begin covers
+/// every request made before it begins.
+#[cfg(unix)]
+pub fn check_startable_later(app: Arc<Pinrail>, since: chrono::DateTime<chrono::Utc>) {
+    if app
+        .runtime()
+        .startable_waiting
+        .swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    tokio::spawn(async move {
+        let _ = app.runtime().check_startable(Some(since)).await;
+    });
+}
+
+/// A second ago: a check begun since covers a connect seen now.
+#[cfg(unix)]
+fn just_before() -> chrono::DateTime<chrono::Utc> {
+    chrono::Utc::now() - chrono::TimeDelta::seconds(1)
 }
 
 #[cfg(unix)]

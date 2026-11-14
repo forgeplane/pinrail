@@ -169,9 +169,20 @@ async fn list(
 
 /// The agents Pinrail can start, with whether each is installed and its
 /// version, for the Start an agent dialog.
-async fn startable(State(state): State<Arc<Pinrail>>) -> Response {
-    match state.runtime().startable().await {
-        Ok(agents) => Json(json!({ "agents": agents })).into_response(),
+/// The answer is the last the host gave, which it is asked again in the
+/// background when that is due, or on `refresh=true`.
+async fn startable(
+    State(state): State<Arc<Pinrail>>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let refresh = query.get("refresh").is_some_and(|v| v == "true");
+    match state.runtime().startable(refresh).await {
+        Ok((body, due)) => {
+            if due {
+                crate::runtime::check_startable_later(state.clone(), chrono::Utc::now());
+            }
+            Json(body).into_response()
+        }
         Err(error) => run_error(error),
     }
 }

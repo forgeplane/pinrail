@@ -423,3 +423,97 @@ async fn recent_folders_come_most_recent_first_with_their_repository_and_branch(
     assert_eq!(folders[0]["repo"], Value::Null);
     assert_eq!(folders[2]["exists"], false);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
+    use std::os::unix::fs::PermissionsExt;
+    let hosts = tempfile::tempdir().unwrap();
+    let registration = common::host(hosts.path());
+    // the stand-in Claude Code counts each time its version is read
+    let bin = hosts.path().join("counting");
+    std::fs::create_dir_all(&bin).unwrap();
+    let checks = hosts.path().join("checks");
+    let claude = bin.join("claude");
+    std::fs::write(
+        &claude,
+        format!(
+            "#!/bin/sh\necho x >> '{}'\necho '2.1.325 (Claude Code)'\n",
+            checks.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let app = common::app_with(|config| {
+        config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
+        config
+            .run_env
+            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+    });
+    runtime::watch(app.state.clone());
+    app.state
+        .settings()
+        .change(&json!({"labs": {"runtime": true}}))
+        .unwrap();
+    let counted = || {
+        std::fs::read_to_string(&checks)
+            .map(|t| t.lines().count())
+            .unwrap_or(0)
+    };
+    let becomes = |n: usize| {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        async move {
+            while counted() != n {
+                assert!(
+                    Instant::now() < deadline,
+                    "checked {} times, not {n}",
+                    counted()
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
+    };
+    // the core checks once the host connects
+    becomes(1).await;
+
+    let (status, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["checked_at"].is_string(), "{body}");
+    let (_, again) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(again["checked_at"], body["checked_at"]);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(counted(), 1, "answered from what the host found");
+
+    // a start that finds an agent missing makes the next request check
+    let work = folder(&app, "app");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "codex", "folder": work})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(status, StatusCode::OK);
+    becomes(2).await;
+    let second = checked_after(&app, &body["checked_at"]).await;
+
+    // and so does a request that asks for it
+    let (_, _) = call(&app, "GET", "/api/v1/agents/startable?refresh=true", None).await;
+    becomes(3).await;
+    checked_after(&app, &second).await;
+    assert_eq!(counted(), 3);
+}
+
+/// When the agents were checked, once a check after `before` finished.
+async fn checked_after(app: &App, before: &Value) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let (_, now) = call(app, "GET", "/api/v1/agents/startable", None).await;
+        if &now["checked_at"] != before {
+            return now["checked_at"].clone();
+        }
+        assert!(Instant::now() < deadline, "the check did not finish");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}

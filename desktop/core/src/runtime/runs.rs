@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use pinrail_host::link::{HostError, HostLink, HostState};
 use serde_json::{Value, json};
 
@@ -218,7 +218,11 @@ impl super::Runtime {
                 self.end(&id, "start_failed", None, None)?;
                 Err(match error {
                     HostError::Refused { code, message } => match code.as_str() {
-                        "not_found" => RunError::AgentNotFound(message),
+                        "not_found" => {
+                            // what the host found of the agents is out of date
+                            self.lock_startable().stale = true;
+                            RunError::AgentNotFound(message)
+                        }
                         "folder_missing" => RunError::FolderMissing(start.folder.clone()),
                         "limit" => RunError::Limit(message),
                         _ => RunError::StartFailed(message),
@@ -393,43 +397,90 @@ impl super::Runtime {
         Ok(self.db.forget_run_tokens(Utc::now())?)
     }
 
-    /// The link, when the host is connected.
-    /// Every agent Pinrail can start, in Settings' order: whether its
-    /// program is on the `PATH` agents start with, its version, and
-    /// whether it was the last one started.
-    pub async fn startable(&self) -> Result<Vec<Value>, RunError> {
-        let agents: Vec<(&pinrail_runtime::AgentSpec, String)> = pinrail_runtime::all()
-            .iter()
-            .filter_map(|spec| {
-                let plan =
-                    pinrail_runtime::adapter(spec.id)?.start(&pinrail_runtime::StartRequest {
-                        task: None,
-                        extra_args: &[],
-                        session_id: "00000000-0000-4000-8000-000000000000",
-                    })?;
-                Some((spec, plan.argv.first()?.clone()))
-            })
-            .collect();
+    /// The agents Pinrail can start as the host last found them, with
+    /// when it looked, and whether it should look again: on `refresh`,
+    /// after a start found an agent missing, or after an hour. Only the
+    /// first request, with nothing found yet, waits for the host.
+    pub async fn startable(&self, refresh: bool) -> Result<(Value, bool), RunError> {
+        if self.lock_startable().found.is_none() {
+            self.check_startable(None).await?;
+        }
+        let (found, checked_at, stale, begun) = {
+            let cache = self.lock_startable();
+            let (found, at) = cache.found.clone().ok_or(RunError::HostOffline)?;
+            (found, at, cache.stale, cache.begun.unwrap_or(at))
+        };
+        // a check that began since covers what made it due
+        let due = refresh || stale || Utc::now() - begun > STARTABLE_FOR;
+        let last = self.db.latest_run_agent()?;
+        let agents = startable_list(&startable_agents(), &found, last.as_deref());
+        Ok((
+            json!({ "agents": agents, "checked_at": crate::reviews::iso(checked_at) }),
+            due,
+        ))
+    }
+
+    /// Asks the host which agents' programs it finds, and keeps the
+    /// answer with when the check began. Checks run one at a time; one
+    /// asked for at `since` is skipped when another began after it, and
+    /// one without `since` when there is any answer.
+    pub async fn check_startable(&self, since: Option<DateTime<Utc>>) -> Result<(), RunError> {
+        let _one = self.checking_startable.lock().await;
+        // a check asked for from now on waits for one that begins after it
+        self.startable_waiting
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        // with no `since`, any answer will do: one that came while this
+        // waited for the check before it
+        let done = match (since, &self.lock_startable().found) {
+            (_, None) => false,
+            (None, Some(_)) => true,
+            (Some(since), Some((_, at))) => *at >= since,
+        };
+        if done {
+            return Ok(());
+        }
+        let began = Utc::now();
+        {
+            let mut cache = self.lock_startable();
+            cache.stale = false;
+            cache.begun = Some(began);
+        }
+        let found = self.find_startable().await;
+        let mut cache = self.lock_startable();
+        match found {
+            Ok(found) => {
+                cache.found = Some((found, began));
+                Ok(())
+            }
+            Err(error) => {
+                // the next request tries again
+                cache.stale = true;
+                Err(error)
+            }
+        }
+    }
+
+    /// What the host finds of each agent's program now.
+    async fn find_startable(&self) -> Result<Vec<Value>, RunError> {
+        let agents = startable_agents();
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let names: Vec<&str> = agents.iter().map(|(_, program)| program.as_str()).collect();
         let mut params = json!({ "names": names });
         if let Some(path) = self.run_env.get("PATH") {
             params["path"] = json!(path);
         }
-        let found = match link.call("programs.find", params).await {
-            Ok(reply) => reply["programs"].as_array().cloned().unwrap_or_default(),
-            Err(HostError::Refused { message, .. }) => return Err(RunError::StartFailed(message)),
-            Err(_) => return Err(RunError::HostOffline),
-        };
-        let last = self
-            .db
-            .runs(&RunFilters::default())?
-            .into_iter()
-            .next()
-            .map(|run| run.agent);
-        Ok(startable_list(&agents, &found, last.as_deref()))
+        match link.call("programs.find", params).await {
+            Ok(reply) => Ok(reply["programs"].as_array().cloned().unwrap_or_default()),
+            Err(HostError::Refused { message, .. }) => Err(RunError::StartFailed(message)),
+            Err(_) => Err(RunError::HostOffline),
+        }
     }
 
+    fn lock_startable(&self) -> std::sync::MutexGuard<'_, Startable> {
+        self.startable.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The link, when the host is connected.
     fn ready_host(&self) -> Option<HostLink> {
         self.host()
             .filter(|link| matches!(link.state(), HostState::Ready { .. }))
@@ -512,6 +563,37 @@ fn new_uuid() -> String {
         &hex[16..20],
         &hex[20..32]
     )
+}
+
+/// How long what the host found of the agents counts as current.
+const STARTABLE_FOR: chrono::TimeDelta = chrono::TimeDelta::hours(1);
+
+/// What the host last found of the agents' programs.
+#[derive(Debug, Default)]
+pub(super) struct Startable {
+    /// Its answer, in the order of [`startable_agents`], and when the
+    /// check that gave it began.
+    found: Option<(Vec<Value>, DateTime<Utc>)>,
+    /// A start found an agent missing since, so the answer is out of date.
+    stale: bool,
+    /// When the latest check began, which may still run.
+    begun: Option<DateTime<Utc>>,
+}
+
+/// Every agent Pinrail can start, in Settings' order, with its program.
+fn startable_agents() -> Vec<(&'static pinrail_runtime::AgentSpec, String)> {
+    pinrail_runtime::all()
+        .iter()
+        .filter_map(|spec| {
+            let plan =
+                pinrail_runtime::adapter(spec.id)?.start(&pinrail_runtime::StartRequest {
+                    task: None,
+                    extra_args: &[],
+                    session_id: "00000000-0000-4000-8000-000000000000",
+                })?;
+            Some((spec, plan.argv.first()?.clone()))
+        })
+        .collect()
 }
 
 /// The agents Pinrail can start, from what the host found of their
