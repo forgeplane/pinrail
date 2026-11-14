@@ -13,6 +13,8 @@ export interface ViewOptions {
   scrollback: number;
   theme: TerminalTheme;
   font: TerminalFont;
+  /** Whether programs may copy to the clipboard (OSC 52); true when left out. */
+  clipboardWrite?: boolean;
 }
 
 export interface TerminalTheme {

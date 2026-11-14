@@ -4,4 +4,6 @@
 
 import type { Registry } from "../view";
 
-export const RENDERERS: Registry = {};
+export const RENDERERS: Registry = {
+  xterm: () => import("./xterm").then((m) => m.xtermRenderer),
+};
