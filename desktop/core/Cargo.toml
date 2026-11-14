@@ -19,7 +19,7 @@ path = "src/bin/pinrail-docs.rs"
 required-features = ["docs"]
 
 [dependencies]
-axum = "0.8"
+axum = { version = "0.8", features = ["ws"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures-util = "0.3"
 getrandom = "0.3"
@@ -50,6 +50,8 @@ pinrail-host = { path = "../host" }
 [dev-dependencies]
 http-body-util = "0.1"
 tempfile = "3"
+# a WebSocket client for the attach tests, the one axum serves with
+tokio-tungstenite = "0.29"
 tower = { version = "0.5", features = ["util"] }
 
 [lints]

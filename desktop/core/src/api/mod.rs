@@ -14,6 +14,8 @@ mod runs;
 mod settings;
 mod sse;
 mod telemetry;
+#[cfg(unix)]
+mod terminals;
 mod themes;
 
 use std::sync::Arc;
@@ -54,6 +56,9 @@ pub struct ApiState {
     app: Arc<Pinrail>,
     /// When this server started, for `/info` and for `server.json`.
     started_at: DateTime<Utc>,
+    /// The tickets that open a terminal's attach socket.
+    #[cfg(unix)]
+    tickets: terminals::Tickets,
 }
 
 impl ApiState {
@@ -61,6 +66,8 @@ impl ApiState {
         ApiState {
             app,
             started_at: Utc::now(),
+            #[cfg(unix)]
+            tickets: Default::default(),
         }
     }
 }
@@ -91,7 +98,7 @@ fn router_with(state: ApiState) -> Router {
         .merge(themes::routes())
         .merge(telemetry::routes());
     #[cfg(unix)]
-    let router = router.merge(runs::routes());
+    let router = router.merge(runs::routes()).merge(terminals::routes());
     router
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
