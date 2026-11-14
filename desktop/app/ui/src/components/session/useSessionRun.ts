@@ -12,9 +12,11 @@ export type SessionRun = {
   live: Run | null;
   /** the latest run, when it exited with an error as it started */
   failed: Run | null;
+  /** the latest run, when it ended otherwise */
+  ended: Run | null;
 };
 
-const NONE: SessionRun = { live: null, failed: null };
+const NONE: SessionRun = { live: null, failed: null, ended: null };
 
 const RUN_EVENTS = new Set(["run_started", "run_bound", "run_ended"]);
 
@@ -34,8 +36,10 @@ export function useSessionRun(session: { agent: string; id: string } | null, ena
         const here = runs.filter((r) => r.session && `${r.session.agent}/${r.session.id}` === key);
         const live = here.find((r) => r.state !== "ended" && r.terminal) ?? null;
         // runs come latest first
-        const failed = !live && here[0] && failedAtStart(here[0]) ? here[0] : null;
-        if (current) setFound({ key, run: { live, failed } });
+        const latest = !live && here[0]?.state === "ended" ? here[0] : null;
+        const failed = latest && failedAtStart(latest) ? latest : null;
+        const ended = latest && !failed ? latest : null;
+        if (current) setFound({ key, run: { live, failed, ended } });
       },
       () => {
         if (current) setFound({ key, run: NONE });

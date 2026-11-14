@@ -7861,3 +7861,27 @@ a.item-ref {
   color: var(--danger);
   font: var(--text-xs) var(--font);
 }
+/* A run that has ended: how, over its last screen, dimmed. */
+.ended-run {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ended-run-banner {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  font: 500 var(--text-sm) var(--font);
+}
+.ended-run-screen {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 12px;
+  overflow: auto;
+  opacity: 0.55;
+  font: 13px / 1.2 var(--mono);
+  white-space: pre;
+}

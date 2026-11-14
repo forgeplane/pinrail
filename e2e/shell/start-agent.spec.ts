@@ -249,3 +249,43 @@ test("an agent that exits before it names its session shows why in the dialog", 
   // the fields stay, to edit and start again
   await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
 });
+
+/** A run of `session` that ended after a while, as `over` says. */
+const endedRun = (session: string, over: Record<string, unknown>) => ({
+  ...failedRun(session),
+  id: "run_ended",
+  ended_at: "2026-11-14T10:20:00.000Z",
+  exit_code: 0,
+  ...over,
+});
+
+for (const [how, over, banner] of [
+  ["exited", { exit_code: 0 }, "Claude Code exited with code 0."],
+  ["was stopped", { end_reason: "stopped", exit_code: null, exit_signal: "TERM" }, "Claude Code was stopped by you."],
+] as const) {
+  test(`a session whose agent ${how} shows how over its last screen`, async ({ page }) => {
+    const session = await aSession(page);
+    await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [endedRun(session, over)] } }));
+    await page.route(/\/api\/v1\/runs\/run_ended\/output/, (route) =>
+      route.fulfill({ json: { text: "✻ Worked for 12m\n> Fixed the login redirect." } }),
+    );
+    await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+    const view = page.getByTestId("ended-run");
+    await expect(view.getByRole("status")).toHaveText(banner);
+    await expect(view.getByLabel("Claude Code's last screen")).toHaveText(
+      "✻ Worked for 12m\n> Fixed the login redirect.",
+    );
+    // and no terminal to attach to
+    await expect(page.getByTestId("terminal-bar")).toHaveCount(0);
+  });
+}
+
+test("an ended run whose last screen is gone says so", async ({ page }) => {
+  const session = await aSession(page);
+  await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [endedRun(session, {})] } }));
+  await page.route(/\/api\/v1\/runs\/run_ended\/output/, (route) =>
+    route.fulfill({ status: 404, json: { error: "not_found", message: "no terminal" } }),
+  );
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(page.getByTestId("ended-run")).toContainText("Pinrail no longer keeps this run's last screen.");
+});

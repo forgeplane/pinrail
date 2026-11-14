@@ -19,3 +19,19 @@ export function exitText(name: string, run: Run): string {
   if (run.exit_code !== null) return `${name} exited with code ${run.exit_code} as it started.`;
   return `${name} was ended by signal ${run.exit_signal} as it started.`;
 }
+
+/** What the banner over an ended run's last screen says. */
+export function endedText(name: string, run: Run): string {
+  switch (run.end_reason) {
+    case "stopped":
+      return `${name} was stopped by you.`;
+    case "host_lost":
+      return `${name} stopped when Pinrail lost its terminal host, such as when the computer restarted.`;
+    case "start_failed":
+      return `${name} could not be started.`;
+    default:
+      if (run.exit_code !== null) return `${name} exited with code ${run.exit_code}.`;
+      if (run.exit_signal !== null) return `${name} was ended by signal ${run.exit_signal}.`;
+      return `${name} has ended.`;
+  }
+}

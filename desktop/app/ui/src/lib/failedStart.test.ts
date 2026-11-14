@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Run } from "../api/runtime";
-import { exitText, failedAtStart } from "./failedStart";
+import { endedText, exitText, failedAtStart } from "./failedStart";
 
 const run = (over: Partial<Run>): Run => ({
   id: "run_1",
@@ -34,5 +34,18 @@ describe("a run that failed as it started", () => {
     expect(exitText("Codex", run({ exit_code: null, exit_signal: "KILL" }))).toBe(
       "Codex was ended by signal KILL as it started.",
     );
+  });
+});
+
+describe("the banner of an ended run", () => {
+  test("says how it ended", () => {
+    expect(endedText("Claude Code", run({ exit_code: 0 }))).toBe("Claude Code exited with code 0.");
+    expect(endedText("Claude Code", run({ end_reason: "stopped", exit_code: null, exit_signal: "TERM" }))).toBe(
+      "Claude Code was stopped by you.",
+    );
+    expect(endedText("Codex", run({ end_reason: "host_lost", exit_code: null }))).toBe(
+      "Codex stopped when Pinrail lost its terminal host, such as when the computer restarted.",
+    );
+    expect(endedText("Codex", run({ exit_code: null, exit_signal: "KILL" }))).toBe("Codex was ended by signal KILL.");
   });
 });

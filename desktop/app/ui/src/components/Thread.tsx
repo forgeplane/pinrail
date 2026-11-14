@@ -12,6 +12,7 @@ import { useSessionRun } from "./session/useSessionRun";
 import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
 import { FailedStart } from "./session/FailedStart";
+import { EndedRun } from "./session/EndedRun";
 import { StopButton } from "./session/RunControls";
 import { stateOf } from "../lib/sidebarSessions";
 import { isStopKey } from "../lib/terminalKeys";
@@ -188,10 +189,10 @@ export function Thread({
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
-  const { live, failed } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const { live, failed, ended } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
   const terminal = live?.terminal ?? null;
-  // a run that failed as it started shows why in the terminal's place
-  const hasTerminalView = !!terminal || !!failed;
+  // a run that ended shows how in the terminal's place
+  const hasTerminalView = !!terminal || !!failed || !!ended;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   const showTerminal = view === "terminal" && hasTerminalView;
   const showTerminalRef = useLatest(showTerminal);
@@ -504,7 +505,13 @@ export function Thread({
         >
           {showTerminal ? (
             <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
-              {terminal ? <TerminalPane terminal={terminal} autoFocus /> : <FailedStart run={failed!} />}
+              {terminal ? (
+                <TerminalPane terminal={terminal} autoFocus />
+              ) : failed ? (
+                <FailedStart run={failed} />
+              ) : (
+                <EndedRun run={ended!} />
+              )}
             </div>
           ) : null}
           <div
