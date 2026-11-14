@@ -30,6 +30,23 @@ const CHUNK: usize = 64 * 1024;
 /// holds at most 8 MiB, so a runaway program blocks as it would on a PTY
 /// nobody reads.
 const QUEUED_CHUNKS: usize = 8 * 1024 * 1024 / CHUNK;
+/// How much of the screen and its history is kept when a stop is asked
+/// for.
+const KEPT_LINES: usize = 500;
+/// How long a stop waits for the screen to be kept before it signals.
+const KEEP_WITHIN: Duration = Duration::from_millis(200);
+/// How soon before its exit a program may have left the alternate screen
+/// for that screen to be the one it ended with.
+const LEFT_WITHIN: Duration = Duration::from_secs(3);
+
+/// Where `bytes` leave the alternate screen (modes 1049, 1047 or 47).
+fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
+    [&b"\x1b[?1049l"[..], b"\x1b[?1047l", b"\x1b[?47l"]
+        .iter()
+        .filter_map(|sequence| bytes.windows(sequence.len()).position(|w| w == *sequence))
+        .min()
+}
+
 /// How long the actor waits for the last output after the program exits.
 /// The count starts again with each chunk that arrives, so an exit never
 /// overtakes its output.
@@ -203,6 +220,8 @@ pub enum AttachError {
 
 enum Command {
     Exited(Exit),
+    /// Keeps the screen as it is now, as the one the terminal ended with.
+    Keep(oneshot::Sender<()>),
     Focus(bool),
     Attach {
         viewer: ViewerId,
@@ -348,6 +367,8 @@ impl Terminal {
             ended: false,
             focus_reporting: false,
             focused: false,
+            kept: None,
+            left_alternate: None,
             forget: Some(forget),
         }));
         Ok(Self { state, commands })
@@ -431,7 +452,14 @@ impl Terminal {
             state.stopping.get_or_insert(reason);
         }
         let state = self.state.clone();
+        let commands = self.commands.clone();
         tokio::spawn(async move {
+            // the screen the person saw, before the program clears it on
+            // its way out
+            let (kept, done) = oneshot::channel();
+            if commands.send(Command::Keep(kept)).is_ok() {
+                let _ = tokio::time::timeout(KEEP_WITHIN, done).await;
+            }
             for (signal, wait) in [
                 (libc::SIGHUP, AFTER_HANGUP),
                 (libc::SIGTERM, grace),
@@ -585,6 +613,12 @@ struct Actor {
     /// The PTY's size, as columns and rows.
     size: (u16, u16),
     ended: bool,
+    /// The screen the terminal ended with, when it is not the one the
+    /// program left: the screen when it was asked to stop, or the
+    /// alternate screen it left as it exited.
+    kept: Option<String>,
+    /// The alternate screen the program last left, and when.
+    left_alternate: Option<(String, Instant)>,
     /// Tells the holder the host is done with the terminal.
     forget: Option<Box<dyn FnOnce() + Send>>,
 }
@@ -646,6 +680,12 @@ async fn actor(mut actor: Actor) {
                     } else {
                         actor.start_typing(submit, reply);
                     }
+                }
+                Some(Command::Keep(done)) => {
+                    if actor.kept.is_none() {
+                        actor.kept = Some(actor.text(KEPT_LINES));
+                    }
+                    let _ = done.send(());
                 }
                 Some(Command::Text { lines, reply }) => {
                     let _ = reply.send(actor.text(lines));
@@ -1136,13 +1176,26 @@ impl Actor {
         // the screen answers the program's queries; the filter keeps the
         // answered ones from the viewers, which would answer them again
         let screen = &mut self.screen;
+        let mut left = None;
         let mut feed = |bytes: &[u8]| {
             let before = replies.len();
-            screen.feed(bytes, &mut replies, &mut signals);
+            let mut rest = bytes;
+            // the alternate screen, before the program leaves it
+            if let Some(at) = leaves_alternate_at(rest)
+                && screen.modes().alternate_screen
+            {
+                screen.feed(&rest[..at], &mut replies, &mut signals);
+                left = Some(screen.text(TextRange::Screen));
+                rest = &rest[at..];
+            }
+            screen.feed(rest, &mut replies, &mut signals);
             replies.len() - before
         };
         self.for_viewers.clear();
         self.filter.push(bytes, &mut self.for_viewers, &mut feed);
+        if let Some(text) = left {
+            self.left_alternate = Some((text, Instant::now()));
+        }
         self.viewers
             .output(&self.for_viewers, std::time::Instant::now());
         if !replies.is_empty()
@@ -1243,6 +1296,11 @@ impl Actor {
     }
 
     fn text(&self, lines: usize) -> String {
+        if self.ended
+            && let Some(kept) = &self.kept
+        {
+            return kept.clone();
+        }
         let history = self.screen.text(TextRange::History);
         let kept: Vec<&str> = history.lines().collect();
         let mut text: String = kept[kept.len().saturating_sub(lines)..]
@@ -1257,6 +1315,14 @@ impl Actor {
     /// forget the terminal and reap the program, which nothing signals any
     /// more, keeps the final screen and reports the exit.
     fn end(&mut self, status: Exit) {
+        // a program that left the alternate screen as it exited ended
+        // with what that screen showed
+        if self.kept.is_none()
+            && let Some((text, at)) = self.left_alternate.take()
+            && at.elapsed() < LEFT_WITHIN
+        {
+            self.kept = Some(text);
+        }
         let (reason, ended_at) = {
             let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
             let reason = state.stopping.unwrap_or(match status {

@@ -226,3 +226,39 @@ async fn nothing_reaches_a_program_once_it_is_asked_to_stop() {
     );
     assert!(!screen.contains("typed"), "input reached it: {screen}");
 }
+
+/// The terminal's text once it has ended.
+async fn ended_text(terminal: &Terminal) -> String {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while terminal.info().ended_at.is_none() {
+        assert!(Instant::now() < deadline, "the program did not end");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    terminal.text_request(100).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stopped_program_s_screen_is_the_one_it_showed_when_asked_to_stop() {
+    // as Claude Code does, it clears its screen as it exits and leaves a line
+    let (terminal, _rx, _dir) = terminal(
+        "trap 'printf \"\\033[2J\\033[H\"; echo goodbye; exit 0' HUP; \
+         echo working on the login fix; while true; do sleep 1; done",
+    );
+    screen_shows(&terminal, "working on the login fix").await;
+    terminal
+        .stop(Duration::from_secs(2), terminal::Reason::Stopped)
+        .unwrap();
+    let text = ended_text(&terminal).await;
+    assert!(text.contains("working on the login fix"), "{text}");
+    assert!(!text.contains("goodbye"), "{text}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_program_that_leaves_the_alternate_screen_as_it_exits_keeps_that_screen() {
+    let (terminal, _rx, _dir) = terminal(
+        "printf '\\033[?1049h\\033[Hthe interface'; sleep 0.3; printf '\\033[?1049l'; echo bye",
+    );
+    let text = ended_text(&terminal).await;
+    assert!(text.contains("the interface"), "{text}");
+    assert!(!text.contains("bye"), "{text}");
+}
