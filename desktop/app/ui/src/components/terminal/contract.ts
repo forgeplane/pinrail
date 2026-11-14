@@ -119,7 +119,10 @@ export function describeContract(name: string, make: () => Promise<TerminalRende
     test("sends its emulator's replies as replies, never as input", async () => {
       await writeAll(view, bytes("\x1b[6n"));
       await expect.poll(() => replies.length).toBeGreaterThan(0);
-      expect(replies.join("")).toMatch(/^\x1b\[\d+;\d+R/);
+      // a cursor position report: ESC [ row ; column R
+      const reply = replies.join("");
+      expect(reply.slice(0, 2)).toBe("\x1b[");
+      expect(reply.slice(2)).toMatch(/^\d+;\d+R/);
       expect(inputs).toEqual([]);
     });
 
