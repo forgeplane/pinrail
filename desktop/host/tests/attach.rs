@@ -499,3 +499,43 @@ fn a_viewer_that_attaches_inside_a_sequence_gets_it_once() {
     assert!(!text.contains("1m"), "{text:?}");
     connection.call("terminal.stop", json!({"terminal": terminal}));
 }
+
+#[test]
+fn the_colours_a_viewer_sent_as_an_observer_apply_once_it_takes_control() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut connection = Connection::open(&host);
+    // asks for the background colour, and prints the answer without its
+    // escape bytes
+    let terminal = spawn(
+        &mut connection,
+        &folders,
+        "stty -icanon -echo min 1 time 0; echo ready; sleep 2; printf '\\033]11;?\\033\\\\'; \
+         v=$(dd bs=1 count=25 2>/dev/null); printf 'got:%s\\n' \"$v\" | tr -d '\\033'; sleep 30",
+    );
+    wait_for_text(&mut connection, &terminal, "ready");
+    let (channel, _) = attach(&mut connection, &terminal, json!({}));
+    connection.until_meta(channel, "snapshot_end");
+    // sent first, as pinrail attach does, while still an observer
+    connection.send(
+        channel,
+        kind::FACTS,
+        json!({"background": "#102030", "foreground": "#eeeeee"})
+            .to_string()
+            .into_bytes(),
+    );
+    connection.send(channel, kind::CONTROL, b"\"take\"".to_vec());
+    let text = {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let reply = connection.call("terminal.text", json!({"terminal": terminal, "lines": 0}));
+            let text = reply["result"]["text"].as_str().unwrap_or("").to_string();
+            if text.contains("got:") || Instant::now() > deadline {
+                break text;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    };
+    assert!(text.contains("rgb:1010/2020/3030"), "{text:?}");
+    connection.call("terminal.stop", json!({"terminal": terminal}));
+}

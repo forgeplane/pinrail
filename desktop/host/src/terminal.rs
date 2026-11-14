@@ -939,9 +939,14 @@ impl Actor {
                 }
                 _ => {}
             },
-            kind::FACTS if controller => {
+            // kept for every viewer, applied while it controls: a viewer
+            // sends them as it attaches, before it can take control
+            kind::FACTS => {
                 if let Ok(facts) = serde_json::from_slice::<Value>(&frame.payload) {
-                    self.screen.set_facts(&display_facts(&facts));
+                    if controller {
+                        self.screen.set_facts(&display_facts(&facts));
+                    }
+                    self.viewers.set_facts(viewer, facts);
                 }
             }
             kind::FOCUS if controller => {
@@ -958,6 +963,9 @@ impl Actor {
     /// Makes a viewer the controller, and the terminal its size.
     fn take_control(&mut self, viewer: ViewerId) {
         if self.viewers.promote(viewer) {
+            if let Some(facts) = self.viewers.facts_of(viewer) {
+                self.screen.set_facts(&display_facts(facts));
+            }
             self.set_focus(false);
             if let Some(size) = self.viewers.size_of(viewer) {
                 self.resize(size);

@@ -70,6 +70,9 @@ struct Viewer {
     needs: Option<Needs>,
     /// The size of the viewer's own terminal.
     size: (u16, u16),
+    /// The colours of the viewer's own terminal, which the screen answers
+    /// the program's queries from while the viewer is the controller.
+    facts: Option<Value>,
 }
 
 /// The output ring: the last [`RING`] bytes of the viewers' stream, and
@@ -211,6 +214,7 @@ impl Viewers {
                 paused: true,
                 needs: None,
                 size,
+                facts: None,
             },
         );
     }
@@ -269,6 +273,17 @@ impl Viewers {
 
     pub fn size_of(&self, id: ViewerId) -> Option<(u16, u16)> {
         self.viewers.get(&id).map(|v| v.size)
+    }
+
+    /// Keeps a viewer's display facts, sent before or after it controls.
+    pub fn set_facts(&mut self, id: ViewerId, facts: Value) {
+        if let Some(viewer) = self.viewers.get_mut(&id) {
+            viewer.facts = Some(facts);
+        }
+    }
+
+    pub fn facts_of(&self, id: ViewerId) -> Option<&Value> {
+        self.viewers.get(&id).and_then(|v| v.facts.as_ref())
     }
 
     pub fn set_size(&mut self, id: ViewerId, size: (u16, u16)) {
