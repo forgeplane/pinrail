@@ -149,8 +149,8 @@ fn data(channel: u32, bytes: &[u8]) -> Vec<Frame> {
         .collect()
 }
 
-/// The frames of a snapshot: its start, its bytes, its end, and the bytes
-/// a binary snapshot does not hold, which follow it as output.
+/// The frames of a snapshot: its start, its bytes, its end, and output
+/// that follows it.
 pub fn snapshot_frames(
     channel: u32,
     format: &str,

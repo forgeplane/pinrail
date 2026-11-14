@@ -454,3 +454,48 @@ fn a_viewer_that_attaches_inside_a_long_sequence_gets_its_snapshot_at_its_end() 
     assert!(!text.contains("AAAA"), "{text}");
     connection.call("terminal.stop", json!({"terminal": terminal}));
 }
+
+#[test]
+fn a_viewer_that_attaches_inside_a_query_gets_a_well_formed_stream() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut connection = Connection::open(&host);
+    // a cursor-position query cut in two, which the host's screen answers
+    let terminal = spawn(
+        &mut connection,
+        &folders,
+        "echo ready; printf '\\033[6'; sleep 1; printf 'n'; echo after; sleep 30",
+    );
+    wait_for_text(&mut connection, &terminal, "ready");
+    std::thread::sleep(Duration::from_millis(300));
+    let (channel, _) = attach(&mut connection, &terminal, json!({}));
+    let (_, mut stream) = connection.until_meta(channel, "snapshot_end");
+    stream.extend(connection.output_until(channel, b"after"));
+    // the viewer's emulator ends up outside any sequence: the text after
+    // the query is whole
+    let text = screen(&stream, 60, 12);
+    assert!(text.contains("after"), "{text:?}");
+    connection.call("terminal.stop", json!({"terminal": terminal}));
+}
+
+#[test]
+fn a_viewer_that_attaches_inside_a_sequence_gets_it_once() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut connection = Connection::open(&host);
+    // a colour sequence, which is no query, cut in two
+    let terminal = spawn(
+        &mut connection,
+        &folders,
+        "echo ready; printf '\\033[3'; sleep 1; printf '1mred\\033[0m\\n'; sleep 30",
+    );
+    wait_for_text(&mut connection, &terminal, "ready");
+    std::thread::sleep(Duration::from_millis(300));
+    let (channel, _) = attach(&mut connection, &terminal, json!({}));
+    let (_, mut stream) = connection.until_meta(channel, "snapshot_end");
+    stream.extend(connection.output_until(channel, b"red"));
+    let text = screen(&stream, 60, 12);
+    assert!(text.contains("red"), "{text:?}");
+    assert!(!text.contains("1m"), "{text:?}");
+    connection.call("terminal.stop", json!({"terminal": terminal}));
+}

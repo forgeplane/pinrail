@@ -812,22 +812,16 @@ impl Actor {
     }
 
     /// Runs `act` with the viewers and a function that paints the screen
-    /// for them: the first paint, then the bytes the filter holds, or
-    /// `None` while the program is inside an escape sequence too long for
-    /// a snapshot to reproduce.
+    /// for them, or `None` while the program is inside an escape sequence
+    /// too long for a snapshot to reproduce.
     fn with_paint(
         &mut self,
         act: impl FnOnce(&mut Viewers, &dyn Fn(usize) -> Option<Vec<u8>>, (u16, u16)),
     ) {
-        let (screen, filter) = (&self.screen, &self.filter);
-        let paint = |history: usize| {
-            if !screen.paintable() {
-                return None;
-            }
-            let mut bytes = screen.first_paint(history);
-            bytes.extend_from_slice(filter.held());
-            Some(bytes)
-        };
+        let screen = &self.screen;
+        // the bytes the filter holds are not on the screen yet, and every
+        // viewer gets them in the stream if they pass the filter
+        let paint = |history: usize| screen.paintable().then(|| screen.first_paint(history));
         act(&mut self.viewers, &paint, self.size);
     }
 
@@ -885,11 +879,10 @@ impl Actor {
                     self.size,
                     offset,
                     &snapshot.bytes,
-                    self.filter.held(),
+                    &[],
                 ),
                 _ => {
-                    let mut paint = self.screen.first_paint(request.history);
-                    paint.extend_from_slice(self.filter.held());
+                    let paint = self.screen.first_paint(request.history);
                     viewers::snapshot_frames(channel, "vt", self.size, offset, &paint, &[])
                 }
             };
