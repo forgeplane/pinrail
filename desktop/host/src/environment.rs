@@ -157,6 +157,27 @@ mod tests {
     }
 
     #[test]
+    fn the_app_s_launchd_and_bundle_variables_are_removed() {
+        // as macOS sets them for an app opened from Finder; with them,
+        // Claude Code cannot read its login from the keychain
+        let env = build_with(
+            &[
+                ("PATH", "/usr/bin"),
+                ("XPC_FLAGS", "0x2"),
+                ("XPC_SERVICE_NAME", "0"),
+                ("__CFBundleIdentifier", "dev.pinrail.desktop"),
+                ("__CF_USER_TEXT_ENCODING", "0x1F5:0x0:0x0"),
+            ],
+            &[],
+            &[],
+        );
+        for gone in ["XPC_FLAGS", "XPC_SERVICE_NAME", "__CFBundleIdentifier"] {
+            assert!(!env.contains_key(gone), "{gone}");
+        }
+        assert_eq!(env["__CF_USER_TEXT_ENCODING"], "0x1F5:0x0:0x0");
+    }
+
+    #[test]
     fn lang_is_set_only_when_no_locale_is() {
         assert_eq!(build_with(&[], &[], &[])["LANG"], "en_US.UTF-8");
         assert_eq!(

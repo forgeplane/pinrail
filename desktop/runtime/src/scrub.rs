@@ -29,6 +29,11 @@ const TERMINAL_HANDLES: &[&str] = &[
     "TERM_SESSION_ID",
 ];
 
+/// What launchd gives the app that started the agent, such as an app
+/// opened from Finder. With `XPC_FLAGS` set so, Claude Code cannot read
+/// its login from the keychain.
+const APP_VARIABLES: &[&str] = &["XPC_FLAGS", "XPC_SERVICE_NAME", "__CFBundleIdentifier"];
+
 /// Pinrail's own, which the new run sets again.
 const PINRAIL_VARIABLES: &[&str] = &[
     "PINRAIL_RUN_ID",
@@ -37,11 +42,12 @@ const PINRAIL_VARIABLES: &[&str] = &[
 ];
 
 /// Whether a variable is removed before an agent starts: every agent's
-/// markers and session variable, terminal handles, and Pinrail's run
-/// variables.
+/// markers and session variable, terminal handles, the launching app's
+/// variables, and Pinrail's run variables.
 pub fn is_scrubbed(name: &str) -> bool {
     AGENT_VARIABLES.contains(&name)
         || TERMINAL_HANDLES.contains(&name)
+        || APP_VARIABLES.contains(&name)
         || PINRAIL_VARIABLES.contains(&name)
         || all()
             .iter()
