@@ -19,6 +19,7 @@ pub mod events;
 pub mod id;
 pub mod items;
 pub use pinrail_format::markdown;
+pub mod person_token;
 pub mod plugins;
 pub mod presence;
 pub mod projects;

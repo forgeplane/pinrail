@@ -117,19 +117,40 @@ impl Runtime {
 /// setting changes. Must be called in a runtime.
 pub fn watch(app: Arc<Pinrail>) {
     apply(&app);
+    cli_control(&app);
     let mut notices = app.events().subscribe();
     tokio::spawn(async move {
         while let Ok(notice) = notices.recv().await {
-            if notice.kind == crate::events::SETTINGS_CHANGED
-                && notice
+            if notice.kind != crate::events::SETTINGS_CHANGED {
+                continue;
+            }
+            let changed = |setting: &str| {
+                notice
                     .keys
                     .as_ref()
-                    .is_some_and(|keys| keys.iter().any(|k| SETTING.starts_with(k.as_str())))
-            {
+                    .is_some_and(|keys| keys.iter().any(|k| setting.starts_with(k.as_str())))
+            };
+            if changed(SETTING) {
                 apply(&app);
+            }
+            if changed(crate::person_token::SETTING) {
+                cli_control(&app);
             }
         }
     });
+}
+
+/// Writes the person token for the CLI while `/runtime/cli_control` is
+/// on, and removes it when it is off.
+fn cli_control(app: &Pinrail) {
+    let on = app
+        .settings()
+        .value(crate::person_token::SETTING)
+        .as_bool()
+        .unwrap_or(false);
+    if let Err(error) = crate::person_token::sync(app.config(), on) {
+        eprintln!("pinrail: writing the person token for the CLI failed: {error}");
+    }
 }
 
 /// Starts or stops the link to match the setting. Stopping disconnects;

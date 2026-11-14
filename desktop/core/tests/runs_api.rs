@@ -121,6 +121,45 @@ async fn the_person_starts_lists_and_stops_a_run() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn the_cli_starts_runs_as_its_own_and_reads_the_host() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let bearer = format!("Bearer {}", app.state.config().person_token);
+    let cli = [
+        ("authorization", bearer.as_str()),
+        ("x-pinrail-client", "cli"),
+    ];
+    let (status, started) = call_as(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+        &cli,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    assert_eq!(started["run"]["created_by"], "cli");
+
+    let (status, host) = call_as(&app, "GET", "/api/v1/hosts/local", None, &cli).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(host["link"]["state"], "ready");
+    assert_eq!(host["info"]["terminals"], 1);
+    let terminal = started["run"]["terminal"].as_str().unwrap();
+    assert_eq!(
+        format!(
+            "local:{}",
+            host["terminals"][0]["terminal"].as_str().unwrap()
+        ),
+        terminal
+    );
+    // only the person reads it
+    let (status, _) = call_as(&app, "GET", "/api/v1/hosts/local", None, &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = call_as(&app, "GET", "/api/v1/hosts/other", None, &cli).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_start_that_cannot_happen_answers_with_its_reason() {
     let app = linked().await;
     let folder = folder(&app, "app");

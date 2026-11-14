@@ -191,3 +191,49 @@ async fn each_core_has_a_token_of_its_own() {
     assert_eq!(a.len(), 64);
     assert_ne!(a, b);
 }
+
+/// The person token file, once it holds `token` or is gone.
+async fn token_file_becomes(path: &std::path::Path, token: Option<&str>) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let read = std::fs::read_to_string(path).ok();
+        if read.as_deref() == token {
+            return;
+        }
+        assert!(std::time::Instant::now() < deadline, "{read:?}");
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test]
+async fn the_cli_gets_the_person_token_only_while_cli_control_is_on() {
+    let app = app();
+    let config = app.state.config();
+    let path = pinrail_core::person_token::path(config);
+    pinrail_core::runtime::watch(app.state.clone());
+    // off by default
+    assert!(!path.exists());
+
+    app.state
+        .settings()
+        .change(&serde_json::json!({"runtime": {"cli_control": true}}))
+        .unwrap();
+    token_file_becomes(&path, Some(&config.person_token)).await;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+
+    app.state
+        .settings()
+        .change(&serde_json::json!({"runtime": {"cli_control": false}}))
+        .unwrap();
+    token_file_becomes(&path, None).await;
+
+    // a core that quits leaves another core's token alone
+    std::fs::write(&path, "another core's").unwrap();
+    pinrail_core::person_token::remove(config);
+    assert!(path.exists());
+}

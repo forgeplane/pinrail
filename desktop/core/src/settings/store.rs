@@ -262,6 +262,12 @@ const LEAVES: &[Leaf] = &[
         "Update the `pinrail` skill of every connected agent when Pinrail starts, after an update of Pinrail changed the skill.",
     ),
     (
+        "/runtime/cli_control",
+        Kind::Bool,
+        || json!(false),
+        "Let the `pinrail` command start, stop and attach to agents. Any program you run, including an agent, can then act as you.",
+    ),
+    (
         "/runtime/record_turns",
         Kind::Bool,
         || json!(true),

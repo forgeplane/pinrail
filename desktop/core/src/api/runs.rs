@@ -1,6 +1,6 @@
 //! The agents Pinrail starts: start one in a folder, list them, read one
 //! with the sessions it has been in, and stop one. Starting and stopping
-//! are the person's.
+//! are the person's. A host can be read too, for diagnosis.
 
 use std::sync::Arc;
 
@@ -24,6 +24,30 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/runs", post(start).get(list))
         .route("/api/v1/runs/{run}", get(show))
         .route("/api/v1/runs/{run}/stop", post(stop))
+        .route("/api/v1/hosts/{host}", get(host))
+}
+
+/// A host, for diagnosis: the link's state, what the host says of itself,
+/// and its terminals. Only the person reads it, as the terminals' labels
+/// and processes describe every agent.
+async fn host(
+    State(state): State<Arc<Pinrail>>,
+    _person: Person,
+    Path(host): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    if host != LOCAL {
+        return Err(Error::NotFound(format!("host {host}")).into());
+    }
+    let mut value = json!({"id": LOCAL, "link": state.runtime().status()});
+    if let Some(link) = state.runtime().host() {
+        if let Ok(info) = link.call("host.info", json!({})).await {
+            value["info"] = info;
+        }
+        if let Ok(terminals) = link.call("terminal.list", json!({})).await {
+            value["terminals"] = terminals;
+        }
+    }
+    Ok(Json(value))
 }
 
 /// Starts `agent` in `folder`, with an optional first `task`, extra `args`
@@ -34,12 +58,20 @@ pub fn routes() -> Router<ApiState> {
 async fn start(
     State(state): State<Arc<Pinrail>>,
     _person: Person,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
-    let request = match parse_start(&body) {
+    let mut request = match parse_start(&body) {
         Ok(request) => request,
         Err(error) => return run_error(error),
     };
+    // the CLI names itself, with the person token of /runtime/cli_control
+    if headers
+        .get(super::reviews::CLIENT_HEADER)
+        .is_some_and(|v| v == "cli")
+    {
+        request.created_by = "cli".to_string();
+    }
     let local_id = body.get("local_id").and_then(Value::as_str);
     match state.runtime().start_once(local_id, &request).await {
         Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),

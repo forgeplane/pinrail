@@ -802,6 +802,7 @@ pub fn run() {
             // on every open long poll, so the file is removed directly.
             if let Some(native) = app.try_state::<Native>() {
                 pinrail_core::server_info::remove(native.state.config());
+                pinrail_core::person_token::remove(native.state.config());
             }
             // A downloaded update is installed on the way out, so quitting
             // updates as well as restarting does.

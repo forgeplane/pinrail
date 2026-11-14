@@ -253,6 +253,7 @@ pub async fn serve(
         sender.abort();
     }
     server_info::remove(state.app.config());
+    crate::person_token::remove(state.app.config());
     result
 }
 
