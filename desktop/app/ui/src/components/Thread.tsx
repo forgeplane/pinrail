@@ -12,6 +12,9 @@ import { useSessionRun } from "./session/useSessionRun";
 import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
 import { FailedStart } from "./session/FailedStart";
+import { StopButton } from "./session/RunControls";
+import { stateOf } from "../lib/sidebarSessions";
+import { isStopKey } from "../lib/terminalKeys";
 import { TerminalPane } from "./terminal/TerminalPane";
 import { finder, type Finder, type Found } from "../lib/findText";
 import { usePageRepo } from "../lib/pageRepo";
@@ -192,6 +195,20 @@ export function Thread({
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   const showTerminal = view === "terminal" && hasTerminalView;
   const showTerminalRef = useLatest(showTerminal);
+  // Stop asks first while the agent works, and always from its key
+  const [askingStop, setAskingStop] = useState(false);
+  const sessionNow = useLatest(session);
+  // asked when Stop is pressed
+  const working = () => !!sessionNow.current && stateOf(sessionNow.current, Date.now()) === "working";
+  useWindowKey(
+    (event) => {
+      if (!isStopKey(event, isMac) || modalOpen()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setAskingStop(true);
+    },
+    { capture: true, enabled: !!live },
+  );
   // Ctrl+` and MOD+Shift+T switch the view, before the terminal sees them,
   // so it never keeps the keyboard
   useWindowKey(
@@ -417,6 +434,15 @@ export function Thread({
             </div>
           </div>
           <span className="thread-head-end">
+            {live ? (
+              <StopButton
+                run={live}
+                working={working}
+                keys={[MOD, SHIFT, "X"]}
+                asking={askingStop}
+                onAsking={setAskingStop}
+              />
+            ) : null}
             {hasTerminalView ? <ViewSwitch view={view} onView={chooseView} /> : null}
             {items.length > 0 ? (
               <span className="thread-counts">

@@ -13,6 +13,13 @@ export function isViewToggle(event: Keys, mac: boolean): boolean {
   return mod && event.shiftKey && !event.altKey && event.code === "KeyT";
 }
 
+/** Whether a key stops the session's agent: MOD+Shift+X, which reaches
+ *  the app from a terminal on both systems. */
+export function isStopKey(event: Keys, mac: boolean): boolean {
+  const mod = mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  return mod && event.shiftKey && !event.altKey && event.code === "KeyX";
+}
+
 /** Whether a key pressed in a terminal goes on to the app's shortcuts. */
 export function reachesApp(event: Keys, mac: boolean): boolean {
   if (isViewToggle(event, mac)) return true;

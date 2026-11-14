@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isViewToggle, reachesApp } from "./terminalKeys";
+import { isStopKey, isViewToggle, reachesApp } from "./terminalKeys";
 
 const key = (code: string, mods: Partial<Record<"ctrlKey" | "metaKey" | "shiftKey" | "altKey", boolean>> = {}) => ({
   key: code,
@@ -46,5 +46,21 @@ describe("the view toggle", () => {
     expect(isViewToggle(key("KeyT", { ctrlKey: true, shiftKey: true }), false)).toBe(true);
     expect(isViewToggle(key("KeyT", { ctrlKey: true, shiftKey: true }), true)).toBe(false);
     expect(isViewToggle(key("KeyT", { metaKey: true }), true)).toBe(false);
+  });
+});
+
+describe("the stop key", () => {
+  test("is Cmd+Shift+X on macOS", () => {
+    expect(isStopKey(key("KeyX", { metaKey: true, shiftKey: true }), true)).toBe(true);
+    expect(isStopKey(key("KeyX", { ctrlKey: true, shiftKey: true }), true)).toBe(false);
+  });
+  test("is Ctrl+Shift+X on Linux", () => {
+    expect(isStopKey(key("KeyX", { ctrlKey: true, shiftKey: true }), false)).toBe(true);
+    expect(isStopKey(key("KeyX", { ctrlKey: true }), false)).toBe(false);
+    expect(isStopKey(key("KeyK", { ctrlKey: true, shiftKey: true }), false)).toBe(false);
+  });
+  test("reaches the app from a terminal on both systems", () => {
+    expect(reachesApp(key("KeyX", { metaKey: true, shiftKey: true }), true)).toBe(true);
+    expect(reachesApp(key("KeyX", { ctrlKey: true, shiftKey: true }), false)).toBe(true);
   });
 });

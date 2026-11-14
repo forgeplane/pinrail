@@ -149,3 +149,57 @@ for (const system of ["macOS", "Linux"] as const) {
     expect(received.join("")).toBe("\x1b\x0b");
   });
 }
+
+/** Records the stops the window asks the core for. */
+async function stops(page: Page) {
+  const asked: string[] = [];
+  await page.route(/\/api\/v1\/runs\/run_1\/stop$/, (route) => {
+    asked.push(route.request().method());
+    return route.fulfill({ status: 202, body: "" });
+  });
+  return asked;
+}
+
+test("Stop stops an idle agent at once, and asks first while it works", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const asked = await stops(page);
+  // its turn finished: the agent waits for the person
+  const report = (data: unknown) =>
+    page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+  await report({ event: "prompt", detail: { prompt: "Fix it" } });
+  await report({ event: "turn_ended", end: "done", detail: { reply: "Fixed." } });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByTestId("thread").getByTestId("presence-chip")).toContainText("Finished");
+  await page.getByRole("button", { name: "Stop Claude Code" }).click();
+  await expect.poll(() => asked.length).toBe(1);
+
+  // a turn begins: the agent works
+  await report({ event: "prompt", detail: { prompt: "Fix it again" } });
+  await expect(page.getByTestId("thread").getByTestId("presence-chip")).toContainText("Working");
+  await page.getByRole("button", { name: "Stop Claude Code" }).click();
+  const confirm = page.getByRole("dialog", { name: "Stop Claude Code?" });
+  await expect(confirm).toContainText("Claude Code is working on a turn.");
+  await confirm.getByRole("button", { name: "Keep it running" }).click();
+  expect(asked).toHaveLength(1);
+  await page.getByRole("button", { name: "Stop Claude Code" }).click();
+  await confirm.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect.poll(() => asked.length).toBe(2);
+  await expect(confirm).toBeHidden();
+});
+
+for (const system of ["macOS", "Linux"] as const) {
+  test(`the stop key asks to stop the agent, from the terminal too, on ${system}`, async ({ page }) => {
+    const platform = system === "macOS" ? "MacIntel" : "Linux x86_64";
+    await page.addInitScript((p) => Object.defineProperty(navigator, "platform", { get: () => p }), platform);
+    const { session, received } = await sessionWithRun(page);
+    const asked = await stops(page);
+    await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+    await expect.poll(() => terminalFocused(page)).toBe(true);
+    await page.keyboard.press(system === "macOS" ? "Meta+Shift+X" : "Control+Shift+X");
+    const confirm = page.getByRole("dialog", { name: "Stop Claude Code?" });
+    await expect(confirm).toBeVisible();
+    expect(received.join("")).toBe("");
+    await confirm.getByRole("button", { name: "Stop", exact: true }).click();
+    await expect.poll(() => asked.length).toBe(1);
+  });
+}

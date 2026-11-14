@@ -78,6 +78,11 @@ export const SHORTCUTS: Shortcut[] = [
   { section: "Sessions", what: "Find in the thread", keys: [[MOD, "F"]] },
   {
     section: "Sessions",
+    what: "Stop the agent",
+    keys: [[MOD, SHIFT, "X"]],
+  },
+  {
+    section: "Sessions",
     what: "Switch between Summary and Terminal",
     keys: [
       ["Ctrl", "`"],

@@ -7851,3 +7851,13 @@ a.item-ref {
   display: flex;
   gap: 8px;
 }
+/* Stop, in the header of a session whose agent runs in Pinrail. */
+.run-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  padding: 0 8px;
+  color: var(--danger);
+  font: var(--text-xs) var(--font);
+}
