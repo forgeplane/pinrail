@@ -181,21 +181,21 @@ export function Thread({
   );
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
-  const { session, items, statuses, messages, comments, itemEvents, error, load, sessionItems } = useSessionThread(
-    named,
-    focus,
-    onSession,
-  );
+  const { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems } =
+    useSessionThread(named, focus, onSession);
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
-  const { live, failed, ended } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const { live, failed, ended, runs } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
   const terminal = live?.terminal ?? null;
   // a run that ended shows how in the terminal's place
   const hasTerminalView = !!terminal || !!failed || !!ended;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   const showTerminal = view === "terminal" && hasTerminalView;
   const showTerminalRef = useLatest(showTerminal);
+  // what a live run's agent waits for the person to allow, if anything
+  const wait = session?.presence?.state === "needs_input" ? session.presence.wait : null;
+  const waitingFor = live && wait?.kind === "permission" ? [wait.tool, wait.summary].filter(Boolean).join(" · ") : null;
   // Stop asks first while the agent works, and always from its key
   const [askingStop, setAskingStop] = useState(false);
   const sessionNow = useLatest(session);
@@ -312,8 +312,8 @@ export function Thread({
   const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews each stage sent, for its tooltip
   const entries = useMemo(
-    () => entriesOf(items, statuses, messages, comments, itemEvents),
-    [items, statuses, messages, comments, itemEvents],
+    () => entriesOf(items, statuses, messages, comments, itemEvents, turns, runs),
+    [items, statuses, messages, comments, itemEvents, turns, runs],
   );
   // a long thread draws its newest entries first, unless it opens at one
   // further up
@@ -535,6 +535,7 @@ export function Thread({
             <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
               <ThreadEntries
                 entries={shown}
+                waiting={waitingFor !== null}
                 startedAt={session && whole ? session.first_at : null}
                 named={namedRef}
                 agent={agent}
@@ -549,6 +550,14 @@ export function Thread({
                 showReview={showReview}
                 openFromLink={openFromLink}
               />
+              {waitingFor ? (
+                <div className="thread-waiting" data-testid="waiting-line">
+                  <span>Waiting for permission: {waitingFor}</span>
+                  <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
+                    Open the terminal
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="thread-footer" ref={setFooter}>
               {atEnd ? null : (

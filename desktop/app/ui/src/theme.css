@@ -7885,3 +7885,84 @@ a.item-ref {
   font: 13px / 1.2 var(--mono);
   white-space: pre;
 }
+/* A turn of the session's agent, and the runs Pinrail started. */
+.thread-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+.thread-turn-prompt {
+  display: flex;
+  justify-content: flex-end;
+}
+.thread-turn-part {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.thread-turn-text p {
+  margin: 0;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.thread-turn-text.is-open p {
+  display: block;
+}
+.thread-turn-more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: var(--text-xs) var(--font);
+  cursor: pointer;
+}
+.thread-turn-end {
+  font-size: var(--text-xs);
+}
+.thread-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+.thread-turn-folded {
+  max-height: 6.2em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.thread-turn-folded.is-open {
+  max-height: none;
+  mask-image: none;
+}
+.thread-turn-working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+.thread-turn-doing {
+  animation: doing-in 0.4s ease-out;
+}
+@keyframes doing-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thread-turn-doing {
+    animation: none;
+  }
+}

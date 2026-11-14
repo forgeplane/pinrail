@@ -10,6 +10,8 @@ export type Run = {
   id: string;
   host: string;
   agent: string;
+  /** a new session, or one resumed */
+  kind?: "start" | "resume";
   state: "starting" | "running" | "ended";
   /** `<host>:<terminal id>`, once the host has spawned the agent */
   terminal: string | null;

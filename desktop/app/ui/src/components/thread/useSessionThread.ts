@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, EVERY_ITEM_STATUS, errorMessage } from "../../api/client";
 import type {
+  SessionTurn,
   Notice,
   Review,
   Session,
@@ -69,6 +70,7 @@ export function useSessionThread(
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [comments, setComments] = useState<SessionComment[]>([]);
   const [itemEvents, setItemEvents] = useState<SessionItemEvent[]>([]);
+  const [turns, setTurns] = useState<SessionTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -82,6 +84,7 @@ export function useSessionThread(
         setMessages(thread.messages ?? []);
         setComments(thread.comments ?? []);
         setItemEvents(thread.item_events ?? []);
+        setTurns(thread.turns ?? []);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -119,5 +122,5 @@ export function useSessionThread(
     if (thread) load();
   });
 
-  return { session, items, statuses, messages, comments, itemEvents, error, load, sessionItems };
+  return { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems };
 }

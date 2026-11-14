@@ -24,6 +24,7 @@ import type {
   SessionItemEvent,
   SessionMessage,
   SessionStatus,
+  SessionTurn,
   Stage,
   ThemeEntry,
   Violation,
@@ -272,6 +273,7 @@ export const api = {
       messages: SessionMessage[];
       comments?: SessionComment[];
       item_events?: SessionItemEvent[];
+      turns?: SessionTurn[];
     }>("GET", `/api/v1/sessions/${seg(agent)}/${seg(id)}`),
   /** sends the agent a message, which it receives with its next status */
   sendMessage: (agent: string, id: string, text: string) =>

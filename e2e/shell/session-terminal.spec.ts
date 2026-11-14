@@ -203,3 +203,87 @@ for (const system of ["macOS", "Linux"] as const) {
     await expect.poll(() => asked.length).toBe(1);
   });
 }
+
+test("the summary shows turns, where the run started, and what it waits for", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const report = (data: unknown) =>
+    page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+  await report({ event: "prompt", detail: { prompt: "Fix the login redirect" } });
+  await report({ event: "turn_ended", end: "done", detail: { reply: "Fixed it in auth.ts." } });
+  await report({ event: "prompt", detail: { prompt: "Now run the tests" } });
+  await report({ event: "needs_input", wait: "permission", detail: { tool: "Bash", summary: "npm test" } });
+  await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+
+  const thread = page.getByTestId("thread");
+  await expect(thread.getByTestId("run-line")).toHaveText("Started in Pinrail");
+  const turns = thread.getByTestId("turn");
+  await expect(turns).toHaveCount(2);
+  // what the person asked, on the right, as their messages are
+  const asked = turns.first().getByLabel("You asked");
+  await expect(asked).toHaveText("Fix the login redirect");
+  const [bubble, items] = [
+    await asked.locator(".thread-message-bubble").boundingBox(),
+    await thread.locator(".thread-items").boundingBox(),
+  ];
+  expect(bubble!.x + bubble!.width).toBeGreaterThan(items!.x + items!.width - 80);
+  // and what Claude Code replied, under its icon
+  const reply = turns.first().getByTestId("turn-reply");
+  await expect(reply).toContainText("Claude Code replied");
+  await expect(reply).toContainText("Fixed it in auth.ts.");
+  // waiting for the person, it is not shown working
+  await expect(turns.last().getByTestId("turn-working")).toHaveCount(0);
+
+  const waiting = thread.getByTestId("waiting-line");
+  await expect(waiting).toContainText("Waiting for permission: Bash · npm test");
+  await waiting.getByRole("button", { name: "Open the terminal" }).click();
+  await expect(page.getByTestId("terminal-bar")).toBeVisible();
+
+  // allowed, it works again: Pinrail's mark and what it is doing
+  await report({ event: "working" });
+  await page.getByRole("tab", { name: "Summary" }).click();
+  const working = turns.last().getByRole("status", { name: "Claude Code is working" });
+  await expect(working).toHaveText(/…$/);
+  await expect(working.locator(".wait-mark")).toBeVisible();
+  await expect(thread.getByTestId("waiting-line")).toHaveCount(0);
+});
+
+test("the summary says how the run ended, and keeps turns without their texts when told to", async ({ page }) => {
+  const session = `s-ended-${Date.now()}`;
+  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Fix the login redirect", origin: { repo: "acme/api" } },
+  });
+  await page.request.patch(`${core}/api/v1/settings`, { data: { runtime: { record_turns: false } } });
+  try {
+    const report = (data: unknown) =>
+      page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+    await report({ event: "prompt", detail: { prompt: "a secret prompt" } });
+    await report({ event: "turn_ended", end: "interrupted", detail: { reply: "a secret reply" } });
+    const run = {
+      id: "run_9",
+      host: "local",
+      agent: "claude-code",
+      kind: "start",
+      state: "ended",
+      terminal: "local:t_9",
+      folder: "/work",
+      started_at: new Date(Date.now() - 60_000).toISOString(),
+      ended_at: new Date().toISOString(),
+      end_reason: "stopped",
+      exit_code: null,
+      exit_signal: "HUP",
+      session: { agent: "claude-code", id: session },
+    };
+    await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [run] } }));
+    await page.route(/\/api\/v1\/runs\/run_9\/output/, (route) => route.fulfill({ json: { text: "" } }));
+    await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+
+    const thread = page.getByTestId("thread");
+    await expect(thread.getByTestId("run-line")).toHaveText(["Started in Pinrail", "Stopped by you"]);
+    const turn = thread.getByTestId("turn");
+    await expect(turn).toContainText("Turn 1");
+    await expect(turn).toContainText("Interrupted");
+    await expect(thread).not.toContainText("a secret");
+  } finally {
+    await page.request.patch(`${core}/api/v1/settings`, { data: { runtime: { record_turns: true } } });
+  }
+});

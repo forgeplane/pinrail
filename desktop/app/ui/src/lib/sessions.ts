@@ -3,7 +3,15 @@
 // row with nothing between them are one group, and the agent saying it
 // starts a stage, or has finished, is a line of its own.
 
-import type { Review, SessionComment, SessionItemEvent, SessionMessage, SessionStatus } from "../api/types";
+import type {
+  SessionTurn,
+  Review,
+  SessionComment,
+  SessionItemEvent,
+  SessionMessage,
+  SessionStatus,
+} from "../api/types";
+import type { Run } from "../api/runtime";
 
 /** The router state of a review opened from a session: its breadcrumb
  *  names the session, and its decision leads back to the session. */
@@ -27,7 +35,10 @@ export type Entry =
   | { kind: "note"; status: SessionStatus }
   | { kind: "message"; message: SessionMessage }
   | { kind: "comment"; comment: SessionComment }
-  | { kind: "itemEvents"; events: SessionItemEvent[] };
+  | { kind: "itemEvents"; events: SessionItemEvent[] }
+  | { kind: "turn"; turn: SessionTurn }
+  /** a run Pinrail started, where it started or where it ended */
+  | { kind: "run"; run: Run; ended: boolean };
 
 /** Each review's rounds among the items, oldest first, by the id of each
  *  of its rounds. A round that revises one from elsewhere starts a review. */
@@ -64,6 +75,8 @@ export function timeline(
   messages: SessionMessage[] = [],
   comments: SessionComment[] = [],
   itemEvents: SessionItemEvent[] = [],
+  turns: SessionTurn[] = [],
+  runs: Run[] = [],
 ): Entry[] {
   const rounds = roundsOf(items);
   type Happened =
@@ -72,8 +85,12 @@ export function timeline(
     | { kind: "status"; status: SessionStatus }
     | { kind: "itemEvent"; event: SessionItemEvent }
     | { kind: "comment"; comment: SessionComment }
-    | { kind: "message"; message: SessionMessage };
-  const RANK = { withdrawn: 0, review: 1, status: 2, itemEvent: 3, comment: 4, message: 5 } as const;
+    | { kind: "message"; message: SessionMessage }
+    | { kind: "turn"; turn: SessionTurn }
+    | { kind: "run"; run: Run; ended: boolean };
+  // a run starts before the turns and the reports it brings, and ends
+  // after them
+  const RANK = { run: -1, withdrawn: 0, review: 1, status: 2, itemEvent: 3, comment: 4, message: 5, turn: 6 } as const;
   const all: { at: number; happened: Happened }[] = [];
   for (const review of items) {
     all.push({ at: Date.parse(review.created_at), happened: { kind: "review", review } });
@@ -90,6 +107,11 @@ export function timeline(
   for (const comment of comments)
     all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
   for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
+  for (const turn of turns) all.push({ at: Date.parse(turn.started_at), happened: { kind: "turn", turn } });
+  for (const run of runs) {
+    all.push({ at: Date.parse(run.started_at), happened: { kind: "run", run, ended: false } });
+    if (run.ended_at) all.push({ at: Date.parse(run.ended_at) + 0.5, happened: { kind: "run", run, ended: true } });
+  }
   // a stable sort keeps each list's own order within one time
   all.sort((a, b) => a.at - b.at || RANK[a.happened.kind] - RANK[b.happened.kind]);
 
@@ -114,6 +136,8 @@ export function timeline(
     }
     close();
     if (happened.kind === "comment") entries.push({ kind: "comment", comment: happened.comment });
+    else if (happened.kind === "turn") entries.push({ kind: "turn", turn: happened.turn });
+    else if (happened.kind === "run") entries.push({ kind: "run", run: happened.run, ended: happened.ended });
     else if (happened.kind === "itemEvent") {
       // the same change to several items in a row is one line
       const last = entries[entries.length - 1];

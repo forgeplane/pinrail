@@ -408,6 +408,21 @@ export type NoticeItem = { id: string; key: string; agent: string | null; sessio
 /** A file a note carries. */
 export type NoteAttachment = { name: string; size: number; media_type: string };
 
+/** A turn of a session's agent, as its hooks report it: the prompt and
+ *  the reply as excerpts, kept while /runtime/record_turns is on. */
+export type SessionTurn = {
+  turn: number;
+  agent_turn: string | null;
+  started_at: string;
+  ended_at: string | null;
+  /** done, failed, interrupted (by the person) or ended */
+  end_kind: string | null;
+  prompt: string | null;
+  prompt_cut: boolean;
+  reply: string | null;
+  reply_cut: boolean;
+};
+
 export type SessionStatus = {
   id: number;
   text: string;
