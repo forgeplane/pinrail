@@ -16,6 +16,7 @@ pub mod db;
 pub mod docs;
 pub mod error;
 pub mod events;
+pub mod folders;
 pub mod id;
 pub mod items;
 pub use pinrail_format::markdown;

@@ -23,6 +23,7 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/runs", post(start).get(list))
         .route("/api/v1/agents/startable", get(startable))
+        .route("/api/v1/folders/recent", get(recent_folders))
         .route("/api/v1/runs/{run}", get(show))
         .route("/api/v1/runs/{run}/stop", post(stop))
         .route("/api/v1/hosts/{host}", get(host))
@@ -173,6 +174,12 @@ async fn startable(State(state): State<Arc<Pinrail>>) -> Response {
         Ok(agents) => Json(json!({ "agents": agents })).into_response(),
         Err(error) => run_error(error),
     }
+}
+
+/// The folders agents worked in lately, for the Start an agent dialog.
+async fn recent_folders(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
+    let folders = state.runtime().recent_folders()?;
+    Ok(Json(json!({ "folders": folders })))
 }
 
 /// A run, with every session it has been in, in order.

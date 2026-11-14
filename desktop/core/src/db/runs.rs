@@ -316,6 +316,31 @@ impl Db {
         }))
     }
 
+    /// The folders of this computer's runs and of sessions, most recently
+    /// used first, each with the repository its newest session named, and
+    /// when it was last used.
+    pub fn recent_folders(
+        &self,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<(String, Option<String>, String)>> {
+        let conn = self.conn();
+        let repo = super::repos::name_of("s.repo_id");
+        let mut stmt = conn.prepare(&format!(
+            "WITH used AS (
+               SELECT s.folder AS folder, s.last_at AS at, {repo} AS repo FROM sessions s
+               WHERE s.folder IS NOT NULL AND s.folder <> ''
+               UNION ALL
+               SELECT folder, started_at, NULL FROM runs WHERE host_id = 'local'
+             )
+             SELECT u.folder, MAX(u.at) AS at,
+               (SELECT v.repo FROM used v WHERE v.folder = u.folder AND v.repo IS NOT NULL
+                ORDER BY v.at DESC LIMIT 1)
+             FROM used u GROUP BY u.folder ORDER BY at DESC LIMIT ?1"
+        ))?;
+        stmt.query_map([limit as i64], |r| Ok((r.get(0)?, r.get(2)?, r.get(1)?)))?
+            .collect()
+    }
+
     pub fn run(&self, id: &str) -> rusqlite::Result<Option<RunRow>> {
         get(&self.read(), id)
     }

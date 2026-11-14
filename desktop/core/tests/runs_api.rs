@@ -359,3 +359,51 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
         .collect();
     assert_eq!(last, ["claude-code"]);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn recent_folders_come_most_recent_first_with_their_repository_and_branch() {
+    let app = linked().await;
+    let api = folder(&app, "api");
+    std::fs::create_dir_all(format!("{api}/.git")).unwrap();
+    std::fs::write(format!("{api}/.git/HEAD"), "ref: refs/heads/fix-login\n").unwrap();
+    let web = folder(&app, "web");
+    let gone = folder(&app, "gone");
+
+    for (session, folder, repo) in [("s-gone", &gone, "acme/old"), ("s-api", &api, "acme/api")] {
+        let body = json!({"kind": "step", "text": "working",
+                          "origin": {"repo": repo, "folder": folder}});
+        let (status, answer) = call(
+            &app,
+            "POST",
+            &format!("/api/v1/sessions/claude-code/{session}/status"),
+            Some(body),
+        )
+        .await;
+        assert!(status.is_success(), "{answer}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    // a run in a folder no session has reported yet, started last
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": web})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    std::fs::remove_dir_all(&gone).unwrap();
+
+    let (status, body) = call(&app, "GET", "/api/v1/folders/recent", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let folders = body["folders"].as_array().unwrap();
+    let names: Vec<&str> = folders
+        .iter()
+        .map(|f| f["folder"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, [web.as_str(), api.as_str(), gone.as_str()]);
+    assert_eq!(folders[1]["repo"], "acme/api");
+    assert_eq!(folders[1]["branch"], "fix-login");
+    assert_eq!(folders[1]["exists"], true);
+    assert_eq!(folders[0]["repo"], Value::Null);
+    assert_eq!(folders[2]["exists"], false);
+}

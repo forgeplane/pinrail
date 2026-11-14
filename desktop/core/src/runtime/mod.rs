@@ -69,6 +69,11 @@ impl Runtime {
         Ok(self.db.runs(filters)?)
     }
 
+    /// The folders agents worked in lately, for the Start an agent dialog.
+    pub fn recent_folders(&self) -> Result<Vec<Value>, crate::error::Error> {
+        Ok(crate::folders::recent(&self.db)?)
+    }
+
     /// A run, with every session it has been in.
     pub fn run(
         &self,
