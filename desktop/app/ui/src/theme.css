@@ -8013,3 +8013,28 @@ a.item-ref {
     animation: none;
   }
 }
+/* The libghostty renderer's input: out of sight, at the cursor, until a
+   composition shows its marked text there, underlined. */
+.ghostty-input {
+  position: absolute;
+  width: 1px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  overflow: hidden;
+  resize: none;
+  opacity: 0;
+  background: transparent;
+  color: transparent;
+  font: inherit;
+  white-space: nowrap;
+}
+.ghostty-input.is-composing {
+  width: auto;
+  min-width: 2ch;
+  opacity: 1;
+  z-index: 1;
+  color: var(--text);
+  background: var(--bg);
+  text-decoration: underline;
+}

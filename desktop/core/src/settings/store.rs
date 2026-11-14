@@ -274,6 +274,12 @@ const LEAVES: &[Leaf] = &[
         "The terminal renderers to try, in order, by id: `ghostty` or `xterm`. `auto` stands for the renderer Pinrail chose, then xterm.js.",
     ),
     (
+        "/runtime/terminal/option_as_meta",
+        Kind::Enum(&["off", "left", "right", "both"]),
+        || json!("off"),
+        "On macOS, which Option keys act as Meta in a terminal, sending Esc and the key rather than the character Option types: `off`, `left`, `right` or `both`.",
+    ),
+    (
         "/runtime/default_view",
         Kind::Enum(&["last", "summary", "terminal"]),
         || json!("last"),
