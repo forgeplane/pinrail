@@ -13,6 +13,8 @@ export default defineConfig({
   },
   test: {
     include: ["ui/src/**/*.test.ts"],
+    // those run in a browser, with vitest.browser.config.ts
+    exclude: ["ui/src/**/*.browser.test.ts"],
     environment: "node",
   },
 });

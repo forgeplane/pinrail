@@ -179,6 +179,14 @@ jobs:
         run: |
           npm ci
           npm run build
+      # the terminal renderers' contract, in WebKit, the engine of the
+      # window on macOS and Linux
+      - name: Terminal renderer contract
+        if: runner.os != 'Windows'
+        working-directory: desktop/app
+        run: |
+          npx playwright install --with-deps webkit
+          npm run test:browser
       - name: clippy
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked

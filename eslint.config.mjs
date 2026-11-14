@@ -80,4 +80,23 @@ export default tseslint.config(
     files: ["desktop/app/ui/**/*.ts", "desktop/app/ui/**/*.tsx"],
     rules: { ...reactHooks.configs["recommended-latest"].rules, "react-hooks/exhaustive-deps": "error" },
   },
+  // the window's terminal: only a renderer's adapter, in its own folder,
+  // may import a terminal library; the rest of the UI uses TerminalView
+  {
+    files: ["desktop/app/ui/**/*.ts", "desktop/app/ui/**/*.tsx"],
+    ignores: ["desktop/app/ui/src/components/terminal/renderers/*/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@xterm/*", "xterm", "xterm-*", "ghostty-web", "@wterm/*", "**/vendor/ghostty*/**"],
+              message: "Only a renderer's adapter in components/terminal/renderers/<id>/ imports a terminal library.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

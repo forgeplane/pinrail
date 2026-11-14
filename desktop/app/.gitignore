@@ -1,1 +1,3 @@
 /notices/
+# failure screenshots from the browser tests
+/.vitest/

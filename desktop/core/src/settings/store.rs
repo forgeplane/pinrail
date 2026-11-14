@@ -268,6 +268,12 @@ const LEAVES: &[Leaf] = &[
         "Let the `pinrail` command start, stop and attach to agents. Any program you run, including an agent, can then act as you.",
     ),
     (
+        "/runtime/terminal/renderer",
+        Kind::TextList,
+        || json!(["auto"]),
+        "The terminal renderers to try, in order, by id: `ghostty` or `xterm`. `auto` stands for the renderer Pinrail chose, then xterm.js.",
+    ),
+    (
         "/runtime/record_turns",
         Kind::Bool,
         || json!(true),
