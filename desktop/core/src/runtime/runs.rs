@@ -394,6 +394,56 @@ impl super::Runtime {
     }
 
     /// The link, when the host is connected.
+    /// Every agent Pinrail can start, in Settings' order: whether its
+    /// program is on the `PATH` agents start with, its version, and
+    /// whether it was the last one started.
+    pub async fn startable(&self) -> Result<Vec<Value>, RunError> {
+        let agents: Vec<(&pinrail_runtime::AgentSpec, String)> = pinrail_runtime::all()
+            .iter()
+            .filter_map(|spec| {
+                let plan =
+                    pinrail_runtime::adapter(spec.id)?.start(&pinrail_runtime::StartRequest {
+                        task: None,
+                        extra_args: &[],
+                        session_id: "00000000-0000-4000-8000-000000000000",
+                    })?;
+                Some((spec, plan.argv.first()?.clone()))
+            })
+            .collect();
+        let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        let names: Vec<&str> = agents.iter().map(|(_, program)| program.as_str()).collect();
+        let mut params = json!({ "names": names });
+        if let Some(path) = self.run_env.get("PATH") {
+            params["path"] = json!(path);
+        }
+        let reply = match link.call("programs.find", params).await {
+            Ok(reply) => reply,
+            Err(HostError::Refused { message, .. }) => return Err(RunError::StartFailed(message)),
+            Err(_) => return Err(RunError::HostOffline),
+        };
+        let found = reply["programs"].as_array().cloned().unwrap_or_default();
+        let last = self
+            .db
+            .runs(&RunFilters::default())?
+            .into_iter()
+            .next()
+            .map(|run| run.agent);
+        Ok(agents
+            .iter()
+            .zip(found.iter().chain(std::iter::repeat(&Value::Null)))
+            .map(|((spec, program), found)| {
+                json!({
+                    "id": spec.id,
+                    "name": spec.label,
+                    "program": program,
+                    "installed": found["path"].is_string(),
+                    "version": found["version"],
+                    "last_used": last.as_deref() == Some(spec.id),
+                })
+            })
+            .collect())
+    }
+
     fn ready_host(&self) -> Option<HostLink> {
         self.host()
             .filter(|link| matches!(link.state(), HostState::Ready { .. }))

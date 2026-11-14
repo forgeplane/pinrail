@@ -630,6 +630,32 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             }
             (Some(result(id, answer)), false)
         }
+        "programs.find" => {
+            let names: Vec<String> = params(&message)
+                .get("names")
+                .and_then(Value::as_array)
+                .map(|names| {
+                    names
+                        .iter()
+                        .filter_map(|n| n.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+            // the PATH a spawn's request gives, which wins over the probed one
+            let path = params(&message)
+                .get("path")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let found = tokio::task::block_in_place(|| {
+                let mut env = shared.probe.get(false).vars;
+                if let Some(path) = path {
+                    env.retain(|(k, _)| k != "PATH");
+                    env.push(("PATH".to_string(), path));
+                }
+                crate::programs::find(&names, &env)
+            });
+            (Some(result(id, json!({"programs": found}))), false)
+        }
         "terminal.list" => {
             let list: Vec<Value> = shared
                 .terminals

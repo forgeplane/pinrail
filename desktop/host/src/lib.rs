@@ -22,6 +22,7 @@ pub mod log;
 pub mod outbox;
 pub mod paths;
 pub mod probe;
+pub mod programs;
 pub mod protocol;
 pub mod pty;
 pub mod records;

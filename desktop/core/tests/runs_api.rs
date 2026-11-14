@@ -299,3 +299,63 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
     let (_, run) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
     assert_eq!(run["session"]["id"], "s-2");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
+    use std::os::unix::fs::PermissionsExt;
+    let hosts = tempfile::tempdir().unwrap();
+    let registration = common::host(hosts.path());
+    // Claude Code is installed and Codex is not
+    let bin = hosts.path().join("versions");
+    std::fs::create_dir_all(&bin).unwrap();
+    let claude = bin.join("claude");
+    std::fs::write(&claude, "#!/bin/sh\necho '2.1.325 (Claude Code)'\n").unwrap();
+    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let app = common::app_with(|config| {
+        config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
+        config
+            .run_env
+            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+    });
+    runtime::watch(app.state.clone());
+    app.state
+        .settings()
+        .change(&json!({"labs": {"runtime": true}}))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.state.runtime().status()["state"] != "ready" {
+        assert!(Instant::now() < deadline, "the host did not connect");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let (status, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let agents = body["agents"].as_array().unwrap();
+    let agent = |id: &str| agents.iter().find(|a| a["id"] == id).cloned().unwrap();
+    assert_eq!(agent("claude-code")["installed"], true);
+    assert_eq!(agent("claude-code")["version"], "2.1.325");
+    assert_eq!(agent("claude-code")["name"], "Claude Code");
+    assert_eq!(agent("codex")["installed"], false);
+    assert_eq!(agent("codex")["version"], Value::Null);
+    // only agents Pinrail starts are listed
+    assert!(
+        agents
+            .iter()
+            .all(|a| a["id"] == "claude-code" || a["id"] == "codex")
+    );
+    assert!(agents.iter().all(|a| a["last_used"] == false));
+
+    // the agent started last is marked
+    let work = folder(&app, "app");
+    let body = json!({"host": "local", "agent": "claude-code", "folder": work});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let (_, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    let agents = body["agents"].as_array().unwrap();
+    let last: Vec<_> = agents
+        .iter()
+        .filter(|a| a["last_used"] == true)
+        .map(|a| &a["id"])
+        .collect();
+    assert_eq!(last, ["claude-code"]);
+}

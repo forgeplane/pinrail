@@ -34,6 +34,11 @@ pub const METHODS: &[Method] = &[
         optional: &["refresh"],
     },
     Method {
+        name: "programs.find",
+        required: &["names"],
+        optional: &["path"],
+    },
+    Method {
         name: "terminal.spawn",
         required: &["argv", "cwd", "cols", "rows"],
         optional: &["env", "session_env", "labels", "env_base"],

@@ -22,6 +22,7 @@ use crate::runtime::{LOCAL, RunError, Start};
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/runs", post(start).get(list))
+        .route("/api/v1/agents/startable", get(startable))
         .route("/api/v1/runs/{run}", get(show))
         .route("/api/v1/runs/{run}/stop", post(stop))
         .route("/api/v1/hosts/{host}", get(host))
@@ -163,6 +164,15 @@ async fn list(
     Ok(Json(
         json!({"runs": runs.iter().map(RunRow::to_json).collect::<Vec<_>>()}),
     ))
+}
+
+/// The agents Pinrail can start, with whether each is installed and its
+/// version, for the Start an agent dialog.
+async fn startable(State(state): State<Arc<Pinrail>>) -> Response {
+    match state.runtime().startable().await {
+        Ok(agents) => Json(json!({ "agents": agents })).into_response(),
+        Err(error) => run_error(error),
+    }
 }
 
 /// A run, with every session it has been in, in order.
