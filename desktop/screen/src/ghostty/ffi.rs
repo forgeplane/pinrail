@@ -50,6 +50,28 @@ pub const DATA_ACTIVE_SCREEN: TerminalData = 6;
 pub const DATA_TITLE: TerminalData = 12;
 pub const DATA_MODE: TerminalData = 37;
 pub const DATA_VT_GROUND: TerminalData = 38;
+pub const DATA_MEMORY_USAGE: TerminalData = 42;
+
+/// `GhosttyTerminalMemoryUsage` (terminal.h), a sized struct: `size` is set
+/// before the read.
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct MemoryUsage {
+    pub size: usize,
+    pub compression_supported: bool,
+    pub primary_pages: u64,
+    pub primary_virtual_bytes: u64,
+    pub primary_resident_bytes: u64,
+    pub primary_compressed_pages: u64,
+    pub primary_compressed_bytes: u64,
+    pub primary_image_bytes: u64,
+    pub alternate_pages: u64,
+    pub alternate_virtual_bytes: u64,
+    pub alternate_resident_bytes: u64,
+    pub alternate_compressed_pages: u64,
+    pub alternate_compressed_bytes: u64,
+    pub alternate_image_bytes: u64,
+}
 
 /// `GhosttyMode` (modes.h): the mode's number in bits 0 to 14, and bit 15
 /// set for an ANSI mode rather than a DEC private one.

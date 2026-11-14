@@ -548,6 +548,19 @@ impl Screen for Terminal {
         self.paint(history_lines)
     }
 
+    fn memory_bytes(&self) -> u64 {
+        let mut usage = ffi::MemoryUsage {
+            size: std::mem::size_of::<ffi::MemoryUsage>(),
+            ..ffi::MemoryUsage::default()
+        };
+        // SAFETY: DATA_MEMORY_USAGE writes a GhosttyTerminalMemoryUsage,
+        // whose size is set first; a failed read leaves zeros.
+        unsafe {
+            ffi::ghostty_terminal_get(self.raw, ffi::DATA_MEMORY_USAGE, (&raw mut usage).cast())
+        };
+        usage.primary_resident_bytes + usage.alternate_resident_bytes
+    }
+
     fn paintable(&self) -> bool {
         // the continuation is unavailable once the sequence outgrew it
         self.get::<bool>(ffi::DATA_VT_GROUND) || self.continuation().is_some()

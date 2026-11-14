@@ -81,3 +81,20 @@ fn a_snapshot_is_possible_only_outside_a_sequence_longer_than_the_continuation()
     t.write(b"\x1b\\\x1b]2;Next");
     assert!(t.paintable());
 }
+
+#[test]
+fn a_terminal_reports_the_memory_its_history_holds() {
+    let small = Terminal::new(&Options {
+        cols: 120,
+        rows: 40,
+        scrollback_lines: 10_000,
+    })
+    .unwrap();
+    let before = small.memory_bytes();
+    assert!(before > 0);
+    let mut t = used();
+    for i in 0..5_000 {
+        t.write(format!("{i:0120}\r\n").as_bytes());
+    }
+    assert!(t.memory_bytes() > before, "{} {}", t.memory_bytes(), before);
+}

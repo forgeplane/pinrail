@@ -30,6 +30,12 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# the performance budgets: mise run bench:host
+[[bench]]
+name = "host"
+harness = false
+required-features = ["server"]
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }

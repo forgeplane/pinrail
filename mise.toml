@@ -69,6 +69,11 @@ description = "Desktop app: build the UI and the app binary"
 dir = "{{config_root}}/desktop"
 run = ["npm --prefix app run build", "cargo build -p pinrail-desktop"]
 
+[tasks."bench:host"]
+description = "Terminal host: check the performance budgets; --baseline <file> also compares with a baseline"
+dir = "{{config_root}}/desktop"
+run = "cargo bench -q -p pinrail-host --bench host --"
+
 [tasks."dev:desktop"]
 description = "Desktop app with the UI dev server and live reload"
 dir = "{{config_root}}/desktop/app"

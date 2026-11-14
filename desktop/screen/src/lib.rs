@@ -51,6 +51,10 @@ pub trait Screen: Send {
     /// read as text.
     fn paintable(&self) -> bool;
 
+    /// The memory the terminal's screens hold, in bytes, as the library
+    /// counts it: compressed pages at their compressed size, images apart.
+    fn memory_bytes(&self) -> u64;
+
     /// An exact copy of the terminal for a viewer built on the same
     /// library build, or `None` when the implementation has none.
     fn binary_snapshot(&self) -> Option<BinarySnapshot>;
