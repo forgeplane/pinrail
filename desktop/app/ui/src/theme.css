@@ -7878,8 +7878,7 @@ a.item-ref {
 .ended-run-screen {
   flex: 1;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: auto;
   padding: 8px 12px;
   opacity: 0.55;
 }

@@ -259,12 +259,19 @@ const endedRun = (session: string, over: Record<string, unknown>) => ({
   ...over,
 });
 
-/** A screen 200 columns wide, wider than the view, in colour. */
+/** A screen 110 columns wide, wider than the view, in colour. */
 const WIDE = {
-  paint: `\x1b[31m${"✻ Worked for 12m ".repeat(11)}\x1b[0m\r\n> Fixed the login redirect.`,
-  cols: 200,
+  paint: `\x1b[31m${"✻ Worked for 12m ".repeat(6)}\x1b[0m\r\n> Fixed the login redirect.`,
+  cols: 110,
   rows: 30,
 };
+
+/** The scale the ended run's screen is drawn at. */
+const scale = (page: Page) =>
+  page.evaluate(() => {
+    const transform = document.querySelector<HTMLElement>(".ended-run-surface")?.style.transform ?? "";
+    return Number(/scale\(([\d.]+)\)/.exec(transform)?.[1] ?? 0);
+  });
 
 /** Whether the ended run's screen fits its view: no horizontal scroll,
  *  and the screen scaled to the view's width. */
@@ -287,13 +294,13 @@ for (const [how, over, banner] of [
     const view = page.getByTestId("ended-run");
     await expect(view.getByRole("status")).toHaveText(banner);
     await expect(view.getByRole("img", { name: "Claude Code's last screen" })).toBeVisible();
-    // wider than the view, it is scaled down to fit, and again on a resize
+    // wider than the view, it is scaled down to fit
     await expect.poll(() => fits(page)).toBe(true);
-    await expect
-      .poll(() => page.evaluate(() => document.querySelector<HTMLElement>(".ended-run-surface")!.style.transform))
-      .toMatch(/scale\(0\./);
-    await page.setViewportSize({ width: 900, height: 700 });
-    await expect.poll(() => fits(page)).toBe(true);
+    await expect.poll(() => scale(page)).toBeLessThan(1);
+    // and no further than it reads: a narrower view scrolls it sideways
+    await page.setViewportSize({ width: 700, height: 700 });
+    await expect.poll(() => scale(page)).toBe(0.7);
+    await expect.poll(() => fits(page)).toBe(false);
     // and no terminal to attach to
     await expect(page.getByTestId("terminal-bar")).toHaveCount(0);
   });

@@ -14,6 +14,10 @@ import { chooseRenderer, type TerminalView } from "../terminal/view";
 
 type Screen = { paint: string; cols: number; rows: number };
 
+/** The smallest the screen is drawn, where 13 px text reads at about
+ *  9 px; a narrower view scrolls it sideways. */
+const MIN_SCALE = 0.7;
+
 export function EndedRun({ run }: { run: Run }) {
   const name = agentOf(run.agent)?.label ?? run.agent;
   // null while it loads; false once the host no longer keeps it
@@ -57,13 +61,14 @@ function KeptScreen({ screen, label }: { screen: Screen; label: string }) {
     let view: TerminalView | null = null;
     let gone = false;
     let natural = { width: 0, height: 0 };
-    // the whole screen in the view's width; a taller one scrolls
+    // the whole screen in the view's width, down to the smallest scale
+    // that reads; a taller or still wider one scrolls
     const fit = () => {
       const box = area.current;
       if (!box || !natural.width) return;
       const style = getComputedStyle(box);
       const width = box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-      const scale = Math.min(1, width / natural.width);
+      const scale = Math.max(MIN_SCALE, Math.min(1, width / natural.width));
       host.style.transform = `scale(${scale})`;
       frame.current!.style.width = `${natural.width * scale}px`;
       frame.current!.style.height = `${natural.height * scale}px`;
