@@ -120,6 +120,7 @@ pub fn replace_env(vars: &[(String, String)]) {
 /// Raises the soft limit of open files to the hard limit, at most
 /// `most`. launchd starts processes with 256 and systemd with 1,024, and
 /// the host holds a descriptor or more for each terminal.
+#[cfg(feature = "server")]
 pub fn raise_open_files(most: u64) {
     // SAFETY: rlimit is plain data, read and written by the two calls.
     unsafe {

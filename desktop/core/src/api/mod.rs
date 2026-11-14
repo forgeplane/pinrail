@@ -77,6 +77,7 @@ pub fn router(app: Arc<Pinrail>) -> Router {
 fn router_with(state: ApiState) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
+        .route("/api/v1/runtime", get(runtime))
         .merge(reviews::routes())
         .merge(projects::routes())
         .merge(items::routes())
@@ -110,6 +111,11 @@ fn router_with(state: ApiState) -> Router {
             HeaderValue::from_static("nosniff"),
         ))
         .with_state(state)
+}
+
+/// The agent runtime: whether it is on, and the terminal host's state.
+async fn runtime(State(state): State<ApiState>) -> Json<serde_json::Value> {
+    Json(state.app.runtime().status())
 }
 
 async fn info(State(state): State<ApiState>) -> Json<Info> {
@@ -150,6 +156,8 @@ pub async fn serve(
 ) -> std::io::Result<()> {
     let state = ApiState::new(app);
     let listener = tokio::net::TcpListener::from_std(listener)?;
+    // the link to the terminal host, while /labs/runtime is on
+    crate::runtime::watch(state.app.clone());
     server_info::write(state.app.config(), state.started_at)?;
     // a first launch counts once the person has seen the notice
     state

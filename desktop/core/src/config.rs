@@ -35,6 +35,14 @@ pub struct Config {
     /// bytes in hex, new on every start, and never written to disk by the
     /// core. Person actions need it as `Authorization: Bearer <token>`.
     pub person_token: String,
+    /// The `pinrail-host` binary to start the terminal host from:
+    /// `PINRAIL_HOST_BIN`, else the one beside the app's own binary.
+    pub host_binary: Option<PathBuf>,
+    /// A host someone else started, such as a test: its socket and
+    /// secret, from `PINRAIL_HOST_SOCKET` and `PINRAIL_HOST_SECRET` or
+    /// `--host-socket`. The core then connects to it instead of starting
+    /// one.
+    pub host_socket: Option<(PathBuf, String)>,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -73,6 +81,10 @@ impl Config {
             .filter(|u| !u.trim().is_empty())
             .unwrap_or_else(|| "pinrail".to_string());
         config.sdk_dir = env::var_os("PINRAIL_SDK_DIR").map(PathBuf::from);
+        config.host_binary = env::var_os("PINRAIL_HOST_BIN").map(PathBuf::from);
+        config.host_socket = env::var_os("PINRAIL_HOST_SOCKET")
+            .map(PathBuf::from)
+            .zip(env::var("PINRAIL_HOST_SECRET").ok());
         config.telemetry_url = env::var("PINRAIL_TELEMETRY_URL")
             .ok()
             .filter(|url| !url.trim().is_empty())
@@ -91,6 +103,8 @@ impl Config {
             telemetry_env: true,
             telemetry_url: None,
             person_token: new_token(),
+            host_binary: None,
+            host_socket: None,
         }
     }
 

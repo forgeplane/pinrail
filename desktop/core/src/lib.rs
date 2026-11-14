@@ -23,6 +23,7 @@ pub mod plugins;
 pub mod presence;
 pub mod projects;
 pub mod reviews;
+pub mod runtime;
 pub use pinrail_format::schema;
 pub use pinrail_format::skill;
 pub mod server_info;

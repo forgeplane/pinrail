@@ -16,13 +16,18 @@ pub struct Options {
     pub catalog_dir: Option<PathBuf>,
     /// a file holding the person token, for tests that act as the person
     pub person_token_file: Option<PathBuf>,
+    /// a terminal host a test started, whose secret is in
+    /// `PINRAIL_HOST_SECRET`
+    pub host_socket: Option<PathBuf>,
 }
 
 /// Parses `--headless [--port N] [--data-dir D] [--sdk-dir S]
-/// [--catalog-dir C] [--person-token-file F]`, the last two for tests: the
-/// plugin folders in C are offered as official plugins beside the ones the
-/// app carries, and F holds the person token the server takes. Returns
-/// `None` when `--headless` is absent, so the app starts normally.
+/// [--catalog-dir C] [--person-token-file F] [--host-socket H]`, the last
+/// three for tests: the plugin folders in C are offered as official plugins
+/// beside the ones the app carries, F holds the person token the server
+/// takes, and H is a terminal host the test started, with its secret in
+/// `PINRAIL_HOST_SECRET`. Returns `None` when `--headless` is absent, so
+/// the app starts normally.
 pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
     if !args.iter().any(|a| a == "--headless") {
         return Ok(None);
@@ -57,6 +62,10 @@ pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
                         .into(),
                 );
             }
+            "--host-socket" => {
+                options.host_socket =
+                    Some(iter.next().ok_or("--host-socket needs a value")?.into());
+            }
             other => return Err(format!("unknown argument {other}")),
         }
     }
@@ -77,6 +86,11 @@ fn config(options: Options, exe: &std::path::Path) -> Result<Config, String> {
     }
     if config.sdk_dir.is_none() {
         config.sdk_dir = crate::sdk_dir(exe);
+    }
+    if let Some(socket) = options.host_socket {
+        let secret = std::env::var("PINRAIL_HOST_SECRET")
+            .map_err(|_| "--host-socket needs PINRAIL_HOST_SECRET".to_string())?;
+        config.host_socket = Some((socket, secret));
     }
     config.catalog_dir = options.catalog_dir;
     if let Some(file) = options.person_token_file {

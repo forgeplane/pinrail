@@ -8,11 +8,21 @@ rust-version.workspace = true
 publish = false
 build = "build.rs"
 
+[features]
+default = ["server"]
+# the host process itself, which links libghostty-vt; without it, the
+# crate is the client side the core uses: framing, registration, launch
+server = ["dep:pinrail-screen"]
+
+[[bin]]
+name = "pinrail-host"
+required-features = ["server"]
+
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 getrandom = "0.3"
 pinrail-runtime = { path = "../runtime" }
-pinrail-screen = { path = "../screen" }
+pinrail-screen = { path = "../screen", optional = true }
 serde_json = "1"
 sha2 = "0.10"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal"] }

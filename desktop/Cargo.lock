@@ -3387,6 +3387,7 @@ dependencies = [
  "mime_guess",
  "minijinja",
  "pinrail-format",
+ "pinrail-host",
  "pinrail-runtime",
  "rusqlite",
  "serde",

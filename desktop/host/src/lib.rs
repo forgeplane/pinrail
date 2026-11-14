@@ -12,6 +12,7 @@ pub mod filter;
 pub mod frame;
 pub mod launch;
 pub mod leader;
+pub mod link;
 pub mod log;
 pub mod outbox;
 pub mod paths;
@@ -20,8 +21,10 @@ pub mod protocol;
 pub mod pty;
 pub mod records;
 pub mod registration;
+#[cfg(feature = "server")]
 pub mod server;
 mod sys;
+#[cfg(feature = "server")]
 pub mod terminal;
 pub mod viewers;
 

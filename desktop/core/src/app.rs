@@ -39,6 +39,7 @@ pub struct Pinrail {
     attachments: Attachments,
     bundles: Bundles,
     telemetry: Arc<Telemetry>,
+    runtime: crate::runtime::Runtime,
     /// The data directory's lock, held until the application is dropped
     _lock: File,
 }
@@ -88,6 +89,11 @@ impl Pinrail {
     /// Anonymous usage data: the events recorded, and where they wait.
     pub fn telemetry(&self) -> &Arc<Telemetry> {
         &self.telemetry
+    }
+
+    /// The agent runtime: the link to the terminal host.
+    pub fn runtime(&self) -> &crate::runtime::Runtime {
+        &self.runtime
     }
 
     /// The bundled themes and the person's own.
@@ -224,6 +230,7 @@ impl Pinrail {
             attachments,
             bundles,
             telemetry,
+            runtime: crate::runtime::Runtime::default(),
             _lock: lock,
         })
     }

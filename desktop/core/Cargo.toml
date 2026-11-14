@@ -40,6 +40,13 @@ tower-http = { version = "0.6", features = ["cors", "set-header"] }
 ureq = "3"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
+[target.'cfg(unix)'.dependencies]
+pinrail-host = { path = "../host", default-features = false }
+
+[target.'cfg(unix)'.dev-dependencies]
+# the host's server, run in a test's thread
+pinrail-host = { path = "../host" }
+
 [dev-dependencies]
 http-body-util = "0.1"
 tempfile = "3"

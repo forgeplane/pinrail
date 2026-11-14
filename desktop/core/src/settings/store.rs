@@ -196,6 +196,12 @@ const LEAVES: &[Leaf] = &[
         "The sidebar's groups that are collapsed, each as its grouping and its key, such as `repository:acme/api`.",
     ),
     (
+        "/labs/runtime",
+        Kind::Bool,
+        || json!(false),
+        "Start and show agents in Pinrail. Pinrail runs them in a terminal host that keeps them running after the app quits.",
+    ),
+    (
         "/notifications/enabled",
         Kind::Bool,
         || json!(true),
