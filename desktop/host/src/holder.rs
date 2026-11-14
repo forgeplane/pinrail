@@ -32,6 +32,12 @@ use crate::registration::Registration;
 /// The holder's protocol. It is frozen: a release that needs another
 /// starts a new holder for new terminals, and keeps talking to this one.
 pub const PROTOCOL: u32 = 1;
+/// How long a holder with live terminals waits for a host before it starts
+/// one, and how long it waits before the first retry.
+pub const HOST_WITHIN: Duration = Duration::from_secs(5);
+/// The longest wait between two starts of a host.
+pub const HOST_RETRY_MAX: Duration = Duration::from_secs(60);
+
 /// How long a holder with no terminal and no host waits for one to
 /// connect before it exits.
 pub const ALONE_EXIT: Duration = Duration::from_secs(30);
@@ -126,11 +132,20 @@ impl Listening {
 
     /// Serves hosts until the holder has kept no terminal and had no host
     /// connected for `alone_exit`.
-    pub fn run(self, alone_exit: Duration) -> io::Result<()> {
+    ///
+    /// With `host`, the binary and data folder to start a host from: when
+    /// the holder keeps live terminals and no host has connected for
+    /// [`HOST_WITHIN`], it starts one, and tries again after a delay that
+    /// doubles up to [`HOST_RETRY_MAX`]. Without a host, an agent that
+    /// writes while the app is closed would block on its full PTY. The
+    /// host's lock keeps a second host from running.
+    pub fn run(self, alone_exit: Duration, host: Option<(PathBuf, PathBuf)>) -> io::Result<()> {
         let state: Shared = Arc::new(Mutex::new(State {
             alone_since: Some(Instant::now()),
             ..State::default()
         }));
+        // when to start a host next, and how many starts were made
+        let mut restart: Option<(Instant, u32)> = None;
         loop {
             match self.listener.accept() {
                 Ok((stream, _)) => {
@@ -156,7 +171,60 @@ impl Listening {
                 let _ = std::fs::remove_file(&self.socket);
                 return Ok(());
             }
+            let (live, connected) = {
+                let state = lock(&state);
+                let live = state.terminals.values().any(|held| held.exit.is_none());
+                (live, state.host.is_some())
+            };
+            let Some((binary, data_dir)) = &host else {
+                continue;
+            };
+            if !live || connected {
+                restart = None;
+                continue;
+            }
+            let now = Instant::now();
+            let (due, starts) = *restart.get_or_insert((now + HOST_WITHIN, 0));
+            if now >= due {
+                start_host(binary, data_dir);
+                restart = Some((now + retry_after(starts + 1), starts + 1));
+            }
         }
+    }
+}
+
+/// The wait after the `starts`-th start of a host: 5 seconds, 5 again,
+/// then doubling up to a minute.
+fn retry_after(starts: u32) -> Duration {
+    let doubled = HOST_WITHIN.saturating_mul(1 << starts.saturating_sub(1).min(8));
+    doubled.min(HOST_RETRY_MAX)
+}
+
+/// Starts `<binary> serve` for `data_dir` in a session of its own, with
+/// nothing on its standard streams, and does not wait for it.
+#[allow(unsafe_code)]
+fn start_host(binary: &Path, data_dir: &Path) {
+    use std::os::unix::process::CommandExt;
+    let mut command = std::process::Command::new(binary);
+    command
+        .arg("serve")
+        .arg("--data-dir")
+        .arg(data_dir)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    // SAFETY: setsid is async-signal-safe and allocates nothing.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    if let Ok(mut child) = command.spawn() {
+        // reaped here; the host stays in its own session
+        std::thread::spawn(move || child.wait());
     }
 }
 
@@ -169,7 +237,10 @@ pub fn hold(data_dir: &Path, alone_exit: Duration) -> io::Result<()> {
     // the host reads the line, then no more
     use std::io::Write;
     let _ = std::io::stdout().flush();
-    listening.run(alone_exit)
+    let host = std::env::current_exe()
+        .ok()
+        .map(|binary| (binary, data_dir.to_path_buf()));
+    listening.run(alone_exit, host)
 }
 
 fn take_lock(path: &Path) -> io::Result<File> {
@@ -421,4 +492,15 @@ fn forget(state: &Shared, request: &Value) -> (Value, Vec<OwnedFd>) {
         pty::reap(held.pid);
     }
     (json!({"ok": true}), Vec::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_wait_between_starts_of_a_host_doubles_up_to_a_minute() {
+        let waits: Vec<u64> = (1..=7).map(|n| retry_after(n).as_secs()).collect();
+        assert_eq!(waits, [5, 10, 20, 40, 60, 60, 60]);
+    }
 }

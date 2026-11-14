@@ -172,7 +172,8 @@ impl Holders {
                 let data_dir = self.paths.host_dir.parent().unwrap_or(&self.paths.host_dir);
                 let listening = holder::listen(data_dir)?;
                 let instance = listening.instance().to_string();
-                std::thread::spawn(move || listening.run(Duration::MAX));
+                // a host inside a test is never restarted by its holder
+                std::thread::spawn(move || listening.run(Duration::MAX, None));
                 Ok(instance)
             }
             Start::Process(binary) => start_process(binary, &self.paths),

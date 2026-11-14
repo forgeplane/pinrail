@@ -126,3 +126,53 @@ fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     }
     drop(second);
 }
+
+#[test]
+fn the_holder_starts_a_host_when_none_comes_back() {
+    let folders = folders();
+    let mut first = serve(&folders, &[]);
+    let mut client = connect(&first);
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", "echo ready; while read line; do echo got:$line; done"],
+                   "cwd": folders.runtime, "cols": 80, "rows": 24,
+                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+        )
+        .unwrap();
+    let terminal = spawned["terminal"].as_str().unwrap().to_string();
+    wait_for(&mut client, &terminal, "ready");
+    let old = first.registration.pid;
+    let _ = first.child.kill();
+    let _ = first.child.wait();
+    drop(client);
+    let holders = first.holders.clone();
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    // nobody starts a host: the holder does, within about 5 seconds
+    let path = common::registration_path(&folders);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let registration = loop {
+        if let Some(registration) = pinrail_host::registration::Registration::read(&path)
+            && registration.pid != old
+            && Client::connect(&registration).is_ok()
+        {
+            break registration;
+        }
+        assert!(Instant::now() < deadline, "no host was started");
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    let mut client = Client::connect(&registration).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while listed(&mut client).is_empty() {
+        assert!(Instant::now() < deadline, "the new host adopted nothing");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    wait_for(&mut client, &terminal, "ready");
+    // the host the holder started, and the holder, end with the test
+    let _ = std::process::Command::new("kill")
+        .arg(registration.pid.to_string())
+        .status();
+    common::kill_holders(&holders);
+}
