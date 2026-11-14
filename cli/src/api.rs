@@ -154,6 +154,11 @@ impl Client {
         }
     }
 
+    /// The server's address, such as `http://127.0.0.1:4747`.
+    pub fn base(&self) -> &str {
+        &self.base
+    }
+
     /// The client, sending the person token with each request.
     pub fn with_person_token(mut self, token: String) -> Self {
         self.person = Some(token);

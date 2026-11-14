@@ -102,12 +102,13 @@ const entries = [
     text: fs.readFileSync(path.join(root, "licenses", "libghostty-vt.txt"), "utf8"),
     packages: ["libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host"],
   },
-  // code the terminal host adapts from herdr-core, which says so in each file
+  // code the terminal host and the pinrail command adapt from herdr-core,
+  // which says so in each file
   {
     name: "Apache License 2.0",
     id: "Apache-2.0",
     text: fs.readFileSync(path.join(root, "licenses", "herdr-core.txt"), "utf8"),
-    packages: ["herdr-core, adapted in the terminal host"],
+    packages: ["herdr-core, adapted in the terminal host and the pinrail command"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),

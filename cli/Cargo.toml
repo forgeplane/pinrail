@@ -35,6 +35,7 @@ pinrail-format = { path = "../desktop/format" }
 pinrail-runtime = { path = "../desktop/runtime" }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
+tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
 ureq = { version = "3", default-features = false, features = ["json"] }
 
 # to stop quietly, as other command-line tools do, when the reader of its

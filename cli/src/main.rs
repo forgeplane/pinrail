@@ -5,6 +5,8 @@
 
 mod api;
 mod ask;
+#[cfg(unix)]
+mod attach;
 mod attachments;
 mod briefs;
 mod describe;
@@ -316,6 +318,18 @@ enum Command {
     /// it needs the setting /runtime/cli_control on, as its error says.
     #[command(verbatim_doc_comment)]
     Start(runs::StartArgs),
+    /// Attach this terminal to an agent Pinrail started
+    ///
+    ///     pinrail attach run_01J…
+    ///     pinrail attach claude-code/6f1c2a4e-…
+    ///
+    /// The agent's screen is drawn in this terminal, and you watch until you
+    /// press a key, which takes control: your keys then go to the agent, and
+    /// its terminal takes this one's size. Ctrl-\ then d detaches; the
+    /// agent keeps running. Like start, this command acts as you.
+    #[command(verbatim_doc_comment)]
+    #[cfg(unix)]
+    Attach(attach::AttachArgs),
     /// List the agents Pinrail started, latest first
     Runs(runs::RunsArgs),
     /// Stop an agent Pinrail started
@@ -1081,6 +1095,13 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Status(args) => status(&client, args, output),
         Command::Items(args) => items::run(&client, args, output),
         Command::Start(args) => runs::start(&runs::as_person(client)?, args, output),
+        #[cfg(unix)]
+        Command::Attach(args) => {
+            let client = runs::as_person(client)?;
+            let ended = attach::run(&client, &args)?;
+            println!("{ended}");
+            Ok(0)
+        }
         Command::Runs(args) => runs::runs(&runs::as_person(client)?, args, output),
         Command::Stop(args) => runs::stop(&runs::as_person(client)?, args, output),
         Command::Host(args) => runs::host(&runs::as_person(client)?, args, pretty),
@@ -1625,6 +1646,19 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
         ));
     }
     api.into()
+}
+
+/// Attaches this terminal to a run that was just started.
+#[cfg(unix)]
+pub(crate) fn attach_to(client: &api::Client, run: String) -> Result<u8> {
+    let ended = attach::run(client, &attach::AttachArgs::of(run))?;
+    println!("{ended}");
+    Ok(0)
+}
+
+#[cfg(not(unix))]
+pub(crate) fn attach_to(_: &api::Client, _: String) -> Result<u8> {
+    anyhow::bail!("attaching to an agent is not supported on this system yet")
 }
 
 /// The full path of `path`, `..` and links resolved, written as a person

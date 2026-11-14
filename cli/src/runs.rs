@@ -22,6 +22,9 @@ pub struct StartArgs {
     /// The first task, typed in as the agent's first prompt
     #[arg(long)]
     task: Option<String>,
+    /// Attach this terminal to the agent once it has started
+    #[arg(long)]
+    attach: bool,
     /// Extra arguments for the agent, after `--`. Arguments that turn its
     /// permission checks off are refused.
     #[arg(last = true)]
@@ -110,6 +113,13 @@ pub fn start(client: &Client, args: StartArgs, output: Output) -> Result<u8> {
         body["task"] = json!(task);
     }
     let started = client.post("/api/v1/runs", Some(&body))?;
+    if args.attach {
+        let run = started["run"]["id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        return crate::attach_to(client, run);
+    }
     output.data(&started, started_md);
     Ok(0)
 }
