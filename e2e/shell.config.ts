@@ -69,7 +69,13 @@ export default defineConfig({
       // commands that sh and Windows' cmd both run
       command: `${process.env.SHELL_BUILT ? "" : "cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && "}node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}" --person-token-file "${tokenFile}"`,
       cwd: path.join(root, "desktop"),
-      env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
+      env: {
+        PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}`,
+        // a terminal host that is never there: a spec that turns the agent
+        // runtime on must not start a real host, which would outlive it
+        PINRAIL_HOST_SOCKET: path.join(data, "no-host.sock"),
+        PINRAIL_HOST_SECRET: "none",
+      },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
       reuseExistingServer: false,
       timeout: 600_000,

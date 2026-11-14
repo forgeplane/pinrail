@@ -484,6 +484,8 @@ export type ServerSettings = {
   welcome?: { seen: boolean };
   /** usage data and crash reports, and when the notice about them was shown */
   telemetry?: { usage: boolean; crashes: boolean; notice_shown: string | null };
+  /** features still being built */
+  labs?: { runtime?: boolean };
   [key: string]: unknown;
 };
 

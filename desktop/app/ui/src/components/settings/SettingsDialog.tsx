@@ -6,6 +6,7 @@ import {
   Blocks,
   Bot,
   Database,
+  FlaskConical,
   FolderOpen,
   Info,
   Keyboard,
@@ -40,7 +41,7 @@ import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
 
 export type SettingsSection =
-  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "about";
+  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "labs" | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
@@ -51,6 +52,7 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
   { key: "data", label: "Data", icon: <Database size={15} /> },
   { key: "privacy", label: "Privacy", icon: <ShieldCheck size={15} /> },
+  { key: "labs", label: "Labs", icon: <FlaskConical size={15} /> },
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
 
@@ -577,6 +579,23 @@ export function SettingsDialog({
         ) : null}
 
         {section === "privacy" ? <PrivacySection /> : null}
+
+        {section === "labs" ? (
+          <SettingsPage title="Labs">
+            <SettingsGroup caption="Features still being built. They may change or go away.">
+              <SettingsRow
+                label="Run agents in Pinrail"
+                description="Start and show agents in Pinrail. Pinrail runs them in a terminal host that keeps them running after the app quits."
+              >
+                <Toggle
+                  label="Run agents in Pinrail"
+                  checked={settings.labs.runtime}
+                  onChange={(v) => update({ labs: { runtime: v } })}
+                />
+              </SettingsRow>
+            </SettingsGroup>
+          </SettingsPage>
+        ) : null}
 
         {section === "about" ? (
           <SettingsPage title="About">

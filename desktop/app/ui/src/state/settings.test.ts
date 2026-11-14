@@ -19,6 +19,7 @@ describe("fromServer", () => {
     expect(served.items).toEqual({ layout: "project", nesting: "nested", ordering: "oldest", close_parents: true });
     expect(served.plugins).toEqual({});
     expect(served.links).toEqual({});
+    expect(served.labs).toEqual({ runtime: false });
   });
   test("merges the sidebar's sessions with their defaults", () => {
     expect(served.sidebar.sessions.archived).toBe(true);
