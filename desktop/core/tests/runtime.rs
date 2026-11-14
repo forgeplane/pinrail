@@ -5,7 +5,8 @@
 //! terminals.
 #![cfg(unix)]
 
-use std::os::unix::fs::PermissionsExt;
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -17,24 +18,7 @@ use pinrail_host::client::Client;
 use pinrail_host::registration::Registration;
 use serde_json::{Value, json};
 
-/// A host served from a thread of the test, and its registration.
-fn host(dir: &std::path::Path) -> Registration {
-    let data_dir = dir.join("host-data");
-    let config = pinrail_host::server::Config {
-        data_dir: data_dir.clone(),
-        idle_exit: Duration::from_secs(600),
-        ping_every: Duration::from_secs(15),
-    };
-    std::thread::spawn(move || pinrail_host::server::serve(config));
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        if let Some(registration) = Registration::read(&data_dir.join("host/host.json")) {
-            return registration;
-        }
-        assert!(Instant::now() < deadline, "the host did not start");
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
+use common::host;
 
 async fn status_becomes(app: &Pinrail, state: &str) -> Value {
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -85,16 +69,6 @@ async fn the_core_links_to_the_host_while_the_runtime_is_on() {
     assert!(still);
 }
 
-/// A stand-in for Claude Code: it writes its arguments and its run token
-/// into the folder it starts in, then exits with the code in the folder's
-/// `exit` file, or waits.
-const AGENT: &str = r#"#!/bin/sh
-printf '%s\n' "$@" > argv
-printf '%s' "$PINRAIL_RUN_TOKEN" > token
-if [ -f exit ]; then exit "$(cat exit)"; fi
-exec sleep 600
-"#;
-
 struct Setup {
     app: Arc<Pinrail>,
     registration: Registration,
@@ -107,16 +81,11 @@ impl Setup {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let registration = host(dir.path());
-        let bin = dir.path().join("bin");
-        std::fs::create_dir(&bin).unwrap();
-        let claude = bin.join("claude");
-        std::fs::write(&claude, AGENT).unwrap();
-        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut config = Config::new(dir.path().join("data"), 0);
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
             .run_env
-            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+            .insert("PATH".into(), common::stand_in_path(dir.path()));
         let app = Arc::new(Pinrail::open(config).unwrap());
         Setup {
             app,

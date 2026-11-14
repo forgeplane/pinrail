@@ -9,7 +9,6 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use chrono::Utc;
 use pinrail_host::link::{HostError, HostLink, HostState};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 use crate::db::{NewRun, RunFilters, RunRow};
 use crate::error::Error;
@@ -117,7 +116,13 @@ pub(super) struct Spawns {
     running: HashSet<String>,
     /// The `exited` events of terminals no run had yet, by terminal.
     exits: HashMap<String, Value>,
+    /// The runs started with a `local_id` in the last 10 minutes, by it:
+    /// the run, and when it started.
+    recent: HashMap<String, (String, std::time::Instant)>,
 }
+
+/// How long a start's `local_id` names its run.
+const LOCAL_ID_FOR: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// What reconciling with the host's terminals changed.
 #[derive(Debug, Default)]
@@ -168,7 +173,7 @@ impl super::Runtime {
                 folder: &start.folder,
                 argv: &plan.argv,
                 created_by: &start.created_by,
-                token_digest: &digest(&token),
+                token_digest: &super::digest(&token),
                 session: plan.session.as_deref(),
             },
             Utc::now(),
@@ -222,6 +227,34 @@ impl super::Runtime {
                 })
             }
         }
+    }
+
+    /// [`Self::start`], once for each `local_id` in 10 minutes: a start
+    /// with the `local_id` of an earlier one returns that run.
+    pub async fn start_once(
+        &self,
+        local_id: Option<&str>,
+        start: &Start,
+    ) -> Result<RunRow, RunError> {
+        let Some(local_id) = local_id else {
+            return self.start(start).await;
+        };
+        let earlier = {
+            let mut spawns = self.spawns();
+            spawns
+                .recent
+                .retain(|_, (_, at)| at.elapsed() < LOCAL_ID_FOR);
+            spawns.recent.get(local_id).map(|(run, _)| run.clone())
+        };
+        if let Some(run) = earlier.and_then(|id| self.db.run(&id).ok().flatten()) {
+            return Ok(run);
+        }
+        let run = self.start(start).await?;
+        self.spawns().recent.insert(
+            local_id.to_string(),
+            (run.id.clone(), std::time::Instant::now()),
+        );
+        Ok(run)
     }
 
     /// Stops a run's agent: it has 2 seconds to exit, or none with
@@ -419,11 +452,6 @@ fn process_of(terminal: &Value) -> Option<(i64, String)> {
         terminal["pid"].as_i64()?,
         terminal["process_started"].as_str()?.to_string(),
     ))
-}
-
-/// The SHA-256 digest of a run token, in hex, as the core keeps it.
-pub fn digest(token: &str) -> String {
-    format!("{:x}", Sha256::digest(token.as_bytes()))
 }
 
 /// 32 random bytes, in hex.

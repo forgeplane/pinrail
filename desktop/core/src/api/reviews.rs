@@ -801,21 +801,67 @@ async fn status(
 /// agent's own transcript of the session. `process` names the agent's `pid` and when it
 /// `started`, and `origin` where the session works. Answers 204, also for a
 /// report that arrived after a newer one.
+///
+/// With `Authorization: Run <token>` from a run's own agent process, a
+/// report for another session than the run's is refused with 403
+/// `run_mismatch`, except a session start, which moves the run to that
+/// session.
 async fn report(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
-) -> Result<StatusCode, ApiError> {
+) -> Result<Response, ApiError> {
     let report = parse_report(&body)?;
     let keep_texts = state
         .settings()
         .value("/runtime/record_turns")
         .as_bool()
         .unwrap_or(true);
+    let now = chrono::Utc::now();
+    if let Some(token) = run_token(&headers) {
+        let admitted = match state.runtime().admit_report(token, &agent, &id, &report) {
+            Ok(admitted) => admitted,
+            Err(mismatch) => {
+                return Ok(super::guard::refuse(
+                    StatusCode::FORBIDDEN,
+                    "run_mismatch",
+                    mismatch.0,
+                ));
+            }
+        };
+        // the agent left the session it cleared or forked
+        if let Some((agent, cleared)) = admitted.cleared {
+            let ended = Report {
+                event: ReportEvent::Ended {
+                    reason: Some("clear".to_string()),
+                },
+                transcript_path: None,
+                agent_turn: None,
+                cut: false,
+                origin: Default::default(),
+                ..report.clone()
+            };
+            state
+                .reviews()
+                .report(&agent, &cleared, &ended, false, now)?;
+        }
+    }
     state
         .reviews()
-        .report(&agent, &id, &report, keep_texts, chrono::Utc::now())?;
-    Ok(StatusCode::NO_CONTENT)
+        .report(&agent, &id, &report, keep_texts, now)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// The run token of `Authorization: Run <token>`.
+fn run_token(headers: &axum::http::HeaderMap) -> Option<&str> {
+    headers
+        .get(axum::http::header::AUTHORIZATION)?
+        .to_str()
+        .ok()?
+        .strip_prefix("Run ")
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
 }
 
 fn parse_report(body: &Value) -> Result<Report, Error> {

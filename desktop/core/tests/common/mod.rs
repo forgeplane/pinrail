@@ -115,3 +115,86 @@ pub async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (
     };
     (status, value)
 }
+
+/// A request from a program on this machine, such as the CLI: no origin
+/// and no person token, with these extra headers.
+pub async fn call_as(
+    app: &App,
+    method: &str,
+    path: &str,
+    body: Option<Value>,
+    headers: &[(&str, &str)],
+) -> (StatusCode, Value) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", "application/json");
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let request = request
+        .body(
+            body.map(|b| Body::from(b.to_string()))
+                .unwrap_or_else(Body::empty),
+        )
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes)
+            .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()))
+    };
+    (status, value)
+}
+
+/// A terminal host served from a thread of the test, with its data in
+/// `dir`, and its registration.
+#[cfg(unix)]
+pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
+    use std::time::{Duration, Instant};
+    let data_dir = dir.join("host-data");
+    let config = pinrail_host::server::Config {
+        data_dir: data_dir.clone(),
+        idle_exit: Duration::from_secs(600),
+        ping_every: Duration::from_secs(15),
+    };
+    std::thread::spawn(move || pinrail_host::server::serve(config));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(registration) =
+            pinrail_host::registration::Registration::read(&data_dir.join("host/host.json"))
+        {
+            return registration;
+        }
+        assert!(Instant::now() < deadline, "the host did not start");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// A stand-in for Claude Code: it writes its arguments and its run token
+/// into the folder it starts in, then exits with the code in the folder's
+/// `exit` file, or waits.
+#[cfg(unix)]
+pub const STAND_IN_AGENT: &str = r#"#!/bin/sh
+printf '%s\n' "$@" > argv
+printf '%s' "$PINRAIL_RUN_TOKEN" > token
+if [ -f exit ]; then exit "$(cat exit)"; fi
+exec sleep 600
+"#;
+
+/// Writes the stand-in agent as `claude` into `dir/bin`, and returns the
+/// `PATH` that finds it.
+#[cfg(unix)]
+pub fn stand_in_path(dir: &std::path::Path) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let claude = bin.join("claude");
+    std::fs::write(&claude, STAND_IN_AGENT).unwrap();
+    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    format!("{}:/usr/bin:/bin", bin.display())
+}

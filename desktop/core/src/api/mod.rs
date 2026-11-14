@@ -9,6 +9,8 @@ mod items;
 mod plugins;
 mod projects;
 mod reviews;
+#[cfg(unix)]
+mod runs;
 mod settings;
 mod sse;
 mod telemetry;
@@ -75,7 +77,7 @@ pub fn router(app: Arc<Pinrail>) -> Router {
 }
 
 fn router_with(state: ApiState) -> Router {
-    Router::new()
+    let router = Router::new()
         .route("/api/v1/info", get(info))
         .route("/api/v1/runtime", get(runtime))
         .merge(reviews::routes())
@@ -87,7 +89,10 @@ fn router_with(state: ApiState) -> Router {
         .merge(files::routes())
         .merge(settings::routes())
         .merge(themes::routes())
-        .merge(telemetry::routes())
+        .merge(telemetry::routes());
+    #[cfg(unix)]
+    let router = router.merge(runs::routes());
+    router
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             telemetry::count_cli,

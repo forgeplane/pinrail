@@ -14,8 +14,10 @@ use crate::events::Bus;
 
 #[cfg(unix)]
 mod runs;
+mod tokens;
 #[cfg(unix)]
-pub use runs::{LOCAL, Reconciled, RunError, Start, TOKEN_VARIABLE, digest};
+pub use runs::{LOCAL, Reconciled, RunError, Start, TOKEN_VARIABLE};
+pub use tokens::{Admitted, Mismatch, digest};
 
 /// The setting that turns the runtime on.
 pub const SETTING: &str = "/labs/runtime";
@@ -57,6 +59,25 @@ impl Runtime {
     #[cfg(unix)]
     pub fn host(&self) -> Option<pinrail_host::link::HostLink> {
         self.link.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// The runs that match `filters`, latest first.
+    pub fn runs(
+        &self,
+        filters: &crate::db::RunFilters,
+    ) -> Result<Vec<crate::db::RunRow>, crate::error::Error> {
+        Ok(self.db.runs(filters)?)
+    }
+
+    /// A run, with every session it has been in.
+    pub fn run(
+        &self,
+        id: &str,
+    ) -> Result<Option<(crate::db::RunRow, Vec<crate::db::RunSession>)>, crate::error::Error> {
+        let Some(run) = self.db.run(id)? else {
+            return Ok(None);
+        };
+        Ok(Some((run, self.db.run_sessions(id)?)))
     }
 
     /// The host's state, for the window and for tests.

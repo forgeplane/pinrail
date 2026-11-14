@@ -1,0 +1,212 @@
+//! Run tokens on reports. A run's token is in its agent's environment, so
+//! every process the agent starts inherits it, a nested agent included.
+//! The core therefore takes the token as the run's only when the report
+//! comes from the run's own agent process, and ignores it otherwise.
+
+use chrono::Utc;
+use pinrail_runtime::process::Process;
+use sha2::{Digest, Sha256};
+
+use crate::db::{Report, ReportEvent, RunRow};
+use crate::events::Notice;
+
+/// The SHA-256 digest of a run token, in hex, as the core keeps it.
+pub fn digest(token: &str) -> String {
+    format!("{:x}", Sha256::digest(token.as_bytes()))
+}
+
+/// What a report with a run token may do.
+#[derive(Debug, Default, PartialEq)]
+pub struct Admitted {
+    /// The session the run left for the report's, on `/clear` or a fork,
+    /// whose agent no longer works in it.
+    pub cleared: Option<(String, String)>,
+}
+
+/// A report from a run's own process about a session that is not the
+/// run's, as the message says.
+#[derive(Debug, PartialEq)]
+pub struct Mismatch(pub String);
+
+impl std::fmt::Display for Mismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl super::Runtime {
+    /// Checks a report of the session `(agent, session)` sent with a run
+    /// token. From the run's own process, a report for the run's session
+    /// passes, and a session start for another session moves the run to
+    /// it; any other report for another session is a mismatch. A token
+    /// that is unknown, or comes from any other process, is ignored.
+    pub fn admit_report(
+        &self,
+        token: &str,
+        agent: &str,
+        session: &str,
+        report: &Report,
+    ) -> Result<Admitted, Mismatch> {
+        let now = Utc::now();
+        let Ok(Some(run)) = self.db.run_for_token(&digest(token), now) else {
+            return Ok(Admitted::default());
+        };
+        let binaries = pinrail_runtime::adapter(&run.agent)
+            .map(|a| a.spec().binaries)
+            .unwrap_or_default();
+        let lookup = |pid: u32| pinrail_runtime::process::process(pid);
+        if !own_process(&run, report.process.as_ref(), binaries, &lookup) {
+            return Ok(Admitted::default());
+        }
+        let current = run
+            .session
+            .as_ref()
+            .is_some_and(|(a, id)| a == agent && id == session);
+        if current {
+            return Ok(Admitted::default());
+        }
+        let ReportEvent::Started { source } = &report.event else {
+            return Err(mismatch(&run, agent, session));
+        };
+        if run.agent != agent {
+            return Err(mismatch(&run, agent, session));
+        }
+        let bound = self
+            .db
+            .bind_run(&run.id, session, &report.origin, now)
+            .map_err(|e| Mismatch(format!("the run could not move: {e}")))?
+            .ok_or_else(|| mismatch(&run, agent, session))?;
+        let (event, attrs) = &bound.event;
+        self.bus
+            .publish(Notice::new(*event, crate::events::RUN_BOUND, attrs));
+        let cleared = matches!(source.as_deref(), Some("clear" | "fork"));
+        Ok(Admitted {
+            cleared: bound.previous.filter(|_| cleared),
+        })
+    }
+}
+
+fn mismatch(run: &RunRow, agent: &str, session: &str) -> Mismatch {
+    let theirs = match &run.session {
+        Some((a, id)) => format!("session {id} of {a}"),
+        None => "no session yet".to_string(),
+    };
+    Mismatch(format!(
+        "the report is for session {session} of {agent}, but its run {} is in {theirs}",
+        run.id
+    ))
+}
+
+/// Whether `reported` is the run's own agent process: the process the
+/// host spawned for it, by pid and start time. When the spawned process is
+/// a launcher rather than the agent, as the npm `codex` is, its direct
+/// child counts too. `binaries` are the agent's executable names, and
+/// `lookup` reads a running process.
+pub(crate) fn own_process(
+    run: &RunRow,
+    reported: Option<&(i64, String)>,
+    binaries: &[&str],
+    lookup: &dyn Fn(u32) -> Option<Process>,
+) -> bool {
+    let (Some((pid, started)), Some((reported_pid, reported_started))) = (&run.process, reported)
+    else {
+        return false;
+    };
+    if pid == reported_pid && started == reported_started {
+        return true;
+    }
+    let (Ok(spawned), Ok(child)) = (u32::try_from(*pid), u32::try_from(*reported_pid)) else {
+        return false;
+    };
+    let launcher = lookup(spawned)
+        .is_some_and(|p| &p.started == started && !binaries.contains(&p.name.as_str()));
+    launcher && lookup(child).is_some_and(|p| &p.started == reported_started && p.parent == spawned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(process: Option<(i64, &str)>) -> RunRow {
+        RunRow {
+            id: "run_1".into(),
+            host: "local".into(),
+            agent: "codex".into(),
+            kind: "start".into(),
+            terminal: Some("t_1".into()),
+            process: process.map(|(pid, started)| (pid, started.to_string())),
+            folder: "/".into(),
+            state: "running".into(),
+            end_reason: None,
+            exit_code: None,
+            exit_signal: None,
+            created_by: "app".into(),
+            started_at: String::new(),
+            ended_at: None,
+            session: None,
+        }
+    }
+
+    fn process(pid: u32, parent: u32, name: &str, started: &str) -> Process {
+        Process {
+            pid,
+            parent,
+            name: name.into(),
+            started: started.into(),
+        }
+    }
+
+    /// A launcher `node` (10) that started `codex` (11), which started a
+    /// shell (12) that started another `codex` (13).
+    fn lookup(pid: u32) -> Option<Process> {
+        match pid {
+            10 => Some(process(10, 1, "node", "s10")),
+            11 => Some(process(11, 10, "codex", "s11")),
+            12 => Some(process(12, 11, "zsh", "s12")),
+            13 => Some(process(13, 12, "codex", "s13")),
+            _ => None,
+        }
+    }
+
+    const CODEX: &[&str] = &["codex"];
+
+    #[test]
+    fn the_spawned_process_is_the_runs_own() {
+        let run = run(Some((11, "s11")));
+        assert!(own_process(&run, Some(&(11, "s11".into())), CODEX, &lookup));
+        // the same pid, reused by another process
+        assert!(!own_process(
+            &run,
+            Some(&(11, "other".into())),
+            CODEX,
+            &lookup
+        ));
+        assert!(!own_process(&run, None, CODEX, &lookup));
+    }
+
+    #[test]
+    fn a_launchers_direct_child_is_the_runs_own() {
+        let run = run(Some((10, "s10")));
+        assert!(own_process(&run, Some(&(11, "s11".into())), CODEX, &lookup));
+        // a grandchild is a nested agent
+        assert!(!own_process(
+            &run,
+            Some(&(13, "s13".into())),
+            CODEX,
+            &lookup
+        ));
+    }
+
+    #[test]
+    fn an_agents_own_child_is_not_the_runs() {
+        // the spawned process is the agent itself: its children are the
+        // tools it runs, and an agent among them is a nested one
+        let run = run(Some((11, "s11")));
+        assert!(!own_process(
+            &run,
+            Some(&(12, "s12".into())),
+            CODEX,
+            &lookup
+        ));
+    }
+}

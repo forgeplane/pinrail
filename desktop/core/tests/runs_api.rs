@@ -1,0 +1,256 @@
+//! The runs routes: the person starts an agent in a folder, lists and
+//! reads its runs, and stops one. A report sent with a run token speaks
+//! for the run's session only from the run's own agent process.
+#![cfg(unix)]
+
+mod common;
+
+use std::time::{Duration, Instant};
+
+use axum::http::StatusCode;
+use pinrail_core::runtime;
+use serde_json::{Value, json};
+
+use common::{App, call, call_as};
+
+/// A core linked to a host, whose runs find the stand-in `claude`.
+async fn linked() -> App {
+    let hosts = tempfile::tempdir().unwrap();
+    let registration = common::host(hosts.path());
+    let path = common::stand_in_path(hosts.path());
+    let app = common::app_with(|config| {
+        config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
+        config.run_env.insert("PATH".into(), path);
+    });
+    // the host's folder lives as long as the test
+    std::mem::forget(hosts);
+    runtime::watch(app.state.clone());
+    app.state
+        .settings()
+        .change(&json!({"labs": {"runtime": true}}))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.state.runtime().status()["state"] != "ready" {
+        assert!(Instant::now() < deadline, "the host did not connect");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    app
+}
+
+fn folder(app: &App, name: &str) -> String {
+    let folder = app.dir.path().join(name);
+    std::fs::create_dir_all(&folder).unwrap();
+    folder.to_string_lossy().into_owned()
+}
+
+/// The run once `done` holds for it.
+async fn run_becomes(app: &App, id: &str, done: impl Fn(&Value) -> bool) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let (_, run) = call(app, "GET", &format!("/api/v1/runs/{id}"), None).await;
+        if done(&run) {
+            return run;
+        }
+        assert!(Instant::now() < deadline, "{run}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+async fn token(folder: &str) -> String {
+    let path = std::path::Path::new(folder).join("token");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Ok(token) = std::fs::read_to_string(&path)
+            && !token.is_empty()
+        {
+            return token;
+        }
+        assert!(Instant::now() < deadline, "the agent wrote no token");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_person_starts_lists_and_stops_a_run() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let body = json!({"host": "local", "agent": "claude-code", "folder": folder,
+                      "task": "fix the login", "local_id": "l-1"});
+
+    // only the person starts an agent
+    let (status, _) = call_as(&app, "POST", "/api/v1/runs", Some(body.clone()), &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body.clone())).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let run = &started["run"];
+    let id = run["id"].as_str().unwrap().to_string();
+    assert_eq!(run["state"], "running");
+    assert!(run["terminal"].as_str().unwrap().starts_with("local:t_"));
+    assert_eq!(started["session"]["agent"], "claude-code");
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+
+    // the same local_id is the same run
+    let (status, again) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(again["run"]["id"], id.as_str());
+
+    let (_, live) = call(&app, "GET", "/api/v1/runs?state=live", None).await;
+    assert_eq!(live["runs"].as_array().unwrap().len(), 1);
+    let (_, of_session) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/runs?session=claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert_eq!(of_session["runs"][0]["id"], id.as_str());
+    let (_, shown) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
+    assert_eq!(shown["sessions"][0]["id"], session.as_str());
+
+    token(&folder).await;
+    let (status, _) = call(&app, "POST", &format!("/api/v1/runs/{id}/stop"), None).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let run = run_becomes(&app, &id, |r| r["state"] == "ended").await;
+    assert_eq!(run["end_reason"], "stopped");
+    let (_, ended) = call(&app, "GET", "/api/v1/runs?state=ended", None).await;
+    assert_eq!(ended["runs"][0]["id"], id.as_str());
+
+    let (status, _) = call(&app, "GET", "/api/v1/runs/run_none", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_start_that_cannot_happen_answers_with_its_reason() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let missing = app
+        .dir
+        .path()
+        .join("missing")
+        .to_string_lossy()
+        .into_owned();
+    for (body, status, kind) in [
+        (
+            json!({"agent": "gemini", "folder": folder}),
+            StatusCode::BAD_REQUEST,
+            "invalid",
+        ),
+        (
+            json!({"agent": "claude-code", "folder": folder, "args": ["--yolo"]}),
+            StatusCode::BAD_REQUEST,
+            "invalid",
+        ),
+        // Codex is not on the runs' PATH
+        (
+            json!({"agent": "codex", "folder": folder}),
+            StatusCode::NOT_FOUND,
+            "agent_not_found",
+        ),
+        (
+            json!({"agent": "claude-code", "folder": missing}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "folder_missing",
+        ),
+    ] {
+        let (got, answer) = call(&app, "POST", "/api/v1/runs", Some(body.clone())).await;
+        assert_eq!(
+            (got, answer["error"].as_str()),
+            (status, Some(kind)),
+            "{body}"
+        );
+    }
+
+    app.state
+        .settings()
+        .change(&json!({"labs": {"runtime": false}}))
+        .unwrap();
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(answer["error"], "host_offline");
+}
+
+/// A report of `event` for the session, from `process`, with the run's
+/// token.
+async fn report(
+    app: &App,
+    session: &str,
+    body: Value,
+    process: &(i64, String),
+    token: &str,
+) -> (StatusCode, Value) {
+    let mut body = body;
+    body["process"] = json!({"pid": process.0, "started": process.1});
+    call_as(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/reports"),
+        Some(body),
+        &[("authorization", &format!("Run {token}"))],
+    )
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (_, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let first = started["session"]["id"].as_str().unwrap().to_string();
+    let token = token(&folder).await;
+    let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
+
+    let (status, _) = report(&app, &first, json!({"event": "working"}), &own, &token).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    // another session's report from the run's process is refused
+    let (status, answer) = report(&app, "s-other", json!({"event": "working"}), &own, &token).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(answer["error"], "run_mismatch");
+
+    // /clear moves the run to a new session, and stops the one it left
+    let (status, _) = report(
+        &app,
+        "s-2",
+        json!({"event": "started", "source": "clear"}),
+        &own,
+        &token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let run = run_becomes(&app, &id, |r| r["session"]["id"] == "s-2").await;
+    assert_eq!(run["sessions"].as_array().unwrap().len(), 2);
+    let presence = common::db(&app)
+        .presence("claude-code", &first)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (presence.state.as_str(), presence.stop_reason.as_deref()),
+        ("stopped", Some("cleared"))
+    );
+
+    // a nested agent that inherited the token neither moves the run nor is
+    // refused: its token is ignored
+    let nested = (own.0 + 1_000_000, "0".to_string());
+    for event in [
+        json!({"event": "started", "source": "startup"}),
+        json!({"event": "working"}),
+    ] {
+        let (status, _) = report(&app, "s-nested", event, &nested, &token).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+    }
+    let (_, run) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
+    assert_eq!(run["session"]["id"], "s-2");
+}
