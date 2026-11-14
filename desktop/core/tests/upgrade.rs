@@ -103,3 +103,39 @@ async fn a_database_from_0_6_0_keeps_its_sessions_reviews_and_items() {
         .unwrap();
     assert!(broken.is_empty(), "{broken:?}");
 }
+
+#[test]
+fn a_database_from_0_6_0_takes_runs_for_its_sessions() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pinrail.db");
+    std::fs::copy(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/db/pinrail-0.6.0.db"
+        ),
+        &path,
+    )
+    .unwrap();
+    let db = pinrail_core::db::Db::open(&path).unwrap();
+    let run = db
+        .insert_run(
+            &pinrail_core::db::NewRun {
+                id: "run_1",
+                host: "local",
+                agent: "claude-code",
+                kind: "resume",
+                folder: "/work/api",
+                argv: &["claude".to_string()],
+                created_by: "app",
+                token_digest: "d1",
+                session: Some("s-060"),
+            },
+            chrono::Utc::now(),
+        )
+        .unwrap();
+    assert_eq!(run.host, "local");
+    assert_eq!(
+        run.session,
+        Some(("claude-code".to_string(), "s-060".to_string()))
+    );
+}

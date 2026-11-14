@@ -19,6 +19,7 @@ mod presence;
 mod projects;
 mod repos;
 mod reviews;
+mod runs;
 mod schema;
 mod sessions;
 
@@ -34,6 +35,7 @@ pub use presence::{
 };
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
+pub use runs::{Bound, NewRun, RunFilters, RunRow, RunSession, TOKEN_GRACE};
 pub use schema::LATEST_MIGRATION;
 pub use sessions::{
     Added, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,

@@ -38,6 +38,11 @@ pub const SESSION_SEEN: &str = "session_seen";
 /// The person archived a session, or brought it back.
 pub const SESSION_ARCHIVED: &str = "session_archived";
 pub const SESSION_UNARCHIVED: &str = "session_unarchived";
+/// Pinrail started an agent in a terminal of a host; the run moved to
+/// another session, as on `/clear`; the run ended.
+pub const RUN_STARTED: &str = "run_started";
+pub const RUN_BOUND: &str = "run_bound";
+pub const RUN_ENDED: &str = "run_ended";
 /// The person starred a round of a review, or removed its star.
 pub const STARRED: &str = "starred";
 pub const UNSTARRED: &str = "unstarred";
