@@ -5,6 +5,7 @@
 //! size and input.
 
 use std::collections::{BTreeMap, VecDeque};
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
@@ -21,6 +22,13 @@ pub const RING: usize = 1024 * 1024;
 pub const RESYNC_HISTORY: usize = 500;
 /// The largest DATA frame sent.
 const MAX_DATA: usize = 1024 * 1024;
+
+/// Output after this much quiet goes out at once.
+pub const QUIET: Duration = Duration::from_millis(5);
+/// Otherwise output is gathered until there is this much of it,
+pub const BURST_BYTES: usize = 8 * 1024;
+/// or for this long, whichever comes first.
+pub const BURST_FOR: Duration = Duration::from_millis(2);
 
 /// A viewer's id: its connection and channel.
 pub type ViewerId = (u64, u32);
@@ -96,11 +104,25 @@ impl Ring {
     }
 }
 
+/// Output gathered into fewer, larger frames: a burst of small writes,
+/// such as an agent redrawing its footer, costs the viewers one frame
+/// rather than one per write. It is not yet in the stream: its offset
+/// comes when it goes out.
+#[derive(Default)]
+struct Gathered {
+    bytes: Vec<u8>,
+    /// When the first byte of the burst came.
+    since: Option<Instant>,
+    /// When the last output came.
+    last: Option<Instant>,
+}
+
 #[derive(Default)]
 pub struct Viewers {
     viewers: BTreeMap<ViewerId, Viewer>,
     controller: Option<ViewerId>,
     ring: Ring,
+    gathered: Gathered,
 }
 
 /// A META frame.
@@ -145,14 +167,17 @@ pub fn snapshot_frames(
 }
 
 impl Viewers {
-    /// The stream offset of the next output byte.
-    pub fn offset(&self) -> u64 {
+    /// The stream offset of the next output byte, once the output
+    /// gathered so far has gone out.
+    pub fn offset(&mut self) -> u64 {
+        self.send_gathered();
         self.ring.total
     }
 
     /// The output a viewer that read up to `offset` missed, if the ring
     /// still holds it.
-    pub fn since(&self, offset: u64) -> Option<Vec<u8>> {
+    pub fn since(&mut self, offset: u64) -> Option<Vec<u8>> {
+        self.send_gathered();
         self.ring.since(offset)
     }
 
@@ -270,21 +295,52 @@ impl Viewers {
         }
     }
 
-    /// Program output, as the filter left it, for every viewer.
-    pub fn output(&mut self, bytes: &[u8]) {
+    /// Program output, as the filter left it, for every viewer, at `now`.
+    /// Output after [`QUIET`] goes out at once; otherwise it is gathered
+    /// until [`BURST_BYTES`] or [`BURST_FOR`], whichever comes first.
+    pub fn output(&mut self, bytes: &[u8], now: Instant) {
         if bytes.is_empty() {
             return;
         }
-        self.ring.push(bytes);
+        let quiet = self
+            .gathered
+            .last
+            .is_none_or(|last| now.duration_since(last) >= QUIET);
+        self.gathered.last = Some(now);
+        self.gathered.bytes.extend_from_slice(bytes);
+        self.gathered.since.get_or_insert(now);
+        if quiet || self.gathered.bytes.len() >= BURST_BYTES {
+            self.send_gathered();
+        }
+    }
+
+    /// When the gathered output is due to go out, if there is any.
+    pub fn gathered_due(&self) -> Option<Instant> {
+        self.gathered.since.map(|since| since + BURST_FOR)
+    }
+
+    /// Sends the output gathered so far to every viewer.
+    pub fn send_gathered(&mut self) {
+        self.gathered.since = None;
+        if self.gathered.bytes.is_empty() {
+            return;
+        }
+        let bytes = std::mem::take(&mut self.gathered.bytes);
+        self.ring.push(&bytes);
         for viewer in self.viewers.values_mut() {
-            for frame in data(viewer.channel, bytes) {
+            for frame in data(viewer.channel, &bytes) {
                 viewer.push(frame);
             }
         }
+        // the buffer is kept for the next burst
+        self.gathered.bytes = bytes;
+        self.gathered.bytes.clear();
     }
 
     /// A META frame for every viewer, in order with the output.
     pub fn meta_all(&mut self, value: &Value) {
+        // anything that is not output sends the output before it
+        self.send_gathered();
         for viewer in self.viewers.values_mut() {
             viewer.push(meta(viewer.channel, value.clone()));
         }
@@ -294,6 +350,7 @@ impl Viewers {
     /// the output; every observer gets a fresh snapshot at the new size, as
     /// its pending output was laid out for the old one.
     pub fn resized(&mut self, size: (u16, u16), paint: &dyn Fn(usize) -> Option<Vec<u8>>) {
+        self.send_gathered();
         let value = json!({"type": "size", "cols": size.0, "rows": size.1});
         let ids: Vec<ViewerId> = self.viewers.keys().copied().collect();
         for id in ids {
@@ -330,6 +387,10 @@ impl Viewers {
         paint: &dyn Fn(usize) -> Option<Vec<u8>>,
         size: (u16, u16),
     ) {
+        // a snapshot is cut after the output gathered so far
+        if self.viewers.get(&id).is_some_and(|v| v.needs.is_some()) {
+            self.send_gathered();
+        }
         let offset = self.ring.total;
         let Some(viewer) = self.viewers.get_mut(&id) else {
             return;
@@ -393,6 +454,7 @@ impl Viewers {
 
     /// The last frames to every viewer, then closes their channels.
     pub fn close_all(&mut self, last: &Value) {
+        self.send_gathered();
         for viewer in self.viewers.values_mut() {
             viewer.push(meta(viewer.channel, last.clone()));
             // the end goes out whatever the credit, as nothing follows it
@@ -445,5 +507,61 @@ impl Viewer {
             self.credit -= frame.payload.len() as i64;
         }
         let _ = self.out.frame(frame);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    #[test]
+    fn output_after_quiet_goes_out_at_once_and_a_burst_is_gathered() {
+        let mut viewers = Viewers::default();
+        let start = Instant::now();
+        viewers.output(b"first", start);
+        assert_eq!(viewers.ring.total, 5);
+        assert_eq!(viewers.gathered_due(), None);
+
+        // more within 5 ms waits, for 2 ms from the first of it
+        viewers.output(b"ab", start + ms(1));
+        viewers.output(b"cd", start + ms(2));
+        assert_eq!(viewers.ring.total, 5);
+        assert_eq!(viewers.gathered_due(), Some(start + ms(3)));
+        viewers.send_gathered();
+        assert_eq!(viewers.ring.total, 9);
+        assert_eq!(viewers.gathered_due(), None);
+
+        // after 5 ms of quiet, at once again
+        viewers.output(b"later", start + ms(8));
+        assert_eq!(viewers.ring.total, 14);
+    }
+
+    #[test]
+    fn a_burst_goes_out_once_it_holds_8_kib() {
+        let mut viewers = Viewers::default();
+        let start = Instant::now();
+        viewers.output(b"x", start);
+        viewers.output(&[b'y'; BURST_BYTES - 1], start + ms(1));
+        assert_eq!(viewers.ring.total, 1);
+        viewers.output(b"z", start + ms(1));
+        assert_eq!(viewers.ring.total, 1 + BURST_BYTES as u64);
+    }
+
+    #[test]
+    fn anything_else_sends_the_gathered_output_before_it() {
+        let mut viewers = Viewers::default();
+        let start = Instant::now();
+        viewers.output(b"a", start);
+        viewers.output(b"bc", start + ms(1));
+        viewers.meta_all(&json!({"type": "title", "text": "t"}));
+        assert_eq!(viewers.ring.total, 3);
+
+        viewers.output(b"de", start + ms(2));
+        // the offset a snapshot is cut at follows the gathered output
+        assert_eq!(viewers.offset(), 5);
     }
 }

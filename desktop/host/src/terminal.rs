@@ -538,6 +538,14 @@ async fn actor(mut actor: Actor) {
             () = tokio::time::sleep_until(typing_at.unwrap_or(next_look)), if typing_at.is_some() => {
                 actor.type_on();
             }
+            // a burst of output goes out to the viewers 2 ms after it began
+            () = tokio::time::sleep_until(
+                actor.viewers.gathered_due().map_or(next_look, Instant::from_std),
+            ),
+                if actor.viewers.gathered_due().is_some() =>
+            {
+                actor.viewers.send_gathered();
+            }
             () = tokio::time::sleep_until(next_look), if !ended => {
                 actor.viewers.prune();
                 actor.look_at_foreground();
@@ -1033,7 +1041,8 @@ impl Actor {
         };
         self.for_viewers.clear();
         self.filter.push(bytes, &mut self.for_viewers, &mut feed);
-        self.viewers.output(&self.for_viewers);
+        self.viewers
+            .output(&self.for_viewers, std::time::Instant::now());
         if !replies.is_empty()
             && let Some(input) = &self.input
         {
