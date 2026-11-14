@@ -124,3 +124,56 @@ fn the_binary_names_pinrail_for_the_privacy_prompts() {
         .unwrap();
     assert!(String::from_utf8_lossy(&output.stdout).contains("sectname __info_plist"));
 }
+
+#[test]
+fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    let log = |_: &str| {};
+    let (old, _) = launcher(&data, Method::Detached).ensure(&log).unwrap();
+    let old_host = Started(old.clone());
+    let mut client = Client::connect(&old).unwrap();
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", "echo ready; exec sleep 600"],
+                   "cwd": root.path(), "cols": 80, "rows": 24,
+                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+        )
+        .unwrap();
+    let terminal = spawned["terminal"].as_str().unwrap().to_string();
+    drop(client);
+
+    // the running host says it is another build of the app
+    let path = data.join("host/host.json");
+    let mut written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(
+        written["build"].is_string(),
+        "the host records its build: {written}"
+    );
+    written["build"] = json!("0.0.0-0ldb0ld0");
+    std::fs::write(&path, written.to_string()).unwrap();
+
+    let (new, how) = launcher(&data, Method::Detached).ensure(&log).unwrap();
+    let _new_host = Started(new.clone());
+    assert_eq!(how, Some(Method::Detached));
+    assert_ne!(new.pid, old.pid);
+    // the old host is gone, and the new one keeps its terminal
+    std::mem::forget(old_host);
+    let mut client = Client::connect(&new).unwrap();
+    let listed = client.call("terminal.list", json!({})).unwrap();
+    let kept: Vec<_> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["terminal"] == terminal.as_str() && t.get("exit").is_none())
+        .collect();
+    assert_eq!(kept.len(), 1, "{listed}");
+    client
+        .call(
+            "terminal.stop",
+            json!({"terminal": terminal, "grace_ms": 0}),
+        )
+        .unwrap();
+}

@@ -50,6 +50,7 @@ fn holder(folders: &Folders, idle_exit: u64) -> Holder {
         features: vec![],
         socket: paths.socket(),
         secret: SECRET.to_string(),
+        build: None,
     }
     .write(&paths.registration())
     .unwrap();

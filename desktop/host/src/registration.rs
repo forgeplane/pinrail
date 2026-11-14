@@ -21,6 +21,9 @@ pub struct Registration {
     pub socket: PathBuf,
     /// 32 random bytes, hex-encoded, which a controller's `hello` presents.
     pub secret: String,
+    /// The build it runs, `<version>-<sha8>` of its binary, which a core
+    /// compares with its own host's.
+    pub build: Option<String>,
 }
 
 impl Registration {
@@ -34,6 +37,7 @@ impl Registration {
             "features": self.features,
             "socket": self.socket,
             "secret": self.secret,
+            "build": self.build,
         })
     }
 
@@ -53,6 +57,7 @@ impl Registration {
                 .collect(),
             socket: PathBuf::from(text("socket")?),
             secret: text("secret")?,
+            build: text("build"),
         })
     }
 
@@ -100,6 +105,7 @@ mod tests {
             features: vec![],
             socket: PathBuf::from("/tmp/host.sock"),
             secret: crate::random_hex(32),
+            build: None,
         }
     }
 

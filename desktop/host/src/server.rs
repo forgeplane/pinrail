@@ -198,6 +198,9 @@ async fn run(
         features: vec![],
         socket: socket.clone(),
         secret: shared.secret.clone(),
+        build: std::env::current_exe()
+            .ok()
+            .and_then(|exe| crate::launch::build_of(&exe).ok()),
     }
     .write(&paths.registration())?;
     log.line(&format!(

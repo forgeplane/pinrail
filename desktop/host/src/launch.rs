@@ -91,7 +91,17 @@ impl Launcher {
     pub fn ensure(&self, log: &dyn Fn(&str)) -> Result<(Registration, Option<Method>), Error> {
         let paths = Paths::new(&self.data_dir);
         if let Some(registration) = answering(&paths) {
-            return Ok((registration, None));
+            // the app works with its own host: one of another build hands
+            // its terminals over to a new one
+            let ours = build_of(&self.bundled)?;
+            if registration.build.as_deref() == Some(ours.as_str()) {
+                return Ok((registration, None));
+            }
+            log(&format!(
+                "replacing the terminal host of build {} with {ours}",
+                registration.build.as_deref().unwrap_or("unknown")
+            ));
+            replace(&registration)?;
         }
         paths.create()?;
         let copy = install(&self.bundled, &self.data_dir)?;
@@ -138,16 +148,48 @@ pub fn wait_for_host(paths: &Paths, within: Duration) -> Result<Registration, Er
     }
 }
 
+/// The build of a host binary: `<version>-<sha8>`, the version and the
+/// first 8 hex digits of the binary's SHA-256.
+pub fn build_of(binary: &Path) -> io::Result<String> {
+    Ok(build_of_bytes(&fs::read(binary)?))
+}
+
+fn build_of_bytes(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let sha8: String = digest[..4].iter().map(|b| format!("{b:02x}")).collect();
+    format!("{}-{sha8}", env!("CARGO_PKG_VERSION"))
+}
+
+/// How long a host of another build has to hand its terminals over and
+/// exit.
+const REPLACE_WITHIN: Duration = Duration::from_secs(10);
+
+/// Asks a running host to stop, handing its terminals to the next host,
+/// and waits until it has exited.
+fn replace(registration: &Registration) -> Result<(), Error> {
+    if let Ok(mut client) = Client::connect(registration) {
+        let _ = client.call("host.stop", json!({ "stop_terminals": false }));
+    }
+    let deadline = Instant::now() + REPLACE_WITHIN;
+    while registration.may_be_live() {
+        if Instant::now() >= deadline {
+            return Err(Error::NotStarted);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Ok(())
+}
+
 /// Copies the bundled binary to `<data dir>/host/bin/<version>-<sha8>/`,
 /// unless that copy exists, and returns the copy. A running host stays
 /// independent of the app's bundle, which an update replaces and an
 /// AppImage unmounts when the app quits.
 pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
     let bytes = fs::read(bundled)?;
-    let digest = Sha256::digest(&bytes);
-    let sha8: String = digest[..4].iter().map(|b| format!("{b:02x}")).collect();
+    let build = build_of_bytes(&bytes);
+    let sha8 = build.rsplit('-').next().unwrap_or_default().to_string();
     let bin = data_dir.join("host/bin");
-    let folder = bin.join(format!("{}-{sha8}", env!("CARGO_PKG_VERSION")));
+    let folder = bin.join(&build);
     let copy = folder.join("pinrail-host");
     if copy.is_file() {
         return Ok(copy);
