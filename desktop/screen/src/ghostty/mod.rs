@@ -499,7 +499,8 @@ impl Terminal {
     }
 
     /// The bytes of an escape sequence or UTF-8 character that the last
-    /// write left unfinished, or `None` when there is none to replay.
+    /// write left unfinished: empty at ground, and `None` when it is
+    /// unavailable, as after a sequence longer than the continuation holds.
     pub fn continuation(&self) -> Option<Vec<u8>> {
         // SAFETY: continuation_alloc hands over the unfinished bytes.
         alloc(|out, len| unsafe {
@@ -545,6 +546,11 @@ impl Screen for Terminal {
 
     fn first_paint(&self, history_lines: usize) -> Vec<u8> {
         self.paint(history_lines)
+    }
+
+    fn paintable(&self) -> bool {
+        // the continuation is unavailable once the sequence outgrew it
+        self.get::<bool>(ffi::DATA_VT_GROUND) || self.continuation().is_some()
     }
 
     /// libghostty-vt's binary snapshot of the whole terminal: both screens,

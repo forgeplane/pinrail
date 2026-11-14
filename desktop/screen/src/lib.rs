@@ -44,6 +44,13 @@ pub trait Screen: Send {
     /// History is best effort, as an implementation may prune it in blocks.
     fn first_paint(&self, history_lines: usize) -> Vec<u8>;
 
+    /// Whether a snapshot now reproduces the screen: the parser is
+    /// between sequences, or the sequence it is inside fits in the
+    /// continuation the snapshot ends with. Inside a longer sequence, such
+    /// as an image, the snapshot would leave the rest of the sequence to be
+    /// read as text.
+    fn paintable(&self) -> bool;
+
     /// An exact copy of the terminal for a viewer built on the same
     /// library build, or `None` when the implementation has none.
     fn binary_snapshot(&self) -> Option<BinarySnapshot>;

@@ -721,16 +721,21 @@ impl Actor {
     }
 
     /// Runs `act` with the viewers and a function that paints the screen
-    /// for them: the first paint, then the bytes the filter holds.
+    /// for them: the first paint, then the bytes the filter holds, or
+    /// `None` while the program is inside an escape sequence too long for
+    /// a snapshot to reproduce.
     fn with_paint(
         &mut self,
-        act: impl FnOnce(&mut Viewers, &dyn Fn(usize) -> Vec<u8>, (u16, u16)),
+        act: impl FnOnce(&mut Viewers, &dyn Fn(usize) -> Option<Vec<u8>>, (u16, u16)),
     ) {
         let (screen, filter) = (&self.screen, &self.filter);
         let paint = |history: usize| {
+            if !screen.paintable() {
+                return None;
+            }
             let mut bytes = screen.first_paint(history);
             bytes.extend_from_slice(filter.held());
-            bytes
+            Some(bytes)
         };
         act(&mut self.viewers, &paint, self.size);
     }
@@ -762,6 +767,11 @@ impl Actor {
                     .split_off(2),
             );
             ("resume".to_string(), frames)
+        } else if !self.screen.paintable() {
+            // inside a long escape sequence: the snapshot waits for its end
+            self.viewers
+                .add_waiting(viewer, out, (request.cols, request.rows), request.history);
+            return Ok("vt".to_string());
         } else {
             let binary = self.screen.binary_snapshot();
             let wanted = |format: &str| {
@@ -985,7 +995,32 @@ impl Actor {
         }
     }
 
+    /// Takes program output. While a viewer waits for a snapshot that the
+    /// screen cannot yet take, the output goes in pieces, and the viewers
+    /// get their snapshots after the first piece that makes one possible:
+    /// a piece no longer than the continuation leaves the parser either
+    /// still inside the long sequence or in one the snapshot can replay.
     fn apply(&mut self, bytes: &[u8]) {
+        let mut rest = bytes;
+        while !rest.is_empty() && self.viewers.waiting() && !self.screen.paintable() {
+            let (piece, after) = rest.split_at(rest.len().min(PIECE));
+            self.apply_piece(piece);
+            rest = after;
+            if self.screen.paintable() {
+                self.with_paint(|viewers, paint, size| {
+                    for id in viewers.ids() {
+                        viewers.flush(id, paint, size);
+                    }
+                });
+            }
+        }
+        self.apply_piece(rest);
+    }
+
+    fn apply_piece(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
         self.last_output = Instant::now();
         let (mut replies, mut signals) = (Vec::new(), Vec::<Signal>::new());
         // the screen answers the program's queries; the filter keeps the
@@ -1143,6 +1178,10 @@ fn display_facts(facts: &Value) -> DisplayFacts {
         cursor: rgb("cursor"),
     }
 }
+
+/// The output fed at a time while a viewer waits for a snapshot: well
+/// under the 64 KiB continuation.
+const PIECE: usize = 4 * 1024;
 
 /// The lines of history kept with a final screen.
 const FINAL_HISTORY: usize = 500;

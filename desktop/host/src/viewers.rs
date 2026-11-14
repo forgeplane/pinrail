@@ -41,6 +41,9 @@ pub struct AttachRequest {
 /// Why a viewer needs a snapshot before more output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Needs {
+    /// It attached while no snapshot was possible, and gets its first one
+    /// with this much history.
+    First(usize),
     /// Its unsent output passed [`MAX_PENDING`] and was dropped.
     Resync,
     /// The terminal was resized by another viewer.
@@ -176,8 +179,33 @@ impl Viewers {
         );
     }
 
+    /// Adds a viewer that attached while no snapshot was possible: it
+    /// gets nothing until one is, then a `vt` snapshot with `history`
+    /// lines.
+    pub fn add_waiting(&mut self, id: ViewerId, out: Outbox, size: (u16, u16), history: usize) {
+        self.add(id, out, size, Vec::new());
+        if let Some(viewer) = self.viewers.get_mut(&id) {
+            viewer.needs = Some(Needs::First(history));
+        }
+    }
+
+    /// Whether a viewer waits for a snapshot.
+    pub fn waiting(&self) -> bool {
+        self.viewers.values().any(|v| v.needs.is_some())
+    }
+
+    /// The viewers, to flush each.
+    pub fn ids(&self) -> Vec<ViewerId> {
+        self.viewers.keys().copied().collect()
+    }
+
     /// Starts sending to a viewer whose attach reply has been queued.
-    pub fn resume(&mut self, id: ViewerId, paint: &dyn Fn(usize) -> Vec<u8>, size: (u16, u16)) {
+    pub fn resume(
+        &mut self,
+        id: ViewerId,
+        paint: &dyn Fn(usize) -> Option<Vec<u8>>,
+        size: (u16, u16),
+    ) {
         if let Some(viewer) = self.viewers.get_mut(&id) {
             viewer.paused = false;
         }
@@ -265,7 +293,7 @@ impl Viewers {
     /// The terminal's size changed: the controller is told in order with
     /// the output; every observer gets a fresh snapshot at the new size, as
     /// its pending output was laid out for the old one.
-    pub fn resized(&mut self, size: (u16, u16), paint: &dyn Fn(usize) -> Vec<u8>) {
+    pub fn resized(&mut self, size: (u16, u16), paint: &dyn Fn(usize) -> Option<Vec<u8>>) {
         let value = json!({"type": "size", "cols": size.0, "rows": size.1});
         let ids: Vec<ViewerId> = self.viewers.keys().copied().collect();
         for id in ids {
@@ -285,7 +313,7 @@ impl Viewers {
         &mut self,
         id: ViewerId,
         bytes: u32,
-        paint: &dyn Fn(usize) -> Vec<u8>,
+        paint: &dyn Fn(usize) -> Option<Vec<u8>>,
         size: (u16, u16),
     ) {
         if let Some(viewer) = self.viewers.get_mut(&id) {
@@ -296,7 +324,12 @@ impl Viewers {
 
     /// Sends what a viewer's credit allows: first the snapshot it needs,
     /// then its pending frames.
-    pub fn flush(&mut self, id: ViewerId, paint: &dyn Fn(usize) -> Vec<u8>, size: (u16, u16)) {
+    pub fn flush(
+        &mut self,
+        id: ViewerId,
+        paint: &dyn Fn(usize) -> Option<Vec<u8>>,
+        size: (u16, u16),
+    ) {
         let offset = self.ring.total;
         let Some(viewer) = self.viewers.get_mut(&id) else {
             return;
@@ -304,18 +337,30 @@ impl Viewers {
         if viewer.paused || viewer.credit <= 0 {
             return;
         }
-        if let Some(needs) = viewer.needs.take() {
-            let notice = match needs {
-                Needs::Resync => json!({"type": "resync"}),
-                Needs::Resized => json!({"type": "size", "cols": size.0, "rows": size.1}),
+        if let Some(needs) = viewer.needs {
+            let (notice, history) = match needs {
+                Needs::First(history) => (None, history),
+                Needs::Resync => (Some(json!({"type": "resync"})), RESYNC_HISTORY),
+                Needs::Resized => (
+                    Some(json!({"type": "size", "cols": size.0, "rows": size.1})),
+                    RESYNC_HISTORY,
+                ),
             };
-            let mut frames = vec![meta(viewer.channel, notice)];
+            // inside a long escape sequence: the snapshot waits for its end
+            let Some(painted) = paint(history) else {
+                return;
+            };
+            viewer.needs = None;
+            let mut frames: Vec<Frame> = notice
+                .map(|notice| meta(viewer.channel, notice))
+                .into_iter()
+                .collect();
             frames.extend(snapshot_frames(
                 viewer.channel,
                 "vt",
                 size,
                 offset,
-                &paint(RESYNC_HISTORY),
+                &painted,
                 &[],
             ));
             for frame in frames {
@@ -388,8 +433,9 @@ impl Viewer {
     fn drop_pending(&mut self, needs: Needs) {
         self.pending.clear();
         self.pending_bytes = 0;
-        // a resync already asks for the snapshot a resize would
-        if self.needs.is_none() || needs == Needs::Resized {
+        // a resync already asks for the snapshot a resize would, and a
+        // viewer waiting for its first snapshot gets one at the new size
+        if self.needs.is_none() || (needs == Needs::Resized && self.needs == Some(Needs::Resync)) {
             self.needs = Some(needs);
         }
     }

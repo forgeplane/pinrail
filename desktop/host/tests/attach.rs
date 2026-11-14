@@ -415,3 +415,42 @@ fn only_the_controller_s_replies_and_focus_reach_the_program() {
     );
     connection.call("terminal.stop", json!({"terminal": terminal}));
 }
+
+#[test]
+fn a_viewer_that_attaches_inside_a_long_sequence_gets_its_snapshot_at_its_end() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut connection = Connection::open(&host);
+    // an image sequence longer than a snapshot can replay, left open
+    let terminal = spawn(
+        &mut connection,
+        &folders,
+        "echo ready; printf '\\033_Gf=100;'; head -c 100000 /dev/zero | tr '\\0' A; read x; printf '\\033\\\\after\\n'; sleep 30",
+    );
+    wait_for_text(&mut connection, &terminal, "ready");
+    std::thread::sleep(Duration::from_millis(500));
+    let (channel, format) = attach(&mut connection, &terminal, json!({}));
+    assert_eq!(format, "vt");
+    // nothing while the sequence is open
+    assert!(
+        connection
+            .pump(Duration::from_millis(500), |f| f.channel == channel)
+            .is_none()
+    );
+
+    connection.send(channel, kind::DATA, b"\r".to_vec());
+    let (begin, _) = connection.until_meta(channel, "snapshot_begin");
+    assert!(begin["offset"].as_u64().unwrap() > 100_000, "{begin}");
+    let (_, mut paint) = connection.until_meta(channel, "snapshot_end");
+    // the end of the sequence and what follows it may be in the snapshot
+    // or after it
+    while let Some(frame) = connection.pump(Duration::from_millis(300), |f| f.channel == channel) {
+        if frame.kind == kind::DATA {
+            paint.extend(frame.payload);
+        }
+    }
+    let text = screen(&paint, 60, 12);
+    assert!(text.contains("ready") && text.contains("after"), "{text}");
+    assert!(!text.contains("AAAA"), "{text}");
+    connection.call("terminal.stop", json!({"terminal": terminal}));
+}

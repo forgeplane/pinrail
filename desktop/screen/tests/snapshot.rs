@@ -56,3 +56,28 @@ fn a_restored_terminal_answers_queries_too() {
 fn a_snapshot_that_does_not_decode_is_refused() {
     assert!(Terminal::restore(b"not a snapshot", 10_000).is_err());
 }
+
+#[test]
+fn a_snapshot_is_possible_only_outside_a_sequence_longer_than_the_continuation() {
+    let mut t = used();
+    assert!(t.paintable());
+    // an unfinished title fits in the continuation
+    t.write(b"\x1b]2;Half wr");
+    assert!(t.paintable());
+    t.write(b"itten\x07");
+
+    // an image longer than the continuation does not
+    t.write(b"\x1b_Gf=100;");
+    t.write(&vec![b'A'; 100_000]);
+    assert!(!t.paintable());
+    t.write(&vec![b'A'; 1_000]);
+    assert!(!t.paintable());
+    t.write(b"\x1b\\");
+    assert!(t.paintable());
+
+    // a new sequence that starts after the long one ends is replayable
+    t.write(b"\x1b_Gf=100;");
+    t.write(&vec![b'A'; 100_000]);
+    t.write(b"\x1b\\\x1b]2;Next");
+    assert!(t.paintable());
+}

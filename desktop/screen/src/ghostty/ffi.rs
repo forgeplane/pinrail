@@ -49,6 +49,7 @@ pub const DATA_HEIGHT_PX: TerminalData = 17;
 pub const DATA_ACTIVE_SCREEN: TerminalData = 6;
 pub const DATA_TITLE: TerminalData = 12;
 pub const DATA_MODE: TerminalData = 37;
+pub const DATA_VT_GROUND: TerminalData = 38;
 
 /// `GhosttyMode` (modes.h): the mode's number in bits 0 to 14, and bit 15
 /// set for an ANSI mode rather than a DEC private one.
