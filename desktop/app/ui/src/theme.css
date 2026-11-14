@@ -7676,3 +7676,43 @@ a.item-ref {
 .terminal-size {
   font-family: var(--mono);
 }
+.terminal-bar-end {
+  display: flex;
+  gap: 12px;
+}
+.terminal-hint kbd {
+  font: inherit;
+  font-family: var(--mono);
+}
+/* The two views of a session. */
+.view-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+.view-switch button {
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dim);
+  font: var(--text-xs) var(--font);
+  cursor: pointer;
+}
+.view-switch button.is-active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.thread-terminal {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* the summary stays mounted, hidden, while the terminal shows */
+.thread-main[hidden] {
+  display: none;
+}

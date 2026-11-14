@@ -10,6 +10,10 @@ export type Shortcut = { what: string; keys: string[][]; section: ShortcutSectio
 export const SHORTCUTS: Shortcut[] = [
   // anywhere
   { section: "General", what: "Search everything", keys: [[MOD, "K"]] },
+  // on Linux, programs in a terminal need Ctrl+K
+  ...(isMac
+    ? []
+    : [{ section: "General" as const, what: "Search everything from a terminal", keys: [[MOD, SHIFT, "K"]] }]),
   { section: "General", what: "Search the page", keys: [["/"]] },
   {
     section: "General",
@@ -71,6 +75,14 @@ export const SHORTCUTS: Shortcut[] = [
   { section: "Sessions", what: "Decline the questions", keys: [[MOD, "D"]] },
   { section: "Sessions", what: "Show or hide a session's details", keys: [[MOD, SHIFT, "B"]] },
   { section: "Sessions", what: "Find in the thread", keys: [[MOD, "F"]] },
+  {
+    section: "Sessions",
+    what: "Switch between Summary and Terminal",
+    keys: [
+      ["Ctrl", "`"],
+      [MOD, SHIFT, "T"],
+    ],
+  },
   // work items
   { section: "Work items", what: "Next / previous work item", keys: [["J"], ["K"]] },
   { section: "Work items", what: "Open the focused work item", keys: [["Enter"]] },

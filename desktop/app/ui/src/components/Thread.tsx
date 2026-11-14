@@ -6,7 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { MOD, SHIFT, hasMod, modalOpen, isTyping } from "../lib/keys";
+import { MOD, SHIFT, hasMod, isMac, modalOpen, isTyping } from "../lib/keys";
+import { isViewToggle } from "../lib/terminalKeys";
+import { useSessionRun } from "./session/useSessionRun";
+import { useSessionView } from "./session/useSessionView";
+import { ViewSwitch } from "./session/ViewSwitch";
+import { TerminalPane } from "./terminal/TerminalPane";
 import { finder, type Finder, type Found } from "../lib/findText";
 import { usePageRepo } from "../lib/pageRepo";
 import { countFeature } from "../lib/usage";
@@ -163,6 +168,29 @@ export function Thread({
     onSession,
   );
   const { markUnread } = useMarkSeen(session);
+  // a session's page shows its live run's terminal beside the summary
+  const onPage = !focus && !inPanel;
+  const run = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const terminal = run?.terminal ?? null;
+  const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, !!terminal);
+  const showTerminal = view === "terminal" && !!terminal;
+  const showTerminalRef = useLatest(showTerminal);
+  // Ctrl+` and MOD+Shift+T switch the view, before the terminal sees them,
+  // so it never keeps the keyboard
+  useWindowKey(
+    (event) => {
+      if (!isViewToggle(event, isMac) || modalOpen()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleView();
+    },
+    { capture: true, enabled: !!terminal },
+  );
+  // switching to the summary puts the focus in its chat box
+  useEffect(() => {
+    if (switches === 0 || view !== "summary") return;
+    document.querySelector<HTMLElement>(".thread-footer textarea")?.focus();
+  }, [switches, view]);
   // what the session holds now, in its header
   const held = sessionItems.filter(
     (i) => i.status === "in_progress" && i.claim?.agent === named?.agent && i.claim?.session === named?.id,
@@ -206,6 +234,7 @@ export function Thread({
   const finderRef = useRef<Finder | null>(null);
   useWindowKey((event) => {
     if (!hasMod(event) || event.shiftKey || event.altKey || (event.key !== "f" && event.key !== "F")) return;
+    if (showTerminalRef.current) return;
     // the thread may itself be in the Sessions page's panel
     const panel = document.activeElement?.closest(".review-panel");
     if (modalOpen() || (panel && !panel.contains(timeline.current))) return;
@@ -371,6 +400,7 @@ export function Thread({
             </div>
           </div>
           <span className="thread-head-end">
+            {terminal ? <ViewSwitch view={view} onView={chooseView} /> : null}
             {items.length > 0 ? (
               <span className="thread-counts">
                 {[
@@ -429,7 +459,18 @@ export function Thread({
           ref={body}
           style={{ "--details-width": `${detailsWidth}px` } as React.CSSProperties}
         >
-          <div className="thread-main">
+          {showTerminal ? (
+            <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
+              <TerminalPane terminal={terminal!} autoFocus />
+            </div>
+          ) : null}
+          <div
+            className="thread-main"
+            hidden={showTerminal}
+            {...(terminal && !showTerminal
+              ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
+              : {})}
+          >
             {finding ? (
               <FindBar
                 label="Find in the thread"

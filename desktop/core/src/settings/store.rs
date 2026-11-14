@@ -274,6 +274,18 @@ const LEAVES: &[Leaf] = &[
         "The terminal renderers to try, in order, by id: `ghostty` or `xterm`. `auto` stands for the renderer Pinrail chose, then xterm.js.",
     ),
     (
+        "/runtime/default_view",
+        Kind::Enum(&["last", "summary", "terminal"]),
+        || json!("last"),
+        "The view a session opens in: `last`, the view last used for it, else the summary; `summary`; or `terminal`.",
+    ),
+    (
+        "/runtime/new_run_view",
+        Kind::Enum(&["summary", "terminal"]),
+        || json!("terminal"),
+        "The view the session of an agent you just started opens in.",
+    ),
+    (
         "/runtime/record_turns",
         Kind::Bool,
         || json!(true),

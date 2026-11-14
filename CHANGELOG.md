@@ -16,6 +16,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Settings has a **Labs** section for features still being built. Its
   first switch, **Run agents in Pinrail**, starts the terminal host that
   will run agents for Pinrail and keep them running after the app quits.
+- A session whose agent runs in Pinrail has a **Summary** view and a
+  **Terminal** view, which shows the agent's terminal and takes your
+  typing. Ctrl+` or Cmd+Shift+T (Ctrl+Shift+T on Linux) switches between
+  them, and each session remembers the view you used last.
 - Pinrail can show what each Claude Code session is doing. Turn on
   **Report status** for Claude Code in Settings › Agents, and Pinrail adds
   its hooks to Claude Code's settings, leaving your own settings as they

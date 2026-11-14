@@ -4,6 +4,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { runtime } from "../../api/runtime";
+import { isMac } from "../../lib/keys";
+import { reachesApp } from "../../lib/terminalKeys";
 import { useSettings } from "../../state/settings";
 import { RENDERERS } from "./renderers";
 import { appearanceFrom, TerminalPool, type PooledTerminal, type TerminalState } from "./terminalPool";
@@ -29,7 +31,9 @@ export function terminalPool(): TerminalPool {
 
 const none = () => () => {};
 
-export function TerminalPane({ terminal }: { terminal: string }) {
+/** A hosted terminal; with `autoFocus`, it takes the keyboard once it is
+ *  shown. */
+export function TerminalPane({ terminal, autoFocus = false }: { terminal: string; autoFocus?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
   const renderer = settings.runtime.terminal.renderer;
@@ -72,6 +76,21 @@ export function TerminalPane({ terminal }: { terminal: string }) {
     };
   }, [terminal]);
 
+  useEffect(() => {
+    if (entry && autoFocus) entry.view.focus();
+  }, [entry, autoFocus]);
+
+  // keys the terminal took stay with the program, except those the app
+  // keeps: Cmd on macOS, Ctrl+Shift on Linux, and the view switch
+  useEffect(() => {
+    const pane = host.current!;
+    const keep = (event: KeyboardEvent) => {
+      if (!reachesApp(event, isMac)) event.stopPropagation();
+    };
+    pane.addEventListener("keydown", keep);
+    return () => pane.removeEventListener("keydown", keep);
+  }, []);
+
   const state = useSyncExternalStore(
     entry ? (listener) => entry.subscribe(listener) : none,
     () => entry?.state ?? null,
@@ -102,11 +121,16 @@ function TerminalBar({ state, failed }: { state: TerminalState | null; failed: s
       <span role="status" aria-live="polite">
         {status}
       </span>
-      {grid ? (
-        <span className="terminal-size">
-          {grid.cols} × {grid.rows}
+      <span className="terminal-bar-end">
+        {grid ? (
+          <span className="terminal-size">
+            {grid.cols} × {grid.rows}
+          </span>
+        ) : null}
+        <span className="terminal-hint">
+          <kbd>Ctrl+`</kbd> Summary
         </span>
-      ) : null}
+      </span>
     </div>
   );
 }

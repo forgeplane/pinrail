@@ -30,6 +30,7 @@ describe("the commands", () => {
     expect(by("C", { ...mod, shiftKey: true })).toEqual(["add-item"]);
     expect(by("ArrowDown", { altKey: true })).toEqual(["next-waiting"]);
     expect(by("c", mod)).toEqual([]);
+    expect(by("K", { ...mod, shiftKey: true })).toEqual(isMac ? [] : ["search"]);
     expect(by("3")).toEqual([]);
   });
 });

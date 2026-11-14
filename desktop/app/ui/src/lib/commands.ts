@@ -4,7 +4,7 @@
 // each one does; the palette, the key handler and the menu handler are all
 // built from this table.
 
-import { ALT, MOD, SHIFT, hasMod } from "./keys";
+import { ALT, MOD, SHIFT, hasMod, isMac } from "./keys";
 
 export type CommandId =
   | "search"
@@ -49,7 +49,18 @@ const withAlt = (key: string) => (event: KeyboardEvent) =>
   event.altKey && !hasMod(event) && !event.shiftKey && event.key === key;
 
 export const COMMANDS: Command[] = [
-  { id: "search", keys: [[MOD, "K"]], matches: withMod("k"), menu: true },
+  {
+    id: "search",
+    // on Linux, Ctrl+Shift+K too, which a terminal lets through
+    keys: isMac
+      ? [[MOD, "K"]]
+      : [
+          [MOD, "K"],
+          [MOD, SHIFT, "K"],
+        ],
+    matches: (e) => withMod("k")(e) || (!isMac && withMod("k", true)(e)),
+    menu: true,
+  },
   {
     id: "go-inbox",
     label: "Go to inbox",
