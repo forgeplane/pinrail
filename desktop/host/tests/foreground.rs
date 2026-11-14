@@ -109,6 +109,7 @@ fn terminal(
     let argv = ["sh", "-c", script].map(String::from);
     let spawned = pty::spawn(&argv, dir.path(), &env, 80, 24).unwrap();
     let screen = terminal::screen(80, 24, 100).unwrap();
+    let pid = spawned.pid;
     let terminal = Terminal::start(
         "t_test".to_string(),
         spawned,
@@ -116,8 +117,12 @@ fn terminal(
         (80, 24),
         screen,
         context,
+        Box::new(move || pty::reap(pid)),
     )
     .unwrap();
+    // the program is this process's child, not a holder's
+    let report = terminal.exit_reporter();
+    std::thread::spawn(move || report(pty::wait_exit(pid).unwrap_or(pty::Exit::Code(-1))));
     (terminal, rx, dir)
 }
 

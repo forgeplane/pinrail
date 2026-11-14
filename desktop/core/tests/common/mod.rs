@@ -161,6 +161,8 @@ pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
         data_dir: data_dir.clone(),
         idle_exit: Duration::from_secs(600),
         ping_every: Duration::from_secs(15),
+        // the programs are this process's own, through a holder on a thread
+        holder: pinrail_host::holders::Start::Thread,
     };
     std::thread::spawn(move || pinrail_host::server::serve(config));
     let deadline = Instant::now() + Duration::from_secs(10);

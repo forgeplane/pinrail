@@ -13,6 +13,8 @@ pub mod filter;
 pub mod frame;
 #[cfg(feature = "server")]
 pub mod holder;
+#[cfg(feature = "server")]
+pub mod holders;
 pub mod launch;
 pub mod leader;
 pub mod link;

@@ -23,7 +23,7 @@ use crate::log::Log;
 use crate::outbox::Outbox;
 use crate::paths::Paths;
 use crate::probe::Probe;
-use crate::pty::{self, SpawnError};
+use crate::pty::SpawnError;
 use crate::records::Records;
 use crate::registration::Registration;
 use crate::terminal::{self, AttachError, Reason, SignalError, Terminal};
@@ -46,6 +46,8 @@ pub struct Config {
     pub idle_exit: Duration,
     /// How often the controller hears from an idle host.
     pub ping_every: Duration,
+    /// How to start a holder when none runs.
+    pub holder: crate::holders::Start,
 }
 
 #[derive(Debug)]
@@ -95,6 +97,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
         &log,
         config.idle_exit,
         config.ping_every,
+        config.holder,
     ));
     let _ = fs::remove_file(paths.registration());
     let _ = fs::remove_file(paths.socket());
@@ -146,6 +149,8 @@ struct Shared {
     terminals: Mutex<BTreeMap<String, Terminal>>,
     context: terminal::Context,
     probe: Probe,
+    /// The holders that keep the terminals' PTYs open.
+    holders: Arc<crate::holders::Holders>,
 }
 
 async fn run(
@@ -154,8 +159,10 @@ async fn run(
     log: &Log,
     idle_exit: Duration,
     ping_every: Duration,
+    holder: crate::holders::Start,
 ) -> io::Result<String> {
     let socket = paths.socket();
+    let (exits, mut exited) = tokio::sync::mpsc::unbounded_channel();
     // the lock is ours, so a socket left here is from a host that ended
     let _ = fs::remove_file(&socket);
     let listener = tokio::net::UnixListener::bind(&socket)?;
@@ -177,6 +184,7 @@ async fn run(
             screens: paths.host_dir.join("screens"),
             controlled: Arc::new(AtomicBool::new(false)),
         },
+        holders: Arc::new(crate::holders::Holders::new(paths.clone(), holder, exits)),
     });
     Registration {
         pid: std::process::id(),
@@ -196,6 +204,16 @@ async fn run(
     ));
     let records = shared.context.records.clone();
     tokio::spawn(async move { records.writer().await });
+    // the exits the holders report, to their terminals
+    let exits_to = shared.clone();
+    tokio::spawn(async move {
+        while let Some((_, terminal, exit)) = exited.recv().await {
+            let terminals = exits_to.terminals.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(terminal) = terminals.get(&terminal) {
+                terminal.exited(exit);
+            }
+        }
+    });
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut tick = tokio::time::interval(idle_exit.min(Duration::from_secs(1)));
@@ -643,20 +661,34 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         .records
         .insert_now(&id, record.clone())
         .map_err(|e| Failure("spawn_failed", e.to_string()))?;
-    let spawned = pty::spawn(&argv, Path::new(cwd), &env, cols, rows).map_err(|e| {
+    if !Path::new(cwd).is_dir() {
         shared.context.records.remove(&id);
-        match e {
-            SpawnError::FolderMissing => Failure("folder_missing", format!("{cwd} does not exist")),
-            SpawnError::NotFound(name) => Failure("not_found", format!("{name} was not found")),
-            SpawnError::Io(error) => Failure("spawn_failed", error.to_string()),
-        }
-    })?;
+        return Err(Failure("folder_missing", format!("{cwd} does not exist")));
+    }
+    let (holder, spawned) = shared
+        .holders
+        .spawn(&id, &argv, cwd, &env, (cols, rows))
+        .map_err(|e| {
+            shared.context.records.remove(&id);
+            match e {
+                SpawnError::FolderMissing => {
+                    Failure("folder_missing", format!("{cwd} does not exist"))
+                }
+                SpawnError::NotFound(name) => Failure("not_found", format!("{name} was not found")),
+                SpawnError::Io(error) => Failure("spawn_failed", error.to_string()),
+            }
+        })?;
+    record["holder"] = json!(holder);
     record["pid"] = json!(spawned.pid);
     record["process_started"] = json!(spawned.started);
     shared.context.records.update(&id, |r| *r = record);
     let screen = terminal::screen(cols, rows, SCROLLBACK_LINES)
         .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let pid = spawned.pid;
+    let forget = {
+        let (holders, holder, id) = (shared.holders.clone(), holder.clone(), id.clone());
+        Box::new(move || holders.forget(&holder, &id))
+    };
     let terminal = Terminal::start(
         id.clone(),
         spawned,
@@ -664,6 +696,7 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         (cols, rows),
         screen,
         shared.context.clone(),
+        forget,
     )
     .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let info = terminal.info();

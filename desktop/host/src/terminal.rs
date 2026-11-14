@@ -263,6 +263,9 @@ pub enum SignalError {
 impl Terminal {
     /// Starts the threads and the actor of a spawned program, whose screen
     /// is `screen`. Must be called inside the runtime.
+    /// Starts reading a terminal whose program has been spawned. The
+    /// program's exit comes through [`Terminal::exited`]; `forget` runs once
+    /// the terminal has ended and nothing signals the program any more.
     pub fn start(
         id: String,
         spawned: Spawned,
@@ -270,6 +273,7 @@ impl Terminal {
         (cols, rows): (u16, u16),
         screen: Box<dyn Screen>,
         context: Context,
+        forget: Box<dyn FnOnce() + Send>,
     ) -> io::Result<Self> {
         let pid = spawned.pid;
         let state = Arc::new(Mutex::new(State {
@@ -300,20 +304,12 @@ impl Terminal {
         std::thread::Builder::new()
             .name("pty-writer".to_string())
             .spawn(move || write_pty(writer_master, input_rx))?;
-        let exited = commands.clone();
-        std::thread::Builder::new()
-            .name("pty-waiter".to_string())
-            .spawn(move || {
-                let exit = pty::wait_exit(pid).unwrap_or(Exit::Code(-1));
-                let _ = exited.send(Command::Exited(exit));
-            })?;
         tokio::spawn(actor(Actor {
             id,
             screen,
             state: state.clone(),
             input: Some(input_tx),
             wake: Some(wake_write),
-            pid,
             output: output_rx,
             commands: commands_rx,
             context,
@@ -331,8 +327,25 @@ impl Terminal {
             ended: false,
             focus_reporting: false,
             focused: false,
+            forget: Some(forget),
         }));
         Ok(Self { state, commands })
+    }
+
+    /// The program exited, as its holder reports.
+    pub fn exited(&self, exit: Exit) {
+        let _ = self.commands.send(Command::Exited(exit));
+    }
+
+    /// Reports the program's exit, for a program spawned without a holder,
+    /// such as a test's. It does not keep the terminal running.
+    pub fn exit_reporter(&self) -> impl Fn(Exit) + Send + 'static {
+        let commands = self.commands.downgrade();
+        move |exit| {
+            if let Some(commands) = commands.upgrade() {
+                let _ = commands.send(Command::Exited(exit));
+            }
+        }
     }
 
     pub fn info(&self) -> Info {
@@ -492,7 +505,6 @@ struct Actor {
     input: Option<std::sync::mpsc::Sender<Vec<u8>>>,
     /// Written to stop the reader; dropped when the terminal ends.
     wake: Option<io::PipeWriter>,
-    pid: u32,
     output: mpsc::Receiver<Output>,
     commands: mpsc::UnboundedReceiver<Command>,
     context: Context,
@@ -521,6 +533,8 @@ struct Actor {
     /// The PTY's size, as columns and rows.
     size: (u16, u16),
     ended: bool,
+    /// Tells the holder the host is done with the terminal.
+    forget: Option<Box<dyn FnOnce() + Send>>,
 }
 
 /// Applies output and commands in the order they come, until the terminal
@@ -1112,9 +1126,9 @@ impl Actor {
         text
     }
 
-    /// Records the exit, stops the reader and the writer, reaps the
-    /// program, which nothing signals any more, keeps the final screen and
-    /// reports the exit.
+    /// Records the exit, stops the reader and the writer, has the holder
+    /// forget the terminal and reap the program, which nothing signals any
+    /// more, keeps the final screen and reports the exit.
     fn end(&mut self, status: Exit) {
         let (reason, ended_at) = {
             let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -1126,9 +1140,11 @@ impl Actor {
             state.info.ended_at = Some(ended_at.clone());
             state.info.exit = Some(status);
             state.master = None;
-            pty::reap(self.pid);
             (reason, ended_at)
         };
+        if let Some(forget) = self.forget.take() {
+            forget();
+        }
         if let Some(typing) = self.typing.take() {
             let _ = typing.reply.send(Err(SubmitError::Exited));
         }

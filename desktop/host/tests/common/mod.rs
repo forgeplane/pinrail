@@ -54,16 +54,34 @@ pub fn run(folders: &Folders, args: &[&str]) -> Output {
     command(folders, args).output().unwrap()
 }
 
-/// A running `serve`, killed when dropped.
+/// A running `serve`, killed when dropped with the holders it started,
+/// which would otherwise keep the test's programs running.
 pub struct Host {
     pub child: Child,
     pub registration: Registration,
+    pub holders: PathBuf,
 }
 
 impl Drop for Host {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        kill_holders(&self.holders);
+    }
+}
+
+/// Kills the holders whose locks are in `dir`, by the pids they wrote.
+pub fn kill_holders(dir: &std::path::Path) {
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        if let Some(pid) = std::fs::read_to_string(entry.path())
+            .ok()
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            let _ = Command::new("kill")
+                .args(["-9", &pid.to_string()])
+                .stderr(Stdio::null())
+                .status();
+        }
     }
 }
 
@@ -88,6 +106,7 @@ pub fn serve(folders: &Folders, extra: &[&str]) -> Host {
             return Host {
                 child,
                 registration,
+                holders: folders.data.join("host/holders"),
             };
         }
         if let Some(status) = child.try_wait().unwrap() {

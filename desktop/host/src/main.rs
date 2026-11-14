@@ -174,6 +174,9 @@ Options:
             data_dir: args.data_dir,
             idle_exit: args.idle_exit,
             ping_every: args.ping_every,
+            holder: pinrail_host::holders::Start::Process(
+                std::env::current_exe().unwrap_or_else(|_| "pinrail-host".into()),
+            ),
         }) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => fail(&error.to_string()),

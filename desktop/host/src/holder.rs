@@ -85,54 +85,91 @@ pub fn instances(socket_dir: &Path) -> Vec<String> {
     found
 }
 
-/// Runs a holder for `data_dir` until it has kept no terminal and had no
-/// host connected for `alone_exit`. Prints its instance id on standard
-/// output once it listens.
-pub fn hold(data_dir: &Path, alone_exit: Duration) -> io::Result<()> {
+/// A holder that listens, ready to run.
+pub struct Listening {
+    instance: String,
+    socket: PathBuf,
+    listener: UnixListener,
+    registration: PathBuf,
+    _lock: File,
+}
+
+/// Starts a holder for `data_dir`: takes its lock and listens on its
+/// socket. The agents inherit its open-file limit, which it raises first,
+/// since launchd starts processes with 256.
+pub fn listen(data_dir: &Path) -> io::Result<Listening> {
     let paths = Paths::new(data_dir);
     paths.create()?;
-    // the agents inherit the limit, and launchd starts processes with 256
     crate::sys::raise_open_files(8_192);
     let instance = crate::random_hex(4);
     let holders = paths.host_dir.join("holders");
     std::fs::create_dir_all(&holders)?;
-    let _lock = take_lock(&holders.join(format!("{instance}.lock")))?;
+    let lock = take_lock(&holders.join(format!("{instance}.lock")))?;
     let socket = socket_path(&paths.socket_dir, &instance);
     let _ = std::fs::remove_file(&socket);
     let listener = UnixListener::bind(&socket)?;
     std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
     listener.set_nonblocking(true)?;
-    println!("{instance}");
-    let state: Shared = Arc::new(Mutex::new(State {
-        alone_since: Some(Instant::now()),
-        ..State::default()
-    }));
-    let registration = paths.registration();
-    loop {
-        match listener.accept() {
-            Ok((stream, _)) => {
-                let state = state.clone();
-                let (registration, instance) = (registration.clone(), instance.clone());
-                std::thread::spawn(move || serve(stream, &state, &registration, &instance));
+    Ok(Listening {
+        instance,
+        socket,
+        listener,
+        registration: paths.registration(),
+        _lock: lock,
+    })
+}
+
+impl Listening {
+    pub fn instance(&self) -> &str {
+        &self.instance
+    }
+
+    /// Serves hosts until the holder has kept no terminal and had no host
+    /// connected for `alone_exit`.
+    pub fn run(self, alone_exit: Duration) -> io::Result<()> {
+        let state: Shared = Arc::new(Mutex::new(State {
+            alone_since: Some(Instant::now()),
+            ..State::default()
+        }));
+        loop {
+            match self.listener.accept() {
+                Ok((stream, _)) => {
+                    let state = state.clone();
+                    let (registration, instance) =
+                        (self.registration.clone(), self.instance.clone());
+                    std::thread::spawn(move || serve(stream, &state, &registration, &instance));
+                }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                Err(e) => return Err(e),
             }
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                std::thread::sleep(Duration::from_millis(100));
+            let done = {
+                let state = lock(&state);
+                state.terminals.is_empty()
+                    && state.host.is_none()
+                    && state
+                        .alone_since
+                        .is_some_and(|since| since.elapsed() >= alone_exit)
+            };
+            if done {
+                let _ = std::fs::remove_file(&self.socket);
+                return Ok(());
             }
-            Err(e) => return Err(e),
-        }
-        let done = {
-            let state = lock(&state);
-            state.terminals.is_empty()
-                && state.host.is_none()
-                && state
-                    .alone_since
-                    .is_some_and(|since| since.elapsed() >= alone_exit)
-        };
-        if done {
-            let _ = std::fs::remove_file(&socket);
-            return Ok(());
         }
     }
+}
+
+/// Runs a holder for `data_dir` until it has kept no terminal and had no
+/// host connected for `alone_exit`. Prints its instance id on standard
+/// output once it listens.
+pub fn hold(data_dir: &Path, alone_exit: Duration) -> io::Result<()> {
+    let listening = listen(data_dir)?;
+    println!("{}", listening.instance());
+    // the host reads the line, then no more
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    listening.run(alone_exit)
 }
 
 fn take_lock(path: &Path) -> io::Result<File> {
@@ -144,6 +181,10 @@ fn take_lock(path: &Path) -> io::Result<File> {
         .open(path)?;
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
     file.try_lock().map_err(io::Error::other)?;
+    // the holder's process, for status and for tests to clean up
+    use std::io::Write;
+    file.set_len(0)?;
+    (&file).write_all(std::process::id().to_string().as_bytes())?;
     Ok(file)
 }
 
