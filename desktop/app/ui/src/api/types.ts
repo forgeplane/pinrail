@@ -486,6 +486,7 @@ export type ServerSettings = {
   telemetry?: { usage: boolean; crashes: boolean; notice_shown: string | null };
   /** features still being built */
   labs?: { runtime?: boolean };
+  runtime?: { terminal?: { renderer?: string[] } };
   [key: string]: unknown;
 };
 

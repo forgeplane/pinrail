@@ -57,6 +57,9 @@ export type Settings = {
   telemetry: { usage: boolean; crashes: boolean; notice_shown: string | null };
   /** features still being built, off until turned on */
   labs: { runtime: boolean };
+  /** the agent runtime: the renderers the window tries for a terminal, in
+   *  order, where `auto` is the app's own order */
+  runtime: { terminal: { renderer: string[] } };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -128,6 +131,7 @@ type Served = Pick<
   | "whats_new"
   | "telemetry"
   | "labs"
+  | "runtime"
 >;
 /** The sidebar's sessions as they are listed until the person changes it. */
 const SESSIONS: Settings["sidebar"]["sessions"] = { ...DEFAULT_CHOICES, collapsed: [] };
@@ -173,6 +177,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     notice_shown: s.telemetry?.notice_shown ?? null,
   },
   labs: { runtime: s.labs?.runtime ?? false },
+  runtime: { terminal: { renderer: s.runtime?.terminal?.renderer ?? ["auto"] } },
 });
 
 const mergeLinks = (current: Settings["links"], patch?: Patch["links"]): Settings["links"] => {
@@ -218,6 +223,7 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     whats_new: { ...base.whats_new, ...patch.whats_new },
     telemetry: { ...base.telemetry, ...patch.telemetry },
     labs: { ...base.labs, ...patch.labs },
+    runtime: base.runtime,
   };
 }
 
@@ -269,6 +275,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     whats_new: { seen: null },
     telemetry: { usage: true, crashes: true, notice_shown: null },
     labs: { runtime: false },
+    runtime: { terminal: { renderer: ["auto"] } },
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);

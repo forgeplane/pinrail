@@ -7645,3 +7645,34 @@ a.item-ref {
 .suggested-reply kbd {
   margin-right: 4px;
 }
+
+/* A hosted terminal: the view fills the pane above its bar. */
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg);
+}
+.terminal-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.terminal-surface {
+  position: absolute;
+  inset: 0;
+}
+.terminal-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font: var(--text-xs) var(--font);
+}
+.terminal-size {
+  font-family: var(--mono);
+}

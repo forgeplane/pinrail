@@ -96,7 +96,8 @@ async function writeHeaders(contentType?: string): Promise<Record<string, string
   return headers;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** A call to the core's API, as JSON; a write carries the person token. */
+export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${await serverUrl()}${path}`, {
     method,
     // the core refuses a write that does not say it is JSON, even an empty one
