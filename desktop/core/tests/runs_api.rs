@@ -204,6 +204,12 @@ async fn a_start_that_cannot_happen_answers_with_its_reason() {
         .settings()
         .change(&json!({"labs": {"runtime": false}}))
         .unwrap();
+    // the link closes once the settings event is handled
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.state.runtime().status()["state"] == "ready" {
+        assert!(Instant::now() < deadline, "the runtime did not stop");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
     let (status, answer) = call(
         &app,
         "POST",
