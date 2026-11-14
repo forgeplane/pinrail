@@ -201,6 +201,7 @@ fn terminal(script: &str) -> (Terminal, tempfile::TempDir) {
         pinrail_host::terminal::Holding {
             forget: Box::new(move || pty::reap(pid)),
             ring: None,
+            held: Vec::new(),
         },
     )
     .unwrap();

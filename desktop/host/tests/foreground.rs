@@ -120,6 +120,7 @@ fn terminal(
         pinrail_host::terminal::Holding {
             forget: Box::new(move || pty::reap(pid)),
             ring: None,
+            held: Vec::new(),
         },
     )
     .unwrap();

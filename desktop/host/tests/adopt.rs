@@ -176,3 +176,72 @@ fn the_holder_starts_a_host_when_none_comes_back() {
         .status();
     common::kill_holders(&holders);
 }
+
+/// Hands the first host's terminal over in `format`, and returns what the
+/// second host shows.
+fn hand_over_in(format: &str) {
+    let folders = folders();
+    let mut first = serve(&folders, &[]);
+    let mut client = connect(&first);
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", "printf '\\033]2;Agent title\\007'; echo ready; read go; echo after:$go; while read line; do echo got:$line; done"],
+                   "cwd": folders.runtime, "cols": 80, "rows": 24,
+                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host",
+                   "labels": {"run": "run_1"}}),
+        )
+        .unwrap();
+    let terminal = spawned["terminal"].as_str().unwrap().to_string();
+    let pid = spawned["pid"].as_u64().unwrap();
+    wait_for(&mut client, &terminal, "ready");
+
+    // an update: the old host hands over and exits, its agents running
+    client
+        .call(
+            "host.stop",
+            json!({"stop_terminals": false, "formats": [format, "vt"]}),
+        )
+        .ok();
+    assert!(common::exits_within(&mut first, Duration::from_secs(10)));
+    let file = folders
+        .data
+        .join(format!("host/handover/{terminal}.handover"));
+    let header = std::fs::read(&file).unwrap();
+    let header: Value =
+        serde_json::from_slice(&header[..header.iter().position(|&b| b == b'\n').unwrap()])
+            .unwrap();
+    assert_eq!(header["format"], format);
+    drop(client);
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    let second = serve(&folders, &[]);
+    let mut client = connect(&second);
+    let terminals = listed(&mut client);
+    assert_eq!(terminals[0]["pid"], pid);
+    assert!(!file.exists(), "the hand-over file was kept");
+    let screen = wait_for(&mut client, &terminal, "ready");
+    assert!(!screen.contains("after:"), "{screen}");
+    client
+        .call(
+            "terminal.submit",
+            json!({"terminal": terminal, "text": "now", "bracketed": false, "anyway": true}),
+        )
+        .unwrap();
+    wait_for(&mut client, &terminal, "after:now");
+    drop(second);
+}
+
+#[test]
+fn an_update_hands_the_screens_over_as_a_paint() {
+    hand_over_in("vt");
+}
+
+#[test]
+fn an_update_hands_the_screens_over_as_a_binary_snapshot() {
+    hand_over_in(&format!(
+        "ghostty-bin;vt-{}",
+        pinrail_screen::ghostty::version()
+    ));
+}

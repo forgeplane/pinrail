@@ -151,6 +151,8 @@ struct Shared {
     probe: Probe,
     /// The holders that keep the terminals' PTYs open.
     holders: Arc<crate::holders::Holders>,
+    /// Where a host that hands its terminals over writes their screens.
+    hand_over_dir: PathBuf,
 }
 
 async fn run(
@@ -185,6 +187,7 @@ async fn run(
             controlled: Arc::new(AtomicBool::new(false)),
         },
         holders: Arc::new(crate::holders::Holders::new(paths.clone(), holder, exits)),
+        hand_over_dir: paths.host_dir.join("handover"),
     });
     Registration {
         pid: std::process::id(),
@@ -273,17 +276,29 @@ fn adopt(shared: &Arc<Shared>) {
             continue;
         };
         let (cols, rows) = crate::pty::size(&spawned.master).unwrap_or((80, 24));
-        let Ok(mut screen) = terminal::screen(cols, rows, SCROLLBACK_LINES) else {
-            continue;
-        };
         let ring = ring.and_then(|fd| crate::ring::SharedRing::open(fd).ok());
-        if let Some(ring) = &ring {
-            let (mut replies, mut signals) = (Vec::new(), Vec::new());
-            screen.feed(&ring.read(), &mut replies, &mut signals);
-        }
-        // a different size, then the size again: the program redraws
-        let _ = crate::pty::resize(&spawned.master, cols.saturating_sub(1).max(1), rows);
-        let _ = crate::pty::resize(&spawned.master, cols, rows);
+        // after an update, the screen the previous host handed over;
+        // after a crash, the output ring
+        let handed = read_hand_over(&shared.hand_over_dir.join(format!("{id}.handover")));
+        let restored = handed
+            .as_ref()
+            .and_then(|h| restore(h, (cols, rows)).map(|screen| (screen, h)));
+        let (screen, last_input_at, held) = match restored {
+            Some((screen, h)) => (screen, h.last_input_at.clone(), h.held.clone()),
+            None => {
+                let Ok(mut screen) = terminal::screen(cols, rows, SCROLLBACK_LINES) else {
+                    continue;
+                };
+                if let Some(ring) = &ring {
+                    let (mut replies, mut signals) = (Vec::new(), Vec::new());
+                    screen.feed(&ring.read(), &mut replies, &mut signals);
+                }
+                // a different size, then the size again: the program redraws
+                let _ = crate::pty::resize(&spawned.master, cols.saturating_sub(1).max(1), rows);
+                let _ = crate::pty::resize(&spawned.master, cols, rows);
+                (screen, None, Vec::new())
+            }
+        };
         let labels = record["labels"].clone();
         let forget = {
             let (holders, holder, id) = (shared.holders.clone(), holder.clone(), id.clone());
@@ -296,11 +311,11 @@ fn adopt(shared: &Arc<Shared>) {
             (cols, rows),
             screen,
             shared.context.clone(),
-            terminal::Holding { forget, ring },
+            terminal::Holding { forget, ring, held },
         ) else {
             continue;
         };
-        terminal.adopted();
+        terminal.adopted_with(last_input_at);
         if let Some(exit) = exit {
             terminal.exited(exit);
         }
@@ -310,6 +325,54 @@ fn adopt(shared: &Arc<Shared>) {
             .unwrap_or_else(|e| e.into_inner())
             .insert(id, terminal);
     }
+}
+
+/// A screen a previous host handed over.
+struct HandedOver {
+    format: String,
+    last_input_at: Option<String>,
+    held: Vec<u8>,
+    bytes: Vec<u8>,
+}
+
+/// Reads a hand-over file and deletes it before anything uses it, so that
+/// a host that crashes while it restores the screen never leaves a stale
+/// one for the next.
+fn read_hand_over(file: &Path) -> Option<HandedOver> {
+    let content = fs::read(file).ok()?;
+    let _ = fs::remove_file(file);
+    let newline = content.iter().position(|&b| b == b'\n')?;
+    let header: Value = serde_json::from_slice(&content[..newline]).ok()?;
+    Some(HandedOver {
+        format: header["format"].as_str()?.to_string(),
+        last_input_at: header["last_input_at"].as_str().map(str::to_string),
+        held: header["held"]
+            .as_array()
+            .map(|b| {
+                b.iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u8))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        bytes: content[newline + 1..].to_vec(),
+    })
+}
+
+/// The screen a hand-over describes, with replies and signals discarded,
+/// or `None` when it cannot be restored and the ring has to do.
+fn restore(
+    handed: &HandedOver,
+    (cols, rows): (u16, u16),
+) -> Option<Box<dyn pinrail_screen::Screen>> {
+    if handed.format == "vt" {
+        let mut screen = terminal::screen(cols, rows, SCROLLBACK_LINES).ok()?;
+        let (mut replies, mut signals) = (Vec::new(), Vec::new());
+        screen.feed(&handed.bytes, &mut replies, &mut signals);
+        return Some(screen);
+    }
+    let screen =
+        pinrail_screen::ghostty::Terminal::restore(&handed.bytes, SCROLLBACK_LINES).ok()?;
+    Some(Box::new(screen))
 }
 
 /// How long a closing connection's queued frames get to go out.
@@ -521,11 +584,19 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             false,
         ),
         "host.stop" => {
-            if params(&message)
-                .get("stop_terminals")
-                .and_then(Value::as_bool)
-                != Some(false)
-            {
+            let params = params(&message);
+            if params.get("stop_terminals").and_then(Value::as_bool) == Some(false) {
+                let formats: Vec<String> = params
+                    .get("formats")
+                    .and_then(Value::as_array)
+                    .map(|f| {
+                        f.iter()
+                            .filter_map(|v| v.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_else(|| vec!["vt".to_string()]);
+                shared.hand_over(&formats).await;
+            } else {
                 shared.stop_all().await;
             }
             (Some(result(id, json!({}))), true)
@@ -604,6 +675,28 @@ fn reply(id: Value, outcome: Result<Value, Failure>) -> Value {
 impl Shared {
     /// Stops every live terminal as the host shuts down, and waits until
     /// they have ended.
+    /// Hands every live terminal over to the next host, which finds the
+    /// screens in `<data dir>/host/handover/`. The programs keep running
+    /// in their holders.
+    async fn hand_over(&self, formats: &[String]) {
+        let answers: Vec<_> = {
+            let terminals = self.terminals.lock().unwrap_or_else(|e| e.into_inner());
+            terminals
+                .iter()
+                .filter(|(_, t)| t.info().ended_at.is_none())
+                .map(|(id, t)| {
+                    t.hand_over(
+                        self.hand_over_dir.join(format!("{id}.handover")),
+                        formats.to_vec(),
+                    )
+                })
+                .collect()
+        };
+        for answer in answers {
+            let _ = tokio::time::timeout(Duration::from_secs(5), answer).await;
+        }
+    }
+
     async fn stop_all(&self) {
         {
             let terminals = self.terminals.lock().unwrap_or_else(|e| e.into_inner());
@@ -775,7 +868,11 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         (cols, rows),
         screen,
         shared.context.clone(),
-        terminal::Holding { forget, ring },
+        terminal::Holding {
+            forget,
+            ring,
+            held: Vec::new(),
+        },
     )
     .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let info = terminal.info();

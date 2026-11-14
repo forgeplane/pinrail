@@ -219,6 +219,11 @@ enum Command {
         lines: usize,
         reply: oneshot::Sender<String>,
     },
+    HandOver {
+        file: std::path::PathBuf,
+        formats: Vec<String>,
+        reply: oneshot::Sender<io::Result<()>>,
+    },
 }
 
 /// What the actor and the handle share, under one lock: signals are sent
@@ -253,6 +258,9 @@ pub struct Holding {
     pub forget: Box<dyn FnOnce() + Send>,
     /// The output ring in shared memory, which the holder keeps too.
     pub ring: Option<crate::ring::SharedRing>,
+    /// The bytes of an unfinished sequence that the previous host's query
+    /// filter held back, after a hand-over.
+    pub held: Vec<u8>,
 }
 
 /// A running or ended terminal. Dropping it ends its actor.
@@ -283,7 +291,11 @@ impl Terminal {
         context: Context,
         holding: Holding,
     ) -> io::Result<Self> {
-        let Holding { forget, ring } = holding;
+        let Holding { forget, ring, held } = holding;
+        // the sequence the previous host held stays held, unfed, until it
+        // is complete
+        let mut filter = QueryFilter::default();
+        filter.push(&held, &mut Vec::new(), &mut |_| 0);
         let pid = spawned.pid;
         let state = Arc::new(Mutex::new(State {
             info: Info {
@@ -329,7 +341,7 @@ impl Terminal {
             last_output: Instant::now(),
             typing: None,
             held: Vec::new(),
-            filter: QueryFilter::default(),
+            filter,
             for_viewers: Vec::new(),
             viewers: Viewers::with_shared(ring),
             size: (cols, rows),
@@ -345,7 +357,31 @@ impl Terminal {
     /// is unknown, so it counts as just now, and the input guard holds a
     /// message until the agent is next idle.
     pub fn adopted(&self) {
-        self.lock().last_input_at = Some(crate::now());
+        self.adopted_with(None);
+    }
+
+    /// Marks the terminal as adopted, with the last input a hand-over
+    /// recorded, or now when there is none.
+    pub fn adopted_with(&self, last_input_at: Option<String>) {
+        self.lock().last_input_at = Some(last_input_at.unwrap_or_else(crate::now));
+    }
+
+    /// Hands the terminal over to the next host: stops reading the PTY,
+    /// applies what was read, and writes the screen to `file` in the first
+    /// of `formats` it can produce. The program's later output waits in
+    /// the PTY for the next host. Answers once the file is written.
+    pub fn hand_over(
+        &self,
+        file: std::path::PathBuf,
+        formats: Vec<String>,
+    ) -> oneshot::Receiver<io::Result<()>> {
+        let (reply, answer) = oneshot::channel();
+        let _ = self.commands.send(Command::HandOver {
+            file,
+            formats,
+            reply,
+        });
+        answer
     }
 
     /// The program exited, as its holder reports.
@@ -613,6 +649,23 @@ async fn actor(mut actor: Actor) {
                 }
                 Some(Command::Text { lines, reply }) => {
                     let _ = reply.send(actor.text(lines));
+                }
+                Some(Command::HandOver { file, formats, reply }) => {
+                    // the reader stops; what it read still counts
+                    if let Some(mut wake) = actor.wake.take() {
+                        let _ = wake.write_all(b"x");
+                    }
+                    while !reader_done {
+                        match actor.output.recv().await {
+                            Some(Output::Bytes(bytes)) => actor.apply(&bytes),
+                            Some(Output::Done) | None => reader_done = true,
+                        }
+                    }
+                    actor.viewers.send_gathered();
+                    let _ = reply.send(actor.write_hand_over(&file, &formats));
+                    // the holder keeps the program: nothing is forgotten
+                    actor.forget = None;
+                    break;
                 }
                 None => break,
             },
@@ -1129,6 +1182,45 @@ impl Actor {
                 }
             }
         }
+    }
+
+    /// Writes the hand-over file: a JSON header line with the format, the
+    /// size, the last input and the bytes the filter holds, then the
+    /// screen, as libghostty-vt's binary snapshot when the next host reads
+    /// the same build, else as a first paint any emulator reads.
+    fn write_hand_over(&self, file: &Path, formats: &[String]) -> io::Result<()> {
+        let binary = self.screen.binary_snapshot();
+        let paint = || self.screen.first_paint(crate::server::SCROLLBACK_LINES);
+        // the first format the next host reads that this screen produces
+        let (format, bytes) = formats
+            .iter()
+            .find_map(|wanted| {
+                if wanted == "vt" {
+                    return Some(("vt".to_string(), paint()));
+                }
+                binary
+                    .as_ref()
+                    .filter(|b| b.format == *wanted)
+                    .map(|b| (b.format.clone(), b.bytes.clone()))
+            })
+            .unwrap_or_else(|| ("vt".to_string(), paint()));
+        let header = json!({
+            "format": format,
+            "cols": self.size.0,
+            "rows": self.size.1,
+            "last_input_at": self.state.lock().unwrap_or_else(|e| e.into_inner()).last_input_at,
+            "held": self.filter.held(),
+        });
+        if let Some(dir) = file.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let partial = file.with_extension("partial");
+        let mut out = std::fs::File::create(&partial)?;
+        out.write_all(header.to_string().as_bytes())?;
+        out.write_all(b"\n")?;
+        out.write_all(&bytes)?;
+        out.sync_all()?;
+        std::fs::rename(partial, file)
     }
 
     fn text(&self, lines: usize) -> String {
