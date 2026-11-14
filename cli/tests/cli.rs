@@ -12,6 +12,8 @@ type Handler = Box<dyn FnMut(&str, &str, &str) -> (u16, String) + Send>;
 struct MockServer {
     url: String,
     requests: Arc<Mutex<Vec<String>>>,
+    /// The Authorization header of each request that had one.
+    authorizations: Arc<Mutex<Vec<String>>>,
 }
 
 impl MockServer {
@@ -22,17 +24,27 @@ impl MockServer {
     fn start_on(listener: TcpListener, handler: Handler) -> Self {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let requests = Arc::new(Mutex::new(Vec::new()));
+        let authorizations = Arc::new(Mutex::new(Vec::new()));
         let seen = requests.clone();
+        let auth = authorizations.clone();
         let handler = Arc::new(Mutex::new(handler));
         thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(stream) = stream else { break };
                 let handler = handler.clone();
-                let seen = seen.clone();
-                thread::spawn(move || serve_one(stream, handler, seen));
+                let (seen, auth) = (seen.clone(), auth.clone());
+                thread::spawn(move || serve_one(stream, handler, seen, auth));
             }
         });
-        MockServer { url, requests }
+        MockServer {
+            url,
+            requests,
+            authorizations,
+        }
+    }
+
+    fn authorizations(&self) -> Vec<String> {
+        self.authorizations.lock().unwrap().clone()
     }
 
     fn requests(&self) -> Vec<String> {
@@ -40,7 +52,12 @@ impl MockServer {
     }
 }
 
-fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mutex<Vec<String>>>) {
+fn serve_one(
+    mut stream: TcpStream,
+    handler: Arc<Mutex<Handler>>,
+    seen: Arc<Mutex<Vec<String>>>,
+    auth: Arc<Mutex<Vec<String>>>,
+) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut line = String::new();
     if reader.read_line(&mut line).unwrap_or(0) == 0 {
@@ -59,6 +76,11 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
         }
         if let Some(v) = header.to_ascii_lowercase().strip_prefix("content-length:") {
             content_length = v.trim().parse().unwrap_or(0);
+        }
+        if header.to_ascii_lowercase().starts_with("authorization:") {
+            auth.lock()
+                .unwrap()
+                .push(header["authorization:".len()..].trim().to_string());
         }
         if let Some(v) = header.to_ascii_lowercase().strip_prefix("content-type:") {
             json = v.trim().starts_with("application/json");
@@ -318,7 +340,12 @@ fn wait_survives_the_server_going_away_and_coming_back() {
         let answer = |stream, status, body: String| {
             let handler: Arc<Mutex<Handler>> =
                 Arc::new(Mutex::new(Box::new(move |_, _, _| (status, body.clone()))));
-            serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
+            serve_one(
+                stream,
+                handler,
+                Arc::new(Mutex::new(Vec::new())),
+                Arc::new(Mutex::new(Vec::new())),
+            );
         };
         answer(listener.accept().unwrap().0, 204, String::new());
         drop(listener.accept().unwrap().0);
@@ -4688,4 +4715,122 @@ fn a_hook_never_starts_the_server_and_never_waits_long() {
     assert!(took < std::time::Duration::from_millis(1_500), "{took:?}");
     drop(stalled);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A data folder with the person token the app writes while
+/// /runtime/cli_control is on.
+fn data_dir_with_token(token: &str) -> TempDir {
+    let dir = tempdir();
+    std::fs::write(dir.0.join("person-token"), format!("{token}\n")).unwrap();
+    dir
+}
+
+#[test]
+fn the_commands_that_act_as_the_person_need_cli_control() {
+    let server = MockServer::start(Box::new(|_, _, _| (200, "{}".into())));
+    let empty = tempdir();
+    for args in [
+        &["start", "claude-code"][..],
+        &["runs"],
+        &["stop", "run_1"],
+        &["host", "status"],
+    ] {
+        let out = pinrail()
+            .args(args)
+            .env("PINRAIL_URL", &server.url)
+            .env("PINRAIL_DATA_DIR", &empty.0)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1), "{args:?}");
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("/runtime/cli_control"),
+            "{args:?}"
+        );
+    }
+    assert!(server.requests().is_empty());
+}
+
+#[test]
+fn start_runs_an_agent_as_the_person_and_says_how_to_attach() {
+    let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
+        ("POST", "/api/v1/runs") => {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            assert_eq!(body["agent"], "claude-code");
+            assert_eq!(body["task"], "fix the login");
+            assert_eq!(body["args"], serde_json::json!(["--model", "opus"]));
+            assert!(body["folder"].as_str().unwrap().ends_with("work"));
+            (
+                    201,
+                    r#"{"run":{"id":"run_1","agent":"claude-code","state":"running","folder":"/w/work"},
+                        "session":{"agent":"claude-code","id":"s-1"}}"#
+                        .into(),
+                )
+        }
+        _ => (404, "{}".into()),
+    }));
+    let data = data_dir_with_token("tok");
+    let work = data.0.join("work");
+    std::fs::create_dir(&work).unwrap();
+    let out = pinrail()
+        .env_remove("PINRAIL_JSON")
+        .args([
+            "start",
+            "claude-code",
+            "--task",
+            "fix the login",
+            "--folder",
+        ])
+        .arg(&work)
+        .args(["--", "--model", "opus"])
+        .env("PINRAIL_URL", &server.url)
+        .env("PINRAIL_DATA_DIR", &data.0)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(stdout.contains("Session: claude-code/s-1"), "{stdout}");
+    assert!(stdout.contains("pinrail attach run_1"), "{stdout}");
+    assert_eq!(server.authorizations(), ["Bearer tok"]);
+}
+
+#[test]
+fn runs_and_stop_go_to_the_runs_routes() {
+    let server = MockServer::start(Box::new(|method, path, body| {
+        match (method, path) {
+        ("GET", "/api/v1/runs?state=live") => (
+            200,
+            r#"{"runs":[{"id":"run_1","state":"running","agent":"codex","folder":"/w","session":null,"end_reason":null}]}"#.into(),
+        ),
+        ("POST", "/api/v1/runs/run_1/stop") => {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            assert_eq!(body["force"], true);
+            (202, String::new())
+        }
+        _ => (404, "{}".into()),
+    }
+    }));
+    let data = data_dir_with_token("tok");
+    let run = |args: &[&str]| {
+        pinrail()
+            .env_remove("PINRAIL_JSON")
+            .args(args)
+            .env("PINRAIL_URL", &server.url)
+            .env("PINRAIL_DATA_DIR", &data.0)
+            .output()
+            .unwrap()
+    };
+    let listed = run(&["runs", "--live"]);
+    assert_eq!(
+        String::from_utf8_lossy(&listed.stdout),
+        "- run_1 · running · codex · /w\n"
+    );
+    let stopped = run(&["stop", "run_1", "--force"]);
+    assert_eq!(stopped.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&stopped.stdout).starts_with("Stopping run_1."));
+    assert_eq!(server.authorizations(), ["Bearer tok", "Bearer tok"]);
 }

@@ -69,6 +69,8 @@ impl std::error::Error for ApiError {}
 pub struct Client {
     agent: Agent,
     base: String,
+    /// The person token, for the commands that act as the person.
+    person: Option<String>,
 }
 
 /// What an install asks the app for.
@@ -148,6 +150,20 @@ impl Client {
         Client {
             agent: Self::agent(Duration::from_secs(15)),
             base: base.trim_end_matches('/').to_string(),
+            person: None,
+        }
+    }
+
+    /// The client, sending the person token with each request.
+    pub fn with_person_token(mut self, token: String) -> Self {
+        self.person = Some(token);
+        self
+    }
+
+    fn person_header<B>(&self, request: ureq::RequestBuilder<B>) -> ureq::RequestBuilder<B> {
+        match &self.person {
+            Some(token) => request.header("authorization", format!("Bearer {token}")),
+            None => request,
         }
     }
 
@@ -447,7 +463,7 @@ impl Client {
     }
 
     pub(crate) fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {
-        let mut req = self.agent.get(format!("{}{path}", self.base));
+        let mut req = self.person_header(self.agent.get(format!("{}{path}", self.base)));
         for (k, v) in query {
             req = req.query(*k, v);
         }
@@ -472,7 +488,7 @@ impl Client {
     fn post_with(&self, agent: &Agent, path: &str, body: Option<&Value>) -> Result<Value> {
         let url = format!("{}{path}", self.base);
         // the app records which client made a decision or a discard
-        let request = agent.post(&url).header(CLIENT_HEADER, "cli");
+        let request = self.person_header(agent.post(&url).header(CLIENT_HEADER, "cli"));
         let mut resp = match body {
             Some(json) => request.send_json(json),
             // the server refuses a write that does not say it is JSON, even an empty one

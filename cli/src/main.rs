@@ -15,6 +15,7 @@ mod items;
 mod md;
 mod origin;
 mod out;
+mod runs;
 mod scaffold;
 mod server;
 
@@ -304,6 +305,23 @@ enum Command {
     /// belong to all of them, unless --item names the ones they are for.
     #[command(verbatim_doc_comment)]
     Items(items::ItemsArgs),
+    /// Start an agent in Pinrail's terminal host, and print its run and
+    /// session
+    ///
+    ///     pinrail start claude-code --task "Fix the login redirect"
+    ///     pinrail start codex --folder ~/code/app -- --model gpt-5
+    ///
+    /// The agent keeps running when this command ends, and when the app
+    /// quits. Like runs, stop and host status, this command acts as you:
+    /// it needs the setting /runtime/cli_control on, as its error says.
+    #[command(verbatim_doc_comment)]
+    Start(runs::StartArgs),
+    /// List the agents Pinrail started, latest first
+    Runs(runs::RunsArgs),
+    /// Stop an agent Pinrail started
+    Stop(runs::StopArgs),
+    /// The terminal host that runs the agents
+    Host(runs::HostArgs),
     /// Wait until a review ends, then print its decision as Markdown, or the
     /// whole review as JSON with --json
     #[command(after_help = exit_codes())]
@@ -1062,6 +1080,10 @@ fn run(cli: Cli) -> Result<u8> {
         ),
         Command::Status(args) => status(&client, args, output),
         Command::Items(args) => items::run(&client, args, output),
+        Command::Start(args) => runs::start(&runs::as_person(client)?, args, output),
+        Command::Runs(args) => runs::runs(&runs::as_person(client)?, args, output),
+        Command::Stop(args) => runs::stop(&runs::as_person(client)?, args, output),
+        Command::Host(args) => runs::host(&runs::as_person(client)?, args, pretty),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
@@ -1607,7 +1629,7 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
 
 /// The full path of `path`, `..` and links resolved, written as a person
 /// would: without the `\\?\` that Windows puts before a resolved path.
-fn full_path(path: &Path) -> std::io::Result<PathBuf> {
+pub(crate) fn full_path(path: &Path) -> std::io::Result<PathBuf> {
     path.canonicalize().map(without_verbatim)
 }
 
