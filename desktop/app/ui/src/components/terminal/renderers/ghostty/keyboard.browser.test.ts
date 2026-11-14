@@ -127,3 +127,19 @@ test("focus is reported to a program that asks for it", async () => {
     ["focus", "\x1b[O"],
   ]);
 });
+
+test("the copy event puts the selection on the clipboard as plain text", async () => {
+  const { core, keyboard, write } = await rig();
+  write("first line   \r\nsecond");
+  core.setSelection({ x: 0, y: 0 }, { x: 5, y: 1 });
+  const copy = () => {
+    const data = new DataTransfer();
+    const event = new ClipboardEvent("copy", { clipboardData: data, bubbles: true, cancelable: true });
+    keyboard.input.dispatchEvent(event);
+    return { text: data.getData("text/plain"), handled: event.defaultPrevented };
+  };
+  // trailing spaces trimmed
+  expect(copy()).toEqual({ text: "first line\nsecond", handled: true });
+  core.clearSelection();
+  expect(copy()).toEqual({ text: "", handled: false });
+});

@@ -143,6 +143,14 @@ export class Keyboard {
       if (!this.composing) input.value = "";
       this.handled = false;
     });
+    // the Edit menu's Copy, and Cmd+C when the keydown left it to the menu
+    this.on("copy", (e) => {
+      const event = e as ClipboardEvent;
+      const text = this.target.selectionText();
+      if (!text || !event.clipboardData) return;
+      event.clipboardData.setData("text/plain", text);
+      event.preventDefault();
+    });
     this.on("paste", (e) => {
       const event = e as ClipboardEvent;
       const text = event.clipboardData?.getData("text/plain") ?? "";

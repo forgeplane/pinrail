@@ -453,6 +453,31 @@ export class GhosttyCore {
     return this.getBool(this.k.data.mouseTracking);
   }
 
+  /** Whether the program shows the alternate screen, as full-screen
+   *  programs do. */
+  isAlternateScreen(): boolean {
+    this.ensureActive();
+    this.rt.memoryDataView().setUint32(this.scratch, 0, true);
+    this.rt.call("ghostty_terminal_get", this.terminal, this.k.data.activeScreen, this.scratch);
+    return this.rt.memoryDataView().getUint32(this.scratch, true) === 1;
+  }
+
+  /** The screen's rows, scrollback included, and where the viewport's top
+   *  row is among them. */
+  scrollbar(): { total: number; offset: number; length: number } {
+    this.ensureActive();
+    const p = this.rt.alloc(24);
+    this.rt.call("ghostty_terminal_get", this.terminal, this.k.data.scrollbar, p);
+    const v = this.rt.memoryDataView();
+    const out = {
+      total: Number(v.getBigUint64(p, true)),
+      offset: Number(v.getBigUint64(p + 8, true)),
+      length: Number(v.getBigUint64(p + 16, true)),
+    };
+    this.rt.free(p, 24);
+    return out;
+  }
+
   isViewportActive(): boolean {
     this.ensureActive();
     return this.getBool(this.k.data.viewportActive);
@@ -607,16 +632,25 @@ export class GhosttyCore {
     return ref;
   }
 
-  /** Selects from one viewport cell to another, inclusive. */
-  setSelection(anchor: { x: number; y: number }, end: { x: number; y: number }): void {
+  /** Selects from one cell to another, inclusive. The rows are the
+   *  viewport's, or with `screen` the whole screen's, scrollback included,
+   *  which stay put while the viewport scrolls. A rectangle selects the
+   *  same columns of every row. */
+  setSelection(
+    anchor: { x: number; y: number },
+    end: { x: number; y: number },
+    { screen = false, rectangle = false } = {},
+  ): void {
     this.ensureActive();
     const size = this.rt.layout("GhosttySelection").size;
     const sel = this.rt.alloc(size);
-    const a = this.gridRef(anchor.x, anchor.y);
-    const b = this.gridRef(end.x, end.y);
+    const tag = screen ? this.k.point.screen : this.k.point.viewport;
+    const a = this.gridRef(anchor.x, anchor.y, tag);
+    const b = this.gridRef(end.x, end.y, tag);
     if (a && b) {
       this.rt.memoryBytes().copyWithin(sel, a, a + 8);
       this.rt.memoryBytes().copyWithin(sel + 8, b, b + 8);
+      this.rt.memoryBytes()[sel + this.rt.field("GhosttySelection", "rectangle").offset] = rectangle ? 1 : 0;
       this.rt.call("ghostty_terminal_set", this.terminal, this.k.opt.selection, sel);
     }
     this.rt.free(a, 8);

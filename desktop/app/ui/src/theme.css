@@ -8038,3 +8038,10 @@ a.item-ref {
   background: var(--bg);
   text-decoration: underline;
 }
+.ghostty-canvas {
+  cursor: text;
+}
+.is-over-link .ghostty-canvas,
+.ghostty-canvas.is-over-link {
+  cursor: pointer;
+}

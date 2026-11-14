@@ -7,6 +7,7 @@
 // cell's edges (glyphs.ts). The cursor is an element over the canvas, so
 // it blinks without a redraw, and an idle terminal draws no frames.
 
+import type { LinkSpan } from "./links";
 import { drawGlyph, isDrawn, lightWidth, type Box } from "./glyphs";
 import type { GhosttyCell, GhosttyColor, GhosttySnapshot } from "./types";
 
@@ -110,6 +111,10 @@ export class CanvasRenderer {
   /** How many rows the canvas holds drawn: none after a resize, which
    *  clears it, so the next draw draws them all. */
   private drawn = 0;
+  /** The link under the pointer, underlined, and the rows to draw again
+   *  because it moved. */
+  private link: readonly LinkSpan[] = [];
+  private stale = new Set<number>();
 
   constructor(
     host: HTMLElement,
@@ -172,14 +177,26 @@ export class CanvasRenderer {
     this.drawn = 0;
   }
 
+  /** Underlines the cells of the link under the pointer, or none. */
+  setLink(spans: readonly LinkSpan[]) {
+    for (const span of [...this.link, ...spans]) this.stale.add(span.row);
+    this.link = spans;
+  }
+
+  /** Draws every row on the next draw, as after a selection changes. */
+  invalidate() {
+    this.drawn = 0;
+  }
+
   /** Draws the rows of `snapshot` that changed, or all of them after a
    *  resize, and places the cursor. */
   draw(snapshot: GhosttySnapshot, focused: boolean) {
     this.resize(snapshot.cols, snapshot.rows);
     const all = this.drawn !== snapshot.rows;
     snapshot.rowData.forEach((row, y) => {
-      if (all || snapshot.dirtyRows.has(y)) this.drawRow(row.cells, y, snapshot);
+      if (all || snapshot.dirtyRows.has(y) || this.stale.has(y)) this.drawRow(row.cells, y, snapshot);
     });
+    this.stale.clear();
     this.drawn = snapshot.rows;
     this.placeCursor(snapshot, focused);
   }
@@ -224,6 +241,13 @@ export class CanvasRenderer {
       const cell = cells[x];
       if (cell.underline || cell.strikethrough || cell.overline) {
         this.decorate(cell, { x: x * w, y: top, w, h });
+      }
+    }
+    // the link under the pointer
+    for (const span of this.link) {
+      if (span.row !== y) continue;
+      for (let x = span.start; x < span.end && x < cells.length; x++) {
+        if (!cells[x].underline) this.decorate({ ...cells[x], underline: 1 }, { x: x * w, y: top, w, h });
       }
     }
   }
