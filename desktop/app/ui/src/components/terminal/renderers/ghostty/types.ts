@@ -21,6 +21,8 @@ export interface GhosttyTheme {
 
 export interface GhosttyCell {
   readonly text: string;
+  /** GhosttyCellWide, which the core reads only for a cell without text:
+   *  2 is the spacer after a wide cluster, which the cluster's cell spans */
   readonly wide: number;
   readonly foreground: GhosttyColor;
   readonly background: GhosttyColor;
@@ -29,7 +31,11 @@ export interface GhosttyCell {
   readonly invisible: boolean;
   readonly strikethrough: boolean;
   readonly overline: boolean;
-  readonly underline: boolean;
+  /** none (0), single, double, curly, dotted or dashed (5), as
+   *  GhosttySgrUnderline numbers them */
+  readonly underline: number;
+  /** the underline's own colour, or null for the text's */
+  readonly underlineColor: GhosttyColor | null;
   readonly selected: boolean;
 }
 

@@ -28,6 +28,8 @@ const SUCCESS = 0;
 const OUT_OF_SPACE = -3;
 const NO_VALUE = -4;
 const SCROLLBACK_LINES = 5_000;
+/** DEC private mode 2027, grapheme clustering. */
+const GRAPHEME_CLUSTER = 2027;
 const SIZE_MAX = 0xffffffff;
 const UTF8_INITIAL = 64;
 
@@ -59,6 +61,7 @@ function constants(rt: GhosttyRuntime) {
       selection: opt("SELECTION"),
       cursorBlink: opt("DEFAULT_CURSOR_BLINK"),
       mode: opt("MODE"),
+      modeDefault: opt("MODE_DEFAULT"),
       scrollbackBytes: opt("SCROLLBACK_MAX_BYTES"),
       scrollbackLines: opt("SCROLLBACK_MAX_LINES"),
     },
@@ -160,6 +163,8 @@ export class GhosttyCore {
   private ptyWriterId = 0;
   private ptyWriter: ((data: Uint8Array) => void) | null = null;
   private bell: (() => void) | null = null;
+  /** The palette, for the snapshot being read. */
+  private palette: Uint8Array | null = null;
   private theme: GhosttyTheme | null = null;
   // Scratch memory reused across calls: 32 bytes of scratch, the cell query
   // (5 keys, 5 value pointers, written), its outputs, and a UTF-8 buffer.
@@ -261,11 +266,27 @@ export class GhosttyCore {
   }
 
   /** Scrollback and cursor defaults, again after a snapshot replaces the terminal. */
-  private configureTerminal(): void {
+  private configureTerminal(restored = false): void {
     this.setSize(this.k.opt.scrollbackBytes, SIZE_MAX);
     this.setSize(this.k.opt.scrollbackLines, SCROLLBACK_LINES);
     this.rt.bytes(this.scratch, 1)[0] = 1;
     this.rt.call("ghostty_terminal_set", this.terminal, this.k.opt.cursorBlink, this.scratch);
+    // grapheme clustering (mode 2027), as the host's terminal has it, so
+    // that emoji with VS16 and ZWJ sequences take the same width in both:
+    // on as the reset default, which also sets it now, and off again for a
+    // restored terminal whose program had turned it off
+    const wasOn = this.mode(GRAPHEME_CLUSTER);
+    this.setMode(this.k.opt.modeDefault, GRAPHEME_CLUSTER, true);
+    if (restored && !wasOn) this.setMode(this.k.opt.mode, GRAPHEME_CLUSTER, false);
+  }
+
+  /** Sets a DEC private mode now (OPT_MODE) or as the reset default
+   *  (OPT_MODE_DEFAULT), through a GhosttyTerminalModeConfig. */
+  private setMode(option: number, mode: number, value: boolean): void {
+    const v = this.rt.memoryDataView();
+    v.setUint16(this.scratch, mode & 0x7fff, true);
+    v.setUint8(this.scratch + 2, value ? 1 : 0);
+    this.ok("terminal_set", this.rt.call("ghostty_terminal_set", this.terminal, option, this.scratch));
   }
 
   private setSize(option: number, value: number): void {
@@ -327,7 +348,7 @@ export class GhosttyCore {
     this.ptyWriterId = 0;
     this.rt.call("ghostty_terminal_free", this.terminal);
     this.terminal = next;
-    this.configureTerminal();
+    this.configureTerminal(true);
     if (this.theme) this.setTheme(this.theme);
     this.attachWriters();
     this.rows = [];
@@ -714,6 +735,7 @@ export class GhosttyCore {
 
   snapshot(): GhosttySnapshot {
     this.ensureActive();
+    this.palette = null;
     const rs = this.k.rs;
     this.ok("render_state_update", this.rt.call("ghostty_render_state_update", this.renderState, this.terminal));
     const cols = this.rsU16(rs.cols);
@@ -770,6 +792,36 @@ export class GhosttyCore {
       dirtyRows,
       rowData: this.rows,
     };
+  }
+
+  /** The underline colour of the cell whose style was just read: its
+   *  RGB, or the palette's colour at its index, or null for the text's. */
+  private underlineColor(): GhosttyColor | null {
+    const v = this.rt.memoryDataView();
+    // GhosttyStyle.underline_color: a tag, then its value
+    const at = this.style + 8;
+    switch (v.getUint8(at)) {
+      case 2:
+        return readColor(v, at + 1);
+      case 1: {
+        const index = v.getUint8(at + 1);
+        const palette = this.readPalette();
+        return { r: palette[index * 3], g: palette[index * 3 + 1], b: palette[index * 3 + 2] };
+      }
+      default:
+        return null;
+    }
+  }
+
+  /** The terminal's 256 colours, read once a snapshot. */
+  private readPalette(): Uint8Array {
+    if (this.palette) return this.palette;
+    const size = 256 * 3;
+    const pointer = this.rt.alloc(size);
+    this.rt.call("ghostty_terminal_get", this.terminal, this.k.data.palette, pointer);
+    this.palette = this.rt.bytes(pointer, size).slice();
+    this.rt.free(pointer, size);
+    return this.palette;
   }
 
   private readRow(iterator: number, cols: number, defaultFg: GhosttyColor, defaultBg: GhosttyColor): GhosttyRow {
@@ -843,7 +895,8 @@ export class GhosttyCore {
         invisible: (flags & (1 << 5)) !== 0,
         strikethrough: (flags & (1 << 6)) !== 0,
         overline: (flags & (1 << 7)) !== 0,
-        underline: ((flags >> 8) & 7) !== 0,
+        underline: (flags >> 8) & 7,
+        underlineColor: this.underlineColor(),
         selected,
       });
     }
@@ -974,7 +1027,8 @@ function emptyCell(foreground: GhosttyColor, background: GhosttyColor): GhosttyC
     invisible: false,
     strikethrough: false,
     overline: false,
-    underline: false,
+    underline: 0,
+    underlineColor: null,
     selected: false,
   };
 }

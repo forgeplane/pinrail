@@ -7976,3 +7976,40 @@ a.item-ref {
     animation: none;
   }
 }
+/* The libghostty renderer: its canvas, and the cursor over it. */
+.ghostty-canvas {
+  display: block;
+}
+.ghostty-cursor {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.ghostty-cursor.is-block {
+  background: var(--cursor-colour);
+  mix-blend-mode: difference;
+}
+.ghostty-cursor.is-bar {
+  border-left: 2px solid var(--cursor-colour);
+}
+.ghostty-cursor.is-underline {
+  border-bottom: 2px solid var(--cursor-colour);
+}
+.ghostty-cursor.is-block.is-hollow {
+  background: none;
+  mix-blend-mode: normal;
+  border: 1px solid var(--cursor-colour);
+}
+.ghostty-cursor.is-blinking {
+  animation: ghostty-blink 1s step-end infinite;
+}
+@keyframes ghostty-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghostty-cursor.is-blinking {
+    animation: none;
+  }
+}
