@@ -35,12 +35,16 @@ Commands:
   stop     Stop the running host and its terminals
   connect  Bridge standard input and output to the running host's socket,
            presenting its secret in the first message, for SSH
+  hold     Keep the PTYs of the host's terminals open, as the parent of
+           their programs, so that they outlive the host; the host starts
+           it
 
 Options:
   --data-dir <dir>       Pinrail's data folder (default: $PINRAIL_DATA_DIR,
                          else ~/.local/share/pinrail)
   --idle-exit <seconds>  With serve: exit after this long with no terminals
-                         and no controller (default: 600)
+                         and no controller (default: 600); with hold: with
+                         no terminals and no host (default: 30)
   --ping-every <seconds> With serve: how often a controller hears from an
                          idle host (default: 15)
 ";
@@ -58,7 +62,7 @@ Options:
         let mut args = std::env::args().skip(1);
         let mut command = None;
         let mut data_dir = None;
-        let mut idle_exit = server::IDLE_EXIT;
+        let mut idle_exit = None;
         let mut ping_every = server::PING_EVERY;
         let mut daemonize = false;
         let mut handshake = None;
@@ -74,7 +78,7 @@ Options:
                         .next()
                         .and_then(|s| s.parse().ok())
                         .ok_or("--idle-exit needs a number of seconds")?;
-                    idle_exit = Duration::from_secs(seconds);
+                    idle_exit = Some(Duration::from_secs(seconds));
                 }
                 "--ping-every" => {
                     let seconds: u64 = args
@@ -99,8 +103,14 @@ Options:
                 _ => return Err(format!("unexpected argument {arg:?}")),
             }
         }
+        let command = command.ok_or("")?;
+        let idle_exit = idle_exit.unwrap_or(if command == "hold" {
+            pinrail_host::holder::ALONE_EXIT
+        } else {
+            server::IDLE_EXIT
+        });
         Ok(Args {
-            command: command.ok_or("")?,
+            command,
             data_dir: data_dir.unwrap_or_else(paths::default_data_dir),
             idle_exit,
             ping_every,
@@ -130,6 +140,10 @@ Options:
             "status" => status(&args.data_dir),
             "stop" => stop(&args.data_dir),
             "connect" => connect(&args.data_dir),
+            "hold" => match pinrail_host::holder::hold(&args.data_dir, args.idle_exit) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => fail(&error.to_string()),
+            },
             other => {
                 eprintln!("pinrail-host: unknown command {other:?}\n");
                 eprint!("{USAGE}");

@@ -8,8 +8,11 @@
 pub mod client;
 pub mod environment;
 pub mod events;
+pub mod fdpass;
 pub mod filter;
 pub mod frame;
+#[cfg(feature = "server")]
+pub mod holder;
 pub mod launch;
 pub mod leader;
 pub mod link;
