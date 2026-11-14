@@ -745,6 +745,9 @@ impl Actor {
     /// Writes input to the program; the person's input counts as activity,
     /// and a standalone interrupt is reported.
     fn input(&mut self, bytes: Vec<u8>, from: Input) {
+        if self.stopping() {
+            return;
+        }
         if from == Input::Person && self.typing.is_some() {
             // held, so the person's keys cannot land between the paste and
             // the submit keys
@@ -804,7 +807,22 @@ impl Actor {
         }
     }
 
+    /// Whether the program was asked to stop. Nothing is written to it
+    /// then: it may already have given the terminal back to line mode,
+    /// which would echo what it is sent, such as a focus report, onto
+    /// its last screen.
+    fn stopping(&self) -> bool {
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .stopping
+            .is_some()
+    }
+
     fn write_focus(&self) {
+        if self.stopping() {
+            return;
+        }
         if let Some(input) = &self.input {
             let report = if self.focused { b"\x1b[I" } else { b"\x1b[O" };
             let _ = input.send(report.to_vec());

@@ -204,3 +204,25 @@ async fn a_program_that_asks_for_focus_reports_is_told_the_truth() {
         .stop(Duration::from_millis(100), terminal::Reason::Stopped)
         .unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn nothing_reaches_a_program_once_it_is_asked_to_stop() {
+    // in line mode the terminal echoes what reaches the program, as it
+    // does for an agent that has restored the terminal while it exits;
+    // the hang-up a stop sends first is ignored, so the program lives on
+    let (terminal, _rx, _dir) =
+        terminal("trap '' HUP; printf '\\033[?1004h'; echo ready; exec sleep 5");
+    screen_shows(&terminal, "ready").await;
+    terminal
+        .stop(Duration::from_secs(5), terminal::Reason::Stopped)
+        .unwrap();
+    terminal.set_focus(true);
+    terminal.input(b"typed".to_vec(), Input::Person);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let screen = terminal.text_request(0).await.unwrap();
+    assert!(
+        !screen.contains("[I"),
+        "a focus report reached it: {screen}"
+    );
+    assert!(!screen.contains("typed"), "input reached it: {screen}");
+}
