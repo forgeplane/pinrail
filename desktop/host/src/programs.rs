@@ -36,8 +36,10 @@ pub fn find(names: &[String], env: &[(String, String)]) -> Vec<Value> {
 /// The version `program --version` prints: the first word that starts
 /// with a digit, such as `2.1.325` in `2.1.325 (Claude Code)`.
 fn version(program: &Path, env: &[(String, String)]) -> Option<String> {
+    // in a folder of no one's, which a program that writes there harms not
     let mut child = Command::new(program)
         .arg("--version")
+        .current_dir(std::env::temp_dir())
         .env_clear()
         .envs(env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
@@ -125,6 +127,27 @@ mod tests {
         let found = find(&["claude".into()], &env);
         assert!(found[0]["path"].is_string());
         assert!(found[0]["version"].is_null());
+    }
+
+    #[test]
+    fn the_version_is_asked_in_the_temporary_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let said = dir.path().join("folder");
+        program(
+            dir.path(),
+            "claude",
+            &format!("pwd -P > '{}'; echo 1.0", said.display()),
+        );
+        let env = vec![(
+            "PATH".to_string(),
+            dir.path().to_string_lossy().into_owned(),
+        )];
+        find(&["claude".into()], &env);
+        let folder = std::fs::read_to_string(&said).unwrap();
+        assert_eq!(
+            Path::new(folder.trim()),
+            std::env::temp_dir().canonicalize().unwrap()
+        );
     }
 
     #[test]
