@@ -96,12 +96,18 @@ async function writeHeaders(contentType?: string): Promise<Record<string, string
   return headers;
 }
 
-/** A call to the core's API, as JSON; a write carries the person token. */
-export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** A call to the core's API, as JSON. A write carries the person token,
+ *  and so does a read with `asPerson`, of what only the person reads. */
+export async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  { asPerson = false }: { asPerson?: boolean } = {},
+): Promise<T> {
   const response = await fetch(`${await serverUrl()}${path}`, {
     method,
     // the core refuses a write that does not say it is JSON, even an empty one
-    headers: method === "GET" ? {} : await writeHeaders("application/json"),
+    headers: method === "GET" ? (asPerson ? await writeHeaders() : {}) : await writeHeaders("application/json"),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return undefined as T;

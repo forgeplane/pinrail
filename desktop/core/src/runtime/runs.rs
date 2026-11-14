@@ -172,6 +172,8 @@ impl super::Runtime {
                 kind: "start",
                 folder: &start.folder,
                 argv: &plan.argv,
+                task: start.task.as_deref(),
+                args: &start.args,
                 created_by: &start.created_by,
                 token_digest: &super::digest(&token),
                 session: plan.session.as_deref(),
@@ -397,6 +399,31 @@ impl super::Runtime {
         Ok(self.db.forget_run_tokens(Utc::now())?)
     }
 
+    /// The last `lines` lines a run's terminal showed, from the host,
+    /// which keeps an ended terminal for a day.
+    pub async fn output(&self, id: &str, lines: usize) -> Result<String, RunError> {
+        let run = self
+            .db
+            .run(id)?
+            .ok_or_else(|| RunError::NotFound(format!("run {id}")))?;
+        let terminal = run
+            .terminal
+            .ok_or_else(|| RunError::NotFound(format!("the terminal of run {id}")))?;
+        let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        let reply = match link
+            .call(
+                "terminal.text",
+                json!({ "terminal": terminal, "lines": lines }),
+            )
+            .await
+        {
+            Ok(reply) => reply,
+            Err(HostError::Refused { message, .. }) => return Err(RunError::NotFound(message)),
+            Err(_) => return Err(RunError::HostOffline),
+        };
+        Ok(last_lines(reply["text"].as_str().unwrap_or(""), lines))
+    }
+
     /// The agents Pinrail can start as the host last found them, with
     /// when it looked, and whether it should look again: on `refresh`,
     /// after a start found an agent missing, or after an hour. Only the
@@ -565,6 +592,12 @@ fn new_uuid() -> String {
     )
 }
 
+/// The last `n` lines of `text` that are not blank at its end.
+fn last_lines(text: &str, n: usize) -> String {
+    let lines: Vec<&str> = text.trim_end().lines().map(str::trim_end).collect();
+    lines[lines.len().saturating_sub(n)..].join("\n")
+}
+
 /// How long what the host found of the agents counts as current.
 const STARTABLE_FOR: chrono::TimeDelta = chrono::TimeDelta::hours(1);
 
@@ -629,6 +662,14 @@ mod tests {
             .iter()
             .map(|id| (pinrail_runtime::find(id).unwrap(), id.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn the_output_is_its_last_lines_without_the_blank_end() {
+        let text = "one\ntwo  \nthree\n\n   \n";
+        assert_eq!(last_lines(text, 2), "two\nthree");
+        assert_eq!(last_lines(text, 20), "one\ntwo\nthree");
+        assert_eq!(last_lines("", 20), "");
     }
 
     #[test]

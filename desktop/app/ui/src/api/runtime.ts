@@ -18,7 +18,11 @@ export type Run = {
   ended_at: string | null;
   end_reason: string | null;
   exit_code: number | null;
+  exit_signal: string | null;
   session: { agent: string; id: string } | null;
+  /** what the person started it with; only a single run has them */
+  task?: string | null;
+  args?: string[];
 };
 
 /** An agent Pinrail can start, as the host finds it. */
@@ -65,6 +69,13 @@ export const runtime = {
     const s = q.toString();
     return request<{ runs: Run[] }>("GET", `/api/v1/runs${s ? `?${s}` : ""}`);
   },
+  /** The last lines a run's terminal showed. */
+  output: async (id: string, lines = 20) =>
+    (
+      await request<{ text: string }>("GET", `/api/v1/runs/${seg(id)}/output?lines=${lines}`, undefined, {
+        asPerson: true,
+      })
+    ).text,
   stop: (id: string, force = false) => request<void>("POST", `/api/v1/runs/${seg(id)}/stop`, { force }),
   /** A ticket that opens one attach to `terminal` within 30 seconds. */
   ticket: async (terminal: string) =>

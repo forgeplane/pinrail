@@ -7821,3 +7821,33 @@ a.item-ref {
   width: 100%;
   margin-top: 4px;
 }
+/* A run whose agent exited with an error as it started. */
+.failed-start {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.failed-start-what {
+  margin: 0;
+  font: 500 var(--text-base) var(--font);
+}
+.failed-start-output,
+.start-agent-output {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font: var(--text-xs) / 1.45 var(--mono);
+  white-space: pre-wrap;
+}
+.failed-start-actions {
+  display: flex;
+  gap: 8px;
+}

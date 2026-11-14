@@ -9,31 +9,16 @@ import { useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
 import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
+import { exitText } from "../lib/failedStart";
 import { combo, hasMod, isTyping, MOD } from "../lib/keys";
 import { useWindowKey } from "../lib/useWindowKey";
 import { Dialog } from "./Dialog";
-import { terminalPool } from "./terminal/TerminalPane";
-import { sessionPath, terminalArea } from "./Thread";
+import { startRun } from "./session/startRun";
+import { sessionPath } from "./Thread";
 
 // the last answers, shown at once the next time the dialog opens
 let knownAgents: StartableAgent[] = [];
 let knownFolders: RecentFolder[] = [];
-
-/** How long the dialog waits for an agent to name its session. */
-const BIND_WITHIN_MS = 20_000;
-
-/** The grid the new session's terminal will fit, as its renderer
- *  measures it in the space the session page will give it. */
-async function sessionGrid(): Promise<{ cols: number; rows: number }> {
-  const main = document.querySelector(".app-main")?.getBoundingClientRect();
-  const area = terminalArea(main ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight));
-  try {
-    const { cols, rows } = await terminalPool().gridFor(area.width, area.height);
-    return { cols: Math.min(1000, Math.max(20, cols)), rows: Math.min(1000, Math.max(5, rows)) };
-  } catch {
-    return { cols: 120, rows: 40 };
-  }
-}
 
 /** What the person reads when a start is refused. */
 function refusal(error: unknown, agent: StartableAgent | undefined): string {
@@ -51,19 +36,30 @@ function refusal(error: unknown, agent: StartableAgent | undefined): string {
   }
 }
 
-export function StartAgentDialog({ onClose, task: initialTask = "" }: { onClose: () => void; task?: string }) {
+/** What the dialog opens with, such as a run to start again after an edit. */
+export type StartAgentInitial = { folder?: string; agent?: string; task?: string; args?: string[] };
+
+/** The arguments as they are written in the field. */
+const writeArgs = (args: string[]) => args.map((a) => (/[\s"'\\]/.test(a) || !a ? JSON.stringify(a) : a)).join(" ");
+
+export function StartAgentDialog({ onClose, initial = {} }: { onClose: () => void; initial?: StartAgentInitial }) {
   const navigate = useNavigate();
   const [agents, setAgents] = useState(knownAgents);
   const [folders, setFolders] = useState(knownFolders);
-  const [folder, setFolder] = useState(() => knownFolders.find((f) => f.exists)?.folder ?? "");
+  const [folder, setFolder] = useState(() => initial.folder ?? knownFolders.find((f) => f.exists)?.folder ?? "");
   const [listOpen, setListOpen] = useState(false);
   const [agent, setAgent] = useState<string | null>(
-    () => (knownAgents.find((a) => a.last_used && a.installed) ?? knownAgents.find((a) => a.installed))?.id ?? null,
+    () =>
+      initial.agent ??
+      (knownAgents.find((a) => a.last_used && a.installed) ?? knownAgents.find((a) => a.installed))?.id ??
+      null,
   );
-  const [task, setTask] = useState(initialTask);
-  const [args, setArgs] = useState("");
+  const [task, setTask] = useState(initial.task ?? "");
+  const [args, setArgs] = useState(initial.args ? writeArgs(initial.args) : "");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  // the last lines of an agent that exited as it started
+  const [output, setOutput] = useState<string | null>(null);
   const folderField = useRef<HTMLInputElement>(null);
   const localId = useRef(crypto.randomUUID());
 
@@ -114,26 +110,26 @@ export function StartAgentDialog({ onClose, task: initialTask = "" }: { onClose:
   const start = async () => {
     if (!ready || !chosen) return;
     setError(null);
+    setOutput(null);
     setStarting(`Starting ${chosen.name}…`);
     try {
-      const { run, session } = await runtime.start({
+      const started = await startRun({
         agent: chosen.id,
         folder: folder.trim(),
         task: task.trim() || undefined,
         args: splitArgs(args),
-        ...(await sessionGrid()),
         local_id: localId.current,
       });
-      let named = session;
-      // an agent that names its session once it starts is waited for
-      const until = Date.now() + BIND_WITHIN_MS;
-      while (!named && Date.now() < until) {
-        await new Promise((r) => setTimeout(r, 400));
-        const now = await runtime.run(run.id);
-        named = now.session;
-        if (now.state === "ended") break;
+      // the next press of Start is a new start
+      localId.current = crypto.randomUUID();
+      if ("failed" in started) {
+        // the fields stay, to edit and start again
+        setStarting(null);
+        setError(exitText(chosen.name, started.failed));
+        setOutput(await runtime.output(started.failed.id).catch(() => ""));
+        return;
       }
-      if (!named) {
+      if ("unnamed" in started) {
         setStarting(null);
         setError(
           `${chosen.name} started, but has not reported its session. Turn on Report status for ${chosen.name} in Settings › Agents, and its session appears in the sidebar.`,
@@ -141,7 +137,7 @@ export function StartAgentDialog({ onClose, task: initialTask = "" }: { onClose:
         return;
       }
       onClose();
-      navigate(sessionPath(named), { state: { newRun: true } });
+      navigate(sessionPath(started.session), { state: { newRun: true } });
     } catch (e) {
       setStarting(null);
       // a new attempt is a new start
@@ -298,6 +294,11 @@ export function StartAgentDialog({ onClose, task: initialTask = "" }: { onClose:
         <p className="notice notice-danger" role="alert">
           {error}
         </p>
+      ) : null}
+      {output ? (
+        <pre className="start-agent-output" aria-label="The agent's last output">
+          {output}
+        </pre>
       ) : null}
       {starting ? (
         <p className="dim" role="status">

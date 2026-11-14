@@ -183,6 +183,7 @@ pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
 #[cfg(unix)]
 pub const STAND_IN_AGENT: &str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then echo "1.0.0 (stand-in)"; exit 0; fi
+echo "stand-in agent starting"
 printf '%s\n' "$@" > argv
 printf '%s' "$PINRAIL_RUN_TOKEN" > token
 if [ -f exit ]; then exit "$(cat exit)"; fi

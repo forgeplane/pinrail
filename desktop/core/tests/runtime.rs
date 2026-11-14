@@ -270,6 +270,8 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         kind: "start",
         folder: "/",
         argv: &[],
+        task: None,
+        args: &[],
         created_by: "app",
         token_digest: id,
         session: None,

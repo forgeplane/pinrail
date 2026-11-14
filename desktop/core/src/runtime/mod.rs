@@ -87,6 +87,14 @@ impl Runtime {
         Ok(crate::folders::recent(&self.db)?)
     }
 
+    /// The first task and the extra arguments a run was started with.
+    pub fn run_launch(
+        &self,
+        id: &str,
+    ) -> Result<Option<crate::db::RunLaunch>, crate::error::Error> {
+        Ok(self.db.run_launch(id)?)
+    }
+
     /// A run, with every session it has been in.
     pub fn run(
         &self,

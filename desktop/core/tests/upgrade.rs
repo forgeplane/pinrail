@@ -126,6 +126,8 @@ fn a_database_from_0_6_0_takes_runs_for_its_sessions() {
                 kind: "resume",
                 folder: "/work/api",
                 argv: &["claude".to_string()],
+                task: None,
+                args: &[],
                 created_by: "app",
                 token_digest: "d1",
                 session: Some("s-060"),

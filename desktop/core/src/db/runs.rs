@@ -89,6 +89,9 @@ impl RunSession {
 }
 
 /// A run about to be spawned.
+/// The first task and the extra arguments a run was started with.
+pub type RunLaunch = (Option<String>, Vec<String>);
+
 #[derive(Debug, Clone)]
 pub struct NewRun<'a> {
     pub id: &'a str,
@@ -97,6 +100,10 @@ pub struct NewRun<'a> {
     pub kind: &'a str,
     pub folder: &'a str,
     pub argv: &'a [String],
+    /// The first task and the extra arguments the person gave, kept to
+    /// start the run again.
+    pub task: Option<&'a str>,
+    pub args: &'a [String],
     pub created_by: &'a str,
     /// The SHA-256 digest of the run's token, in hex.
     pub token_digest: &'a str,
@@ -189,8 +196,13 @@ impl Db {
             ],
         )?;
         tx.execute(
-            "INSERT INTO run_launches (run_id, argv) VALUES (?1, ?2)",
-            params![run.id, json!(run.argv).to_string()],
+            "INSERT INTO run_launches (run_id, argv, task, args) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                run.id,
+                json!(run.argv).to_string(),
+                run.task,
+                json!(run.args).to_string()
+            ],
         )?;
         tx.execute(
             "INSERT INTO run_tokens (run_id, digest) VALUES (?1, ?2)",
@@ -339,6 +351,21 @@ impl Db {
         ))?;
         stmt.query_map([limit as i64], |r| Ok((r.get(0)?, r.get(2)?, r.get(1)?)))?
             .collect()
+    }
+
+    /// The first task and the extra arguments a run was started with.
+    pub fn run_launch(&self, id: &str) -> rusqlite::Result<Option<RunLaunch>> {
+        use rusqlite::OptionalExtension;
+        self.conn()
+            .query_row(
+                "SELECT task, args FROM run_launches WHERE run_id = ?1",
+                [id],
+                |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?)),
+            )
+            .optional()
+            .map(|launch| {
+                launch.map(|(task, args)| (task, serde_json::from_str(&args).unwrap_or_default()))
+            })
     }
 
     /// The agent of the latest run, if there is one.

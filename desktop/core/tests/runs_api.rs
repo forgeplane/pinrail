@@ -517,3 +517,28 @@ async fn checked_after(app: &App, before: &Value) -> Value {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_keeps_what_it_was_started_with_and_its_last_output() {
+    let app = linked().await;
+    let work = folder(&app, "fails");
+    // the stand-in agent exits with this code
+    std::fs::write(format!("{work}/exit"), "3").unwrap();
+    let body = json!({"agent": "claude-code", "folder": work, "task": "fix the login",
+                      "args": ["--model", "opus"]});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let run = run_becomes(&app, &id, |run| run["state"] == "ended").await;
+    assert_eq!(run["exit_code"], 3, "{run}");
+    assert_eq!(run["task"], "fix the login");
+    assert_eq!(run["args"], json!(["--model", "opus"]));
+
+    // only the person reads a terminal
+    let path = format!("/api/v1/runs/{id}/output?lines=20");
+    let (status, _) = call_as(&app, "GET", &path, None, &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, output) = call(&app, "GET", &path, None).await;
+    assert_eq!(status, StatusCode::OK, "{output}");
+    assert_eq!(output["text"], "stand-in agent starting");
+}

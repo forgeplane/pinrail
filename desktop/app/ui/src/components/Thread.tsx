@@ -11,6 +11,7 @@ import { isViewToggle } from "../lib/terminalKeys";
 import { useSessionRun } from "./session/useSessionRun";
 import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
+import { FailedStart } from "./session/FailedStart";
 import { TerminalPane } from "./terminal/TerminalPane";
 import { finder, type Finder, type Found } from "../lib/findText";
 import { usePageRepo } from "../lib/pageRepo";
@@ -184,10 +185,12 @@ export function Thread({
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
-  const run = useSessionRun(onPage ? named : null, prefs.labs.runtime);
-  const terminal = run?.terminal ?? null;
-  const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, !!terminal);
-  const showTerminal = view === "terminal" && !!terminal;
+  const { live, failed } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const terminal = live?.terminal ?? null;
+  // a run that failed as it started shows why in the terminal's place
+  const hasTerminalView = !!terminal || !!failed;
+  const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
+  const showTerminal = view === "terminal" && hasTerminalView;
   const showTerminalRef = useLatest(showTerminal);
   // Ctrl+` and MOD+Shift+T switch the view, before the terminal sees them,
   // so it never keeps the keyboard
@@ -198,7 +201,7 @@ export function Thread({
       event.stopPropagation();
       toggleView();
     },
-    { capture: true, enabled: !!terminal },
+    { capture: true, enabled: hasTerminalView },
   );
   // switching to the summary puts the focus in its chat box
   useEffect(() => {
@@ -414,7 +417,7 @@ export function Thread({
             </div>
           </div>
           <span className="thread-head-end">
-            {terminal ? <ViewSwitch view={view} onView={chooseView} /> : null}
+            {hasTerminalView ? <ViewSwitch view={view} onView={chooseView} /> : null}
             {items.length > 0 ? (
               <span className="thread-counts">
                 {[
@@ -475,13 +478,13 @@ export function Thread({
         >
           {showTerminal ? (
             <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
-              <TerminalPane terminal={terminal!} autoFocus />
+              {terminal ? <TerminalPane terminal={terminal} autoFocus /> : <FailedStart run={failed!} />}
             </div>
           ) : null}
           <div
             className="thread-main"
             hidden={showTerminal}
-            {...(terminal && !showTerminal
+            {...(hasTerminalView && !showTerminal
               ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
               : {})}
           >

@@ -154,3 +154,98 @@ test("a flag that turns permission checks off is refused", async ({ page }) => {
   );
   await expect(box).toBeVisible();
 });
+
+/** A run of `session` that exited with code 1 a second after it started. */
+const failedRun = (session: string | null) => ({
+  id: "run_failed",
+  host: "local",
+  agent: "claude-code",
+  state: "ended",
+  terminal: "local:t_9",
+  folder: "/work/api",
+  started_at: "2026-11-14T10:00:00.000Z",
+  ended_at: "2026-11-14T10:00:01.000Z",
+  end_reason: "exited",
+  exit_code: 1,
+  exit_signal: null,
+  session: session ? { agent: "claude-code", id: session } : null,
+  task: "Fix the login redirect",
+  args: ["--model", "opus"],
+});
+
+test("a session whose agent exited as it started shows why, and starts it again", async ({ page }) => {
+  const session = await aSession(page);
+  const next = await aSession(page);
+  const posted: Record<string, unknown>[] = [];
+  await page.route(/\/api\/v1\/runs(\?|$)/, async (route) => {
+    if (route.request().method() === "POST") {
+      posted.push(route.request().postDataJSON());
+      return route.fulfill({
+        status: 201,
+        json: {
+          run: { ...failedRun(next), id: "run_2", state: "running" },
+          session: { agent: "claude-code", id: next },
+        },
+      });
+    }
+    return route.fulfill({ json: { runs: [failedRun(session)] } });
+  });
+  await page.route(/\/api\/v1\/runs\/run_failed$/, (route) => route.fulfill({ json: failedRun(session) }));
+  await page.route(/\/api\/v1\/runs\/run_failed\/output/, (route) =>
+    route.fulfill({ json: { text: "Error: invalid model opus\nUsage: claude [options]" } }),
+  );
+  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
+
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  const panel = page.getByTestId("failed-start");
+  await expect(panel).toContainText("Claude Code exited with code 1 as it started.");
+  await expect(panel.getByLabel("Claude Code's last output")).toHaveText(
+    "Error: invalid model opus\nUsage: claude [options]",
+  );
+
+  // as it was
+  await panel.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${next}`));
+  expect(posted[0]).toMatchObject({
+    agent: "claude-code",
+    folder: "/work/api",
+    task: "Fix the login redirect",
+    args: ["--model", "opus"],
+  });
+
+  // or after an edit
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.getByTestId("failed-start").getByRole("button", { name: "Edit and try again" }).click();
+  const box = dialog(page);
+  await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
+  await expect(box.getByLabel("Task")).toHaveValue("Fix the login redirect");
+  await expect(box.getByRole("radio", { name: /Claude Code/ })).toHaveAttribute("aria-checked", "true");
+  await box.getByText("More").click();
+  await expect(box.getByLabel("Extra arguments")).toHaveValue("--model opus");
+});
+
+test("an agent that exits before it names its session shows why in the dialog", async ({ page }) => {
+  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
+  await page.route(/\/api\/v1\/folders\/recent/, (route) => route.fulfill({ json: { folders: [] } }));
+  await page.route(/\/api\/v1\/runs$/, (route) =>
+    route.fulfill({
+      status: 201,
+      json: { run: { ...failedRun(null), state: "running", ended_at: null }, session: null },
+    }),
+  );
+  await page.route(/\/api\/v1\/runs\/run_failed$/, (route) => route.fulfill({ json: failedRun(null) }));
+  await page.route(/\/api\/v1\/runs\/run_failed\/output/, (route) =>
+    route.fulfill({ json: { text: "codex: unknown flag --nope" } }),
+  );
+  await page.goto("/#/");
+  await page.getByRole("button", { name: "Start an agent" }).click();
+  const box = dialog(page);
+  await box.getByRole("combobox", { name: "Folder" }).fill("/work/api");
+  await box.getByRole("heading", { name: "Start an agent" }).click();
+  await box.getByRole("radio", { name: /Codex/ }).click();
+  await box.getByRole("button", { name: "Start" }).click();
+  await expect(box.getByRole("alert")).toHaveText("Codex exited with code 1 as it started.");
+  await expect(box.getByLabel("The agent's last output")).toHaveText("codex: unknown flag --nope");
+  // the fields stay, to edit and start again
+  await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
+});

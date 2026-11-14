@@ -14,6 +14,8 @@ fn new_run<'a>(id: &'a str, session: Option<&'a str>, digest: &'a str) -> NewRun
         kind: "start",
         folder: "/work/app",
         argv: &[],
+        task: None,
+        args: &[],
         created_by: "app",
         token_digest: digest,
         session,

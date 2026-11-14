@@ -25,6 +25,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/agents/startable", get(startable))
         .route("/api/v1/folders/recent", get(recent_folders))
         .route("/api/v1/runs/{run}", get(show))
+        .route("/api/v1/runs/{run}/output", get(output))
         .route("/api/v1/runs/{run}/stop", post(stop))
         .route("/api/v1/hosts/{host}", get(host))
 }
@@ -204,7 +205,31 @@ async fn show(
         .ok_or_else(|| Error::NotFound(format!("run {id}")))?;
     let mut value = run.to_json();
     value["sessions"] = sessions.iter().map(|s| s.to_json()).collect();
+    // what the person started it with, to start it again
+    let (task, args) = state.runtime().run_launch(&id)?.unwrap_or_default();
+    value["task"] = json!(task);
+    value["args"] = json!(args);
     Ok(Json(value))
+}
+
+/// The last `lines` lines (20 by default, at most 500) a run's terminal
+/// showed, such as those of an agent that exited as it started. Only the
+/// person reads a terminal.
+async fn output(
+    State(state): State<Arc<Pinrail>>,
+    _person: Person,
+    Path(id): Path<String>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let lines = query
+        .get("lines")
+        .and_then(|n| n.parse::<usize>().ok())
+        .unwrap_or(20)
+        .min(500);
+    match state.runtime().output(&id, lines).await {
+        Ok(text) => Json(json!({ "text": text })).into_response(),
+        Err(error) => run_error(error),
+    }
 }
 
 /// Stops a run's agent, which has 2 seconds to exit, or none with

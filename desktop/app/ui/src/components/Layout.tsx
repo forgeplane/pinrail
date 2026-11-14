@@ -34,7 +34,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, modalOpen, isTyping } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
-import { StartAgentDialog } from "./StartAgentDialog";
+import { StartAgentDialog, type StartAgentInitial } from "./StartAgentDialog";
 import { HISTORY_PATH, Sidebar, useSidebarWidth } from "./Sidebar";
 import { useWelcome } from "./useWelcome";
 import { useWhatsNew } from "./useWhatsNew";
@@ -94,10 +94,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { settings: prefs, themes, update } = useSettings();
   // ⌘N starts an agent, while the agent runtime is on; the sidebar's
   // button asks for the dialog with an event
-  const [startAgent, setStartAgent] = useState(false);
+  // what it opens with, when a run is to be edited and started again
+  const [startAgent, setStartAgent] = useState<StartAgentInitial | null>(null);
   const runtimeOn = prefs.labs.runtime;
   useEffect(() => {
-    const open = () => setStartAgent(true);
+    const open = (event: Event) => setStartAgent((event as CustomEvent<StartAgentInitial | undefined>).detail ?? {});
     window.addEventListener("pinrail:start-agent", open);
     return () => window.removeEventListener("pinrail:start-agent", open);
   }, []);
@@ -203,7 +204,7 @@ export function Layout({ children }: { children: ReactNode }) {
       if (!modalOpen()) startQuickAdd();
     },
     "start-agent": () => {
-      if (runtimeOn && !modalOpen()) setStartAgent(true);
+      if (runtimeOn && !modalOpen()) setStartAgent({});
     },
     settings: () => setSettings((s) => (s ? null : "general")),
     "toggle-theme": () => void toggleTheme(),
@@ -349,7 +350,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
-      {startAgent && runtimeOn ? <StartAgentDialog onClose={() => setStartAgent(false)} /> : null}
+      {startAgent && runtimeOn ? <StartAgentDialog initial={startAgent} onClose={() => setStartAgent(null)} /> : null}
       {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}
