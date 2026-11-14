@@ -75,9 +75,10 @@ dir = "{{config_root}}/desktop"
 run = "cargo bench -q -p pinrail-host --bench host --"
 
 [tasks."dev:desktop"]
-description = "Desktop app with the UI dev server and live reload"
+description = "Desktop app with the UI dev server and live reload, and the current terminal host"
 dir = "{{config_root}}/desktop/app"
-run = "npx tauri dev"
+# tauri dev builds the app alone; the host it starts is built here
+run = ["cargo build -q -p pinrail-host --manifest-path ../Cargo.toml", "npx tauri dev"]
 
 [tasks."dev:telemetry"]
 description = "Desktop app in dev mode with usage data on, in a data folder of its own; prints each batch, or sends it with --send"
