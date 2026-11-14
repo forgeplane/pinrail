@@ -10,10 +10,13 @@
 //!
 //! It prints the results as JSON and exits with 1 when a budget fails.
 //! With `--baseline <file>`, it also fails when a result is more than 15 %
-//! worse than the baseline's, and `--write-baseline <file>` writes this
-//! run's results as the baseline. Each result is the best of three runs.
+//! worse than the baseline's, beyond a small margin for the measures whose
+//! values are too small for a ratio to mean much, and `--write-baseline
+//! <file>` writes this run's results as the baseline. `--skip-budgets`
+//! checks the baseline only, for machines other than the reference ones,
+//! such as CI's. Each result is the best of three runs.
 //!
-//!     cargo bench -p pinrail-host --bench host -- [--baseline <file>] [--write-baseline <file>]
+//!     cargo bench -p pinrail-host --bench host -- [--baseline <file>] [--write-baseline <file>] [--skip-budgets]
 
 use std::time::{Duration, Instant};
 
@@ -30,12 +33,15 @@ const CHUNK: usize = 16 * 1024;
 /// How much worse than the baseline a result may be.
 const TOLERANCE: f64 = 0.15;
 
-/// A measure: its name, its unit, the budget, and whether more is better.
+/// A measure: its name, its unit, the budget, whether more is better, and
+/// the margin, in its unit, that a result may be worse than the baseline's
+/// on top of the 15 %.
 struct Measure {
     name: &'static str,
     unit: &'static str,
     budget: f64,
     higher_is_better: bool,
+    margin: f64,
 }
 
 const MEASURES: &[Measure] = &[
@@ -44,30 +50,35 @@ const MEASURES: &[Measure] = &[
         unit: "MB/s",
         budget: 250.0,
         higher_is_better: true,
+        margin: 0.0,
     },
     Measure {
         name: "throughput_plain",
         unit: "MB/s",
         budget: 500.0,
         higher_is_better: true,
+        margin: 0.0,
     },
     Measure {
         name: "memory_10k_lines",
         unit: "MiB",
         budget: 15.0,
         higher_is_better: false,
+        margin: 0.0,
     },
     Measure {
         name: "idle_cpu_10_agents",
         unit: "% of a core",
         budget: 1.0,
         higher_is_better: false,
+        margin: 0.5,
     },
     Measure {
         name: "first_paint_5k_lines",
         unit: "ms",
         budget: 10.0,
         higher_is_better: false,
+        margin: 1.0,
     },
 ];
 
@@ -352,7 +363,11 @@ fn idle_cpu() -> f64 {
 }
 
 /// What failed: a budget, or the baseline by more than the tolerance.
-fn check(results: &serde_json::Map<String, Value>, baseline: Option<&Value>) -> Vec<String> {
+fn check(
+    results: &serde_json::Map<String, Value>,
+    baseline: Option<&Value>,
+    budgets: bool,
+) -> Vec<String> {
     let mut failures = Vec::new();
     for measure in MEASURES {
         let Some(value) = results[measure.name].as_f64() else {
@@ -365,7 +380,7 @@ fn check(results: &serde_json::Map<String, Value>, baseline: Option<&Value>) -> 
                 value <= limit
             }
         };
-        if !within(measure.budget) {
+        if budgets && !within(measure.budget) {
             failures.push(format!(
                 "{}: {value:.2} {} misses the budget of {} {}",
                 measure.name, measure.unit, measure.budget, measure.unit
@@ -373,13 +388,13 @@ fn check(results: &serde_json::Map<String, Value>, baseline: Option<&Value>) -> 
         }
         if let Some(base) = baseline.and_then(|b| b[measure.name].as_f64()) {
             let limit = if measure.higher_is_better {
-                base * (1.0 - TOLERANCE)
+                base * (1.0 - TOLERANCE) - measure.margin
             } else {
-                base * (1.0 + TOLERANCE)
+                base * (1.0 + TOLERANCE) + measure.margin
             };
             if !within(limit) {
                 failures.push(format!(
-                    "{}: {value:.2} {} is more than 15 % worse than the baseline's {base:.2}",
+                    "{}: {value:.2} {} is worse than the baseline's {base:.2} by more than 15 %",
                     measure.name, measure.unit
                 ));
             }
@@ -390,11 +405,12 @@ fn check(results: &serde_json::Map<String, Value>, baseline: Option<&Value>) -> 
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let (mut baseline, mut write_baseline) = (None, None);
+    let (mut baseline, mut write_baseline, mut budgets) = (None, None, true);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--baseline" => baseline = args.next(),
             "--write-baseline" => write_baseline = args.next(),
+            "--skip-budgets" => budgets = false,
             // cargo bench passes --bench
             _ => {}
         }
@@ -413,7 +429,7 @@ fn main() {
         let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
         serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path}: {e}"))
     });
-    let failures = check(&results, baseline.as_ref());
+    let failures = check(&results, baseline.as_ref(), budgets);
     let report = json!({
         "results": results,
         "units": MEASURES

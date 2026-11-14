@@ -1,0 +1,80 @@
+# The terminal host's performance budgets, on every change to the host or
+# the screen it parses with. CI's runners are not the reference machines,
+# so a run compares with the baseline of the last push to main on the same
+# runner type, and fails on a result more than 15 % worse; the absolute
+# budgets are checked on the reference machines before each release. A push
+# to main whose run passes becomes the next baseline.
+name: bench-host
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/host/**"
+      - "desktop/screen/**"
+      - ".github/workflows/bench-host.yml"
+  pull_request:
+    paths:
+      - "desktop/host/**"
+      - "desktop/screen/**"
+      - ".github/workflows/bench-host.yml"
+
+concurrency:
+  group: bench-host-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust toolchain
+        run: rustup toolchain install
+      # Zig at the version mise.toml pins, which builds libghostty-vt
+      - name: Zig version
+        id: zig
+        run: echo "version=$(sed -n 's/^zig = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ steps.zig.outputs.version }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # the release build of the host, apart from the test builds
+          shared-key: bench-host-${{ runner.os }}-${{ runner.arch }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: desktop
+      # the newest baseline main saved for this runner type, if any
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: baseline
+        with:
+          path: bench-host-baseline.json
+          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-
+      - name: Benchmark
+        working-directory: desktop
+        run: |
+          args=(--skip-budgets --write-baseline ../bench-host-results.json)
+          if [ -f ../bench-host-baseline.json ]; then
+            args+=(--baseline ../bench-host-baseline.json)
+          else
+            echo "No baseline yet for this runner type: this run only records one."
+          fi
+          cargo bench -q --locked -p pinrail-host --bench host -- "${args[@]}"
+      # a passing run on main is the next baseline
+      - name: Keep the results as the baseline
+        if: github.ref == 'refs/heads/main'
+        run: mv bench-host-results.json bench-host-baseline.json
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: bench-host-baseline.json
+          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
