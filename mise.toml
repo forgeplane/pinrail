@@ -120,6 +120,10 @@ run = [
   "docker run --rm -it --name pinrail-linux -p 6080:6080 -v {{config_root}}:/src:ro -v pinrail-linux-work:/work -v pinrail-linux-cache:/cache --shm-size=1g pinrail-linux-desktop",
 ]
 
+[tasks."ghostty:wasm"]
+description = "Build libghostty-vt as WebAssembly for the window's terminal renderer, from the release desktop/screen pins"
+run = "sh {{config_root}}/scripts/ghostty-wasm.sh"
+
 [tasks."ghostty:fetch"]
 description = "Download and check the libghostty-vt tarballs desktop/screen builds, for a build without network"
 run = "sh {{config_root}}/scripts/ghostty-fetch.sh"

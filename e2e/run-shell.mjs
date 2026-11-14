@@ -35,6 +35,7 @@ const locked = process.env.CI ? ["--locked"] : [];
 build("cargo", ["build", "-q", "-p", "pinrail-desktop", ...locked], path.join(root, "desktop"));
 build("cargo", ["build", "-q", ...locked], path.join(root, "cli"));
 build("npm", ["run", "sdk:build", "--silent"], path.join(root, "desktop", "app"));
+build("sh", [path.join(root, "scripts", "ghostty-wasm.sh")], root);
 console.log(`run-shell: built in ${seconds()}s; running ${shards} shard${shards === 1 ? "" : "s"}`);
 
 const runs = Array.from({ length: shards }, (_, i) => {

@@ -100,7 +100,9 @@ const entries = [
     name: "MIT License and others",
     id: "MIT",
     text: fs.readFileSync(path.join(root, "licenses", "libghostty-vt.txt"), "utf8"),
-    packages: ["libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host"],
+    packages: [
+      "libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host and, as WebAssembly, in the window's terminal",
+    ],
   },
   // code the terminal host and the pinrail command adapt from herdr-core,
   // which says so in each file

@@ -86,7 +86,7 @@ export default defineConfig({
       // a production build of the UI, made for this shard's core and served
       // as files: far lighter than the dev server, which compiles every
       // module again for each page a test opens
-      command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && "}npx vite build --outDir "${ui}" --emptyOutDir --logLevel error && npx vite preview --outDir "${ui}" --host 127.0.0.1 --port ${uiPort} --strictPort`,
+      command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && npm run ghostty:wasm && "}npx vite build --outDir "${ui}" --emptyOutDir --logLevel error && npx vite preview --outDir "${ui}" --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
       // feedback goes to an address the tests answer, never to the service
       env: {

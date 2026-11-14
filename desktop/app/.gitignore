@@ -1,3 +1,6 @@
 /notices/
 # failure screenshots from the browser tests
 /.vitest/
+
+# libghostty-vt as WebAssembly, built by scripts/ghostty-wasm.sh
+/ui/public/ghostty/

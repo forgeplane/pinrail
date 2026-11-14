@@ -12,7 +12,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["ui/src/**/*.test.ts"],
+    // and the checks of what the app ships, beside its build scripts
+    include: ["ui/src/**/*.test.ts", "scripts/**/*.test.mjs"],
     // those run in a browser, with vitest.browser.config.ts
     exclude: ["ui/src/**/*.browser.test.ts"],
     environment: "node",

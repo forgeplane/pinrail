@@ -179,6 +179,10 @@ jobs:
         run: |
           npm ci
           npm run build
+      # what the build made of libghostty-vt is the release the host pins
+      - name: Check libghostty-vt's WebAssembly build
+        working-directory: desktop/app
+        run: npx vitest run scripts
       # the terminal renderers' contract, in WebKit, the engine of the
       # window on macOS and Linux
       - name: Terminal renderer contract
