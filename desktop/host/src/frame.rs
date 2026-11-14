@@ -87,6 +87,61 @@ pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Option<Fra
     }))
 }
 
+/// Reads frames, keeping a partly read frame between calls, so that a
+/// call dropped while it waits, as a branch of `tokio::select!` that
+/// another branch beat, loses no bytes: each wait is one `read`, which
+/// takes nothing from the stream unless it completes.
+pub struct FrameReader<R> {
+    reader: R,
+    buf: Vec<u8>,
+}
+
+impl<R: AsyncRead + Unpin> FrameReader<R> {
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader,
+            buf: Vec::new(),
+        }
+    }
+
+    /// The next frame, or `None` when the stream ends between frames.
+    pub async fn next(&mut self) -> io::Result<Option<Frame>> {
+        loop {
+            if let Some(frame) = self.complete()? {
+                return Ok(Some(frame));
+            }
+            let mut chunk = [0u8; 64 * 1024];
+            let n = self.reader.read(&mut chunk).await?;
+            if n == 0 {
+                return if self.buf.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(io::ErrorKind::UnexpectedEof.into())
+                };
+            }
+            self.buf.extend_from_slice(&chunk[..n]);
+        }
+    }
+
+    /// A whole frame from the bytes read so far, if they hold one.
+    fn complete(&mut self) -> io::Result<Option<Frame>> {
+        let Some(head) = self.buf.get(..HEADER) else {
+            return Ok(None);
+        };
+        let (channel, kind, length) = header(head.try_into().expect("HEADER bytes"))?;
+        if self.buf.len() < HEADER + length {
+            return Ok(None);
+        }
+        let payload = self.buf[HEADER..HEADER + length].to_vec();
+        self.buf.drain(..HEADER + length);
+        Ok(Some(Frame {
+            channel,
+            kind,
+            payload,
+        }))
+    }
+}
+
 pub async fn write<W: AsyncWrite + Unpin>(writer: &mut W, frame: &Frame) -> io::Result<()> {
     writer.write_all(&frame.encode()).await?;
     writer.flush().await

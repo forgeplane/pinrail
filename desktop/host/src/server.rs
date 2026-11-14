@@ -384,9 +384,10 @@ pub const PING_EVERY: Duration = Duration::from_secs(15);
 /// answered by a task of its own, until it closes, is replaced, overflows
 /// or stops the host.
 async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
-    let (mut reader, writer) = stream.into_split();
-    let Ok(Ok(Some(first))) = tokio::time::timeout(HELLO_WITHIN, frame::read(&mut reader)).await
-    else {
+    let (reader, writer) = stream.into_split();
+    // the loop below reads in a select!, where a read can be dropped
+    let mut reader = frame::FrameReader::new(reader);
+    let Ok(Ok(Some(first))) = tokio::time::timeout(HELLO_WITHIN, reader.next()).await else {
         return;
     };
     let Some(call_id) = hello_id(&first, &shared.secret) else {
@@ -436,7 +437,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
             _ = ping.tick() => {
                 out.frame(Frame::json(&json!({"jsonrpc": "2.0", "method": "ping"})));
             }
-            read = frame::read(&mut reader) => match read {
+            read = reader.next() => match read {
                 Ok(Some(frame)) if frame.channel == CONTROL_CHANNEL && frame.kind == kind::DATA => {
                     // answered in order with the events that follow it
                     if subscribe(&frame.payload, id, &out, &shared) {

@@ -225,3 +225,28 @@ fn connect_brings_a_remote_core_in_with_the_host_s_secret() {
     drop(stdin);
     assert!(bridge.wait().unwrap().success());
 }
+
+#[test]
+fn a_frame_that_arrives_in_parts_around_a_ping_is_read_whole() {
+    let folders = folders();
+    let host = serve(&folders, &["--ping-every", "1"]);
+    let mut stream = raw(&host);
+    let message = json!({"jsonrpc": "2.0", "id": 7, "method": "host.info", "params": {}});
+    let bytes = Frame::json(&message).encode();
+    // the header and part of the payload, then a ping, then the rest
+    stream.write_all(&bytes[..12]).unwrap();
+    std::thread::sleep(Duration::from_millis(1_500));
+    stream.write_all(&bytes[12..]).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let answer = self::message(&mut stream).expect("the host closed the connection");
+        if answer["id"] == 7 {
+            assert!(answer["result"]["version"].is_string(), "{answer}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "no answer to the call");
+    }
+}
