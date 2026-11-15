@@ -110,7 +110,12 @@ test("Resume in the header resumes a stopped session and shows its terminal", as
   const posted = await standIn(page, session, [run(session, {})]);
   await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
 
-  await header(page).getByRole("button", { name: "Resume Claude Code" }).click();
+  const resume = header(page).getByRole("button", { name: "Resume Claude Code" });
+  // one line, wide enough for its label and icon
+  const box = (await resume.boundingBox())!;
+  expect(box.height).toBeLessThanOrEqual(26);
+  expect(box.width).toBeGreaterThan(box.height * 2);
+  await resume.click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
   await expect(header(page).getByRole("button", { name: "Stop Claude Code" })).toBeVisible();
   await expect(header(page).getByRole("button", { name: "Resume Claude Code" })).toHaveCount(0);
@@ -223,6 +228,10 @@ test("a session running in another terminal opens in Pinrail after a warning", a
   await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
 
   const open = header(page).getByRole("button", { name: "Open Claude Code in Pinrail" });
+  // one line, as tall as the header's other buttons
+  const box = (await open.boundingBox())!;
+  expect(box.height).toBeLessThanOrEqual(26);
+  expect(box.width).toBeGreaterThan(box.height * 3);
   await open.click();
   const warning = page.getByRole("dialog", { name: "Open Claude Code in Pinrail?" });
   await expect(warning).toContainText(

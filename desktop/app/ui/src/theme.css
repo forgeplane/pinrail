@@ -7852,14 +7852,24 @@ a.item-ref {
   gap: 8px;
 }
 /* Stop, in the header of a session whose agent runs in Pinrail. */
-.run-stop {
+/* Stop, Resume and Open in Pinrail in a session's header: a button sized
+   to its icon and label, on one line. */
+.run-stop,
+.run-resume {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   width: auto;
+  flex: none;
   padding: 0 8px;
-  color: var(--danger);
+  white-space: nowrap;
   font: var(--text-xs) var(--font);
+}
+.run-stop {
+  color: var(--danger);
+}
+.run-resume {
+  color: var(--text);
 }
 /* A run that has ended: how, over its last screen, dimmed. */
 .ended-run {
