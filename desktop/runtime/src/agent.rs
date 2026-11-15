@@ -51,6 +51,12 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// How Pinrail types a message into the agent's terminal as a prompt;
+    /// `None` for an agent it does not type into.
+    fn submit(&self) -> Option<SubmitPlan> {
+        None
+    }
+
     /// Whether a session still running in another terminal can be resumed
     /// in a second process, both of them answering it. Claude Code allows
     /// it; the others are not yet known to.
@@ -85,6 +91,34 @@ pub struct StartPlan {
     /// the run learns it from the agent's first `SessionStart`.
     pub session: Option<String>,
 }
+
+/// How to type a message into the agent's terminal: the paste, the wait
+/// for its output to settle, the keys that submit it, and the hook whose
+/// report of the prompt confirms that the agent received it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubmitPlan {
+    /// Whether the text goes in a bracketed paste.
+    pub bracketed: bool,
+    /// How long the output must be quiet after the paste.
+    pub settle_ms: u64,
+    /// The longest wait after the paste.
+    pub max_ms: u64,
+    /// The keys that submit the prompt.
+    pub submit: &'static str,
+    /// The hook event, as Pinrail names it, that reports the prompt.
+    pub confirms: Option<&'static str>,
+}
+
+/// The plan of Claude Code and Codex: a bracketed paste, 150 ms for the
+/// output to settle and 1 s at most, then Enter, confirmed by the prompt
+/// hook.
+pub(crate) const PASTE_AND_ENTER: SubmitPlan = SubmitPlan {
+    bracketed: true,
+    settle_ms: 150,
+    max_ms: 1_000,
+    submit: "\r",
+    confirms: Some("prompt"),
+};
 
 /// Adds the first task to a command as its last argument, after `--`, so
 /// that a task that starts with `-` is never read as a flag.

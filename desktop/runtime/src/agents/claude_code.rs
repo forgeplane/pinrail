@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::agent::{
-    Agent, Env, Hint, HintStatus, StartPlan, StartRequest, push_task, resumable_id, spec,
+    Agent, Env, Hint, HintStatus, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task,
+    resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::integration::{HookEntry, HookPlan};
@@ -162,6 +163,11 @@ impl Agent for ClaudeCode {
     /// Two Claude Code processes can hold one session, each adding to it.
     fn resumes_while_running(&self) -> bool {
         true
+    }
+
+    /// A bracketed paste and Enter, confirmed by `UserPromptSubmit`.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
     }
 
     fn deny_flags(&self) -> &'static [&'static str] {

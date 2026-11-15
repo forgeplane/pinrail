@@ -144,3 +144,14 @@ fn only_claude_code_resumes_a_session_still_running_elsewhere() {
     assert!(adapter("claude-code").unwrap().resumes_while_running());
     assert!(!adapter("codex").unwrap().resumes_while_running());
 }
+
+#[test]
+fn claude_code_and_codex_take_a_message_as_a_bracketed_paste_and_enter() {
+    for id in ["claude-code", "codex"] {
+        let plan = adapter(id).unwrap().submit().unwrap();
+        assert!(plan.bracketed, "{id}");
+        assert_eq!((plan.settle_ms, plan.max_ms), (150, 1_000), "{id}");
+        assert_eq!(plan.submit, "\r", "{id}");
+        assert_eq!(plan.confirms, Some("prompt"), "{id}");
+    }
+}

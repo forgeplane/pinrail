@@ -382,7 +382,7 @@ fn run_error(error: RunError) -> Response {
             body["anyway"] = json!(anyway);
             return (StatusCode::CONFLICT, Json(body)).into_response();
         }
-        RunError::Limit(_) => StatusCode::CONFLICT,
+        RunError::Limit(_) | RunError::NotTyped(_) => StatusCode::CONFLICT,
         RunError::FolderMissing(_) | RunError::NotResumable(_) => StatusCode::UNPROCESSABLE_ENTITY,
         RunError::HostOffline => StatusCode::SERVICE_UNAVAILABLE,
         RunError::StartFailed(_) => StatusCode::BAD_GATEWAY,

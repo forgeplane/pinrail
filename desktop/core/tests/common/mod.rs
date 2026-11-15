@@ -187,6 +187,8 @@ echo "stand-in agent starting"
 printf '%s\n' "$@" > argv
 printf '%s' "$PINRAIL_RUN_TOKEN" > token
 if [ -f exit ]; then exit "$(cat exit)"; fi
+# with a file named listen, it writes each line it is sent to heard
+if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> heard; done; exit 0; fi
 exec sleep 600
 "#;
 

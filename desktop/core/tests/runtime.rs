@@ -427,3 +427,33 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
         .unwrap();
     assert!(runtime.restarted().unwrap().is_empty());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_message_is_typed_into_a_run_and_refused_once_the_run_ended() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("listen"), "").unwrap();
+    let runtime = setup.app.runtime();
+    let run = runtime.start(&start("claude-code", &folder)).await.unwrap();
+    file(folder.join("token")).await;
+
+    runtime
+        .type_message(&run.id, "use the v2 endpoint\x1b[201~ now", None, false)
+        .await
+        .unwrap();
+    let heard = file(folder.join("heard")).await;
+    // pasted as one bracketed paste, its end marker taken out of the text
+    assert!(
+        heard.contains("\x1b[200~use the v2 endpoint now\x1b[201~"),
+        "{heard:?}"
+    );
+
+    runtime.stop(&run.id, true).await.unwrap();
+    run_becomes(&setup.db(), &run.id, |r| r.state == "ended").await;
+    let refused = runtime
+        .type_message(&run.id, "anyone?", None, false)
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code(), "exited");
+}

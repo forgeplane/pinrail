@@ -87,6 +87,10 @@ pub enum RunError {
     },
     /// Pinrail cannot resume the session, as the message says.
     NotResumable(String),
+    /// The host did not type the message: `used_since_idle`,
+    /// `not_foreground`, `exited`, `busy`, or `not_typed` for an agent
+    /// Pinrail does not type into.
+    NotTyped(&'static str),
     Core(Error),
 }
 
@@ -110,6 +114,7 @@ impl RunError {
             RunError::StartFailed(_) => "start_failed",
             RunError::AlreadyRunning { .. } => "already_running",
             RunError::NotResumable(_) => "not_resumable",
+            RunError::NotTyped(code) => code,
             RunError::Core(_) => "internal",
         }
     }
@@ -123,6 +128,17 @@ impl std::fmt::Display for RunError {
             | RunError::Limit(message)
             | RunError::StartFailed(message)
             | RunError::NotResumable(message) => write!(f, "{message}"),
+            RunError::NotTyped(code) => write!(
+                f,
+                "{}",
+                match *code {
+                    "used_since_idle" => "You used the terminal after the agent finished.",
+                    "not_foreground" => "Another program holds the agent's terminal.",
+                    "exited" => "The agent has exited.",
+                    "busy" => "Another message is being typed.",
+                    _ => "Pinrail does not type messages into this agent.",
+                }
+            ),
             RunError::AlreadyRunning { run: Some(_), .. } => {
                 write!(f, "This session is already running.")
             }
@@ -325,6 +341,58 @@ impl super::Runtime {
             .await;
         self.spawns().resuming.remove(&key);
         result
+    }
+
+    /// Types `text` into a live run's terminal as a prompt, with its
+    /// agent's plan, and submits it. The host types only while the run's
+    /// own agent process holds the terminal, and, unless `anyway`, only if
+    /// the person has not used the terminal since `idle_since`, when the
+    /// agent last became idle. Answers once the text has been submitted.
+    pub async fn type_message(
+        &self,
+        run: &str,
+        text: &str,
+        idle_since: Option<DateTime<Utc>>,
+        anyway: bool,
+    ) -> Result<(), RunError> {
+        let row = self
+            .db
+            .run(run)?
+            .ok_or_else(|| RunError::NotFound(run.to_string()))?;
+        let (Some(terminal), true) = (row.terminal.as_deref(), row.is_live()) else {
+            return Err(RunError::NotTyped("exited"));
+        };
+        let plan = pinrail_runtime::adapter(&row.agent)
+            .and_then(|a| a.submit())
+            .ok_or(RunError::NotTyped("not_typed"))?;
+        let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        let reply = link
+            .call(
+                "terminal.submit",
+                json!({
+                    "terminal": terminal,
+                    "text": text,
+                    "bracketed": plan.bracketed,
+                    "settle_ms": plan.settle_ms,
+                    "max_ms": plan.max_ms,
+                    "submit": plan.submit,
+                    "expect_pid": row.process.as_ref().map(|(pid, _)| pid),
+                    "idle_since": idle_since.map(crate::reviews::iso),
+                    "anyway": anyway,
+                }),
+            )
+            .await;
+        match reply {
+            Ok(_) => Ok(()),
+            Err(HostError::Refused { code, message }) => Err(match code.as_str() {
+                "used_since_idle" => RunError::NotTyped("used_since_idle"),
+                "not_foreground" => RunError::NotTyped("not_foreground"),
+                "busy" => RunError::NotTyped("busy"),
+                "exited" | "not_found" => RunError::NotTyped("exited"),
+                _ => RunError::StartFailed(message),
+            }),
+            Err(_) => Err(RunError::HostOffline),
+        }
     }
 
     /// Asks the host to spawn a run just recorded as `starting`, with the

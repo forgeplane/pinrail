@@ -3,7 +3,9 @@
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, StartPlan, StartRequest, push_task, resumable_id, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task, resumable_id, spec,
+};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::registry::AgentSpec;
 
@@ -79,6 +81,11 @@ impl Agent for Codex {
                 .map(str::to_string)
                 .to_vec()
         })
+    }
+
+    /// A bracketed paste and Enter, confirmed by `UserPromptSubmit`.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
     }
 
     fn deny_flags(&self) -> &'static [&'static str] {
