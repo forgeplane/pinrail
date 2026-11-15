@@ -149,6 +149,10 @@ struct ListArgs {
     /// Only the person's queue, in its order: the items next offers first
     #[arg(long)]
     queued: bool,
+    /// With --parent: its sub-items at every depth, indented, keeping the
+    /// items above each one the other filters keep
+    #[arg(long, requires = "parent", conflicts_with = "queued")]
+    tree: bool,
     #[command(flatten)]
     common: Common,
 }
@@ -417,6 +421,9 @@ fn add(client: &Client, args: AddArgs, output: Output) -> Result<u8> {
 
 fn list(client: &Client, args: ListArgs, output: Output) -> Result<u8> {
     let cx = Scope::of(&args.common);
+    if args.tree {
+        return tree(client, &args, &cx, output);
+    }
     let mut states: Vec<String> = args
         .status
         .as_deref()
@@ -452,6 +459,136 @@ fn list(client: &Client, args: ListArgs, output: Output) -> Result<u8> {
     let everywhere = cx.repo.is_none();
     output.data(&listed, |v| list_md(&v["items"], everywhere));
     Ok(0)
+}
+
+/// `list --parent <item> --tree`: the item and its sub-items at every
+/// depth, read in one request of every item without their bodies. With no
+/// filter it keeps the items not closed; with filters, those they match;
+/// and in both cases every item above one it keeps.
+fn tree(client: &Client, args: &ListArgs, cx: &Scope, output: Output) -> Result<u8> {
+    let root_key = args.parent.as_deref().unwrap_or_default();
+    let root = client.get(&cx.path(root_key, ""), &[])?;
+    let mut query: Vec<(&str, String)> = vec![
+        ("status", "open,in_progress,on_hold,done,cancelled".into()),
+        ("fields", "summary".into()),
+    ];
+    if let Some(words) = &args.search {
+        query.push(("q", words.clone()));
+    }
+    let repo = cx
+        .repo
+        .clone()
+        .or_else(|| root["repo"].as_str().map(str::to_string));
+    if let Some(repo) = &repo {
+        query.push(("repo", repo.clone()));
+    }
+    let listed = client.get("/api/v1/items", &query)?;
+    let all = listed["items"].as_array().cloned().unwrap_or_default();
+    let mut states: Vec<String> = args
+        .status
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+    if args.ready {
+        states.push("ready".into());
+    }
+    if args.blocked {
+        states.push("blocked".into());
+    }
+    let keeps = |item: &Value| -> bool {
+        let status = item["status"].as_str().unwrap_or_default();
+        if states.is_empty() {
+            return status != "done" && status != "cancelled";
+        }
+        states.iter().any(|s| match s.as_str() {
+            "ready" => item["ready"] == true,
+            "blocked" => {
+                item["blocked"] == true
+                    || item["blocked_by"].as_array().is_some_and(|b| !b.is_empty())
+            }
+            other => status == other,
+        })
+    };
+    let root_key = s(&root["key"]).to_string();
+    let mut lines = Vec::new();
+    tree_lines(&all, &root_key, 0, &keeps, &mut lines);
+    let mut kept = Vec::new();
+    collect_kept(&all, &root_key, &keeps, &mut kept);
+    let markdown = format!("{}\n{}", tree_line(&root), lines.concat());
+    output.data(&json!({ "item": root, "items": kept }), |_| markdown);
+    Ok(0)
+}
+
+/// Whether the item, or one of its sub-items at any depth, is kept.
+fn kept_below(all: &[Value], item: &Value, keeps: &dyn Fn(&Value) -> bool) -> bool {
+    keeps(item)
+        || all
+            .iter()
+            .filter(|c| c["parent"] == item["key"])
+            .any(|c| kept_below(all, c, keeps))
+}
+
+/// The lines of `parent`'s kept sub-items, indented two spaces a level.
+fn tree_lines(
+    all: &[Value],
+    parent: &str,
+    depth: usize,
+    keeps: &dyn Fn(&Value) -> bool,
+    out: &mut Vec<String>,
+) {
+    for child in all.iter().filter(|c| c["parent"] == parent) {
+        if !kept_below(all, child, keeps) {
+            continue;
+        }
+        out.push(format!("{}- {}\n", "  ".repeat(depth), tree_line(child)));
+        tree_lines(all, s(&child["key"]), depth + 1, keeps, out);
+    }
+}
+
+/// The items the tree shows, in its order, for --json.
+fn collect_kept(all: &[Value], parent: &str, keeps: &dyn Fn(&Value) -> bool, out: &mut Vec<Value>) {
+    for child in all.iter().filter(|c| c["parent"] == parent) {
+        if kept_below(all, child, keeps) {
+            out.push(child.clone());
+            collect_kept(all, s(&child["key"]), keeps, out);
+        }
+    }
+}
+
+/// An item in the tree: as in the list, without the parent, which the
+/// indentation shows.
+fn tree_line(item: &Value) -> String {
+    let mut parts = vec![status_words(&item["status"])];
+    if let Some(agent) = item["claim"]["agent"].as_str() {
+        parts[0] = format!("{} by {agent}", parts[0]);
+    }
+    if item["ready"] == true {
+        parts.push("ready".into());
+    }
+    let blocked: Vec<&str> = item["blocked_by"]
+        .as_array()
+        .map(|b| b.iter().map(s).collect())
+        .unwrap_or_default();
+    if !blocked.is_empty() {
+        parts.push(format!("blocked by {}", blocked.join(", ")));
+    }
+    let total = item["sub_items"]["total"].as_u64().unwrap_or(0);
+    if total > 0 {
+        parts.push(format!(
+            "{} of {total} sub-items closed",
+            item["sub_items"]["closed"].as_u64().unwrap_or(0)
+        ));
+    }
+    format!(
+        "{} {} · {}",
+        s(&item["key"]),
+        s(&item["title"]),
+        parts.join(" · ")
+    )
 }
 
 fn next(client: &Client, args: NextArgs, output: Output) -> Result<u8> {

@@ -4050,6 +4050,67 @@ fn items_show_brief_prints_what_the_item_asks_and_nothing_else() {
 }
 
 #[test]
+fn items_list_shows_an_items_sub_items_as_a_tree() {
+    let listed = serde_json::json!({"items": [
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-1", "Runtime",
+            serde_json::json!({"ready": false, "sub_items": {"total": 3, "closed": 1}}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-2", "Messages",
+            serde_json::json!({"parent": "PIN-1", "ready": false, "sub_items": {"total": 1, "closed": 1}}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-5", "Queue",
+            serde_json::json!({"parent": "PIN-2", "status": "done", "ready": false}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-3", "Resume",
+            serde_json::json!({"parent": "PIN-1", "status": "done", "ready": false, "sub_items": {"total": 1, "closed": 0}}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-4", "Banner",
+            serde_json::json!({"parent": "PIN-3"}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-6", "Polish",
+            serde_json::json!({"parent": "PIN-1", "ready": false, "blocked_by": ["PIN-2"]}))).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&work_item("PIN-9", "Elsewhere", serde_json::json!({}))).unwrap(),
+    ]})
+    .to_string();
+    let root = work_item(
+        "PIN-1",
+        "Runtime",
+        serde_json::json!({"ready": false, "sub_items": {"total": 3, "closed": 1}}),
+    );
+    let (server, sent) = items_server(move |_, path| {
+        if path.starts_with("/api/v1/items/PIN-1") {
+            (200, root.clone())
+        } else {
+            (200, listed.clone())
+        }
+    });
+    let (code, out, err) = items_run(&server, &["items", "list", "--parent", "PIN-1", "--tree"]);
+    assert_eq!(code, 0, "{err}");
+    // what is open at every depth, and the closed items above it
+    assert_eq!(
+        out,
+        "PIN-1 Runtime · open · 1 of 3 sub-items closed\n\
+         - PIN-2 Messages · open · 1 of 1 sub-items closed\n\
+         - PIN-3 Resume · done · 0 of 1 sub-items closed\n\
+         \x20 - PIN-4 Banner · open · ready\n\
+         - PIN-6 Polish · open · blocked by PIN-2\n"
+    );
+    // it reads every item of every status, without their bodies
+    assert!(
+        sent.lock().unwrap()[1].1.contains("fields=summary"),
+        "{:?}",
+        sent.lock().unwrap()
+    );
+    // the filters keep what they match and the items above it
+    let (code, out, _) = items_run(
+        &server,
+        &["items", "list", "--parent", "PIN-1", "--tree", "--ready"],
+    );
+    assert_eq!(code, 0);
+    assert_eq!(
+        out,
+        "PIN-1 Runtime · open · 1 of 3 sub-items closed\n\
+         - PIN-3 Resume · done · 0 of 1 sub-items closed\n\
+         \x20 - PIN-4 Banner · open · ready\n"
+    );
+}
+
+#[test]
 fn items_edit_turns_each_flag_into_the_change() {
     let (server, sent) = items_server(|_, _| {
         let item = work_item("PIN-5", "Renamed", serde_json::json!({}));
