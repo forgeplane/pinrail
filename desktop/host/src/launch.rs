@@ -101,7 +101,8 @@ impl Launcher {
                 "replacing the terminal host of build {} with {ours}",
                 registration.build.as_deref().unwrap_or("unknown")
             ));
-            replace(&registration)?;
+            let copy = install(&self.bundled, &self.data_dir)?;
+            replace(&registration, &formats_of(&copy))?;
         }
         paths.create()?;
         let copy = install(&self.bundled, &self.data_dir)?;
@@ -164,11 +165,15 @@ fn build_of_bytes(bytes: &[u8]) -> String {
 /// exit.
 const REPLACE_WITHIN: Duration = Duration::from_secs(10);
 
-/// Asks a running host to stop, handing its terminals to the next host,
-/// and waits until it has exited.
-fn replace(registration: &Registration) -> Result<(), Error> {
+/// Asks a running host to stop, handing its terminals to the next host
+/// in the first of `formats`, the new host's, that it can write, and
+/// waits until it has exited.
+fn replace(registration: &Registration, formats: &[String]) -> Result<(), Error> {
     if let Ok(mut client) = Client::connect(registration) {
-        let _ = client.call("host.stop", json!({ "stop_terminals": false }));
+        let _ = client.call(
+            "host.stop",
+            json!({ "stop_terminals": false, "formats": formats }),
+        );
     }
     let deadline = Instant::now() + REPLACE_WITHIN;
     while registration.may_be_live() {
@@ -178,6 +183,20 @@ fn replace(registration: &Registration) -> Result<(), Error> {
         std::thread::sleep(Duration::from_millis(50));
     }
     Ok(())
+}
+
+/// The snapshot formats the host binary `copy` reads, best first, as its
+/// `formats` command prints them; `vt`, which every host reads, when it
+/// cannot say.
+fn formats_of(copy: &Path) -> Vec<String> {
+    std::process::Command::new(copy)
+        .arg("formats")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| serde_json::from_slice::<Vec<String>>(&o.stdout).ok())
+        .filter(|f| !f.is_empty())
+        .unwrap_or_else(|| vec!["vt".to_string()])
 }
 
 /// Copies the bundled binary to `<data dir>/host/bin/<version>-<sha8>/`,

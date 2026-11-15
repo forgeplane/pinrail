@@ -35,6 +35,9 @@ Commands:
   stop     Stop the running host and its terminals
   connect  Bridge standard input and output to the running host's socket,
            presenting its secret in the first message, for SSH
+  formats  Print the snapshot formats this host reads, best first, as
+           JSON; an older host hands its screens over in the first it
+           can write
   hold     Keep the PTYs of the host's terminals open, as the parent of
            their programs, so that they outlive the host; the host starts
            it
@@ -136,6 +139,10 @@ Options:
                     return fail(&error.to_string());
                 }
                 serve(args)
+            }
+            "formats" => {
+                println!("{}", json!(server::snapshot_formats()));
+                ExitCode::SUCCESS
             }
             "status" => status(&args.data_dir),
             "stop" => stop(&args.data_dir),

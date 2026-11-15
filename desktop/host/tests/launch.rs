@@ -170,10 +170,34 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
         .filter(|t| t["terminal"] == terminal.as_str() && t.get("exit").is_none())
         .collect();
     assert_eq!(kept.len(), 1, "{listed}");
+    // the old host handed the screen over in the new host's best format
+    let log = std::fs::read_to_string(data.join("host/host.log")).unwrap();
+    let binary = format!(
+        "adopted {terminal} from a hand-over in ghostty-bin;vt-{}",
+        pinrail_screen::ghostty::version()
+    );
+    assert!(log.contains(&binary), "{log}");
     client
         .call(
             "terminal.stop",
             json!({"terminal": terminal, "grace_ms": 0}),
         )
         .unwrap();
+}
+
+#[test]
+fn the_host_names_the_snapshot_formats_it_reads() {
+    let output = Command::new(env!("CARGO_BIN_EXE_pinrail-host"))
+        .arg("formats")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let formats: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        formats,
+        [
+            format!("ghostty-bin;vt-{}", pinrail_screen::ghostty::version()),
+            "vt".to_string()
+        ]
+    );
 }

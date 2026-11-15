@@ -153,6 +153,18 @@ struct Shared {
     holders: Arc<crate::holders::Holders>,
     /// Where a host that hands its terminals over writes their screens.
     hand_over_dir: PathBuf,
+    /// `host.log`, for what adoption found.
+    log: Log,
+}
+
+/// The snapshot formats this host reads, best first: the binary snapshot
+/// of its own libghostty-vt build, then the `vt` paint any build reads.
+/// The launcher asks a new host for them before the old one hands over.
+pub fn snapshot_formats() -> Vec<String> {
+    vec![
+        format!("ghostty-bin;vt-{}", pinrail_screen::ghostty::version()),
+        "vt".to_string(),
+    ]
 }
 
 async fn run(
@@ -188,6 +200,7 @@ async fn run(
         },
         holders: Arc::new(crate::holders::Holders::new(paths.clone(), holder, exits)),
         hand_over_dir: paths.host_dir.join("handover"),
+        log: Log::open(&paths.log()),
     });
     Registration {
         pid: std::process::id(),
@@ -287,7 +300,12 @@ fn adopt(shared: &Arc<Shared>) {
             .as_ref()
             .and_then(|h| restore(h, (cols, rows)).map(|screen| (screen, h)));
         let (screen, last_input_at, held) = match restored {
-            Some((screen, h)) => (screen, h.last_input_at.clone(), h.held.clone()),
+            Some((screen, h)) => {
+                shared
+                    .log
+                    .line(&format!("adopted {id} from a hand-over in {}", h.format));
+                (screen, h.last_input_at.clone(), h.held.clone())
+            }
             None => {
                 let Ok(mut screen) = terminal::screen(cols, rows, SCROLLBACK_LINES) else {
                     continue;
