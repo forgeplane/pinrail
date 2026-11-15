@@ -5,6 +5,7 @@
 // find and the screen reader mirror each have a module of their own. It
 // restores the host's binary snapshot exactly, and a `vt` paint otherwise.
 
+import "./ghostty.css";
 import { isMac } from "../../../../lib/keys";
 import type {
   BenchHooks,
