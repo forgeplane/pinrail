@@ -126,6 +126,7 @@ function play(
       const bytes = new Uint8Array(m.data as ArrayBuffer);
       if (!firstByteMs) firstByteMs = performance.now() - t0;
       view.write(bytes, () => {
+        parsed(view);
         consumed += bytes.length;
         pendingCredit += bytes.length;
         if (pendingCredit >= 64 * 1024 || (total >= 0 && consumed >= total)) {
@@ -238,6 +239,31 @@ function frameRecorder(view?: TerminalView) {
   };
 }
 
+/** When each view drew, and how many draws it had made when its output
+ *  was last parsed. A renderer may draw in the same task that parses, so
+ *  a probe that waited for the next draw after the parse would miss it. */
+const draws = new WeakMap<TerminalView, { times: number[]; atParse: number }>();
+
+function logDraws(view: TerminalView) {
+  const log = { times: [] as number[], atParse: 0 };
+  benchHooks(view).onFrameDrawn?.(() => log.times.push(performance.now()));
+  draws.set(view, log);
+}
+
+/** Notes that the view parsed output, for drawnAfterParse. */
+function parsed(view: TerminalView) {
+  const log = draws.get(view);
+  if (log) log.atParse = log.times.length;
+}
+
+/** The time of the view's first draw after its output was last parsed,
+ *  whether it came before this call or after. */
+function drawnAfterParse(view: TerminalView, timeoutMs = 2000): Promise<number> {
+  const log = draws.get(view);
+  if (log && log.times.length > log.atParse) return Promise.resolve(log.times[log.atParse]);
+  return nextDrawn(view, timeoutMs);
+}
+
 /** Resolves after the view has drawn a frame (or, without a hook, after the next frame). */
 function nextDrawn(view: TerminalView, timeoutMs = 2000): Promise<number> {
   const hook = benchHooks(view).onFrameDrawn;
@@ -288,6 +314,7 @@ async function newView(hostId = "main"): Promise<TerminalView> {
   const view = renderer.create();
   await view.mount(hostElement(hostId), OPTIONS);
   lastView = view;
+  logDraws(view);
   (window as unknown as { __view: TerminalView }).__view = view;
   return view;
 }
@@ -323,8 +350,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const stop = frameRecorder(view);
     const t0 = performance.now();
     const r = await play(view, { item: ITEM, mode: "max", maxBytes: num("maxBytes", 0) || undefined });
-    await nextDrawn(view);
-    const totalMs = performance.now() - t0;
+    const totalMs = (await drawnAfterParse(view)) - t0;
     await ownRaf();
     const frames = stop();
     return { bytes: r.bytes, totalMs, mbPerS: r.bytes / totalMs / 1000, parsedMs: r.consumedMs, frames };
@@ -338,7 +364,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const rate = num("rate", 2e6);
     const seconds = num("seconds", 5);
     const r = await play(view, { item: ITEM, mode: "rate", rate, seconds });
-    await nextDrawn(view);
+    await drawnAfterParse(view);
     return { rate, seconds, bytes: r.bytes, frames: stop() };
   },
 
@@ -349,13 +375,13 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const stop = frameRecorder(view);
     const t0 = performance.now();
     const r = await play(view, { item: ITEM, mode: "realtime", gapCap: num("gapCap", 0.5) });
-    await nextDrawn(view);
+    await drawnAfterParse(view);
     const realtime = { ms: performance.now() - t0, frames: stop() };
     // The same recording as fast as possible.
     view.reset();
     const t1 = performance.now();
     const m = await play(view, { item: ITEM, mode: "max" });
-    await nextDrawn(view);
+    await drawnAfterParse(view);
     return { bytes: r.bytes, realtime, maxSpeedMs: performance.now() - t1, maxSpeedBytes: m.bytes };
   },
 
@@ -560,7 +586,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
   async screen() {
     const view = await newView();
     await play(view, { item: ITEM, mode: "max" });
-    await nextDrawn(view);
+    await drawnAfterParse(view);
     await sleep(300);
     const shot = await api(`snap?name=${encodeURIComponent(ITEM.replace(/\W+/g, "-"))}`);
     return { screenshot: shot.path ?? null };
