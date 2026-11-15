@@ -275,9 +275,17 @@ export const api = {
       item_events?: SessionItemEvent[];
       turns?: SessionTurn[];
     }>("GET", `/api/v1/sessions/${seg(agent)}/${seg(id)}`),
-  /** sends the agent a message, which it receives with its next status */
-  sendMessage: (agent: string, id: string, text: string) =>
-    request<SessionMessage>("POST", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages`, { text }),
+  /** sends the agent a message: typed into its terminal when Pinrail runs
+   *  it, or with its next status; a `local_id` makes a resend the same
+   *  message */
+  sendMessage: (agent: string, id: string, text: string, localId?: string) =>
+    request<SessionMessage>("POST", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages`, {
+      text,
+      local_id: localId,
+    }),
+  /** types an unconfirmed message into the agent's terminal again */
+  typeMessage: (agent: string, id: string, message: number) =>
+    request<void>("POST", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages/${message}/type`, {}),
   /** deletes a message the agent has not received yet */
   deleteMessage: (agent: string, id: string, message: number) =>
     request<void>("DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/messages/${message}`),

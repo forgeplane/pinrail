@@ -81,7 +81,8 @@ export function ThreadDetails({
   const sentBy = useMemo(() => stageReviews(entries), [entries]);
 
   // the person's messages the agent has not received yet
-  const queued = messages.filter((m) => !m.delivered_at);
+  // a message typed into an agent that cannot confirm it waits for nothing
+  const queued = messages.filter((m) => !m.delivered_at && m.state !== "typed");
   // the reviews the session sent that have ended, newest first
   const handled = newest.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
   // the starred reviews, newest first
@@ -138,7 +139,7 @@ export function ThreadDetails({
               <span className="thread-waiting-item-text">
                 <span className="text">{m.text}</span>
                 <span className="faint" title={stamp(m.sent_at)}>
-                  queued · {age(m.sent_at)} ago
+                  {waitingWord(m)} · {age(m.sent_at)} ago
                 </span>
               </span>
             </a>
@@ -355,4 +356,19 @@ export function ThreadDetails({
       ) : null}
     </aside>
   );
+}
+
+/** A message's state in a word or two, for the list of what waits on the
+ *  agent. */
+function waitingWord(message: SessionMessage): string {
+  switch (message.state) {
+    case "typing":
+      return "typed";
+    case "unconfirmed":
+      return "not confirmed";
+    case "claimed":
+      return "being handed over";
+    default:
+      return message.held ? "waiting" : "queued";
+  }
 }

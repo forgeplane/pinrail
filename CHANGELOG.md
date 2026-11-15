@@ -42,6 +42,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A Claude Code session still running in your own terminal can be opened in
   Pinrail with **Open in Pinrail**, after a warning that it starts a second
   Claude Code on the session.
+- You can write to an agent from its session's thread. A message to an agent
+  Pinrail runs is typed into its terminal as your prompt once the agent is
+  idle, and the thread shows when it arrived. Any other agent receives the
+  message the next time it reports a status.
 - After the computer restarts, the Sessions page says which agents the
   restart stopped, with **Resume all** to resume them one by one.
 

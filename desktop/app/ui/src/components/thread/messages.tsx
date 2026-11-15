@@ -8,7 +8,10 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
   GitCommitHorizontal,
+  Hourglass,
+  TriangleAlert,
   Paperclip,
   RefreshCw,
   Star,
@@ -26,6 +29,7 @@ import type {
   SessionMessage,
   SessionStatus,
 } from "../../api/types";
+import { copyText } from "../../lib/clipboard";
 import { age, stamp } from "../../lib/format";
 import { type Entry, type FromSession, type Round } from "../../lib/sessions";
 import { useToast } from "../../state/toasts";
@@ -403,7 +407,9 @@ export const MessageBubble = memo(function MessageBubble({
   onDeleted: () => void;
 }) {
   const toast = useToast();
-  const queued = !message.delivered_at;
+  const state = message.state ?? (message.delivered_at ? "delivered" : "queued");
+  // only a message nothing has handed to the agent can be taken back
+  const deletable = state === "queued";
   const remove = async () => {
     try {
       await api.deleteMessage(session.agent, session.id, message.id);
@@ -412,14 +418,32 @@ export const MessageBubble = memo(function MessageBubble({
     }
     onDeleted();
   };
+  const retry = async () => {
+    try {
+      await api.typeMessage(session.agent, session.id, message.id);
+    } catch (e) {
+      toast(errorMessage(e, "The message was not typed."));
+    }
+  };
+  const copy = async () => {
+    try {
+      await copyText(message.text);
+      toast("Copied the message.");
+    } catch {
+      toast("The message was not copied.");
+    }
+  };
+  const { icon, text, warn } = messageState(message, state);
   return (
     <div
-      className={`thread-message ${queued ? "is-queued" : "is-delivered"}`}
+      className={`thread-message ${
+        state === "delivered" ? "is-delivered" : state === "queued" || state === "claimed" ? "is-queued" : "is-typed"
+      }`}
       id={`message-${message.id}`}
       data-testid="message"
     >
       <div className="thread-message-row">
-        {queued ? (
+        {deletable ? (
           <Tooltip label="Delete the message" side="top">
             <button type="button" className="thread-message-delete" aria-label="Delete the message" onClick={remove}>
               <Trash2 size={14} />
@@ -430,19 +454,65 @@ export const MessageBubble = memo(function MessageBubble({
           {message.text}
         </div>
       </div>
-      {queued ? (
-        <span className="thread-message-state" data-testid="message-state">
-          <Clock size={12} aria-hidden /> Queued
+      <span
+        className={`thread-message-state ${warn ? "is-warning" : ""}`}
+        data-testid="message-state"
+        title={message.delivered_at ? `Delivered ${stamp(message.delivered_at)}` : undefined}
+      >
+        {icon}
+        {text}
+      </span>
+      {state === "unconfirmed" ? (
+        <span className="thread-message-actions">
+          <button type="button" onClick={() => void retry()}>
+            <RefreshCw size={12} aria-hidden /> Retry
+          </button>
+          <button type="button" onClick={() => void copy()}>
+            <Copy size={12} aria-hidden /> Copy
+          </button>
         </span>
-      ) : (
-        <span
-          className="thread-message-state"
-          data-testid="message-state"
-          title={`Delivered ${stamp(message.delivered_at)}`}
-        >
-          <Check size={12} aria-hidden /> Delivered {age(message.delivered_at)} ago
-        </span>
-      )}
+      ) : null}
     </div>
   );
 });
+
+/** What a message's state line says, with its icon, and whether it warns. */
+function messageState(
+  message: SessionMessage,
+  state: NonNullable<SessionMessage["state"]>,
+): { icon: React.ReactNode; text: string; warn?: boolean } {
+  const clock = <Clock size={12} aria-hidden />;
+  switch (state) {
+    case "delivered":
+      return { icon: <Check size={12} aria-hidden />, text: `Delivered ${age(message.delivered_at!)} ago` };
+    case "typing":
+      return { icon: <Hourglass size={12} aria-hidden />, text: "Typed into the terminal" };
+    case "typed":
+      return { icon: <Check size={12} aria-hidden />, text: "Typed into the terminal. The agent cannot confirm it." };
+    case "unconfirmed":
+      return {
+        icon: <TriangleAlert size={12} aria-hidden />,
+        text: "Not confirmed. The agent may not have received this message.",
+        warn: true,
+      };
+    case "claimed":
+      return { icon: clock, text: "Being handed to the agent" };
+    default:
+      switch (message.held) {
+        case "working":
+          return {
+            icon: clock,
+            text: "Queued while the agent works. It is sent as your prompt when the agent finishes its turn.",
+          };
+        case "needs_input":
+          return {
+            icon: clock,
+            text: "The agent is waiting for an answer in its terminal. Your message is sent when it is idle again.",
+          };
+        case "not_foreground":
+          return { icon: clock, text: "Waits until the agent holds its terminal again" };
+        default:
+          return { icon: clock, text: "Queued" };
+      }
+  }
+}

@@ -3,11 +3,11 @@
 //! goes by the Type route; any other goes by the Queue, to the agent's
 //! next status. A message to type waits while the agent works or waits for
 //! an answer, and is typed once it is idle, one at a time; the agent's
-//! prompt hook confirms it. A message typed is typed once by itself: after
-//! that, the person retries it. One held for 30 minutes, or whose run
+//! prompt hook confirms it, whatever the person did in the terminal. A
+//! message is typed once by itself: after that, the person retries it. One held for 30 minutes, or whose run
 //! ended, goes to the Queue.
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 use crate::db::{MessageChange, MessageRow, RunFilters, RunRow, message_notice};
 use crate::events::{Notice, SESSION_MESSAGE_STATE};
@@ -131,62 +131,29 @@ impl super::Runtime {
             return Ok(());
         }
         // idle, or no hooks to say otherwise
-        let idle_since = presence
-            .filter(|p| p.state == "idle")
-            .map(|p| p.state_since);
-        self.type_one(
-            agent,
-            session,
-            first.id,
-            &run,
-            idle_since,
-            false,
-            &["queued"],
-        )
-        .await
+        self.type_one(agent, session, first.id, &run, &["queued"])
+            .await
     }
 
-    /// Types a message the person retries, or sends anyway although they
-    /// used the terminal: one that is unconfirmed, or still waits.
-    pub async fn type_now(
-        &self,
-        agent: &str,
-        session: &str,
-        message: i64,
-        anyway: bool,
-    ) -> Result<(), RunError> {
+    /// Types a message the person retries: one that is unconfirmed, or
+    /// still waits.
+    pub async fn type_now(&self, agent: &str, session: &str, message: i64) -> Result<(), RunError> {
         let run = self
             .typing_run(agent, session)?
             .ok_or(RunError::NotTyped("exited"))?;
-        let idle_since = self
-            .db
-            .presence(agent, session)?
-            .filter(|p| p.state == "idle")
-            .map(|p| p.state_since);
-        self.type_one(
-            agent,
-            session,
-            message,
-            &run,
-            idle_since,
-            anyway,
-            &["queued", "unconfirmed"],
-        )
-        .await
+        self.type_one(agent, session, message, &run, &["queued", "unconfirmed"])
+            .await
     }
 
     /// Types one message into the run's terminal, and moves it on as the
     /// host answers: `typing` until its prompt confirms it, `typed` for an
     /// agent without a prompt hook, or back to waiting with why.
-    #[allow(clippy::too_many_arguments)]
     async fn type_one(
         &self,
         agent: &str,
         session: &str,
         message: i64,
         run: &RunRow,
-        idle_since: Option<DateTime<Utc>>,
-        anyway: bool,
         from: &[&str],
     ) -> Result<(), RunError> {
         let Some(typing) = self.move_message(
@@ -216,7 +183,9 @@ impl super::Runtime {
             }
         }
         match self
-            .type_message(&run.id, &typing.text, idle_since, anyway)
+            // typed whenever the agent is idle, whatever the person did in
+            // the terminal, which the host cannot read
+            .type_message(&run.id, &typing.text, None, false)
             .await
         {
             Ok(()) if confirmed_by_hook => {}
@@ -232,7 +201,7 @@ impl super::Runtime {
                     },
                 )?;
             }
-            Err(RunError::NotTyped(why @ ("used_since_idle" | "not_foreground"))) => {
+            Err(RunError::NotTyped(why @ "not_foreground")) => {
                 self.move_message(agent, session, message, &["typing"], back(Some(why)))?;
             }
             Err(RunError::NotTyped("exited")) => {

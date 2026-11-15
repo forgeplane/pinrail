@@ -1084,7 +1084,7 @@ async fn a_new_app_takes_statuses() {
 }
 
 #[tokio::test]
-async fn a_session_says_how_its_agent_can_be_resumed() {
+async fn a_session_says_how_its_agent_can_be_resumed_and_typed_into() {
     let app = app();
     for (agent, resume, while_running) in [
         ("claude-code", true, true),
@@ -1098,5 +1098,7 @@ async fn a_session_says_how_its_agent_can_be_resumed() {
             json!({"resume": resume, "while_running": while_running}),
             "{agent}"
         );
+        // the agents Pinrail resumes are those it types messages into
+        assert_eq!(thread["session"]["types"], resume, "{agent}");
     }
 }

@@ -49,11 +49,6 @@ import { useResizableWidth } from "../lib/useResizableWidth";
 import { useLatest } from "../lib/useLatest";
 import { readStored } from "../lib/storage";
 
-/** Whether the box under a thread sends the agent messages. Off until
- *  Pinrail can reach an agent that waits for nothing: until then a message
- *  waits for the agent's next status, which may never come. */
-const MESSAGES = false;
-
 /** Whether the session's details show beside the thread, and their width,
  *  stored on this machine. */
 const DETAILS_SHOWN = "pinrail.thread.details";
@@ -623,7 +618,11 @@ export function Thread({
                   <ArrowDown size={15} />
                 </button>
               )}
-              {active ? null : MESSAGES && named ? <MessageComposer session={named} onSent={load} /> : <IdleComposer />}
+              {active ? null : named ? (
+                <MessageComposer session={named} typed={!!live && !!session?.types} onSent={load} />
+              ) : (
+                <IdleComposer />
+              )}
             </div>
           </div>
           {openReview && reviewPanel ? (

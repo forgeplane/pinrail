@@ -7,10 +7,18 @@ import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ComposeField } from "../ComposeField";
 
-/** The chat box with nothing to answer. */
 /** The box under the thread while no question waits: a message to the
- *  agent, which it receives with its next status. */
-export function MessageComposer({ session, onSent }: { session: { agent: string; id: string }; onSent: () => void }) {
+ *  agent, typed into its terminal as a prompt when Pinrail runs it
+ *  (`typed`), and otherwise received with its next status. */
+export function MessageComposer({
+  session,
+  typed,
+  onSent,
+}: {
+  session: { agent: string; id: string };
+  typed: boolean;
+  onSent: () => void;
+}) {
   const connected = useConnected();
   const toast = useToast();
   const [text, setText] = useState("");
@@ -19,7 +27,7 @@ export function MessageComposer({ session, onSent }: { session: { agent: string;
     if (!text.trim() || busy) return;
     setBusy(true);
     try {
-      await api.sendMessage(session.agent, session.id, text);
+      await api.sendMessage(session.agent, session.id, text, crypto.randomUUID());
       setText("");
       onSent();
     } catch (e) {
@@ -45,7 +53,11 @@ export function MessageComposer({ session, onSent }: { session: { agent: string;
           testId: "send-message",
         }}
       />
-      <p className="thread-composer-hint faint">The agent receives your message the next time it reports a status.</p>
+      <p className="thread-composer-hint faint">
+        {typed
+          ? "Sends to the agent's terminal as your prompt."
+          : "The agent receives your message the next time it reports a status."}
+      </p>
     </div>
   );
 }

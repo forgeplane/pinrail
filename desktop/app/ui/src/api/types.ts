@@ -207,6 +207,8 @@ export type Session = {
   /** whether Pinrail can resume the session, and also while it still runs
    *  in another terminal, as its agent allows */
   resume?: { resume: boolean; while_running: boolean };
+  /** whether Pinrail can type a message into its agent's terminal */
+  types?: boolean;
   /** what its agent's hooks reported, if they ever did */
   presence?: Presence | null;
 };
@@ -452,7 +454,7 @@ export type SessionMessage = {
    *  next status */
   route?: "type" | "queue" | null;
   /** why a message to type waits */
-  held?: "working" | "needs_input" | "used_since_idle" | "not_foreground" | null;
+  held?: "working" | "needs_input" | "not_foreground" | null;
 };
 
 /** The web origins a plugin may open without asking, while it stays

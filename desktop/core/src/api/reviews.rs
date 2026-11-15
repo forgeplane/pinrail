@@ -608,6 +608,8 @@ fn session_json(session: &SessionRow) -> Value {
         "waiting": { "questions": session.waiting_questions, "reviews": session.waiting_reviews },
         "attention": session.attention,
         "resume": resume_abilities(&session.agent),
+        // whether Pinrail can type a message into its agent's terminal
+        "types": pinrail_runtime::adapter(&session.agent).is_some_and(|a| a.submit().is_some()),
         "presence": session.presence.as_ref().map(|p| {
             let attention = crate::presence::Attention::parse(&session.attention)
                 .unwrap_or(crate::presence::Attention::Unknown);
@@ -1013,17 +1015,14 @@ fn deliver_later(state: &Arc<Pinrail>, agent: &str, id: &str) {
     let _ = (state, agent, id);
 }
 
-/// Types a message into the agent's terminal now, as the person asks: one
-/// that shows as unconfirmed, to retry it, or one that waits because they
-/// used the terminal, with `anyway`. Answers 202; the message's state
-/// follows as events.
+/// Types a message that shows as unconfirmed into the agent's terminal
+/// again, as the person asks. Answers 202; the message's state follows as
+/// events.
 async fn type_message(
     _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id, message)): Path<(String, String, i64)>,
-    Json(body): Json<Value>,
 ) -> Result<StatusCode, ApiError> {
-    let anyway = body.get("anyway").and_then(Value::as_bool) == Some(true);
     let found = state
         .reviews()
         .message(&agent, &id, message)?
@@ -1041,13 +1040,12 @@ async fn type_message(
         }
         let app = state.clone();
         tokio::spawn(async move {
-            let _ = app.runtime().type_now(&agent, &id, message, anyway).await;
+            let _ = app.runtime().type_now(&agent, &id, message).await;
         });
         Ok(StatusCode::ACCEPTED)
     }
     #[cfg(not(unix))]
     {
-        let _ = anyway;
         Err(Error::Conflict("Pinrail does not run agents on this system.".to_string()).into())
     }
 }

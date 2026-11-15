@@ -3731,13 +3731,41 @@ body.is-resizing iframe {
 }
 .thread-message-state {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
+  max-width: min(70%, 560px);
   color: var(--faint);
   font-size: var(--text-xs);
 }
-.thread-message.is-queued .thread-message-state {
+.thread-message-state svg {
+  flex: none;
+  /* on the first line of a state that wraps */
+  margin-top: 2px;
+}
+.thread-message.is-queued .thread-message-state,
+.thread-message-state.is-warning {
   color: var(--sev-major);
+}
+/* Retry and Copy for an unconfirmed message */
+.thread-message-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+.thread-message-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-xs) var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.thread-message-actions button:hover {
+  background: var(--bg-hover);
 }
 .is-delivered .thread-message-state svg {
   color: var(--ok);
