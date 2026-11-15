@@ -32,6 +32,8 @@ import type {
 } from "../../view";
 
 const encoder = new TextEncoder();
+/** How long after compositionend xterm.js may send the committed text. */
+const COMMIT_WAIT_MS = 500;
 /** The most a program may copy with OSC 52. */
 const CLIPBOARD_MAX = 1024 * 1024;
 
@@ -90,6 +92,9 @@ class XtermView implements TerminalView, BenchHooks {
   private search_: SearchAddon | null = null;
   /** The kind of the person's event being handled, if one is. */
   private origin: InputKind | null = null;
+  /** The text an input method last committed, which xterm.js sends some
+   *  time after compositionend, and until when it is expected. */
+  private committed: { text: string; until: number } | null = null;
   private inputs = new Set<(bytes: Uint8Array, kind: InputKind) => void>();
   private replies = new Set<(bytes: Uint8Array) => void>();
   private links = new Set<(uri: string, event: MouseEvent) => void>();
@@ -143,16 +148,32 @@ class XtermView implements TerminalView, BenchHooks {
     for (const [type, kind] of ORIGINS) {
       const mark = () => {
         this.origin = kind;
-        // xterm.js handles most events at once, and a composition in the
-        // next task; after that, what it emits is a reply
-        setTimeout(() => {
+        const clear = () => {
           if (this.origin === kind) this.origin = null;
-        });
+        };
+        // xterm.js handles most events at once; after that, what it emits
+        // is a reply
+        setTimeout(clear);
       };
       host.addEventListener(type, mark, true);
       this.cleanup.push(() => host.removeEventListener(type, mark, true));
     }
-    const data = term.onData((text) => this.route(encoder.encode(text)));
+    const commit = (event: Event) => {
+      const text = (event as CompositionEvent).data;
+      this.committed = text ? { text, until: performance.now() + COMMIT_WAIT_MS } : null;
+    };
+    host.addEventListener("compositionend", commit, true);
+    this.cleanup.push(() => host.removeEventListener("compositionend", commit, true));
+    const data = term.onData((text) => {
+      // a reply is an escape sequence, never the text the person composed
+      const committed = this.committed;
+      if (committed && text === committed.text && performance.now() < committed.until) {
+        this.committed = null;
+        this.inputs.forEach((l) => l(encoder.encode(text), "key"));
+        return;
+      }
+      this.route(encoder.encode(text));
+    });
     const binary = term.onBinary((text) => {
       const bytes = new Uint8Array(text.length);
       for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff;
