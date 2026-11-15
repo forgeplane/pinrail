@@ -30,6 +30,8 @@ const cacheDir = join(root, ".cache");
 // scripts/ghostty-wasm.sh builds
 const publicDir = join(root, "..", "..", "public");
 const workspace = join(root, "..", "..", "..", "..");
+// ghostty-web's WebAssembly, for the comparison adapter
+const ghosttyWebWasm = join(root, "..", "..", "..", "node_modules", "ghostty-web", "ghostty-vt.wasm");
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -219,7 +221,10 @@ export async function startCore({ port = 0, host = "127.0.0.1" } = {}) {
       else if (path.startsWith("/dist/")) file = normalize(join(root, path));
       else if (path.startsWith("/corpus/")) file = normalize(join(corpusDir, path.slice("/corpus/".length)));
       else if (path.startsWith("/ghostty/")) file = normalize(join(publicDir, path));
-      if (!file || !(file.startsWith(root) || file.startsWith(join(publicDir, "ghostty"))) || !existsSync(file)) {
+      // the file ghostty-web falls back to when its data: URL is blocked
+      else if (path === "/ghostty-vt.wasm") file = ghosttyWebWasm;
+      const allowed = file === ghosttyWebWasm || file?.startsWith(root) || file?.startsWith(join(publicDir, "ghostty"));
+      if (!file || !allowed || !existsSync(file)) {
         res.writeHead(404);
         return res.end("not found");
       }

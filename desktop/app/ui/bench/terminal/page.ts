@@ -10,6 +10,12 @@
 import { RENDERERS } from "../../src/components/terminal/renderers";
 import type { BenchHooks, TerminalRenderer, TerminalView, ViewOptions } from "../../src/components/terminal/view";
 
+/** Renderers measured beside the app's for comparison, which the app does
+ *  not register. */
+const COMPARISONS: Record<string, () => Promise<TerminalRenderer>> = {
+  "ghostty-web": () => import("./adapters/ghostty-web").then((m) => m.ghosttyWebRenderer),
+};
+
 /** The hooks a renderer offers the benchmark, where it has them. */
 const benchHooks = (view: TerminalView) => view as Partial<BenchHooks>;
 
@@ -648,7 +654,7 @@ async function main() {
     dpr: devicePixelRatio,
   };
   try {
-    const factory = RENDERERS[ADAPTER];
+    const factory = RENDERERS[ADAPTER] ?? COMPARISONS[ADAPTER];
     if (!factory) throw new Error(`unknown adapter ${ADAPTER}`);
     const t0 = performance.now();
     renderer = await factory();

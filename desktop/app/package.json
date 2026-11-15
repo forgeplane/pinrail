@@ -43,6 +43,7 @@
     "@vitejs/plugin-react": "^5",
     "@vitest/browser-playwright": "^5.0.2",
     "esbuild": "^0.28.2",
+    "ghostty-web": "0.4.0-next.21.g640db46",
     "playwright": "^1.63.0",
     "rollup-plugin-license": "^3.7.1",
     "typescript": "^5",

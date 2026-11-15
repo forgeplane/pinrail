@@ -6,6 +6,9 @@
 //   node run.mjs [--runners webkit] [--adapters ghostty,xterm] [--cases burst,stream,...]
 //                [--repeat 3] [--no-fail] [--no-build] [--tag name]
 //
+// --adapters also takes ghostty-web, a renderer the app does not register,
+// measured for comparison (adapters/ghostty-web.ts).
+//
 // Runners: webkit is Playwright's headless WebKit; external prints the URL
 // of each case, to open in any other browser.
 

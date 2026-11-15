@@ -24,7 +24,10 @@ The options of `run.mjs`:
 
 - `--runners`: `webkit` (the default), Playwright's headless WebKit, or
   `external`, which prints the URL of each case to open in another browser.
-- `--adapters`: the renderers by id, `ghostty,xterm` by default.
+- `--adapters`: the renderers by id, `ghostty,xterm` by default. It also
+  takes `ghostty-web`, coder/ghostty-web, which the app does not register.
+  The benchmark measures it beside the libghostty renderer for comparison,
+  through `adapters/ghostty-web.ts`, whose header lists what it leaves out.
 - `--cases`: the cases by name, all of them by default.
 - `--repeat N`: runs each case N times in a new browser and keeps the best.
 - `--tag NAME`: adds NAME to the result file names.

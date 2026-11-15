@@ -84,7 +84,8 @@ export default tseslint.config(
   // may import a terminal library; the rest of the UI uses TerminalView
   {
     files: ["desktop/app/ui/**/*.ts", "desktop/app/ui/**/*.tsx"],
-    ignores: ["desktop/app/ui/src/components/terminal/renderers/*/**"],
+    // and the benchmark's comparison renderers, which the app never loads
+    ignores: ["desktop/app/ui/src/components/terminal/renderers/*/**", "desktop/app/ui/bench/terminal/adapters/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -92,7 +93,8 @@ export default tseslint.config(
           patterns: [
             {
               group: ["@xterm/*", "xterm", "xterm-*", "ghostty-web", "@wterm/*", "**/vendor/ghostty*/**"],
-              message: "Only a renderer's adapter in components/terminal/renderers/<id>/ imports a terminal library.",
+              message:
+                "Only a renderer's adapter in components/terminal/renderers/<id>/, or a comparison in bench/terminal/adapters/, imports a terminal library.",
             },
           ],
         },
