@@ -79,6 +79,47 @@ impl Records {
         }
     }
 
+    /// Forgets the ended terminals that `held` does not name, keeping the
+    /// newest `keep` of those that ended at or after `cutoff`, and returns
+    /// the ids forgotten. A host that starts calls it for the terminals
+    /// earlier hosts ended, which it does not hold.
+    pub fn forget_ended(
+        &self,
+        held: impl Fn(&str) -> bool,
+        cutoff: &str,
+        keep: usize,
+    ) -> Vec<String> {
+        let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let mut ended: Vec<(String, String)> = entries
+            .iter()
+            .filter(|(id, _)| !held(id))
+            .filter_map(|(id, record)| Some((record["ended_at"].as_str()?.to_string(), id.clone())))
+            .collect();
+        ended.sort();
+        let excess = ended.len().saturating_sub(keep);
+        let forgotten: Vec<String> = ended
+            .into_iter()
+            .enumerate()
+            .filter(|(n, (ended_at, _))| *n < excess || ended_at.as_str() < cutoff)
+            .map(|(_, (_, id))| id)
+            .collect();
+        for id in &forgotten {
+            entries.remove(id);
+        }
+        if !forgotten.is_empty() {
+            self.changed.notify_one();
+        }
+        forgotten
+    }
+
+    /// Whether a terminal has a record.
+    pub fn has(&self, id: &str) -> bool {
+        self.entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(id)
+    }
+
     pub fn remove(&self, id: &str) {
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         if entries.remove(id).is_some() {

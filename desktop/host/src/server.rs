@@ -2,7 +2,7 @@
 //! registration, and answers one controller at a time until it is stopped
 //! or has been idle too long.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -228,6 +228,7 @@ async fn run(
     tokio::task::spawn_blocking(move || adopt(&adopting))
         .await
         .map_err(io::Error::other)?;
+    shared.forget_earlier();
     // the exits the holders report, to their terminals
     let exits_to = shared.clone();
     tokio::spawn(async move {
@@ -762,6 +763,35 @@ impl Shared {
         }
     }
 
+    /// Forgets the terminals earlier hosts ended, by the rule `prune`
+    /// applies to this host's own, and the final screens no record names.
+    /// The host exits when idle, so these would otherwise stay for good.
+    fn forget_earlier(&self) {
+        let held: BTreeSet<String> = self
+            .terminals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .keys()
+            .cloned()
+            .collect();
+        let records = &self.context.records;
+        for id in records.forget_ended(|id| held.contains(id), &prune_cutoff(), KEPT_ENDED) {
+            let _ = fs::remove_file(self.context.screens.join(format!("{id}.snap")));
+        }
+        let Ok(screens) = fs::read_dir(&self.context.screens) else {
+            return;
+        };
+        for entry in screens.flatten() {
+            let name = entry.file_name();
+            let Some(id) = name.to_str().and_then(|n| n.strip_suffix(".snap")) else {
+                continue;
+            };
+            if !records.has(id) && !held.contains(id) {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+
     /// Forgets ended terminals beyond the newest 200 or older than 24
     /// hours, with their final screens.
     fn prune(&self) {
@@ -774,8 +804,7 @@ impl Shared {
             })
             .collect();
         ended.sort();
-        let cutoff = (chrono::Utc::now() - chrono::Duration::hours(24))
-            .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+        let cutoff = prune_cutoff();
         let excess = ended.len().saturating_sub(KEPT_ENDED);
         for (n, (ended_at, id)) in ended.into_iter().enumerate() {
             if n < excess || ended_at < cutoff {
@@ -794,6 +823,12 @@ impl Shared {
             .filter(|t| t.live())
             .count()
     }
+}
+
+/// When an ended terminal is forgotten: 24 hours after it ended.
+fn prune_cutoff() -> String {
+    (chrono::Utc::now() - chrono::Duration::hours(24))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
 }
 
 /// `terminal.spawn` (section 4.3 of the runtime specification).
