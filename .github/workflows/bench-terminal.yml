@@ -1,0 +1,112 @@
+# The window's terminal renderers against the performance budgets, on every
+# change to the renderers, the benchmark, the screen or the host. CI's
+# runners are not the reference machines, so a run compares with the
+# baseline of the last push to main on the same runner type, and fails on a
+# measure more than 15 % and its margin worse (baseline.mjs); the absolute
+# budgets are checked on the reference machines before each release. A push
+# to main whose run passes becomes the next baseline.
+name: bench-terminal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/app/ui/src/components/terminal/**"
+      - "desktop/app/ui/bench/terminal/**"
+      - "desktop/app/package-lock.json"
+      - "desktop/screen/**"
+      - "desktop/host/**"
+      - "scripts/ghostty-wasm.sh"
+      - ".github/workflows/bench-terminal.yml"
+  pull_request:
+    paths:
+      - "desktop/app/ui/src/components/terminal/**"
+      - "desktop/app/ui/bench/terminal/**"
+      - "desktop/app/package-lock.json"
+      - "desktop/screen/**"
+      - "desktop/host/**"
+      - "scripts/ghostty-wasm.sh"
+      - ".github/workflows/bench-terminal.yml"
+
+concurrency:
+  group: bench-terminal-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Playwright installs WebKit's system libraries with apt
+      - uses: ./.github/actions/apt-mirrors # zizmor: ignore[self-repository]
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/app/package-lock.json
+      # the host's terminal makes the attach snapshots
+      - name: Rust toolchain
+        run: rustup toolchain install
+      # Zig at the version mise.toml pins, which builds libghostty-vt for
+      # the host and as WebAssembly for the window
+      - name: Zig version
+        id: zig
+        run: echo "version=$(sed -n 's/^zig = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ steps.zig.outputs.version }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: bench-terminal-${{ runner.os }}-${{ runner.arch }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: desktop
+      - name: The shell's packages, WebKit and libghostty-vt's WebAssembly
+        working-directory: desktop/app
+        run: |
+          npm ci
+          npx playwright install --with-deps webkit
+          npm run ghostty:wasm
+      # the newest baseline main saved for this runner type, if any
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: baseline
+        with:
+          path: bench-terminal-baseline.json
+          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-
+      # every case but the replays and screenshots, which measure no budget,
+      # best of three
+      - name: Benchmark
+        working-directory: desktop/app
+        run: |
+          args=(--cases "load,burst,stream,idle,input,attach,memory,switch" --repeat 3
+            --skip-budgets --write-baseline ../../bench-terminal-results.json)
+          if [ -f ../../bench-terminal-baseline.json ]; then
+            args+=(--baseline ../../bench-terminal-baseline.json)
+          else
+            echo "No baseline yet for this runner type: this run only records one."
+          fi
+          node ui/bench/terminal/run.mjs "${args[@]}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: bench-terminal-results
+          path: desktop/app/ui/bench/terminal/results/latest.*
+          if-no-files-found: ignore
+      # a passing run on main is the next baseline
+      - name: Keep the results as the baseline
+        if: github.ref == 'refs/heads/main'
+        run: mv bench-terminal-results.json bench-terminal-baseline.json
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: bench-terminal-baseline.json
+          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}

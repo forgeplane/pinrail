@@ -5,6 +5,12 @@
 //
 //   node run.mjs [--runners webkit] [--adapters ghostty,xterm] [--cases burst,stream,...]
 //                [--repeat 3] [--no-fail] [--no-build] [--tag name]
+//                [--baseline <file>] [--write-baseline <file>] [--skip-budgets]
+//
+// With --baseline it also fails when a measure is more than 15 % and its
+// margin worse than the baseline's (baseline.mjs), and --write-baseline
+// writes this run's measures as a baseline. --skip-budgets checks the
+// baseline only, for machines other than the reference ones, such as CI's.
 //
 // --adapters also takes ghostty-web, a renderer the app does not register,
 // measured for comparison (adapters/ghostty-web.ts).
@@ -17,12 +23,13 @@
 
 import { webkit } from "playwright";
 import { execSync, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import { startCore, registerRun } from "./core/server.mjs";
 import { checkBudgets, otherRows } from "./budgets.mjs";
+import { regressions, summarise } from "./baseline.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const corpusDir = join(here, "corpus");
@@ -479,9 +486,21 @@ async function main() {
   writeFileSync(join(resultsDir, `${latest}.md`), md);
   console.log(md);
   console.error(`wrote ${join(resultsDir, stamp)}.{json,md} and ${latest}.{json,md}`);
-  const failed = Object.values(report.budgets)
-    .flat()
-    .filter((b) => b.pass === false);
+  const failed = args.includes("--skip-budgets")
+    ? []
+    : Object.values(report.budgets)
+        .flat()
+        .filter((b) => b.pass === false)
+        .map((b) => `${b.name}: ${b.value}, over the budget of ${b.budget}`);
+  const measures = summarise(results);
+  const baselineFile = opt("baseline", null);
+  if (baselineFile) {
+    const worse = regressions(measures, JSON.parse(readFileSync(baselineFile, "utf8")));
+    console.error(worse.length ? `worse than the baseline:\n  ${worse.join("\n  ")}` : "within the baseline");
+    failed.push(...worse);
+  }
+  const writeBaseline = opt("write-baseline", null);
+  if (writeBaseline) writeFileSync(writeBaseline, JSON.stringify(measures, null, 1));
   if (failed.length && !args.includes("--no-fail")) process.exit(1);
   process.exit(0);
 }

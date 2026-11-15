@@ -46,6 +46,23 @@ The options of `run.mjs`:
 - `--repeat N`: runs each case N times in a new browser and keeps the best.
 - `--tag NAME`: adds NAME to the result file names.
 - `--no-build`: uses the existing bundle in `dist/`.
+- `--baseline FILE`: also fails when a measure is more than 15 % worse than
+  the baseline's and worse by more than its margin, such as 5 ms for the
+  input latency or 17 ms, about a frame, for the longest frame.
+  `baseline.mjs` lists the measures and their margins.
+- `--write-baseline FILE`: writes this run's measures as a baseline.
+- `--skip-budgets`: checks the baseline only, for machines other than the
+  reference ones.
+
+## In CI
+
+`.github/workflows/bench-terminal.yml` runs every case except the replays
+and the screenshots, best of three, in WebKit, on each change to the
+renderers, the benchmark, the screen or the host. CI's machines are not the
+reference machines, so it compares with the baseline of the last push to
+main on the same runner type rather than checking the budgets. A passing
+run on main becomes the next baseline, and each run's results are kept as
+an artifact.
 
 To open a case by hand, start the fake core with `node core/server.mjs` and
 open `http://127.0.0.1:7357/page.html?adapter=ghostty&case=burst&item=synthetic/tui.bin`.
