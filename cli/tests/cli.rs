@@ -4021,6 +4021,35 @@ fn items_show_prints_several_items_one_after_another() {
 }
 
 #[test]
+fn items_show_brief_prints_what_the_item_asks_and_nothing_else() {
+    let (server, _) = items_server(|_, _| {
+        (
+            200,
+            work_item(
+                "PIN-42",
+                "Load themes",
+                serde_json::json!({
+                    "body": "Read the theme files.",
+                    "depends_on": [{"id": "w_PIN-41", "key": "PIN-41", "title": "Format", "status": "open"}],
+                    "reviews": [{"id": "r_9", "title": "Loader", "plugin": "code-review", "kind": "review", "status": "pending"}],
+                    "timeline": [{"type": "comment", "author": "person", "body": "Prefer a watcher.",
+                                  "created_at": "2026-11-05T11:00:00Z"}],
+                    "sessions": [{"agent": "claude-code", "session": "c-1", "status": "Running the tests"}],
+                }),
+            ),
+        )
+    });
+    let (code, out, err) = items_run(&server, &["items", "show", "--brief", "PIN-42"]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "PIN-42 Load themes\n\
+         open · ready · forgeplane/pinrail\n\
+         \n## Description\nRead the theme files.\n"
+    );
+}
+
+#[test]
 fn items_edit_turns_each_flag_into_the_change() {
     let (server, sent) = items_server(|_, _| {
         let item = work_item("PIN-5", "Renamed", serde_json::json!({}));

@@ -59,7 +59,8 @@ enum ItemsCommand {
     ///
     /// Its files, and those of its comments, are saved under their own names
     /// in a folder in the system's temporary folder, and listed with their
-    /// paths, so you can open them there.
+    /// paths, so you can open them there. With --brief, only the key, the
+    /// title, the status, the parent and the description are printed.
     Show(ShowArgs),
     /// Change a work item: its title, description, status, claim, parent,
     /// dependencies, link, repository or files
@@ -166,6 +167,9 @@ struct ShowArgs {
     /// The items: each a key, such as PIN-42, or a number in the checkout
     #[arg(required = true, num_args = 1.., value_name = "ITEM")]
     items: Vec<String>,
+    /// Only the key, the title, the status, the parent and the description
+    #[arg(long)]
+    brief: bool,
     #[command(flatten)]
     common: Common,
 }
@@ -317,8 +321,10 @@ pub fn run(client: &Client, args: ItemsArgs, output: Output) -> Result<u8> {
             let mut pages = Vec::new();
             for key in &args.items {
                 let mut item = client.get(&cx.path(key, ""), &[])?;
-                save_files(client, &mut item);
-                pages.push(show(client, &item));
+                if !args.brief {
+                    save_files(client, &mut item);
+                }
+                pages.push(show(client, &item, args.brief));
                 items.push(item);
             }
             let markdown = pages.join("\n---\n\n");
@@ -459,7 +465,7 @@ fn next(client: &Client, args: NextArgs, output: Output) -> Result<u8> {
     let markdown = if item.is_null() {
         format!("No work item is ready in {repo}.\n")
     } else {
-        let mut text = show(client, item);
+        let mut text = show(client, item, false);
         if args.claim {
             text.push_str(&format!(
                 "\nYou hold {} now: the reviews and questions you send belong to it until you mark it done or release it.\n",
@@ -844,8 +850,9 @@ fn save_file(client: &Client, dir: &Path, name: &str, sha256: &str, path: &str) 
     result.map(|_| target)
 }
 
-/// An item as an agent reads it before working on it.
-pub fn show(client: &Client, item: &Value) -> String {
+/// An item as an agent reads it before working on it; `brief`, only up to
+/// its description.
+pub fn show(client: &Client, item: &Value, brief: bool) -> String {
     let mut out = format!("{} {}\n", s(&item["key"]), s(&item["title"]));
     let mut line = vec![status_words(&item["status"])];
     if let Some(agent) = item["claim"]["agent"].as_str() {
@@ -888,6 +895,9 @@ pub fn show(client: &Client, item: &Value) -> String {
     let body = s(&item["body"]).trim();
     if !body.is_empty() {
         out.push_str(&format!("\n## Description\n{body}\n"));
+    }
+    if brief {
+        return out;
     }
     let files = item["files"]
         .as_array()
