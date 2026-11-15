@@ -79,3 +79,24 @@ test("a curly underline is drawn in its own colour", async () => {
   expect(green.length).toBeGreaterThan(3);
   dispose();
 });
+
+test("letters and spaces of one style are drawn as one string, each in its cell", async () => {
+  const fillText = CanvasRenderingContext2D.prototype.fillText;
+  const drawn: string[] = [];
+  CanvasRenderingContext2D.prototype.fillText = function (this: CanvasRenderingContext2D, text, x, y, maxWidth) {
+    drawn.push(text);
+    return maxWidth === undefined ? fillText.call(this, text, x, y) : fillText.call(this, text, x, y, maxWidth);
+  };
+  try {
+    const word = await draw("hello world 42->x");
+    // the punctuation, which a font may join into a ligature, alone
+    expect(drawn).toEqual(["hello world 42", "-", ">", "x"]);
+    // a letter lands where it does when drawn alone in its cell
+    const alone = await draw("          d");
+    expect(word.pixels(10, 0).all).toEqual(alone.pixels(10, 0).all);
+    word.dispose();
+    alone.dispose();
+  } finally {
+    CanvasRenderingContext2D.prototype.fillText = fillText;
+  }
+});

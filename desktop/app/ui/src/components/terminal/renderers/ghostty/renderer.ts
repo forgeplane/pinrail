@@ -106,6 +106,13 @@ export function measureCell(font: Font): CellMetrics {
   return { width: m.width, height, baseline };
 }
 
+/** Characters drawn together in one string: letters, digits and the
+ *  space, which no font joins into a ligature. */
+const BATCHED = /^[A-Za-z0-9 ]$/;
+/** A string whose width tells whether a font gives each of them the
+ *  cell's width. */
+const SAMPLE = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 mWil1";
+
 /** How many glyphs the cache keeps before it starts afresh. */
 const CACHE_LIMIT = 1024;
 
@@ -135,6 +142,9 @@ export class CanvasRenderer {
   /** Find's matches in view, a mask of columns per row. */
   private matches = new Map<number, Uint8Array>();
   private findColour: GhosttyColor = { r: 120, g: 90, b: 0 };
+  /** Whether each font, by its CSS, draws the batched characters at the
+   *  cell's width, so that a string of them lands on the grid. */
+  private even = new Map<string, boolean>();
   /** The cursor as last placed, to tell whether it moved. */
   private cursorKey = "";
 
@@ -302,14 +312,45 @@ export class CanvasRenderer {
       }
       x = end;
     }
-    // the text, each run in its own way
+    // the text, each run in its own way; letters, digits and the spaces
+    // between them go out as one string of one style
+    let batch: { start: number; text: string; cell: GhosttyCell; spaces: number } | null = null;
+    const flush = () => {
+      if (batch) ctx.fillText(batch.text, batch.start * w, top + baseline);
+      batch = null;
+    };
     for (const run of splitRuns(cells)) {
       const first = cells[run.start];
+      if (run.kind === "blank") {
+        if (batch) batch.spaces += run.end - run.start;
+        continue;
+      }
+      if (run.kind !== "text") flush();
       if (run.kind === "text") {
-        ctx.font = fontOf(first, this.font);
-        ctx.fillStyle = css(first.foreground);
-        // each glyph in its own cell, as WebKit has no letter spacing
-        for (let x = run.start; x < run.end; x++) ctx.fillText(cells[x].text, x * w, top + baseline);
+        const font = fontOf(first, this.font);
+        const colour = css(first.foreground);
+        // the reference draws every glyph alone
+        const even = !this.reference && !first.bold && !first.italic && this.isEven(font);
+        for (let x = run.start; x < run.end; x++) {
+          const text = cells[x].text;
+          if (even && BATCHED.test(text)) {
+            if (batch && sameText(batch.cell, cells[x])) {
+              batch.text += " ".repeat(batch.spaces) + text;
+              batch.spaces = 0;
+              continue;
+            }
+            flush();
+            ctx.font = font;
+            ctx.fillStyle = colour;
+            batch = { start: x, text, cell: cells[x], spaces: 0 };
+            continue;
+          }
+          // each other glyph in its own cell, as WebKit has no letter spacing
+          flush();
+          ctx.font = font;
+          ctx.fillStyle = colour;
+          ctx.fillText(text, x * w, top + baseline);
+        }
       } else if (run.kind === "glyph") {
         // a wide or other glyph, centred in its cells by the font, and
         // squeezed into them if it is wider
@@ -326,6 +367,7 @@ export class CanvasRenderer {
         ctx.drawImage(this.glyph(first, span), run.start * w, top, span * w, h);
       }
     }
+    flush();
     // underlines, strikethrough and overline
     for (let x = 0; x < cells.length; x++) {
       const cell = cells[x];
@@ -340,6 +382,18 @@ export class CanvasRenderer {
         if (!cells[x].underline) this.decorate({ ...cells[x], underline: 1 }, { x: x * w, y: top, w, h });
       }
     }
+  }
+
+  /** Whether `font` gives each batched character the cell's width. */
+  private isEven(font: string): boolean {
+    let even = this.even.get(font);
+    if (even === undefined) {
+      this.context.font = font;
+      const width = this.context.measureText(SAMPLE).width;
+      even = Math.abs(width - SAMPLE.length * this.metrics.width) < 0.5;
+      this.even.set(font, even);
+    }
+    return even;
   }
 
   /** A glyph drawn once into the cache, in its cells' size: emoji and
