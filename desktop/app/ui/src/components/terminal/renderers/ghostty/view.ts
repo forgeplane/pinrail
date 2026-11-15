@@ -107,6 +107,14 @@ class GhosttyView implements TerminalView, BenchHooks {
       this.replies.forEach((l) => l(bytes)),
     );
     this.queue = this.newQueue();
+    // a program may copy to the clipboard (OSC 52), unless the view says
+    // not; it can never read it
+    const clipboardWrite = options.clipboardWrite ?? true;
+    this.core.onClipboardWrite((text) => {
+      if (!clipboardWrite) return false;
+      void navigator.clipboard?.writeText(text);
+      return true;
+    });
     this.keyboard = new Keyboard(element, this.core, (bytes, kind) => this.input(bytes, kind), {
       mac: isMac,
       optionAsMeta: options.optionAsMeta ?? "off",

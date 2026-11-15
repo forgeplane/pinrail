@@ -280,6 +280,12 @@ const LEAVES: &[Leaf] = &[
         "On macOS, which Option keys act as Meta in a terminal, sending Esc and the key rather than the character Option types: `off`, `left`, `right` or `both`.",
     ),
     (
+        "/runtime/terminal/clipboard_write",
+        Kind::Bool,
+        || json!(true),
+        "Lets programs in a terminal copy text to the clipboard (OSC 52), up to 1 MiB at a time. They can never read it.",
+    ),
+    (
         "/runtime/terminal/screen_reader",
         Kind::Bool,
         || json!(false),

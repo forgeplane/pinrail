@@ -28,6 +28,8 @@ const SUCCESS = 0;
 const OUT_OF_SPACE = -3;
 const NO_VALUE = -4;
 const SCROLLBACK_LINES = 5_000;
+/** The most a program may copy to the clipboard at once. */
+const CLIPBOARD_MAX_BYTES = 1024 * 1024;
 /** DEC private mode 2027, grapheme clustering. */
 const GRAPHEME_CLUSTER = 2027;
 const SIZE_MAX = 0xffffffff;
@@ -167,6 +169,7 @@ export class GhosttyCore {
   private ptyWriterId = 0;
   private ptyWriter: ((data: Uint8Array) => void) | null = null;
   private bell: (() => void) | null = null;
+  private clipboardWrite: ((text: string) => boolean) | null = null;
   /** The palette, for the snapshot being read. */
   private palette: Uint8Array | null = null;
   private theme: GhosttyTheme | null = null;
@@ -511,12 +514,23 @@ export class GhosttyCore {
     this.rt.attachBell(this.terminal, this.ptyWriterId, onBell);
   }
 
+  /** Has `onWrite` take what the program copies to the clipboard with
+   *  OSC 52, up to 1 MiB; it returns whether it took it. Reads are always
+   *  refused. */
+  onClipboardWrite(onWrite: (text: string) => boolean): void {
+    this.ensureActive();
+    this.clipboardWrite = onWrite;
+    this.rt.attachClipboard(this.terminal, this.ptyWriterId, onWrite, CLIPBOARD_MAX_BYTES);
+  }
+
   /** The writer of replies, and the bell, on the terminal again: a reset
    *  or a snapshot replaces what they were attached to. */
   private attachWriters(): void {
     if (!this.ptyWriter || this.disposed) return;
     this.ptyWriterId = this.rt.attachPtyWriter(this.terminal, this.ptyWriter);
     if (this.bell) this.rt.attachBell(this.terminal, this.ptyWriterId, this.bell);
+    if (this.clipboardWrite)
+      this.rt.attachClipboard(this.terminal, this.ptyWriterId, this.clipboardWrite, CLIPBOARD_MAX_BYTES);
   }
 
   /** A string the terminal holds, such as its title. */

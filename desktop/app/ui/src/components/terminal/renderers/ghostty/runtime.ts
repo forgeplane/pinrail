@@ -111,9 +111,13 @@ export class GhosttyRuntime {
   private memoryU8: Uint8Array;
   private readonly ptyWriters = new Map<number, (data: Uint8Array) => void>();
   private readonly bells = new Map<number, () => void>();
+  /** What copies a program's clipboard writes, by the terminal's writer
+   *  id: true when it took the text. */
+  private readonly clipboards = new Map<number, (text: string) => boolean>();
   private nextPtyWriterId = 1;
   private writePtyFunctionIndex = 0;
   private bellFunctionIndex = 0;
+  private clipboardFunctionIndex = 0;
 
   private constructor(instance: WebAssembly.Instance) {
     this.exports = instance.exports;
@@ -213,6 +217,8 @@ export class GhosttyRuntime {
   detachPtyWriter(terminal: number, id: number): void {
     this.call("ghostty_terminal_set", terminal, this.enumValue("GhosttyTerminalOption", "BELL"), 0);
     this.bells.delete(id);
+    this.call("ghostty_terminal_set", terminal, this.enumValue("GhosttyTerminalOption", "CLIPBOARD_WRITE"), 0);
+    this.clipboards.delete(id);
     this.call("ghostty_terminal_set", terminal, this.enumValue("GhosttyTerminalOption", "WRITE_PTY"), 0);
     this.call("ghostty_terminal_set", terminal, this.enumValue("GhosttyTerminalOption", "USERDATA"), 0);
     this.ptyWriters.delete(id);
@@ -252,6 +258,68 @@ export class GhosttyRuntime {
     );
   }
 
+  /** Has `onWrite` take the text a program copies to the clipboard (OSC
+   *  52), up to `maxBytes`; the terminal's PTY writer must be attached,
+   *  whose id it shares. A program can never read the clipboard, as no
+   *  reader is set. */
+  attachClipboard(terminal: number, id: number, onWrite: (text: string) => boolean, maxBytes: number): void {
+    this.clipboards.set(id, onWrite);
+    const size = this.alloc(4);
+    this.memoryDataView().setUint32(size, maxBytes, true);
+    this.call(
+      "ghostty_terminal_set",
+      terminal,
+      this.enumValue("GhosttyTerminalOption", "CLIPBOARD_WRITE_MAX_BYTES"),
+      size,
+    );
+    this.free(size, 4);
+    this.call(
+      "ghostty_terminal_set",
+      terminal,
+      this.enumValue("GhosttyTerminalOption", "CLIPBOARD_WRITE"),
+      this.clipboardFunctionIndex,
+    );
+  }
+
+  /** Answers a clipboard write (GhosttyClipboardWrite, 32 bytes on wasm32)
+   *  through its reply function: the plain text goes to the terminal's
+   *  handler, for the standard clipboard only. */
+  private clipboardWrite(userdata: number, write: number): void {
+    const v = this.memoryDataView();
+    const field = (name: string) => write + this.field("GhosttyClipboardWrite", name).offset;
+    const location = v.getUint32(field("location"), true);
+    const contents = v.getUint32(field("contents"), true);
+    const count = v.getUint32(field("contents_len"), true);
+    const string = (at: number) => {
+      const view = this.memoryDataView();
+      const pointer = view.getUint32(at, true);
+      const length = view.getUint32(at + 4, true);
+      return new TextDecoder().decode(this.memoryBytes().slice(pointer, pointer + length));
+    };
+    const results = { success: 0, denied: 1, unsupported: 2 };
+    let result = results.unsupported;
+    if (location === this.enumValue("GhosttyClipboardLocation", "STANDARD")) {
+      const contentSize = this.layout("GhosttyClipboardContent").size;
+      const dataOffset = this.field("GhosttyClipboardContent", "data").offset;
+      for (let i = 0; i < count; i++) {
+        const content = contents + i * contentSize;
+        if (!string(content).startsWith("text/plain")) continue;
+        const handler = this.clipboards.get(userdata);
+        result = handler?.(string(content + dataOffset)) ? results.success : results.denied;
+        break;
+      }
+    }
+    const replySize = this.layout("GhosttyClipboardWriteReply").size;
+    const reply = this.alloc(replySize);
+    const r = this.memoryDataView();
+    r.setUint32(reply, replySize, true);
+    r.setUint32(reply + this.field("GhosttyClipboardWriteReply", "result").offset, result, true);
+    const table = this.exports.__indirect_function_table as WebAssembly.Table;
+    const replyFn = table.get(this.memoryDataView().getUint32(field("reply"), true)) as (w: number, r: number) => void;
+    replyFn(write, reply);
+    this.free(reply, replySize);
+  }
+
   private installTrampolines(): void {
     this.writePtyFunctionIndex = this.addToTable(4, (_terminal, userdata, pointer, length) => {
       const writer = this.ptyWriters.get(userdata);
@@ -259,6 +327,9 @@ export class GhosttyRuntime {
       writer(this.memoryBytes().slice(pointer, pointer + length));
     });
     this.bellFunctionIndex = this.addToTable(2, (_terminal, userdata) => this.bells.get(userdata)?.());
+    this.clipboardFunctionIndex = this.addToTable(3, (_terminal, userdata, write) =>
+      this.clipboardWrite(userdata, write),
+    );
   }
 
   /** Puts a trampoline to `callback` in the library's function table, and

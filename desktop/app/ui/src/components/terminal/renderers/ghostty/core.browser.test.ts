@@ -67,3 +67,25 @@ test("its replies and bell carry on after the screen is reset", async () => {
   expect(replies.join("")).toBe("\x1b[1;9R");
   core.dispose();
 });
+
+test("a program copies to the clipboard with OSC 52, and cannot read it", async () => {
+  const { core, replies } = await terminal();
+  const copied: string[] = [];
+  core.onClipboardWrite((text) => {
+    copied.push(text);
+    return true;
+  });
+  // "copied text", base64
+  core.write(bytes("\x1b]52;c;Y29waWVkIHRleHQ=\x07"));
+  expect(copied).toEqual(["copied text"]);
+  // a snapshot replayed after a reset copies nothing again, and the
+  // program's next copy arrives
+  core.resetAndWrite(bytes("\x1b]52;c;cmVwbGF5ZWQ=\x07"));
+  expect(copied).toEqual(["copied text"]);
+  core.write(bytes("\x1b]52;c;YWdhaW4=\x07"));
+  expect(copied).toEqual(["copied text", "again"]);
+  // a read is refused: no reply carries the clipboard
+  core.write(bytes("\x1b]52;c;?\x07"));
+  expect(replies.join("")).not.toContain("52;c;");
+  core.dispose();
+});

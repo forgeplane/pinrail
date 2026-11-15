@@ -92,3 +92,35 @@ test("the echo of a key is drawn before the write returns", async () => {
   view.dispose();
   host.remove();
 });
+
+test("a program's copy reaches the clipboard only when the view allows it", async () => {
+  const written: string[] = [];
+  const clipboard = navigator.clipboard;
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: async (text: string) => void written.push(text) },
+  });
+  try {
+    for (const clipboardWrite of [true, false]) {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const view = ghosttyRenderer.create();
+      await view.mount(host, {
+        cols: 40,
+        rows: 10,
+        scrollback: 100,
+        theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+        font: { family: "monospace", size: 13 },
+        clipboardWrite,
+      });
+      // "allowed" and "refused", base64
+      const text = clipboardWrite ? "YWxsb3dlZA==" : "cmVmdXNlZA==";
+      await new Promise<void>((resolve) => view.write(new TextEncoder().encode(`\x1b]52;c;${text}\x07`), resolve));
+      view.dispose();
+      host.remove();
+    }
+  } finally {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
+  }
+  expect(written).toEqual(["allowed"]);
+});

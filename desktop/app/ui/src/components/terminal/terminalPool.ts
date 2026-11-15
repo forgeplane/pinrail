@@ -16,7 +16,7 @@ export const POOL_SIZE = 3;
 const RESIZE_DEBOUNCE_MS = 50;
 
 type Grid = { cols: number; rows: number };
-type Appearance = Pick<ViewOptions, "theme" | "font" | "optionAsMeta" | "screenReader"> & {
+type Appearance = Pick<ViewOptions, "theme" | "font" | "optionAsMeta" | "screenReader" | "clipboardWrite"> & {
   scheme: "dark" | "light";
 };
 
