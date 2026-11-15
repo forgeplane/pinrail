@@ -1,0 +1,21 @@
+[
+  { "marker": "start" },
+  { "idle": 4, "timeout": 40, "answer": [["trust this folder", "\u001b[B\r"]] },
+  { "marker": "turn" },
+  { "idle": 10, "timeout": 300, "answer": [["Do you want to (make this edit|proceed|create|make)", "\r"]] },
+  { "marker": "resize" },
+  { "resize": [100, 30] },
+  { "sleep": 3 },
+  { "resize": [120, 40] },
+  { "sleep": 3 },
+  { "marker": "clear" },
+  { "send": "/clear" },
+  { "sleep": 1.5 },
+  { "send": "\r" },
+  { "sleep": 4 },
+  { "marker": "exit" },
+  { "send": "/exit" },
+  { "sleep": 1.5 },
+  { "send": "\r" },
+  { "sleep": 3 }
+]

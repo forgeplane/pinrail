@@ -84,6 +84,20 @@ export interface TerminalView {
   dispose(): void;
 }
 
+/** What a renderer's views tell the terminal benchmark
+ *  (`desktop/app/ui/bench/terminal`): when they draw, where keys go, and how
+ *  they draw. The app itself never calls these. */
+export interface BenchHooks {
+  /** Called after the view has drawn a frame. */
+  onFrameDrawn(listener: () => void): Unsubscribe;
+  /** The element that receives keyboard events. */
+  inputElement(): HTMLElement | null;
+  /** Bytes of WebAssembly memory this view holds, if it uses any. */
+  wasmMemoryBytes?(): number;
+  /** How it draws, such as "canvas2d" or "webgl2". */
+  backend(): string;
+}
+
 export interface TerminalRenderer {
   readonly id: "xterm" | "ghostty" | string;
   /** Loads code or wasm once; rejects when the renderer cannot run here. */

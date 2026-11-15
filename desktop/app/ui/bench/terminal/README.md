@@ -1,0 +1,96 @@
+# Terminal benchmark
+
+This benchmark measures the window's terminal renderers against the window
+budgets of runtime-spec 8.6. It loads each renderer from the app's registry
+(`ui/src/components/terminal/renderers/`), so it measures the code the app
+ships, through the `TerminalView` interface the app uses.
+
+## Running it
+
+```sh
+mise run bench:terminal                                  # every case, both renderers
+mise run bench:terminal -- --repeat 3                    # best of three, as spec 8.6 asks
+mise run bench:terminal -- --adapters ghostty --cases burst,input
+```
+
+The task builds libghostty-vt's WebAssembly first if needed. The first run
+also writes the synthetic corpus and asks the host's terminal for the attach
+snapshots, which needs Cargo. Each run prints a table and writes
+`results/<time>.json` and `results/<time>.md`, which it also copies to
+`results/latest.json` and `results/latest.md`. The exit status is 1 when a
+budget fails. Pass `--no-fail` to always exit with 0.
+
+The options of `run.mjs`:
+
+- `--runners`: `webkit` (the default), Playwright's headless WebKit, or
+  `external`, which prints the URL of each case to open in another browser.
+- `--adapters`: the renderers by id, `ghostty,xterm` by default.
+- `--cases`: the cases by name, all of them by default.
+- `--repeat N`: runs each case N times in a new browser and keeps the best.
+- `--tag NAME`: adds NAME to the result file names.
+- `--no-build`: uses the existing bundle in `dist/`.
+
+To open a case by hand, start the fake core with `node core/server.mjs` and
+open `http://127.0.0.1:7357/page.html?adapter=ghostty&case=burst&item=synthetic/tui.bin`.
+The page prints the result in the console. Add `&format=vt` to make the
+attach, memory and switch cases ask for the `vt` snapshot, and `&csp=off` to
+load the page without the app's Content-Security-Policy.
+
+## How it works
+
+- `page.ts` is the bench page. It loads one renderer, runs one case and
+  posts the result back to the fake core. `build.mjs` bundles it into
+  `dist/`, with a chunk for each renderer.
+- `core/server.mjs` is the fake core. It serves the page with the app's
+  Content-Security-Policy, read from `src-tauri/tauri.conf.json`, so a
+  renderer that needs more than the app allows reports violations. It plays
+  corpus items to the page over a WebSocket with credit-based flow control,
+  as the core does: a 1 MiB window, with credit returned once the view has
+  parsed the bytes. It also runs the echo program of the input case
+  (`core/pty-echo.py`).
+- `core/snapshots.mjs` asks the host's terminal
+  (`desktop/screen/examples/bench_snapshot.rs`) for a terminal of 120
+  columns and 40 rows with 5,000 lines of history, in both formats the host
+  sends: its `vt` first paint and libghostty-vt's binary snapshot. They are
+  cached in `.cache/` until the corpus changes.
+- `budgets.mjs` checks the results against the budgets.
+- `corpus/` holds the recorded sessions and the generator of the synthetic
+  workloads. Its README describes each item.
+
+A renderer tells the probes when it draws through the `BenchHooks` of
+`ui/src/components/terminal/view.ts`. Both renderers implement them.
+
+## Cases
+
+Each case runs in a new page with one renderer. The page talks to the fake
+core over WebSockets, as the window talks to Pinrail's core.
+
+| Case     | What it measures                                                                                                                                                                                           | Budget                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `load`   | The code and WebAssembly fetched and compiled, a view mounted, its first frame, and the bytes loaded.                                                                                                      | None                                                            |
+| `burst`  | An 8 MB item as fast as credit allows (tui, styled, plain, alt): the time until drawn, the throughput and the frame gaps.                                                                                  | tui drawn within 500 ms; no frame over 50 ms for tui and styled |
+| `stream` | tui output paced at 2 MB/s for 5 s: frame time p50, p95 and max, and frames over 16, 33 and 50 ms.                                                                                                         | p95 ≤ 20 ms, max ≤ 50 ms                                        |
+| `idle`   | Frames drawn per second when nothing changes, after a stream.                                                                                                                                              | 0                                                               |
+| `input`  | Key events on the view's input element, encoded by the view, sent over the WebSocket to `cat` on a real PTY in raw mode, echoed back and drawn. With `load=1`, a second terminal streams 2 MB/s meanwhile. | p50 / p95 / p99 ≤ 5 / 12 / 25 ms; with load, p95 ≤ 25 ms        |
+| `attach` | A new view restores the snapshot of 5,000 lines of history until its first frame, in the first of the view's formats. Two snapshots: agent output (tui and diff) and dense colour (styled).                | ≤ 150 ms                                                        |
+| `memory` | Three views each holding 5,000 lines: the growth of the web content process and of WebAssembly memory, per view.                                                                                           | ≤ 30 MiB                                                        |
+| `switch` | A pooled view hidden while 256 KB of output arrive, then shown, until it is painted and current. Five times.                                                                                               | ≤ 50 ms                                                         |
+| `replay` | Each recording at its recorded timing, with pauses shortened to 0.5 s, then as fast as possible.                                                                                                           | None                                                            |
+| `screen` | A screenshot of the width fixture, the links and a recording, to check by eye, in `results/screens/`.                                                                                                      | None                                                            |
+
+## What the numbers mean
+
+- Frame times are the gaps between animation frames. WebKit has no Long
+  Tasks API, so a long task shows only as a long frame.
+- Headless WebKit is not tied to a display and draws at a device pixel ratio
+  of 1.
+- WebKit rounds `performance.now()` to 1 ms, so the parts of the input
+  latency under a millisecond show as 0 or 1.
+- Process memory is the resident size of the web content process. GPU
+  memory, which holds xterm.js's WebGL glyph atlas, is not counted.
+- The budgets apply on the spec's reference machines: an Apple M1 with
+  macOS 14, and a 4-core x86-64 machine with Ubuntu 24.04. Results from
+  other machines compare the renderers with each other and with earlier
+  runs on the same machine, not with the budgets.
+- `mise run bench:host` measures the host: parse throughput, memory and
+  idle CPU.

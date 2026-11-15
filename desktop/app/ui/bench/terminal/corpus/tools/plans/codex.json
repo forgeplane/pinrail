@@ -1,0 +1,63 @@
+[
+  {
+    "marker": "start"
+  },
+  {
+    "idle": 4,
+    "timeout": 40,
+    "answer": [["trust|Trust this folder|Yes, allow", "\r"]]
+  },
+  {
+    "marker": "turn"
+  },
+  {
+    "idle": 10,
+    "timeout": 300,
+    "answer": [["Would you like to|Allow command|Approve|Yes, proceed|\\(y\\)", "\r"]]
+  },
+  {
+    "marker": "resize"
+  },
+  {
+    "resize": [100, 30]
+  },
+  {
+    "sleep": 3
+  },
+  {
+    "resize": [120, 40]
+  },
+  {
+    "sleep": 3
+  },
+  {
+    "marker": "clear"
+  },
+  {
+    "send": "/new"
+  },
+  {
+    "sleep": 1.5
+  },
+  {
+    "send": "\r"
+  },
+  {
+    "sleep": 4
+  },
+  {
+    "marker": "exit"
+  },
+  {
+    "send": "/exit"
+  },
+  {
+    "sleep": 1.5
+  },
+  {
+    "send": "\r"
+  },
+  {
+    "sleep": 3
+  }
+]

@@ -7,6 +7,7 @@
 
 import { isMac } from "../../../../lib/keys";
 import type {
+  BenchHooks,
   InputKind,
   SearchOptions,
   SearchResult,
@@ -62,7 +63,7 @@ function fontOf(font: TerminalFont): Font {
   return { family: font.family, size: font.size, lineHeight: font.lineHeight ?? 1 };
 }
 
-class GhosttyView implements TerminalView {
+class GhosttyView implements TerminalView, BenchHooks {
   readonly snapshotFormats = [BINARY_FORMAT, "vt"] as const;
   private host: HTMLElement | null = null;
   private element!: HTMLDivElement;
@@ -82,6 +83,7 @@ class GhosttyView implements TerminalView {
   private selections = new Set<(text: string | null) => void>();
   private titles = new Set<(title: string) => void>();
   private links = new Set<(uri: string, event: MouseEvent) => void>();
+  private drawnListeners = new Set<() => void>();
   private disposed = false;
 
   async mount(host: HTMLElement, options: ViewOptions): Promise<void> {
@@ -171,6 +173,7 @@ class GhosttyView implements TerminalView {
     const { width, height } = this.renderer.cell;
     this.keyboard.moveTo(snapshot.cursorX * width, snapshot.cursorY * height, height);
     this.mirror?.mirror.update(snapshot.rowData);
+    this.drawnListeners.forEach((l) => l());
   }
 
   /** Tells listeners about a selection that changed. */
@@ -307,6 +310,22 @@ class GhosttyView implements TerminalView {
     }
   }
 
+  onFrameDrawn(listener: () => void): Unsubscribe {
+    return this.listen(this.drawnListeners, listener);
+  }
+
+  inputElement(): HTMLElement | null {
+    return this.keyboard?.input ?? null;
+  }
+
+  wasmMemoryBytes(): number {
+    return this.core?.runtime.memoryBytes().byteLength ?? 0;
+  }
+
+  backend(): string {
+    return "canvas2d";
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -317,7 +336,8 @@ class GhosttyView implements TerminalView {
     this.renderer?.dispose();
     this.core?.dispose();
     this.element?.remove();
-    for (const set of [this.inputs, this.replies, this.selections, this.titles, this.links]) set.clear();
+    for (const set of [this.inputs, this.replies, this.selections, this.titles, this.links, this.drawnListeners])
+      set.clear();
     this.host = null;
     this.snapshot = null;
   }

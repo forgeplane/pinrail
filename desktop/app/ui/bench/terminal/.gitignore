@@ -1,0 +1,6 @@
+# made on demand: the bundle, the synthetic corpus (corpus/tools/gen.mjs),
+# the host's snapshots, and the results
+/dist/
+/corpus/synthetic/
+/.cache/
+/results/

@@ -16,5 +16,5 @@
       "pinrail-sdk/types": ["../../sdk/types.d.ts"]
     }
   },
-  "include": ["ui/src"]
+  "include": ["ui/src", "ui/bench"]
 }

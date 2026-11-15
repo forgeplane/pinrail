@@ -1,0 +1,33 @@
+[
+  {
+    "marker": "start"
+  },
+  {
+    "idle": 4,
+    "timeout": 40,
+    "answer": [["trust this folder", "\u001b[B\r"]]
+  },
+  {
+    "marker": "turn"
+  },
+  {
+    "idle": 10,
+    "timeout": 400,
+    "answer": [["Do you want to (make this edit|proceed|create|make)", "\r"]]
+  },
+  {
+    "marker": "exit"
+  },
+  {
+    "send": "/exit"
+  },
+  {
+    "sleep": 1.5
+  },
+  {
+    "send": "\r"
+  },
+  {
+    "sleep": 3
+  }
+]

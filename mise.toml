@@ -74,6 +74,13 @@ description = "Terminal host: check the performance budgets; --baseline <file> a
 dir = "{{config_root}}/desktop"
 run = "cargo bench -q -p pinrail-host --bench host --"
 
+[tasks."bench:terminal"]
+description = "Window terminal renderers: check the performance budgets in WebKit; --cases, --adapters and --repeat narrow or repeat the run"
+dir = "{{config_root}}/desktop/app"
+# libghostty-vt's WebAssembly, which the libghostty renderer loads
+depends = ["ghostty:wasm"]
+run = "node ui/bench/terminal/run.mjs"
+
 [tasks."dev:desktop"]
 description = "Desktop app with the UI dev server and live reload, and the current terminal host"
 dir = "{{config_root}}/desktop/app"

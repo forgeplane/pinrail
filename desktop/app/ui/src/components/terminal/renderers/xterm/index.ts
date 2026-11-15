@@ -19,6 +19,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import type {
+  BenchHooks,
   InputKind,
   SearchOptions,
   SearchResult,
@@ -82,7 +83,7 @@ const ORIGINS: [string, InputKind][] = [
   ["focusout", "focus"],
 ];
 
-class XtermView implements TerminalView {
+class XtermView implements TerminalView, BenchHooks {
   readonly snapshotFormats = ["vt"] as const;
   private term: Terminal | null = null;
   private host: HTMLElement | null = null;
@@ -93,6 +94,7 @@ class XtermView implements TerminalView {
   private replies = new Set<(bytes: Uint8Array) => void>();
   private links = new Set<(uri: string, event: MouseEvent) => void>();
   private cleanup: (() => void)[] = [];
+  private webgl = false;
 
   async mount(host: HTMLElement, options: ViewOptions): Promise<void> {
     this.host = host;
@@ -175,8 +177,12 @@ class XtermView implements TerminalView {
   private useWebgl(term: Terminal) {
     try {
       const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
+      webgl.onContextLoss(() => {
+        webgl.dispose();
+        this.webgl = false;
+      });
       term.loadAddon(webgl);
+      this.webgl = true;
     } catch {
       // the DOM renderer stays
     }
@@ -286,6 +292,19 @@ class XtermView implements TerminalView {
 
   setScreenReader(on: boolean): void {
     this.term!.options.screenReaderMode = on;
+  }
+
+  onFrameDrawn(listener: () => void): Unsubscribe {
+    const subscription = this.term!.onRender(() => listener());
+    return () => subscription.dispose();
+  }
+
+  inputElement(): HTMLElement | null {
+    return this.term?.textarea ?? null;
+  }
+
+  backend(): string {
+    return this.webgl ? "webgl2" : "dom";
   }
 
   dispose(): void {
