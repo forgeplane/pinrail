@@ -1,6 +1,11 @@
-//! A connection's outgoing frames: one queue, written by one writer task in
-//! order, which counts what waits unread so that channel 0 stays bounded.
+//! A connection's outgoing frames, written by one writer task, which
+//! counts what waits unread so that channel 0 stays bounded. Each channel
+//! keeps its frames in order. Channel 0 goes first, and the terminal
+//! channels take turns, a DATA frame of at most [`CHUNK`] bytes each, so
+//! that a large snapshot for one terminal does not hold back another
+//! terminal's output.
 
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -8,12 +13,15 @@ use serde_json::Value;
 use tokio::io::AsyncWrite;
 use tokio::sync::{Notify, mpsc};
 
-use crate::frame::{self, Frame};
+use crate::frame::{self, Frame, kind};
 
 /// Unread events past which the subscriber is told it missed some.
 pub const MAX_UNREAD_EVENTS: usize = 8 * 1024 * 1024;
 /// Unread replies past which the connection is closed.
 pub const MAX_UNREAD_REPLIES: usize = 64 * 1024 * 1024;
+/// The most bytes of a terminal channel's DATA written before another
+/// channel takes its turn.
+pub const CHUNK: usize = 16 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Class {
@@ -33,6 +41,62 @@ struct Unread {
     replies: AtomicUsize,
     /// Signalled when the replies pass their bound.
     overflowed: Notify,
+}
+
+/// The frames queued for the writer, by channel.
+#[derive(Default)]
+struct Waiting {
+    channels: BTreeMap<u32, VecDeque<Queued>>,
+    /// The terminal channel that wrote last.
+    turn: u32,
+}
+
+impl Waiting {
+    fn is_empty(&self) -> bool {
+        self.channels.is_empty()
+    }
+
+    fn push(&mut self, queued: Queued) {
+        self.channels
+            .entry(queued.frame.channel)
+            .or_default()
+            .push_back(queued);
+    }
+
+    /// The next frame to write: channel 0's, or else the next terminal
+    /// channel's after the one that wrote last, cut to [`CHUNK`] bytes of
+    /// DATA. With it, the queued frame it ends, whose bounds to release.
+    fn next(&mut self) -> (Frame, Option<Queued>) {
+        let channel = if self.channels.contains_key(&frame::CONTROL_CHANNEL) {
+            frame::CONTROL_CHANNEL
+        } else {
+            let after = self.channels.range(self.turn + 1..).next().map(|(c, _)| *c);
+            let channel = after
+                .or_else(|| self.channels.keys().next().copied())
+                .expect("a frame waits");
+            self.turn = channel;
+            channel
+        };
+        let queue = self.channels.get_mut(&channel).expect("a frame waits");
+        let head = queue.front_mut().expect("a frame waits");
+        if channel != frame::CONTROL_CHANNEL
+            && head.frame.kind == kind::DATA
+            && head.frame.payload.len() > CHUNK
+        {
+            let rest = head.frame.payload.split_off(CHUNK);
+            let part = Frame {
+                channel,
+                kind: kind::DATA,
+                payload: std::mem::replace(&mut head.frame.payload, rest),
+            };
+            return (part, None);
+        }
+        let queued = queue.pop_front().expect("a frame waits");
+        if queue.is_empty() {
+            self.channels.remove(&channel);
+        }
+        (queued.frame.clone(), Some(queued))
+    }
 }
 
 /// Where a connection's frames are queued. Cloned for every task that
@@ -57,13 +121,25 @@ impl Outbox {
         });
         let counts = unread.clone();
         let writer = tokio::spawn(async move {
-            while let Some(queued) = receiver.recv().await {
-                if frame::write(&mut writer, &queued.frame).await.is_err() {
+            let mut waiting = Waiting::default();
+            loop {
+                if waiting.is_empty() {
+                    match receiver.recv().await {
+                        Some(queued) => waiting.push(queued),
+                        None => break,
+                    }
+                }
+                while let Ok(queued) = receiver.try_recv() {
+                    waiting.push(queued);
+                }
+                let (frame, done) = waiting.next();
+                if frame::write(&mut writer, &frame).await.is_err() {
                     break;
                 }
-                match queued.class {
-                    Class::Event => counts.events.fetch_sub(queued.size, Ordering::Relaxed),
-                    Class::Reply => counts.replies.fetch_sub(queued.size, Ordering::Relaxed),
+                let Some(done) = done else { continue };
+                match done.class {
+                    Class::Event => counts.events.fetch_sub(done.size, Ordering::Relaxed),
+                    Class::Reply => counts.replies.fetch_sub(done.size, Ordering::Relaxed),
                     Class::Other => 0,
                 };
             }

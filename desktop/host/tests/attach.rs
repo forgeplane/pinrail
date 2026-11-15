@@ -539,3 +539,79 @@ fn the_colours_a_viewer_sent_as_an_observer_apply_once_it_takes_control() {
     assert!(text.contains("rgb:1010/2020/3030"), "{text:?}");
     connection.call("terminal.stop", json!({"terminal": terminal}));
 }
+
+#[test]
+fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut setup = Connection::open(&host);
+    let long = spawn(
+        &mut setup,
+        &folders,
+        "seq 1 6000 | awk '{printf \"\\033[3%dmline %d of a long history, with text to make each line about as long as agents write them\\033[0m\\n\", $1 % 8, $1}'; sleep 60",
+    );
+    wait_for_text(&mut setup, &long, "line 6000");
+    let quiet = spawn(&mut setup, &folders, "sleep 2; echo tick; sleep 60");
+
+    // a second connection, which reads nothing until the long terminal's
+    // snapshot and the quiet terminal's output are both queued
+    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let mut call = |id: u64, method: &str, params: Value| {
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        frame::write_blocking(&mut stream, &Frame::json(&message)).unwrap();
+    };
+    call(0, "hello", json!({"secret": host.registration.secret}));
+    let attach = |terminal: &str, history: u32| {
+        json!({"terminal": terminal, "mode": "observe", "cols": 60, "rows": 12,
+               "history": history, "formats": ["vt"]})
+    };
+    call(1, "terminal.attach", attach(&quiet, 0));
+    std::thread::sleep(Duration::from_millis(300));
+    call(2, "terminal.attach", attach(&long, 6000));
+    std::thread::sleep(Duration::from_millis(2500));
+
+    // DATA bytes per channel, and as they were when the tick came
+    let mut bytes: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut at_tick: Option<BTreeMap<u32, usize>> = None;
+    let mut ended = false;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !(ended && at_tick.is_some()) {
+        assert!(
+            Instant::now() < deadline,
+            "no tick or snapshot end: {bytes:?}"
+        );
+        let frame = frame::read_blocking(&mut stream).unwrap().unwrap();
+        if frame.channel == 0 {
+            continue;
+        }
+        match frame.kind {
+            kind::DATA => {
+                *bytes.entry(frame.channel).or_default() += frame.payload.len();
+                // credit for what was read, as the core returns it
+                let credit = Frame {
+                    channel: frame.channel,
+                    kind: kind::CREDIT,
+                    payload: (frame.payload.len() as u32).to_le_bytes().to_vec(),
+                };
+                frame::write_blocking(&mut stream, &credit).unwrap();
+                if frame.payload.windows(4).any(|w| w == b"tick") {
+                    at_tick.get_or_insert(bytes.clone());
+                }
+            }
+            kind::META => {
+                let meta: Value = serde_json::from_slice(&frame.payload).unwrap();
+                let big = bytes.get(&frame.channel).is_some_and(|&n| n > 64 * 1024);
+                ended |= big && meta["type"] == "snapshot_end";
+            }
+            _ => {}
+        }
+    }
+    let (&long_channel, &snapshot) = bytes.iter().max_by_key(|(_, n)| **n).unwrap();
+    let before_tick = at_tick.unwrap().get(&long_channel).copied().unwrap_or(0);
+    assert!(snapshot > 256 * 1024, "the snapshot was {snapshot} bytes");
+    // the quiet terminal's output took its turn early in the snapshot
+    assert!(
+        before_tick < 128 * 1024,
+        "{before_tick} of the snapshot's {snapshot} bytes came before the tick"
+    );
+}
