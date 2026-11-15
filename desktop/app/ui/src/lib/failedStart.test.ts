@@ -49,3 +49,11 @@ describe("the banner of an ended run", () => {
     expect(endedText("Codex", run({ exit_code: null, exit_signal: "KILL" }))).toBe("Codex was ended by signal KILL.");
   });
 });
+
+describe("a resume that failed", () => {
+  test("is one that failed as it started, and says it was resuming", () => {
+    const resumed = run({ kind: "resume", end_reason: "resume_failed", ended_at: "2026-11-14T10:00:02.800Z" });
+    expect(failedAtStart(resumed)).toBe(true);
+    expect(exitText("Claude Code", resumed)).toBe("Claude Code exited right after resuming (code 1).");
+  });
+});

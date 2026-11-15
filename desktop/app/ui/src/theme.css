@@ -7869,11 +7869,29 @@ a.item-ref {
   flex-direction: column;
 }
 .ended-run-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
   font: 500 var(--text-sm) var(--font);
+}
+.ended-run-banner p {
+  flex: 1;
+  margin: 0;
+}
+.outside-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px 32px;
+  font-size: var(--text-sm);
+}
+.outside-run p {
+  margin: 0;
 }
 .ended-run-screen {
   flex: 1;

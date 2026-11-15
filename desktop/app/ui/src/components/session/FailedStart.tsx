@@ -1,6 +1,7 @@
 // In a session's Terminal view, a run whose agent exited with an error as
 // it started: the exit, its last lines, and starting it again as it was
-// or after an edit.
+// or after an edit. A resume that failed offers a new session in the
+// folder instead, since the old one could not be resumed.
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -35,16 +36,19 @@ export function FailedStart({ run }: { run: Run }) {
     };
   }, [run.id]);
 
-  const again = async () => {
-    if (!launch) return;
+  const resumed = run.kind === "resume";
+
+  /** Starts the agent in the run's folder: as it was, or afresh. */
+  const again = async (fresh: boolean) => {
+    if (!launch && !fresh) return;
     setProblem(null);
     setStarting(true);
     try {
       const started = await startRun({
         agent: run.agent,
         folder: run.folder,
-        task: launch.task ?? undefined,
-        args: launch.args,
+        task: fresh ? undefined : (launch!.task ?? undefined),
+        args: fresh ? [] : launch!.args,
         local_id: crypto.randomUUID(),
       });
       if ("session" in started) navigate(sessionPath(started.session), { state: { newRun: true } });
@@ -85,17 +89,30 @@ export function FailedStart({ run }: { run: Run }) {
         </p>
       ) : null}
       <div className="failed-start-actions">
-        <button
-          type="button"
-          className="chrome-button button-primary"
-          disabled={!launch || starting}
-          onClick={() => void again()}
-        >
-          {starting ? `Starting ${name}…` : "Try again"}
-        </button>
-        <button type="button" className="chrome-button" disabled={!launch || starting} onClick={edit}>
-          Edit and try again
-        </button>
+        {resumed ? (
+          <button
+            type="button"
+            className="chrome-button button-primary"
+            disabled={starting}
+            onClick={() => void again(true)}
+          >
+            {starting ? `Starting ${name}…` : "Start a new session in this folder"}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="chrome-button button-primary"
+              disabled={!launch || starting}
+              onClick={() => void again(false)}
+            >
+              {starting ? `Starting ${name}…` : "Try again"}
+            </button>
+            <button type="button" className="chrome-button" disabled={!launch || starting} onClick={edit}>
+              Edit and try again
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

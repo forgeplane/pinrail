@@ -13,7 +13,11 @@ import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
 import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
-import { StopButton } from "./session/RunControls";
+import { ResumeButton, StopButton } from "./session/RunControls";
+import { OutsideRun } from "./session/OutsideRun";
+import { runtime } from "../api/runtime";
+import { sessionGrid } from "./session/startRun";
+import { canResume, resumeProblem } from "../lib/resume";
 import { stateOf } from "../lib/sidebarSessions";
 import { isStopKey } from "../lib/terminalKeys";
 import { TerminalPane } from "./terminal/TerminalPane";
@@ -186,11 +190,33 @@ export function Thread({
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
-  const { live, failed, ended, runs } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const { live, failed, ended, runs, reload: reloadRuns } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
   const terminal = live?.terminal ?? null;
+  // a stopped session can be resumed in Pinrail, also one that ran outside it
+  const resumable = onPage && prefs.labs.runtime && canResume(session, runs);
+  const ranOutside = resumable && runs.length === 0;
   // a run that ended shows how in the terminal's place
-  const hasTerminalView = !!terminal || !!failed || !!ended;
+  const hasTerminalView = !!terminal || !!failed || !!ended || ranOutside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
+  const [resuming, setResuming] = useState(false);
+  // why the last resume did not happen, for the session it was of
+  const sessionKey = named ? `${named.agent}/${named.id}` : null;
+  const [resumeFailure, setResumeFailure] = useState<{ key: string | null; message: string } | null>(null);
+  const resumeError = resumeFailure?.key === sessionKey ? resumeFailure.message : null;
+  const resume = async () => {
+    if (!named) return;
+    setResuming(true);
+    setResumeFailure(null);
+    try {
+      await runtime.resume(named, { ...(await sessionGrid()), local_id: crypto.randomUUID() });
+      reloadRuns();
+      chooseView("terminal");
+    } catch (e) {
+      setResumeFailure({ key: sessionKey, message: resumeProblem(e, runs[0]?.folder ?? session?.folder ?? null) });
+    } finally {
+      setResuming(false);
+    }
+  };
   const showTerminal = view === "terminal" && hasTerminalView;
   const showTerminalRef = useLatest(showTerminal);
   // what a live run's agent waits for the person to allow, if anything
@@ -444,6 +470,9 @@ export function Thread({
                 onAsking={setAskingStop}
               />
             ) : null}
+            {resumable && named ? (
+              <ResumeButton agent={named.agent} resuming={resuming} onResume={() => void resume()} />
+            ) : null}
             {hasTerminalView ? <ViewSwitch view={view} onView={chooseView} /> : null}
             {items.length > 0 ? (
               <span className="thread-counts">
@@ -498,6 +527,11 @@ export function Thread({
           </span>
         </header>
         {error ? <p className="notice notice-danger">{error}</p> : null}
+        {resumeError ? (
+          <p className="notice notice-danger" role="alert">
+            {resumeError}
+          </p>
+        ) : null}
         <div
           className="thread-body"
           ref={body}
@@ -509,8 +543,10 @@ export function Thread({
                 <TerminalPane terminal={terminal} autoFocus />
               ) : failed ? (
                 <FailedStart run={failed} />
+              ) : ended ? (
+                <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
               ) : (
-                <EndedRun run={ended!} />
+                <OutsideRun agent={named!.agent} resuming={resuming} onResume={() => void resume()} />
               )}
             </div>
           ) : null}

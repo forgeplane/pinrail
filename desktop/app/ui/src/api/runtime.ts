@@ -84,6 +84,13 @@ export const runtime = {
     request<{ paint: string; cols: number; rows: number }>("GET", `/api/v1/runs/${seg(id)}/screen`, undefined, {
       asPerson: true,
     }),
+  /** Resumes a stopped session in a new terminal of `cols` by `rows`. */
+  resume: (session: { agent: string; id: string }, body: { cols: number; rows: number; local_id: string }) =>
+    request<{ run: Run; session: { agent: string; id: string } | null }>(
+      "POST",
+      `/api/v1/sessions/${seg(session.agent)}/${seg(session.id)}/resume`,
+      { host: "local", ...body },
+    ),
   stop: (id: string, force = false) => request<void>("POST", `/api/v1/runs/${seg(id)}/stop`, { force }),
   /** A ticket that opens one attach to `terminal` within 30 seconds. */
   ticket: async (terminal: string) =>

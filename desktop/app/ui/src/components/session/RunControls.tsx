@@ -1,7 +1,8 @@
-// Stop, in the header of a session whose agent runs in Pinrail. While the
-// agent works on a turn, Stop asks first, because it ends that turn.
+// Stop, in the header of a session whose agent runs in Pinrail, and
+// Resume, in the header of one whose agent stopped. While the agent works
+// on a turn, Stop asks first, because it ends that turn.
 
-import { Square } from "lucide-react";
+import { Play, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { errorMessage } from "../../api/client";
 import { runtime, type Run } from "../../api/runtime";
@@ -82,5 +83,32 @@ export function StopButton({
         </Dialog>
       ) : null}
     </>
+  );
+}
+
+/** Resume, for a stopped session whose agent can resume. */
+export function ResumeButton({
+  agent,
+  resuming,
+  onResume,
+}: {
+  agent: string;
+  resuming: boolean;
+  onResume: () => void;
+}) {
+  const name = agentOf(agent)?.label ?? agent;
+  return (
+    <Tooltip label={`Resume ${name} in Pinrail`} side="bottom">
+      <button
+        type="button"
+        className="bar-button run-resume"
+        aria-label={`Resume ${name}`}
+        disabled={resuming}
+        onClick={onResume}
+      >
+        <Play size={13} />
+        <span>{resuming ? "Resuming…" : "Resume"}</span>
+      </button>
+    </Tooltip>
   );
 }

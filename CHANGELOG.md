@@ -36,6 +36,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A finished session counts as seen once you have had it open for a
   second. **Mark as unread** in the session header shows it as finished
   again.
+- A stopped Claude Code or Codex session can be resumed in Pinrail with
+  **Resume** in the session header, including a session you started in
+  your own terminal.
 
 ### Security
 

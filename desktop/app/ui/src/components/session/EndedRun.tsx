@@ -18,7 +18,16 @@ type Screen = { paint: string; cols: number; rows: number };
  *  9 px; a narrower view scrolls it sideways. */
 const MIN_SCALE = 0.7;
 
-export function EndedRun({ run }: { run: Run }) {
+export function EndedRun({
+  run,
+  onResume,
+  resuming = false,
+}: {
+  run: Run;
+  /** resumes the session, when it can be */
+  onResume?: () => void;
+  resuming?: boolean;
+}) {
   const name = agentOf(run.agent)?.label ?? run.agent;
   // null while it loads; false once the host no longer keeps it
   const [screen, setScreen] = useState<Screen | false | null>(null);
@@ -36,9 +45,14 @@ export function EndedRun({ run }: { run: Run }) {
 
   return (
     <div className="ended-run" data-testid="ended-run">
-      <p className="ended-run-banner" role="status">
-        {endedText(name, run)}
-      </p>
+      <div className="ended-run-banner">
+        <p role="status">{endedText(name, run)}</p>
+        {onResume ? (
+          <button type="button" className="chrome-button" disabled={resuming} onClick={onResume}>
+            {resuming ? "Resuming…" : "Resume"}
+          </button>
+        ) : null}
+      </div>
       {screen ? (
         <KeptScreen screen={screen} label={`${name}'s last screen`} />
       ) : screen === false ? (

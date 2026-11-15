@@ -2,7 +2,7 @@
 // terminal, or the latest when it exited with an error as it started,
 // kept up to date as runs start, move between sessions and end.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { runtime, type Run } from "../../api/runtime";
 import { failedAtStart } from "../../lib/failedStart";
 import { useNoticeCount } from "../../state/live";
@@ -22,11 +22,18 @@ const NONE: SessionRun = { live: null, failed: null, ended: null, runs: [] };
 
 const RUN_EVENTS = new Set(["run_started", "run_bound", "run_ended"]);
 
-/** The session's run. `enabled` is the agent runtime's switch: without
+/** The session's run, and `reload`, which asks for it again at once, as
+ *  after starting one. `enabled` is the agent runtime's switch: without
  *  it the window asks for no runs. */
-export function useSessionRun(session: { agent: string; id: string } | null, enabled: boolean): SessionRun {
+export function useSessionRun(
+  session: { agent: string; id: string } | null,
+  enabled: boolean,
+): SessionRun & { reload: () => void } {
   const key = session ? `${session.agent}/${session.id}` : null;
-  const changes = useNoticeCount((notice) => RUN_EVENTS.has(notice.kind));
+  const notices = useNoticeCount((notice) => RUN_EVENTS.has(notice.kind));
+  const [reloads, setReloads] = useState(0);
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
+  const changes = notices + reloads;
   const [found, setFound] = useState<{ key: string; run: SessionRun } | null>(null);
 
   useEffect(() => {
@@ -52,5 +59,5 @@ export function useSessionRun(session: { agent: string; id: string } | null, ena
     };
   }, [key, enabled, changes]);
 
-  return enabled && found?.key === key ? found.run : NONE;
+  return { ...(enabled && found?.key === key ? found.run : NONE), reload };
 }
