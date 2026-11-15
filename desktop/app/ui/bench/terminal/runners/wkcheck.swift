@@ -13,7 +13,8 @@
 // from the page's __live globals, and prints one JSON object on stdout.
 //
 // The window takes focus for the run. The general pasteboard is saved
-// before the copy and paste checks and put back after.
+// before the first check and put back when the run ends, also on a
+// timeout. Each step is written to stderr, so a timeout shows the last one.
 
 import AppKit
 import Carbon
@@ -56,6 +57,13 @@ window.isReleasedWhenClosed = false
 window.acceptsMouseMovedEvents = true
 let view = WKWebView(frame: window.contentView!.bounds, configuration: WKWebViewConfiguration())
 view.autoresizingMask = [.width, .height]
+// Private, but stable for years: keep the page "visible" when macOS does
+// not bring the window to the front and other windows cover it.
+let occlusionSelector = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+if view.responds(to: occlusionSelector) {
+  typealias SetBool = @convention(c) (AnyObject, Selector, Bool) -> Void
+  unsafeBitCast(view.method(for: occlusionSelector), to: SetBool.self)(view, occlusionSelector, false)
+}
 if #available(macOS 13.3, *) { view.isInspectable = true }
 window.contentView!.addSubview(view)
 window.setFrameOrigin(NSPoint(x: 0, y: 0))
@@ -76,7 +84,15 @@ view.navigationDelegate = nav
 /// Runs `body` as an async function in the page and returns its value,
 /// passed through JSON.
 @MainActor func js(_ body: String) async -> Any? {
-  let wrapped = "const __r = await (async () => { \(body) })(); return JSON.stringify(__r === undefined ? null : __r);"
+  // A call that does not finish in 5 s returns an error, so one stuck
+  // promise in the page fails its check rather than the whole run.
+  let wrapped = """
+    const __r = await Promise.race([
+      (async () => { \(body) })(),
+      new Promise((r) => setTimeout(() => r({ error: "no answer from the page in 5 s" }), 5000)),
+    ]);
+    return JSON.stringify(__r === undefined ? null : __r);
+    """
   do {
     let r = try await view.callAsyncJavaScript(wrapped, arguments: [:], in: nil, contentWorld: .page)
     guard let s = r as? String, let d = s.data(using: .utf8) else { return nil }
@@ -145,6 +161,25 @@ func cell(_ g: Grid, _ row: Int, _ col: Int) -> (Double, Double) {
 func hexOf(_ s: String) -> String { s.utf8.map { String(format: "%02x", $0) }.joined(separator: " ") }
 
 var results: [String: Any] = [:]
+/// The general pasteboard's items, copied before the first check.
+@MainActor func savePasteboard() -> [NSPasteboardItem] {
+  NSPasteboard.general.pasteboardItems?.map { item -> NSPasteboardItem in
+    let copy = NSPasteboardItem()
+    for t in item.types { if let d = item.data(forType: t) { copy.setData(d, forType: t) } }
+    return copy
+  } ?? []
+}
+
+@MainActor func restorePasteboard(_ saved: [NSPasteboardItem]) {
+  NSPasteboard.general.clearContents()
+  if !saved.isEmpty { NSPasteboard.general.writeObjects(saved) }
+}
+
+/// Writes the step about to run to stderr.
+func step(_ name: String) {
+  FileHandle.standardError.write("step: \(name)\n".data(using: .utf8)!)
+}
+
 func record(_ name: String, _ pass: Bool?, _ detail: String) {
   results[name] = ["pass": pass as Any, "detail": detail]
 }
@@ -205,8 +240,11 @@ func insert(_ text: String) {
 
 // MARK: - the checks
 
+@MainActor var savedPasteboard: [NSPasteboardItem] = []
+
 @MainActor func runChecks() async {
   // Wait for the live page.
+  step("load the page")
   for _ in 0..<200 {
     if (await js("return document.title;") as? String) == "ready" { break }
     await sleep(50)
@@ -223,6 +261,7 @@ func insert(_ text: String) {
   results["keyboardLayout"] = layout
   results["inputElement"] = await js("return __live.inputElement();")
 
+  step("controls")
   // Controls: a plain textarea in the same page shows whether the driver's
   // events reach the page as the keyboard's would. A renderer check that
   // fails where its control fails says nothing about the renderer.
@@ -243,6 +282,7 @@ func insert(_ text: String) {
   _ = await js("document.getElementById('control').remove(); __live.focus(); return null;")
   await sleep(200)
 
+  step("keys")
   // Plain keys, control keys and arrows.
   await clear()
   await key(0, "a", "a")
@@ -262,6 +302,7 @@ func insert(_ text: String) {
   let ret = await sent()
   record("Return", ret == "0d", ret)
 
+  step("dead key")
   // A dead key: Option-E then E gives é on the ABC and US layouts.
   await key(14, "", "e", .option)
   await key(14, "e", "e")
@@ -272,6 +313,7 @@ func insert(_ text: String) {
     record("dead key Option-E, E", nil, "not checked: the driver's events do not make dead keys (control typed \(results["control dead key"] ?? ""))")
   }
 
+  step("Option as Meta")
   // Option as Meta: the option is off by default, so Option-B types ∫; a
   // renderer with Meta on sends ESC b.
   await key(11, "∫", "b", .option)
@@ -279,6 +321,7 @@ func insert(_ text: String) {
   let optNote = optB == "1b 62" ? "ESC b (Meta)" : optB == hexOf("∫") ? "∫ (no Meta)" : optB
   record("Option-B", nil, optNote)
 
+  step("input method")
   // The input method: marked text, the candidate window's anchor, commit.
   await clear()
   // The cursor in the middle of the screen, at row 20, column 33.
@@ -310,6 +353,7 @@ func insert(_ text: String) {
   await sleep(200)
   let committed = await sent()
   record("commit Japanese", committed.replacingOccurrences(of: " | ", with: " ") == hexOf("日本"), "\(committed) (want \(hexOf("日本")))\(await replies())")
+  step("Hangul")
   // Hangul: each syllable is replaced as it grows, then committed.
   for s in ["ㅎ", "하", "한"] {
     setMarked(s, 1)
@@ -319,6 +363,7 @@ func insert(_ text: String) {
   await sleep(200)
   let hangul = await sent()
   record("commit Korean", hangul.replacingOccurrences(of: " | ", with: " ") == hexOf("한"), "\(hangul) (want \(hexOf("한")))\(await replies())")
+  step("Pinyin")
   // Pinyin: the marked text is Latin, which must not be typed.
   setMarked("ni hao", 6)
   await sleep(150)
@@ -327,6 +372,7 @@ func insert(_ text: String) {
   let pinyin = await sent()
   record("commit Chinese", pinyin.replacingOccurrences(of: " | ", with: " ") == hexOf("你好"), "\(pinyin) (want \(hexOf("你好")))\(await replies())")
 
+  step("links")
   // Links: Command-click an OSC 8 link and a plain URL.
   await clear()
   _ = await js(
@@ -353,6 +399,7 @@ func insert(_ text: String) {
   record("Command-click plain URL", links.contains { $0.hasPrefix("https://example.com/plain") }, links.isEmpty ? "nothing" : links.joined(separator: ", "))
   _ = await inputs()
 
+  step("selection")
   // Selection: a drag on screen, then a drag past the top edge into the
   // scrollback, then copy and paste.
   await clear()
@@ -375,13 +422,9 @@ func insert(_ text: String) {
   results["DOM buttons while dragging"] = buttons
   record("select by dragging", screenLines == 4 ? true : buttons == 0 ? nil : false, onScreen.map { "\(screenLines) lines: \($0.prefix(60).replacingOccurrences(of: "\n", with: "⏎"))…" } ?? "no selection")
 
-  // Copy, with the pasteboard put back afterwards.
+  // Copy
+  step("copy and paste")
   let pb = NSPasteboard.general
-  let saved = pb.pasteboardItems?.map { item -> NSPasteboardItem in
-    let copy = NSPasteboardItem()
-    for t in item.types { if let d = item.data(forType: t) { copy.setData(d, forType: t) } }
-    return copy
-  } ?? []
   pb.clearContents()
   await key(8, "c", "c", .command)
   await sleep(300)
@@ -395,6 +438,7 @@ func insert(_ text: String) {
   }
   _ = await inputs()
 
+  step("scrollback drag")
   // Into the scrollback: drag from row 5 above the top edge and hold.
   (x0, y0) = cell(sg, 5, 0)
   await mouse(.leftMouseDown, x0 - sg.w * 0.4, y0)
@@ -410,6 +454,7 @@ func insert(_ text: String) {
   await snap("selection-scrollback")
   _ = await js("return null;")
 
+  step("paste")
   // Paste, with bracketed paste on as a shell would turn it on.
   _ = await js("await __live.write('\\x1b[?2004h'); return null;")
   _ = await inputs()
@@ -426,8 +471,8 @@ func insert(_ text: String) {
       "Command-V pastes, bracketed", pasted == "\u{1b}[200~pasted text\u{1b}[201~",
       pastedAll.isEmpty ? "nothing sent" : pastedAll.map { "\($0["kind"] ?? ""): \($0["hex"] ?? "")" }.joined(separator: " | "))
   }
-  pb.clearContents()
-  if !saved.isEmpty { pb.writeObjects(saved) }
+  restorePasteboard(savedPasteboard)
+  results["page errors"] = await js("return __live.errors;") ?? []
 
   let data = try! JSONSerialization.data(withJSONObject: results, options: [.sortedKeys])
   print(String(data: data, encoding: .utf8)!)
@@ -451,8 +496,10 @@ if hold {
   window.delegate = closer
   objc_setAssociatedObject(window, "closer", closer, .OBJC_ASSOCIATION_RETAIN)
 } else {
+  MainActor.assumeIsolated { savedPasteboard = savePasteboard() }
   Task { @MainActor in await runChecks() }
   DispatchQueue.main.asyncAfter(deadline: .now() + 120) {
+    MainActor.assumeIsolated { restorePasteboard(savedPasteboard) }
     FileHandle.standardError.write("timed out\n".data(using: .utf8)!)
     exit(4)
   }

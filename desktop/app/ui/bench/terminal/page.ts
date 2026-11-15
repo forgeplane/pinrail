@@ -646,6 +646,8 @@ cases.live = async () => {
     selections: [] as (string | null)[],
     links: [] as string[],
     titles: [] as string[],
+    /** Uncaught errors and rejections on the page. */
+    errors: [] as string[],
     write: (text: string) => new Promise<void>((r) => view.write(new TextEncoder().encode(text), () => r())),
     /** The grid's top left corner and a cell's size, in CSS pixels. */
     grid: () => {
@@ -664,6 +666,8 @@ cases.live = async () => {
     },
     focus: () => view.focus(),
   };
+  addEventListener("error", (e) => live.errors.push(String(e.error?.stack ?? e.message)));
+  addEventListener("unhandledrejection", (e) => live.errors.push(String(e.reason?.stack ?? e.reason)));
   (window as unknown as { __live: typeof live }).__live = live;
   view.onInput((bytes, kind) => {
     const text = new TextDecoder().decode(bytes);

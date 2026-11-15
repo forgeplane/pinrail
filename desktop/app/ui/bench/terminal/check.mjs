@@ -52,7 +52,10 @@ for (const adapter of ADAPTERS) {
   try {
     results[adapter] = JSON.parse(r.stdout.trim().split("\n").pop());
   } catch {
-    results[adapter] = { error: (r.stderr || r.stdout || `exit ${r.status}`).slice(0, 300) };
+    // stderr ends with the step that was running
+    results[adapter] = {
+      error: (r.stderr || r.stdout || `exit ${r.status}`).trim().split("\n").slice(-2).reverse().join(" after "),
+    };
   }
   console.error(`${adapter}: ${results[adapter].error ?? "done"}`);
 }
@@ -72,6 +75,12 @@ md += `| Check | ${ADAPTERS.join(" | ")} |\n| --- | ${ADAPTERS.map(() => "---").
 for (const n of names.sort())
   md += `| ${n} | ${ADAPTERS.map((a) => (unchecked(n, a) ? "not checked: reads DOM buttons, which synthetic drags leave at 0" : mark(results[a][n]))).join(" | ")} |\n`;
 md += `\nControls in a plain textarea: dead key typed "${Object.values(results)[0]?.["control dead key"] ?? ""}", copy gave "${Object.values(results)[0]?.["control copy"] ?? ""}".\n`;
+for (const a of ADAPTERS) {
+  if (results[a].error) md += `\n${a} did not finish: ${results[a].error}.\n`;
+  const errors = results[a]["page errors"] ?? [];
+  if (errors.length)
+    md += `\nErrors on the ${a} page:\n\n${errors.map((e) => "    " + e.split("\n").join("\n    ")).join("\n\n")}\n`;
+}
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 writeFileSync(join(here, "results", `checks-${stamp}.json`), JSON.stringify(results, null, 2));
 writeFileSync(join(here, "results", `checks-${stamp}.md`), md);
