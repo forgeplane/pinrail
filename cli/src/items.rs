@@ -716,7 +716,7 @@ fn edited_md(verb: &str, edited: &Value) -> String {
     }
     for parent in edited["parents_closed"].as_array().into_iter().flatten() {
         out.push_str(&format!(
-            "{} {} is done too: its last open sub-item closed.\n",
+            "{} {} is done too: none of its sub-items is open now.\n",
             s(&parent["key"]),
             s(&parent["title"])
         ));

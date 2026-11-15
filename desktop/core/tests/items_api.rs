@@ -2396,6 +2396,69 @@ async fn a_parent_closes_with_its_last_sub_item_unless_it_is_worked_on_or_the_se
     assert_eq!(item(&app, "PIN-6").await["status"], "open");
 }
 
+#[tokio::test]
+async fn a_parent_closes_when_its_last_open_sub_item_moves_away() {
+    let app = app();
+    add(&app, "Release").await;
+    add(&app, "Notes").await;
+    add(&app, "Tag").await;
+    add(&app, "Final touches").await;
+    edit(&app, "PIN-2", "s-1", json!({"parent": "PIN-1"})).await;
+    edit(&app, "PIN-3", "s-1", json!({"parent": "PIN-1"})).await;
+    done(&app, "PIN-2", "s-1", "Written").await;
+
+    // the person moves the open one elsewhere
+    let (code, answer) = call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-3",
+        Some(json!({"parent": "PIN-4"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    let parent = item(&app, "PIN-1").await;
+    assert_eq!(parent["status"], "done");
+    let last = parent["timeline"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .clone();
+    assert_eq!(last["attrs"]["moved_away"], "PIN-3", "{last}");
+    assert_eq!(answer["parents_closed"][0]["key"], "PIN-1", "{answer}");
+    // the item moved stays open, under its new parent
+    assert_eq!(item(&app, "PIN-3").await["status"], "open");
+
+    // a parent none of whose sub-items was done keeps its own work
+    add(&app, "Second").await;
+    add(&app, "Under it").await;
+    edit(&app, "PIN-6", "s-1", json!({"parent": "PIN-5"})).await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-6",
+        Some(json!({"parent": "PIN-4"})),
+    )
+    .await;
+    assert_eq!(item(&app, "PIN-5").await["status"], "open");
+
+    // moving a closed sub-item away leaves its parent as it was
+    add(&app, "Third").await;
+    add(&app, "Closed under it").await;
+    add(&app, "Open under it").await;
+    edit(&app, "PIN-8", "s-1", json!({"parent": "PIN-7"})).await;
+    edit(&app, "PIN-9", "s-1", json!({"parent": "PIN-7"})).await;
+    done(&app, "PIN-8", "s-1", "Done").await;
+    call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-8",
+        Some(json!({"parent": "PIN-4"})),
+    )
+    .await;
+    assert_eq!(item(&app, "PIN-7").await["status"], "open");
+}
+
 // --- the queue
 
 async fn queue(app: &App, key: &str, place: Value) -> (StatusCode, Value) {

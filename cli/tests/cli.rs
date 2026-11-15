@@ -4219,7 +4219,7 @@ fn items_done_prints_what_became_ready_and_the_parents_closed_or_left_open() {
         out,
         "Done: PIN-42 Load themes.\n\
          Now ready: PIN-43 Theme picker\n\
-         PIN-41 Theme files is done too: its last open sub-item closed.\n\
+         PIN-41 Theme files is done too: none of its sub-items is open now.\n\
          PIN-40 Custom themes has no open sub-item left but stays open: mark it done when its work is complete.\n"
     );
     let sent = sent.lock().unwrap();

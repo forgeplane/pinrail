@@ -239,6 +239,67 @@ fn item_row(conn: &Connection, id: &str) -> rusqlite::Result<WorkItem> {
     )
 }
 
+/// The item's parent, if it has one.
+fn parent_of(conn: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT parent FROM work_items WHERE id = ?1",
+        params![id],
+        |r| r.get(0),
+    )
+}
+
+/// Closes `parent` as done when `last`, its last open sub-item, closed or
+/// moved away, as `how` records it (`with_last` or `moved_away`), and so
+/// on up: unless someone works on it, it is on hold, something of it waits
+/// on the person, none of its sub-items was done, or the setting leaves
+/// parents open, in which case it is `left_open`.
+#[allow(clippy::too_many_arguments)]
+fn close_parents(
+    tx: &Connection,
+    mut parent: Option<String>,
+    last: &str,
+    how: &str,
+    close: bool,
+    actor: &Actor,
+    at: DateTime<Utc>,
+    left_open: &mut Option<Related>,
+    closed: &mut Vec<Related>,
+) -> rusqlite::Result<()> {
+    let mut last = last.to_string();
+    let mut how = how;
+    while let Some(id) = parent {
+        let row = item_row(tx, &id)?;
+        if row.status.is_closed() || !open_sub_items(tx, &id)?.is_empty() {
+            break;
+        }
+        // done when some of its work was done: a parent whose sub-items
+        // were all cancelled has its own work left
+        let some_done: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM work_items WHERE parent = ?1 AND status = 'done')",
+            params![id],
+            |r| r.get(0),
+        )?;
+        if !close
+            || !some_done
+            || row.status != Status::Open
+            || !waiting_on(tx, &id, at)?.is_empty()
+        {
+            *left_open = Some(related(tx, &id)?);
+            break;
+        }
+        status_in(tx, &id, Status::Done, at)?;
+        let mut attrs = json!({"from": "open", "to": "done"});
+        attrs[how] = json!(key_of(tx, &last)?);
+        item_event(tx, &id, "status", actor, attrs, at)?;
+        closed.push(related(tx, &id)?);
+        parent = parent_of(tx, &id)?;
+        last = id;
+        // further up, the parent closed with its last sub-item
+        how = "with_last";
+    }
+    Ok(())
+}
+
 pub(super) fn related(conn: &Connection, id: &str) -> rusqlite::Result<Related> {
     conn.query_row(
         "SELECT i.id, g.prefix || '-' || i.number, i.title,
@@ -793,6 +854,8 @@ impl Db {
                 at,
             )?;
         }
+        // the parent an open item leaves, which may have no open sub-item now
+        let mut left_parent = None;
         if let Some(parent) = &change.parent {
             let parent = match parent {
                 Some(p) => match find(p)? {
@@ -801,6 +864,10 @@ impl Db {
                 },
                 None => None,
             };
+            let before = parent_of(&tx, &id)?;
+            if before.is_some() && before != parent && !item_row(&tx, &id)?.status.is_closed() {
+                left_parent = before;
+            }
             if let Err(refused) = set_parent_in(&tx, &id, parent.as_deref())? {
                 return Ok(Err(refused));
             }
@@ -978,47 +1045,33 @@ impl Db {
                 }
             }
             // a parent whose last open sub-item closed closes too, and so on
-            // up, unless someone works on it, it is on hold, something of it
-            // waits on the person, or the setting leaves parents open
-            let mut child = id.clone();
-            loop {
-                let parent: Option<String> = tx.query_row(
-                    "SELECT parent FROM work_items WHERE id = ?1",
-                    params![child],
-                    |r| r.get(0),
-                )?;
-                let Some(parent) = parent else { break };
-                let row = item_row(&tx, &parent)?;
-                if row.status.is_closed() || !open_sub_items(&tx, &parent)?.is_empty() {
-                    break;
-                }
-                // done when some of its work was done: a parent whose
-                // sub-items were all cancelled has its own work left
-                let some_done: bool = tx.query_row(
-                    "SELECT EXISTS (SELECT 1 FROM work_items WHERE parent = ?1 AND status = 'done')",
-                    params![parent],
-                    |r| r.get(0),
-                )?;
-                if !change.close_parents
-                    || !some_done
-                    || row.status != Status::Open
-                    || !waiting_on(&tx, &parent, at)?.is_empty()
-                {
-                    parent_left_open = Some(related(&tx, &parent)?);
-                    break;
-                }
-                status_in(&tx, &parent, Status::Done, at)?;
-                item_event(
-                    &tx,
-                    &parent,
-                    "status",
-                    actor,
-                    json!({"from": "open", "to": "done", "with_last": key_of(&tx, &child)?}),
-                    at,
-                )?;
-                parents_closed.push(related(&tx, &parent)?);
-                child = parent;
-            }
+            // up
+            let parent = parent_of(&tx, &id)?;
+            close_parents(
+                &tx,
+                parent,
+                &id,
+                "with_last",
+                change.close_parents,
+                actor,
+                at,
+                &mut parent_left_open,
+                &mut parents_closed,
+            )?;
+        }
+        // so does one whose last open sub-item moved away
+        if let Some(left) = left_parent {
+            close_parents(
+                &tx,
+                Some(left),
+                &id,
+                "moved_away",
+                change.close_parents,
+                actor,
+                at,
+                &mut parent_left_open,
+                &mut parents_closed,
+            )?;
         }
         let item = item_row(&tx, &id)?;
         tx.commit()?;

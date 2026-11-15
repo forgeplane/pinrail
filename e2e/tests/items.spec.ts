@@ -115,7 +115,7 @@ test("an agent works through a breakdown from next to done", async () => {
   // the last sub-item done closes its parent too, and says so
   ok(pinrail(["items", "edit", picker, "--claim"], { cwd: dir, env }));
   const last = ok(pinrail(["items", "done", picker, "--markdown"], { cwd: dir, env }));
-  expect(last.stdout).toContain(`${themes} Custom themes is done too: its last open sub-item closed.`);
+  expect(last.stdout).toContain(`${themes} Custom themes is done too: none of its sub-items is open now.`);
   const parent = pinrailJson(["items", "show", themes], { cwd: dir });
   expect(parent.status).toBe("done");
 });
