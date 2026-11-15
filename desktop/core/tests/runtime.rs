@@ -421,6 +421,7 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
             cols: 80,
             rows: 24,
             created_by: "app".into(),
+            anyway: false,
         })
         .await
         .unwrap();

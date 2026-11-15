@@ -90,8 +90,10 @@ async fn start(
 
 /// Resumes a stopped session in a new terminal of `cols` by `rows`, in
 /// the folder it worked in. Answers 201 with the run; 409
-/// `already_running`, with the run when it runs in Pinrail; 422
-/// `folder_missing` or `not_resumable`.
+/// `already_running`, with the run when it runs in Pinrail, or the
+/// `process` that runs it in another terminal and whether it can be
+/// resumed `anyway`, which `anyway: true` then does; 422 `folder_missing`
+/// or `not_resumable`.
 async fn resume(
     State(state): State<Arc<Pinrail>>,
     _person: Person,
@@ -126,6 +128,7 @@ async fn resume(
         cols,
         rows,
         created_by: created_by.to_string(),
+        anyway: body.get("anyway").and_then(Value::as_bool) == Some(true),
     };
     match state.runtime().resume(&request).await {
         Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),
@@ -366,10 +369,17 @@ fn run_error(error: RunError) -> Response {
             return (StatusCode::BAD_REQUEST, Json(body)).into_response();
         }
         RunError::AgentNotFound(_) | RunError::NotFound(_) => StatusCode::NOT_FOUND,
-        RunError::AlreadyRunning(run) => {
+        RunError::AlreadyRunning {
+            run,
+            process,
+            anyway,
+        } => {
             let mut body =
                 json!({"error": error.code(), "message": error.to_string(), "violations": []});
             body["run"] = run.as_ref().map_or(Value::Null, |r| r.to_json());
+            body["process"] = process.map_or(Value::Null, |pid| json!({ "pid": pid }));
+            // whether the person can resume it anyway
+            body["anyway"] = json!(anyway);
             return (StatusCode::CONFLICT, Json(body)).into_response();
         }
         RunError::Limit(_) => StatusCode::CONFLICT,

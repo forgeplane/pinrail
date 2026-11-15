@@ -51,6 +51,13 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// Whether a session still running in another terminal can be resumed
+    /// in a second process, both of them answering it. Claude Code allows
+    /// it; the others are not yet known to.
+    fn resumes_while_running(&self) -> bool {
+        false
+    }
+
     /// Flags that turn the agent's permission checks off, which Pinrail
     /// refuses in a person's extra arguments, beside the shared list.
     fn deny_flags(&self) -> &'static [&'static str] {

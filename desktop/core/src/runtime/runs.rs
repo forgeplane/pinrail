@@ -48,6 +48,9 @@ pub struct Resume {
     pub rows: u16,
     /// `app` or `cli`.
     pub created_by: String,
+    /// Resume a session still running in another terminal, for an agent
+    /// that allows it: the person was warned.
+    pub anyway: bool,
 }
 
 /// How soon after it began a resumed agent that exits with an error is
@@ -74,9 +77,14 @@ pub enum RunError {
     NotFound(String),
     /// The host failed to start the agent, as the message says.
     StartFailed(String),
-    /// The session already runs: in this run, or, without one, in a
-    /// terminal outside Pinrail.
-    AlreadyRunning(Option<Box<RunRow>>),
+    /// The session already runs: in a run of Pinrail's, or in a terminal
+    /// outside Pinrail, by the process that last reported, which can be
+    /// resumed `anyway` when its agent allows two processes on a session.
+    AlreadyRunning {
+        run: Option<Box<RunRow>>,
+        process: Option<i64>,
+        anyway: bool,
+    },
     /// Pinrail cannot resume the session, as the message says.
     NotResumable(String),
     Core(Error),
@@ -100,7 +108,7 @@ impl RunError {
             RunError::HostOffline => "host_offline",
             RunError::NotFound(_) => "not_found",
             RunError::StartFailed(_) => "start_failed",
-            RunError::AlreadyRunning(_) => "already_running",
+            RunError::AlreadyRunning { .. } => "already_running",
             RunError::NotResumable(_) => "not_resumable",
             RunError::Core(_) => "internal",
         }
@@ -115,8 +123,10 @@ impl std::fmt::Display for RunError {
             | RunError::Limit(message)
             | RunError::StartFailed(message)
             | RunError::NotResumable(message) => write!(f, "{message}"),
-            RunError::AlreadyRunning(Some(_)) => write!(f, "This session is already running."),
-            RunError::AlreadyRunning(None) => {
+            RunError::AlreadyRunning { run: Some(_), .. } => {
+                write!(f, "This session is already running.")
+            }
+            RunError::AlreadyRunning { run: None, .. } => {
                 write!(f, "This session is already running in another terminal.")
             }
             RunError::FolderMissing(folder) => write!(f, "{folder} does not exist"),
@@ -253,14 +263,24 @@ impl super::Runtime {
                 .into_iter()
                 .find(|r| r.session.as_ref() == Some(&key))
             {
-                return Err(RunError::AlreadyRunning(Some(Box::new(run))));
+                return Err(RunError::AlreadyRunning {
+                    run: Some(Box::new(run)),
+                    process: None,
+                    anyway: false,
+                });
             }
-            if self
+            let outside = self
                 .db
                 .session_process(&resume.agent, &resume.session)?
-                .is_some_and(|(pid, started)| crate::presence::alive(pid, &started))
+                .filter(|(pid, started)| crate::presence::alive(*pid, started));
+            if let Some((pid, _)) = outside
+                && !(resume.anyway && agent.resumes_while_running())
             {
-                return Err(RunError::AlreadyRunning(None));
+                return Err(RunError::AlreadyRunning {
+                    run: None,
+                    process: Some(pid),
+                    anyway: agent.resumes_while_running(),
+                });
             }
             let folder = match session.folder.filter(|f| !f.is_empty()) {
                 Some(folder) => folder,

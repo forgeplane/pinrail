@@ -159,6 +159,11 @@ impl Agent for ClaudeCode {
         })
     }
 
+    /// Two Claude Code processes can hold one session, each adding to it.
+    fn resumes_while_running(&self) -> bool {
+        true
+    }
+
     fn deny_flags(&self) -> &'static [&'static str] {
         &[
             "--dangerously-skip-permissions",

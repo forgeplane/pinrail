@@ -749,6 +749,69 @@ async fn a_resume_that_cannot_happen_answers_with_its_reason() {
         "This session is already running in another terminal."
     );
     assert!(answer["run"].is_null(), "{answer}");
+    // the answer names the process that holds it, and whether the agent can
+    // be resumed while it runs there
+    assert_eq!(answer["process"]["pid"], pid, "{answer}");
+    assert_eq!(answer["anyway"], true, "{answer}");
+}
+
+async fn resume_anyway(app: &App, agent: &str, session: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/{agent}/{session}/resume"),
+        Some(json!({"cols": 80, "rows": 24, "anyway": true})),
+    )
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_session_running_in_another_terminal_is_resumed_when_asked_to_anyway() {
+    let app = linked().await;
+    let folder = folder(&app, "outside");
+    // the session runs in a terminal outside Pinrail: this test's process
+    let pid = std::process::id();
+    let started = pinrail_runtime::process::process(pid).unwrap().started;
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/c-outside/reports",
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": folder}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+
+    let (status, resumed) = resume_anyway(&app, "claude-code", "c-outside").await;
+    assert_eq!(status, StatusCode::CREATED, "{resumed}");
+    assert_eq!(resumed["run"]["kind"], "resume");
+    assert_eq!(argv(&folder).await, "--resume\nc-outside\n");
+
+    // a session Pinrail runs is never resumed twice, anyway or not
+    let (status, again) = resume_anyway(&app, "claude-code", "c-outside").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{again}");
+    assert_eq!(again["run"]["id"], resumed["run"]["id"]);
+    assert_eq!(again["anyway"], false, "{again}");
+
+    // Codex is not yet known to share a session between two processes
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/x-outside/reports",
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": folder}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+    let (status, refused) = resume_anyway(&app, "codex", "x-outside").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+    assert_eq!(refused["anyway"], false, "{refused}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

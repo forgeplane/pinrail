@@ -138,3 +138,9 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("codex").unwrap().resume(id), None, "{id:?}");
     }
 }
+
+#[test]
+fn only_claude_code_resumes_a_session_still_running_elsewhere() {
+    assert!(adapter("claude-code").unwrap().resumes_while_running());
+    assert!(!adapter("codex").unwrap().resumes_while_running());
+}
