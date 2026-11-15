@@ -36,14 +36,25 @@ describe("the runs of a row", () => {
     ).toEqual(["text 0-1", "text 1-2", "text 2-3", "text 3-4"]);
   });
 
-  test("keep each drawn and cached glyph alone", () => {
+  test("keep each wide, drawn and cached glyph alone", () => {
     // a wide cluster, then the spacer after it, a box line and an emoji
     expect(row(cell("你"), cell("", { wide: 2 }), cell("─"), cell("─"), cell("👍🏽"))).toEqual([
-      "cached 0-1",
+      "glyph 0-1",
       "blank 1-2",
       "drawn 2-3",
       "drawn 3-4",
       "cached 4-5",
+    ]);
+  });
+
+  test("cache only colour emoji, which the font draws slowly", () => {
+    expect(["你", "é̃", "λ", "❤️", "🇬🇷", "👩‍💻"].map((t) => cellKind(cell(t)))).toEqual([
+      "glyph",
+      "glyph",
+      "text",
+      "cached",
+      "cached",
+      "cached",
     ]);
   });
 

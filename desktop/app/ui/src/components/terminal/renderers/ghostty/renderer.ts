@@ -28,9 +28,10 @@ export interface Font {
 export interface Run {
   start: number;
   end: number;
-  /** text: plain glyphs in one style; drawn: by glyphs.ts; cached: from
-   *  the glyph cache; blank: nothing to draw */
-  kind: "text" | "drawn" | "cached" | "blank";
+  /** text: plain glyphs in one style; glyph: one wide or other glyph,
+   *  drawn by the font in its cells; drawn: by glyphs.ts; cached: an emoji,
+   *  from the glyph cache; blank: nothing to draw */
+  kind: "text" | "glyph" | "drawn" | "cached" | "blank";
 }
 
 const css = ({ r, g, b }: GhosttyColor) => `rgb(${r},${g},${b})`;
@@ -45,11 +46,22 @@ function plain(cell: GhosttyCell): boolean {
   return cp < 0x2e80 && !(cp >= 0xd800 && cp <= 0xdfff);
 }
 
+/** Colour emoji, which WebKit draws slowly, and which ignore the fill
+ *  colour: flags, and pictographs shown as emoji. */
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+
 /** The kind of drawing a cell needs. */
 export function cellKind(cell: GhosttyCell): Run["kind"] {
   if (!cell.text || cell.text === " " || cell.invisible) return "blank";
   if (isDrawn(cell.text)) return "drawn";
-  return plain(cell) && cell.wide === 0 ? "text" : "cached";
+  if (plain(cell) && cell.wide === 0) return "text";
+  return EMOJI.test(cell.text) ? "cached" : "glyph";
+}
+
+/** How many cells a glyph spans: two for a wide cluster, which the core
+ *  marks with a spacer after it (GhosttyCellWide SPACER_TAIL). */
+function spanOf(cells: readonly GhosttyCell[], at: number): number {
+  return cells[at].wide === 1 || cells[at + 1]?.wide === 2 ? 2 : 1;
 }
 
 /** Whether two text cells share a font and a colour. */
@@ -245,13 +257,19 @@ export class CanvasRenderer {
         ctx.fillStyle = css(first.foreground);
         // each glyph in its own cell, as WebKit has no letter spacing
         for (let x = run.start; x < run.end; x++) ctx.fillText(cells[x].text, x * w, top + baseline);
+      } else if (run.kind === "glyph") {
+        // a wide or other glyph, centred in its cells by the font, and
+        // squeezed into them if it is wider
+        const span = spanOf(cells, run.start);
+        ctx.font = fontOf(first, this.font);
+        ctx.fillStyle = css(first.foreground);
+        const width = ctx.measureText(first.text).width;
+        ctx.fillText(first.text, run.start * w + Math.max(0, (span * w - width) / 2), top + baseline, span * w);
       } else if (run.kind === "drawn") {
         ctx.fillStyle = css(first.foreground);
         drawGlyph(ctx, first.text, { x: run.start * w, y: top, w, h });
       } else if (run.kind === "cached") {
-        // a wide cluster spans the cell after it too, which the core
-        // reads as its spacer (GhosttyCellWide SPACER_TAIL)
-        const span = first.wide === 1 || cells[run.start + 1]?.wide === 2 ? 2 : 1;
+        const span = spanOf(cells, run.start);
         ctx.drawImage(this.glyph(first, span), run.start * w, top, span * w, h);
       }
     }
@@ -275,7 +293,8 @@ export class CanvasRenderer {
    *  other fallback glyphs are slow to draw in WebKit. */
   private glyph(cell: GhosttyCell, span: number): HTMLCanvasElement {
     const { width: w, height: h, baseline } = this.metrics;
-    const key = `${cell.text}|${fontOf(cell, this.font)}|${css(cell.foreground)}|${span}`;
+    // an emoji's own colours are drawn whatever the fill colour
+    const key = `${cell.text}|${fontOf(cell, this.font)}|${span}`;
     const kept = this.glyphs.get(key);
     if (kept) return kept;
     if (this.glyphs.size >= CACHE_LIMIT) this.glyphs.clear();
