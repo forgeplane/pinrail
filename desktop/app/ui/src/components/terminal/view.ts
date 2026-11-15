@@ -15,6 +15,10 @@ export interface ViewOptions {
   font: TerminalFont;
   /** Whether programs may copy to the clipboard (OSC 52); true when left out. */
   clipboardWrite?: boolean;
+  /** On macOS, which Option keys act as Meta; off when left out. */
+  optionAsMeta?: "off" | "left" | "right" | "both";
+  /** Whether the text is mirrored for screen readers; off when left out. */
+  screenReader?: boolean;
 }
 
 export interface TerminalTheme {

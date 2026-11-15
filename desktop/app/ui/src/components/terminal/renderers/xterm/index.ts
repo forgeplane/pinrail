@@ -106,6 +106,9 @@ class XtermView implements TerminalView {
       theme: toXtermTheme(options.theme),
       allowProposedApi: true,
       cursorBlink: false,
+      // xterm.js has no setting for one Option key alone
+      macOptionIsMeta: (options.optionAsMeta ?? "off") !== "off",
+      screenReaderMode: options.screenReader ?? false,
     });
     this.term = term;
     term.loadAddon(new Unicode11Addon());

@@ -3486,6 +3486,7 @@ name = "pinrail-screen"
 version = "0.6.0"
 dependencies = [
  "proptest",
+ "serde_json",
  "sha2",
 ]
 

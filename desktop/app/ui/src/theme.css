@@ -8045,3 +8045,9 @@ a.item-ref {
 .ghostty-canvas.is-over-link {
   cursor: pointer;
 }
+.ghostty-terminal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

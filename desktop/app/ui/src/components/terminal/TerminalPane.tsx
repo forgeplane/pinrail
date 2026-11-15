@@ -12,6 +12,11 @@ import { appearanceFrom, TerminalPool, type PooledTerminal, type TerminalState }
 import { chooseRenderer } from "./view";
 
 let rendererSetting: readonly string[] = ["auto"];
+/** The terminal settings a view is made with. */
+let viewSettings: { optionAsMeta: "off" | "left" | "right" | "both"; screenReader: boolean } = {
+  optionAsMeta: "off",
+  screenReader: false,
+};
 let shared: TerminalPool | undefined;
 
 /** The window's pool of attached terminals. */
@@ -19,7 +24,7 @@ export function terminalPool(): TerminalPool {
   if (shared) return shared;
   const pool = new TerminalPool({
     renderer: () => chooseRenderer(rendererSetting, RENDERERS),
-    appearance: () => appearanceFrom(document.body),
+    appearance: () => ({ ...appearanceFrom(document.body), ...viewSettings }),
     ticket: runtime.ticket,
     url: runtime.attachUrl,
   });
@@ -37,9 +42,16 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
   const host = useRef<HTMLDivElement>(null);
   const { settings } = useSettings();
   const renderer = settings.runtime.terminal.renderer;
+  const { option_as_meta: optionAsMeta, screen_reader: screenReader } = settings.runtime.terminal;
   useEffect(() => {
     rendererSetting = renderer;
   }, [renderer]);
+  useEffect(() => {
+    const changed = viewSettings.screenReader !== screenReader;
+    viewSettings = { optionAsMeta, screenReader };
+    // terminals already shown turn their mirror on or off
+    if (changed) terminalPool().restyle();
+  }, [optionAsMeta, screenReader]);
   const [entry, setEntry] = useState<PooledTerminal | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 

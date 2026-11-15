@@ -98,3 +98,51 @@ fn a_terminal_reports_the_memory_its_history_holds() {
     }
     assert!(t.memory_bytes() > before, "{} {}", t.memory_bytes(), before);
 }
+
+/// The binary snapshot the window's renderer contract restores, and what
+/// the host reads from it: written by this test with
+/// `PINRAIL_WRITE_FIXTURES=1`, and otherwise checked against this build,
+/// so a new libghostty-vt cannot leave the window testing an old format.
+#[test]
+fn the_window_snapshot_fixture_is_this_builds() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../app/ui/src/components/terminal/testing");
+    let (bin, json) = (
+        dir.join("ghostty-snapshot.bin"),
+        dir.join("ghostty-snapshot.json"),
+    );
+    let format = format!("ghostty-bin;vt-{}", pinrail_screen::ghostty::version());
+    let describe = |t: &Terminal| {
+        serde_json::json!({
+            "format": format,
+            "screen": t.text(TextRange::Screen),
+            "history": t.text(TextRange::History),
+            "retainedLines": t.retained_lines(),
+            "title": t.title(),
+        })
+    };
+    if std::env::var_os("PINRAIL_WRITE_FIXTURES").is_some() {
+        let mut t = Terminal::new(&Options {
+            cols: 80,
+            rows: 24,
+            scrollback_lines: 10_000,
+        })
+        .unwrap();
+        for i in 0..300 {
+            t.write(format!("history line {i}\r\n").as_bytes());
+        }
+        t.write(
+            "\x1b]2;Restored title\x07\x1b[1;32mrestored-screen\x1b[0m 漢字 🚀\r\n$ ".as_bytes(),
+        );
+        let snapshot = t.binary_snapshot().unwrap();
+        assert_eq!(snapshot.format, format);
+        std::fs::write(&bin, &snapshot.bytes).unwrap();
+        let text = serde_json::to_string_pretty(&describe(&t)).unwrap();
+        std::fs::write(&json, text + "\n").unwrap();
+    }
+    let bytes = std::fs::read(&bin).expect("the fixture: run with PINRAIL_WRITE_FIXTURES=1");
+    let expected: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&json).unwrap()).unwrap();
+    let restored = Terminal::restore(&bytes, 10_000).unwrap();
+    assert_eq!(describe(&restored), expected);
+}

@@ -16,7 +16,9 @@ export const POOL_SIZE = 3;
 const RESIZE_DEBOUNCE_MS = 50;
 
 type Grid = { cols: number; rows: number };
-type Appearance = Pick<ViewOptions, "theme" | "font"> & { scheme: "dark" | "light" };
+type Appearance = Pick<ViewOptions, "theme" | "font" | "optionAsMeta" | "screenReader"> & {
+  scheme: "dark" | "light";
+};
 
 /** What the pane draws besides the terminal. */
 export interface TerminalState {
@@ -114,6 +116,7 @@ export class PooledTerminal {
     this.look = look;
     this.view.setTheme(look.theme);
     this.view.setFont(look.font);
+    this.view.setScreenReader(look.screenReader ?? false);
     this.sendFacts();
     this.refit();
   }

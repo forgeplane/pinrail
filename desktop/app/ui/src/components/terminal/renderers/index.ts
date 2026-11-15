@@ -5,5 +5,6 @@
 import type { Registry } from "../view";
 
 export const RENDERERS: Registry = {
+  ghostty: () => import("./ghostty/view").then((m) => m.ghosttyRenderer),
   xterm: () => import("./xterm").then((m) => m.xtermRenderer),
 };
