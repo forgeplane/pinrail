@@ -594,7 +594,7 @@ impl Items {
         }
         if let Some((message, Some(event_id))) = self
             .db
-            .add_message(agent, session, text, &self.user, None)?
+            .add_message(agent, session, text, &self.user, None, "queue")?
         {
             self.bus.publish(Notice::new(
                 event_id,

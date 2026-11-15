@@ -431,6 +431,7 @@ export function subscribe(handlers: {
       "session_message_sent",
       "session_message_deleted",
       "session_messages_delivered",
+      "session_message_state",
       "session_presence",
       "session_turn",
       "session_seen",

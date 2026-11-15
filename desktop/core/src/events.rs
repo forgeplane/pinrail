@@ -29,6 +29,8 @@ pub const SESSION_STATUS: &str = "session_status";
 pub const SESSION_MESSAGE_SENT: &str = "session_message_sent";
 pub const SESSION_MESSAGE_DELETED: &str = "session_message_deleted";
 pub const SESSION_MESSAGES_DELIVERED: &str = "session_messages_delivered";
+/// A message to an agent moved to another state, such as typed or held.
+pub const SESSION_MESSAGE_STATE: &str = "session_message_state";
 /// What an agent's hooks report changed its session's state, wait or
 /// finish; a turn opened or ended; the person saw the session, or marked it
 /// unread.
@@ -110,6 +112,7 @@ impl Notice {
                 SESSION_MESSAGE_SENT,
                 SESSION_MESSAGE_DELETED,
                 SESSION_MESSAGES_DELIVERED,
+                SESSION_MESSAGE_STATE,
                 SESSION_ARCHIVED,
                 SESSION_UNARCHIVED,
                 SESSION_PRESENCE,

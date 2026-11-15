@@ -444,8 +444,15 @@ export type SessionMessage = {
   text: string;
   sent_by: string;
   sent_at: string;
-  /** when a status handed it to the agent; null while it is queued */
+  /** when the agent received it; null until then */
   delivered_at: string | null;
+  /** queued, claimed, typing, unconfirmed, typed or delivered */
+  state?: "queued" | "claimed" | "typing" | "unconfirmed" | "typed" | "delivered";
+  /** type, into the terminal of an agent Pinrail runs, or queue, for its
+   *  next status */
+  route?: "type" | "queue" | null;
+  /** why a message to type waits */
+  held?: "working" | "needs_input" | "used_since_idle" | "not_foreground" | null;
 };
 
 /** The web origins a plugin may open without asking, while it stays

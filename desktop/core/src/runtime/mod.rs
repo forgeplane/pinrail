@@ -13,6 +13,8 @@ use crate::db::Db;
 use crate::events::Bus;
 
 #[cfg(unix)]
+mod delivery;
+#[cfg(unix)]
 mod runs;
 mod tokens;
 #[cfg(unix)]
@@ -239,6 +241,8 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
         check_startable_later(app.clone(), just_before());
     }
     let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
+    // typed messages unconfirmed after 10 seconds, held ones after 30 minutes
+    let mut messages = tokio::time::interval(std::time::Duration::from_secs(2));
     loop {
         tokio::select! {
             event = events.recv() => match event {
@@ -251,7 +255,11 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                 }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
                     match app.runtime().exited(&params) {
-                        Ok(Some(run)) => report_exit(&app, &run),
+                        Ok(Some(run)) => {
+                            report_exit(&app, &run);
+                            // messages waiting to be typed go to the Queue
+                            deliver_later(&app, &run);
+                        }
                         Ok(None) => {}
                         Err(error) => eprintln!("pinrail: ending a run failed: {error}"),
                     }
@@ -264,6 +272,11 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
             changed = state.changed() => {
                 if changed.is_err() || *state.borrow() == HostState::Offline {
                     break;
+                }
+            }
+            _ = messages.tick() => {
+                if let Err(error) = app.runtime().sweep_messages() {
+                    eprintln!("pinrail: sweeping the messages failed: {error}");
                 }
             }
             _ = sweep.tick() => {
@@ -326,6 +339,17 @@ async fn reconcile(app: &Pinrail, link: &pinrail_host::link::HostLink, terminals
                 json!({"terminal": terminal, "grace_ms": 2_000}),
             )
             .await;
+    }
+}
+
+/// Delivers the messages waiting for the run's session in the background.
+#[cfg(unix)]
+fn deliver_later(app: &Arc<Pinrail>, run: &crate::db::RunRow) {
+    if let Some((agent, session)) = run.session.clone() {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let _ = app.runtime().deliver(&agent, &session).await;
+        });
     }
 }
 

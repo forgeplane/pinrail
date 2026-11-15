@@ -61,6 +61,10 @@ pub fn routes() -> Router<ApiState> {
             delete(delete_message),
         )
         .route(
+            "/api/v1/sessions/{agent}/{id}/messages/{message}/type",
+            post(type_message),
+        )
+        .route(
             "/api/v1/sessions/{agent}/{id}/statuses/{status}/attachments/{name}",
             get(note_attachment),
         )
@@ -865,6 +869,16 @@ async fn report(
     state
         .reviews()
         .report(&agent, &id, &report, keep_texts, now)?;
+    // a prompt confirms a message typed into the terminal, and an idle
+    // agent can take the next one
+    #[cfg(unix)]
+    if let ReportEvent::Prompt {
+        prompt: Some(prompt),
+    } = &report.event
+    {
+        let _ = state.runtime().confirm(&agent, &id, prompt, report.cut);
+    }
+    deliver_later(&state, &agent, &id);
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -963,8 +977,10 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
     })
 }
 
-/// Sends the agent of the session a message, `text`, which waits until
-/// the agent next reports a status. Answers 201 with the message.
+/// Sends the agent of the session a message, `text`: typed into its
+/// terminal once it is idle while Pinrail runs it, and otherwise waiting
+/// until the agent next reports a status. Answers 201 with the message and
+/// its `route`.
 async fn send_message(
     _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
@@ -973,8 +989,67 @@ async fn send_message(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
     let local_id = body.get("local_id").and_then(Value::as_str);
-    let message = state.reviews().send_message(&agent, &id, text, local_id)?;
+    #[cfg(unix)]
+    let route = state.runtime().message_route(&agent, &id);
+    #[cfg(not(unix))]
+    let route = "queue";
+    let message = state
+        .reviews()
+        .send_message(&agent, &id, text, local_id, route)?;
+    deliver_later(&state, &agent, &id);
     Ok((StatusCode::CREATED, Json(message.to_json())))
+}
+
+/// Types the messages waiting for the session, in the background.
+fn deliver_later(state: &Arc<Pinrail>, agent: &str, id: &str) {
+    #[cfg(unix)]
+    {
+        let (app, agent, id) = (state.clone(), agent.to_string(), id.to_string());
+        tokio::spawn(async move {
+            let _ = app.runtime().deliver(&agent, &id).await;
+        });
+    }
+    #[cfg(not(unix))]
+    let _ = (state, agent, id);
+}
+
+/// Types a message into the agent's terminal now, as the person asks: one
+/// that shows as unconfirmed, to retry it, or one that waits because they
+/// used the terminal, with `anyway`. Answers 202; the message's state
+/// follows as events.
+async fn type_message(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id, message)): Path<(String, String, i64)>,
+    Json(body): Json<Value>,
+) -> Result<StatusCode, ApiError> {
+    let anyway = body.get("anyway").and_then(Value::as_bool) == Some(true);
+    let found = state
+        .reviews()
+        .message(&agent, &id, message)?
+        .ok_or_else(|| Error::NotFound(format!("message {message} of session {id}")))?;
+    if !matches!(found.state.as_str(), "queued" | "unconfirmed") {
+        return Err(Error::Conflict("This message is not waiting to be typed.".to_string()).into());
+    }
+    #[cfg(unix)]
+    {
+        if state.runtime().message_route(&agent, &id) != "type" {
+            return Err(Error::Conflict(
+                "Pinrail no longer runs this session, so it cannot type into it.".to_string(),
+            )
+            .into());
+        }
+        let app = state.clone();
+        tokio::spawn(async move {
+            let _ = app.runtime().type_now(&agent, &id, message, anyway).await;
+        });
+        Ok(StatusCode::ACCEPTED)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = anyway;
+        Err(Error::Conflict("Pinrail does not run agents on this system.".to_string()).into())
+    }
 }
 
 /// What `pinrail status` sends once it has printed the messages a status

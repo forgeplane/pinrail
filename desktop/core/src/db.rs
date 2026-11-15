@@ -27,7 +27,7 @@ pub use bundles::BundleRecord;
 pub use events::Event;
 pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemSession, Place};
 pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
-pub use messages::{Deleted, MessageRow, message_notice};
+pub use messages::{Deleted, MessageChange, MessageRow, message_notice};
 pub use plugins::InstallRecord;
 pub use presence::{
     ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,

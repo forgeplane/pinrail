@@ -30,7 +30,11 @@ const STATUS_MAX: usize = 200;
 /// The longest note, in characters.
 const NOTE_MAX: usize = 10_000;
 /// The longest message to the agent, in characters.
+/// The longest message to an agent's next status.
 const MESSAGE_MAX: usize = 4_000;
+/// The longest message typed into the terminal of an agent Pinrail runs,
+/// which takes a longer prompt than a status prints (spec 7.4).
+const TYPED_MESSAGE_MAX: usize = 16_000;
 
 /// One page of a listing; see `Reviews::listing`.
 #[derive(Debug)]
@@ -652,28 +656,35 @@ impl Reviews {
         Ok(())
     }
 
-    /// Queues a message from the person to the agent of a session, which
-    /// the agent receives with its next status.
+    /// Queues a message from the person to the agent of a session, by
+    /// `route`: `type`, into the terminal of the run Pinrail runs it in, or
+    /// `queue`, for the agent's next status.
     pub fn send_message(
         &self,
         agent: &str,
         session: &str,
         text: &str,
         local_id: Option<&str>,
+        route: &str,
     ) -> Result<MessageRow, Error> {
         let text = text.trim();
         if text.is_empty() {
             return Err(Error::invalid("text", "write the message"));
         }
-        if text.chars().count() > MESSAGE_MAX {
+        let max = if route == "type" {
+            TYPED_MESSAGE_MAX
+        } else {
+            MESSAGE_MAX
+        };
+        if text.chars().count() > max {
             return Err(Error::invalid(
                 "text",
-                format!("must be at most {MESSAGE_MAX} characters"),
+                format!("must be at most {max} characters"),
             ));
         }
         let Some((message, event_id)) = self
             .db
-            .add_message(agent, session, text, &self.user, local_id)?
+            .add_message(agent, session, text, &self.user, local_id, route)?
         else {
             return Err(Error::NotFound(format!("session {session} of {agent}")));
         };
@@ -690,6 +701,16 @@ impl Reviews {
             feature: telemetry::SESSION_MESSAGE,
         });
         Ok(message)
+    }
+
+    /// One of the session's messages to the agent.
+    pub fn message(
+        &self,
+        agent: &str,
+        session: &str,
+        message: i64,
+    ) -> Result<Option<MessageRow>, Error> {
+        Ok(self.db.message(agent, session, message)?)
     }
 
     /// Deletes a message the agent has not received yet.
