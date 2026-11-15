@@ -44,7 +44,10 @@ describe("the banner of an ended run", () => {
       "Claude Code was stopped by you.",
     );
     expect(endedText("Codex", run({ end_reason: "host_lost", exit_code: null }))).toBe(
-      "Codex stopped when Pinrail lost its terminal host, such as when the computer restarted.",
+      "Codex stopped when Pinrail lost its terminal host.",
+    );
+    expect(endedText("Codex", run({ end_reason: "restart", exit_code: null }))).toBe(
+      "Codex stopped when the computer restarted.",
     );
     expect(endedText("Codex", run({ exit_code: null, exit_signal: "KILL" }))).toBe("Codex was ended by signal KILL.");
   });

@@ -750,3 +750,63 @@ async fn a_resume_that_cannot_happen_answers_with_its_reason() {
     );
     assert!(answer["run"].is_null(), "{answer}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
+    let app = common::app();
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-rebooted/status",
+        Some(json!({"kind": "start", "text": "Fix the login redirect"})),
+    )
+    .await;
+    assert!(status.is_success());
+    let db = common::db(&app);
+    let now = chrono::Utc::now();
+    db.insert_run(
+        &pinrail_core::db::NewRun {
+            id: "run_rebooted",
+            host: "local",
+            agent: "claude-code",
+            kind: "start",
+            folder: "/work",
+            argv: &[],
+            task: None,
+            args: &[],
+            created_by: "app",
+            token_digest: "d",
+            session: Some("s-rebooted"),
+        },
+        now,
+    )
+    .unwrap();
+    db.end_run("run_rebooted", "restart", None, None, now)
+        .unwrap();
+
+    let (status, listed) = call(&app, "GET", "/api/v1/runtime/restarted", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed["runs"][0]["id"], "run_rebooted");
+    assert_eq!(listed["runs"][0]["title"], "Fix the login redirect");
+    assert_eq!(listed["runs"][0]["session"]["id"], "s-rebooted");
+
+    // the setting turns the offer off
+    app.state
+        .settings()
+        .change(&json!({"runtime": {"after_restart": "off"}}))
+        .unwrap();
+    let (_, listed) = call(&app, "GET", "/api/v1/runtime/restarted", None).await;
+    assert_eq!(listed["runs"], json!([]));
+    app.state
+        .settings()
+        .change(&json!({"runtime": {"after_restart": "ask"}}))
+        .unwrap();
+
+    // only the person dismisses them
+    let (status, _) = call_as(&app, "DELETE", "/api/v1/runtime/restarted", None, &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = call(&app, "DELETE", "/api/v1/runtime/restarted", None).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, listed) = call(&app, "GET", "/api/v1/runtime/restarted", None).await;
+    assert_eq!(listed["runs"], json!([]));
+}

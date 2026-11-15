@@ -334,3 +334,95 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn after_a_restart_the_lost_runs_end_as_restart_and_their_sessions_are_listed() {
+    let setup = Setup::new();
+    let db = setup.db();
+    let now = chrono::Utc::now();
+    let new_run = |id: &'static str, session: &'static str| NewRun {
+        id,
+        host: "local",
+        agent: "claude-code",
+        kind: "start",
+        folder: "/",
+        argv: &[],
+        task: None,
+        args: &[],
+        created_by: "app",
+        token_digest: id,
+        session: Some(session),
+    };
+    db.insert_run(&new_run("run_a", "s-a"), now).unwrap();
+    db.run_spawned("run_a", "t_a", None).unwrap();
+    db.insert_run(&new_run("run_b", "s-b"), now).unwrap();
+    db.run_spawned("run_b", "t_b", None).unwrap();
+    // the core last saw this computer in another boot
+    db.set_host_boot("local", "an-earlier-boot").unwrap();
+
+    setup.turn_on().await;
+    for id in ["run_a", "run_b"] {
+        let run = run_becomes(&db, id, |r| r.state == "ended").await;
+        assert_eq!(run.end_reason.as_deref(), Some("restart"), "{id}");
+    }
+    let presence = db.presence("claude-code", "s-a").unwrap().unwrap();
+    assert_eq!(presence.state, "stopped");
+    assert_eq!(presence.stop_reason.as_deref(), Some("restart"));
+
+    let runtime = setup.app.runtime();
+    let mut listed: Vec<String> = runtime
+        .restarted()
+        .unwrap()
+        .into_iter()
+        .map(|(r, _)| r.id)
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["run_a", "run_b"]);
+    // the boot is the current one now, so the next connect is no restart
+    assert_eq!(db.host_boot("local").unwrap(), pinrail_host::boot_id());
+
+    // dismissed, the list is empty until the next restart
+    runtime.dismiss_restart().unwrap();
+    assert!(runtime.restarted().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_session_resumed_after_a_restart_leaves_the_list() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let db = setup.db();
+    let folder = setup.folder("app");
+    let now = chrono::Utc::now();
+    db.insert_run(
+        &NewRun {
+            id: "run_lost",
+            host: "local",
+            agent: "claude-code",
+            kind: "start",
+            folder: &folder.to_string_lossy(),
+            argv: &[],
+            task: None,
+            args: &[],
+            created_by: "app",
+            token_digest: "d",
+            session: Some("s-lost"),
+        },
+        now,
+    )
+    .unwrap();
+    db.end_run("run_lost", "restart", None, None, now).unwrap();
+    let runtime = setup.app.runtime();
+    assert_eq!(runtime.restarted().unwrap().len(), 1);
+
+    runtime
+        .resume(&runtime::Resume {
+            agent: "claude-code".into(),
+            session: "s-lost".into(),
+            cols: 80,
+            rows: 24,
+            created_by: "app".into(),
+        })
+        .await
+        .unwrap();
+    assert!(runtime.restarted().unwrap().is_empty());
+}

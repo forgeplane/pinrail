@@ -332,16 +332,18 @@ async fn reconcile(app: &Pinrail, link: &pinrail_host::link::HostLink, terminals
 /// Marks the session of a run whose agent exited as stopped.
 #[cfg(unix)]
 fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
-    if !matches!(run.end_reason.as_deref(), Some("exited" | "stopped")) {
-        return;
-    }
+    let reason = match run.end_reason.as_deref() {
+        Some("exited" | "stopped") => "exited",
+        Some("restart") => "restart",
+        _ => return,
+    };
     let Some((agent, session)) = &run.session else {
         return;
     };
     let now = chrono::Utc::now();
     let report = crate::db::Report {
         event: crate::db::ReportEvent::Ended {
-            reason: Some("exited".to_string()),
+            reason: Some(reason.to_string()),
         },
         at: now,
         process: run.process.clone(),

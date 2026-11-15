@@ -304,6 +304,12 @@ const LEAVES: &[Leaf] = &[
         "The view the session of an agent you just started opens in.",
     ),
     (
+        "/runtime/after_restart",
+        Kind::Enum(&["ask", "off"]),
+        || json!("ask"),
+        "After the computer restarts, offer to resume the agents it stopped (`ask`), or not (`off`).",
+    ),
+    (
         "/runtime/record_turns",
         Kind::Bool,
         || json!(true),

@@ -174,6 +174,8 @@ export function runLineText(run: Run, ended: boolean): string {
       return "Stopped by you";
     case "host_lost":
       return "Stopped when Pinrail lost its terminal host";
+    case "restart":
+      return "Stopped when the computer restarted";
     case "start_failed":
       return "Could not be started";
     default:

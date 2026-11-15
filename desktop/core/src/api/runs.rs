@@ -29,6 +29,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/runs/{run}/screen", get(screen))
         .route("/api/v1/runs/{run}/stop", post(stop))
         .route("/api/v1/sessions/{agent}/{id}/resume", post(resume))
+        .route(
+            "/api/v1/runtime/restarted",
+            get(restarted).delete(dismiss_restart),
+        )
         .route("/api/v1/hosts/{host}", get(host))
 }
 
@@ -125,6 +129,36 @@ async fn resume(
     };
     match state.runtime().resume(&request).await {
         Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),
+        Err(error) => run_error(error),
+    }
+}
+
+/// The runs a restart of the computer ended, latest first, with the title
+/// of each one's session, unless the person resumed or dismissed them or
+/// turned `/runtime/after_restart` off.
+async fn restarted(State(state): State<Arc<Pinrail>>) -> Response {
+    if state.settings().value("/runtime/after_restart") == "off" {
+        return Json(json!({"runs": []})).into_response();
+    }
+    let runs = match state.runtime().restarted() {
+        Ok(runs) => runs,
+        Err(error) => return run_error(error),
+    };
+    let runs: Vec<Value> = runs
+        .into_iter()
+        .map(|(run, title)| {
+            let mut value = run.to_json();
+            value["title"] = json!(title);
+            value
+        })
+        .collect();
+    Json(json!({ "runs": runs })).into_response()
+}
+
+/// Hides the runs a restart ended until the next restart. The person's.
+async fn dismiss_restart(State(state): State<Arc<Pinrail>>, _person: Person) -> Response {
+    match state.runtime().dismiss_restart() {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(error) => run_error(error),
     }
 }

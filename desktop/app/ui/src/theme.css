@@ -7882,6 +7882,32 @@ a.item-ref {
   flex: 1;
   margin: 0;
 }
+.restart-banner {
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  font-size: var(--text-sm);
+}
+.restart-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.restart-banner-head p {
+  flex: 1;
+  margin: 0;
+  font-weight: 500;
+}
+.restart-banner .notice {
+  margin: 8px 0 0;
+  white-space: pre-line;
+}
+.restart-banner-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
 .outside-run {
   display: flex;
   flex-direction: column;

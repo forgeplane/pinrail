@@ -94,6 +94,7 @@ const STOPPED: Record<string, string> = {
   ended: "session ended",
   exited: "process exited",
   cleared: "cleared",
+  restart: "computer restarted",
 };
 
 /**

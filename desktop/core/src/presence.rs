@@ -92,6 +92,8 @@ pub fn next(
                     Some("clear") => "cleared".to_string(),
                     // the core found the agent's process gone
                     Some("exited") => "exited".to_string(),
+                    // the computer restarted
+                    Some("restart") => "restart".to_string(),
                     _ => "ended".to_string(),
                 }),
             }

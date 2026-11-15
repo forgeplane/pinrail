@@ -486,6 +486,12 @@ impl super::Runtime {
             .filter_map(|t| Some((t["terminal"].as_str()?, t)))
             .collect();
         let spawning = self.spawns().running.clone();
+        // a host in a new boot of the computer: its agents ended with it
+        let boot = pinrail_host::boot_id();
+        let restarted = match (&boot, self.db.host_boot(LOCAL)?) {
+            (Some(now), Some(before)) => *now != before,
+            _ => false,
+        };
         let mut done = Reconciled::default();
         let mut live: HashSet<String> = HashSet::new();
         for run in self.live_runs()? {
@@ -499,7 +505,7 @@ impl super::Runtime {
             };
             let Some(found) = found else {
                 let reason = if run.terminal.is_some() {
-                    "host_lost"
+                    if restarted { "restart" } else { "host_lost" }
                 } else {
                     // the spawn never reached the host
                     "start_failed"
@@ -532,7 +538,34 @@ impl super::Runtime {
             })
             .filter_map(|t| t["terminal"].as_str().map(str::to_string))
             .collect();
+        if let Some(boot) = boot {
+            self.db.set_host_boot(LOCAL, &boot)?;
+        }
         Ok(done)
+    }
+
+    /// The runs a restart of the computer ended, whose sessions were not
+    /// resumed since, unless the person dismissed them, each with its
+    /// session's title.
+    pub fn restarted(&self) -> Result<Vec<(RunRow, Option<String>)>, RunError> {
+        let now = Utc::now();
+        Ok(self
+            .db
+            .restarted_runs(LOCAL)?
+            .into_iter()
+            .map(|run| {
+                let title = run
+                    .session
+                    .as_ref()
+                    .and_then(|(agent, id)| self.db.session(agent, id, now).ok().flatten()?.title);
+                (run, title)
+            })
+            .collect())
+    }
+
+    /// Hides the runs [`Self::restarted`] lists until the next restart.
+    pub fn dismiss_restart(&self) -> Result<(), RunError> {
+        Ok(self.db.dismiss_restart(LOCAL, Utc::now())?)
     }
 
     /// Forgets the tokens of runs that ended more than 5 minutes ago.

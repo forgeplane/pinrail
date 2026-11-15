@@ -402,6 +402,55 @@ impl Db {
         .collect()
     }
 
+    /// The boot the core last saw the host in, if it saw it at all.
+    pub fn host_boot(&self, host: &str) -> rusqlite::Result<Option<String>> {
+        self.read()
+            .query_row(
+                "SELECT boot_id FROM hosts WHERE id = ?1",
+                params![host],
+                |r| r.get(0),
+            )
+            .optional()
+            .map(Option::flatten)
+    }
+
+    /// Records the boot the core sees the host in now.
+    pub fn set_host_boot(&self, host: &str, boot: &str) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE hosts SET boot_id = ?2 WHERE id = ?1",
+            params![host, boot],
+        )?;
+        Ok(())
+    }
+
+    /// The runs a restart of the computer ended, latest first, whose
+    /// session no run has resumed since, and which ended after the person
+    /// last dismissed them.
+    pub fn restarted_runs(&self, host: &str) -> rusqlite::Result<Vec<RunRow>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {COLUMNS} FROM runs r {CURRENT}
+               JOIN hosts h ON h.id = r.host_id
+             WHERE r.host_id = ?1 AND r.end_reason = 'restart'
+               AND (h.restart_seen_at IS NULL OR r.ended_at > h.restart_seen_at)
+               AND NOT EXISTS (SELECT 1 FROM run_sessions later
+                     JOIN runs lr ON lr.id = later.run_id
+                     WHERE later.agent = s.agent AND later.session = s.session
+                       AND lr.id != r.id AND lr.started_at >= r.ended_at)
+             ORDER BY r.ended_at DESC, r.id DESC"
+        ))?;
+        stmt.query_map(params![host], from_row)?.collect()
+    }
+
+    /// Hides the runs a restart ended until the next restart.
+    pub fn dismiss_restart(&self, host: &str, now: DateTime<Utc>) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE hosts SET restart_seen_at = ?2 WHERE id = ?1",
+            params![host, activity(now)],
+        )?;
+        Ok(())
+    }
+
     /// The runs the filters select, the latest first.
     pub fn runs(&self, filters: &RunFilters) -> rusqlite::Result<Vec<RunRow>> {
         let conn = self.read();

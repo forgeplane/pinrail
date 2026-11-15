@@ -31,7 +31,9 @@ export function endedText(name: string, run: Run): string {
     case "stopped":
       return `${name} was stopped by you.`;
     case "host_lost":
-      return `${name} stopped when Pinrail lost its terminal host, such as when the computer restarted.`;
+      return `${name} stopped when Pinrail lost its terminal host.`;
+    case "restart":
+      return `${name} stopped when the computer restarted.`;
     case "start_failed":
       return `${name} could not be started.`;
     default:

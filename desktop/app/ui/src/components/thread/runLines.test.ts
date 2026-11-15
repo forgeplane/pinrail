@@ -25,6 +25,7 @@ describe("the run lines", () => {
     expect(runLineText(run({ kind: "resume" }), false)).toBe("Resumed in Pinrail");
     expect(runLineText(run({ exit_code: 1 }), true)).toBe("Exited with code 1");
     expect(runLineText(run({ end_reason: "stopped" }), true)).toBe("Stopped by you");
+    expect(runLineText(run({ end_reason: "restart" }), true)).toBe("Stopped when the computer restarted");
   });
   test("tell how long something lasted", () => {
     expect(lasted(42_000)).toBe("42 s");

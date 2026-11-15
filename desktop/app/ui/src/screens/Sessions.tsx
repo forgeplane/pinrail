@@ -15,6 +15,7 @@ import { GroupHeading } from "../components/GroupHeading";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { ProjectAvatar } from "../components/ProjectAvatar";
+import { RestartBanner } from "../components/session/RestartBanner";
 import { SidePanel } from "../components/SidePanel";
 import { Thread, sessionPath } from "../components/Thread";
 import { statusLine } from "../components/thread/messages";
@@ -329,6 +330,7 @@ export function Sessions() {
             />
           </div>
         </header>
+        {prefs.labs.runtime ? <RestartBanner /> : null}
         <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
         {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
         {!data ? null : total === 0 ? (

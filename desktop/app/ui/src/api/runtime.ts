@@ -91,6 +91,11 @@ export const runtime = {
       `/api/v1/sessions/${seg(session.agent)}/${seg(session.id)}/resume`,
       { host: "local", ...body },
     ),
+  /** The runs a restart of the computer stopped, with their sessions'
+   *  titles, until they are resumed or dismissed. */
+  restarted: async () =>
+    (await request<{ runs: (Run & { title: string | null })[] }>("GET", "/api/v1/runtime/restarted")).runs,
+  dismissRestart: () => request<void>("DELETE", "/api/v1/runtime/restarted"),
   stop: (id: string, force = false) => request<void>("POST", `/api/v1/runs/${seg(id)}/stop`, { force }),
   /** A ticket that opens one attach to `terminal` within 30 seconds. */
   ticket: async (terminal: string) =>
