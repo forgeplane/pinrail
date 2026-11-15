@@ -1,0 +1,108 @@
+import { expect, test } from "../fixtures";
+import { clearInbox, createReview, decide } from "../helpers";
+
+test("history shows 50 a page, pages through the rest, and starts again at page 1 when filtered", async ({ page }) => {
+  await clearInbox(page.request);
+  // 60 decided reviews under a word of this run's own, oldest first: history
+  // keeps every earlier run's, and a repeat must not count them
+  const tag = `paging${Date.now()}`;
+  for (let i = 1; i <= 60; i++) {
+    const { id } = await createReview(page.request, {
+      title: `${tag} history ${String(i).padStart(2, "0")}`,
+      origin: { repo: i % 2 ? "acme/odd" : "acme/even", workflow: "paging" },
+    });
+    await decide(page.request, id, { decisions: [], undecided: [1] });
+  }
+
+  await page.goto(`/#/history?q=${tag}`);
+  const rows = page.getByTestId("history-row");
+  const range = page.getByTestId("pager-range");
+  await expect(rows).toHaveCount(50);
+  await expect(range).toHaveText("1–50 of 60");
+  await expect(rows.first()).toContainText(`${tag} history 60`);
+  await expect(page.getByRole("button", { name: "Previous page" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(rows).toHaveCount(10);
+  await expect(range).toHaveText("51–60 of 60");
+  await expect(rows.last()).toContainText(`${tag} history 01`);
+  await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
+
+  // a filter narrows on the server and goes back to the first page
+  await page.getByRole("searchbox", { name: "Search history" }).fill(`${tag} acme/odd`);
+  await expect(page).not.toHaveURL(/page=/);
+  await expect(rows).toHaveCount(30);
+  await expect(range).toHaveText("1–30 of 30");
+
+  // the page size: 25 splits the 30 in two
+  await page.goto(`/#/history?q=${tag}%20acme/odd&per=25`);
+  await expect(rows).toHaveCount(25);
+  await expect(range).toHaveText("1–25 of 30");
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(rows).toHaveCount(5);
+  await expect(range).toHaveText("26–30 of 30");
+
+  // two clicks in one frame step two pages, here against the server's paging
+  await page.goto(`/#/history?q=${tag}&per=25`);
+  await expect(range).toHaveText("1–25 of 60");
+  await page.goto(`/#/history?q=${tag}&per=25&page=3`);
+  await expect(range).toHaveText("51–60 of 60");
+  await page.evaluate(() => {
+    const previous = document.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]');
+    previous?.click();
+    previous?.click();
+  });
+  await expect(range).toHaveText("1–25 of 60");
+
+  // the search reads the requester and the project as well as the title
+  await page.goto(`/#/history?q=${tag}%20acme/even%20spec`);
+  await expect(rows).toHaveCount(30);
+});
+
+test("the inbox holds every pending review, 50 a page, and Enter opens the row that is lit", async ({ page }) => {
+  await clearInbox(page.request);
+  // 105: past the 100 the inbox used to stop at, across two projects
+  for (let i = 1; i <= 105; i++) {
+    await createReview(page.request, {
+      title: `Paging inbox ${String(i).padStart(3, "0")}`,
+      origin: { repo: i % 3 ? "acme/api" : "acme/web", workflow: "paging" },
+    });
+  }
+
+  await page.goto("/#/");
+  const rows = page.getByTestId("review-row");
+  const range = page.getByTestId("pager-range");
+  await expect(rows).toHaveCount(50);
+  await expect(range).toHaveText("1–50 of 105");
+
+  // the project headers count the whole project, not the page
+  await expect(page.getByTestId("inbox-group-heading").filter({ hasText: "acme/api" })).toContainText("70");
+
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(rows).toHaveCount(50);
+  await expect(range).toHaveText("51–100 of 105");
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(rows).toHaveCount(5);
+  await expect(range).toHaveText("101–105 of 105");
+
+  // two clicks in one frame step two pages: the second lands before the pager
+  // has been drawn again, so it must step from the page the URL is on
+  await page.evaluate(() => {
+    const previous = document.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]');
+    previous?.click();
+    previous?.click();
+  });
+  await expect(range).toHaveText("1–50 of 105");
+
+  // J moves down the rows as drawn, and Enter opens the one that is lit
+  // the pointer out of the way: a row under it would take the focus
+  await page.mouse.move(0, 0);
+  await page.locator("h1").click();
+  for (let i = 0; i < 3; i++) await page.keyboard.press("j");
+  const lit = rows.and(page.locator(".is-focused"));
+  await expect(lit).toHaveCount(1);
+  const href = await lit.getAttribute("href");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`${href!.replace(/^#/, "")}$`));
+});

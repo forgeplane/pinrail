@@ -9,11 +9,11 @@ They use [Playwright Test](https://playwright.dev/docs/intro).
 The CLI suites run the `pinrail` command against the server
 (`playwright.config.ts`, `mise run e2e`):
 
-| Suite | What it checks |
-|---|---|
-| `tests/cli.spec.ts` | submitting and waiting, two waiters, withdrawing, discarding, timeouts, refused payloads, Markdown output and installing plugins |
-| `tests/preview.spec.ts` | a review's preview in a browser: the view receives the review, handing over checks the decision without deciding anything, and a view that declares the clipboard copies its text |
-| `tests/zz-restart.spec.ts` | a wait that continues when the server is stopped and started again |
+| Suite                      | What it checks                                                                                                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/cli.spec.ts`        | submitting and waiting, two waiters, withdrawing, discarding, timeouts, refused payloads, Markdown output and installing plugins                                                  |
+| `tests/preview.spec.ts`    | a review's preview in a browser: the view receives the review, handing over checks the decision without deciding anything, and a view that declares the clipboard copies its text |
+| `tests/zz-restart.spec.ts` | a wait that continues when the server is stopped and started again                                                                                                                |
 
 The global setup builds the CLI and the desktop app if needed, starts the
 server with `pinrail serve` on a scratch data directory and a free port,
@@ -25,30 +25,22 @@ installs a copy of the artifact plugin. The teardown stops the server.
 The app suites run a production build of the app's UI against a headless
 server (`shell.config.ts`). `mise run e2e:shell` runs them with
 `run-shell.mjs`, in several shards at once, each with its own server, UI
-and browser:
+and browser.
 
-| Suite | What it checks |
-|---|---|
-| `shell/decide.spec.ts` | deciding in a plugin's view and handing over, a refused decision, forwarded shortcuts, drafts across a reload, a review withdrawn while open, and a CLI waiter receiving the decision |
-| `shell/sandbox.spec.ts` | a plugin view's sandbox: no network, no storage and no access to the app, including the plugin's own files opened as a page |
-| `shell/clipboard.spec.ts` | copying a view's text and an image of its review, with a notice for each, for a plugin that declares the `clipboard` capability and for no other |
-| `shell/attachments.spec.ts` | a view receives the files its review carries, and only those |
-| `shell/review-switch.spec.ts` | moving between reviews loads the right view and carries nothing over |
-| `shell/new-round.spec.ts` | a new round of the open review appears in the round switcher |
-| `shell/inbox-layout.spec.ts` | the inbox grouped by project or shown as one list |
-| `shell/pagination.spec.ts` | the inbox and the history in pages of 50 |
-| `shell/palette.spec.ts` | the command palette finds reviews of every status |
-| `shell/sidebar.spec.ts` | the sidebar's list of waiting reviews, and moving through it with ⌥↓ |
-| `shell/settings-data.spec.ts` | the data settings: how long history is kept, and the port |
-| `shell/settings-plugins.spec.ts` | the plugins settings: installing from a folder, and refusing one whose view is not built |
-| `shell/theme.spec.ts` | ⌘⇧L switches the theme, and T is left to plugins |
-| `shell/conformance.spec.ts` | the app and the preview host a view as the protocol describes, and a decision that arrives after moving on stays with its review |
-| `shell/frame-navigation.spec.ts` | a view that leaves its page is no longer answered, and the frame shows only Pinrail's own server |
-| `shell/open-links.spec.ts` | a link from a view opens only when the person agrees, or for an origin they allowed for that plugin |
-| `shell/live-updates.spec.ts` | the inbox, the history and the Plugins section update from events, fetching only what they show |
-| `shell/history-navigation.spec.ts` | a review opened from the history is one step back from it |
-| `shell/inbox-cap.spec.ts` | an inbox with more pending reviews than it loads says how many there are |
-| `shell/linux-keys.spec.ts` | on Linux, Settings names keys as a Linux keyboard does |
+The specs are grouped in folders under `shell/` by the part of the app
+they check. The shared fixtures and helpers stay in `shell/` itself. A new
+spec goes in the folder of the part it checks:
+
+| Folder            | What its specs check                                                                                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shell/app/`      | The window as a whole: the sidebar, the command palette, the keyboard-shortcuts dialog, the title bar, feedback, the person token, and how a page shows a failed load or a screen that throws |
+| `shell/inbox/`    | The inbox: its tabs, its layout, its Agents section, its pages, and its live updates                                                                                                          |
+| `shell/reviews/`  | A review in the app: the review screen and its side panel, its breadcrumb, stars, deleting, dictation, find, the history, and what a review says it asks and decided                          |
+| `shell/plugins/`  | Plugin views and the plugin protocol: deciding and handing over, the sandbox, attachments, the clipboard, links, rounds, linking a plugin in development, and the official plugins' fixtures  |
+| `shell/sessions/` | An agent's sessions and their threads: messages, notes, questions, the session's header, the Sessions page and the sidebar's sessions                                                         |
+| `shell/runtime/`  | Agents Pinrail runs: starting one, its terminal, Resume, the banner after a restart, and the terminal's WebAssembly                                                                           |
+| `shell/items/`    | Work items and projects: the Work items page, an item's side panel, the quick add, and items named elsewhere                                                                                  |
+| `shell/settings/` | Settings and the setup: each section of Settings, themes, the first-run setup, the usage data notice, and What's new                                                                          |
 
 Each plugin's behaviour on its own is tested in the plugin's `tests/`
 folder, under the `pinrail-sdk` harness. Run those with

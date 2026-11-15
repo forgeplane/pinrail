@@ -115,7 +115,7 @@ To run one test, go to the suite's folder and name it:
 
 ```sh
 cargo test deciding_validates               # Rust: tests whose name contains this
-npx playwright test shell/decide.spec.ts    # Playwright: one file
+npx playwright test shell/plugins/decide.spec.ts    # Playwright: one file
 npx playwright test -g "survives a reload"  # Playwright: tests whose title contains this
 ```
 

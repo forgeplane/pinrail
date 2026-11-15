@@ -1,0 +1,82 @@
+import { expect, test } from "../fixtures";
+import { clearInbox, createReview, onReviewPages } from "../helpers";
+
+// these tests open a review from the inbox or the sidebar on a page of its own
+onReviewPages();
+
+test("handing over a decision returns to the inbox", async ({ page }) => {
+  await clearInbox(page.request);
+  const review = await createReview(page.request, { title: "Hand over and go back" });
+  await createReview(page.request, { title: "Still waiting" });
+
+  await page.goto("/#/");
+  await page.getByTestId("review-row").filter({ hasText: "Hand over and go back" }).click();
+  await expect(page).toHaveURL(new RegExp(`/reviews/${review.id}$`));
+  const frame = page.frameLocator("#plugin-frame");
+  await expect(frame.locator("body")).toContainText("One proposal.");
+  // the person decides the proposal and hands over
+  await frame.locator('button[data-act="accept"]').first().click();
+  await page.getByTestId("handover").click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByText("Decision recorded")).toBeVisible();
+  const rows = page.getByTestId("review-row");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("Still waiting");
+});
+
+/** A list review with `count` items: a short view, or a tall one. */
+const listOf = (title: string, count: number) => ({
+  plugin: "list",
+  title,
+  payload: {
+    summary: `${count} proposals.`,
+    groups: [
+      {
+        title: "lib/acme/tickets.ex",
+        items: Array.from({ length: count }, (_, i) => ({ id: i + 1, severity: "minor", title: `item ${i + 1}` })),
+      },
+    ],
+  },
+});
+
+test("the frame fills the panel: a short view's hand-over sits where a tall one's does", async ({ page }) => {
+  await clearInbox(page.request);
+  const short = await createReview(page.request, listOf("Short view", 1));
+  const tall = await createReview(page.request, listOf("Tall view", 60));
+  const handover = page.getByTestId("handover");
+  const frame = page.frameLocator("#plugin-frame");
+
+  await page.goto(`/#/reviews/${short.id}`);
+  await expect(frame.locator("body")).toContainText("1 proposals.");
+  const shortFrame = (await page.locator("#plugin-frame").boundingBox())!;
+  const shortButton = (await handover.boundingBox())!;
+
+  await page.goto(`/#/reviews/${tall.id}`);
+  await expect(frame.locator("body")).toContainText("60 proposals.");
+  const tallFrame = (await page.locator("#plugin-frame").boundingBox())!;
+  const tallButton = (await handover.boundingBox())!;
+
+  expect(Math.round(tallFrame.height)).toBe(Math.round(shortFrame.height));
+  expect(Math.round(tallButton.y)).toBe(Math.round(shortButton.y));
+});
+
+test("a tall view scrolls inside its frame, and its header stays in place", async ({ page }) => {
+  await clearInbox(page.request);
+  const tall = await createReview(page.request, listOf("Tall and scrolled", 60));
+  await page.goto(`/#/reviews/${tall.id}`);
+  const frame = page.frameLocator("#plugin-frame");
+  await expect(frame.locator("body")).toContainText("60 proposals.");
+
+  const header = frame.locator(".pinrail-header");
+  const before = (await header.boundingBox())!;
+  // the item in the list's body, not its row in the sidebar
+  const last = frame.locator(".pinrail-content").getByText("item 60", { exact: true });
+  await expect(last).not.toBeInViewport();
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
+  const after = (await header.boundingBox())!;
+  expect(Math.round(after.y)).toBe(Math.round(before.y));
+  // the page itself did not scroll: the view did, inside the frame
+  expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+});
