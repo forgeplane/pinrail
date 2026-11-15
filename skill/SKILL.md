@@ -208,6 +208,17 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
   decisions of its reviews, and the closing comments of the items it
   depends on. Its files, such as a screenshot the person attached, are
   listed with a path on this computer: open them there.
+- **Find items with the list's filters**, not by searching its output:
+
+  ```sh
+  pinrail items list --ready                      # what you can start now
+  pinrail items list --search "theme loader"      # words in the title or description
+  pinrail items list --status open,in_progress    # by status
+  pinrail items list --parent PIN-40 --tree       # everything under an item, at every depth
+  pinrail items show --brief PIN-41 PIN-42 43     # what several items ask, and nothing else
+  ```
+
+  Add `--json` when a program reads the result.
 - **Record a plan of several steps as a breakdown.** Write the steps to a
   JSON file and add them in one request with `pinrail items add --file`.
   Give each step a `ref`, and list in `depends_on` the steps it needs
