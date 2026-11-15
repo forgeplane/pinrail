@@ -2,7 +2,7 @@
 // session's thread, and an edge that resizes the panel by dragging or with
 // the arrow keys. The lists share one width, stored on this machine.
 
-import { useEffect, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
 import { useResizableWidth } from "../lib/useResizableWidth";
 
 /** The side panel's width, stored on this machine. */
@@ -37,6 +37,45 @@ export function SidePanel({
     grows: "left",
     anchor: () => split.current?.getBoundingClientRect().right ?? window.innerWidth,
   });
+  // What opened the panel, such as a row, and where it was on the screen,
+  // read as the panel first renders, before the page changes. Without a
+  // panel the page scrolls; with one the list scrolls on its own, from the
+  // top, so the list is scrolled to keep the row where it was.
+  const [opened] = useState(() => {
+    const opener = document.activeElement;
+    return opener instanceof HTMLElement && split.current?.contains(opener)
+      ? { opener, top: opener.getBoundingClientRect().top }
+      : null;
+  });
+  useLayoutEffect(() => {
+    if (!opened?.opener.isConnected) return;
+    const list = opened.opener.closest<HTMLElement>(".split-side");
+    if (list) list.scrollTop += opened.opener.getBoundingClientRect().top - opened.top;
+  }, [opened]);
+  // As the panel closes, the open item's row stays where it was too. React
+  // removes the panel before it updates the list, so the row's place is
+  // read here as the person sees it; once the page has dropped the panel's
+  // layout and scrolls as a whole again, it is scrolled to keep the row
+  // there.
+  useLayoutEffect(
+    () => () => {
+      const row = split.current?.querySelector<HTMLElement>(".split-side :is(.item-row, .review-row).is-open");
+      if (!row) return;
+      const top = row.getBoundingClientRect().top;
+      const key = row.dataset.key;
+      queueMicrotask(() => {
+        // a row drawn anew is found by its key
+        const now = row.isConnected
+          ? row
+          : key
+            ? document.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)
+            : null;
+        const page = now?.closest<HTMLElement>(".app-main");
+        if (now && page) page.scrollTop += now.getBoundingClientRect().top - top;
+      });
+    },
+    [split],
+  );
   // the focus goes back to what opened the panel, such as a row, when it
   // closes
   useEffect(() => {

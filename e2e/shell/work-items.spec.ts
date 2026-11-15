@@ -1269,3 +1269,42 @@ test("the filters are kept when the person leaves the page and comes back", asyn
   await expect(page).toHaveURL(/status=done/);
   await expect(rows(page)).toHaveCount(1);
 });
+
+test("an item clicked low in a long list stays where it was as its panel opens", async ({ page, request }) => {
+  const repo = fresh();
+  const added = [];
+  for (let i = 1; i <= 40; i++) added.push(await add(request, repo, `Item number ${i}`));
+  await open(page, repo, "&layout=flat");
+  await expect(rows(page)).toHaveCount(40);
+
+  const target = row(page, added[30].key);
+  await target.scrollIntoViewIfNeeded();
+  const before = (await target.boundingBox())!;
+  expect(before.y).toBeGreaterThan(200);
+
+  await target.click();
+  await expect(page.getByTestId("work item-panel")).toBeVisible();
+  await expect(target).toBeInViewport();
+  const after = (await target.boundingBox())!;
+  expect(Math.abs(after.y - before.y)).toBeLessThan(40);
+});
+
+test("the open item stays where it was as its panel closes", async ({ page, request }) => {
+  const repo = fresh();
+  const added = [];
+  for (let i = 1; i <= 40; i++) added.push(await add(request, repo, `Item number ${i}`));
+  await open(page, repo, `&layout=flat&open=${added[30].key}`);
+  const panel = page.getByTestId("work item-panel");
+  await expect(panel).toBeVisible();
+
+  const target = row(page, added[30].key);
+  await target.scrollIntoViewIfNeeded();
+  const before = (await target.boundingBox())!;
+  expect(before.y).toBeGreaterThan(200);
+
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(target).toBeInViewport();
+  const after = (await target.boundingBox())!;
+  expect(Math.abs(after.y - before.y)).toBeLessThan(40);
+});
