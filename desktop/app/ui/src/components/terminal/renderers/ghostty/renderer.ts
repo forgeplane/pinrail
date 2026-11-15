@@ -117,8 +117,13 @@ export class CanvasRenderer {
   private cols = 0;
   private rows = 0;
   private ratio = 1;
-  private visible = true;
+  /** Whether the canvas is in the viewport, and whether it has a size:
+   *  none while it, or a parent, is out of the page or not displayed. */
+  private inView = true;
+  private laidOut = true;
   private observer: IntersectionObserver | null = null;
+  private sizer: ResizeObserver | null = null;
+  private shown: (() => void) | null = null;
   private glyphs = new Map<string, HTMLCanvasElement>();
   /** How many rows the canvas holds drawn: none after a resize, which
    *  clears it, so the next draw draws them all. */
@@ -147,11 +152,31 @@ export class CanvasRenderer {
     this.metrics = measureCell(font);
     // a terminal out of sight draws nothing
     if (typeof IntersectionObserver !== "undefined") {
-      this.observer = new IntersectionObserver((entries) => {
-        this.visible = entries.some((e) => e.isIntersecting);
-      });
+      this.observer = new IntersectionObserver((entries) =>
+        this.see(
+          entries.some((e) => e.isIntersecting),
+          this.laidOut,
+        ),
+      );
       this.observer.observe(this.canvas);
     }
+    // a canvas laid out again is shown again: the resize observer says so
+    // before that frame is painted, where the intersection observer says
+    // so a frame later
+    if (typeof ResizeObserver !== "undefined") {
+      this.sizer = new ResizeObserver((entries) => {
+        const sized = entries.some((e) => e.contentRect.width > 0 && e.contentRect.height > 0);
+        this.see(sized && !this.laidOut ? true : this.inView, sized);
+      });
+      this.sizer.observe(this.canvas);
+    }
+  }
+
+  private see(inView: boolean, laidOut: boolean) {
+    const was = this.showing;
+    this.inView = inView;
+    this.laidOut = laidOut;
+    if (this.showing && !was) this.shown?.();
   }
 
   get cell(): CellMetrics {
@@ -160,7 +185,12 @@ export class CanvasRenderer {
 
   /** Whether drawing now would show anything. */
   get showing(): boolean {
-    return this.visible && this.canvas.isConnected;
+    return this.inView && this.laidOut && this.canvas.isConnected;
+  }
+
+  /** Calls `listener` when the canvas comes back into sight. */
+  onShown(listener: () => void) {
+    this.shown = listener;
   }
 
   setFont(font: Font) {
@@ -374,6 +404,7 @@ export class CanvasRenderer {
 
   dispose() {
     this.observer?.disconnect();
+    this.sizer?.disconnect();
     this.glyphs.clear();
     this.canvas.remove();
     this.cursor.remove();

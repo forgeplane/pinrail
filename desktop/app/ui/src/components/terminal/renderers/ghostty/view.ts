@@ -86,6 +86,8 @@ class GhosttyView implements TerminalView, BenchHooks {
   private links = new Set<(uri: string, event: MouseEvent) => void>();
   private drawnListeners = new Set<() => void>();
   private disposed = false;
+  /** Whether output changed the screen while the view was out of sight. */
+  private missed = false;
 
   async mount(host: HTMLElement, options: ViewOptions): Promise<void> {
     const runtime = await GhosttyRuntime.instantiate();
@@ -102,6 +104,11 @@ class GhosttyView implements TerminalView, BenchHooks {
       fontOf(options.font),
       parseColour(options.theme.selectionBackground ?? "", { r: 60, g: 62, b: 90 }),
     );
+    // drawn at once, so that the screen is current in the frame that
+    // shows it again
+    this.renderer.onShown(() => {
+      if (this.missed) this.draw();
+    });
     const { width, height } = this.renderer.cell;
     this.core = GhosttyCore.create(runtime, options.cols, options.rows, width, height, theme, (bytes) =>
       this.replies.forEach((l) => l(bytes)),
@@ -179,8 +186,18 @@ class GhosttyView implements TerminalView, BenchHooks {
     this.schedule();
   }
 
+  /** Draws the screen, unless the view is out of sight: a pooled view
+   *  keeps parsing its output, and draws it all once it is shown. */
   private draw() {
     if (this.disposed) return;
+    if (!this.renderer.showing) {
+      this.missed = true;
+      return;
+    }
+    if (this.missed) {
+      this.missed = false;
+      this.renderer.invalidate();
+    }
     const snapshot = this.core.snapshot();
     this.snapshot = snapshot;
     this.renderer.setMatches(this.finder.matchesInView());

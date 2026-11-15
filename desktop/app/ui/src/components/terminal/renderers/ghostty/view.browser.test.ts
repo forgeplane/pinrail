@@ -124,3 +124,39 @@ test("a program's copy reaches the clipboard only when the view allows it", asyn
   }
   expect(written).toEqual(["allowed"]);
 });
+
+test("a terminal taken out of the page draws nothing, and draws its screen when it is back", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  hooks.onFrameDrawn(() => drawn++);
+  // as the window's pool hides a terminal
+  host.remove();
+  for (const line of ["one\r\n", "two\r\n", "three\r\n"])
+    await new Promise<void>((r) => view.write(new TextEncoder().encode(line), r));
+  await new Promise((r) => setTimeout(r, 200));
+  expect(drawn).toBe(0);
+  document.body.append(host);
+  await new Promise((r) => setTimeout(r, 200));
+  expect(drawn).toBeGreaterThan(0);
+  // the first row shows "one" in the foreground colour
+  const canvas = host.querySelector("canvas")!;
+  const ratio = canvas.width / canvas.clientWidth;
+  const row = canvas.getContext("2d")!.getImageData(0, 0, Math.round(30 * ratio), Math.round(14 * ratio)).data;
+  let lit = 0;
+  for (let i = 0; i < row.length; i += 4) if (row[i]! > 128) lit++;
+  expect(lit).toBeGreaterThan(0);
+  view.dispose();
+  host.remove();
+});
