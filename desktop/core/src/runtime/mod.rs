@@ -16,7 +16,7 @@ use crate::events::Bus;
 mod runs;
 mod tokens;
 #[cfg(unix)]
-pub use runs::{LOCAL, Reconciled, RunError, Start, TOKEN_VARIABLE};
+pub use runs::{LOCAL, Reconciled, Resume, RunError, Start, TOKEN_VARIABLE};
 pub use tokens::{Admitted, Mismatch, digest};
 
 /// The setting that turns the runtime on.

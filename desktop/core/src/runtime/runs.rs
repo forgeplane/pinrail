@@ -38,6 +38,22 @@ pub struct Start {
     pub created_by: String,
 }
 
+/// What to resume: a stopped session, in a new terminal of the size
+/// given.
+#[derive(Debug, Clone)]
+pub struct Resume {
+    pub agent: String,
+    pub session: String,
+    pub cols: u16,
+    pub rows: u16,
+    /// `app` or `cli`.
+    pub created_by: String,
+}
+
+/// How soon after it began a resumed agent that exits with an error is
+/// taken to have failed to resume.
+const RESUME_FAILS_WITHIN: chrono::Duration = chrono::Duration::seconds(3);
+
 /// Why a run could not be started or stopped.
 #[derive(Debug)]
 pub enum RunError {
@@ -58,6 +74,11 @@ pub enum RunError {
     NotFound(String),
     /// The host failed to start the agent, as the message says.
     StartFailed(String),
+    /// The session already runs: in this run, or, without one, in a
+    /// terminal outside Pinrail.
+    AlreadyRunning(Option<Box<RunRow>>),
+    /// Pinrail cannot resume the session, as the message says.
+    NotResumable(String),
     Core(Error),
 }
 
@@ -79,6 +100,8 @@ impl RunError {
             RunError::HostOffline => "host_offline",
             RunError::NotFound(_) => "not_found",
             RunError::StartFailed(_) => "start_failed",
+            RunError::AlreadyRunning(_) => "already_running",
+            RunError::NotResumable(_) => "not_resumable",
             RunError::Core(_) => "internal",
         }
     }
@@ -90,7 +113,12 @@ impl std::fmt::Display for RunError {
             RunError::Invalid { field, message } => write!(f, "{field}: {message}"),
             RunError::AgentNotFound(message)
             | RunError::Limit(message)
-            | RunError::StartFailed(message) => write!(f, "{message}"),
+            | RunError::StartFailed(message)
+            | RunError::NotResumable(message) => write!(f, "{message}"),
+            RunError::AlreadyRunning(Some(_)) => write!(f, "This session is already running."),
+            RunError::AlreadyRunning(None) => {
+                write!(f, "This session is already running in another terminal.")
+            }
             RunError::FolderMissing(folder) => write!(f, "{folder} does not exist"),
             RunError::HostOffline => write!(f, "the terminal host is not connected"),
             RunError::NotFound(run) => write!(f, "run {run} not found"),
@@ -119,6 +147,9 @@ pub(super) struct Spawns {
     /// The runs started with a `local_id` in the last 10 minutes, by it:
     /// the run, and when it started.
     recent: HashMap<String, (String, std::time::Instant)>,
+    /// The resumes being spawned, by session as `(agent, id)`: a second
+    /// resume of the session meanwhile returns the same run.
+    resuming: HashMap<(String, String), String>,
 }
 
 /// How long a start's `local_id` names its run.
@@ -180,6 +211,116 @@ impl super::Runtime {
             },
             Utc::now(),
         )?;
+        self.spawn(&link, run, &plan.argv, start.cols, start.rows, token)
+            .await
+    }
+
+    /// Resumes a stopped session in a new terminal, in the folder it
+    /// worked in, and returns its run. Refuses a session that already
+    /// runs, in Pinrail or in another terminal, and one whose folder is
+    /// gone. A second resume while the first is starting returns the
+    /// first's run.
+    pub async fn resume(&self, resume: &Resume) -> Result<RunRow, RunError> {
+        let key = (resume.agent.clone(), resume.session.clone());
+        let now = Utc::now();
+        let session = self
+            .db
+            .session(&resume.agent, &resume.session, now)?
+            .ok_or_else(|| {
+                RunError::NotFound(format!("session {}/{}", resume.agent, resume.session))
+            })?;
+        let agent = pinrail_runtime::adapter(&resume.agent).ok_or_else(|| {
+            RunError::NotResumable(format!("Pinrail cannot resume {} sessions.", resume.agent))
+        })?;
+        let argv = agent.resume(&resume.session).ok_or_else(|| {
+            RunError::NotResumable(format!("Pinrail cannot resume {} sessions.", resume.agent))
+        })?;
+        let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        let token = new_token();
+        let run = {
+            // checked and recorded under one lock, so that two resumes of
+            // the session never both start
+            let mut spawns = self.spawns();
+            if let Some(run) = spawns
+                .resuming
+                .get(&key)
+                .and_then(|id| self.db.run(id).ok().flatten())
+            {
+                return Ok(run);
+            }
+            if let Some(run) = self
+                .live_runs()?
+                .into_iter()
+                .find(|r| r.session.as_ref() == Some(&key))
+            {
+                return Err(RunError::AlreadyRunning(Some(Box::new(run))));
+            }
+            if self
+                .db
+                .session_process(&resume.agent, &resume.session)?
+                .is_some_and(|(pid, started)| crate::presence::alive(pid, &started))
+            {
+                return Err(RunError::AlreadyRunning(None));
+            }
+            let folder = match session.folder.filter(|f| !f.is_empty()) {
+                Some(folder) => folder,
+                None => self
+                    .db
+                    .runs(&RunFilters {
+                        session: Some(key.clone()),
+                        ..RunFilters::default()
+                    })?
+                    .into_iter()
+                    .next()
+                    .map(|r| r.folder)
+                    .ok_or_else(|| {
+                        RunError::NotResumable("Pinrail does not know the session's folder.".into())
+                    })?,
+            };
+            if !std::path::Path::new(&folder).is_dir() {
+                return Err(RunError::FolderMissing(folder));
+            }
+            let id = crate::id::next_run();
+            let run = self.db.insert_run(
+                &NewRun {
+                    id: &id,
+                    host: LOCAL,
+                    agent: &resume.agent,
+                    kind: "resume",
+                    folder: &folder,
+                    argv: &argv,
+                    task: None,
+                    args: &[],
+                    created_by: &resume.created_by,
+                    token_digest: &super::digest(&token),
+                    session: Some(&resume.session),
+                },
+                now,
+            )?;
+            spawns.resuming.insert(key.clone(), id);
+            run
+        };
+        let result = self
+            .spawn(&link, run, &argv, resume.cols, resume.rows, token)
+            .await;
+        self.spawns().resuming.remove(&key);
+        result
+    }
+
+    /// Asks the host to spawn a run just recorded as `starting`, with the
+    /// token in its environment, and returns the run as the reply leaves
+    /// it.
+    async fn spawn(
+        &self,
+        link: &HostLink,
+        run: RunRow,
+        argv: &[String],
+        cols: u16,
+        rows: u16,
+        token: String,
+    ) -> Result<RunRow, RunError> {
+        let id = run.id.clone();
+        let folder = run.folder.clone();
         let mut env: BTreeMap<String, String> = self.run_env.clone();
         env.insert(TOKEN_VARIABLE.to_string(), token);
         self.spawns().running.insert(id.clone());
@@ -187,10 +328,10 @@ impl super::Runtime {
             .call(
                 "terminal.spawn",
                 json!({
-                    "argv": plan.argv,
-                    "cwd": start.folder,
-                    "cols": start.cols,
-                    "rows": start.rows,
+                    "argv": argv,
+                    "cwd": folder,
+                    "cols": cols,
+                    "rows": rows,
                     "env": env,
                     "labels": {"run": id},
                 }),
@@ -225,7 +366,7 @@ impl super::Runtime {
                             self.lock_startable().stale = true;
                             RunError::AgentNotFound(message)
                         }
-                        "folder_missing" => RunError::FolderMissing(start.folder.clone()),
+                        "folder_missing" => RunError::FolderMissing(folder.clone()),
                         "limit" => RunError::Limit(message),
                         _ => RunError::StartFailed(message),
                     },
@@ -319,7 +460,7 @@ impl super::Runtime {
         let reason = if params["reason"] == "stopped" {
             "stopped"
         } else {
-            "exited"
+            exit_reason(&run, params["code"].as_i64(), params["signal"].as_str())
         };
         self.end(
             &run.id,
@@ -373,7 +514,7 @@ impl super::Runtime {
             if let Some(exit) = found.get("exit") {
                 done.ended.extend(self.end(
                     &run.id,
-                    "exited",
+                    exit_reason(&run, exit["code"].as_i64(), exit["signal"].as_str()),
                     exit["code"].as_i64(),
                     exit["signal"].as_str(),
                 )?);
@@ -581,6 +722,20 @@ impl super::Runtime {
                     .publish(Notice::new(event, crate::events::RUN_ENDED, &attrs));
                 row
             }))
+    }
+}
+
+/// Why a run whose agent exited on its own ended: `resume_failed` for a
+/// resumed agent that exited with an error within 3 seconds, as when its
+/// session can no longer be resumed, and `exited` otherwise.
+fn exit_reason(run: &RunRow, code: Option<i64>, signal: Option<&str>) -> &'static str {
+    let failed = code.is_some_and(|c| c != 0) || signal.is_some();
+    let soon = crate::reviews::parse_datetime(&run.started_at)
+        .is_some_and(|at| Utc::now() - at < RESUME_FAILS_WITHIN);
+    if run.kind == "resume" && failed && soon {
+        "resume_failed"
+    } else {
+        "exited"
     }
 }
 

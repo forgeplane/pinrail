@@ -17,7 +17,7 @@ use super::guard::{Person, refuse};
 use crate::Pinrail;
 use crate::db::{RunFilters, RunRow};
 use crate::error::Error;
-use crate::runtime::{LOCAL, RunError, Start};
+use crate::runtime::{LOCAL, Resume, RunError, Start};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
@@ -28,6 +28,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/runs/{run}/output", get(output))
         .route("/api/v1/runs/{run}/screen", get(screen))
         .route("/api/v1/runs/{run}/stop", post(stop))
+        .route("/api/v1/sessions/{agent}/{id}/resume", post(resume))
         .route("/api/v1/hosts/{host}", get(host))
 }
 
@@ -83,6 +84,66 @@ async fn start(
     }
 }
 
+/// Resumes a stopped session in a new terminal of `cols` by `rows`, in
+/// the folder it worked in. Answers 201 with the run; 409
+/// `already_running`, with the run when it runs in Pinrail; 422
+/// `folder_missing` or `not_resumable`.
+async fn resume(
+    State(state): State<Arc<Pinrail>>,
+    _person: Person,
+    headers: axum::http::HeaderMap,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Response {
+    if let Some(host) = body.get("host")
+        && !host.is_null()
+        && host != LOCAL
+    {
+        return run_error(RunError::Invalid {
+            field: "host".to_string(),
+            message: "must be local".to_string(),
+        });
+    }
+    let (cols, rows) = match (size(&body, "cols", 120), size(&body, "rows", 40)) {
+        (Ok(cols), Ok(rows)) => (cols, rows),
+        (Err(error), _) | (_, Err(error)) => return run_error(error),
+    };
+    let created_by = if headers
+        .get(super::reviews::CLIENT_HEADER)
+        .is_some_and(|v| v == "cli")
+    {
+        "cli"
+    } else {
+        "app"
+    };
+    let request = Resume {
+        agent,
+        session: id,
+        cols,
+        rows,
+        created_by: created_by.to_string(),
+    };
+    match state.runtime().resume(&request).await {
+        Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),
+        Err(error) => run_error(error),
+    }
+}
+
+/// A terminal's size in `body[key]`: 2 to 1000, or `default` when absent.
+fn size(body: &Value, key: &str, default: u16) -> Result<u16, RunError> {
+    match body.get(key) {
+        None | Some(Value::Null) => Ok(default),
+        Some(value) => value
+            .as_u64()
+            .and_then(|n| u16::try_from(n).ok())
+            .filter(|n| (2..=1000).contains(n))
+            .ok_or_else(|| RunError::Invalid {
+                field: key.to_string(),
+                message: "must be a number from 2 to 1000".to_string(),
+            }),
+    }
+}
+
 fn parse_start(body: &Value) -> Result<Start, RunError> {
     let invalid = |field: &str, message: &str| RunError::Invalid {
         field: field.to_string(),
@@ -97,14 +158,6 @@ fn parse_start(body: &Value) -> Result<Start, RunError> {
     if body.get("worktree").is_some_and(|w| !w.is_null()) {
         return Err(invalid("worktree", "is not supported yet"));
     }
-    let size = |key: &str, default: u16| match body.get(key) {
-        None | Some(Value::Null) => Ok(default),
-        Some(value) => value
-            .as_u64()
-            .and_then(|n| u16::try_from(n).ok())
-            .filter(|n| (2..=1000).contains(n))
-            .ok_or_else(|| invalid(key, "must be a number from 2 to 1000")),
-    };
     let args = match body.get("args") {
         None | Some(Value::Null) => Vec::new(),
         Some(Value::Array(items)) => items
@@ -123,8 +176,8 @@ fn parse_start(body: &Value) -> Result<Start, RunError> {
             .to_string(),
         task: text("task").map(str::to_string),
         args,
-        cols: size("cols", 120)?,
-        rows: size("rows", 40)?,
+        cols: size(body, "cols", 120)?,
+        rows: size(body, "rows", 40)?,
         created_by: "app".to_string(),
     })
 }
@@ -279,8 +332,14 @@ fn run_error(error: RunError) -> Response {
             return (StatusCode::BAD_REQUEST, Json(body)).into_response();
         }
         RunError::AgentNotFound(_) | RunError::NotFound(_) => StatusCode::NOT_FOUND,
+        RunError::AlreadyRunning(run) => {
+            let mut body =
+                json!({"error": error.code(), "message": error.to_string(), "violations": []});
+            body["run"] = run.as_ref().map_or(Value::Null, |r| r.to_json());
+            return (StatusCode::CONFLICT, Json(body)).into_response();
+        }
         RunError::Limit(_) => StatusCode::CONFLICT,
-        RunError::FolderMissing(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        RunError::FolderMissing(_) | RunError::NotResumable(_) => StatusCode::UNPROCESSABLE_ENTITY,
         RunError::HostOffline => StatusCode::SERVICE_UNAVAILABLE,
         RunError::StartFailed(_) => StatusCode::BAD_GATEWAY,
         RunError::Core(_) => StatusCode::INTERNAL_SERVER_ERROR,

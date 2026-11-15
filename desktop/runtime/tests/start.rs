@@ -112,3 +112,29 @@ fn no_start_plan_carries_a_denied_flag() {
         }
     }
 }
+
+#[test]
+fn claude_code_and_codex_resume_a_session_by_its_id() {
+    assert_eq!(
+        adapter("claude-code").unwrap().resume(ID),
+        Some(args(&["claude", "--resume", ID]))
+    );
+    assert_eq!(
+        adapter("codex").unwrap().resume(ID),
+        Some(args(&["codex", "--no-daemon", "resume", ID]))
+    );
+}
+
+#[test]
+fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
+    for id in [
+        "--dangerously-skip-permissions",
+        "-x",
+        "",
+        "a b",
+        "id\n--yolo",
+    ] {
+        assert_eq!(adapter("claude-code").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("codex").unwrap().resume(id), None, "{id:?}");
+    }
+}

@@ -3,7 +3,7 @@
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, StartPlan, StartRequest, push_task, spec};
+use crate::agent::{Agent, Env, StartPlan, StartRequest, push_task, resumable_id, spec};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::registry::AgentSpec;
 
@@ -69,6 +69,15 @@ impl Agent for Codex {
         Some(StartPlan {
             argv,
             session: None,
+        })
+    }
+
+    /// `codex --no-daemon resume <id>`.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| {
+            ["codex", "--no-daemon", "resume", session]
+                .map(str::to_string)
+                .to_vec()
         })
     }
 

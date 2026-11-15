@@ -474,6 +474,24 @@ impl Db {
         .collect()
     }
 
+    /// The process the session's hooks last reported, as its pid and start
+    /// time, unless the session stopped.
+    pub fn session_process(
+        &self,
+        agent: &str,
+        id: &str,
+    ) -> rusqlite::Result<Option<(i64, String)>> {
+        self.read()
+            .query_row(
+                "SELECT pid, proc_started FROM session_presence
+                 WHERE agent = ?1 AND session = ?2 AND state != 'stopped'
+                   AND pid IS NOT NULL AND proc_started IS NOT NULL",
+                params![agent, id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+    }
+
     /// The session's presence, if its hooks ever reported.
     pub fn presence(&self, agent: &str, id: &str) -> rusqlite::Result<Option<PresenceRow>> {
         read_presence(&self.read(), agent, id)

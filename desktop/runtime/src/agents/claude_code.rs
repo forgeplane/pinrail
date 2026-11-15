@@ -4,7 +4,9 @@ use serde_json::Value;
 
 use std::path::Path;
 
-use crate::agent::{Agent, Env, Hint, HintStatus, StartPlan, StartRequest, push_task, spec};
+use crate::agent::{
+    Agent, Env, Hint, HintStatus, StartPlan, StartRequest, push_task, resumable_id, spec,
+};
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::integration::{HookEntry, HookPlan};
 use crate::registry::AgentSpec;
@@ -143,6 +145,17 @@ impl Agent for ClaudeCode {
         Some(StartPlan {
             argv,
             session: Some(request.session_id.to_string()),
+        })
+    }
+
+    /// `claude --resume <id>`.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| {
+            vec![
+                "claude".to_string(),
+                "--resume".to_string(),
+                session.to_string(),
+            ]
         })
     }
 

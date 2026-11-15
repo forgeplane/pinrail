@@ -571,3 +571,182 @@ async fn an_ended_run_gives_its_screen_as_a_paint_with_its_size() {
         (Some(132), Some(40))
     );
 }
+
+/// Starts the stand-in `claude` in `folder` and waits until it exited on
+/// its own, as a stopped session. Returns the session's id.
+async fn stopped_session(app: &App, folder: &str) -> String {
+    std::fs::write(std::path::Path::new(folder).join("exit"), "0").unwrap();
+    let (status, started) = call(
+        app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    run_becomes(app, started["run"]["id"].as_str().unwrap(), |r| {
+        r["state"] == "ended"
+    })
+    .await;
+    std::fs::remove_file(std::path::Path::new(folder).join("exit")).unwrap();
+    std::fs::remove_file(std::path::Path::new(folder).join("argv")).unwrap();
+    started["session"]["id"].as_str().unwrap().to_string()
+}
+
+async fn resume(app: &App, agent: &str, session: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/{agent}/{session}/resume"),
+        Some(json!({"cols": 80, "rows": 24})),
+    )
+    .await
+}
+
+async fn argv(folder: &str) -> String {
+    let path = std::path::Path::new(folder).join("argv");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && !text.is_empty()
+        {
+            return text;
+        }
+        assert!(Instant::now() < deadline, "the agent wrote no argv");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_person_resumes_a_stopped_session_in_its_folder() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let session = stopped_session(&app, &folder).await;
+
+    let (status, resumed) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CREATED, "{resumed}");
+    let run = &resumed["run"];
+    assert_eq!(run["kind"], "resume");
+    assert_eq!(run["folder"], folder.as_str());
+    assert_eq!(run["session"]["id"], session.as_str());
+    assert_eq!(argv(&folder).await, format!("--resume\n{session}\n"));
+
+    // a running session is not resumed twice
+    let (status, again) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{again}");
+    assert_eq!(again["error"], "already_running");
+    assert_eq!(again["run"]["id"], run["id"]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn two_resumes_at_once_start_one_run() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let session = stopped_session(&app, &folder).await;
+
+    let (first, second) = tokio::join!(
+        resume(&app, "claude-code", &session),
+        resume(&app, "claude-code", &session)
+    );
+    // the second either joins the first while it starts, or finds it running
+    for (status, answer) in [&first, &second] {
+        assert!(
+            *status == StatusCode::CREATED || *status == StatusCode::CONFLICT,
+            "{answer}"
+        );
+    }
+    assert_eq!(first.1["run"]["id"], second.1["run"]["id"]);
+    let (_, runs) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/runs?session=claude-code/{session}"),
+        None,
+    )
+    .await;
+    let resumes = runs["runs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["kind"] == "resume")
+        .count();
+    assert_eq!(resumes, 1, "{runs}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_resumed_agent_that_fails_at_once_ends_as_resume_failed() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let session = stopped_session(&app, &folder).await;
+    std::fs::write(std::path::Path::new(&folder).join("exit"), "1").unwrap();
+
+    let (status, resumed) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CREATED, "{resumed}");
+    let run = run_becomes(&app, resumed["run"]["id"].as_str().unwrap(), |r| {
+        r["state"] == "ended"
+    })
+    .await;
+    assert_eq!(run["end_reason"], "resume_failed", "{run}");
+    assert_eq!(run["exit_code"], 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_resume_that_cannot_happen_answers_with_its_reason() {
+    let app = linked().await;
+
+    // the folder is gone
+    let gone = folder(&app, "gone");
+    let session = stopped_session(&app, &gone).await;
+    std::fs::remove_dir_all(&gone).unwrap();
+    let (status, answer) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert_eq!(answer["error"], "folder_missing");
+    assert!(
+        answer["message"].as_str().unwrap().contains(&gone),
+        "{answer}"
+    );
+
+    // a session Pinrail never heard of
+    let (status, _) = resume(&app, "claude-code", "no-such-session").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // an agent Pinrail cannot resume
+    let here = folder(&app, "here");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/gemini/g-1/reports",
+        Some(
+            json!({"event": "started", "at": chrono::Utc::now().to_rfc3339(),
+                    "origin": {"folder": here}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+    let (status, answer) = resume(&app, "gemini", "g-1").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert_eq!(answer["error"], "not_resumable");
+
+    // the session runs in a terminal outside Pinrail: this test's process
+    let pid = std::process::id();
+    let started = pinrail_runtime::process::process(pid).unwrap().started;
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/c-outside/reports",
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": here}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+    let (status, answer) = resume(&app, "claude-code", "c-outside").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{answer}");
+    assert_eq!(answer["error"], "already_running");
+    assert_eq!(
+        answer["message"],
+        "This session is already running in another terminal."
+    );
+    assert!(answer["run"].is_null(), "{answer}");
+}

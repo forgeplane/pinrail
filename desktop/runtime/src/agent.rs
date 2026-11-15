@@ -44,6 +44,13 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// The command that resumes the stopped session `session`; `None` for
+    /// an agent Pinrail does not resume, or an id that is not a plain
+    /// session id (see [`resumable_id`]).
+    fn resume(&self, _session: &str) -> Option<Vec<String>> {
+        None
+    }
+
     /// Flags that turn the agent's permission checks off, which Pinrail
     /// refuses in a person's extra arguments, beside the shared list.
     fn deny_flags(&self) -> &'static [&'static str] {
@@ -79,6 +86,18 @@ pub(crate) fn push_task(argv: &mut Vec<String>, task: Option<&str>) {
         argv.push("--".to_string());
         argv.push(task.to_string());
     }
+}
+
+/// Whether `id` can be given to an agent as a session id: letters,
+/// digits, `-`, `_` and `.`, not starting with `-`. A session's id comes
+/// from its hooks' reports, so an id that an agent could read as a flag,
+/// or as more than one argument, is never passed on.
+pub fn resumable_id(id: &str) -> bool {
+    !id.is_empty()
+        && !id.starts_with('-')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
 /// Flags that turn permission checks off in more than one agent.
