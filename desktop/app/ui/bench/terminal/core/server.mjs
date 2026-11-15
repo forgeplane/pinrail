@@ -6,6 +6,8 @@
 //   the bytes), as fast as credit allows, at a byte rate, or at a
 //   recording's own timing. It also answers attach requests with a snapshot
 //   of a terminal holding 5,000 lines of history.
+// - /ws/shell connects the live page to your login shell on a PTY, for the
+//   hand checks.
 // - /ws/pty connects the page to an echo program on a real PTY, for the
 //   input probe.
 // - /api/* lets the page post results and ask the runner for process memory
@@ -262,8 +264,9 @@ export async function startCore({ port = 0, host = "127.0.0.1" } = {}) {
             ws.send(forms[format], { binary: true });
           }
         });
-      } else if (path === "/ws/pty") {
-        const child = spawn("python3", ["-u", join(here, "pty-echo.py")], { stdio: ["pipe", "pipe", "inherit"] });
+      } else if (path === "/ws/pty" || path === "/ws/shell") {
+        const args = ["-u", join(here, "pty-echo.py"), ...(path === "/ws/shell" ? ["--shell"] : [])];
+        const child = spawn("python3", args, { stdio: ["pipe", "pipe", "inherit"] });
         child.stdout.on("data", (d) => ws.readyState === 1 && ws.send(d, { binary: true }));
         ws.on("message", (d, isBinary) => isBinary && child.stdin.write(d));
         ws.on("close", () => child.kill());

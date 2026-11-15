@@ -5,7 +5,7 @@
 //   /page.html?adapter=ghostty&case=burst&item=synthetic/tui.bin&run=ID
 //
 // Cases: load, burst, stream, replay, idle, input, attach, memory, switch
-// and screen. README.md says what each measures.
+// and screen, which README.md describes, and live for the checks.
 
 import { RENDERERS } from "../../src/components/terminal/renderers";
 import type { BenchHooks, TerminalRenderer, TerminalView, ViewOptions } from "../../src/components/terminal/view";
@@ -597,6 +597,88 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const shot = await api(`snap?name=${encodeURIComponent(ITEM.replace(/\W+/g, "-"))}`);
     return { screenshot: shot.path ?? null };
   },
+};
+
+// Live: one view on a real PTY, for the input, selection and accessibility
+// checks (check.mjs) and the hand checks (live.sh). `pty=shell` runs the login shell, otherwise `cat` in
+// raw mode echoes what is typed. `sr=1` turns the screen reader mode on, and
+// `item=` writes a corpus item first. The page never posts a result: a
+// person uses it by hand, and runners/wkcheck.swift drives it through the
+// globals below.
+cases.live = async () => {
+  const view = await newView();
+  if (q.get("sr") === "1") view.setScreenReader(true);
+  const ws = new WebSocket(`ws://${location.host}/ws/${q.get("pty") === "shell" ? "shell" : "pty"}`);
+  ws.binaryType = "arraybuffer";
+  await new Promise<void>((r, j) => {
+    ws.onopen = () => r();
+    ws.onerror = () => j(new Error("pty socket failed"));
+  });
+  const panel = document.createElement("pre");
+  panel.id = "log";
+  panel.style.cssText =
+    "position:fixed;top:0;left:980px;right:0;bottom:0;margin:0;padding:8px;overflow:auto;color:#9a9a9a;font:11px Menlo,monospace;white-space:pre-wrap";
+  document.body.append(panel);
+  const note = (line: string) => {
+    panel.textContent = `${line}\n${panel.textContent ?? ""}`.slice(0, 20000);
+  };
+  const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join(" ");
+  const live = {
+    inputs: [] as { kind: string; hex: string; text: string }[],
+    selections: [] as (string | null)[],
+    links: [] as string[],
+    titles: [] as string[],
+    write: (text: string) => new Promise<void>((r) => view.write(new TextEncoder().encode(text), () => r())),
+    /** The grid's top left corner and a cell's size, in CSS pixels. */
+    grid: () => {
+      const host = document.getElementById("main")!;
+      const { cellPx } = view.measure();
+      const el = host.querySelector(".xterm-screen") ?? host.querySelector("canvas") ?? host;
+      const r = el.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: cellPx[0], h: cellPx[1] };
+    },
+    selection: () => view.selection(),
+    inputElement: () => {
+      const el = benchHooks(view).inputElement?.();
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { tag: el.tagName, x: r.left, y: r.top, w: r.width, h: r.height, focused: document.activeElement === el };
+    },
+    focus: () => view.focus(),
+  };
+  (window as unknown as { __live: typeof live }).__live = live;
+  view.onInput((bytes, kind) => {
+    const text = new TextDecoder().decode(bytes);
+    live.inputs.push({ kind, hex: hex(bytes), text });
+    note(`input ${kind}: ${hex(bytes)}  ${JSON.stringify(text)}`);
+    ws.send(bytes);
+  });
+  view.onSelectionChange((t) => {
+    live.selections.push(t);
+    note(`selection: ${t === null ? "none" : `${t.length} chars, ${t.split("\n").length} lines`}`);
+  });
+  view.onLink((uri) => {
+    live.links.push(uri);
+    note(`link: ${uri}`);
+  });
+  view.onTitle((t) => {
+    live.titles.push(t);
+    note(`title: ${t}`);
+  });
+  ws.onmessage = (m) => {
+    if (typeof m.data === "string") return;
+    view.write(new Uint8Array(m.data as ArrayBuffer), () => {});
+  };
+  if (q.has("item")) {
+    const bytes = await fetchItem(ITEM);
+    await new Promise<void>((r) => view.write(bytes, () => r()));
+  }
+  view.focus();
+  note(
+    `${ADAPTER}, ${q.get("pty") === "shell" ? "login shell" : "cat in raw mode"}${q.get("sr") === "1" ? ", screen reader on" : ""}`,
+  );
+  document.title = "ready";
+  return new Promise<never>(() => {});
 };
 
 /** Streams tui output into a second view at 2 MB/s until stopped. */

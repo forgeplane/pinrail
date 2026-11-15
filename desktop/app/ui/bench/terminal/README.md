@@ -22,8 +22,16 @@ budget fails. Pass `--no-fail` to always exit with 0.
 
 The options of `run.mjs`:
 
-- `--runners`: `webkit` (the default), Playwright's headless WebKit, or
-  `external`, which prints the URL of each case to open in another browser.
+- `--runners`: where the cases run.
+  - `webkit`, the default: Playwright's headless WebKit.
+  - `wkwebview`: macOS's system WKWebView in a real window, as the app
+    draws. The window appears at the bottom left of the screen without
+    taking focus, and keeps drawing when covered.
+  - `webkitgtk`: WebKitGTK 4.1, the library Tauri uses on Linux.
+    `runners/webkitgtk/run-in-docker.sh` runs it in the Docker image of
+    `mise run linux-desktop`, with a virtual display and software drawing,
+    so its numbers show that the path works rather than meet the budgets.
+  - `external`: prints the URL of each case, to open in another browser.
 - `--adapters`: the renderers by id, `ghostty,xterm` by default. It also
   takes `ghostty-web`, coder/ghostty-web, which the app does not register.
   The benchmark measures it beside the libghostty renderer for comparison,
@@ -60,6 +68,9 @@ load the page without the app's Content-Security-Policy.
 - `corpus/` holds the recorded sessions and the generator of the synthetic
   workloads. Its README describes each item.
 
+The input, selection and accessibility checks, and the hand checks, are in
+`checks.md`.
+
 A renderer tells the probes when it draws through the `BenchHooks` of
 `ui/src/components/terminal/view.ts`. Both renderers implement them.
 
@@ -86,7 +97,8 @@ core over WebSockets, as the window talks to Pinrail's core.
 - Frame times are the gaps between animation frames. WebKit has no Long
   Tasks API, so a long task shows only as a long frame.
 - Headless WebKit is not tied to a display and draws at a device pixel ratio
-  of 1.
+  of 1. The WKWebView runner draws at the screen's ratio, 2 on a Retina
+  display, so its canvas has four times the pixels.
 - WebKit rounds `performance.now()` to 1 ms, so the parts of the input
   latency under a millisecond show as 0 or 1.
 - Process memory is the resident size of the web content process. GPU

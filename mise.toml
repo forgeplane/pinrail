@@ -81,6 +81,12 @@ dir = "{{config_root}}/desktop/app"
 depends = ["ghostty:wasm"]
 run = "node ui/bench/terminal/run.mjs"
 
+[tasks."check:terminal"]
+description = "Window terminal renderers: the input, selection and accessibility checks in the system WKWebView (macOS); the window takes focus"
+dir = "{{config_root}}/desktop/app"
+depends = ["ghostty:wasm"]
+run = "node ui/bench/terminal/check.mjs"
+
 [tasks."dev:desktop"]
 description = "Desktop app with the UI dev server and live reload, and the current terminal host"
 dir = "{{config_root}}/desktop/app"

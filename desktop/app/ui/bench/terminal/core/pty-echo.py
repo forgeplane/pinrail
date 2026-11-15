@@ -4,16 +4,29 @@
 Bytes on stdin go to the PTY; `cat` writes them back, as a TUI in raw mode
 echoes what is typed; the PTY's output goes to stdout. The fake core relays
 both ends to the page over its WebSocket.
+
+With `--shell`, it runs your login shell on a 120x40 PTY instead, for the
+hand checks of the live page.
 """
 
 import os
 import pty
 import select
 import sys
+import fcntl
+import struct
+import termios
 import tty
+
+SHELL = "--shell" in sys.argv
 
 pid, fd = pty.fork()
 if pid == 0:
+    if SHELL:
+        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+        os.environ["TERM"] = "xterm-256color"
+        shell = os.environ.get("SHELL", "/bin/zsh")
+        os.execvp(shell, [shell, "-l"])
     tty.setraw(0)
     os.execvp("cat", ["cat"])
 

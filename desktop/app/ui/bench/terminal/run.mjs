@@ -9,12 +9,15 @@
 // --adapters also takes ghostty-web, a renderer the app does not register,
 // measured for comparison (adapters/ghostty-web.ts).
 //
-// Runners: webkit is Playwright's headless WebKit; external prints the URL
-// of each case, to open in any other browser.
+// Runners: webkit is Playwright's headless WebKit; wkwebview is macOS's
+// system WKWebView in a window, as the app draws (runners/wkwebview.swift,
+// compiled on first use); webkitgtk is WebKitGTK on Linux (see
+// runners/webkitgtk/); external prints the URL of each case, to open in any
+// other browser.
 
 import { webkit } from "playwright";
-import { execSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { execSync, spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
@@ -158,6 +161,108 @@ const webkitRunner = {
   },
 };
 
+function buildWkRunner() {
+  const src = join(here, "runners", "wkwebview.swift");
+  const bin = join(here, ".cache", "wkwebview-runner");
+  if (!existsSync(bin) || statSync(bin).mtimeMs < statSync(src).mtimeMs) {
+    mkdirSync(dirname(bin), { recursive: true });
+    console.error("compiling the WKWebView runner…");
+    const r = spawnSync("swiftc", ["-O", src, "-o", bin], { stdio: "inherit" });
+    if (r.status !== 0) throw new Error("swiftc failed");
+  }
+  return bin;
+}
+
+const wkRunner = {
+  name: "wkwebview",
+  async run(c, adapter) {
+    const bin = buildWkRunner();
+    const id = `r${++runSeq}`;
+    const child = spawn(bin, [caseUrl(c, adapter, id), String(VIEWPORT.width), String(VIEWPORT.height)], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    let pid = null;
+    const waiting = new Map();
+    let buf = "";
+    child.stdout.on("data", (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        const [word, ...rest] = line.split(" ");
+        if (word === "pid") pid = Number(rest[0]);
+        else if (word === "snapped") waiting.get(rest.join(" "))?.();
+      }
+    });
+    const done = awaitResult(
+      id,
+      {
+        sample: async () => (pid ? Number(execSync(`ps -o rss= -p ${pid}`).toString().trim()) / 1024 : null),
+        snap: async (name) => {
+          mkdirSync(shotsDir, { recursive: true });
+          const path = join(shotsDir, `wkwebview-${adapter}-${name}.png`);
+          await new Promise((resolve) => {
+            waiting.set(path, resolve);
+            child.stdin.write(`snap ${path}\n`);
+            setTimeout(resolve, 10000);
+          });
+          return path;
+        },
+      },
+      180000,
+    );
+    const r = await done;
+    child.kill();
+    return r;
+  },
+};
+
+// WebKitGTK on Linux: runners/webkitgtk/runner.c, built by the caller (see
+// runners/webkitgtk/run-in-docker.sh) and named by WEBKITGTK_RUNNER.
+const gtkRunner = {
+  name: "webkitgtk",
+  async run(c, adapter) {
+    const bin = process.env.WEBKITGTK_RUNNER;
+    if (!bin) throw new Error("set WEBKITGTK_RUNNER to the built runners/webkitgtk/runner.c");
+    const id = `r${++runSeq}`;
+    const child = spawn(bin, [caseUrl(c, adapter, id), String(VIEWPORT.width), String(VIEWPORT.height)], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    const waiting = new Map();
+    let buf = "";
+    child.stdout.on("data", (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const [word, ...rest] = buf.slice(0, i).split(" ");
+        buf = buf.slice(i + 1);
+        if (word === "snapped") waiting.get(rest.join(" "))?.();
+      }
+    });
+    const done = awaitResult(
+      id,
+      {
+        sample: async () => rssMiB((l) => l.includes("WebKitWebProcess")),
+        snap: async (name) => {
+          mkdirSync(shotsDir, { recursive: true });
+          const path = join(shotsDir, `webkitgtk-${adapter}-${name}.png`);
+          await new Promise((resolve) => {
+            waiting.set(path, resolve);
+            child.stdin.write(`snap ${path}\n`);
+            setTimeout(resolve, 10000);
+          });
+          return path;
+        },
+      },
+      240000,
+    );
+    const r = await done;
+    child.kill();
+    return r;
+  },
+};
+
 const externalRunner = {
   name: "external",
   async run(c, adapter) {
@@ -170,6 +275,8 @@ const externalRunner = {
 
 const RUNNER_IMPLS = {
   webkit: webkitRunner,
+  wkwebview: wkRunner,
+  webkitgtk: gtkRunner,
   external: externalRunner,
 };
 
