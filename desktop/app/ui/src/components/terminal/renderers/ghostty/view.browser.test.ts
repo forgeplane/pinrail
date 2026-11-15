@@ -60,3 +60,35 @@ test("output is drawn in the frame that parses it", async () => {
   view.dispose();
   host.remove();
 });
+
+test("the echo of a key is drawn before the write returns", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  hooks.onFrameDrawn(() => drawn++);
+  let consumed = false;
+  // output with no key before it waits for the next frame
+  view.write(new TextEncoder().encode("$ "), () => (consumed = true));
+  expect([consumed, drawn]).toEqual([false, 0]);
+  await new Promise((r) => requestAnimationFrame(r));
+  expect(consumed).toBe(true);
+  drawn = 0;
+  view.onInput((bytes) => view.write(bytes, () => {}));
+  hooks
+    .inputElement()!
+    .dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", bubbles: true, cancelable: true }));
+  expect(drawn).toBe(1);
+  view.dispose();
+  host.remove();
+});

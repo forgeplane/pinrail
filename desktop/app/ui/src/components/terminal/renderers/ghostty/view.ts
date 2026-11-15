@@ -145,7 +145,11 @@ class GhosttyView implements TerminalView, BenchHooks {
   }
 
   private input(bytes: Uint8Array, kind: InputKind) {
-    if (kind === "key") this.mirror?.mirror.typed(decoder.decode(bytes));
+    if (kind === "key") {
+      // its echo is drawn without waiting for a frame, and not announced
+      this.queue.typed();
+      this.mirror?.mirror.typed(decoder.decode(bytes));
+    }
     this.inputs.forEach((l) => l(bytes, kind));
   }
 

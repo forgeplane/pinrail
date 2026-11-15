@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { FRAME_BUDGET_MS, PIECE, SYNC_LIMIT_MS, WriteQueue, type Clock, type Parser } from "./queue";
+import {
+  ECHO_BYTES,
+  ECHO_MS,
+  FRAME_BUDGET_MS,
+  PIECE,
+  SYNC_LIMIT_MS,
+  WriteQueue,
+  type Clock,
+  type Parser,
+} from "./queue";
 
 /** A clock the test moves: frames run when it says, and parsing a piece
  *  takes `perPiece` ms. */
@@ -120,5 +129,51 @@ describe("the write queue", () => {
     frame();
     expect(pieces).toEqual([]);
     expect(late).toBe(false);
+  });
+});
+
+describe("the echo of what the person typed", () => {
+  test("is parsed and drawn at once, without waiting for a frame", () => {
+    const { queue, pieces, seen } = rig();
+    const credited: number[] = [];
+    queue.typed();
+    queue.write(new Uint8Array(1), () => credited.push(1));
+    expect(pieces).toEqual([1]);
+    expect(credited).toEqual([1]);
+    expect(seen).toEqual(["draw"]);
+  });
+
+  test("waits for a frame when nothing was typed", () => {
+    const { queue, pieces, frame } = rig();
+    queue.write(new Uint8Array(1), () => {});
+    expect(pieces).toEqual([]);
+    frame();
+    expect(pieces).toEqual([1]);
+  });
+
+  test("waits behind output already queued, so nothing is reordered", () => {
+    const { queue, pieces, frame } = rig();
+    queue.write(new Uint8Array(100), () => {});
+    queue.typed();
+    queue.write(new Uint8Array(1), () => {});
+    expect(pieces).toEqual([]);
+    frame();
+    expect(pieces).toEqual([100, 1]);
+  });
+
+  test("covers only a little output, soon after the key", () => {
+    const { queue, pieces, frame, advance } = rig();
+    queue.typed();
+    queue.write(new Uint8Array(ECHO_BYTES), () => {});
+    // the budget is spent: more output waits for a frame
+    queue.write(new Uint8Array(1), () => {});
+    expect(pieces).toEqual([ECHO_BYTES]);
+    frame();
+    queue.typed();
+    advance(ECHO_MS);
+    queue.write(new Uint8Array(1), () => {});
+    expect(pieces).toEqual([ECHO_BYTES, 1]);
+    frame();
+    expect(pieces).toEqual([ECHO_BYTES, 1, 1]);
   });
 });

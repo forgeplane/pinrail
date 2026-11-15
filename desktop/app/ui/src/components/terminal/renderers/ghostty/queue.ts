@@ -3,7 +3,9 @@
 // and each write's bytes are credited back once they are parsed, as the
 // core's flow control expects (runtime spec 8.3). While the program holds
 // its output in synchronized mode (2026), drawing waits for it, for at most
-// 150 ms. A changed title or working folder is reported once.
+// 150 ms. A changed title or working folder is reported once. The echo
+// of what the person typed is parsed and drawn at once, without waiting
+// for a frame, when nothing else waits.
 
 /** What the queue needs of the terminal it feeds. */
 export interface Parser {
@@ -35,6 +37,10 @@ export const PIECE = 32 * 1024;
 export const FRAME_BUDGET_MS = 6;
 /** The longest drawing waits for synchronized output to end. */
 export const SYNC_LIMIT_MS = 150;
+/** How long after a key its echo is drawn at once. */
+export const ECHO_MS = 250;
+/** How much output after a key is drawn at once, at most. */
+export const ECHO_BYTES = 16 * 1024;
 
 const browserClock: Clock = {
   frame: (run) => requestAnimationFrame(() => run()),
@@ -53,6 +59,9 @@ export class WriteQueue {
   private lastTitle = "";
   private lastPwd = "";
   private stopped = false;
+  /** Until when, and how many more bytes, output is parsed at once. */
+  private echoUntil = -Infinity;
+  private echoBytes = 0;
 
   constructor(
     private readonly parser: Parser,
@@ -67,8 +76,29 @@ export class WriteQueue {
       consumed();
       return;
     }
+    if (this.isEcho(bytes)) {
+      this.echoBytes -= bytes.length;
+      this.parser.write(bytes);
+      consumed();
+      this.report();
+      this.drawWhenReady();
+      return;
+    }
     this.pending.push({ bytes, at: 0, consumed });
     this.schedule();
+  }
+
+  /** The person typed: the output that follows soon after, a little of
+   *  it, is likely the echo, and is parsed and drawn at once. */
+  typed(): void {
+    this.echoUntil = this.clock.now() + ECHO_MS;
+    this.echoBytes = ECHO_BYTES;
+  }
+
+  /** Output to parse at once: soon after a key, within the echo's bytes,
+   *  and with nothing waiting before it. */
+  private isEcho(bytes: Uint8Array): boolean {
+    return this.pending.length === 0 && this.clock.now() < this.echoUntil && bytes.length <= this.echoBytes;
   }
 
   /** Bytes still waiting to be parsed. */
