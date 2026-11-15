@@ -3984,6 +3984,43 @@ fn items_show_prints_what_an_agent_needs_including_a_dependencys_closing_comment
 }
 
 #[test]
+fn items_show_prints_several_items_one_after_another() {
+    let (server, _) = items_server(|_, path| {
+        let (key, title, body) = if path.starts_with("/api/v1/items/PIN-1") {
+            ("PIN-1", "Load themes", "Read the theme files.")
+        } else {
+            ("PIN-2", "Pick a theme", "A picker in Settings.")
+        };
+        (
+            200,
+            work_item(key, title, serde_json::json!({ "body": body })),
+        )
+    });
+    let (code, out, err) = items_run(&server, &["items", "show", "PIN-1", "PIN-2"]);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "PIN-1 Load themes\n\
+         open · ready · forgeplane/pinrail\n\
+         \n## Description\nRead the theme files.\n\
+         \n---\n\n\
+         PIN-2 Pick a theme\n\
+         open · ready · forgeplane/pinrail\n\
+         \n## Description\nA picker in Settings.\n"
+    );
+    // as JSON, a list of them
+    let (code, out, _) = items_run(&server, &["--json", "items", "show", "PIN-1", "PIN-2"]);
+    assert_eq!(code, 0);
+    let items: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(items[0]["key"], "PIN-1");
+    assert_eq!(items[1]["key"], "PIN-2");
+    // one item stays one object
+    let (_, out, _) = items_run(&server, &["--json", "items", "show", "PIN-1"]);
+    let item: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(item["key"], "PIN-1");
+}
+
+#[test]
 fn items_edit_turns_each_flag_into_the_change() {
     let (server, sent) = items_server(|_, _| {
         let item = work_item("PIN-5", "Renamed", serde_json::json!({}));

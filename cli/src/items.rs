@@ -54,8 +54,8 @@ enum ItemsCommand {
     /// the reviews and questions the session sends belong to it.
     #[command(verbatim_doc_comment)]
     Next(NextArgs),
-    /// Print a work item: its description, what it depends on and blocks,
-    /// its sub-items, reviews, comments and sessions
+    /// Print work items: each one's description, what it depends on and
+    /// blocks, its sub-items, reviews, comments and sessions
     ///
     /// Its files, and those of its comments, are saved under their own names
     /// in a folder in the system's temporary folder, and listed with their
@@ -163,8 +163,9 @@ struct NextArgs {
 
 #[derive(Args, Debug)]
 struct ShowArgs {
-    /// The item: its key, such as PIN-42, or its number in the checkout
-    item: String,
+    /// The items: each a key, such as PIN-42, or a number in the checkout
+    #[arg(required = true, num_args = 1.., value_name = "ITEM")]
+    items: Vec<String>,
     #[command(flatten)]
     common: Common,
 }
@@ -312,10 +313,22 @@ pub fn run(client: &Client, args: ItemsArgs, output: Output) -> Result<u8> {
         ItemsCommand::Next(args) => next(client, args, output),
         ItemsCommand::Show(args) => {
             let cx = Scope::of(&args.common);
-            let mut item = client.get(&cx.path(&args.item, ""), &[])?;
-            save_files(client, &mut item);
-            let markdown = show(client, &item);
-            output.data(&item, |_| markdown);
+            let mut items = Vec::new();
+            let mut pages = Vec::new();
+            for key in &args.items {
+                let mut item = client.get(&cx.path(key, ""), &[])?;
+                save_files(client, &mut item);
+                pages.push(show(client, &item));
+                items.push(item);
+            }
+            let markdown = pages.join("\n---\n\n");
+            // one item as an object, several as a list
+            let data = if items.len() == 1 {
+                items.remove(0)
+            } else {
+                Value::Array(items)
+            };
+            output.data(&data, |_| markdown);
             Ok(0)
         }
         ItemsCommand::Edit(args) => edit(client, args, output),
