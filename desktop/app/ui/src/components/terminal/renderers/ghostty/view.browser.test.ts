@@ -4,7 +4,8 @@ import snapshotUrl from "../../testing/ghostty-snapshot.bin?url";
 import host from "../../testing/ghostty-snapshot.json";
 import { GhosttyCore } from "./core";
 import { GhosttyRuntime } from "./runtime";
-import { BINARY_FORMAT } from "./view";
+import type { BenchHooks } from "../../view";
+import { BINARY_FORMAT, ghosttyRenderer } from "./view";
 
 test("a snapshot the host wrote shows the host's screen, history and title", async () => {
   expect(host.format).toBe(BINARY_FORMAT);
@@ -20,4 +21,42 @@ test("a snapshot the host wrote shows the host's screen, history and title", asy
   expect(lines.slice(retained).join("\n").trimEnd()).toBe(host.screen.trimEnd());
   expect(core.title()).toBe(host.title);
   core.dispose();
+});
+
+test("output is drawn in the frame that parses it", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  // let the first draw after mounting pass
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let frame = 0;
+  let counting = true;
+  const tick = () => {
+    frame++;
+    if (counting) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  const hooks = view as unknown as BenchHooks;
+  for (const echo of ["a", "b", "c"]) {
+    let parsedIn = -1;
+    const drawnIn = new Promise<number>((resolve) => {
+      const off = hooks.onFrameDrawn(() => {
+        off();
+        resolve(frame);
+      });
+    });
+    view.write(new TextEncoder().encode(echo), () => (parsedIn = frame));
+    expect(await drawnIn).toBe(parsedIn);
+  }
+  counting = false;
+  view.dispose();
+  host.remove();
 });

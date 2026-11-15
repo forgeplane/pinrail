@@ -137,7 +137,9 @@ class GhosttyView implements TerminalView, BenchHooks {
 
   private newQueue() {
     return new WriteQueue(this.core, {
-      draw: () => this.schedule(),
+      // the queue parses in an animation frame, and the screen is drawn in
+      // the same one, so an echo shows a frame sooner
+      draw: () => this.draw(),
       title: (title) => this.titles.forEach((l) => l(title)),
     });
   }
