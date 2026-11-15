@@ -87,7 +87,7 @@ jobs:
       - name: Benchmark
         working-directory: desktop/app
         run: |
-          args=(--cases "load,burst,stream,idle,input,attach,memory,switch" --repeat 3
+          args=(--cases "load,burst,stream,idle,input,attach,memory,switch,agents" --repeat 3
             --skip-budgets --write-baseline ../../bench-terminal-results.json)
           if [ -f ../../bench-terminal-baseline.json ]; then
             args+=(--baseline ../../bench-terminal-baseline.json)

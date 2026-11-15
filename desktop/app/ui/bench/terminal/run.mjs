@@ -69,6 +69,7 @@ function allCases() {
     { case: "attach", snapshot: "history-5000-styled" },
     { case: "memory" },
     { case: "switch" },
+    { case: "agents" },
     ...recordings.map((item) => ({ case: "replay", item })),
     { case: "replay", item: "synthetic/trickle.cast" },
     { case: "screen", item: "synthetic/unicode.bin" },
@@ -108,6 +109,22 @@ function rssMiB(match) {
     .filter(match)
     .reduce((a, l) => a + Number(l.trim().split(/\s+/)[1]) / 1024, 0);
   return sum || null;
+}
+
+/** The CPU time the matching processes have used, in seconds, or null. */
+function cpuSeconds(match) {
+  const out = execSync("ps -axo pid=,time=,command=", { maxBuffer: 1 << 24 }).toString();
+  const sum = out
+    .split("\n")
+    .filter(match)
+    .reduce((a, l) => a + clock(l.trim().split(/\s+/)[1]), 0);
+  return sum || null;
+}
+
+/** `ps`'s CPU time, `[[dd-]hh:]mm:ss.ss`, in seconds. */
+function clock(text) {
+  const [days, rest] = text.includes("-") ? text.split("-") : ["0", text];
+  return Number(days) * 86400 + rest.split(":").reduce((a, part) => a * 60 + Number(part), 0);
 }
 
 // ----------------------------------------------------------------- runners
@@ -155,6 +172,7 @@ const webkitRunner = {
       id,
       {
         sample: async () => rssMiB((l) => l.includes("ms-playwright/webkit") && l.includes("WebContent")),
+        cpu: async () => cpuSeconds((l) => l.includes("ms-playwright/webkit") && l.includes("WebContent")),
         snap: async (name) => {
           mkdirSync(shotsDir, { recursive: true });
           const path = join(shotsDir, `webkit-${adapter}-${name}.png`);
@@ -210,6 +228,7 @@ const wkRunner = {
       id,
       {
         sample: async () => (pid ? Number(execSync(`ps -o rss= -p ${pid}`).toString().trim()) / 1024 : null),
+        cpu: async () => (pid ? clock(execSync(`ps -o time= -p ${pid}`).toString().trim()) : null),
         snap: async (name) => {
           mkdirSync(shotsDir, { recursive: true });
           const path = join(shotsDir, `wkwebview-${adapter}-${name}.png`);
@@ -255,6 +274,7 @@ const gtkRunner = {
       id,
       {
         sample: async () => rssMiB((l) => l.includes("WebKitWebProcess")),
+        cpu: async () => cpuSeconds((l) => l.includes("WebKitWebProcess")),
         snap: async (name) => {
           mkdirSync(shotsDir, { recursive: true });
           const path = join(shotsDir, `webkitgtk-${adapter}-${name}.png`);

@@ -27,7 +27,13 @@ export const MEASURES = [
   ["attach_styled_ms", (r) => find(r, "attach", null, { snapshot: "history-5000-styled" })?.attachMs, "ms", 30],
   ["switch_max_ms", (r) => find(r, "switch")?.switchMs?.max, "ms", 17],
   ["memory_mib", (r) => find(r, "memory")?.perTerminalRssMiB, "MiB", 3],
+  ["agents_draws_per_s", (r) => agentDraws(find(r, "agents")), "draws/s", 5],
+  ["agents_cpu_percent", (r) => find(r, "agents")?.cpuPercent, "%", 10],
 ];
+
+function agentDraws(agents) {
+  return agents ? agents.shownDrawsPerSecond + agents.hiddenDrawsPerSecond : undefined;
+}
 
 function drawnPerSecond(idle) {
   return idle ? (idle.drawnPerSecond ?? idle.animationFrameRequestsPerSecond) : undefined;

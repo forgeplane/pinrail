@@ -183,7 +183,8 @@ function replay(ws, msg) {
 
 // ------------------------------------------------------------------- server
 
-/** Per-run hooks the runner registers: memory samples, screenshots, results. */
+/** Per-run hooks the runner registers: memory and CPU samples,
+ *  screenshots, results. */
 const runs = new Map();
 
 export function registerRun(id, hooks) {
@@ -216,6 +217,7 @@ export async function startCore({ port = 0, host = "127.0.0.1" } = {}) {
         }
         if (path === "/api/sample")
           return reply({ rssMiB: (await run?.sample?.(url.searchParams.get("label"))) ?? null });
+        if (path === "/api/cpu") return reply({ cpuSeconds: (await run?.cpu?.()) ?? null });
         if (path === "/api/snap") return reply({ path: (await run?.snap?.(url.searchParams.get("name"))) ?? null });
         res.writeHead(404);
         return res.end();

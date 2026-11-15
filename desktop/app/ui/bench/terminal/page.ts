@@ -4,8 +4,8 @@
 //
 //   /page.html?adapter=ghostty&case=burst&item=synthetic/tui.bin&run=ID
 //
-// Cases: load, burst, stream, replay, idle, input, attach, memory, switch
-// and screen, which README.md describes, and live for the checks.
+// Cases: load, burst, stream, replay, idle, input, attach, memory, switch,
+// agents and screen, which README.md describes, and live for the checks.
 
 import { RENDERERS } from "../../src/components/terminal/renderers";
 import type { BenchHooks, TerminalRenderer, TerminalView, ViewOptions } from "../../src/components/terminal/view";
@@ -602,6 +602,49 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
       await sleep(200);
     }
     return { switchMs: stats(times), drewWhileHidden, staleAfterShow };
+  },
+
+  // Agents: several terminals stream agent output at once, as agents in
+  // several sessions do, while only one is shown. The others are kept as
+  // the window's pool keeps them: mounted, then taken out of the page.
+  async agents() {
+    const n = num("agents", 8);
+    const rate = num("rate", 50_000);
+    const seconds = num("seconds", 10);
+    const views: TerminalView[] = [];
+    for (let i = 0; i < n; i++) {
+      const host = i === 0 ? hostElement("main") : document.body.appendChild(document.createElement("div"));
+      host.className = "host";
+      host.style.display = "block";
+      const view = renderer.create();
+      await view.mount(host, OPTIONS);
+      if (i > 0) host.remove();
+      views.push(view);
+    }
+    lastView = views[0]!;
+    await nextDrawn(views[0]!, 300);
+    const drawn = views.map(() => 0);
+    const offs = views.map((v, i) => benchHooks(v).onFrameDrawn?.(() => drawn[i]!++));
+    const stop = frameRecorder();
+    const cpu0 = (await api("cpu")).cpuSeconds as number | null;
+    const t0 = performance.now();
+    const played = await Promise.all(views.map((v) => play(v, { item: ITEM, mode: "rate", rate, seconds })));
+    await drawnAfterParse(views[0]!);
+    const elapsed = (performance.now() - t0) / 1000;
+    const cpu1 = (await api("cpu")).cpuSeconds as number | null;
+    const frames = stop();
+    offs.forEach((off) => off?.());
+    const hooked = offs.every(Boolean);
+    return {
+      agents: n,
+      rate,
+      seconds: elapsed,
+      bytes: played.reduce((a, p) => a + p.bytes, 0),
+      shownDrawsPerSecond: hooked ? drawn[0]! / elapsed : null,
+      hiddenDrawsPerSecond: hooked ? drawn.slice(1).reduce((a, b) => a + b, 0) / elapsed : null,
+      cpuPercent: cpu0 !== null && cpu1 !== null ? ((cpu1 - cpu0) / elapsed) * 100 : null,
+      frames,
+    };
   },
 
   // Screen: an item drawn for a screenshot, for correctness by eye.
