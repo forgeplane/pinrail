@@ -3,6 +3,7 @@ import {
   ECHO_BYTES,
   ECHO_MS,
   FRAME_BUDGET_MS,
+  FRAME_WAIT_MS,
   PIECE,
   SYNC_LIMIT_MS,
   WriteQueue,
@@ -54,7 +55,9 @@ function rig({ perPiece = 1, sync = () => false }: { perPiece?: number; sync?: (
     /** Moves time on, running the timers that fall due. */
     advance: (ms: number) => {
       time += ms;
-      for (const t of timers.splice(0).filter((t) => t.at <= time)) t.run();
+      const due = timers.filter((t) => t.at <= time);
+      timers.splice(0, timers.length, ...timers.filter((t) => t.at > time));
+      for (const t of due) t.run();
     },
   };
 }
@@ -175,5 +178,33 @@ describe("the echo of what the person typed", () => {
     expect(pieces).toEqual([ECHO_BYTES, 1]);
     frame();
     expect(pieces).toEqual([ECHO_BYTES, 1, 1]);
+  });
+});
+
+describe("without animation frames", () => {
+  test("parses output and returns its credit when no frame comes", () => {
+    const { queue, pieces, advance } = rig();
+    let consumed = false;
+    queue.write(new Uint8Array(100), () => (consumed = true));
+    advance(FRAME_WAIT_MS);
+    expect(pieces).toEqual([100]);
+    expect(consumed).toBe(true);
+  });
+
+  test("parses a long write a piece at a time, a budget per wait", () => {
+    const { queue, pieces, advance } = rig({ perPiece: FRAME_BUDGET_MS });
+    queue.write(new Uint8Array(PIECE * 2), () => {});
+    advance(FRAME_WAIT_MS);
+    expect(pieces).toEqual([PIECE]);
+    advance(FRAME_WAIT_MS);
+    expect(pieces).toEqual([PIECE, PIECE]);
+  });
+
+  test("parses once when the frame comes after all", () => {
+    const { queue, pieces, frame, advance } = rig();
+    queue.write(new Uint8Array(100), () => {});
+    frame();
+    advance(FRAME_WAIT_MS);
+    expect(pieces).toEqual([100]);
   });
 });

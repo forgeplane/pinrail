@@ -5,7 +5,9 @@
 // its output in synchronized mode (2026), drawing waits for it, for at most
 // 150 ms. A changed title or working folder is reported once. The echo
 // of what the person typed is parsed and drawn at once, without waiting
-// for a frame, when nothing else waits.
+// for a frame, when nothing else waits. WebKit gives a covered or
+// minimized window no frames, so output also parses on a timer when no
+// frame comes, and the core keeps receiving credit.
 
 /** What the queue needs of the terminal it feeds. */
 export interface Parser {
@@ -35,6 +37,8 @@ export interface Clock {
 export const PIECE = 32 * 1024;
 /** The most time spent parsing in one frame. */
 export const FRAME_BUDGET_MS = 6;
+/** How long the queue waits for a frame before it parses without one. */
+export const FRAME_WAIT_MS = 50;
 /** The longest drawing waits for synchronized output to end. */
 export const SYNC_LIMIT_MS = 150;
 /** How long after a key its echo is drawn at once. */
@@ -52,7 +56,8 @@ type Pending = { bytes: Uint8Array; at: number; consumed: () => void };
 
 export class WriteQueue {
   private pending: Pending[] = [];
-  private scheduled = false;
+  /** The pending frame or timer, whichever runs first; null when none. */
+  private scheduled: object | null = null;
   /** When the program began holding its output, if it does. */
   private syncSince: number | null = null;
   private syncTimer = false;
@@ -115,11 +120,15 @@ export class WriteQueue {
 
   private schedule() {
     if (this.scheduled || this.stopped) return;
-    this.scheduled = true;
-    this.clock.frame(() => {
-      this.scheduled = false;
+    const token = {};
+    this.scheduled = token;
+    const go = () => {
+      if (this.scheduled !== token) return;
+      this.scheduled = null;
       this.run();
-    });
+    };
+    this.clock.frame(go);
+    this.clock.later(go, FRAME_WAIT_MS);
   }
 
   private run() {
