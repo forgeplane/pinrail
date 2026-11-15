@@ -101,6 +101,39 @@ test("streaming output is drawn about 30 times a second, and all of it", async (
   host.remove();
 });
 
+test("output that changes nothing on screen, such as a new title, is not drawn", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise<void>((r) => view.write(new TextEncoder().encode("$ "), r));
+  await new Promise((r) => setTimeout(r, 100));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  hooks.onFrameDrawn(() => drawn++);
+  const titles: string[] = [];
+  view.onTitle((t) => titles.push(t));
+  for (const spin of "⠋⠙⠹⠸⠼") {
+    await new Promise<void>((r) => view.write(new TextEncoder().encode(`\x1b]2;${spin} Working\x07`), r));
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  expect(titles).toHaveLength(5);
+  expect(drawn).toBe(0);
+  // output that shows is drawn
+  await new Promise<void>((r) => view.write(new TextEncoder().encode("ls"), r));
+  await new Promise((r) => setTimeout(r, 100));
+  expect(drawn).toBe(1);
+  view.dispose();
+  host.remove();
+});
+
 test("the echo of a key is drawn before the write returns", async () => {
   const host = document.createElement("div");
   host.style.cssText = "width: 400px; height: 200px; position: relative";

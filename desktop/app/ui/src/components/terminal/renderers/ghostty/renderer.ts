@@ -135,6 +135,8 @@ export class CanvasRenderer {
   /** Find's matches in view, a mask of columns per row. */
   private matches = new Map<number, Uint8Array>();
   private findColour: GhosttyColor = { r: 120, g: 90, b: 0 };
+  /** The cursor as last placed, to tell whether it moved. */
+  private cursorKey = "";
 
   constructor(
     host: HTMLElement,
@@ -244,6 +246,20 @@ export class CanvasRenderer {
   /** Draws every row on the next draw, as after a selection changes. */
   invalidate() {
     this.drawn = 0;
+  }
+
+  /** Whether drawing `snapshot` would change what is shown: a row or the
+   *  cursor changed, rows wait to be drawn again, or the grid or the
+   *  pixel ratio changed. */
+  changes(snapshot: GhosttySnapshot, focused: boolean): boolean {
+    return (
+      snapshot.dirtyRows.size > 0 ||
+      this.stale.size > 0 ||
+      this.drawn !== snapshot.rows ||
+      this.cols !== snapshot.cols ||
+      this.ratio !== (window.devicePixelRatio || 1) ||
+      this.cursorKey !== cursorKeyOf(snapshot, focused)
+    );
   }
 
   /** Draws the rows of `snapshot` that changed, or all of them after a
@@ -384,6 +400,7 @@ export class CanvasRenderer {
   /** The cursor element: a block, bar or underline over its cell, hollow
    *  when the terminal does not have the keyboard, blinking by CSS. */
   private placeCursor(snapshot: GhosttySnapshot, focused: boolean) {
+    this.cursorKey = cursorKeyOf(snapshot, focused);
     const el = this.cursor;
     const show = snapshot.cursorVisible && snapshot.cursorY >= 0 && snapshot.cursorX >= 0;
     el.hidden = !show;
@@ -409,6 +426,11 @@ export class CanvasRenderer {
     this.canvas.remove();
     this.cursor.remove();
   }
+}
+
+/** What the cursor's look depends on, as text. */
+function cursorKeyOf(s: GhosttySnapshot, focused: boolean): string {
+  return `${s.cursorX},${s.cursorY},${s.cursorVisible},${s.cursorStyle},${s.cursorBlinking},${css(s.cursor)},${focused}`;
 }
 
 /** The frame clock all of a window's terminals share: one animation frame

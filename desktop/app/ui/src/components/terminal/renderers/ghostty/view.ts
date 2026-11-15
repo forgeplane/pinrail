@@ -236,6 +236,11 @@ class GhosttyView implements TerminalView, BenchHooks {
     const snapshot = this.core.snapshot();
     this.snapshot = snapshot;
     this.renderer.setMatches(this.finder.matchesInView());
+    // output that changed nothing shown, such as a spinning title
+    if (!this.renderer.changes(snapshot, this.focused)) {
+      this.drawing += performance.now() - started;
+      return;
+    }
     this.renderer.draw(snapshot, this.focused);
     const { width, height } = this.renderer.cell;
     this.keyboard.moveTo(snapshot.cursorX * width, snapshot.cursorY * height, height);
