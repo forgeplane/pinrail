@@ -1082,3 +1082,21 @@ async fn a_new_app_takes_statuses() {
     let (code, body) = status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
     assert!(code.is_success(), "{body}");
 }
+
+#[tokio::test]
+async fn a_session_says_how_its_agent_can_be_resumed() {
+    let app = app();
+    for (agent, resume, while_running) in [
+        ("claude-code", true, true),
+        ("codex", true, false),
+        ("gemini", false, false),
+    ] {
+        status(&app, agent, "s-1", json!({"text": "Working"})).await;
+        let (_, thread) = call(&app, "GET", &format!("/api/v1/sessions/{agent}/s-1"), None).await;
+        assert_eq!(
+            thread["session"]["resume"],
+            json!({"resume": resume, "while_running": while_running}),
+            "{agent}"
+        );
+    }
+}

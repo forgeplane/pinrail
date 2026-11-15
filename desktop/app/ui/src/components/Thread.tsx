@@ -13,11 +13,11 @@ import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
 import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
-import { ResumeButton, StopButton } from "./session/RunControls";
+import { OpenInPinrail, ResumeButton, StopButton } from "./session/RunControls";
 import { OutsideRun } from "./session/OutsideRun";
 import { runtime } from "../api/runtime";
 import { sessionGrid } from "./session/startRun";
-import { canResume, resumeProblem } from "../lib/resume";
+import { canOpenWhileRunning, canResume, resumeProblem } from "../lib/resume";
 import { stateOf } from "../lib/sidebarSessions";
 import { isStopKey } from "../lib/terminalKeys";
 import { TerminalPane } from "./terminal/TerminalPane";
@@ -194,21 +194,24 @@ export function Thread({
   const terminal = live?.terminal ?? null;
   // a stopped session can be resumed in Pinrail, also one that ran outside it
   const resumable = onPage && prefs.labs.runtime && canResume(session, runs);
-  const ranOutside = resumable && runs.length === 0;
+  // one still running in another terminal can be opened here, after a warning
+  const openable = onPage && prefs.labs.runtime && canOpenWhileRunning(session, runs);
+  const [askingOpen, setAskingOpen] = useState(false);
+  const outside = openable || (resumable && runs.length === 0);
   // a run that ended shows how in the terminal's place
-  const hasTerminalView = !!terminal || !!failed || !!ended || ranOutside;
+  const hasTerminalView = !!terminal || !!failed || !!ended || outside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   const [resuming, setResuming] = useState(false);
   // why the last resume did not happen, for the session it was of
   const sessionKey = named ? `${named.agent}/${named.id}` : null;
   const [resumeFailure, setResumeFailure] = useState<{ key: string | null; message: string } | null>(null);
   const resumeError = resumeFailure?.key === sessionKey ? resumeFailure.message : null;
-  const resume = async () => {
+  const resume = async (anyway = false) => {
     if (!named) return;
     setResuming(true);
     setResumeFailure(null);
     try {
-      await runtime.resume(named, { ...(await sessionGrid()), local_id: crypto.randomUUID() });
+      await runtime.resume(named, { ...(await sessionGrid()), local_id: crypto.randomUUID(), anyway });
       reloadRuns();
       chooseView("terminal");
     } catch (e) {
@@ -473,6 +476,15 @@ export function Thread({
             {resumable && named ? (
               <ResumeButton agent={named.agent} resuming={resuming} onResume={() => void resume()} />
             ) : null}
+            {openable && named ? (
+              <OpenInPinrail
+                agent={named.agent}
+                opening={resuming}
+                asking={askingOpen}
+                onAsking={setAskingOpen}
+                onOpen={() => void resume(true)}
+              />
+            ) : null}
             {hasTerminalView ? <ViewSwitch view={view} onView={chooseView} /> : null}
             {items.length > 0 ? (
               <span className="thread-counts">
@@ -543,6 +555,8 @@ export function Thread({
                 <TerminalPane terminal={terminal} autoFocus />
               ) : failed ? (
                 <FailedStart run={failed} />
+              ) : openable ? (
+                <OutsideRun agent={named!.agent} running resuming={resuming} onResume={() => setAskingOpen(true)} />
               ) : ended ? (
                 <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
               ) : (

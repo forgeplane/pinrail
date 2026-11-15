@@ -575,6 +575,16 @@ fn turn_json(turn: &crate::db::TurnRow) -> Value {
     })
 }
 
+/// Whether Pinrail can resume a session of `agent`, and whether also while
+/// it still runs in another terminal, as the agent's adapter says.
+fn resume_abilities(agent: &str) -> Value {
+    let adapter = pinrail_runtime::adapter(agent);
+    json!({
+        "resume": adapter.is_some_and(|a| a.resume("session").is_some()),
+        "while_running": adapter.is_some_and(|a| a.resumes_while_running()),
+    })
+}
+
 /// A session as the API gives it: who, where, when, and what it holds.
 fn session_json(session: &SessionRow) -> Value {
     json!({
@@ -593,6 +603,7 @@ fn session_json(session: &SessionRow) -> Value {
         "total": { "questions": session.questions, "reviews": session.reviews },
         "waiting": { "questions": session.waiting_questions, "reviews": session.waiting_reviews },
         "attention": session.attention,
+        "resume": resume_abilities(&session.agent),
         "presence": session.presence.as_ref().map(|p| {
             let attention = crate::presence::Attention::parse(&session.attention)
                 .unwrap_or(crate::presence::Attention::Unknown);

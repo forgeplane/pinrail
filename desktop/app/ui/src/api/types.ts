@@ -204,6 +204,9 @@ export type Session = {
   waiting: { questions: number; reviews: number };
   /** the attention the session asks of the person */
   attention?: Attention;
+  /** whether Pinrail can resume the session, and also while it still runs
+   *  in another terminal, as its agent allows */
+  resume?: { resume: boolean; while_running: boolean };
   /** what its agent's hooks reported, if they ever did */
   presence?: Presence | null;
 };

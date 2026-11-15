@@ -39,6 +39,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A stopped Claude Code or Codex session can be resumed in Pinrail with
   **Resume** in the session header, including a session you started in
   your own terminal.
+- A Claude Code session still running in your own terminal can be opened in
+  Pinrail with **Open in Pinrail**, after a warning that it starts a second
+  Claude Code on the session.
 - After the computer restarts, the Sessions page says which agents the
   restart stopped, with **Resume all** to resume them one by one.
 

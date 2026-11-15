@@ -85,7 +85,12 @@ export const runtime = {
       asPerson: true,
     }),
   /** Resumes a stopped session in a new terminal of `cols` by `rows`. */
-  resume: (session: { agent: string; id: string }, body: { cols: number; rows: number; local_id: string }) =>
+  /** With `anyway`, also a session still running in another terminal, for
+   *  an agent that allows it. */
+  resume: (
+    session: { agent: string; id: string },
+    body: { cols: number; rows: number; local_id: string; anyway?: boolean },
+  ) =>
     request<{ run: Run; session: { agent: string; id: string } | null }>(
       "POST",
       `/api/v1/sessions/${seg(session.agent)}/${seg(session.id)}/resume`,

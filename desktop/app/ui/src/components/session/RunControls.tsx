@@ -112,3 +112,71 @@ export function ResumeButton({
     </Tooltip>
   );
 }
+
+/** Open in Pinrail, for a session still running in another terminal, with
+ *  the warning that it starts a second process of the agent. */
+export function OpenInPinrail({
+  agent,
+  opening,
+  asking,
+  onAsking,
+  onOpen,
+}: {
+  agent: string;
+  opening: boolean;
+  /** whether the warning shows, which the Terminal view's button opens too */
+  asking: boolean;
+  onAsking: (asking: boolean) => void;
+  onOpen: () => void;
+}) {
+  const name = agentOf(agent)?.label ?? agent;
+  const cancel = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <Tooltip label={`Open ${name} in Pinrail`} side="bottom">
+        <button
+          type="button"
+          className="bar-button run-resume"
+          aria-label={`Open ${name} in Pinrail`}
+          disabled={opening}
+          onClick={() => onAsking(true)}
+        >
+          <Play size={13} />
+          <span>{opening ? "Opening…" : "Open in Pinrail"}</span>
+        </button>
+      </Tooltip>
+      {asking ? (
+        <Dialog
+          labelledBy="open-title"
+          className="discard-dialog"
+          initialFocus={cancel}
+          onClose={() => onAsking(false)}
+        >
+          <div className="dialog-head">
+            <h2 id="open-title">Open {name} in Pinrail?</h2>
+          </div>
+          <p className="dim">
+            {name} is still running in another terminal. Opening it in Pinrail starts a second {name} on this session,
+            and both answer it. Close the other terminal first, or open it here anyway.
+          </p>
+          <div className="dialog-actions">
+            <button ref={cancel} type="button" className="chrome-button" onClick={() => onAsking(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="chrome-button button-primary"
+              disabled={opening}
+              onClick={() => {
+                onAsking(false);
+                onOpen();
+              }}
+            >
+              Open anyway
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
+    </>
+  );
+}

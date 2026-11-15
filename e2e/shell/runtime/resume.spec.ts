@@ -29,6 +29,19 @@ async function stoppedSession(page: Page, agent = "claude-code") {
   return session;
 }
 
+/** A session of `agent` whose hooks report that it works, in a terminal
+ *  outside Pinrail. */
+async function runningSession(page: Page, agent = "claude-code") {
+  const session = fresh();
+  for (const event of ["started", "prompt"]) {
+    const response = await page.request.post(`${core}/api/v1/sessions/${agent}/${session}/reports`, {
+      data: { event, at: new Date().toISOString(), origin: { folder: "/work/api" } },
+    });
+    expect(response.status(), await response.text()).toBeLessThan(300);
+  }
+  return session;
+}
+
 function run(session: string, fields: Record<string, unknown>) {
   return {
     id: "run_1",
@@ -202,4 +215,51 @@ test("a resume that fails at once shows why and offers a new session in its fold
   await expect(page).toHaveURL(/\/sessions\/claude-code\/s-new/);
   expect(started[0]).toMatchObject({ agent: "claude-code", folder: "/work/api" });
   expect(started[0].task).toBeUndefined();
+});
+
+test("a session running in another terminal opens in Pinrail after a warning", async ({ page }) => {
+  const session = await runningSession(page);
+  const posted = await standIn(page, session, []);
+  await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+
+  const open = header(page).getByRole("button", { name: "Open Claude Code in Pinrail" });
+  await open.click();
+  const warning = page.getByRole("dialog", { name: "Open Claude Code in Pinrail?" });
+  await expect(warning).toContainText(
+    "Claude Code is still running in another terminal. Opening it in Pinrail starts a second Claude Code on this session, and both answer it.",
+  );
+  await warning.getByRole("button", { name: "Cancel" }).click();
+  await expect(warning).toBeHidden();
+  expect(posted).toHaveLength(0);
+
+  await open.click();
+  await warning.getByRole("button", { name: "Open anyway" }).click();
+  await expect(page.getByTestId("terminal-bar")).toBeVisible();
+  expect(posted).toHaveLength(1);
+  expect(posted[0]).toMatchObject({ anyway: true });
+});
+
+test("the Terminal view of a session running in another terminal offers to open it", async ({ page }) => {
+  const session = await runningSession(page);
+  const posted = await standIn(page, session, []);
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+
+  const outside = page.getByTestId("outside-run");
+  await expect(outside).toContainText("This session runs in a terminal outside Pinrail.");
+  await outside.getByRole("button", { name: "Open in Pinrail" }).click();
+  await page
+    .getByRole("dialog", { name: "Open Claude Code in Pinrail?" })
+    .getByRole("button", { name: "Open anyway" })
+    .click();
+  await expect(page.getByTestId("terminal-bar")).toBeVisible();
+  expect(posted[0]).toMatchObject({ anyway: true });
+});
+
+test("a Codex session running in another terminal is not offered to open", async ({ page }) => {
+  const session = await runningSession(page, "codex");
+  await standIn(page, session, []);
+  await page.goto(`/#/sessions/codex/${session}?view=summary`);
+  await expect(page.getByTestId("thread")).toBeVisible();
+  await expect(header(page).getByRole("button", { name: /in Pinrail$/ })).toHaveCount(0);
+  await expect(header(page).getByRole("button", { name: /^Resume/ })).toHaveCount(0);
 });

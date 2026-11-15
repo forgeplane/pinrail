@@ -1,21 +1,30 @@
-// Resuming a stopped session in Pinrail: which sessions can be resumed,
-// and what the window says when one cannot.
+// Resuming a session in Pinrail: which sessions can be resumed, which can
+// be opened in Pinrail while they still run in another terminal, and what
+// the window says when one cannot.
 
 import { ApiError, errorMessage } from "../api/client";
 import type { Run } from "../api/runtime";
 import type { Session } from "../api/types";
 
-/** The agents whose sessions Pinrail resumes, as the core's adapters do. */
-const RESUMABLE = new Set(["claude-code", "codex"]);
+type Resumable = Pick<Session, "presence" | "resume">;
 
 /** Whether the session can be resumed: no run of it lives, its agent can
  *  resume, and it stopped, as its hooks said or its last run did. */
-export function canResume(session: Pick<Session, "agent" | "presence"> | null | undefined, runs: Run[]): boolean {
-  if (!session || !RESUMABLE.has(session.agent)) return false;
+export function canResume(session: Resumable | null | undefined, runs: Run[]): boolean {
+  if (!session?.resume?.resume) return false;
   if (runs.some((r) => r.state !== "ended")) return false;
   const presence = session.presence;
   if (presence) return presence.state === "stopped";
   return runs.length > 0;
+}
+
+/** Whether the session runs in another terminal and can be opened in
+ *  Pinrail anyway, as a second process of its agent: no run of Pinrail's
+ *  lives, its hooks say it has not stopped, and its agent allows it. */
+export function canOpenWhileRunning(session: Resumable | null | undefined, runs: Run[]): boolean {
+  if (!session?.resume?.while_running) return false;
+  if (runs.some((r) => r.state !== "ended")) return false;
+  return !!session.presence && session.presence.state !== "stopped";
 }
 
 /** Why a resume did not happen, for the person. */
