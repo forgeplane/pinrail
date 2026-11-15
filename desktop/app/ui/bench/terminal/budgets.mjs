@@ -89,7 +89,8 @@ export function checkBudgets(results) {
       "Memory per attached terminal at 5,000 lines",
       "≤ 30 MiB",
       `${fmt(v)} MiB`,
-      Number.isFinite(v) && v <= 30,
+      // not measured where the runner cannot sample the page's process
+      Number.isFinite(v) ? v <= 30 : null,
       "memory",
     );
   }

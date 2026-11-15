@@ -109,13 +109,17 @@ let core;
 let runSeq = 0;
 const shotsDir = join(resultsDir, "screens");
 
-function caseUrl(c, adapter, id) {
+function caseQuery(c, adapter, id) {
   const p = new URLSearchParams({ adapter, case: c.case, run: id });
   if (c.item) p.set("item", c.item);
   if (c.load) p.set("load", c.load);
   if (c.snapshot) p.set("snapshot", c.snapshot);
   if (c.format) p.set("format", c.format);
-  return `${core.url}/page.html?${p}`;
+  return p;
+}
+
+function caseUrl(c, adapter, id) {
+  return `${core.url}/page.html?${caseQuery(c, adapter, id)}`;
 }
 
 /** Waits for the page's result, with a timeout. */
@@ -263,6 +267,58 @@ const gtkRunner = {
   },
 };
 
+// The app's own window, in the running dev app (src-tauri/src/bench.rs):
+// the page comes from its Vite server, so `mise run dev:desktop` must be
+// running. One window runs every case, as the fake core answers each result
+// with the next case's URL, and closes at the end. The app's web content
+// process is shared with its main window, so memory is not sampled.
+const APP_PAGE = "http://localhost:5173/bench/terminal/app.html";
+const APP_BINARY = join(here, "..", "..", "..", "..", "target", "debug", "Pinrail");
+/** Answers the last result with the next case's URL, or with "done". */
+let appNext = null;
+
+const appRunner = {
+  name: "app",
+  async run(c, adapter) {
+    const id = `r${++runSeq}`;
+    const query = caseQuery(c, adapter, id);
+    query.set("core", core.url);
+    const url = `${APP_PAGE}?${query}`;
+    const done = new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        appNext = null;
+        resolve({ error: "timed out after 180000 ms" });
+      }, 180000);
+      registerRun(id, {
+        result: (r) => {
+          clearTimeout(timer);
+          resolve(r);
+          return new Promise((next) => (appNext = next));
+        },
+      });
+    });
+    if (appNext) {
+      appNext(url);
+      appNext = null;
+    } else await openAppWindow(url);
+    return done;
+  },
+  finish() {
+    appNext?.("done");
+    appNext = null;
+  },
+};
+
+/** Opens the bench window in the running dev app, which a second launch
+ *  of its binary hands the URL to. */
+async function openAppWindow(url) {
+  const page = await fetch(APP_PAGE).catch(() => null);
+  if (!page?.ok) throw new Error(`the dev app's page does not load from ${APP_PAGE}: run mise run dev:desktop first`);
+  if (!existsSync(APP_BINARY)) throw new Error(`no dev build at ${APP_BINARY}: run mise run dev:desktop first`);
+  const r = spawnSync(APP_BINARY, ["--bench", url], { stdio: "ignore", timeout: 30000 });
+  if (r.status !== 0) throw new Error(`${APP_BINARY} --bench exited with ${r.status}`);
+}
+
 const externalRunner = {
   name: "external",
   async run(c, adapter) {
@@ -276,6 +332,7 @@ const externalRunner = {
 const RUNNER_IMPLS = {
   webkit: webkitRunner,
   wkwebview: wkRunner,
+  app: appRunner,
   webkitgtk: gtkRunner,
   external: externalRunner,
 };
@@ -328,7 +385,8 @@ function markdown(report) {
       const first = checks.flat().find((c) => c.name === name);
       const cells = checks.map((cs) => {
         const c = cs.find((x) => x.name === name);
-        return c ? `${c.pass ? "pass" : "**FAIL**"} ${c.value}` : "–";
+        if (!c) return "–";
+        return c.pass === null ? `not measured` : `${c.pass ? "pass" : "**FAIL**"} ${c.value}`;
       });
       lines.push(`| ${name} | ${first.budget} | ${cells.join(" | ")} |`);
     }
@@ -393,6 +451,7 @@ async function main() {
       }
     }
   }
+  for (const runner of Object.values(RUNNER_IMPLS)) runner.finish?.();
   await core.close();
 
   const tag = opt("tag", "");
@@ -422,7 +481,7 @@ async function main() {
   console.error(`wrote ${join(resultsDir, stamp)}.{json,md} and ${latest}.{json,md}`);
   const failed = Object.values(report.budgets)
     .flat()
-    .filter((b) => !b.pass);
+    .filter((b) => b.pass === false);
   if (failed.length && !args.includes("--no-fail")) process.exit(1);
   process.exit(0);
 }

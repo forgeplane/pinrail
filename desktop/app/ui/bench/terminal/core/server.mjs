@@ -203,14 +203,16 @@ export async function startCore({ port = 0, host = "127.0.0.1" } = {}) {
       if (path.startsWith("/api/")) {
         const run = runs.get(url.searchParams.get("run"));
         const reply = (obj) => {
-          res.writeHead(200, { "content-type": "application/json" });
+          // the app's window loads the page from Vite, another origin
+          res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
           res.end(JSON.stringify(obj));
         };
         if (path === "/api/result") {
           let body = "";
           for await (const c of req) body += c;
-          run?.result?.(JSON.parse(body));
-          return reply({ ok: true });
+          // a runner that keeps one window open answers with the next case
+          const next = await run?.result?.(JSON.parse(body));
+          return reply({ ok: true, next: next ?? null });
         }
         if (path === "/api/sample")
           return reply({ rssMiB: (await run?.sample?.(url.searchParams.get("label"))) ?? null });
@@ -233,6 +235,7 @@ export async function startCore({ port = 0, host = "127.0.0.1" } = {}) {
       const headers = {
         "content-type": TYPES[extname(file)] ?? "application/octet-stream",
         "cache-control": "no-store",
+        "access-control-allow-origin": "*",
       };
       if (extname(file) === ".html") {
         const csp = policy(url.searchParams.get("csp") ?? "app");

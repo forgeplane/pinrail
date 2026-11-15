@@ -4,6 +4,8 @@
 mod agent_skills;
 #[cfg(test)]
 mod agents_json;
+#[cfg(debug_assertions)]
+mod bench;
 mod cli_install;
 mod feedback;
 mod headless;
@@ -573,6 +575,11 @@ pub fn run() {
     let app = tauri::Builder::default()
         // A second launch, with or without a URL, lands in the first one.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // a debug build opens the terminal benchmark's window on --bench
+            #[cfg(debug_assertions)]
+            if bench::open_from_args(app, args.iter().map(String::as_str)) {
+                return;
+            }
             open_urls(app, args.iter().map(String::as_str));
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -585,6 +592,8 @@ pub fn run() {
                     tauri_plugin_window_state::StateFlags::all()
                         - tauri_plugin_window_state::StateFlags::VISIBLE,
                 )
+                // the terminal benchmark's window keeps nothing
+                .with_denylist(&["bench"])
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())

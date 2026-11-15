@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Pinrail terminal bench</title>
+    <!-- The bench page as Vite serves it to the app's window in development
+     (src-tauri/src/bench.rs); page.html is the same page, bundled, for the
+     fake core. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #1e1e1e;
+        overflow: hidden;
+      }
+      .host {
+        position: relative;
+        width: 960px;
+        height: 740px;
+        display: none;
+        float: left;
+        margin: 0 10px 0 0;
+        overflow: hidden;
+      }
+      #main {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main" class="host"></div>
+    <div id="second" class="host"></div>
+    <div id="pool0" class="host"></div>
+    <div id="pool1" class="host"></div>
+    <div id="pool2" class="host"></div>
+    <script type="module" src="./page.ts"></script>
+  </body>
+</html>

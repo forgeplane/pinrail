@@ -24,6 +24,11 @@ const ADAPTER = q.get("adapter") ?? "ghostty";
 const CASE = q.get("case") ?? "load";
 const ITEM = q.get("item") ?? "synthetic/tui.bin";
 const RUN = q.get("run") ?? "manual";
+/** The fake core: where the page came from, or, for the page the app's
+ *  window loads from Vite, the `core` the runner names. */
+const CORE = new URL(q.get("core") ?? location.origin);
+const coreUrl = (path: string) => new URL(path, CORE).href;
+const socketUrl = (path: string) => `ws://${CORE.host}${path}`;
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
 
 const OPTIONS: ViewOptions = {
@@ -42,7 +47,18 @@ const OPTIONS: ViewOptions = {
 // Violations of the page's Content-Security-Policy (core/csp.mjs), reported
 // with the result so that a candidate's needs show in every run.
 const cspViolations: string[] = [];
+/** Whether a policy is enforced at all: one without 'unsafe-eval', as the
+ *  app's, blocks this. Its own violation is left out of the list. */
+const cspEnforced = (() => {
+  try {
+    new Function("return 1")();
+    return false;
+  } catch {
+    return true;
+  }
+})();
 document.addEventListener("securitypolicyviolation", (e) => {
+  if (e.blockedURI === "eval") return;
   const v = `${e.effectiveDirective} blocked ${e.blockedURI || "inline"}${e.sourceFile ? ` (${e.sourceFile.split("/").pop()}:${e.lineNumber})` : ""}`;
   if (!cspViolations.includes(v)) cspViolations.push(v);
 });
@@ -75,7 +91,7 @@ async function api(
   path: string,
   body?: unknown,
 ): Promise<Record<string, unknown> & { rssMiB?: number; path?: string }> {
-  const r = await fetch(`/api/${path}${path.includes("?") ? "&" : "?"}run=${RUN}`, {
+  const r = await fetch(coreUrl(`/api/${path}${path.includes("?") ? "&" : "?"}run=${RUN}`), {
     method: body === undefined ? "GET" : "POST",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -104,7 +120,7 @@ function play(
   opts: PlayOptions,
 ): Promise<{ bytes: number; firstByteMs: number; consumedMs: number }> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://${location.host}/ws/replay`);
+    const ws = new WebSocket(socketUrl("/ws/replay"));
     ws.binaryType = "arraybuffer";
     let total = -1;
     let consumed = 0;
@@ -148,7 +164,7 @@ function play(
 /** The attach path: asks the core for a snapshot of a terminal with history. */
 function fetchSnapshot(name: string, formats: readonly string[]): Promise<{ format: string; bytes: Uint8Array }> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://${location.host}/ws/replay`);
+    const ws = new WebSocket(socketUrl("/ws/replay"));
     ws.binaryType = "arraybuffer";
     let format = "";
     ws.onopen = () => ws.send(JSON.stringify({ t: "attach", snapshot: name, formats }));
@@ -173,7 +189,7 @@ function formatsFor(view: TerminalView): readonly string[] {
 }
 
 async function fetchItem(item: string): Promise<Uint8Array> {
-  return new Uint8Array(await (await fetch(`/corpus/${item}`)).arrayBuffer());
+  return new Uint8Array(await (await fetch(coreUrl(`/corpus/${item}`))).arrayBuffer());
 }
 
 // ---------------------------------------------------------------- probes
@@ -416,7 +432,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
   async input() {
     const view = await newView();
     const loadView = q.get("load") === "1" ? await newView("second") : null;
-    const ws = new WebSocket(`ws://${location.host}/ws/pty`);
+    const ws = new WebSocket(socketUrl("/ws/pty"));
     ws.binaryType = "arraybuffer";
     await new Promise<void>((r, j) => {
       ws.onopen = () => r();
@@ -608,7 +624,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
 cases.live = async () => {
   const view = await newView();
   if (q.get("sr") === "1") view.setScreenReader(true);
-  const ws = new WebSocket(`ws://${location.host}/ws/${q.get("pty") === "shell" ? "shell" : "pty"}`);
+  const ws = new WebSocket(socketUrl(`/ws/${q.get("pty") === "shell" ? "shell" : "pty"}`));
   ws.binaryType = "arraybuffer";
   await new Promise<void>((r, j) => {
     ws.onopen = () => r();
@@ -734,6 +750,7 @@ async function main() {
     item: ITEM,
     userAgent: navigator.userAgent,
     dpr: devicePixelRatio,
+    cspEnforced,
   };
   try {
     const factory = RENDERERS[ADAPTER] ?? COMPARISONS[ADAPTER];
@@ -752,8 +769,11 @@ async function main() {
   }
   if (cspViolations.length) result.cspViolations = cspViolations.slice(0, 10);
   log(JSON.stringify(result));
-  await api("result", result);
+  // a runner that keeps one window open names the next case, or done
+  const { next } = (await api("result", result)) as { next?: string };
   document.title = "done";
+  if (next === "done") location.href = new URL("done", location.href).href;
+  else if (next) location.href = next;
 }
 
 main();

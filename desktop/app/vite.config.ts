@@ -1,6 +1,7 @@
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import license from "rollup-plugin-license";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /** The licences a bundled npm package may carry: deny.toml's list, for the UI. */
@@ -54,6 +55,20 @@ export default defineConfig({
         },
       }),
       apply: "build",
+    },
+    {
+      // The terminal benchmark's page, which the app's window opens in
+      // development (src-tauri/src/bench.rs), under the window's own
+      // development policy: Tauri applies it only to its own pages.
+      name: "bench-csp",
+      apply: "serve",
+      configureServer(server) {
+        const conf = path.resolve(__dirname, "src-tauri", "tauri.conf.json");
+        server.middlewares.use("/bench/terminal/app.html", (_req, res, next) => {
+          res.setHeader("Content-Security-Policy", JSON.parse(readFileSync(conf, "utf8")).app.security.devCsp);
+          next();
+        });
+      },
     },
   ],
   clearScreen: false,

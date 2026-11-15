@@ -31,6 +31,12 @@ The options of `run.mjs`:
     `runners/webkitgtk/run-in-docker.sh` runs it in the Docker image of
     `mise run linux-desktop`, with a virtual display and software drawing,
     so its numbers show that the path works rather than meet the budgets.
+  - `app`: the app's own window, under the app's development policy. It
+    needs `mise run dev:desktop` running: a window opens in that app, in
+    front and with the keyboard, runs every case, and closes. While it is
+    covered, macOS slows its animation frames, so leave it in front. Memory
+    is not measured, as the window shares its process with the app's.
+    Release builds have neither the window nor its page (`app.html`).
   - `external`: prints the URL of each case, to open in another browser.
 - `--adapters`: the renderers by id, `ghostty,xterm` by default. It also
   takes `ghostty-web`, coder/ghostty-web, which the app does not register.
