@@ -24,10 +24,14 @@ import { Finder } from "./find";
 import { Keyboard } from "./keyboard";
 import { Mirror, MirrorElements } from "./mirror";
 import { Pointer } from "./pointer";
-import { WriteQueue } from "./queue";
+import { ECHO_MS, WriteQueue } from "./queue";
 import { CanvasRenderer, onNextFrame, type Font } from "./renderer";
 import { compileGhostty, GhosttyRuntime } from "./runtime";
 import type { GhosttyColor, GhosttySnapshot, GhosttyTheme } from "./types";
+
+/** How often streaming output is drawn at most: about 30 times a second.
+ *  The echo of a key is drawn at once. */
+export const OUTPUT_INTERVAL_MS = 33;
 
 /** The binary snapshot of the libghostty-vt build the window loads. */
 export const BINARY_FORMAT = "ghostty-bin;vt-1.0.0";
@@ -90,6 +94,11 @@ class GhosttyView implements TerminalView, BenchHooks {
   private missed = false;
   /** The time spent drawing, for the benchmark. */
   private drawing = 0;
+  /** When the screen was last drawn, when a key was last typed, and
+   *  whether a draw of output waits for its turn. */
+  private drawnAt = -Infinity;
+  private typedAt = -Infinity;
+  private outputWaits = false;
 
   async mount(host: HTMLElement, options: ViewOptions): Promise<void> {
     const runtime = await GhosttyRuntime.instantiate();
@@ -155,9 +164,7 @@ class GhosttyView implements TerminalView, BenchHooks {
 
   private newQueue() {
     return new WriteQueue(this.core, {
-      // the queue parses in an animation frame, and the screen is drawn in
-      // the same one, so an echo shows a frame sooner
-      draw: () => this.draw(),
+      draw: () => this.drawOutput(),
       title: (title) => this.titles.forEach((l) => l(title)),
     });
   }
@@ -165,6 +172,7 @@ class GhosttyView implements TerminalView, BenchHooks {
   private input(bytes: Uint8Array, kind: InputKind) {
     if (kind === "key") {
       // its echo is drawn without waiting for a frame, and not announced
+      this.typedAt = performance.now();
       this.queue.typed();
       this.mirror?.mirror.typed(decoder.decode(bytes));
     }
@@ -188,6 +196,30 @@ class GhosttyView implements TerminalView, BenchHooks {
     this.schedule();
   }
 
+  /** Draws parsed output: at once for the echo of a key or after a
+   *  pause, in the frame that parsed it; otherwise at most every 33 ms,
+   *  so that a streaming terminal does not draw every frame. */
+  private drawOutput() {
+    const now = performance.now();
+    if (now - this.typedAt < ECHO_MS) {
+      this.draw();
+      return;
+    }
+    // a draw already waits for its frame, and draws this output too
+    if (this.outputWaits) return;
+    const wait = this.drawnAt + OUTPUT_INTERVAL_MS - now;
+    if (wait <= 0) {
+      this.draw();
+      return;
+    }
+    this.outputWaits = true;
+    // the canvas drawn now is painted in the next frame
+    setTimeout(() => {
+      this.outputWaits = false;
+      this.draw();
+    }, wait);
+  }
+
   /** Draws the screen, unless the view is out of sight: a pooled view
    *  keeps parsing its output, and draws it all once it is shown. */
   private draw() {
@@ -208,7 +240,8 @@ class GhosttyView implements TerminalView, BenchHooks {
     const { width, height } = this.renderer.cell;
     this.keyboard.moveTo(snapshot.cursorX * width, snapshot.cursorY * height, height);
     this.mirror?.mirror.update(snapshot.rowData);
-    this.drawing += performance.now() - started;
+    this.drawnAt = performance.now();
+    this.drawing += this.drawnAt - started;
     this.drawnListeners.forEach((l) => l());
   }
 

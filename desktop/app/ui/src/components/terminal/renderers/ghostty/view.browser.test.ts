@@ -23,7 +23,7 @@ test("a snapshot the host wrote shows the host's screen, history and title", asy
   core.dispose();
 });
 
-test("output is drawn in the frame that parses it", async () => {
+test("output after a pause is drawn in the frame that parses it", async () => {
   const host = document.createElement("div");
   host.style.cssText = "width: 400px; height: 200px; position: relative";
   document.body.append(host);
@@ -46,6 +46,7 @@ test("output is drawn in the frame that parses it", async () => {
   requestAnimationFrame(tick);
   const hooks = view as unknown as BenchHooks;
   for (const echo of ["a", "b", "c"]) {
+    await new Promise((r) => setTimeout(r, 50));
     let parsedIn = -1;
     const drawnIn = new Promise<number>((resolve) => {
       const off = hooks.onFrameDrawn(() => {
@@ -57,6 +58,45 @@ test("output is drawn in the frame that parses it", async () => {
     expect(await drawnIn).toBe(parsedIn);
   }
   counting = false;
+  view.dispose();
+  host.remove();
+});
+
+test("streaming output is drawn about 30 times a second, and all of it", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  let lastDrawn = 0;
+  hooks.onFrameDrawn(() => {
+    drawn++;
+    lastDrawn = performance.now();
+  });
+  // a line every 10 ms for a second
+  const started = performance.now();
+  let lines = 0;
+  let lastParsed = 0;
+  while (performance.now() - started < 1000) {
+    view.write(new TextEncoder().encode(`line ${++lines}\r\n`), () => (lastParsed = performance.now()));
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  await new Promise((r) => setTimeout(r, 200));
+  expect(lines).toBeGreaterThan(60);
+  expect(drawn).toBeGreaterThan(20);
+  // at most one draw every 33 ms while the lines arrived
+  expect(drawn).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / 33) + 1);
+  // the last line was drawn
+  expect(lastDrawn).toBeGreaterThanOrEqual(lastParsed);
   view.dispose();
   host.remove();
 });
