@@ -69,6 +69,28 @@ export function newestRounds(items: Review[]): Review[] {
  *  sent. A later round adds a line where it was sent, unless only
  *  statuses came between it and the round before. A review the agent
  *  withdrew adds a line by the time it did. */
+/** How far apart a turn's start and the confirmation of the message typed
+ *  as its prompt can be: the same report sets both. */
+const TYPED_PROMPT_WITHIN_MS = 5_000;
+
+/** The turn without its prompt when the prompt is a message the person
+ *  sent from Pinrail, typed into the terminal and delivered as the turn
+ *  began: the thread shows it once, as the message. */
+function withoutTypedPrompt(turn: SessionTurn, messages: SessionMessage[]): SessionTurn {
+  if (turn.prompt === null) return turn;
+  const normal = (s: string) => s.replace(/\r\n?/g, "\n").trim();
+  const prompt = normal(turn.prompt);
+  const started = Date.parse(turn.started_at);
+  const typed = messages.some(
+    (m) =>
+      m.route === "type" &&
+      !!m.delivered_at &&
+      Math.abs(Date.parse(m.delivered_at) - started) <= TYPED_PROMPT_WITHIN_MS &&
+      prompt.startsWith(normal(m.text)),
+  );
+  return typed ? { ...turn, prompt: null, prompt_cut: false } : turn;
+}
+
 export function timeline(
   items: Review[],
   statuses: SessionStatus[],
@@ -107,7 +129,8 @@ export function timeline(
   for (const comment of comments)
     all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
   for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
-  for (const turn of turns) all.push({ at: Date.parse(turn.started_at), happened: { kind: "turn", turn } });
+  for (const turn of turns)
+    all.push({ at: Date.parse(turn.started_at), happened: { kind: "turn", turn: withoutTypedPrompt(turn, messages) } });
   for (const run of runs) {
     all.push({ at: Date.parse(run.started_at), happened: { kind: "run", run, ended: false } });
     if (run.ended_at) all.push({ at: Date.parse(run.ended_at) + 0.5, happened: { kind: "run", run, ended: true } });

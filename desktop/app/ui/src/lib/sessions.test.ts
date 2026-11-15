@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import type { Review, SessionComment, SessionItemEvent, SessionMessage, SessionStatus } from "../api/types";
+import type {
+  Review,
+  SessionComment,
+  SessionItemEvent,
+  SessionMessage,
+  SessionStatus,
+  SessionTurn,
+} from "../api/types";
 import { newestRounds, stageReviews, stages, timeline } from "./sessions";
 
 const review = (id: string, at: string, revises: string | null = null) =>
@@ -371,5 +378,67 @@ describe("what the agent did to work items", () => {
       [3],
       [4],
     ]);
+  });
+});
+
+describe("a message typed into the agent's terminal", () => {
+  const typed = (text: string, deliveredAt: string, route: "type" | "queue" = "type") =>
+    ({
+      id: 1,
+      text,
+      sent_by: "p",
+      sent_at: "2026-11-15T10:00:00.000Z",
+      delivered_at: deliveredAt,
+      state: "delivered",
+      route,
+    }) as SessionMessage;
+  const turn = (prompt: string, startedAt: string) =>
+    ({
+      turn: 1,
+      agent_turn: null,
+      started_at: startedAt,
+      ended_at: null,
+      end_kind: null,
+      prompt,
+      prompt_cut: false,
+      reply: "Done.",
+      reply_cut: false,
+    }) as SessionTurn;
+  const prompts = (entries: ReturnType<typeof timeline>) =>
+    entries.flatMap((e) => (e.kind === "turn" ? [e.turn.prompt] : []));
+
+  test("shows once, as the message, and not again as its turn's prompt", () => {
+    const entries = timeline(
+      [],
+      [],
+      [typed("Use the v2 endpoint.", "2026-11-15T10:00:01.200Z")],
+      [],
+      [],
+      [turn("Use the v2 endpoint.\n", "2026-11-15T10:00:01.000Z")],
+    );
+    expect(prompts(entries)).toEqual([null]);
+    // the reply stays
+    expect(entries.find((e) => e.kind === "turn")).toMatchObject({ turn: { reply: "Done." } });
+  });
+
+  test("leaves the prompt of a turn that it did not start", () => {
+    const later = timeline(
+      [],
+      [],
+      [typed("Use the v2 endpoint.", "2026-11-15T10:00:01.200Z")],
+      [],
+      [],
+      [turn("Use the v2 endpoint.", "2026-11-15T10:05:00.000Z")],
+    );
+    expect(prompts(later)).toEqual(["Use the v2 endpoint."]);
+    const queued = timeline(
+      [],
+      [],
+      [typed("Use the v2 endpoint.", "2026-11-15T10:00:01.200Z", "queue")],
+      [],
+      [],
+      [turn("Use the v2 endpoint.", "2026-11-15T10:00:01.000Z")],
+    );
+    expect(prompts(queued)).toEqual(["Use the v2 endpoint."]);
   });
 });
