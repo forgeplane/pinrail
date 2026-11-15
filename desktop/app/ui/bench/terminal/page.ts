@@ -641,6 +641,8 @@ cases.live = async () => {
   const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join(" ");
   const live = {
     inputs: [] as { kind: string; hex: string; text: string }[],
+    /** The emulator's replies, which go to the PTY but are not input. */
+    replies: [] as string[],
     selections: [] as (string | null)[],
     links: [] as string[],
     titles: [] as string[],
@@ -667,6 +669,11 @@ cases.live = async () => {
     const text = new TextDecoder().decode(bytes);
     live.inputs.push({ kind, hex: hex(bytes), text });
     note(`input ${kind}: ${hex(bytes)}  ${JSON.stringify(text)}`);
+    ws.send(bytes);
+  });
+  view.onReply((bytes) => {
+    live.replies.push(hex(bytes));
+    note(`reply: ${hex(bytes)}`);
     ws.send(bytes);
   });
   view.onSelectionChange((t) => {

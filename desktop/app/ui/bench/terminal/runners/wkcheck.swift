@@ -153,6 +153,12 @@ func record(_ name: String, _ pass: Bool?, _ detail: String) {
 @MainActor func sent() async -> String {
   await inputs().map { $0["hex"] ?? "" }.joined(separator: " | ")
 }
+/// The emulator's replies since the last call, as hex: text that should
+/// have been input shows here when a renderer takes it for a reply.
+@MainActor func replies() async -> String {
+  let r = await js("const a = __live.replies.splice(0); return a;") as? [String] ?? []
+  return r.isEmpty ? "" : " replies: " + r.joined(separator: " | ")
+}
 
 @MainActor func snap(_ name: String) async {
   guard let dir = shotsDir else { return }
@@ -303,7 +309,7 @@ func insert(_ text: String) {
   insert("日本")
   await sleep(200)
   let committed = await sent()
-  record("commit Japanese", committed.replacingOccurrences(of: " | ", with: " ") == hexOf("日本"), "\(committed) (want \(hexOf("日本")))")
+  record("commit Japanese", committed.replacingOccurrences(of: " | ", with: " ") == hexOf("日本"), "\(committed) (want \(hexOf("日本")))\(await replies())")
   // Hangul: each syllable is replaced as it grows, then committed.
   for s in ["ㅎ", "하", "한"] {
     setMarked(s, 1)
@@ -312,14 +318,14 @@ func insert(_ text: String) {
   insert("한")
   await sleep(200)
   let hangul = await sent()
-  record("commit Korean", hangul.replacingOccurrences(of: " | ", with: " ") == hexOf("한"), "\(hangul) (want \(hexOf("한")))")
+  record("commit Korean", hangul.replacingOccurrences(of: " | ", with: " ") == hexOf("한"), "\(hangul) (want \(hexOf("한")))\(await replies())")
   // Pinyin: the marked text is Latin, which must not be typed.
   setMarked("ni hao", 6)
   await sleep(150)
   insert("你好")
   await sleep(200)
   let pinyin = await sent()
-  record("commit Chinese", pinyin.replacingOccurrences(of: " | ", with: " ") == hexOf("你好"), "\(pinyin) (want \(hexOf("你好")))")
+  record("commit Chinese", pinyin.replacingOccurrences(of: " | ", with: " ") == hexOf("你好"), "\(pinyin) (want \(hexOf("你好")))\(await replies())")
 
   // Links: Command-click an OSC 8 link and a plain URL.
   await clear()
