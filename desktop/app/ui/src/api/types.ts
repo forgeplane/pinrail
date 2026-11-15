@@ -502,7 +502,7 @@ export type ServerSettings = {
   /** features still being built */
   labs?: { runtime?: boolean };
   runtime?: {
-    terminal?: { renderer?: string[]; option_as_meta?: "off" | "left" | "right" | "both" };
+    terminal?: { renderer?: string[]; option_as_meta?: "off" | "left" | "right" | "both"; screen_reader?: boolean };
     default_view?: "last" | "summary" | "terminal";
     new_run_view?: "summary" | "terminal";
   };

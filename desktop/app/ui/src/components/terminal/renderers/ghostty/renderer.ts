@@ -115,6 +115,9 @@ export class CanvasRenderer {
    *  because it moved. */
   private link: readonly LinkSpan[] = [];
   private stale = new Set<number>();
+  /** Find's matches in view, a mask of columns per row. */
+  private matches = new Map<number, Uint8Array>();
+  private findColour: GhosttyColor = { r: 120, g: 90, b: 0 };
 
   constructor(
     host: HTMLElement,
@@ -183,6 +186,19 @@ export class CanvasRenderer {
     this.link = spans;
   }
 
+  /** Highlights find's matches in view in the find colour. */
+  setMatches(spans: readonly LinkSpan[], colour?: GhosttyColor) {
+    if (colour) this.findColour = colour;
+    for (const row of this.matches.keys()) this.stale.add(row);
+    this.matches = new Map();
+    for (const span of spans) {
+      let mask = this.matches.get(span.row);
+      if (!mask) this.matches.set(span.row, (mask = new Uint8Array(Math.max(this.cols, span.end))));
+      mask.fill(1, span.start, span.end);
+      this.stale.add(span.row);
+    }
+  }
+
   /** Draws every row on the next draw, as after a selection changes. */
   invalidate() {
     this.drawn = 0;
@@ -208,10 +224,13 @@ export class CanvasRenderer {
     // the backgrounds, a fill per run of one colour
     ctx.fillStyle = css(snapshot.background);
     ctx.fillRect(0, top, this.cols * w, h);
+    const found = this.matches.get(y);
+    const backgroundOf = (x: number) =>
+      cells[x].selected ? this.selection : found?.[x] ? this.findColour : cells[x].background;
     for (let x = 0; x < cells.length;) {
-      const bg = cells[x].selected ? this.selection : cells[x].background;
+      const bg = backgroundOf(x);
       let end = x + 1;
-      while (end < cells.length && same(cells[end].selected ? this.selection : cells[end].background, bg)) end++;
+      while (end < cells.length && same(backgroundOf(end), bg)) end++;
       if (!same(bg, snapshot.background)) {
         ctx.fillStyle = css(bg);
         ctx.fillRect(x * w, top, (end - x) * w, h);

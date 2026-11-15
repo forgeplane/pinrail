@@ -122,6 +122,8 @@ function constants(rt: GhosttyRuntime) {
     search: {
       needle: rt.enumValue("GhosttySearchOption", "NEEDLE"),
       total: rt.enumValue("GhosttySearchData", "TOTAL_MATCHES"),
+      selected: rt.enumValue("GhosttySearchData", "SELECTED_MATCH"),
+      inView: rt.enumValue("GhosttySearchData", "VIEWPORT_MATCHES"),
     },
     mouse: {
       size: rt.enumValue("GhosttyMouseEncoderOption", "SIZE"),
@@ -159,6 +161,8 @@ export class GhosttyCore {
   private mouseEncoder = 0;
   private mouseEvent = 0;
   private searchHandle = 0;
+  private gridCols = 0;
+  private gridRows = 0;
   private searchNeedle = "";
   private ptyWriterId = 0;
   private ptyWriter: ((data: Uint8Array) => void) | null = null;
@@ -365,8 +369,15 @@ export class GhosttyCore {
     }
   }
 
+  /** The grid's columns and rows. */
+  size(): { cols: number; rows: number } {
+    return { cols: this.gridCols, rows: this.gridRows };
+  }
+
   resize(cols: number, rows: number, cellWidth: number, cellHeight: number): void {
     this.ensureActive();
+    this.gridCols = clamp16(cols);
+    this.gridRows = clamp16(rows);
     this.ok(
       "terminal_resize",
       this.rt.call(
@@ -735,7 +746,9 @@ export class GhosttyCore {
 
   // --------------------------------------------------------------- search
 
-  /** Counts matches of a literal needle (ASCII letters ignore case) and selects the next one. */
+  /** Counts matches of a literal needle (ASCII letters ignore case), and
+   *  selects the next one, older first, as the terminal's selection,
+   *  scrolled into view. */
   search(query: string, backwards = false): number {
     this.ensureActive();
     if (!this.searchHandle) this.searchHandle = this.newHandle("ghostty_search_new", this.terminal);
@@ -755,8 +768,98 @@ export class GhosttyCore {
     this.rt.memoryDataView().setUint32(this.scratch, 0, true);
     this.rt.call("ghostty_search_get", this.searchHandle, this.k.search.total, this.scratch);
     const total = this.rt.memoryDataView().getUint32(this.scratch, true);
-    if (total) this.rt.call(backwards ? "ghostty_search_select_prev" : "ghostty_search_select_next", this.searchHandle);
+    if (total) {
+      this.rt.call(backwards ? "ghostty_search_select_prev" : "ghostty_search_select_next", this.searchHandle);
+      const size = this.rt.layout("GhosttySelection").size;
+      const sel = this.rt.alloc(size);
+      if (this.rt.call("ghostty_search_get", this.searchHandle, this.k.search.selected, sel) === SUCCESS)
+        this.rt.call("ghostty_terminal_set", this.terminal, this.k.opt.selection, sel);
+      this.rt.free(sel, size);
+    }
     return total;
+  }
+
+  /** The cells of the last search's matches in the viewport, a span per
+   *  row. */
+  searchMatchesInView(): { row: number; start: number; end: number }[] {
+    this.ensureActive();
+    if (!this.searchHandle || !this.searchNeedle) return [];
+    const buffer = this.rt.alloc(12);
+    const v = this.rt.memoryDataView();
+    v.setUint32(buffer, 0, true);
+    v.setUint32(buffer + 4, 0, true);
+    v.setUint32(buffer + 8, 0, true);
+    // asked with no room, it says how much it needs
+    this.rt.call("ghostty_search_get", this.searchHandle, this.k.search.inView, buffer);
+    const count = v.getUint32(buffer + 8, true);
+    const size = this.rt.layout("GhosttySelection").size;
+    const spans: { row: number; start: number; end: number }[] = [];
+    if (count) {
+      const list = this.rt.alloc(count * size);
+      const view = this.rt.memoryDataView();
+      view.setUint32(buffer, list, true);
+      view.setUint32(buffer + 4, count, true);
+      if (this.rt.call("ghostty_search_get", this.searchHandle, this.k.search.inView, buffer) === SUCCESS) {
+        const { cols, rows } = this.size();
+        for (let i = 0; i < count; i++) {
+          const start = this.inViewport(list + i * size);
+          const end = this.inViewport(list + i * size + 8);
+          // a match partly out of view is cut at the viewport's edge
+          if (!start && !end) continue;
+          const from = start ?? { x: 0, y: 0 };
+          const to = end ?? { x: cols - 1, y: rows - 1 };
+          for (let y = from.y; y <= to.y; y++) {
+            spans.push({ row: y, start: y === from.y ? from.x : 0, end: y === to.y ? to.x + 1 : cols });
+          }
+        }
+      }
+      this.rt.free(list, count * size);
+    }
+    this.rt.free(buffer, 12);
+    return spans;
+  }
+
+  /** A grid reference's cell in the viewport, or null when out of view. */
+  private inViewport(ref: number): { x: number; y: number } | null {
+    const out = this.rt.alloc(8);
+    const ok =
+      this.rt.call("ghostty_terminal_point_from_grid_ref", this.terminal, ref, this.k.point.viewport, out) === SUCCESS;
+    const v = this.rt.memoryDataView();
+    const point = ok ? { x: v.getUint16(out, true), y: v.getUint32(out + 4, true) } : null;
+    this.rt.free(out, 8);
+    return point && point.y < this.size().rows ? point : null;
+  }
+
+  /** Ends the search: no matches are highlighted any more. */
+  clearSearch(): void {
+    this.freeSearch();
+  }
+
+  /** The text of every row of the screen, scrollback first, a line per
+   *  row with trailing blanks trimmed: line i is screen row i. */
+  screenLines(): string[] {
+    this.ensureActive();
+    const formatter = this.newHandle("ghostty_formatter_terminal_new", this.terminal);
+    try {
+      this.rt.bytes(this.scratch, 1)[0] = 1;
+      this.rt.call("ghostty_formatter_set", formatter, this.k.formatter.trim, this.scratch);
+      return decoder
+        .decode(
+          this.encodeOutput((buf, len, written) =>
+            this.rt.call("ghostty_formatter_format_buf", formatter, buf, len, written),
+          ),
+        )
+        .split("\n");
+    } finally {
+      this.rt.call("ghostty_formatter_free", formatter);
+    }
+  }
+
+  /** Scrolls the viewport, if needed, so that a screen row is in it. */
+  scrollToScreenRow(row: number): void {
+    const { offset, length } = this.scrollbar();
+    if (row < offset) this.scroll(row - offset);
+    else if (row >= offset + length) this.scroll(row - offset - length + 1);
   }
 
   private freeSearch(): void {

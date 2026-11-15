@@ -280,6 +280,12 @@ const LEAVES: &[Leaf] = &[
         "On macOS, which Option keys act as Meta in a terminal, sending Esc and the key rather than the character Option types: `off`, `left`, `right` or `both`.",
     ),
     (
+        "/runtime/terminal/screen_reader",
+        Kind::Bool,
+        || json!(false),
+        "Makes a terminal's text readable by screen readers such as VoiceOver and Orca, and announces new output.",
+    ),
+    (
         "/runtime/default_view",
         Kind::Enum(&["last", "summary", "terminal"]),
         || json!("last"),

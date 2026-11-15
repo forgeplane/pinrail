@@ -60,7 +60,7 @@ export type Settings = {
   /** the agent runtime: the renderers the window tries for a terminal, in
    *  order, where `auto` is the app's own order */
   runtime: {
-    terminal: { renderer: string[]; option_as_meta: "off" | "left" | "right" | "both" };
+    terminal: { renderer: string[]; option_as_meta: "off" | "left" | "right" | "both"; screen_reader: boolean };
     /** the view a session opens in, and the session of a run just started */
     default_view: "last" | "summary" | "terminal";
     new_run_view: "summary" | "terminal";
@@ -186,6 +186,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     terminal: {
       renderer: s.runtime?.terminal?.renderer ?? ["auto"],
       option_as_meta: s.runtime?.terminal?.option_as_meta ?? "off",
+      screen_reader: s.runtime?.terminal?.screen_reader ?? false,
     },
     default_view: s.runtime?.default_view ?? "last",
     new_run_view: s.runtime?.new_run_view ?? "terminal",
@@ -288,7 +289,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     telemetry: { usage: true, crashes: true, notice_shown: null },
     labs: { runtime: false },
     runtime: {
-      terminal: { renderer: ["auto"], option_as_meta: "off" },
+      terminal: { renderer: ["auto"], option_as_meta: "off", screen_reader: false },
       default_view: "last",
       new_run_view: "terminal",
     },
