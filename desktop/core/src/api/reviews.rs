@@ -53,6 +53,10 @@ pub fn routes() -> Router<ApiState> {
         )
         .route("/api/v1/sessions/{agent}/{id}/messages", post(send_message))
         .route(
+            "/api/v1/sessions/{agent}/{id}/messages/ack",
+            post(acknowledge_messages),
+        )
+        .route(
             "/api/v1/sessions/{agent}/{id}/messages/{message}",
             delete(delete_message),
         )
@@ -957,8 +961,31 @@ async fn send_message(
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
-    let message = state.reviews().send_message(&agent, &id, text)?;
+    let local_id = body.get("local_id").and_then(Value::as_str);
+    let message = state.reviews().send_message(&agent, &id, text, local_id)?;
     Ok((StatusCode::CREATED, Json(message.to_json())))
+}
+
+/// What `pinrail status` sends once it has printed the messages a status
+/// handed over: their `ids`. They are delivered then; until then, a claim
+/// that lapses hands them over again. Answers 204.
+async fn acknowledge_messages(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<StatusCode, ApiError> {
+    let ids: Vec<i64> = body
+        .get("ids")
+        .and_then(Value::as_array)
+        .ok_or_else(|| Error::invalid("ids", "list the messages' ids"))?
+        .iter()
+        .map(|v| {
+            v.as_i64()
+                .ok_or_else(|| Error::invalid("ids", "must be numbers"))
+        })
+        .collect::<Result<_, _>>()?;
+    state.reviews().acknowledge_messages(&agent, &id, &ids)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Deletes a message the agent has not received yet. Answers 204, or 409

@@ -628,14 +628,28 @@ impl Reviews {
                 agent: Name::of(agent),
             });
         }
-        if let Some(event_id) = added.delivered {
+        Ok((added.messages, added.stage))
+    }
+
+    /// Delivers the messages among `ids` that a status handed to the
+    /// agent, once the CLI acknowledges that it printed them.
+    pub fn acknowledge_messages(
+        &self,
+        agent: &str,
+        session: &str,
+        ids: &[i64],
+    ) -> Result<(), Error> {
+        if let Some((messages, event_id)) =
+            self.db
+                .acknowledge_messages(agent, session, ids, chrono::Utc::now())?
+        {
             self.bus.publish(Notice::new(
                 event_id,
                 events::SESSION_MESSAGES_DELIVERED,
-                &delivered_notice(agent, session, &added.messages),
+                &delivered_notice(agent, session, &messages),
             ));
         }
-        Ok((added.messages, added.stage))
+        Ok(())
     }
 
     /// Queues a message from the person to the agent of a session, which
@@ -645,6 +659,7 @@ impl Reviews {
         agent: &str,
         session: &str,
         text: &str,
+        local_id: Option<&str>,
     ) -> Result<MessageRow, Error> {
         let text = text.trim();
         if text.is_empty() {
@@ -656,9 +671,15 @@ impl Reviews {
                 format!("must be at most {MESSAGE_MAX} characters"),
             ));
         }
-        let Some((message, event_id)) = self.db.add_message(agent, session, text, &self.user)?
+        let Some((message, event_id)) = self
+            .db
+            .add_message(agent, session, text, &self.user, local_id)?
         else {
             return Err(Error::NotFound(format!("session {session} of {agent}")));
+        };
+        // a message sent again with its local_id was announced the first time
+        let Some(event_id) = event_id else {
+            return Ok(message);
         };
         self.bus.publish(Notice::new(
             event_id,

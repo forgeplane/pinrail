@@ -3524,7 +3524,7 @@ fn a_review_names_the_top_of_the_checkout_as_its_folder() {
 }
 
 #[test]
-fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
+fn a_status_prints_the_messages_it_receives_then_acknowledges_them() {
     let answers = Arc::new(Mutex::new(vec![
         r#"{"messages": []}"#.to_string(),
         r#"{"messages": [
@@ -3534,7 +3534,13 @@ fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
         .to_string(),
     ]));
     let next = answers.clone();
-    let server = MockServer::start(Box::new(move |_, _, _| {
+    let acknowledged = Arc::new(Mutex::new(Vec::new()));
+    let acks = acknowledged.clone();
+    let server = MockServer::start(Box::new(move |_, path, body| {
+        if path.ends_with("/messages/ack") {
+            acks.lock().unwrap().push(body.to_string());
+            return (204, String::new());
+        }
         (200, next.lock().unwrap().remove(0))
     }));
     let status = || {
@@ -3558,10 +3564,22 @@ fn a_status_prints_the_messages_it_delivers_and_nothing_without_them() {
         String::from_utf8(out.stdout).unwrap()
     };
     assert_eq!(status(), "");
+    // nothing to acknowledge
+    assert!(acknowledged.lock().unwrap().is_empty());
     assert_eq!(
         status(),
         "Message from pnezis, sent 2026-11-02 10:04:\nUse the v2 endpoint.\n\n\
          Message from pnezis, sent 2026-11-02 10:05:\nAnd keep the old tests:\nthey cover the retries.\n"
+    );
+    // once printed, the messages are acknowledged, so that a CLI killed
+    // before it printed them gets them again with its next status
+    let acks = acknowledged.lock().unwrap();
+    assert_eq!(acks.len(), 1);
+    let ack: serde_json::Value = serde_json::from_str(&acks[0]).unwrap();
+    assert_eq!(ack["ids"], serde_json::json!([1, 2]));
+    assert_eq!(
+        server.requests().last().unwrap(),
+        "POST /api/v1/sessions/claude-code/c-1/messages/ack"
     );
 }
 

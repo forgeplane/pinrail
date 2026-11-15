@@ -53,8 +53,15 @@ async fn every_replayed_notice_matches_the_live_one() {
         Some(json!({"text": "Run the tests too."})),
     )
     .await;
-    // delivers the message
-    agent(&app, "POST", status, json!({"text": "Still working"})).await;
+    // hands the message over, and the CLI acknowledges it
+    let handed = agent(&app, "POST", status, json!({"text": "Still working"})).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/messages/ack",
+        json!({"ids": [handed["messages"][0]["id"]]}),
+    )
+    .await;
     let archive = "/api/v1/sessions/claude-code/s-1/archive";
     person(&app, "PUT", archive, None).await;
     person(&app, "DELETE", archive, None).await;

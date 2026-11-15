@@ -1825,6 +1825,20 @@ fn status(client: &Client, args: StatusArgs, output: Output) -> Result<u8> {
         };
         format!("{stage}{gap}{messages}")
     });
+    // printed, so delivered; unacknowledged, they come again with the next
+    // status a minute later
+    let ids: Vec<i64> = answer["messages"]
+        .as_array()
+        .map(|m| m.iter().filter_map(|m| m["id"].as_i64()).collect())
+        .unwrap_or_default();
+    if !ids.is_empty()
+        && let Err(error) = client.acknowledge_messages(&agent, &session, &ids)
+    {
+        eprintln!(
+            "pinrail: the messages above were not marked as received ({error:#}); \
+             they may be printed again"
+        );
+    }
     Ok(0)
 }
 

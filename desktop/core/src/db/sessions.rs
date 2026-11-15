@@ -155,13 +155,12 @@ pub fn delivered_notice(agent: &str, id: &str, messages: &[MessageRow]) -> Value
 }
 
 /// A status as it was recorded: the status and its event, and the
-/// person's messages it delivered, with their event when there were any.
+/// person's messages it claimed for the agent.
 #[derive(Debug, Clone)]
 pub struct Added {
     pub status: StatusRow,
     pub event_id: i64,
     pub messages: Vec<MessageRow>,
-    pub delivered: Option<i64>,
     /// the stage open once the status is recorded
     pub stage: Option<OpenStage>,
 }
@@ -506,26 +505,15 @@ impl Db {
             None,
             &status_notice(agent, id, &status),
         )?;
-        // the person's queued messages go to the agent with the status
-        let messages = super::messages::deliver(&tx, agent, id, now)?;
-        let delivered = if messages.is_empty() {
-            None
-        } else {
-            Some(insert_event(
-                &tx,
-                None,
-                crate::events::SESSION_MESSAGES_DELIVERED,
-                None,
-                &delivered_notice(agent, id, &messages),
-            )?)
-        };
+        // the person's queued messages go to the agent with the status, and
+        // are delivered once the CLI acknowledges them
+        let messages = super::messages::claim(&tx, agent, id, now)?;
         let stage = open_stage(&tx, agent, id)?;
         tx.commit()?;
         Ok(Ok(Added {
             status,
             event_id,
             messages,
-            delivered,
             stage,
         }))
     }
@@ -621,7 +609,7 @@ impl Db {
                    (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)
                  AND NOT EXISTS
                    (SELECT 1 FROM session_messages m WHERE m.agent = sessions.agent
-                      AND m.session = sessions.id AND m.delivered_at IS NULL)",
+                      AND m.session = sessions.id AND m.state != 'delivered')",
             )?
             .query_map(params![activity(before)], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;

@@ -592,7 +592,10 @@ impl Items {
         if agent == "person" {
             return Ok(());
         }
-        if let Some((message, event_id)) = self.db.add_message(agent, session, text, &self.user)? {
+        if let Some((message, Some(event_id))) = self
+            .db
+            .add_message(agent, session, text, &self.user, None)?
+        {
             self.bus.publish(Notice::new(
                 event_id,
                 events::SESSION_MESSAGE_SENT,

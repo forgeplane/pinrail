@@ -210,6 +210,20 @@ impl Client {
         )
     }
 
+    /// Acknowledges the person's messages a status handed over, by id, once
+    /// they are printed: they are delivered then.
+    pub fn acknowledge_messages(&self, agent: &str, session: &str, ids: &[i64]) -> Result<()> {
+        self.post(
+            &format!(
+                "/api/v1/sessions/{}/{}/messages/ack",
+                segment(agent),
+                segment(session)
+            ),
+            Some(&serde_json::json!({ "ids": ids })),
+        )
+        .map(|_| ())
+    }
+
     /// Sends a plugin's sample as a new review; `body` may give a title,
     /// an origin or who asks.
     pub fn sample(&self, plugin: &str, body: &Value) -> Result<Value> {

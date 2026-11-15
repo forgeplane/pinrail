@@ -764,13 +764,33 @@ async fn delete_message(app: &App, session: &str, id: &Value) -> StatusCode {
     .0
 }
 
+/// What `pinrail status` does after printing the messages a status handed
+/// over: acknowledges them by id.
+async fn acknowledge(app: &App, session: &str, messages: &Value) -> StatusCode {
+    let ids: Vec<&Value> = messages
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| &m["id"])
+        .collect();
+    call(
+        app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/messages/ack"),
+        Some(json!({ "ids": ids })),
+    )
+    .await
+    .0
+}
+
 #[tokio::test]
-async fn a_status_delivers_the_queued_messages_once_oldest_first() {
+async fn a_status_hands_the_queued_messages_over_until_they_are_acknowledged() {
     let app = app();
     status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
     let (code, first) = message(&app, "s-1", "  Use the v2 endpoint.  ").await;
     assert_eq!(code, StatusCode::CREATED, "{first}");
     assert_eq!(first["text"], "Use the v2 endpoint.");
+    assert_eq!(first["state"], "queued");
     assert_eq!(first["delivered_at"], Value::Null);
     let (_, second) = message(&app, "s-1", "And keep the old tests.").await;
     // another session's message stays where it is
@@ -786,24 +806,87 @@ async fn a_status_delivers_the_queued_messages_once_oldest_first() {
         .collect();
     assert_eq!(texts, ["Use the v2 endpoint.", "And keep the old tests."]);
 
-    let (code, delivered) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    let (code, handed) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
     assert_eq!(code, StatusCode::OK);
-    let ids: Vec<&Value> = delivered["messages"]
+    let ids: Vec<&Value> = handed["messages"]
         .as_array()
         .unwrap()
         .iter()
         .map(|m| &m["id"])
         .collect();
     assert_eq!(ids, [&first["id"], &second["id"]]);
-    assert!(delivered["messages"][0]["delivered_at"].is_string());
-    // once: the next status has nothing for the agent
-    let (_, again) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
+    // claimed, not yet delivered
+    assert_eq!(handed["messages"][0]["state"], "claimed");
+    assert_eq!(handed["messages"][0]["delivered_at"], Value::Null);
+    // a claimed message is not handed over twice while its claim lasts
+    let (_, again) = status(&app, "claude-code", "s-1", json!({"text": "Still testing"})).await;
     assert_eq!(again["messages"], json!([]));
 
+    assert_eq!(
+        acknowledge(&app, "s-1", &handed["messages"]).await,
+        StatusCode::NO_CONTENT
+    );
     let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(thread["messages"][1]["state"], "delivered");
     assert!(thread["messages"][1]["delivered_at"].is_string());
     let (_, other) = call(&app, "GET", "/api/v1/sessions/claude-code/s-2", None).await;
-    assert_eq!(other["messages"][0]["delivered_at"], Value::Null);
+    assert_eq!(other["messages"][0]["state"], "queued");
+    // acknowledging again, or another session's message, changes nothing
+    assert_eq!(
+        acknowledge(&app, "s-2", &handed["messages"]).await,
+        StatusCode::NO_CONTENT
+    );
+    let (_, other) = call(&app, "GET", "/api/v1/sessions/claude-code/s-2", None).await;
+    assert_eq!(other["messages"][0]["state"], "queued");
+}
+
+#[tokio::test]
+async fn a_message_whose_handing_over_was_never_acknowledged_is_handed_over_again() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
+    // the CLI was killed before it printed the message
+    let (_, handed) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(handed["messages"][0]["id"], sent["id"]);
+
+    // a minute later, the claim has expired
+    let db = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
+    db.execute(
+        "UPDATE session_messages SET claimed_at = ?1",
+        [crate_iso(
+            chrono::Utc::now() - chrono::Duration::seconds(61),
+        )],
+    )
+    .unwrap();
+    let (_, again) = status(&app, "claude-code", "s-1", json!({"text": "Still testing"})).await;
+    assert_eq!(again["messages"][0]["id"], sent["id"]);
+    assert_eq!(again["messages"][0]["text"], "Use the v2 endpoint.");
+}
+
+/// A time as the core stores it.
+fn crate_iso(at: chrono::DateTime<chrono::Utc>) -> String {
+    at.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()
+}
+
+#[tokio::test]
+async fn a_message_sent_twice_with_its_local_id_is_one_message() {
+    let app = app();
+    status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let send = || {
+        call(
+            &app,
+            "POST",
+            "/api/v1/sessions/claude-code/s-1/messages",
+            Some(json!({ "text": "Use the v2 endpoint.", "local_id": "l-1" })),
+        )
+    };
+    let (code, first) = send().await;
+    assert_eq!(code, StatusCode::CREATED);
+    let (code, again) = send().await;
+    assert_eq!(code, StatusCode::CREATED);
+    assert_eq!(again["id"], first["id"]);
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -827,7 +910,13 @@ async fn a_queued_message_can_be_deleted_and_a_delivered_one_cannot() {
         delete_message(&app, "s-2", &sent["id"]).await,
         StatusCode::NOT_FOUND
     );
-    status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    // being handed over, it can no longer be taken back
+    let (_, handed) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    assert_eq!(
+        delete_message(&app, "s-1", &sent["id"]).await,
+        StatusCode::CONFLICT
+    );
+    acknowledge(&app, "s-1", &handed["messages"]).await;
     assert_eq!(
         delete_message(&app, "s-1", &sent["id"]).await,
         StatusCode::CONFLICT
@@ -868,8 +957,10 @@ async fn messages_are_announced_when_sent_delivered_and_deleted() {
     assert_eq!(notice.kind, "session_message_deleted");
     assert_eq!(notice.session.unwrap()["message"]["id"], other["id"]);
 
-    status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
+    let (_, handed) = status(&app, "claude-code", "s-1", json!({"text": "Testing"})).await;
     assert_eq!(notices.recv().await.unwrap().kind, "session_status");
+    // delivered once the CLI acknowledges what it printed
+    acknowledge(&app, "s-1", &handed["messages"]).await;
     let notice = notices.recv().await.unwrap();
     assert_eq!(notice.kind, "session_messages_delivered");
     assert_eq!(notice.session.unwrap()["messages"][0]["id"], sent["id"]);
@@ -888,13 +979,14 @@ async fn a_queued_message_keeps_its_session_from_the_sweep() {
     )
     .await;
     message(&app, "s-delivered", "Use the v2 endpoint.").await;
-    status(
+    let (_, handed) = status(
         &app,
         "claude-code",
         "s-delivered",
         json!({"text": "Received"}),
     )
     .await;
+    acknowledge(&app, "s-delivered", &handed["messages"]).await;
     let later = chrono::Utc::now() + chrono::Duration::days(1);
     app.state.reviews().sweep_history_before(later).unwrap();
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
