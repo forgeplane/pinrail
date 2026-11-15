@@ -115,6 +115,21 @@ test("Ctrl+Shift+C copies the selection on Linux, and Cmd+C on macOS", async () 
   expect(mac.sent).toEqual([["key", "\x03"]]);
 });
 
+test("Ctrl+Shift keys are the window's on Linux, and Cmd keys on macOS", async () => {
+  const linux = await rig();
+  const prevented: boolean[] = [];
+  linux.keyboard.input.addEventListener("keydown", (e) => queueMicrotask(() => prevented.push(e.defaultPrevented)));
+  await userEvent.keyboard("{Control>}{Shift>}K{/Shift}{/Control}");
+  expect(linux.sent).toEqual([]);
+  expect(prevented).toContain(false);
+  // on macOS, Ctrl+Shift is the program's, and Cmd the window's
+  const mac = await rig({ mac: true });
+  await userEvent.keyboard("{Meta>}k{/Meta}");
+  expect(mac.sent).toEqual([]);
+  await userEvent.keyboard("{Control>}{Shift>}K{/Shift}{/Control}");
+  expect(mac.sent.length).toBe(1);
+});
+
 test("focus is reported to a program that asks for it", async () => {
   const { keyboard, sent, write } = await rig();
   keyboard.blur();

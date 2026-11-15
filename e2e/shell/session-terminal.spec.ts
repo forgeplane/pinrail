@@ -136,17 +136,18 @@ for (const system of ["macOS", "Linux"] as const) {
     await expect.poll(() => received.join("")).toBe("\x1b\x0b");
     await expect(palette).toBeHidden();
 
-    // a Ctrl combination the terminal sends nothing for stays in it too,
-    // though it goes to the inbox on Linux elsewhere
+    // other Ctrl combinations stay in it too, though Ctrl+1 goes to the
+    // inbox on Linux elsewhere
     await page.keyboard.press("Control+1");
     await page.waitForTimeout(300);
     await expect(terminalBar(page)).toBeVisible();
     await expect(page).toHaveURL(new RegExp(session));
 
     // the app keeps Cmd on macOS, and Ctrl+Shift on Linux
+    const before = received.join("");
     await page.keyboard.press(system === "macOS" ? "Meta+k" : "Control+Shift+K");
     await expect(palette).toBeVisible();
-    expect(received.join("")).toBe("\x1b\x0b");
+    expect(received.join("")).toBe(before);
   });
 }
 

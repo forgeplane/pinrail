@@ -187,8 +187,8 @@ export class Keyboard {
     }
     // paste: the browser's paste event follows, which encodes it
     if (clipboardKey && key === "v") return;
-    // the window's own shortcuts: Cmd on macOS
-    if (mac && event.metaKey) return;
+    // the window's own shortcuts: Cmd on macOS, Ctrl+Shift on Linux
+    if (mac ? event.metaKey : event.ctrlKey && event.shiftKey && !event.metaKey) return;
     if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && this.options.newline) {
       event.preventDefault();
       this.handled = true;
