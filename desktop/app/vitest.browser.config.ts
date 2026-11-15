@@ -16,6 +16,9 @@ export default defineConfig({
   },
   test: {
     include: ["ui/src/**/*.browser.test.ts"],
+    // one file at a time: the files share the page's main thread, so one
+    // file's work would delay another's frames and fail its timing checks
+    fileParallelism: false,
     browser: {
       enabled: true,
       provider: playwright(),
