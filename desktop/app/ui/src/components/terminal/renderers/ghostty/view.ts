@@ -88,6 +88,8 @@ class GhosttyView implements TerminalView, BenchHooks {
   private disposed = false;
   /** Whether output changed the screen while the view was out of sight. */
   private missed = false;
+  /** The time spent drawing, for the benchmark. */
+  private drawing = 0;
 
   async mount(host: HTMLElement, options: ViewOptions): Promise<void> {
     const runtime = await GhosttyRuntime.instantiate();
@@ -198,6 +200,7 @@ class GhosttyView implements TerminalView, BenchHooks {
       this.missed = false;
       this.renderer.invalidate();
     }
+    const started = performance.now();
     const snapshot = this.core.snapshot();
     this.snapshot = snapshot;
     this.renderer.setMatches(this.finder.matchesInView());
@@ -205,6 +208,7 @@ class GhosttyView implements TerminalView, BenchHooks {
     const { width, height } = this.renderer.cell;
     this.keyboard.moveTo(snapshot.cursorX * width, snapshot.cursorY * height, height);
     this.mirror?.mirror.update(snapshot.rowData);
+    this.drawing += performance.now() - started;
     this.drawnListeners.forEach((l) => l());
   }
 
@@ -352,6 +356,10 @@ class GhosttyView implements TerminalView, BenchHooks {
 
   wasmMemoryBytes(): number {
     return this.core?.runtime.memoryBytes().byteLength ?? 0;
+  }
+
+  drawMs(): number {
+    return this.drawing;
   }
 
   backend(): string {

@@ -626,12 +626,15 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const drawn = views.map(() => 0);
     const offs = views.map((v, i) => benchHooks(v).onFrameDrawn?.(() => drawn[i]!++));
     const stop = frameRecorder();
+    const drawMs = () => views.reduce((sum, v) => sum + (benchHooks(v).drawMs?.() ?? 0), 0);
+    const draw0 = drawMs();
     const cpu0 = (await api("cpu")).cpuSeconds as number | null;
     const t0 = performance.now();
     const played = await Promise.all(views.map((v) => play(v, { item: ITEM, mode: "rate", rate, seconds })));
     await drawnAfterParse(views[0]!);
     const elapsed = (performance.now() - t0) / 1000;
     const cpu1 = (await api("cpu")).cpuSeconds as number | null;
+    const drawn1 = drawMs();
     const frames = stop();
     offs.forEach((off) => off?.());
     const hooked = offs.every(Boolean);
@@ -642,6 +645,7 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
       bytes: played.reduce((a, p) => a + p.bytes, 0),
       shownDrawsPerSecond: hooked ? drawn[0]! / elapsed : null,
       hiddenDrawsPerSecond: hooked ? drawn.slice(1).reduce((a, b) => a + b, 0) / elapsed : null,
+      drawMsPerSecond: views.every((v) => benchHooks(v).drawMs) ? (drawn1 - draw0) / elapsed : null,
       cpuPercent: cpu0 !== null && cpu1 !== null ? ((cpu1 - cpu0) / elapsed) * 100 : null,
       frames,
     };

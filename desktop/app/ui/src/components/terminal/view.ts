@@ -94,6 +94,8 @@ export interface BenchHooks {
   inputElement(): HTMLElement | null;
   /** Bytes of WebAssembly memory this view holds, if it uses any. */
   wasmMemoryBytes?(): number;
+  /** The main-thread time the view has spent drawing so far, in ms. */
+  drawMs?(): number;
   /** How it draws, such as "canvas2d" or "webgl2". */
   backend(): string;
 }

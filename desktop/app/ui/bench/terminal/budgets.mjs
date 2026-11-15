@@ -158,8 +158,8 @@ export function otherRows(results) {
   const agents = find(results, "agents");
   if (agents && !agents.error)
     rows.push([
-      `Agents: ${agents.agents} streaming, one shown: draws/s shown / hidden, CPU`,
-      `${fmt(agents.shownDrawsPerSecond)} / ${fmt(agents.hiddenDrawsPerSecond)}, ${fmt(agents.cpuPercent, 0)} %`,
+      `Agents: ${agents.agents} streaming, one shown: draws/s shown / hidden, drawing ms/s, CPU`,
+      `${fmt(agents.shownDrawsPerSecond)} / ${fmt(agents.hiddenDrawsPerSecond)}, ${fmt(agents.drawMsPerSecond)}, ${fmt(agents.cpuPercent, 0)} %`,
     ]);
   for (const r of results.filter((r) => r.case === "replay" && !r.error)) {
     const name = r.item.split("/").pop().replace(".cast", "");
