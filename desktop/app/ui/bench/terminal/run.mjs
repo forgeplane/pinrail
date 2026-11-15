@@ -70,6 +70,7 @@ function allCases() {
     { case: "memory" },
     { case: "switch" },
     { case: "agents" },
+    { case: "agents", titles: "1" },
     ...recordings.map((item) => ({ case: "replay", item })),
     { case: "replay", item: "synthetic/trickle.cast" },
     { case: "screen", item: "synthetic/unicode.bin" },
@@ -139,6 +140,7 @@ function caseQuery(c, adapter, id) {
   if (c.load) p.set("load", c.load);
   if (c.snapshot) p.set("snapshot", c.snapshot);
   if (c.format) p.set("format", c.format);
+  if (c.titles) p.set("titles", c.titles);
   return p;
 }
 

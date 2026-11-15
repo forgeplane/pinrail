@@ -155,11 +155,17 @@ export function otherRows(results) {
       "Memory per terminal: process / JS heap / wasm total",
       `${fmt(mem.perTerminalRssMiB)} / ${fmt(mem.perTerminalHeapMiB)} / ${fmt(mem.wasmMemoryMiB)} MiB`,
     ]);
-  const agents = find(results, "agents");
+  const agents = find(results, "agents", null, { titles: undefined });
   if (agents && !agents.error)
     rows.push([
       `Agents: ${agents.agents} streaming, one shown: draws/s shown / hidden, drawing ms/s, CPU`,
       `${fmt(agents.shownDrawsPerSecond)} / ${fmt(agents.hiddenDrawsPerSecond)}, ${fmt(agents.drawMsPerSecond)}, ${fmt(agents.cpuPercent, 0)} %`,
+    ]);
+  const spinning = find(results, "agents", null, { titles: "1" });
+  if (spinning && !spinning.error)
+    rows.push([
+      `Agents: ${spinning.agents} spinning their titles, one shown: draws/s shown, drawing ms/s`,
+      `${fmt(spinning.shownDrawsPerSecond)}, ${fmt(spinning.drawMsPerSecond)}`,
     ]);
   for (const r of results.filter((r) => r.case === "replay" && !r.error)) {
     const name = r.item.split("/").pop().replace(".cast", "");

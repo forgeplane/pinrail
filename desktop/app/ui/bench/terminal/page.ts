@@ -607,8 +607,11 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
   // Agents: several terminals stream agent output at once, as agents in
   // several sessions do, while only one is shown. The others are kept as
   // the window's pool keeps them: mounted, then taken out of the page.
+  // With titles=1, each agent only spins its title 10 times a second, as
+  // an agent waiting on a long tool call does.
   async agents() {
     const n = num("agents", 8);
+    const titles = q.get("titles") === "1";
     const rate = num("rate", 50_000);
     const seconds = num("seconds", 10);
     const views: TerminalView[] = [];
@@ -630,7 +633,9 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     const draw0 = drawMs();
     const cpu0 = (await api("cpu")).cpuSeconds as number | null;
     const t0 = performance.now();
-    const played = await Promise.all(views.map((v) => play(v, { item: ITEM, mode: "rate", rate, seconds })));
+    const played = await Promise.all(
+      views.map((v) => (titles ? spinTitle(v, seconds) : play(v, { item: ITEM, mode: "rate", rate, seconds }))),
+    );
     await drawnAfterParse(views[0]!);
     const elapsed = (performance.now() - t0) / 1000;
     const cpu1 = (await api("cpu")).cpuSeconds as number | null;
@@ -754,6 +759,20 @@ cases.live = async () => {
   document.title = "ready";
   return new Promise<never>(() => {});
 };
+
+/** Sets the view's title 10 times a second for some seconds, with a
+ *  spinner before the text, as Claude Code does while it works. */
+async function spinTitle(view: TerminalView, seconds: number): Promise<{ bytes: number }> {
+  const spinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+  let bytes = 0;
+  for (let i = 0; i < seconds * 10; i++) {
+    const title = new TextEncoder().encode(`\x1b]2;${spinner[i % spinner.length]} Running the tests\x07`);
+    bytes += title.length;
+    view.write(title, () => {});
+    await sleep(100);
+  }
+  return { bytes };
+}
 
 /** Streams tui output into a second view at 2 MB/s until stopped. */
 function startLoad(view: TerminalView) {
