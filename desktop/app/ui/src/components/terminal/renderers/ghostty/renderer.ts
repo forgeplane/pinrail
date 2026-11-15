@@ -138,10 +138,14 @@ export class CanvasRenderer {
   /** The cursor as last placed, to tell whether it moved. */
   private cursorKey = "";
 
+  /** With `reference`, for tests only, the renderer draws in the plainest
+   *  way: every row of every snapshot, in full. Its pixels are what any
+   *  faster way of drawing must reproduce. */
   constructor(
     host: HTMLElement,
     private font: Font,
     private selection: GhosttyColor,
+    private readonly reference = false,
   ) {
     this.canvas = document.createElement("canvas");
     this.canvas.className = "ghostty-canvas";
@@ -266,7 +270,7 @@ export class CanvasRenderer {
    *  resize, and places the cursor. */
   draw(snapshot: GhosttySnapshot, focused: boolean) {
     this.resize(snapshot.cols, snapshot.rows);
-    const all = this.drawn !== snapshot.rows;
+    const all = this.reference || this.drawn !== snapshot.rows;
     snapshot.rowData.forEach((row, y) => {
       if (all || snapshot.dirtyRows.has(y) || this.stale.has(y)) this.drawRow(row.cells, y, snapshot);
     });
@@ -281,7 +285,10 @@ export class CanvasRenderer {
     const top = y * h;
     // the backgrounds, a fill per run of one colour
     ctx.fillStyle = css(snapshot.background);
-    ctx.fillRect(0, top, this.cols * w, h);
+    // to the canvas's last device pixel, so that a row drawn again is
+    // drawn the same: a fill that ended inside a pixel would blend into it
+    // once more each time
+    ctx.fillRect(0, top, this.canvas.width / this.ratio, h);
     const found = this.matches.get(y);
     const backgroundOf = (x: number) =>
       cells[x].selected ? this.selection : found?.[x] ? this.findColour : cells[x].background;
