@@ -78,7 +78,9 @@ test("a session opened again shows the entry it was left at, where it was", asyn
     page.locator(".thread-items").evaluate((el) => {
       const view = el.getBoundingClientRect().top;
       const kid = [...el.children].find((k) => k.getBoundingClientRect().bottom > view)!;
-      return { text: kid.textContent?.slice(0, 40), offset: Math.round(kid.getBoundingClientRect().top - view) };
+      // without its age, which moves on while the test runs
+      const text = kid.textContent?.replace(/\d+[smhd] ago/, "").slice(0, 40);
+      return { text, offset: Math.round(kid.getBoundingClientRect().top - view) };
     });
   await page.goto(`/#/sessions/claude-code/${long}`);
   await expect(page.getByText("Note 120 of the long session.")).toBeVisible();
