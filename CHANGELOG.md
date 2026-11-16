@@ -92,6 +92,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A message typed in a session's message box stays there when you open
+  another page or session and come back.
 - A session's terminal no longer touches the left edge of its view.
 - A diff in a question's context no longer starts with an empty file
   when it opens with a blank line.

@@ -73,6 +73,36 @@ test("a message is queued, delivered with the agent's next status, and deleted o
   ]);
 });
 
+test("a message typed but not sent stays in the box when the person leaves the session and comes back", async ({
+  page,
+}) => {
+  const [first, other] = [fresh(), fresh()];
+  await report(page.request, first, "Reading the callers");
+  await report(page.request, other, "Running the tests");
+  await page.goto(`/#/sessions/claude-code/${first}`);
+  const box = page.getByRole("textbox", { name: "Message to the agent" });
+  await box.fill("Also check the retry path.");
+
+  // another page, then another session, and back each time
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await nav.getByRole("link", { name: /Inbox/ }).click();
+  await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  await page.goBack();
+  await expect(box).toHaveValue("Also check the retry path.");
+  await page.goto(`/#/sessions/claude-code/${other}`);
+  await expect(box).toHaveValue("");
+  await page.goto(`/#/sessions/claude-code/${first}`);
+  await expect(box).toHaveValue("Also check the retry path.");
+
+  // sent, it is gone
+  await box.press("Enter");
+  await expect(thread(page).getByTestId("message")).toHaveCount(1);
+  await page.goto(`/#/sessions/claude-code/${other}`);
+  await page.goto(`/#/sessions/claude-code/${first}`);
+  await expect(thread(page).getByTestId("message")).toHaveCount(1);
+  await expect(box).toHaveValue("");
+});
+
 test("while questions wait, the box holds the comment on the answers", async ({ page }) => {
   const session = fresh();
   await report(page.request, session, "Asking");
