@@ -61,6 +61,16 @@ const STEPS: Step[] = [
       ),
   ],
   ["clears the matches", (_, renderers) => renderers.forEach((r) => r.setMatches([]))],
+  [
+    "sets a scroll region under a status line",
+    "\x1b[2J\x1b[12;1H" + sgr("7", " status: working ") + "\x1b[1;11r\x1b[11;1H",
+  ],
+  ...[...Array(6).keys()].map((i): Step => [
+    `scrolls one line in the region (${i + 1})`,
+    `\r\n${sgr(`3${i % 8}`, `streamed line ${i}`)} with plain words after it`,
+  ]),
+  ["scrolls three lines at once", "\r\nthree\r\nlines\r\nat once"],
+  ["resets the scroll region", "\x1b[r"],
   ["clears the screen", "\x1b[2J\x1b[H$ ls\r\n"],
 ];
 

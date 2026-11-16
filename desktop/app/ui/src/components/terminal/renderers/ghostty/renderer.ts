@@ -135,6 +135,10 @@ export class CanvasRenderer {
   /** How many rows the canvas holds drawn: none after a resize, which
    *  clears it, so the next draw draws them all. */
   private drawn = 0;
+  /** What each row of the canvas shows, as a key of everything its
+   *  drawing depends on: a row whose key is unchanged is not drawn again,
+   *  and rows that moved are copied. */
+  private keys: string[] = [];
   /** The link under the pointer, underlined, and the rows to draw again
    *  because it moved. */
   private link: readonly LinkSpan[] = [];
@@ -281,12 +285,95 @@ export class CanvasRenderer {
   draw(snapshot: GhosttySnapshot, focused: boolean) {
     this.resize(snapshot.cols, snapshot.rows);
     const all = this.reference || this.drawn !== snapshot.rows;
-    snapshot.rowData.forEach((row, y) => {
-      if (all || snapshot.dirtyRows.has(y) || this.stale.has(y)) this.drawRow(row.cells, y, snapshot);
-    });
+    if (all) {
+      this.keys = [];
+      snapshot.rowData.forEach((row, y) => {
+        this.drawRow(row.cells, y, snapshot);
+        if (!this.reference) this.keys[y] = this.rowKey(row.cells, y, snapshot);
+      });
+    } else {
+      const changed = new Map<number, string>();
+      snapshot.rowData.forEach((row, y) => {
+        if (snapshot.dirtyRows.has(y) || this.stale.has(y)) changed.set(y, this.rowKey(row.cells, y, snapshot));
+      });
+      this.copyMoved(changed);
+      for (const [y, key] of changed) {
+        if (this.keys[y] === key) continue;
+        this.drawRow(snapshot.rowData[y]!.cells, y, snapshot);
+        this.keys[y] = key;
+      }
+    }
     this.stale.clear();
     this.drawn = snapshot.rows;
     this.placeCursor(snapshot, focused);
+  }
+
+  /** Copies the longest band of changed rows that the canvas already shows
+   *  some rows lower, as when output scrolls up, so that only the new rows
+   *  are drawn. Only where a row is a whole number of device pixels tall,
+   *  so that the copy lands on the same pixels a drawing would. */
+  private copyMoved(changed: ReadonlyMap<number, string>) {
+    const h = this.metrics.height;
+    if (changed.size < 2 || !Number.isInteger(h * this.ratio)) return;
+    let best = { from: 0, to: 0, by: 0 };
+    for (const [y, key] of changed) {
+      if (this.keys[y] === key) continue;
+      const by = this.keys.indexOf(key, y + 1) - y;
+      if (by <= 0) continue;
+      let end = y + 1;
+      while (end + by < this.rows && changed.get(end) === this.keys[end + by] && changed.has(end)) end++;
+      if (end - y > best.to - best.from) best = { from: y, to: end, by };
+    }
+    const count = best.to - best.from;
+    if (count < 2) return;
+    const px = h * this.ratio;
+    this.context.drawImage(
+      this.canvas,
+      0,
+      (best.from + best.by) * px,
+      this.canvas.width,
+      count * px,
+      0,
+      best.from * h,
+      this.canvas.width / this.ratio,
+      count * h,
+    );
+    for (let y = best.from; y < best.to; y++) this.keys[y] = changed.get(y)!;
+  }
+
+  /** A key of everything a row's drawing depends on. */
+  private rowKey(cells: readonly GhosttyCell[], y: number, snapshot: GhosttySnapshot): string {
+    let a = 0x811c9dc5;
+    let b = 0x01000193;
+    const mix = (n: number) => {
+      a = Math.imul(a ^ n, 0x01000193);
+      b = Math.imul(b ^ n, 0x5bd1e995) + 0x6b43a9b5;
+    };
+    const colour = (c: GhosttyColor) => mix((c.r << 16) | (c.g << 8) | c.b);
+    colour(snapshot.background);
+    colour(this.selection);
+    colour(this.findColour);
+    for (const cell of cells) {
+      for (let i = 0; i < cell.text.length; i++) mix(cell.text.charCodeAt(i));
+      mix(
+        cell.text.length |
+          (cell.wide << 8) |
+          (cell.bold ? 1 << 10 : 0) |
+          (cell.italic ? 1 << 11 : 0) |
+          (cell.invisible ? 1 << 12 : 0) |
+          (cell.strikethrough ? 1 << 13 : 0) |
+          (cell.overline ? 1 << 14 : 0) |
+          (cell.underline << 15) |
+          (cell.selected ? 1 << 18 : 0),
+      );
+      colour(cell.foreground);
+      colour(cell.background);
+      if (cell.underlineColor) colour(cell.underlineColor);
+    }
+    const found = this.matches.get(y);
+    if (found) for (let x = 0; x < found.length; x++) if (found[x]) mix(0x40000 + x);
+    for (const span of this.link) if (span.row === y) mix(0x80000 + span.start * 1024 + span.end);
+    return `${a >>> 0}:${b >>> 0}`;
   }
 
   private drawRow(cells: readonly GhosttyCell[], y: number, snapshot: GhosttySnapshot) {
