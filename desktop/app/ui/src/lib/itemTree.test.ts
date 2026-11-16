@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { WorkItem } from "../api/types";
-import { itemTree, pageOfGroups, type ItemTreeRow } from "./itemTree";
+import { itemTree, pageOfGroups, withClosedSubItems, type ItemTreeRow } from "./itemTree";
 
 const item = (key: string, parent: string | null = null): WorkItem => ({ key, parent }) as WorkItem;
 const shape = (rows: ReturnType<typeof itemTree>) => rows.map((r) => `${"  ".repeat(r.depth)}${r.item.key}`);
@@ -71,5 +71,14 @@ describe("pageOfGroups", () => {
       ["web", ["W-1", "W-2"]],
     ]);
     expect(keys(pageOfGroups(groups, 3, 2).groups)).toEqual([]);
+  });
+});
+
+describe("withClosedSubItems", () => {
+  test("adds the closed sub-items of a listed parent at every depth", () => {
+    // A-1 is open; A-2 is done under it, with A-3 done under A-2
+    const listed = [item("A-1")];
+    const closed = [item("A-3", "A-2"), item("A-2", "A-1"), item("B-1"), item("B-2", "B-1")];
+    expect(withClosedSubItems(listed, closed).map((i) => i.key)).toEqual(["A-1", "A-3", "A-2"]);
   });
 });

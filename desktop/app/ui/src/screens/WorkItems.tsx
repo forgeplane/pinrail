@@ -33,7 +33,7 @@ import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
-import { itemTree, pageOfGroups, type ItemTreeRow } from "../lib/itemTree";
+import { itemTree, pageOfGroups, withClosedSubItems, type ItemTreeRow } from "../lib/itemTree";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { useDragDrop } from "../lib/useDragDrop";
 import { useLatest } from "../lib/useLatest";
@@ -68,15 +68,6 @@ function statusIcon(value: string) {
 /** How many top-level items a page shows, each with its sub-items, unless
  *  the person chooses another size. */
 const ITEMS_PER_PAGE = 100;
-
-/** The items listed, with the closed ones whose parent is listed after
- *  them, so that each sits under its parent after its open siblings. */
-function withClosedSubItems(listed: WorkItem[], closed: WorkItem[]): WorkItem[] {
-  if (!closed.length) return listed;
-  const keys = new Set(listed.map((i) => i.key));
-  const under = closed.filter((i) => i.parent && keys.has(i.parent) && !keys.has(i.key));
-  return under.length ? [...listed, ...under] : listed;
-}
 
 /** What a dragged row carries: its item's key. */
 const DRAGGED = "application/x-pinrail-item";

@@ -66,6 +66,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- **Closed sub-items** on the Work items page also shows the closed items
+  under a closed sub-item, so a done sub-item with its own sub-items can
+  be unfolded.
 - Crash reports from the window keep each stack frame's function, file
   name, line and column. The address before the file name is still
   removed.

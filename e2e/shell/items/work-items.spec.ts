@@ -1221,7 +1221,11 @@ test("Closed sub-items shows an open parent's done and cancelled sub-items under
   const open = await add(request, repo, "Write the notes", { parent: parent.key });
   const done = await add(request, repo, "Tag the build", { parent: parent.key });
   const cancelled = await add(request, repo, "Drop the beta", { parent: parent.key });
-  await edit(request, done.key, { status: "done" });
+  // closed under a closed sub-item: shown under it. Done, it closes
+  // its parent too.
+  const signed = await add(request, repo, "Sign the tag", { parent: done.key });
+  await edit(request, signed.key, { status: "done" });
+  expect((await (await request.get(`${core}/api/v1/items/${done.key}`)).json()).status).toBe("done");
   await edit(request, cancelled.key, { status: "cancelled", comment: "Not needed" });
   // closed, but its parent is closed too: it stays hidden
   const other = await add(request, repo, "Release 1.9");
@@ -1236,7 +1240,9 @@ test("Closed sub-items shows an open parent's done and cancelled sub-items under
   await expect(page).toHaveURL(/closed=1/);
   await expect(page.getByTestId("filter-chip")).toContainText(["Closed sub-items"]);
   // under the parent, after its open sub-item, dimmed
-  await expect(rows(page).locator(".item-key")).toHaveText([parent.key, open.key, done.key, cancelled.key]);
+  await expect(rows(page).locator(".item-key")).toHaveText([parent.key, open.key, done.key, signed.key, cancelled.key]);
+  // the closed sub-item folds like any parent
+  await expect(page.locator(`.item-line:has([data-key="${done.key}"]) .item-fold-toggle`)).toBeVisible();
   await expect(row(page, done.key)).toHaveClass(/is-closed/);
   await expect(row(page, old.key)).toHaveCount(0);
 

@@ -50,3 +50,25 @@ export function pageOfGroups<K>(groups: [K, ItemTreeRow[]][], page: number, size
   }
   return { groups: shown, total: top + 1 };
 }
+
+/** The items listed, with the closed ones under a listed item after them,
+ *  at any depth, so that each sits under its parent after its open
+ *  siblings. */
+export function withClosedSubItems(listed: WorkItem[], closed: WorkItem[]): WorkItem[] {
+  if (!closed.length) return listed;
+  const keys = new Set(listed.map((i) => i.key));
+  const parents = new Map(closed.map((i) => [i.key, i.parent]));
+  // under a listed item, through closed ones only
+  const known = new Map<string, boolean>();
+  const isUnder = (key: string): boolean => {
+    const found = known.get(key);
+    if (found !== undefined) return found;
+    known.set(key, false);
+    const parent = parents.get(key);
+    const result = !!parent && (keys.has(parent) || (parents.has(parent) && isUnder(parent)));
+    known.set(key, result);
+    return result;
+  };
+  const under = closed.filter((i) => !keys.has(i.key) && isUnder(i.key));
+  return under.length ? [...listed, ...under] : listed;
+}
