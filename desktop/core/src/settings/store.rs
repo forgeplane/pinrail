@@ -124,6 +124,12 @@ const LEAVES: &[Leaf] = &[
         "Fold a done or cancelled work item's sub-items on the Work items page until it is unfolded.",
     ),
     (
+        "/items/count_nested",
+        Kind::Bool,
+        || json!(false),
+        "Count every work item under a parent, at any depth, in its progress on the Work items page, not only its own sub-items.",
+    ),
+    (
         "/items/close_parents",
         Kind::Bool,
         || json!(true),

@@ -13,6 +13,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- **Count sub-items at every level**, in Settings › Work items, makes a
+  parent's progress on the Work items page count every work item under
+  it, not only its own sub-items. A work item's panel and `pinrail items`
+  show both counts when they differ.
 - Each session in the sidebar has a menu, from the **⋯** button on its row
   or a right-click: archive it, mark it read or unread, copy its id, and
   stop or resume its agent when it runs in Pinrail.

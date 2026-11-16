@@ -70,7 +70,16 @@ async function open(page: Page, scope: string, extra = "") {
 // the defaults for the next
 test.afterEach(async ({ request }) => {
   await request.patch(`${core}/api/v1/settings`, {
-    data: { items: { layout: "project", nesting: "nested", ordering: "oldest", fold_closed: true, show_next: false } },
+    data: {
+      items: {
+        layout: "project",
+        nesting: "nested",
+        ordering: "oldest",
+        fold_closed: true,
+        show_next: false,
+        count_nested: false,
+      },
+    },
   });
 });
 
@@ -1078,6 +1087,39 @@ test("a parent shows the work under way under it and how much is closed", async 
   await expect(parentRow.locator(".progress-ring")).toBeVisible();
   await parentRow.click();
   await expect(page.getByTestId("item-sub-progress")).toHaveText("1 of 3 closed · 1 in progress");
+});
+
+test("a parent's progress counts every level of sub-items when Settings says so, and its panel shows both", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh();
+  const plan = await add(request, repo, "The plan");
+  const step = await add(request, repo, "A step", { parent: plan.key });
+  const first = await add(request, repo, "Its first task", { parent: step.key });
+  await add(request, repo, "Its second task", { parent: step.key });
+  await edit(request, first.key, { status: "done" });
+  await open(page, repo);
+  const planRow = row(page, plan.key);
+  // its own sub-item, the step, is open
+  await expect(planRow.getByTestId("item-progress")).toHaveText("0/1");
+  await expect(planRow.getByTestId("item-progress")).toHaveAttribute("title", "0 of 1 sub-items closed");
+
+  await page.keyboard.press("ControlOrMeta+,");
+  await settingsSection(page, "Work items").click();
+  const nested = settingsDialog(page).getByRole("switch", { name: "Count sub-items at every level" });
+  await expect(nested).not.toBeChecked();
+  await nested.click();
+  await settingSaved(request, (s) => s.items.count_nested, true);
+  await page.keyboard.press("Escape");
+  // the step and its two tasks, one of them done
+  await expect(planRow.getByTestId("item-progress")).toHaveText("1/3");
+  await expect(planRow.getByTestId("item-progress")).toHaveAttribute(
+    "title",
+    "1 of 3 sub-items closed, at every level (0 of 1 directly)",
+  );
+  await planRow.click();
+  await expect(page.getByTestId("item-sub-progress")).toHaveText("0 of 1 closed · 1 of 3 at every level");
 });
 
 test("Settings has a Work items page with the switch that closes parents", async ({ page, request }) => {

@@ -405,6 +405,16 @@ export function SettingsDialog({
                   onChange={(v) => update({ items: { fold_closed: v } })}
                 />
               </SettingsRow>
+              <SettingsRow
+                label="Count sub-items at every level"
+                description="On the Work items page, a parent's progress counts every work item under it, at any depth, not only its own sub-items. The item's panel shows both."
+              >
+                <Toggle
+                  label="Count sub-items at every level"
+                  checked={settings.items.count_nested}
+                  onChange={(v) => update({ items: { count_nested: v } })}
+                />
+              </SettingsRow>
             </SettingsGroup>
           </SettingsPage>
         ) : null}

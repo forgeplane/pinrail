@@ -495,6 +495,7 @@ export type ServerSettings = {
     fold_closed?: boolean;
     show_next?: boolean;
     close_parents?: boolean;
+    count_nested?: boolean;
   };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
@@ -580,7 +581,14 @@ export type WorkItem = {
   updated_at: string;
   closed_at: string | null;
   /** its own sub-items: how many, how many closed and how many in progress */
-  sub_items: { total: number; closed: number; in_progress: number };
+  /** its own sub-items, and `all`, every item under it at any depth, when
+   *  some of its sub-items have sub-items too */
+  sub_items: {
+    total: number;
+    closed: number;
+    in_progress: number;
+    all?: { total: number; closed: number; in_progress: number };
+  };
   /** the keys of what it waits for */
   blocked_by: string[];
   blocked: boolean;

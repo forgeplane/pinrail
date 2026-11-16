@@ -543,6 +543,7 @@ export function WorkItems() {
       orphanOf={item.parent && depth === 0 ? item.parent : null}
       showRepo={layout !== "repository" && (layout === "list" || mixed.has(group))}
       next={prefs.items.show_next && !!nextKeys?.has(item.key)}
+      countNested={prefs.items.count_nested}
       actions={rowActions}
     />
   );

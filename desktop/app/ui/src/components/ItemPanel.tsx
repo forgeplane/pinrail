@@ -396,6 +396,9 @@ export function ItemPanel({
               <ProgressRing done={item.sub_items.closed} total={item.sub_items.total} />
               {item.sub_items.closed} of {item.sub_items.total} closed
               {item.sub_items.in_progress ? ` · ${item.sub_items.in_progress} in progress` : ""}
+              {item.sub_items.all
+                ? ` · ${item.sub_items.all.closed} of ${item.sub_items.all.total} at every level`
+                : ""}
             </span>
           ) : null}
         </h3>

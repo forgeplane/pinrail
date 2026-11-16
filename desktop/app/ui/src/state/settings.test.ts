@@ -23,6 +23,7 @@ describe("fromServer", () => {
       fold_closed: true,
       show_next: false,
       close_parents: true,
+      count_nested: false,
     });
     expect(served.plugins).toEqual({});
     expect(served.links).toEqual({});

@@ -43,6 +43,9 @@ pub struct WorkItem {
     pub sub_items_closed: usize,
     /// its own sub-items that a session works on now
     pub sub_items_in_progress: usize,
+    /// every item under it, at any depth: how many, how many closed, and
+    /// how many in progress
+    pub nested: (usize, usize, usize),
     /// the keys of the items it depends on that are still open or in
     /// progress, sorted
     pub blocked_by: Vec<String>,
@@ -57,6 +60,21 @@ pub struct WorkItem {
 }
 
 impl WorkItem {
+    /// Its sub-items' counts: its own, and, when some of them have
+    /// sub-items too, every item under it as `all`.
+    fn sub_items_json(&self) -> Value {
+        let mut counts = json!({
+            "total": self.sub_items,
+            "closed": self.sub_items_closed,
+            "in_progress": self.sub_items_in_progress,
+        });
+        let (total, closed, in_progress) = self.nested;
+        if total != self.sub_items {
+            counts["all"] = json!({ "total": total, "closed": closed, "in_progress": in_progress });
+        }
+        counts
+    }
+
     pub fn blocked(&self) -> bool {
         !self.blocked_by.is_empty()
     }
@@ -78,11 +96,7 @@ impl WorkItem {
             "created_at": iso(self.created_at),
             "updated_at": iso(self.updated_at),
             "closed_at": self.closed_at.map(iso),
-            "sub_items": {
-                "total": self.sub_items,
-                "closed": self.sub_items_closed,
-                "in_progress": self.sub_items_in_progress,
-            },
+            "sub_items": self.sub_items_json(),
             "blocked_by": self.blocked_by,
             "blocked": self.blocked(),
             "ready": self.ready,
@@ -377,7 +391,12 @@ fn columns(body: bool) -> String {
                AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)),
            (SELECT (SELECT COUNT(*) FROM work_item_queue b WHERE b.position <= q.position)
               FROM work_item_queue q WHERE q.item_id = i.id),
-           (SELECT COUNT(*) FROM work_items c WHERE c.parent = i.id AND c.status = 'in_progress')
+           (SELECT COUNT(*) FROM work_items c WHERE c.parent = i.id AND c.status = 'in_progress'),
+           (WITH RECURSIVE d(id, status) AS (
+              SELECT c.id, c.status FROM work_items c WHERE c.parent = i.id
+              UNION ALL SELECT c.id, c.status FROM work_items c JOIN d ON c.parent = d.id)
+            SELECT COUNT(*) || ' ' || IFNULL(SUM(status NOT IN {OPEN}), 0) || ' '
+                   || IFNULL(SUM(status = 'in_progress'), 0) FROM d)
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
         status = status_of("i"),
         ready = READY,
@@ -446,6 +465,15 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
         waiting: row.get::<_, i64>(21)? as usize,
         queue: row.get::<_, Option<i64>>(22)?.map(|n| n as usize),
         sub_items_in_progress: row.get::<_, i64>(23)? as usize,
+        nested: {
+            let counts: String = row.get(24)?;
+            let mut n = counts.split(' ').map(|n| n.parse().unwrap_or(0));
+            (
+                n.next().unwrap_or(0),
+                n.next().unwrap_or(0),
+                n.next().unwrap_or(0),
+            )
+        },
     })
 }
 

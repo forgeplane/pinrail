@@ -48,6 +48,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 |---|---|
 | **Close a parent with its last sub-item** | When the last open sub-item of a work item is done or cancelled, and at least one of them is done, the parent is done too, unless someone works on it or something of it waits for you. On by default. Turn it off to close parents yourself. See [Work items](/docs/using/work-items/#status). |
 | **Fold done parents** | On the Work items page, a done or cancelled work item starts with its sub-items folded, and you can unfold it. On by default. |
+| **Count sub-items at every level** | On the Work items page, a parent's progress counts every work item under it, at any depth, not only its own sub-items. The item's panel shows both counts either way. Off by default. |
 
 ## Terminal
 

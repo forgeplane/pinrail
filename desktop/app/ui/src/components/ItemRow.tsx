@@ -41,6 +41,8 @@ type Props = {
   showRepo: boolean;
   /** whether pinrail items next gives an agent this item */
   next: boolean;
+  /** whether its progress counts every item under it, at any depth */
+  countNested: boolean;
   actions: ItemRowActions;
 };
 
@@ -57,8 +59,15 @@ export const ItemRow = memo(function ItemRow({
   orphanOf,
   showRepo,
   next,
+  countNested,
   actions,
 }: Props) {
+  // its progress: its own sub-items, or every item under them
+  const all = countNested ? item.sub_items.all : undefined;
+  const progress = all ?? item.sub_items;
+  const progressTitle = all
+    ? `${all.closed} of ${all.total} sub-items closed, at every level (${item.sub_items.closed} of ${item.sub_items.total} directly)`
+    : `${item.sub_items.closed} of ${item.sub_items.total} sub-items closed`;
   // on hold, it waits: dimmed as a closed item is
   const closed = item.status === "done" || item.status === "cancelled" || item.status === "on_hold";
   return (
@@ -123,19 +132,15 @@ export const ItemRow = memo(function ItemRow({
               {item.blocked_by.length > 1 ? ` +${item.blocked_by.length - 1}` : ""}
             </span>
           ) : null}
-          {item.sub_items.in_progress && !closed && item.status !== "in_progress" ? (
+          {progress.in_progress && !closed && item.status !== "in_progress" ? (
             <span className="item-mark is-active" data-testid="item-active">
-              <ItemStatusIcon status="in_progress" size={11} decorative /> {item.sub_items.in_progress} in progress
+              <ItemStatusIcon status="in_progress" size={11} decorative /> {progress.in_progress} in progress
             </span>
           ) : null}
-          {item.sub_items.total ? (
-            <span
-              className="item-progress"
-              data-testid="item-progress"
-              title={`${item.sub_items.closed} of ${item.sub_items.total} sub-items closed`}
-            >
-              <ProgressRing done={item.sub_items.closed} total={item.sub_items.total} />
-              {item.sub_items.closed}/{item.sub_items.total}
+          {progress.total ? (
+            <span className="item-progress" data-testid="item-progress" title={progressTitle}>
+              <ProgressRing done={progress.closed} total={progress.total} />
+              {progress.closed}/{progress.total}
             </span>
           ) : null}
         </span>

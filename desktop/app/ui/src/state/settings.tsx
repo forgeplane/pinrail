@@ -39,6 +39,8 @@ export type Settings = {
     show_next: boolean;
     /** whether a parent closes when its last open sub-item does */
     close_parents: boolean;
+    /** whether a parent's progress counts every item under it, at any depth */
+    count_nested: boolean;
   };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
@@ -183,6 +185,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     fold_closed: s.items?.fold_closed ?? true,
     show_next: s.items?.show_next ?? false,
     close_parents: s.items?.close_parents ?? true,
+    count_nested: s.items?.count_nested ?? false,
   },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
@@ -306,6 +309,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       fold_closed: true,
       show_next: false,
       close_parents: true,
+      count_nested: false,
     },
     plugins: {},
     links: {},

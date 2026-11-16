@@ -577,12 +577,8 @@ fn tree_line(item: &Value) -> String {
     if !blocked.is_empty() {
         parts.push(format!("blocked by {}", blocked.join(", ")));
     }
-    let total = item["sub_items"]["total"].as_u64().unwrap_or(0);
-    if total > 0 {
-        parts.push(format!(
-            "{} of {total} sub-items closed",
-            item["sub_items"]["closed"].as_u64().unwrap_or(0)
-        ));
+    if let Some(text) = sub_items_text(item) {
+        parts.push(text);
     }
     format!(
         "{} {} · {}",
@@ -789,12 +785,8 @@ fn list_md(items: &Value, everywhere: bool) -> String {
         if !blocked.is_empty() {
             parts.push(format!("blocked by {}", blocked.join(", ")));
         }
-        let total = item["sub_items"]["total"].as_u64().unwrap_or(0);
-        if total > 0 {
-            parts.push(format!(
-                "{} of {total} sub-items closed",
-                item["sub_items"]["closed"].as_u64().unwrap_or(0)
-            ));
+        if let Some(text) = sub_items_text(item) {
+            parts.push(text);
         }
         if let Some(parent) = item["parent"].as_str() {
             parts.push(format!("part of {parent}"));
@@ -1183,4 +1175,40 @@ pub fn show(client: &Client, item: &Value, brief: bool) -> String {
         }
     }
     out
+}
+
+/// How many of an item's sub-items are closed, and of every item under it
+/// when some of its sub-items have sub-items too; `None` without any.
+fn sub_items_text(item: &Value) -> Option<String> {
+    let counts = &item["sub_items"];
+    let total = counts["total"].as_u64().unwrap_or(0);
+    if total == 0 {
+        return None;
+    }
+    let closed = counts["closed"].as_u64().unwrap_or(0);
+    let mut text = format!("{closed} of {total} sub-items closed");
+    if let Some(all) = counts["all"]["total"].as_u64() {
+        let all_closed = counts["all"]["closed"].as_u64().unwrap_or(0);
+        text.push_str(&format!(" ({all_closed} of {all} at every level)"));
+    }
+    Some(text)
+}
+
+#[cfg(test)]
+mod sub_items_tests {
+    use super::sub_items_text;
+    use serde_json::json;
+
+    #[test]
+    fn the_count_adds_every_level_when_it_differs() {
+        let direct = json!({"sub_items": {"total": 3, "closed": 1, "in_progress": 0}});
+        assert_eq!(sub_items_text(&direct).unwrap(), "1 of 3 sub-items closed");
+        let nested = json!({"sub_items": {"total": 3, "closed": 1, "in_progress": 0,
+                                          "all": {"total": 15, "closed": 6, "in_progress": 2}}});
+        assert_eq!(
+            sub_items_text(&nested).unwrap(),
+            "1 of 3 sub-items closed (6 of 15 at every level)"
+        );
+        assert_eq!(sub_items_text(&json!({"sub_items": {"total": 0}})), None);
+    }
 }

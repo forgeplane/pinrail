@@ -422,6 +422,53 @@ async fn a_breakdown_is_added_whole_through_the_api() {
 }
 
 #[tokio::test]
+async fn a_parent_counts_its_sub_items_and_every_item_under_them() {
+    let app = app();
+    let (code, added) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "items": [
+            {"ref": "plan", "title": "The plan"},
+            {"ref": "a", "parent": "plan", "title": "Step A"},
+            {"ref": "b", "parent": "plan", "title": "Step B"},
+            {"ref": "a1", "parent": "a", "title": "Task A1"},
+            {"ref": "a2", "parent": "a", "title": "Task A2"},
+            {"ref": "a2x", "parent": "a2", "title": "Task A2, part one"},
+        ]}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{added}");
+    // PIN-1 the plan, PIN-2 step A, PIN-3 step B, PIN-4 and PIN-5 its tasks,
+    // PIN-6 a part of a task
+    let (code, body) = done(&app, "PIN-4", "s-1", "Done.").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    edit(&app, "PIN-6", "s-1", json!({"claim": "claim"})).await;
+
+    let plan = item(&app, "PIN-1").await;
+    assert_eq!(
+        plan["sub_items"],
+        json!({"total": 2, "closed": 0, "in_progress": 0,
+               "all": {"total": 5, "closed": 1, "in_progress": 1}})
+    );
+    // with no sub-item that has sub-items, the counts are the same, once
+    let step = item(&app, "PIN-5").await;
+    assert_eq!(
+        step["sub_items"],
+        json!({"total": 1, "closed": 0, "in_progress": 1})
+    );
+    let (_, listed) = call(&app, "GET", "/api/v1/items", None).await;
+    let plan = listed["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["key"] == "PIN-1")
+        .unwrap();
+    assert_eq!(plan["sub_items"]["all"]["total"], 5);
+}
+
+#[tokio::test]
 async fn the_list_names_each_repositorys_next_item() {
     let app = app();
     for t in ["Oldest", "Waits for the third", "Unblocks the second"] {
