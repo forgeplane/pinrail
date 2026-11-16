@@ -17,25 +17,36 @@ export function useThreadScroll(
   const scrolled = useRef(false);
   // whether the newest message is to stay in view as the thread grows
   const pinned = useRef(false);
+  // what the thread was opened at, kept in place as entries above it lay
+  // out, until the person scrolls; and where that left the timeline
+  const opened = useRef<{ target: Element; block: ScrollLogicalPosition; top: number } | null>(null);
   useLayoutEffect(() => {
-    if (scrolled.current) return;
+    const el = timelineRef.current;
+    if (scrolled.current || !el) return;
+    const openAt = (target: Element, block: ScrollLogicalPosition) => {
+      target.scrollIntoView({ block });
+      opened.current = { target, block, top: el.scrollTop };
+    };
     if (focus) {
-      if (items.length < 2) return;
+      // a question of a session waits for the session's thread
+      if (focus.session && focus.requested_by ? !session : items.length === 0) return;
       scrolled.current = true;
-      document.getElementById(`set-${focus.id}`)?.scrollIntoView({ block: "start" });
-    } else if (session && timelineRef.current) {
+      const set = document.getElementById(`set-${focus.id}`);
+      if (set) openAt(set, "start");
+    } else if (session) {
       scrolled.current = true;
       const started = stage ? document.getElementById(`status-${stage}`) : null;
-      if (started) started.scrollIntoView({ block: "center" });
+      if (started) openAt(started, "center");
       else {
-        timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
+        el.scrollTop = el.scrollHeight;
         pinned.current = true;
       }
     }
   }, [timelineRef, items, focus, session, stage]);
 
-  // While the newest message is in view, it stays there as the thread
-  // grows under it: as an image loads, a question lays out, a reply folds,
+  // What the thread was opened at stays in place while entries above it
+  // lay out. While the newest message is in view, it stays there as the
+  // thread grows under it: as an image loads, a question lays out, a reply folds,
   // or the room kept for the chat box grows. Scrolling up ends that, and
   // scrolling back to the end starts it again. Growth under the newest
   // message moves the end away without moving the thread up, so it does
@@ -47,12 +58,18 @@ export function useThreadScroll(
     const onScroll = () => {
       // hidden, as behind the terminal, it has no size to judge by
       if (el.clientHeight === 0) return;
+      // a scroll that is not the one keeping what it opened at in place
+      if (opened.current && Math.abs(el.scrollTop - opened.current.top) > 1) opened.current = null;
       if (el.scrollHeight - el.clientHeight - el.scrollTop < 40) pinned.current = true;
       else if (el.scrollTop < last) pinned.current = false;
       last = el.scrollTop;
     };
     const keepAtEnd = () => {
-      if (pinned.current) el.scrollTop = el.scrollHeight;
+      const at = opened.current;
+      if (at?.target.isConnected) {
+        at.target.scrollIntoView({ block: at.block });
+        at.top = el.scrollTop;
+      } else if (pinned.current) el.scrollTop = el.scrollHeight;
     };
     // the timeline and each entry in it, as entries come and go
     const sizes = new ResizeObserver(keepAtEnd);

@@ -92,3 +92,37 @@ test("the newest message stays in view as the agent reports, until the person sc
   await page.waitForTimeout(300);
   expect(await page.locator(".thread-items").evaluate((el) => el.scrollTop)).toBe(0);
 });
+
+test("a question opened by its address is in view, in a session where it is the only review", async ({
+  page,
+  request,
+}) => {
+  const session = fresh();
+  await report(request, session, "Fix the scrolling", "start");
+  for (let i = 0; i < 40; i++) await report(request, session, `Step ${i + 1} of the work`, i % 2 ? "step" : "note");
+  const asked = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Ship it?",
+      requested_by: "claude-code",
+      session,
+      payload: { questions: [{ id: "q1", question: "Ship it?", answer: "yes-no" }] },
+    },
+  });
+  expect(asked.status(), await asked.text()).toBe(201);
+  // more after it, so that it can be scrolled to the top
+  for (let i = 0; i < 30; i++) await report(request, session, `Later note ${i + 1}`, "note");
+  const { id } = (await asked.json()) as { id: string };
+
+  await page.goto(`/#/reviews/${id}`);
+  const set = page.locator(`#set-${id}`);
+  await expect(set).toBeVisible();
+  await page.waitForTimeout(500);
+  // at the top of the timeline, not under the chat box
+  const top = await set.evaluate((el) => {
+    const timeline = el.closest(".thread-items")!;
+    return el.getBoundingClientRect().top - timeline.getBoundingClientRect().top;
+  });
+  expect(top).toBeGreaterThanOrEqual(-1);
+  expect(top).toBeLessThan(50);
+});

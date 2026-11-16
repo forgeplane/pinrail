@@ -92,7 +92,8 @@ export function useSessionThread(
   const key = named ? `${named.agent}/${named.id}` : null;
   const [cached] = useState(() => (key ? kept.get(key) : undefined));
   const [session, setSession] = useState<Session | null>(cached?.session ?? null);
-  const [items, setItems] = useState<Review[]>(cached?.items ?? (focus ? [focus] : []));
+  // a question of a session shows with its thread, not alone before it
+  const [items, setItems] = useState<Review[]>(cached?.items ?? (focus && !named ? [focus] : []));
   const [statuses, setStatuses] = useState<SessionStatus[]>(cached?.statuses ?? []);
   const [messages, setMessages] = useState<SessionMessage[]>(cached?.messages ?? []);
   const [comments, setComments] = useState<SessionComment[]>(cached?.comments ?? []);

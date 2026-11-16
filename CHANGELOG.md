@@ -97,6 +97,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   loaded.
 - The breadcrumb on a session's page now names that session after a quick
   switch between sessions, not the one shown before.
+- A question opened from the inbox or a link now shows in its session's
+  thread at once and stays in view. It used to show alone first, and in a
+  long session it ended up out of view.
 
 ## [0.6.0]
 
