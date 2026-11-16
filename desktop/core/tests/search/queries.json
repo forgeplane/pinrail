@@ -1,0 +1,40 @@
+{
+  "repo": "forgeplane/pinrail",
+  "queries": [
+    { "q": "slow loading of large sessions", "expect": ["PIN-112", "PIN-490", "PIN-500", "PIN-521"] },
+    { "q": "terminal flickers when the header changes height", "expect": ["PIN-439"] },
+    { "q": "diff flicker in a question", "expect": ["PIN-499"] },
+    { "q": "search for text in a session thread", "expect": ["PIN-53", "PIN-509", "PIN-67"] },
+    { "q": "find in terminal", "expect": ["PIN-469", "PIN-382"] },
+    { "q": "keyboard shortcut to create a work item", "expect": ["PIN-42"] },
+    { "q": "j and k navigation in the work items list", "expect": ["PIN-30", "PIN-34"] },
+    { "q": "drag an item onto another to nest it", "expect": ["PIN-15", "PIN-20"] },
+    { "q": "parent stays open after all children are done", "expect": ["PIN-119", "PIN-475"] },
+    { "q": "progress of parent items", "expect": ["PIN-115", "PIN-364"] },
+    {
+      "q": "intermittent test failures",
+      "expect": ["PIN-187", "PIN-198", "PIN-327", "PIN-433", "PIN-514", "PIN-515", "PIN-518", "PIN-524"]
+    },
+    { "q": "crash reporting", "expect": ["PIN-206", "PIN-408"] },
+    { "q": "usage analytics", "expect": ["PIN-61", "PIN-201", "PIN-202", "PIN-204", "PIN-207"] },
+    { "q": "run agents in a separate git worktree", "expect": ["PIN-278", "PIN-279", "PIN-280", "PIN-281", "PIN-282"] },
+    { "q": "agents on another machine over ssh", "expect": ["PIN-292", "PIN-295"] },
+    { "q": "drop files onto the terminal", "expect": ["PIN-410", "PIN-516"] },
+    { "q": "continue a stopped session", "expect": ["PIN-266", "PIN-267", "PIN-268", "PIN-435"] },
+    { "q": "send a message to the agent from the app", "expect": ["PIN-272", "PIN-276", "PIN-497"] },
+    { "q": "codex hooks", "expect": ["PIN-230", "PIN-224"] },
+    { "q": "scrollbar broken at the bottom of a session", "expect": ["PIN-200", "PIN-215"] },
+    { "q": "remember scroll position when coming back to a session", "expect": ["PIN-507", "PIN-511"] },
+    { "q": "pause a work item", "expect": ["PIN-44", "PIN-71"] },
+    { "q": "archive a session from the sidebar", "expect": ["PIN-344"] },
+    { "q": "remove a session", "expect": ["PIN-522"] },
+    { "q": "copy text from the thread", "expect": ["PIN-188"] },
+    { "q": "what happens to running agents when the app quits", "expect": ["PIN-265", "PIN-432"] },
+    { "q": "choose a terminal renderer", "expect": ["PIN-248", "PIN-249", "PIN-250", "PIN-256"] },
+    { "q": "attach screenshots to a work item", "expect": ["PIN-26", "PIN-191"] },
+    { "q": "notify me when the agent is done", "expect": ["PIN-363", "PIN-232"] },
+    { "q": "terminal drawing uses too much cpu", "expect": ["PIN-442", "PIN-476", "PIN-477"] },
+    { "q": "session shows idle while subagents work", "expect": ["PIN-441"] },
+    { "q": "agents creating duplicate work items", "expect": ["PIN-467", "PIN-470", "PIN-471"] }
+  ]
+}
