@@ -265,17 +265,18 @@ test("the summary shows turns, where the run started, and what it waits for", as
   await expect(reply).toContainText("Claude Code replied");
   await expect(reply).toContainText("Fixed it in auth.ts.");
   // waiting for the person, it is not shown working
-  await expect(turns.last().getByTestId("turn-working")).toHaveCount(0);
+  await expect(thread.getByTestId("turn-working")).toHaveCount(0);
 
   const waiting = thread.getByTestId("waiting-line");
   await expect(waiting).toContainText("Waiting for permission: Bash · npm test");
   await waiting.getByRole("button", { name: "Open the terminal" }).click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
 
-  // allowed, it works again: Pinrail's mark and what it is doing
+  // allowed, it works again: Pinrail's mark and what it is doing, at the
+  // end of the thread
   await report({ event: "working" });
   await page.getByRole("tab", { name: "Summary" }).click();
-  const working = turns.last().getByRole("status", { name: "Claude Code is working" });
+  const working = thread.getByRole("status", { name: "Claude Code is working" });
   await expect(working).toHaveText(/…$/);
   await expect(working.locator(".wait-mark")).toBeVisible();
   await expect(thread.getByTestId("waiting-line")).toHaveCount(0);

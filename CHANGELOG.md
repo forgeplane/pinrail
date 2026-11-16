@@ -67,6 +67,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   or at its newest message if you were there.
 - When you come back to the inbox, Sessions, Work items or Projects, the
   page keeps its open side panel and its scroll position.
+- A session's thread shows that the agent is working on a line at its
+  end, under the newest status, whenever the agent's hooks report it
+  working, including when it goes on without a new prompt.
 
 ### Security
 

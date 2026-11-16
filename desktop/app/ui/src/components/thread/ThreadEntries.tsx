@@ -24,9 +24,6 @@ import { RunLine, TurnEntry } from "./runLines";
 
 type Props = {
   entries: Entry[];
-  /** whether the agent waits for the person, which the thread says at its
-   *  end, rather than that it works */
-  waiting?: boolean;
   /** when the session started, for the divider at the top: only once every
    *  entry is drawn */
   startedAt: string | null;
@@ -62,7 +59,6 @@ export const ThreadEntries = memo(function ThreadEntries({
   onPick,
   showReview,
   openFromLink,
-  waiting = false,
 }: Props) {
   return (
     <>
@@ -79,8 +75,7 @@ export const ThreadEntries = memo(function ThreadEntries({
         if (entry.kind === "finished") return <FinishedLine key={entryKey(entry)} status={entry.status} />;
         if (entry.kind === "itemEvents") return <ItemEventLine key={entryKey(entry)} events={entry.events} />;
         if (entry.kind === "comment") return <CommentMessage key={entryKey(entry)} comment={entry.comment} />;
-        if (entry.kind === "turn")
-          return <TurnEntry key={entryKey(entry)} turn={entry.turn} agent={agent} waiting={waiting} />;
+        if (entry.kind === "turn") return <TurnEntry key={entryKey(entry)} turn={entry.turn} agent={agent} />;
         if (entry.kind === "run") return <RunLine key={entryKey(entry)} run={entry.run} ended={entry.ended} />;
         if (entry.kind === "note")
           return <NoteMessage key={entryKey(entry)} status={entry.status} agent={agent} session={named?.id ?? null} />;

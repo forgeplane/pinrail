@@ -29,7 +29,7 @@ import { useUrlParams } from "../lib/url";
 import { timeline as entriesOf, entryKey, fromSession, newestRounds, stages, type Entry } from "../lib/sessions";
 import { useSettings } from "../state/settings";
 import { ItemChip, ItemOpener } from "./ItemChip";
-import { AgentIcon } from "./AgentIcon";
+import { AgentIcon, agentOf } from "./AgentIcon";
 import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
 import { PresenceChip } from "./PresenceChip";
 import { useMarkSeen } from "./thread/useMarkSeen";
@@ -38,6 +38,7 @@ import { SidePanel } from "./SidePanel";
 import { CopyButton } from "./CopyButton";
 import { Tooltip } from "./Tooltip";
 import { ThreadEntries } from "./thread/ThreadEntries";
+import { WorkingLine } from "./thread/runLines";
 import { IdleComposer, MessageComposer } from "./thread/composers";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
@@ -352,6 +353,10 @@ export function Thread({
   };
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
+  // the agent at work, as its hooks report it, which the thread says at
+  // its end
+  const agentWorking = !!session?.presence && session.attention === "working";
+  const agentName = agentOf(agent)?.label ?? agent ?? "The agent";
   // a review opened from here names the session in its breadcrumb
   // the same objects from one render to the next, for the memoized entries
   const namedRef = useMemo(
@@ -648,7 +653,6 @@ export function Thread({
               <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
                 <ThreadEntries
                   entries={shown}
-                  waiting={waitingFor !== null}
                   startedAt={session && whole ? session.first_at : null}
                   named={namedRef}
                   agent={agent}
@@ -663,6 +667,7 @@ export function Thread({
                   showReview={showReview}
                   openFromLink={openFromLink}
                 />
+                {waitingFor ? null : agentWorking ? <WorkingLine name={agentName} /> : null}
                 {waitingFor ? (
                   <div className="thread-waiting" data-testid="waiting-line">
                     <span>Waiting for permission: {waitingFor}</span>

@@ -84,8 +84,9 @@ const DOING = [
 ];
 const DOING_EVERY_MS = 3000;
 
-/** A turn the agent works on: Pinrail's mark and what it is doing. */
-function WorkingLine({ name }: { name: string }) {
+/** The agent at work, at the end of the thread: Pinrail's mark and what it
+ *  is doing. */
+export function WorkingLine({ name }: { name: string }) {
   const [at, setAt] = useState(() => Math.floor(Math.random() * DOING.length));
   useEffect(() => {
     // the word stays for a person who asks for less motion
@@ -104,16 +105,7 @@ function WorkingLine({ name }: { name: string }) {
 }
 
 /** A turn: what the person asked and what the agent replied. */
-export const TurnEntry = memo(function TurnEntry({
-  turn,
-  agent,
-  waiting = false,
-}: {
-  turn: SessionTurn;
-  agent: string | null;
-  /** the agent waits for the person, which the thread says itself */
-  waiting?: boolean;
-}) {
+export const TurnEntry = memo(function TurnEntry({ turn, agent }: { turn: SessionTurn; agent: string | null }) {
   const name = agentOf(agent)?.label ?? agent ?? "The agent";
   const took = turn.ended_at ? lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at)) : null;
   const interrupted = turn.end_kind === "interrupted";
@@ -154,11 +146,7 @@ export const TurnEntry = memo(function TurnEntry({
           </div>
         </div>
       ) : null}
-      {turn.reply === null && !turn.ended_at ? (
-        waiting ? null : (
-          <WorkingLine name={name} />
-        )
-      ) : turn.reply === null && ends ? (
+      {turn.reply === null && turn.ended_at && ends ? (
         // a turn with no reply kept says how it ended where the reply would be
         <div className="thread-note thread-turn-reply msg" data-testid="turn-state">
           <span className="msg-avatar">
