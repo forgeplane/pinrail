@@ -105,7 +105,7 @@ async fn reviews_and_sessions_name_their_project_and_filter_by_it() {
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{schema}"), None).await;
     assert_eq!(
         read["project"],
-        json!({"id": id, "name": "Pinrail", "color": null, "emoji": null, "image": null})
+        json!({"id": id, "name": "Pinrail", "color": "red", "emoji": null, "image": null})
     );
     let (_, read) = call(&app, "GET", &format!("/api/v1/reviews/{bucket}"), None).await;
     assert_eq!(read["project"], Value::Null);
@@ -399,11 +399,11 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
     // one emoji, even made of several characters
     let (status, _) = call(&app, "PATCH", &path, Some(json!({"emoji": "👩🏽‍💻"}))).await;
     assert_eq!(status, StatusCode::OK);
-    // one made without them has neither, and the app picks for it
+    // one made without them takes a colour of its own and no emoji
     let plain = create(&app, json!({"name": "Plain"})).await;
     assert_eq!(
         (plain["color"].clone(), plain["emoji"].clone()),
-        (Value::Null, Value::Null)
+        (json!("red"), Value::Null)
     );
 
     for (body, path_part) in [
@@ -458,6 +458,35 @@ fn png(fill: u8, len: usize) -> Vec<u8> {
     let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
     bytes.resize(len, fill);
     bytes
+}
+
+#[tokio::test]
+async fn a_new_project_without_a_colour_takes_the_one_fewest_projects_show() {
+    let app = app();
+    // the first takes the first colour, as no project shows any yet
+    let first = create(&app, json!({"name": "First"})).await;
+    assert_eq!(first["color"], "red");
+    // a chosen one counts, and the next is the first still unused
+    create(&app, json!({"name": "Chosen", "color": "orange"})).await;
+    let next = create(&app, json!({"name": "Next"})).await;
+    assert_eq!(next["color"], "amber");
+    // a colour given is kept, even one already shown
+    let again = create(&app, json!({"name": "Again", "color": "red"})).await;
+    assert_eq!(again["color"], "red");
+    // once every colour is shown, the one fewest show
+    for i in 0..13 {
+        create(&app, json!({ "name": format!("Fill {i}") })).await;
+    }
+    let after = create(&app, json!({"name": "After"})).await;
+    assert_eq!(after["color"], "orange");
+    // an existing project keeps its colour
+    let listed = listing(&app).await;
+    let kept = listed["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == first["id"]);
+    assert_eq!(kept.unwrap()["color"], "red");
 }
 
 #[tokio::test]

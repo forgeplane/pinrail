@@ -34,6 +34,18 @@ export function colorOf(project: Pick<Avatar, "id" | "color">): ProjectColor {
   return PROJECT_COLORS[hash % PROJECT_COLORS.length];
 }
 
+/** The colour fewest of these projects show, the first of PROJECT_COLORS
+ *  among equals: the one a new project starts with, as the core gives one
+ *  made without a colour. */
+export function leastUsedColor(projects: readonly Pick<Avatar, "id" | "color">[]): ProjectColor {
+  const counts = new Map<ProjectColor, number>(PROJECT_COLORS.map((c) => [c, 0]));
+  for (const p of projects) {
+    const shown = colorOf(p);
+    counts.set(shown, counts.get(shown)! + 1);
+  }
+  return PROJECT_COLORS.reduce((best, c) => (counts.get(c)! < counts.get(best)! ? c : best));
+}
+
 /** The most letters or digits an avatar shows, as the core allows. */
 export const MAX_LETTERS = 3;
 

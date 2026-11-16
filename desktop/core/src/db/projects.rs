@@ -270,6 +270,12 @@ impl Db {
     ) -> rusqlite::Result<Result<i64, NotChanged>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
+        // without a colour, the one fewest projects show, so that projects
+        // differ while colours remain
+        let color = match &details.color {
+            Some(color) => color.clone(),
+            None => least_used_color(&tx)?.to_string(),
+        };
         match tx.execute(
             "INSERT INTO projects (id, name, description, color, emoji, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -277,7 +283,7 @@ impl Db {
                 id,
                 name,
                 details.description,
-                details.color,
+                color,
                 details.emoji,
                 crate::reviews::iso(at)
             ],
@@ -507,4 +513,50 @@ fn move_repo(
         params![id, project],
     )?;
     Ok(())
+}
+
+/// The colour fewest projects show, the first of `COLORS` among equals. A
+/// project stored without a colour shows the one the app picks from its
+/// id, which is counted here too.
+fn least_used_color(tx: &rusqlite::Transaction) -> rusqlite::Result<&'static str> {
+    use crate::projects::COLORS;
+    let mut counts = [0usize; COLORS.len()];
+    let mut statement = tx.prepare("SELECT id, color FROM projects")?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+    })?;
+    for row in rows {
+        let (id, color) = row?;
+        let shown = color
+            .and_then(|c| COLORS.iter().position(|known| *known == c))
+            .unwrap_or_else(|| picked_color(&id));
+        counts[shown] += 1;
+    }
+    let fewest = (0..COLORS.len()).min_by_key(|&i| counts[i]).unwrap_or(0);
+    Ok(COLORS[fewest])
+}
+
+/// The colour the app shows for a project without one, by its id: the
+/// same hash as `colorOf` in the app's `lib/projectAvatar.ts`.
+fn picked_color(id: &str) -> usize {
+    let hash = id.encode_utf16().fold(0u32, |hash, unit| {
+        hash.wrapping_mul(31).wrapping_add(u32::from(unit))
+    });
+    hash as usize % crate::projects::COLORS.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::picked_color;
+    use crate::projects::COLORS;
+
+    #[test]
+    fn a_project_without_a_colour_shows_the_one_the_app_picks_from_its_id() {
+        // as colorOf in the app's lib/projectAvatar.ts picks them
+        assert_eq!(COLORS[picked_color("p_01M6NR2T6J08DMARR000000008")], "pink");
+        assert_eq!(
+            COLORS[picked_color("p_01M7JNXASCEJENB9R00000002P")],
+            "indigo"
+        );
+    }
 }

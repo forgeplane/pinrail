@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { PROJECT_COLORS, colorOf, iconInput, letterSize, markOf } from "./projectAvatar";
+import { PROJECT_COLORS, colorOf, iconInput, leastUsedColor, letterSize, markOf } from "./projectAvatar";
 import coreProjects from "../../../../core/src/projects.rs?raw";
 
 describe("a project's avatar", () => {
@@ -49,5 +49,26 @@ describe("the palette", () => {
     const accepted = [...core.matchAll(/"(\w+)"/g)].map((m) => m[1]);
     expect(PROJECT_COLORS).toHaveLength(16);
     expect([...PROJECT_COLORS].sort()).toEqual([...accepted].sort());
+  });
+});
+
+describe("leastUsedColor", () => {
+  test("is the first colour no project shows, then the one fewest show", () => {
+    expect(leastUsedColor([])).toBe("red");
+    expect(
+      leastUsedColor([
+        { id: "a", color: "red" },
+        { id: "b", color: "orange" },
+      ]),
+    ).toBe("amber");
+    const everyOnce = PROJECT_COLORS.map((color, i) => ({ id: `p${i}`, color }));
+    expect(leastUsedColor([...everyOnce, { id: "x", color: "red" }])).toBe("orange");
+  });
+
+  test("counts a project without a colour by the one it shows", () => {
+    const shown = colorOf({ id: "p_01ABC" });
+    const others = PROJECT_COLORS.filter((c) => c !== shown).map((color, i) => ({ id: `p${i}`, color }));
+    expect(leastUsedColor([...others, { id: "p_01ABC" }])).toBe("red");
+    expect(leastUsedColor(others)).toBe(shown);
   });
 });

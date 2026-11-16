@@ -30,6 +30,7 @@ import type { Project, ProjectRepo } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
 import { Tooltip } from "../components/Tooltip";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
+import { leastUsedColor } from "../lib/projectAvatar";
 import { iconInput } from "../lib/projectAvatar";
 import { squarePng } from "../lib/projectImage";
 import { age, stamp } from "../lib/format";
@@ -387,6 +388,7 @@ export function Projects() {
           title="New project"
           action="Create project"
           repos={dialog.repos}
+          suggested={leastUsedColor(projects)}
           onSave={async ({ name, description, color, emoji, image }) => {
             const made = await api.createProject(name, { description, color, emoji }, dialog.repos);
             // the project exists now: a failed image is reported, not the creation
@@ -470,6 +472,7 @@ function ProjectDialog({
   action,
   project,
   repos,
+  suggested,
   onSave,
   onClose,
 }: {
@@ -479,6 +482,8 @@ function ProjectDialog({
   project?: Project;
   /** the repositories a new project begins with */
   repos?: string[];
+  /** the colour a new project starts with */
+  suggested?: ProjectColor;
   /** `image` is a new PNG, `null` to remove the project's, or left out to keep it */
   onSave: (fields: {
     name: string;
@@ -491,10 +496,9 @@ function ProjectDialog({
 }) {
   const [name, setName] = useState(project?.name ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
-  // a new project starts with a colour of its own, which the person can change
-  const [color, setColor] = useState<ProjectColor>(() =>
-    project ? colorOf(project) : PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)],
-  );
+  // a new project starts with the colour fewest projects show, which the
+  // person can change
+  const [color, setColor] = useState<ProjectColor>(() => (project ? colorOf(project) : (suggested ?? "red")));
   const [emoji, setEmoji] = useState(project?.emoji ?? "");
   const nameId = useId();
   // a PNG chosen here, with its preview, or "removed" for the project's own
