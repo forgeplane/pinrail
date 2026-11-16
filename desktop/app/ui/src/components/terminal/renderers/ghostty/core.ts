@@ -337,31 +337,38 @@ export class GhosttyCore {
 
   /**
    * Replaces the terminal with one decoded from a binary snapshot of the same
-   * libghostty build (ghostty_snapshot_encode on the host).
+   * libghostty build (ghostty_snapshot_encode on the host). The old terminal
+   * is freed first, so that memory never holds both; a snapshot that cannot
+   * be decoded leaves a blank terminal, and throws.
    */
   restoreSnapshot(bytes: Uint8Array, cols: number, rows: number, cellWidth: number, cellHeight: number): void {
     this.ensureActive();
-    const pointer = this.rt.alloc(bytes.length);
-    this.rt.bytes(pointer, bytes.length).set(bytes);
-    let decoderHandle = 0;
-    let next: number;
-    try {
-      decoderHandle = this.newHandle("ghostty_snapshot_decoder_new_buf", pointer, bytes.length);
-      next = this.newHandleFrom("ghostty_snapshot_decoder_decode", decoderHandle);
-    } finally {
-      if (decoderHandle) this.rt.call("ghostty_snapshot_decoder_free", decoderHandle);
-      this.rt.free(pointer, bytes.length);
-    }
     this.freeSearch();
     if (this.ptyWriterId) this.rt.detachPtyWriter(this.terminal, this.ptyWriterId);
     this.ptyWriterId = 0;
     this.rt.call("ghostty_terminal_free", this.terminal);
-    this.terminal = next;
-    this.configureTerminal(true);
+    this.terminal = 0;
+    let next = 0;
+    let failure: unknown = null;
+    const pointer = this.rt.alloc(bytes.length);
+    this.rt.bytes(pointer, bytes.length).set(bytes);
+    let decoderHandle = 0;
+    try {
+      decoderHandle = this.newHandle("ghostty_snapshot_decoder_new_buf", pointer, bytes.length);
+      next = this.newHandleFrom("ghostty_snapshot_decoder_decode", decoderHandle);
+    } catch (error) {
+      failure = error;
+    } finally {
+      if (decoderHandle) this.rt.call("ghostty_snapshot_decoder_free", decoderHandle);
+      this.rt.free(pointer, bytes.length);
+    }
+    this.terminal = next || this.newHandle("ghostty_terminal_new", clamp16(cols), clamp16(rows));
+    this.configureTerminal(!!next);
     if (this.theme) this.setTheme(this.theme);
     this.attachWriters();
     this.rows = [];
     this.resize(cols, rows, cellWidth, cellHeight);
+    if (failure) throw failure;
   }
 
   private newHandleFrom(fn: string, handle: number): number {

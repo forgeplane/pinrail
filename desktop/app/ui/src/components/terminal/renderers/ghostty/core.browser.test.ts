@@ -89,3 +89,15 @@ test("a program copies to the clipboard with OSC 52, and cannot read it", async 
   expect(replies.join("")).not.toContain("52;c;");
   core.dispose();
 });
+
+test("a snapshot that cannot be decoded leaves a blank terminal that works", async () => {
+  const { core, replies } = await terminal();
+  core.write(bytes("before the restore"));
+  expect(() => core.restoreSnapshot(bytes("not a snapshot"), 80, 24, 8, 16)).toThrow();
+  expect(core.screenLines().join("").trim()).toBe("");
+  core.write(bytes("after\x1b[6n"));
+  expect(core.screenLines()[0]).toContain("after");
+  // its replies still reach the program
+  expect(replies.join("")).toContain("\x1b[1;6R");
+  core.dispose();
+});
