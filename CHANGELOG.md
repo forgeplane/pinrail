@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Each session in the sidebar has a menu, from the **⋯** button on its row
+  or a right-click: archive it, mark it read or unread, copy its id, and
+  stop or resume its agent when it runs in Pinrail.
 - The terminal shows Nerd Font icons, such as those in prompts and file
   listings, without a patched font: Pinrail carries the symbols-only Nerd
   Font and loads it once a screen shows an icon.

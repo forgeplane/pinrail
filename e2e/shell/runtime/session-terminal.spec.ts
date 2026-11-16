@@ -418,3 +418,13 @@ test("while a session's runs load, the terminal's place shows that it loads, the
   await expect(terminalBar(page)).toBeVisible();
   await expect(page.getByTestId("terminal-loading")).toHaveCount(0);
 });
+
+test("a session's menu in the sidebar stops its agent", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const asked = await stops(page);
+  await page.goto("/#/");
+  const row = page.locator(`[data-testid="sidebar-session"][href$="/${session}"]`);
+  await row.click({ button: "right" });
+  await page.getByRole("menu").getByRole("menuitem", { name: "Stop Claude Code" }).click();
+  await expect.poll(() => asked).toEqual(["POST"]);
+});

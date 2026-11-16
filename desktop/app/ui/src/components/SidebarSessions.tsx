@@ -11,6 +11,7 @@ import {
   FilterX,
   FolderGit2,
   GitBranch,
+  MoreHorizontal,
   SlidersHorizontal,
   SquareTerminal,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { useLive, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { AgentIcon } from "./AgentIcon";
 import { ReviewIcon } from "./ReviewIcon";
+import { SessionMenu } from "./SessionMenu";
 import { SidebarSessionsMenu, type ScopeChoice } from "./SidebarSessionsMenu";
 import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
@@ -106,6 +108,8 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const [now, setNow] = useState(() => Date.now());
   // the options menu, by the button it opened from
   const [menu, setMenu] = useState<HTMLElement | null>(null);
+  // a session's own menu, by the button on its row
+  const [sessionMenu, setSessionMenu] = useState<{ session: Session; anchor: HTMLElement } | null>(null);
 
   // a status may rename a session or mark it done, and archiving one moves
   // it in or out
@@ -255,6 +259,13 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             className={`sidebar-session is-${row.state} ${grouped ? "" : "is-flat"}`}
             data-testid="sidebar-session"
             data-state={row.state}
+            onContextMenu={(event) => {
+              // a right-click opens the session's menu, at its button
+              const button = event.currentTarget.parentElement?.querySelector<HTMLElement>(".sidebar-session-menu");
+              if (!button) return;
+              event.preventDefault();
+              setSessionMenu({ session: s, anchor: button });
+            }}
           >
             <span className={`agent-mark is-${row.state}`} aria-label={STATE_LABEL[row.state]}>
               <AgentIcon requestedBy={s.agent} size={14} />
@@ -284,6 +295,16 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             ) : null}
           </NavLink>
         </Tooltip>
+        <button
+          type="button"
+          className="bar-button sidebar-session-menu"
+          aria-label={`${s.title ?? s.agent} actions`}
+          aria-haspopup="menu"
+          data-testid="sidebar-session-menu"
+          onClick={(event) => setSessionMenu({ session: s, anchor: event.currentTarget })}
+        >
+          <MoreHorizontal size={14} />
+        </button>
         {choices.show_reviews ? row.reviews.map((r) => reviewLink(r, s)) : null}
       </div>
     );
@@ -399,6 +420,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           </div>
         );
       })}
+      {sessionMenu ? (
+        <SessionMenu
+          key={`${sessionMenu.session.agent}/${sessionMenu.session.id}`}
+          session={sessionMenu.session}
+          anchor={sessionMenu.anchor}
+          onClose={() => setSessionMenu(null)}
+        />
+      ) : null}
       {menu ? (
         <SidebarSessionsMenu
           anchor={menu}

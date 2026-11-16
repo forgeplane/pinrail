@@ -583,6 +583,27 @@ h1 {
 .sidebar-group-head .count-badge {
   margin-left: auto;
 }
+/* a session's menu button, at the end of its row: shown on hover, with
+   the keyboard's focus, or while the menu is open, over the row's badge */
+.sidebar-session-item {
+  position: relative;
+}
+.sidebar-session-menu {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  justify-content: center;
+  background: var(--bg-hover);
+  opacity: 0;
+}
+.sidebar-session-item:hover > .sidebar-session-menu,
+.sidebar-session-menu:focus-visible,
+.sidebar-session-menu[aria-expanded="true"] {
+  opacity: 1;
+}
 .sidebar-session {
   display: flex;
   align-items: center;
