@@ -44,6 +44,15 @@ describe("mergeSettings", () => {
     expect(next.sidebar.open).toBe(true);
     expect(next.sidebar.sessions).toEqual({ ...served.sidebar.sessions, collapsed: ["acme/api"] });
   });
+  test("merges the runtime's settings, and its terminal's within them", () => {
+    const next = mergeSettings(served, { runtime: { terminal: { screen_reader: true }, new_run_view: "summary" } });
+    expect(next.runtime.terminal).toEqual({ ...served.runtime.terminal, screen_reader: true });
+    expect(next.runtime.new_run_view).toBe("summary");
+    expect(next.runtime.default_view).toBe(served.runtime.default_view);
+    expect(patchBody({ runtime: { terminal: { renderer: ["xterm"] } } })).toEqual({
+      runtime: { terminal: { renderer: ["xterm"] } },
+    });
+  });
   test("keeps a value patched to false, and the port", () => {
     const next = mergeSettings(served, { menu_bar_icon: false });
     expect(next.menu_bar_icon).toBe(false);

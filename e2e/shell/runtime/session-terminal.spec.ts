@@ -4,7 +4,7 @@
 // receives and echoes it back.
 
 import { expect, test, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, settingsDialog, settingsSection } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-term-${Date.now()}-${++n}`;
@@ -107,6 +107,15 @@ test("the terminal keeps room from the left edge of its view", async ({ page }) 
   await expect(surface).toBeVisible();
   const [view, drawn] = [await page.locator(".thread-terminal").boundingBox(), await surface.boundingBox()];
   expect(drawn!.x - view!.x).toBeGreaterThanOrEqual(8);
+});
+
+test("Settings › Terminal names the renderer the open terminal uses", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(page.locator(".thread-terminal .terminal-surface")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+,");
+  await settingsSection(page, "Terminal").click();
+  await expect(settingsDialog(page)).toContainText(/In use: (libghostty|xterm\.js)\./);
 });
 
 test("a session opened in the Terminal view shows its summary whole when switched to it", async ({ page }) => {

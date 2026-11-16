@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Settings has a **Terminal** section for the terminal of an agent that
+  runs in Pinrail: its renderer, Option as Meta, the screen reader,
+  clipboard writes, and the view a session opens in.
 - **Show next item** in the Work items page's **Display options** marks
   each repository's next item with **Next**: the one `pinrail items next`
   gives an agent.

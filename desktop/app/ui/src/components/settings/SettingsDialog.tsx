@@ -15,6 +15,7 @@ import {
   Settings,
   Settings2,
   ShieldCheck,
+  SquareTerminal,
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -37,16 +38,28 @@ import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
 import { PrivacySection } from "./PrivacySection";
+import { TerminalSection } from "./TerminalSection";
 import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
 
 export type SettingsSection =
-  "general" | "appearance" | "items" | "shortcuts" | "agents" | "plugins" | "data" | "privacy" | "labs" | "about";
+  | "general"
+  | "appearance"
+  | "items"
+  | "terminal"
+  | "shortcuts"
+  | "agents"
+  | "plugins"
+  | "data"
+  | "privacy"
+  | "labs"
+  | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
   { key: "appearance", label: "Appearance", icon: <Palette size={15} /> },
   { key: "items", label: "Work items", icon: <ListChecks size={15} /> },
+  { key: "terminal", label: "Terminal", icon: <SquareTerminal size={15} /> },
   { key: "shortcuts", label: "Shortcuts", icon: <Keyboard size={15} /> },
   { key: "agents", label: "Agents", icon: <Bot size={15} /> },
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
@@ -395,6 +408,7 @@ export function SettingsDialog({
             </SettingsGroup>
           </SettingsPage>
         ) : null}
+        {section === "terminal" ? <TerminalSection /> : null}
         {section === "appearance" ? (
           <SettingsPage title="Appearance">
             <SettingsGroup>

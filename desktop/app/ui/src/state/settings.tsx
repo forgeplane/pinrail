@@ -100,6 +100,11 @@ type Patch = {
   whats_new?: Partial<Settings["whats_new"]>;
   telemetry?: Partial<Settings["telemetry"]>;
   labs?: Partial<Settings["labs"]>;
+  runtime?: {
+    terminal?: Partial<Settings["runtime"]["terminal"]>;
+    default_view?: Settings["runtime"]["default_view"];
+    new_run_view?: Settings["runtime"]["new_run_view"];
+  };
   autostart?: boolean;
 };
 
@@ -248,7 +253,11 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     whats_new: { ...base.whats_new, ...patch.whats_new },
     telemetry: { ...base.telemetry, ...patch.telemetry },
     labs: { ...base.labs, ...patch.labs },
-    runtime: base.runtime,
+    runtime: {
+      ...base.runtime,
+      ...patch.runtime,
+      terminal: { ...base.runtime.terminal, ...patch.runtime?.terminal },
+    },
   };
 }
 
@@ -274,6 +283,7 @@ export function patchBody(patch: Patch): Record<string, unknown> {
   if (patch.whats_new) body.whats_new = patch.whats_new;
   if (patch.telemetry) body.telemetry = patch.telemetry;
   if (patch.labs) body.labs = patch.labs;
+  if (patch.runtime) body.runtime = patch.runtime;
   return body;
 }
 

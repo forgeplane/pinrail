@@ -131,6 +131,13 @@ export function failedRenderers(): ReadonlyMap<string, string> {
   return failed;
 }
 
+/** The renderer the last terminal loaded, by id, or null before any did. */
+let loaded: string | null = null;
+
+export function loadedRenderer(): string | null {
+  return loaded;
+}
+
 /** Marks a renderer as failed for the rest of the run, such as one that
  *  lost its GPU context after it loaded. */
 export function rendererFailed(id: string, reason: string) {
@@ -146,6 +153,7 @@ export async function loadRenderer(order: readonly string[], registry: Registry)
     try {
       const renderer = await make();
       await renderer.load();
+      loaded = renderer.id;
       return renderer;
     } catch (error) {
       rendererFailed(id, error instanceof Error ? error.message : String(error));

@@ -49,6 +49,19 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 | **Close a parent with its last sub-item** | When the last open sub-item of a work item is done or cancelled, and at least one of them is done, the parent is done too, unless someone works on it or something of it waits for you. On by default. Turn it off to close parents yourself. See [Work items](/docs/using/work-items/#status). |
 | **Fold done parents** | On the Work items page, a done or cancelled work item starts with its sub-items folded, and you can unfold it. On by default. |
 
+## Terminal
+
+These settings apply to agents that run in Pinrail, which you turn on in Settings › Labs.
+
+| Setting | What it does |
+|---|---|
+| **Renderer** | Chooses what draws a terminal. **Automatic** uses libghostty, and xterm.js where libghostty cannot run. The row names the renderer in use and, when libghostty could not load, says why. A change applies to terminals opened afterwards. |
+| **Option as Meta** | On macOS, chooses which Option keys act as Meta in a terminal: they send Esc and the key rather than the character Option types. Off by default. |
+| **Screen reader** | Makes a terminal's text readable by screen readers such as VoiceOver and Orca, and announces new output. Off by default. |
+| **Let programs copy to the clipboard** | Lets programs in a terminal copy text to the clipboard, up to 1 MiB at a time. They can never read it. On by default. |
+| **Open a session in** | Chooses the view a session opens in: **Last used**, the view you last used for it, or else the summary; **Summary**; or **Terminal**. |
+| **Open an agent you start in** | Chooses the view the session of an agent you just started opens in: **Summary** or **Terminal**, the default. |
+
 ## Shortcuts
 
 | Setting | What it does |
