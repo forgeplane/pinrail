@@ -112,6 +112,12 @@ const LEAVES: &[Leaf] = &[
         "How the Work items page shows sub-items: nested under their parent, or each as a row of its own.",
     ),
     (
+        "/items/fold_closed",
+        Kind::Bool,
+        || json!(true),
+        "Fold a done or cancelled work item's sub-items on the Work items page until it is unfolded.",
+    ),
+    (
         "/items/close_parents",
         Kind::Bool,
         || json!(true),

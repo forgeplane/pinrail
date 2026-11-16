@@ -16,7 +16,13 @@ const served = fromServer({
 describe("fromServer", () => {
   test("gives a missing section its default", () => {
     expect(served.inbox).toEqual({ open_in: "panel", layout: "repository" });
-    expect(served.items).toEqual({ layout: "project", nesting: "nested", ordering: "oldest", close_parents: true });
+    expect(served.items).toEqual({
+      layout: "project",
+      nesting: "nested",
+      ordering: "oldest",
+      fold_closed: true,
+      close_parents: true,
+    });
     expect(served.plugins).toEqual({});
     expect(served.links).toEqual({});
     expect(served.labs).toEqual({ runtime: false });

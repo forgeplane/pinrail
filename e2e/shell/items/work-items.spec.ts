@@ -70,7 +70,7 @@ async function open(page: Page, scope: string, extra = "") {
 // the defaults for the next
 test.afterEach(async ({ request }) => {
   await request.patch(`${core}/api/v1/settings`, {
-    data: { items: { layout: "project", nesting: "nested", ordering: "oldest" } },
+    data: { items: { layout: "project", nesting: "nested", ordering: "oldest", fold_closed: true } },
   });
 });
 
@@ -1240,9 +1240,10 @@ test("Closed sub-items shows an open parent's done and cancelled sub-items under
   await expect(page).toHaveURL(/closed=1/);
   await expect(page.getByTestId("filter-chip")).toContainText(["Closed sub-items"]);
   // under the parent, after its open sub-item, dimmed
+  await expect(rows(page).locator(".item-key")).toHaveText([parent.key, open.key, done.key, cancelled.key]);
+  // done, the sub-item starts folded, and unfolds to its own closed sub-item
+  await page.getByRole("button", { name: `Show the sub-items of ${done.key}` }).click();
   await expect(rows(page).locator(".item-key")).toHaveText([parent.key, open.key, done.key, signed.key, cancelled.key]);
-  // the closed sub-item folds like any parent
-  await expect(page.locator(`.item-line:has([data-key="${done.key}"]) .item-fold-toggle`)).toBeVisible();
   await expect(row(page, done.key)).toHaveClass(/is-closed/);
   await expect(row(page, old.key)).toHaveCount(0);
 
@@ -1338,4 +1339,28 @@ test("in a narrow window the repository gives way to the badges, and several blo
   const badge = heldRow.getByTestId("item-blocked");
   await expect(badge).toHaveText(`blocked by ${first.key} +1`);
   await expect(badge).toHaveAttribute("title", `Blocked by ${first.key}, ${second.key}`);
+});
+
+test("a done parent starts folded, unfolds by hand, and stays open with the option off", async ({ page, request }) => {
+  const repo = fresh("fold");
+  const parent = await add(request, repo, "Ship the beta");
+  const step = await add(request, repo, "Write the notes", { parent: parent.key });
+  await edit(request, step.key, { status: "done" });
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { nesting: "nested" } } });
+
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&status=all`);
+  await expect(row(page, parent.key)).toBeVisible();
+  await expect(row(page, step.key)).toHaveCount(0);
+  const toggle = page.getByRole("button", { name: `Show the sub-items of ${parent.key}` });
+  await toggle.click();
+  await expect(row(page, step.key)).toBeVisible();
+
+  await page.keyboard.press("ControlOrMeta+,");
+  await settingsSection(page, "Work items").click();
+  const fold = settingsDialog(page).getByRole("switch", { name: "Fold done parents" });
+  await expect(fold).toBeChecked();
+  await fold.click();
+  await settingSaved(request, (s) => s.items.fold_closed, false);
+  await page.reload();
+  await expect(row(page, step.key)).toBeVisible();
 });

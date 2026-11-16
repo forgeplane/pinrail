@@ -93,6 +93,7 @@ export function WorkItems() {
   const openKey = params.get("open");
   const filtered = !!(query || status || scope || by || waiting || closedSubs);
   // each project's repositories, by its id: where an item dropped on it goes
+  // the parents the person folded or unfolded, the opposite of how they start
   const [folded, setFolded] = useState<Set<string>>(new Set());
   // the page reloads after its own changes, whether or not an event brings them
   const [reloads, setReloads] = useState(0);
@@ -177,11 +178,21 @@ export function WorkItems() {
         : grouped(ordered, (i) => groupKey(layout, i.repo, i.project)),
     [ordered, layout],
   );
+  // a done or cancelled parent starts folded, with the option on
+  const foldClosed = prefs.items.fold_closed;
+  const shownFolded = useMemo(() => {
+    const shown = new Set<string>();
+    for (const i of ordered) {
+      const starts = foldClosed && (i.status === "done" || i.status === "cancelled");
+      if (starts !== folded.has(i.key)) shown.add(i.key);
+    }
+    return shown;
+  }, [ordered, foldClosed, folded]);
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
   const shownGroups = useMemo(
-    () => groups.map(([key, list]) => [key, itemTree(list, { nested, folded })] as [string, Shown[]]),
-    [groups, nested, folded],
+    () => groups.map(([key, list]) => [key, itemTree(list, { nested, folded: shownFolded })] as [string, Shown[]]),
+    [groups, nested, shownFolded],
   );
   // one page of the top-level items, each with its sub-items: drawing
   // thousands of rows at once makes the page slow to show and to use

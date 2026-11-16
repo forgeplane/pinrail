@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- On the Work items page, a done or cancelled item starts with its
+  sub-items folded. **Fold done parents** in Settings › Work items turns
+  this off.
 - The work items search finds an item by its number or key, such as
   `42`, `#42` or `PIN-42`, as does `pinrail items list --search`.
 - Settings has a **Labs** section for features still being built. Its

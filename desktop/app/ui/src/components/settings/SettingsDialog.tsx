@@ -382,6 +382,16 @@ export function SettingsDialog({
                   onChange={(v) => update({ items: { close_parents: v } })}
                 />
               </SettingsRow>
+              <SettingsRow
+                label="Fold done parents"
+                description="On the Work items page, a done or cancelled work item starts with its sub-items folded. You can still unfold it."
+              >
+                <Toggle
+                  label="Fold done parents"
+                  checked={settings.items.fold_closed}
+                  onChange={(v) => update({ items: { fold_closed: v } })}
+                />
+              </SettingsRow>
             </SettingsGroup>
           </SettingsPage>
         ) : null}

@@ -492,6 +492,7 @@ export type ServerSettings = {
     layout?: "project" | "repository" | "list";
     nesting?: "nested" | "flat";
     ordering?: "oldest" | "newest" | "updated" | "status" | "title";
+    fold_closed?: boolean;
     close_parents?: boolean;
   };
   whats_new?: { seen: string | null };
