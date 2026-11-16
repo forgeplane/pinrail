@@ -126,3 +126,54 @@ test("a question opened by its address is in view, in a session where it is the 
   expect(top).toBeGreaterThanOrEqual(-1);
   expect(top).toBeLessThan(50);
 });
+
+test("opening a work item from the details keeps the thread where it was", async ({ page, request }) => {
+  const session = fresh();
+  await report(request, session, "Fix the scrolling", "start");
+  // replies that fold under Show more, which they measure again as the
+  // thread narrows
+  const reply = Array.from(
+    { length: 6 },
+    (_, i) =>
+      `Line ${i + 1} of a reply, ${"long enough to take more lines in a narrow thread than in a wide one, ".repeat(3)}`,
+  ).join("\n\n");
+  for (let i = 0; i < 40; i++)
+    for (const data of [
+      { event: "prompt", detail: { prompt: `Question ${i + 1}` } },
+      { event: "turn_ended", end: "done", detail: { reply } },
+    ]) {
+      const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+      expect(response.status(), await response.text()).toBeLessThan(300);
+    }
+  const repo = `scroll-${Date.now()}/repo`;
+  const added = await request.post(`${core}/api/v1/items`, {
+    data: { repo, title: "The item it works on", by: "claude-code", session },
+  });
+  expect(added.status(), await added.text()).toBe(201);
+  const { key } = (await added.json()) as { key: string };
+  await request.patch(`${core}/api/v1/items/${key}`, { data: { by: "claude-code", session, claim: "claim" } });
+
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByText("Question 40", { exact: true })).toBeVisible();
+  const items = page.locator(".thread-items");
+  await items.evaluate((el) => (el.scrollTop -= 1500));
+  await page.waitForTimeout(300);
+  const top = () =>
+    items.evaluate((el) => {
+      const view = el.getBoundingClientRect().top;
+      const kid = [...el.children].find((k) => k.getBoundingClientRect().bottom > view)!;
+      return {
+        note: kid.textContent?.match(/Question \d+/)?.[0],
+        offset: Math.round(kid.getBoundingClientRect().top - view),
+      };
+    });
+  const before = await top();
+
+  await page.getByTestId("thread-work-item").first().click();
+  await expect(page).toHaveURL(/item=/);
+  await page.waitForTimeout(300);
+  const after = await top();
+  expect(after.note).toBe(before.note);
+  expect(Math.abs(after.offset - before.offset)).toBeLessThan(3);
+});

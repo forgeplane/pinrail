@@ -166,31 +166,43 @@ export function useThreadScroll(
 
   // When the timeline's width changes, as the side panel opens, closes or
   // is resized, its text wraps again and its content moves. What was last
-  // clicked in it is scrolled back to where it was on screen.
+  // clicked in it, or else the entry at the top of its view, is scrolled
+  // back to where it was on screen. At its end, it stays at its end.
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
     let width = el.clientWidth;
-    let anchor: { target: Element; top: number } | null = null;
+    // what was clicked in the timeline, which stays the anchor as the
+    // timeline scrolls, or else the entry at the top of its view
+    let anchor: { target: Element; top: number; clicked: boolean } | null = null;
     const offset = (target: Element) => target.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    const atTop = () => {
+      const target = topEntry(el);
+      anchor = target ? { target, top: offset(target), clicked: false } : null;
+    };
     const onDown = (event: PointerEvent) => {
-      anchor = event.target instanceof Element ? { target: event.target, top: offset(event.target) } : null;
+      // elsewhere, as in the details beside it, the entry at the top
+      if (event.target instanceof Element && el.contains(event.target))
+        anchor = { target: event.target, top: offset(event.target), clicked: true };
+      else atTop();
     };
     // a scroll by the person moves the anchor with it; one caused by the
     // new width, before the observer runs, does not
     const onScroll = () => {
-      if (anchor?.target.isConnected && el.clientWidth === width) anchor.top = offset(anchor.target);
+      if (el.clientWidth !== width) return;
+      if (anchor?.clicked && anchor.target.isConnected) anchor.top = offset(anchor.target);
+      else atTop();
     };
     const observer = new ResizeObserver(() => {
       if (el.clientWidth === width) return;
       width = el.clientWidth;
-      if (anchor?.target.isConnected) el.scrollTop += offset(anchor.target) - anchor.top;
+      if (!pinned.current && anchor?.target.isConnected) el.scrollTop += offset(anchor.target) - anchor.top;
     });
-    el.addEventListener("pointerdown", onDown);
+    document.addEventListener("pointerdown", onDown, true);
     el.addEventListener("scroll", onScroll, { passive: true });
     observer.observe(el);
     return () => {
-      el.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("pointerdown", onDown, true);
       el.removeEventListener("scroll", onScroll);
       observer.disconnect();
     };
@@ -211,4 +223,20 @@ export function placeOf(timeline: Element, atEnd: boolean): { element: Element; 
   const top = timeline.getBoundingClientRect().top;
   const element = [...timeline.children].find((kid) => kid.getBoundingClientRect().bottom > top);
   return element ? { element, offset: offsetOf(timeline, element) } : null;
+}
+
+/** The entry at the top of `timeline`'s view: the first whose bottom is
+ *  below the top, found by halves, as the entries are in order. */
+function topEntry(timeline: Element): Element | null {
+  const kids = timeline.children;
+  const top = timeline.getBoundingClientRect().top;
+  let low = 0;
+  let high = kids.length - 1;
+  if (high < 0) return null;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (kids[mid]!.getBoundingClientRect().bottom > top) high = mid;
+    else low = mid + 1;
+  }
+  return kids[low] ?? null;
 }

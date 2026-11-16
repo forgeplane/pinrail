@@ -102,6 +102,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A question opened from the inbox or a link now shows in its session's
   thread at once and stays in view. It used to show alone first, and in a
   long session it ended up out of view.
+- Opening a work item or a review from a session's details keeps the
+  thread where you were reading. The narrower thread used to move what
+  was in view.
 
 ## [0.6.0]
 
