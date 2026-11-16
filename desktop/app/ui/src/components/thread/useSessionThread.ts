@@ -19,6 +19,7 @@ import type {
 import { noticeItem, useConnected, useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
 import { useLatest } from "../../lib/useLatest";
+import { reuse } from "../../lib/reuse";
 
 /** What a live notice changes in a session's thread: `thread` when the
  *  thread is to load again, `item` when one of its work items changed.
@@ -73,28 +74,43 @@ export function useSessionThread(
   const [turns, setTurns] = useState<SessionTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // one load at a time: notices that come while one runs are answered by
+  // one more load after it, however many they are
+  const loading = useRef<{ key: string; running: boolean; again: boolean } | null>(null);
+  const load = useCallback(async (): Promise<void> => {
+    const key = named ? `${named.agent}/${named.id}` : (focus?.id ?? "");
+    const current = loading.current;
+    if (current?.running && current.key === key) {
+      current.again = true;
+      return;
+    }
+    const mine = { key, running: true, again: false };
+    loading.current = mine;
     try {
       if (named) {
         const thread = await api.session(named.agent, named.id);
         setSession(thread.session);
         onSession?.(thread.session);
-        setItems(thread.items);
-        setStatuses(thread.statuses);
-        setMessages(thread.messages ?? []);
-        setComments(thread.comments ?? []);
-        setItemEvents(thread.item_events ?? []);
-        setTurns(thread.turns ?? []);
+        // what did not change stays the same objects, which the thread's
+        // entries do not draw again
+        setItems((prev) => reuse(prev, thread.items, (r) => r.id));
+        setStatuses((prev) => reuse(prev, thread.statuses, (s) => s.id));
+        setMessages((prev) => reuse(prev, thread.messages ?? [], (m) => m.id));
+        setComments((prev) => reuse(prev, thread.comments ?? [], (c) => c.id));
+        setItemEvents((prev) => reuse(prev, thread.item_events ?? [], (e) => e.id));
+        setTurns((prev) => reuse(prev, thread.turns ?? [], (t) => t.turn));
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
       setError(null);
     } catch (e) {
       setError(errorMessage(e, "The server did not answer."));
+    } finally {
+      mine.running = false;
+      if (mine.again && loading.current === mine) await load();
     }
   }, [named?.agent, named?.id, focus?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the objects
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     load();
   }, [load]);
   // and again when the event stream opens: what changed before it opened,

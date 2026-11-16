@@ -124,7 +124,7 @@ export const ThreadEntries = memo(function ThreadEntries({
             to={reviewTo(item.id)}
             state={panelMode ? undefined : from}
             open={item.id === openReview}
-            onClick={(e) => openFromLink(e, item.id)}
+            onClick={openFromLink}
           />
         );
       })}

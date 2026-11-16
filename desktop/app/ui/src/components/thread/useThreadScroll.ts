@@ -56,13 +56,14 @@ export function useThreadScroll(
     };
     // the timeline and each entry in it, as entries come and go
     const sizes = new ResizeObserver(keepAtEnd);
-    const observe = () => {
-      sizes.disconnect();
-      sizes.observe(el);
-      for (const entry of el.children) sizes.observe(entry);
-    };
-    observe();
-    const entries = new MutationObserver(observe);
+    sizes.observe(el);
+    for (const entry of el.children) sizes.observe(entry);
+    const entries = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.removedNodes) if (node instanceof Element) sizes.unobserve(node);
+        for (const node of record.addedNodes) if (node instanceof Element) sizes.observe(node);
+      }
+    });
     entries.observe(el, { childList: true });
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("load", keepAtEnd, true);

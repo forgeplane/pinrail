@@ -30,6 +30,7 @@ import type {
   SessionStatus,
 } from "../../api/types";
 import { copyText } from "../../lib/clipboard";
+import { sameItems } from "../../lib/reuse";
 import { age, stamp } from "../../lib/format";
 import { type Entry, type FromSession, type Round } from "../../lib/sessions";
 import { useToast } from "../../state/toasts";
@@ -58,32 +59,35 @@ export function Linked({ text }: { text: string }) {
 
 /** Statuses the agent reported in a row: the newest, and the earlier ones
  *  behind a button. */
-export const StatusGroup = memo(function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
-  const [open, setOpen] = useState(false);
-  const newest = statuses[statuses.length - 1];
-  const earlier = statuses.length - 1;
-  const shown = open ? statuses : [newest];
-  return (
-    <div className="thread-statuses" data-testid="status-group">
-      {earlier > 0 ? (
-        <button type="button" className="thread-status-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          {open ? "Show only the newest" : `${earlier} earlier`}
-        </button>
-      ) : null}
-      {shown.map((status) => (
-        <div key={status.id} className="thread-status-line" data-testid="status">
-          <Activity size={13} className="thread-status-icon" aria-hidden />
-          <span className="thread-status-text truncate">
-            <Linked text={status.text} />
-          </span>
-          <span className="faint" title={stamp(status.at)}>
-            {age(status.at)} ago
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-});
+export const StatusGroup = memo(
+  function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
+    const [open, setOpen] = useState(false);
+    const newest = statuses[statuses.length - 1];
+    const earlier = statuses.length - 1;
+    const shown = open ? statuses : [newest];
+    return (
+      <div className="thread-statuses" data-testid="status-group">
+        {earlier > 0 ? (
+          <button type="button" className="thread-status-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            {open ? "Show only the newest" : `${earlier} earlier`}
+          </button>
+        ) : null}
+        {shown.map((status) => (
+          <div key={status.id} className="thread-status-line" data-testid="status">
+            <Activity size={13} className="thread-status-icon" aria-hidden />
+            <span className="thread-status-text truncate">
+              <Linked text={status.text} />
+            </span>
+            <span className="faint" title={stamp(status.at)}>
+              {age(status.at)} ago
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  },
+  (a, b) => sameItems(a.statuses, b.statuses),
+);
 
 /** A starred review's mark at the end of its row in the details. */
 export function StarMark({ review }: { review: Review }) {
@@ -116,44 +120,47 @@ const NOTE_FOLDED = 230;
 
 /** What the session's agent did to work items, as a line among its
  *  statuses: the verb, and the chip of each item it did it to. */
-export const ItemEventLine = memo(function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
-  const event = events[events.length - 1];
-  const a = (event.attrs ?? {}) as Record<string, unknown>;
-  const to = a.to as ItemStatus | undefined;
-  const did =
-    event.kind === "created"
-      ? "Added"
-      : event.kind === "claimed"
-        ? a.from
-          ? "Took over"
-          : "Started working on"
-        : event.kind === "released"
-          ? "Stopped working on"
-          : to === "done"
-            ? "Marked done"
-            : to === "cancelled"
-              ? "Cancelled"
-              : to === "open"
-                ? "Opened again"
-                : `Set ${STATUS_LABEL[to ?? "open"].toLowerCase()}`;
-  const icon: ItemStatus = event.kind === "claimed" ? "in_progress" : event.kind === "status" && to ? to : "open";
-  return (
-    <div className="thread-statuses" data-testid="item-event">
-      <div className="thread-status-line is-item-event">
-        <ItemStatusIcon status={icon} size={13} decorative />
-        <span className="thread-status-text truncate thread-item-event">
-          <span className="thread-item-event-did">{did}</span>
-          {events.map((e) => (
-            <ItemChip key={e.id} item={e.item} />
-          ))}
-        </span>
-        <span className="faint thread-item-event-age" title={stamp(event.at)}>
-          {age(event.at)} ago
-        </span>
+export const ItemEventLine = memo(
+  function ItemEventLine({ events }: { events: SessionItemEvent[] }) {
+    const event = events[events.length - 1];
+    const a = (event.attrs ?? {}) as Record<string, unknown>;
+    const to = a.to as ItemStatus | undefined;
+    const did =
+      event.kind === "created"
+        ? "Added"
+        : event.kind === "claimed"
+          ? a.from
+            ? "Took over"
+            : "Started working on"
+          : event.kind === "released"
+            ? "Stopped working on"
+            : to === "done"
+              ? "Marked done"
+              : to === "cancelled"
+                ? "Cancelled"
+                : to === "open"
+                  ? "Opened again"
+                  : `Set ${STATUS_LABEL[to ?? "open"].toLowerCase()}`;
+    const icon: ItemStatus = event.kind === "claimed" ? "in_progress" : event.kind === "status" && to ? to : "open";
+    return (
+      <div className="thread-statuses" data-testid="item-event">
+        <div className="thread-status-line is-item-event">
+          <ItemStatusIcon status={icon} size={13} decorative />
+          <span className="thread-status-text truncate thread-item-event">
+            <span className="thread-item-event-did">{did}</span>
+            {events.map((e) => (
+              <ItemChip key={e.id} item={e.item} />
+            ))}
+          </span>
+          <span className="faint thread-item-event-age" title={stamp(event.at)}>
+            {age(event.at)} ago
+          </span>
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+  (a, b) => sameItems(a.events, b.events),
+);
 
 /** A comment the session's agent wrote on a work item: the item's chip,
  *  and the comment's Markdown as the item's panel shows it. */
@@ -285,8 +292,20 @@ type CardProps = {
   state?: FromSession;
   /** shown in the panel beside the thread */
   open: boolean;
-  onClick: (event: React.MouseEvent) => void;
+  /** a click on the card, with its review's id */
+  onClick: (event: React.MouseEvent, id: string) => void;
 };
+
+/** Whether a card would draw the same: its link may be a new object of the
+ *  same place, and its round a new object of the same numbers. */
+const sameCard = (a: CardProps, b: CardProps) =>
+  a.review === b.review &&
+  a.open === b.open &&
+  a.state === b.state &&
+  a.onClick === b.onClick &&
+  a.round?.n === b.round?.n &&
+  a.round?.of === b.round?.of &&
+  (a.to === b.to || JSON.stringify(a.to) === JSON.stringify(b.to));
 
 /** A review the session sent, by its newest round, which opens it. */
 export const ReviewCard = memo(function ReviewCard({ review, round, to, state, open, onClick }: CardProps) {
@@ -294,7 +313,7 @@ export const ReviewCard = memo(function ReviewCard({ review, round, to, state, o
     <Link
       to={to}
       state={state}
-      onClick={onClick}
+      onClick={(event) => onClick(event, review.id)}
       id={`review-${review.id}`}
       className={`thread-card ${open ? "is-open" : ""}`}
       aria-current={open ? "true" : undefined}
@@ -318,7 +337,7 @@ export const ReviewCard = memo(function ReviewCard({ review, round, to, state, o
       <OutcomeBadge review={review} />
     </Link>
   );
-});
+}, sameCard);
 
 /** How long a card stays highlighted after a line leads to it. */
 const FLASH_MS = 1600;
