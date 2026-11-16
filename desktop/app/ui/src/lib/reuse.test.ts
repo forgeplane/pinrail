@@ -15,14 +15,24 @@ describe("reuse", () => {
   const id = (v: { id: number }) => v.id;
 
   test("keeps the list when nothing changed", () => {
-    const prev = [{ id: 1, text: "a" }, { id: 2, text: "b" }];
+    const prev = [
+      { id: 1, text: "a" },
+      { id: 2, text: "b" },
+    ];
     const next = JSON.parse(JSON.stringify(prev));
     expect(reuse(prev, next, id)).toBe(prev);
   });
 
   test("keeps the unchanged objects of a list that changed", () => {
-    const prev = [{ id: 1, text: "a" }, { id: 2, text: "b" }];
-    const next = [{ id: 1, text: "a" }, { id: 2, text: "B" }, { id: 3, text: "c" }];
+    const prev = [
+      { id: 1, text: "a" },
+      { id: 2, text: "b" },
+    ];
+    const next = [
+      { id: 1, text: "a" },
+      { id: 2, text: "B" },
+      { id: 3, text: "c" },
+    ];
     const out = reuse(prev, next, id);
     expect(out).not.toBe(prev);
     expect(out[0]).toBe(prev[0]);
