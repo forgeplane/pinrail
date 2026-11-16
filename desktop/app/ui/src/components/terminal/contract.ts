@@ -147,6 +147,17 @@ export function describeContract(name: string, make: () => Promise<TerminalRende
       expect(view.search("not written anywhere", {}).found).toBe(false);
     });
 
+    test("ends a search with nothing selected", async () => {
+      await writeAll(view, bytes("first row\r\nsecond row\r\n"));
+      expect(view.search("second", {}).found).toBe(true);
+      view.search("", {});
+      expect(view.selection()).toBe(null);
+      // the regular-expression search too
+      expect(view.search("f.rst", { regex: true }).found).toBe(true);
+      view.search("", {});
+      expect(view.selection()).toBe(null);
+    });
+
     test("measures the grid that fits its element, and resizes", () => {
       const { cols, rows, cellPx } = view.measure();
       expect(cellPx[0]).toBeGreaterThan(0);

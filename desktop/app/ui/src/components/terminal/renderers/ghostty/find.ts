@@ -10,7 +10,14 @@ import type { LinkSpan } from "./links";
 
 export type FindTarget = Pick<
   GhosttyCore,
-  "clearSearch" | "screenLines" | "scrollToScreenRow" | "scrollbar" | "search" | "searchMatchesInView" | "setSelection"
+  | "clearSearch"
+  | "clearSelection"
+  | "screenLines"
+  | "scrollToScreenRow"
+  | "scrollbar"
+  | "search"
+  | "searchMatchesInView"
+  | "setSelection"
 >;
 
 /** A match on one screen row, in columns, `end` exclusive. */
@@ -69,6 +76,8 @@ export class Finder {
   private matches: Match[] = [];
   private current: Match | null = null;
   private native = false;
+  /** Whether the search selected a match, which it unselects as it ends. */
+  private selected = false;
 
   constructor(private readonly target: FindTarget) {}
 
@@ -83,6 +92,7 @@ export class Finder {
       this.current = null;
       this.native = true;
       const count = this.target.search(query, options.backwards);
+      if (count > 0) this.selected = true;
       return { found: count > 0, count };
     }
     if (this.native) this.target.clearSearch();
@@ -102,6 +112,7 @@ export class Finder {
     else index = options.backwards ? 0 : count - 1;
     const match = this.matches[index];
     this.current = match;
+    this.selected = true;
     this.target.setSelection({ x: match.start, y: match.line }, { x: match.end - 1, y: match.line }, { screen: true });
     this.target.scrollToScreenRow(match.line);
     return { found: true, count };
@@ -117,8 +128,11 @@ export class Finder {
       .map((m) => ({ row: m.line - offset, start: m.start, end: m.end }));
   }
 
-  /** Ends the search: nothing is highlighted any more. */
+  /** Ends the search: nothing is highlighted any more, and the match it
+   *  selected is not selected either. */
   clear() {
+    if (this.selected) this.target.clearSelection();
+    this.selected = false;
     this.target.clearSearch();
     this.native = false;
     this.matches = [];
