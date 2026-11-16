@@ -56,6 +56,26 @@ fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
         .min()
 }
 
+/// Feeds program output to `screen`. When the output leaves the alternate
+/// screen, `left` sees the alternate screen as it was just before.
+pub fn feed_output(
+    screen: &mut dyn Screen,
+    bytes: &[u8],
+    replies: &mut Vec<u8>,
+    signals: &mut Vec<Signal>,
+    left: impl FnOnce(&dyn Screen),
+) {
+    let mut rest = bytes;
+    if let Some(at) = leaves_alternate_at(rest)
+        && screen.modes().alternate_screen
+    {
+        screen.feed(&rest[..at], replies, signals);
+        left(screen);
+        rest = &rest[at..];
+    }
+    screen.feed(rest, replies, signals);
+}
+
 /// How long the actor waits for the last output after the program exits.
 /// The count starts again with each chunk that arrives, so an exit never
 /// overtakes its output.
@@ -1207,20 +1227,20 @@ impl Actor {
         let mut left = None;
         let mut feed = |bytes: &[u8]| {
             let before = replies.len();
-            let mut rest = bytes;
             // the alternate screen, before the program leaves it
-            if let Some(at) = leaves_alternate_at(rest)
-                && screen.modes().alternate_screen
-            {
-                screen.feed(&rest[..at], &mut replies, &mut signals);
-                left = Some(Kept {
-                    text: screen.text(TextRange::Screen),
-                    paint: screen.first_paint(0),
-                    size,
-                });
-                rest = &rest[at..];
-            }
-            screen.feed(rest, &mut replies, &mut signals);
+            feed_output(
+                screen.as_mut(),
+                bytes,
+                &mut replies,
+                &mut signals,
+                |screen| {
+                    left = Some(Kept {
+                        text: screen.text(TextRange::Screen),
+                        paint: screen.first_paint(0),
+                        size,
+                    });
+                },
+            );
             replies.len() - before
         };
         self.for_viewers.clear();

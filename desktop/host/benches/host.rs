@@ -21,7 +21,7 @@
 use std::time::{Duration, Instant};
 
 use pinrail_host::filter::QueryFilter;
-use pinrail_host::terminal::screen;
+use pinrail_host::terminal::{feed_output, screen};
 use serde_json::{Value, json};
 
 const COLS: u16 = 120;
@@ -222,7 +222,8 @@ fn plain(r: &mut Rng) -> String {
 }
 
 /// Feeds `bytes` to a new terminal as the host does with program output:
-/// through the query filter, which passes every byte to the screen.
+/// through the query filter, which passes every byte to the screen, and
+/// `feed_output`, which keeps the alternate screen a program leaves.
 /// Returns the seconds it took.
 fn feed(bytes: &[u8]) -> f64 {
     let mut screen = screen(COLS, ROWS, SCROLLBACK).expect("a terminal");
@@ -233,7 +234,7 @@ fn feed(bytes: &[u8]) -> f64 {
         for_viewers.clear();
         let mut to_screen = |part: &[u8]| {
             let before = replies.len();
-            screen.feed(part, &mut replies, &mut signals);
+            feed_output(screen.as_mut(), part, &mut replies, &mut signals, |_| {});
             replies.len() - before
         };
         filter.push(chunk, &mut for_viewers, &mut to_screen);
