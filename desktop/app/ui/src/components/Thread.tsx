@@ -667,17 +667,22 @@ export function Thread({
                   showReview={showReview}
                   openFromLink={openFromLink}
                 />
-                {waitingFor ? null : agentWorking ? <WorkingLine name={agentName} /> : null}
-                {waitingFor ? (
-                  <div className="thread-waiting" data-testid="waiting-line">
-                    <span>Waiting for permission: {waitingFor}</span>
-                    <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
-                      Open the terminal
-                    </button>
-                  </div>
-                ) : null}
               </div>
               <div className="thread-footer" ref={setFooter}>
+                {/* what the agent is doing now, on a line of its own whose
+                  height is kept, so that nothing moves as it changes */}
+                <div className="thread-state">
+                  {waitingFor ? (
+                    <div className="thread-waiting" data-testid="waiting-line">
+                      <span className="truncate">Waiting for permission: {waitingFor}</span>
+                      <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
+                        Open the terminal
+                      </button>
+                    </div>
+                  ) : agentWorking ? (
+                    <WorkingLine name={agentName} />
+                  ) : null}
+                </div>
                 {atEnd ? null : (
                   <button
                     type="button"

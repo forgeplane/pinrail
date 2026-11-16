@@ -8058,16 +8058,27 @@ a.item-ref {
 .thread-turn-end {
   font-size: var(--text-xs);
 }
+/* what the agent is doing now, above the message box: working, waiting
+   for permission, or nothing, on a line that keeps its height */
+.thread-state {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  margin: 0 4px 8px;
+  min-width: 0;
+}
 .thread-waiting {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin: 8px 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--bg-raised);
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.thread-waiting .chrome-button {
+  flex: none;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
 }
 .thread-turn-folded {
   max-height: 6.2em;
@@ -8083,7 +8094,6 @@ a.item-ref {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 0;
   color: var(--dim);
   font-size: var(--text-sm);
 }
