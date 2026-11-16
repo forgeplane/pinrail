@@ -86,6 +86,17 @@ describe("the glyphs the renderer draws", () => {
     expect(all.drawn.filter((d) => d.startsWith("arc"))).toHaveLength(8);
   });
 
+  test("the step marker ⏺ is a filled circle in the middle of its cell", () => {
+    expect(isDrawn("⏺")).toBe(true);
+    const radii: number[] = [];
+    const p = pen();
+    p.arc = (x, y, r) => (p.drawn.push(`arc ${x} ${y}`), radii.push(r));
+    drawGlyph(p, "⏺", box);
+    expect(p.drawn).toEqual(["path", "arc 5 10", "fill"]);
+    // as wide as most of a narrow cell: 62% of its width
+    expect(radii).toEqual([3.1]);
+  });
+
   test("the Powerline arrows fill or stroke a triangle to the cell's far edge", () => {
     const solid = pen();
     drawGlyph(solid, "", box);

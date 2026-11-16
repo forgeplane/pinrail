@@ -1,6 +1,7 @@
 // The glyphs the renderer draws itself, from the cell's own edges rather
 // than the font, so that lines meet without gaps at any size: box drawing,
-// block elements, Braille and the Powerline separators.
+// block elements, Braille, the Powerline separators, and the ⏺ that Claude
+// Code marks each step with, which few terminal fonts have.
 
 /** What drawing a glyph needs of a canvas context. */
 export interface Pen {
@@ -183,6 +184,8 @@ const BOX_FIRST = 0x2500;
 const BLOCK_FIRST = 0x2580;
 const BRAILLE_FIRST = 0x2800;
 const POWERLINE = new Set([0xe0b0, 0xe0b1, 0xe0b2, 0xe0b3, 0xe0b4, 0xe0b5, 0xe0b6, 0xe0b7]);
+/** ⏺, BLACK CIRCLE FOR RECORD. */
+const RECORD = 0x23fa;
 
 /** The code point of a one-character cell, or null. */
 function single(text: string): number | null {
@@ -199,7 +202,8 @@ export function isDrawn(text: string): boolean {
     (cp >= BOX_FIRST && cp < BOX_FIRST + BOX.length) ||
     (cp >= BLOCK_FIRST && cp <= 0x259f) ||
     (cp >= BRAILLE_FIRST && cp <= 0x28ff) ||
-    POWERLINE.has(cp)
+    POWERLINE.has(cp) ||
+    cp === RECORD
   );
 }
 
@@ -228,7 +232,20 @@ export function drawGlyph(pen: Pen, text: string, box: Box): boolean {
     drawPowerline(pen, cp, box);
     return true;
   }
+  if (cp === RECORD) {
+    drawRecord(pen, box);
+    return true;
+  }
   return false;
+}
+
+/** ⏺ as a filled circle in the middle of the cell, 62% of the cell's
+ *  width across, or half its height in a wide cell. */
+function drawRecord(pen: Pen, { x, y, w, h }: Box) {
+  const d = Math.min(w * 0.62, h * 0.5);
+  pen.beginPath();
+  pen.arc(x + w / 2, y + h / 2, d / 2, 0, Math.PI * 2);
+  pen.fill();
 }
 
 /** The arms of a box-drawing glyph, from the centre to each edge. */
