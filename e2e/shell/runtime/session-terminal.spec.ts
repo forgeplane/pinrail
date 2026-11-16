@@ -151,6 +151,37 @@ test("a session opened in the Terminal view shows its summary whole when switche
   await expect(thread.getByTestId("note").getByRole("button", { name: "Show more" })).toBeVisible();
 });
 
+test("a question clicked in the session's details from the Terminal view opens in the summary", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const post = async (path: string, data: unknown) => {
+    const response = await page.request.post(`${core}/api/v1/${path}`, { data });
+    expect(response.status(), await response.text()).toBeLessThan(300);
+  };
+  const { id } = await (
+    await page.request.post(`${core}/api/v1/reviews`, {
+      data: {
+        kind: "question",
+        title: "Commit it?",
+        requested_by: "claude-code",
+        session,
+        payload: { questions: [{ id: "q1", question: "Commit it?", answer: "yes-no" }] },
+      },
+    })
+  ).json();
+  // enough after the question that it starts out of view
+  const lines = Array.from({ length: 40 }, (_, i) => `Line ${i + 1} of the text.`).join("\n\n");
+  for (let i = 0; i < 3; i++) {
+    await post(`sessions/claude-code/${session}/status`, { kind: "note", text: lines });
+  }
+
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(terminalBar(page)).toBeVisible();
+  await page.getByTestId("waiting-item").filter({ hasText: "Commit it?" }).click();
+
+  await expect(page).toHaveURL(/view=summary/);
+  await expect(page.locator(`#set-${id}`)).toBeInViewport();
+});
+
 test("a session keeps its view across a reload, and opens in the last one used", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   await page.goto(`/#/sessions/claude-code/${session}`);

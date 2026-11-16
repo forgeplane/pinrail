@@ -429,6 +429,25 @@ export function Thread({
     },
     [drawAll],
   );
+  // a jump asked for from the Terminal view shows the summary first, and
+  // scrolls once it is shown
+  const [pendingJump, setPendingJump] = useState<{ id: string; block: ScrollLogicalPosition } | null>(null);
+  const jumpInSummary = useCallback(
+    (id: string, block: ScrollLogicalPosition) => {
+      if (!showTerminalRef.current) return jump(id, block);
+      setPendingJump({ id, block });
+      chooseView("summary");
+    },
+    [jump, chooseView, showTerminalRef],
+  );
+  useEffect(() => {
+    if (!pendingJump || showTerminal) return;
+    const frame = requestAnimationFrame(() => {
+      jump(pendingJump.id, pendingJump.block);
+      setPendingJump(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingJump, showTerminal, jump]);
 
   // the session's details beside the thread: shown or hidden with the
   // button or ⌘⇧B, and as wide as their edge is dragged; a side panel keeps
@@ -776,9 +795,9 @@ export function Thread({
               onWaiting={(r) => {
                 if (r.kind !== "question" && panelMode) showReview(r.id);
                 else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
-                else jump(`set-${r.id}`, "start");
+                else jumpInSummary(`set-${r.id}`, "start");
               }}
-              onJump={(id) => jump(id, "center")}
+              onJump={(id) => jumpInSummary(id, "center")}
               reviewLink={(r) => ({
                 to: reviewTo(r.id),
                 state: panelMode ? undefined : from,
