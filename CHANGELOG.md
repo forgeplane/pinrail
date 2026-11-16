@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The Work items page has **Fold all** beside the search field, which
+  folds every parent, and **Unfold all** once they are folded.
 - On the Work items page, a done or cancelled item starts with its
   sub-items folded. **Fold done parents** in Settings › Work items turns
   this off.

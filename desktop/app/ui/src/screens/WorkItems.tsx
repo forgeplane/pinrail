@@ -10,9 +10,10 @@ import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { GroupHeading } from "../components/GroupHeading";
 import { ItemStatusIcon } from "../components/ItemStatusIcon";
+import { Tooltip } from "../components/Tooltip";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
-import { List as ListIcon, ListTree } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { hasMod, modalOpen, isTyping } from "../lib/keys";
@@ -188,6 +189,22 @@ export function WorkItems() {
     }
     return shown;
   }, [ordered, foldClosed, folded]);
+  // the parents in the list, which Fold all folds
+  const parents = useMemo(() => {
+    if (!nested) return [];
+    const keys = new Set(ordered.map((i) => i.key));
+    return [...new Set(ordered.flatMap((i) => (i.parent && keys.has(i.parent) ? [i.parent] : [])))];
+  }, [ordered, nested]);
+  const allFolded = parents.length > 0 && parents.every((key) => shownFolded.has(key));
+  /** Folds every parent, or unfolds them all when every one is folded. */
+  const foldAll = () => {
+    const starts = (key: string) => {
+      const item = ordered.find((i) => i.key === key);
+      return foldClosed && (item?.status === "done" || item?.status === "cancelled");
+    };
+    // kept are the parents whose state differs from how they start
+    setFolded(new Set(parents.filter((key) => starts(key) === allFolded)));
+  };
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
   const shownGroups = useMemo(
@@ -600,6 +617,18 @@ export function WorkItems() {
                 }}
               />
             </label>
+            {parents.length ? (
+              <Tooltip label={allFolded ? "Unfold all" : "Fold all"} side="bottom">
+                <button
+                  type="button"
+                  className="bar-button item-menu-button"
+                  aria-label={allFolded ? "Unfold all" : "Fold all"}
+                  onClick={foldAll}
+                >
+                  {allFolded ? <ChevronsUpDown size={15} /> : <ChevronsDownUp size={15} />}
+                </button>
+              </Tooltip>
+            ) : null}
             <ListMenuButtons
               label="work items"
               filters={filters}

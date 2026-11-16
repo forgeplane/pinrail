@@ -1364,3 +1364,24 @@ test("a done parent starts folded, unfolds by hand, and stays open with the opti
   await page.reload();
   await expect(row(page, step.key)).toBeVisible();
 });
+
+test("Fold all and Unfold all fold every parent at once", async ({ page, request }) => {
+  const repo = fresh("fold-all");
+  const first = await add(request, repo, "Ship the beta");
+  const step = await add(request, repo, "Write the notes", { parent: first.key });
+  const second = await add(request, repo, "Ship the release");
+  const deeper = await add(request, repo, "Tag the build", { parent: second.key });
+  const deepest = await add(request, repo, "Sign the tag", { parent: deeper.key });
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
+  await expect(rows(page)).toHaveCount(5);
+
+  await page.getByRole("button", { name: "Fold all" }).click();
+  await expect(rows(page).locator(".item-key")).toHaveText([first.key, second.key]);
+  // every parent folded: the button unfolds them, deeper ones too
+  await page.getByRole("button", { name: "Unfold all" }).click();
+  await expect(rows(page).locator(".item-key")).toHaveText([first.key, step.key, second.key, deeper.key, deepest.key]);
+
+  // flat, there is nothing to fold
+  await pickIn(page, "Display options", "Sub-items", "Flat");
+  await expect(page.getByRole("button", { name: /^(Fold|Unfold) all$/ })).toHaveCount(0);
+});
