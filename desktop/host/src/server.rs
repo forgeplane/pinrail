@@ -1105,7 +1105,7 @@ fn attach(
         history: params
             .get("history")
             .and_then(Value::as_u64)
-            .unwrap_or(5_000) as usize,
+            .unwrap_or(SCROLLBACK_LINES as u64) as usize,
         formats: params
             .get("formats")
             .and_then(Value::as_array)

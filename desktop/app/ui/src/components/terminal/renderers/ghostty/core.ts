@@ -27,7 +27,8 @@ export type { GhosttyColor, GhosttySnapshot, GhosttyTheme };
 const SUCCESS = 0;
 const OUT_OF_SPACE = -3;
 const NO_VALUE = -4;
-const SCROLLBACK_LINES = 5_000;
+/** Lines of history, as many as the host keeps (`SCROLLBACK_LINES` in the host). */
+const SCROLLBACK_LINES = 10_000;
 /** The most a program may copy to the clipboard at once. */
 const CLIPBOARD_MAX_BYTES = 1024 * 1024;
 /** DEC private mode 2027, grapheme clustering. */

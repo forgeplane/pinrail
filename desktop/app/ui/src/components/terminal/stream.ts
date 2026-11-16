@@ -154,7 +154,7 @@ export class TerminalStream {
         ticket,
         cols: String(this.cols),
         rows: String(this.rows),
-        history: String(this.options.history ?? 5000),
+        history: String(this.options.history ?? 10_000),
         formats: this.options.view.snapshotFormats.join(","),
       });
       if (this.offset !== null) query.set("resume_from", String(this.offset));

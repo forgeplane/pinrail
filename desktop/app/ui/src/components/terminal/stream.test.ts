@@ -121,7 +121,7 @@ describe("TerminalStream", () => {
       ticket: "ticket-1",
       cols: "100",
       rows: "30",
-      history: "5000",
+      history: "10000",
       formats: "vt",
     });
     expect(sockets[0].binaryType).toBe("arraybuffer");
