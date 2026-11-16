@@ -62,3 +62,17 @@ test("the working line shows while the agent works between turns", async ({ page
   await expect(working(page)).toHaveCount(0);
   expect((await placed(page)).box).toBe(idle);
 });
+
+test("on a wide window, the working line starts where the message box does", async ({ page }) => {
+  const session = fresh();
+  await post(page.request, session, "status", { kind: "start", text: "Fix the login", origin: { repo: "acme/api" } });
+  await post(page.request, session, "reports", { event: "prompt", detail: { prompt: "Run the tests" } });
+  await page.setViewportSize({ width: 1800, height: 800 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(working(page)).toBeVisible();
+  const [line, box] = [
+    await working(page).boundingBox(),
+    await page.locator(".thread-composer .compose").boundingBox(),
+  ];
+  expect(Math.abs(line!.x - box!.x)).toBeLessThanOrEqual(8);
+});

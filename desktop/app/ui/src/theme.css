@@ -3805,7 +3805,8 @@ body.is-resizing iframe {
 /* on a wide window, the messages and the chat box keep to a column that
    reads comfortably, in the middle */
 .thread-items > *,
-.thread-footer > .thread-composer {
+.thread-footer > .thread-composer,
+.thread-footer > .thread-state {
   width: 100%;
   max-width: 900px;
   margin-inline: auto;
@@ -8069,11 +8070,12 @@ a.item-ref {
 }
 /* what the agent is doing now, above the message box: working, waiting
    for permission, or nothing, on a line that keeps its height */
-.thread-state {
+.thread-footer > .thread-state {
   display: flex;
   align-items: center;
   height: 28px;
-  margin: 0 4px 8px;
+  margin-bottom: 8px;
+  padding-inline: 4px;
   min-width: 0;
 }
 .thread-waiting {
