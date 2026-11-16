@@ -100,3 +100,34 @@ test("letters and spaces of one style are drawn as one string, each in its cell"
     CanvasRenderingContext2D.prototype.fillText = fillText;
   }
 });
+
+test("backgrounds meet without seams at a fractional pixel ratio", async () => {
+  const real = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 1.5 });
+  const host = document.createElement("div");
+  host.style.position = "relative";
+  document.body.append(host);
+  // cells and rows that end between device pixels: 9.6 by 21 CSS pixels
+  const renderer = new CanvasRenderer(host, { family: "Menlo, monospace", size: 16, lineHeight: 1.3 }, background);
+  const { width, height } = renderer.cell;
+  const core = GhosttyCore.create(await GhosttyRuntime.instantiate(), 12, 3, width, height, theme, () => {});
+  try {
+    // red then blue on two rows: no pixel between them shows the black under them
+    const two = "\x1b[41m   \x1b[44m   \x1b[0m";
+    core.write(new TextEncoder().encode(`${two}\r\n${two}`));
+    renderer.draw(core.snapshot(), true);
+    const ratio = 1.5;
+    const data = renderer.canvas
+      .getContext("2d")!
+      .getImageData(0, 0, Math.floor(6 * width * ratio), Math.floor(2 * height * ratio)).data;
+    const seams = [];
+    for (let i = 0; i < data.length; i += 4) if (data[i]! + data[i + 2]! < 230) seams.push(i / 4);
+    expect(seams).toEqual([]);
+  } finally {
+    core.dispose();
+    renderer.dispose();
+    host.remove();
+    if (real) Object.defineProperty(window, "devicePixelRatio", real);
+    else delete (window as { devicePixelRatio?: number }).devicePixelRatio;
+  }
+});

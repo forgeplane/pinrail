@@ -416,7 +416,8 @@ export class CanvasRenderer {
     // to the canvas's last device pixel, so that a row drawn again is
     // drawn the same: a fill that ended inside a pixel would blend into it
     // once more each time
-    ctx.fillRect(0, top, this.canvas.width / this.ratio, h);
+    const row = this.box(0, cells.length, top);
+    ctx.fillRect(0, row.y, this.canvas.width / this.ratio, row.h);
     const found = this.matches.get(y);
     const backgroundOf = (x: number) =>
       cells[x].selected ? this.selection : found?.[x] ? this.findColour : cells[x].background;
@@ -426,7 +427,8 @@ export class CanvasRenderer {
       while (end < cells.length && same(backgroundOf(end), bg)) end++;
       if (!same(bg, snapshot.background)) {
         ctx.fillStyle = css(bg);
-        ctx.fillRect(x * w, top, (end - x) * w, h);
+        const { x: bx, y: by, w: bw, h: bh } = this.box(x, end, top);
+        ctx.fillRect(bx, by, bw, bh);
       }
       x = end;
     }
@@ -479,10 +481,11 @@ export class CanvasRenderer {
         ctx.fillText(first.text, run.start * w + Math.max(0, (span * w - width) / 2), top + baseline, span * w);
       } else if (run.kind === "drawn") {
         ctx.fillStyle = css(first.foreground);
-        drawGlyph(ctx, first.text, { x: run.start * w, y: top, w, h });
+        drawGlyph(ctx, first.text, this.box(run.start, run.start + 1, top));
       } else if (run.kind === "cached") {
         const span = spanOf(cells, run.start);
-        ctx.drawImage(this.glyph(first, span), run.start * w, top, span * w, h);
+        const { x: gx, y: gy, w: gw, h: gh } = this.box(run.start, run.start + span, top);
+        ctx.drawImage(this.glyph(first, span), gx, gy, gw, gh);
       } else if (run.kind === "icon") {
         // drawn once the symbols font is in; every row is drawn again then
         if (!iconFontReady(this.iconFontArrived)) continue;
@@ -490,7 +493,8 @@ export class CanvasRenderer {
         // file trees, else its own
         const next = cells[run.start + 1];
         const room = next && cellKind(next) === "blank" && next.wide !== 2 ? 2 : 1;
-        ctx.drawImage(this.icon(first, room), run.start * w, top, room * w, h);
+        const { x: ix, y: iy, w: iw, h: ih } = this.box(run.start, run.start + room, top);
+        ctx.drawImage(this.icon(first, room), ix, iy, iw, ih);
       }
     }
     flush();
@@ -498,16 +502,27 @@ export class CanvasRenderer {
     for (let x = 0; x < cells.length; x++) {
       const cell = cells[x];
       if (cell.underline || cell.strikethrough || cell.overline) {
-        this.decorate(cell, { x: x * w, y: top, w, h });
+        this.decorate(cell, this.box(x, x + 1, top));
       }
     }
     // the link under the pointer
     for (const span of this.link) {
       if (span.row !== y) continue;
       for (let x = span.start; x < span.end && x < cells.length; x++) {
-        if (!cells[x].underline) this.decorate({ ...cells[x], underline: 1 }, { x: x * w, y: top, w, h });
+        if (!cells[x].underline) this.decorate({ ...cells[x], underline: 1 }, this.box(x, x + 1, top));
       }
     }
+  }
+
+  /** Cells `[from, to)` of the row at `top`, their edges on device
+   *  pixels: neighbouring cells and rows then share an edge, and their
+   *  backgrounds meet without a seam of what is under them. Text keeps
+   *  the font's own advance. */
+  private box(from: number, to: number, top: number): Box {
+    const { width: w, height: h } = this.metrics;
+    const snap = (v: number) => Math.round(v * this.ratio) / this.ratio;
+    const [x0, x1, y0, y1] = [snap(from * w), snap(to * w), snap(top), snap(top + h)];
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
   /** Whether `font` gives each batched character the cell's width. */
@@ -597,13 +612,15 @@ export class CanvasRenderer {
     const ctx = this.context;
     const line = lightWidth(box);
     const { x, y, w, h } = box;
+    // on device pixels, as the cell's edges are
+    const snap = (v: number) => Math.round(v * this.ratio) / this.ratio;
     ctx.fillStyle = css(cell.foreground);
-    if (cell.strikethrough) ctx.fillRect(x, Math.round(y + h / 2), w, line);
+    if (cell.strikethrough) ctx.fillRect(x, snap(y + h / 2), w, line);
     if (cell.overline) ctx.fillRect(x, y, w, line);
     if (!cell.underline) return;
     ctx.fillStyle = css(cell.underlineColor ?? cell.foreground);
     ctx.strokeStyle = ctx.fillStyle;
-    const under = Math.min(y + h - line, y + this.metrics.baseline + line * 2);
+    const under = snap(Math.min(y + h - line, y + this.metrics.baseline + line * 2));
     switch (cell.underline) {
       case 2: // double
         ctx.fillRect(x, under - line * 2, w, line);
