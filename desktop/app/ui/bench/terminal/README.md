@@ -84,7 +84,7 @@ load the page without the app's Content-Security-Policy.
   (`core/pty-echo.py`).
 - `core/snapshots.mjs` asks the host's terminal
   (`desktop/screen/examples/bench_snapshot.rs`) for a terminal of 120
-  columns and 40 rows with 5,000 lines of history, in both formats the host
+  columns and 40 rows with 5,000 or 10,000 lines of history, in both formats the host
   sends: its `vt` first paint and libghostty-vt's binary snapshot. They are
   cached in `.cache/` until the corpus changes.
 - `budgets.mjs` checks the results against the budgets.
@@ -109,7 +109,7 @@ core over WebSockets, as the window talks to Pinrail's core.
 | `stream`            | tui output paced at 2 MB/s for 5 s: frame time p50, p95 and max, and frames over 16, 33 and 50 ms.                                                                                                                                                                           | p95 ≤ 20 ms, max ≤ 50 ms                                        |
 | `idle`              | Frames drawn per second when nothing changes, after a stream.                                                                                                                                                                                                                | 0                                                               |
 | `input`             | Key events on the view's input element, encoded by the view, sent over the WebSocket to `cat` on a real PTY in raw mode, echoed back and drawn. With `load=1`, a second terminal streams 2 MB/s meanwhile.                                                                   | p50 / p95 / p99 ≤ 5 / 12 / 25 ms; with load, p95 ≤ 25 ms        |
-| `attach`            | A new view restores the snapshot of 5,000 lines of history until its first frame, in the first of the view's formats. Two snapshots: agent output (tui and diff) and dense colour (styled).                                                                                  | ≤ 150 ms                                                        |
+| `attach`            | A new view restores a snapshot of history until its first frame, in the first of the view's formats. Three snapshots: agent output (tui and diff) at 5,000 and at 10,000 lines, and dense colour (styled) at 5,000.                                                                                  | ≤ 150 ms                                                        |
 | `memory`            | Three views each holding 5,000 lines: the growth of the web content process and of WebAssembly memory, per view.                                                                                                                                                             | ≤ 30 MiB                                                        |
 | `switch`            | A pooled view hidden while 256 KB of output arrive, then shown, until it is painted and current. Five times.                                                                                                                                                                 | ≤ 50 ms                                                         |
 | `agents`            | Eight terminals stream tui output at 50 KB/s each for 10 s, with one shown and the others taken out of the page as the pool keeps them: draws per second of the shown and the hidden views, the main-thread time spent drawing, and the CPU used by the web content process. | None                                                            |

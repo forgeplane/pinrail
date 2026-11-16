@@ -67,6 +67,7 @@ function allCases() {
     { case: "input", load: "1" },
     { case: "attach" },
     { case: "attach", snapshot: "history-5000-styled" },
+    { case: "attach", snapshot: "history-10000" },
     { case: "memory" },
     { case: "switch" },
     { case: "agents" },

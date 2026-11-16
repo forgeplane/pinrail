@@ -1,5 +1,5 @@
 // The snapshots of the attach and memory cases: a terminal of 120 columns
-// and 40 rows holding 5,000 lines of history, made by the host's own
+// and 40 rows holding 5,000 or 10,000 lines of history, made by the host's own
 // terminal (desktop/screen/examples/bench_snapshot.rs), in both the formats
 // the host sends: its `vt` first paint and libghostty-vt's binary snapshot.
 // They are cached until a source changes.
@@ -11,6 +11,8 @@ import { join } from "node:path";
 export const SOURCES = {
   // agent output: the tui workload, then the diff workload
   "history-5000": ["synthetic/tui.bin", "synthetic/diff.bin"],
+  // the same, at the host's limit of 10,000 lines
+  "history-10000": ["synthetic/tui.bin", "synthetic/diff.bin"],
   // dense colour: truecolor on every word, with wide characters
   "history-5000-styled": ["synthetic/styled.bin"],
 };
