@@ -64,6 +64,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- An agent's reply in a session thread no longer shows **Show more** and
+  a faded last line when it fits, after the window was made wider.
 - Opening or closing the side panel on the Work items, Sessions or inbox
   page no longer scrolls the item you clicked out of view.
 - `pinrail status` and the other session commands now find the session of

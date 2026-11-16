@@ -8035,11 +8035,12 @@ a.item-ref {
 .thread-turn-folded {
   max-height: 6.2em;
   overflow: hidden;
+}
+.thread-turn-folded.is-folded {
   mask-image: linear-gradient(to bottom, #000 70%, transparent);
 }
 .thread-turn-folded.is-open {
   max-height: none;
-  mask-image: none;
 }
 .thread-turn-working {
   display: flex;

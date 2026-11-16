@@ -34,18 +34,27 @@ function Excerpt({ text, cut }: { text: string; cut: boolean }) {
   );
 }
 
-/** A reply, folded to about four lines until it is opened. */
+/** A reply, folded to about four lines until it is opened. It is
+ *  measured again as its width changes, so a reply that fits once the
+ *  thread is wider shows whole. */
 function Folded({ cut, children }: { cut: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [long, setLong] = useState(cut);
+  const [overflows, setOverflows] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = box.current;
-    if (el && el.scrollHeight > el.clientHeight + 1) setLong(true);
-  }, []);
+    // open, it is not cut at all: keep what it measured folded
+    if (!el || open) return;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open]);
+  const long = cut || overflows;
   return (
     <>
-      <div ref={box} className={`thread-turn-folded ${open ? "is-open" : ""}`}>
+      <div ref={box} className={`thread-turn-folded ${open ? "is-open" : long ? "is-folded" : ""}`}>
         {children}
       </div>
       {long ? (
