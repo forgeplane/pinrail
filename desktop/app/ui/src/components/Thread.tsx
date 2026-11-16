@@ -545,85 +545,92 @@ export function Thread({
           ref={body}
           style={{ "--details-width": `${detailsWidth}px` } as React.CSSProperties}
         >
-          {showTerminal ? (
-            <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
-              {terminal ? (
-                <TerminalPane terminal={terminal} autoFocus />
-              ) : failed ? (
-                <FailedStart run={failed} />
-              ) : openable ? (
-                <OutsideRun agent={named!.agent} running resuming={resuming} onResume={() => setAskingOpen(true)} />
-              ) : ended ? (
-                <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
-              ) : (
-                <OutsideRun agent={named!.agent} resuming={resuming} onResume={() => void resume()} />
-              )}
-            </div>
-          ) : null}
-          <div
-            className="thread-main"
-            hidden={showTerminal}
-            {...(hasTerminalView && !showTerminal
-              ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
-              : {})}
-          >
-            {finding ? (
-              <FindBar
-                label="Find in the thread"
-                query={findQuery}
-                onQuery={setFindQuery}
-                found={found}
-                onFind={find}
-                onClose={closeFind}
-                focus={findFocus}
-              />
+          <div className="thread-views">
+            {showTerminal ? (
+              <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
+                {terminal ? (
+                  <TerminalPane terminal={terminal} autoFocus />
+                ) : failed ? (
+                  <FailedStart run={failed} />
+                ) : openable ? (
+                  <OutsideRun agent={named!.agent} running resuming={resuming} onResume={() => setAskingOpen(true)} />
+                ) : ended ? (
+                  <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
+                ) : (
+                  <OutsideRun agent={named!.agent} resuming={resuming} onResume={() => void resume()} />
+                )}
+              </div>
             ) : null}
-            <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
-              <ThreadEntries
-                entries={shown}
-                waiting={waitingFor !== null}
-                startedAt={session && whole ? session.first_at : null}
-                named={namedRef}
-                agent={agent}
-                active={active}
-                footer={footer}
-                openReview={openReview}
-                panelMode={panelMode}
-                reviewTo={reviewTo}
-                from={from}
-                load={load}
-                onPick={setPicked}
-                showReview={showReview}
-                openFromLink={openFromLink}
-              />
-              {waitingFor ? (
-                <div className="thread-waiting" data-testid="waiting-line">
-                  <span>Waiting for permission: {waitingFor}</span>
-                  <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
-                    Open the terminal
-                  </button>
-                </div>
+            <div
+              className="thread-main"
+              // behind the terminal it stays as it is, which costs nothing
+              // to show again; a live terminal keeps the keyboard, Tab
+              // included, and anything else in its place leaves the summary
+              // out of the keyboard's way
+              aria-hidden={showTerminal || undefined}
+              inert={showTerminal && !terminal}
+              {...(hasTerminalView && !showTerminal
+                ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
+                : {})}
+            >
+              {finding ? (
+                <FindBar
+                  label="Find in the thread"
+                  query={findQuery}
+                  onQuery={setFindQuery}
+                  found={found}
+                  onFind={find}
+                  onClose={closeFind}
+                  focus={findFocus}
+                />
               ) : null}
-            </div>
-            <div className="thread-footer" ref={setFooter}>
-              {atEnd ? null : (
-                <button
-                  type="button"
-                  className="thread-to-end"
-                  aria-label="Scroll to the newest message"
-                  onClick={() => {
-                    const el = timeline.current;
-                    el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-                  }}
-                >
-                  <ArrowDown size={15} />
-                </button>
-              )}
-              {active ? null : named ? (
-                <MessageComposer session={named} typed={!!live && !!session?.types} onSent={load} />
-              ) : (
-                <IdleComposer />
-              )}
+              <div className={`thread-items ${finding ? "is-finding" : ""}`} ref={timeline}>
+                <ThreadEntries
+                  entries={shown}
+                  waiting={waitingFor !== null}
+                  startedAt={session && whole ? session.first_at : null}
+                  named={namedRef}
+                  agent={agent}
+                  active={active}
+                  footer={footer}
+                  openReview={openReview}
+                  panelMode={panelMode}
+                  reviewTo={reviewTo}
+                  from={from}
+                  load={load}
+                  onPick={setPicked}
+                  showReview={showReview}
+                  openFromLink={openFromLink}
+                />
+                {waitingFor ? (
+                  <div className="thread-waiting" data-testid="waiting-line">
+                    <span>Waiting for permission: {waitingFor}</span>
+                    <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
+                      Open the terminal
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="thread-footer" ref={setFooter}>
+                {atEnd ? null : (
+                  <button
+                    type="button"
+                    className="thread-to-end"
+                    aria-label="Scroll to the newest message"
+                    onClick={() => {
+                      const el = timeline.current;
+                      el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+                    }}
+                  >
+                    <ArrowDown size={15} />
+                  </button>
+                )}
+                {active ? null : named ? (
+                  <MessageComposer session={named} typed={!!live && !!session?.types} onSent={load} />
+                ) : (
+                  <IdleComposer />
+                )}
+              </div>
             </div>
           </div>
           {openReview && reviewPanel ? (

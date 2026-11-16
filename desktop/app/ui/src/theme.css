@@ -7756,9 +7756,22 @@ a.item-ref {
   display: flex;
   flex-direction: column;
 }
-/* the summary stays mounted, hidden, while the terminal shows */
-.thread-main[hidden] {
-  display: none;
+/* the terminal and the summary share one place, the terminal over the
+   summary, which stays as it is behind it: showing it again lays out and
+   styles nothing, and what it measures meanwhile has its real size */
+.thread-views {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.thread-views > * {
+  grid-area: 1 / 1;
+}
+.thread-terminal {
+  z-index: 1;
+  background: var(--bg);
 }
 
 /* The Start an agent dialog. */

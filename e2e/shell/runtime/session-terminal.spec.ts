@@ -78,9 +78,9 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
   await page.keyboard.press("Control+Backquote");
   await expect(terminalBar(page)).toBeVisible();
   await expect(views.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true");
-  // the terminal takes the summary's place
+  // the terminal takes the summary's place, over it
   await expect(page.getByRole("tabpanel", { name: "Summary" })).toBeHidden();
-  await expect(page.locator(".thread-footer")).toBeHidden();
+  await expect(page.locator(".thread-main")).toHaveAttribute("aria-hidden", "true");
   await expect(page).toHaveURL(/view=terminal/);
   await expect.poll(() => terminalFocused(page)).toBe(true);
   await page.keyboard.type("ls");
@@ -98,6 +98,39 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
   await page.keyboard.press("ControlOrMeta+Shift+T");
   await expect(terminalBar(page)).toBeHidden();
   expect(received.join("")).toBe("ls");
+});
+
+test("a session opened in the Terminal view shows its summary whole when switched to it", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const post = async (path: string, data: unknown) => {
+    const response = await page.request.post(`${core}/api/v1/${path}`, { data });
+    expect(response.status(), await response.text()).toBeLessThan(300);
+  };
+  const lines = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the text.`).join("\n\n");
+  await post(`sessions/claude-code/${session}/reports`, { event: "prompt", detail: { prompt: "Why did it fail?" } });
+  await post(`sessions/claude-code/${session}/reports`, { event: "turn_ended", end: "done", detail: { reply: lines } });
+  await post(`sessions/claude-code/${session}/status`, { kind: "note", text: lines });
+  await post("reviews", {
+    kind: "question",
+    title: "Commit it?",
+    requested_by: "claude-code",
+    session,
+    payload: { questions: [{ id: "q1", question: "Commit it?", answer: "yes-no" }] },
+  });
+
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(terminalBar(page)).toBeVisible();
+  await page.waitForTimeout(300);
+  await page.getByRole("tab", { name: "Summary" }).click();
+
+  // the comment box on the question has its height and its placeholder
+  const comment = page.getByPlaceholder("Add a comment to the agent on these questions…");
+  await expect(comment).toBeVisible();
+  expect((await comment.boundingBox())!.height).toBeGreaterThan(20);
+  const thread = page.getByTestId("thread");
+  // the reply and the note folded, as when opened in the Summary view
+  await expect(thread.locator(".thread-turn-more")).toHaveCount(1);
+  await expect(thread.getByTestId("note").getByRole("button", { name: "Show more" })).toBeVisible();
 });
 
 test("a session keeps its view across a reload, and opens in the last one used", async ({ page }) => {
