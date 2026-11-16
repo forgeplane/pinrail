@@ -7,8 +7,8 @@ import { expect, test, type APIRequestContext, type Page } from "../fixtures";
 import { core, pickIn, settingSaved, settingsDialog, settingsSection, shellOrigin } from "../helpers";
 
 let counter = 0;
-/** A repository no other test uses. */
-const fresh = (name = "repo") => `wi-${Date.now()}-${++counter}/${name}`;
+/** A repository no other test uses. Its names sort in the order they are made. */
+const fresh = (name = "repo") => `wi-${Date.now()}-${String(++counter).padStart(4, "0")}/${name}`;
 
 /** Adds an item as an agent would, and returns it. */
 async function add(
