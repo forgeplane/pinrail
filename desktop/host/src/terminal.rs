@@ -48,12 +48,22 @@ struct Kept {
     size: (u16, u16),
 }
 
-/// Where `bytes` leave the alternate screen (modes 1049, 1047 or 47).
+/// Where `bytes` leave the alternate screen (modes 1049, 1047 or 47), in
+/// one pass over the escape characters.
 fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
-    [&b"\x1b[?1049l"[..], b"\x1b[?1047l", b"\x1b[?47l"]
-        .iter()
-        .filter_map(|sequence| bytes.windows(sequence.len()).position(|w| w == *sequence))
-        .min()
+    const LEAVE: [&[u8]; 3] = [b"\x1b[?1049l", b"\x1b[?1047l", b"\x1b[?47l"];
+    let mut from = 0;
+    while let Some(i) = bytes[from..].iter().position(|&b| b == 0x1b) {
+        let at = from + i;
+        if LEAVE
+            .iter()
+            .any(|sequence| bytes[at..].starts_with(sequence))
+        {
+            return Some(at);
+        }
+        from = at + 1;
+    }
+    None
 }
 
 /// Feeds program output to `screen`. When the output leaves the alternate
@@ -66,14 +76,33 @@ pub fn feed_output(
     left: impl FnOnce(&dyn Screen),
 ) {
     let mut rest = bytes;
-    if let Some(at) = leaves_alternate_at(rest)
-        && screen.modes().alternate_screen
+    // output on the primary screen, most of it, is not searched
+    if screen.modes().alternate_screen
+        && let Some(at) = leaves_alternate_at(rest)
     {
         screen.feed(&rest[..at], replies, signals);
         left(screen);
         rest = &rest[at..];
     }
     screen.feed(rest, replies, signals);
+}
+
+#[cfg(test)]
+mod alternate_tests {
+    use super::leaves_alternate_at;
+
+    #[test]
+    fn the_first_of_the_three_ways_to_leave_the_alternate_screen_is_found() {
+        assert_eq!(
+            leaves_alternate_at(b"text\x1b[?47l more \x1b[?1049l"),
+            Some(4)
+        );
+        assert_eq!(leaves_alternate_at(b"\x1b[1m\x1b[?1047l"), Some(4));
+        assert_eq!(
+            leaves_alternate_at(b"\x1b[?1049h entered, not left \x1b"),
+            None
+        );
+    }
 }
 
 /// How long the actor waits for the last output after the program exits.
