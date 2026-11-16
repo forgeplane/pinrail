@@ -112,6 +112,39 @@ async fn a_session_known_only_from_its_hooks_is_hidden_until_it_reports_a_status
 }
 
 #[tokio::test]
+async fn a_hook_report_fills_the_repository_a_session_was_created_without() {
+    let app = app();
+    // created with only a folder, as a session Pinrail starts is
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"text": "Starting", "origin": {"folder": "/work/api"}})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let repo = |thread: &Value| thread["session"]["repo"].clone();
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(repo(&thread), Value::Null);
+
+    let origin = json!({"origin": {"repo": "acme/api", "ref": "main", "folder": "/work/api"}});
+    assert_eq!(
+        report(&app, "s-1", "prompt", 1, origin).await,
+        StatusCode::NO_CONTENT
+    );
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(repo(&thread), "acme/api");
+    assert_eq!(thread["session"]["ref"], "main");
+
+    // what the agent reported itself stays
+    let other = json!({"origin": {"repo": "acme/web", "ref": "dev"}});
+    report(&app, "s-1", "prompt", 2, other).await;
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(repo(&thread), "acme/api");
+    assert_eq!(thread["session"]["ref"], "main");
+}
+
+#[tokio::test]
 async fn hidden_sessions_go_after_seven_days_without_a_report_and_others_stay() {
     let app = app();
     report(&app, "hidden", "started", 1, json!({})).await;

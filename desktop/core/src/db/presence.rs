@@ -597,6 +597,9 @@ fn read_presence(
 }
 
 /// Creates the session the report names, hidden, if there is none yet.
+/// A session that exists takes the repository, the branch and the folder
+/// the report gives only where it has none, as one Pinrail started with
+/// only a folder: what the agent reported itself stays.
 fn create_hidden(
     conn: &Connection,
     agent: &str,
@@ -604,19 +607,15 @@ fn create_hidden(
     origin: &Map<String, Value>,
     at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM sessions WHERE agent = ?1 AND id = ?2)",
-        params![agent, id],
-        |r| r.get(0),
-    )?;
-    if exists {
-        return Ok(());
-    }
     let field = |key: &str| origin.get(key).and_then(Value::as_str);
     let repo_id = super::repos::ensure(conn, field("repo"), at)?;
     conn.execute(
         "INSERT INTO sessions (agent, id, repo_id, ref, folder, first_at, last_at, hidden)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, 1)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, 1)
+         ON CONFLICT (agent, id) DO UPDATE SET
+           repo_id = COALESCE(repo_id, excluded.repo_id),
+           ref = CASE WHEN repo_id IS NULL THEN COALESCE(ref, excluded.ref) ELSE ref END,
+           folder = COALESCE(folder, excluded.folder)",
         params![
             agent,
             id,
