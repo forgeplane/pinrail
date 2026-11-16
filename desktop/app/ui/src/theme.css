@@ -7998,16 +7998,13 @@ a.item-ref {
   margin: 8px 0 0;
   padding-left: 20px;
 }
+/* a session whose agent runs in another terminal: in the middle of the
+   view, as an empty page is */
 .outside-run {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 24px 32px;
-  font-size: var(--text-sm);
-}
-.outside-run p {
-  margin: 0;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  overflow: auto;
 }
 .ended-run-screen {
   flex: 1;

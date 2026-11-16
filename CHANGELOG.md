@@ -67,6 +67,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   or at its newest message if you were there.
 - When you come back to the inbox, Sessions, Work items or Projects, the
   page keeps its open side panel and its scroll position.
+- The Terminal view of a session that runs, or ran, in another terminal
+  explains what opening or resuming it in Pinrail does, in the middle of
+  the view.
 - The Work items page remembers which parents you folded or unfolded,
   across page changes and restarts.
 - A session's thread shows what the agent is doing on a line above the

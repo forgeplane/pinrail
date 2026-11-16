@@ -186,6 +186,7 @@ test("a session that ran outside Pinrail offers Resume in Pinrail in its termina
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
 
   const outside = page.getByTestId("outside-run");
+  await expect(outside.getByRole("heading", { name: "Claude Code ran in another terminal" })).toBeVisible();
   await expect(outside).toContainText("This session ran in a terminal outside Pinrail.");
   await outside.getByRole("button", { name: "Resume in Pinrail" }).click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
@@ -254,7 +255,15 @@ test("the Terminal view of a session running in another terminal offers to open 
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
 
   const outside = page.getByTestId("outside-run");
-  await expect(outside).toContainText("This session runs in a terminal outside Pinrail.");
+  await expect(outside.getByRole("heading", { name: "Claude Code runs in another terminal" })).toBeVisible();
+  await expect(outside).toContainText("close the other terminal first");
+  // in the middle of the view, as an empty page is
+  const [view, button] = [
+    await page.locator(".thread-terminal").boundingBox(),
+    await outside.getByRole("button", { name: "Open in Pinrail" }).boundingBox(),
+  ];
+  expect(Math.abs(button!.x + button!.width / 2 - (view!.x + view!.width / 2))).toBeLessThan(4);
+  expect(Math.abs(button!.y - (view!.y + view!.height / 2))).toBeLessThan(view!.height / 4);
   await outside.getByRole("button", { name: "Open in Pinrail" }).click();
   await page
     .getByRole("dialog", { name: "Open Claude Code in Pinrail?" })
