@@ -2,7 +2,7 @@
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
 import { ArrowDown, CircleDot, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
@@ -26,7 +26,7 @@ import { usePageRepo } from "../lib/pageRepo";
 import { countFeature } from "../lib/usage";
 import { FindBar, useFindBar } from "./FindBar";
 import { useUrlParams } from "../lib/url";
-import { timeline as entriesOf, fromSession, newestRounds, stages } from "../lib/sessions";
+import { timeline as entriesOf, entryKey, fromSession, newestRounds, stages, type Entry } from "../lib/sessions";
 import { useSettings } from "../state/settings";
 import { ItemChip, ItemOpener } from "./ItemChip";
 import { AgentIcon } from "./AgentIcon";
@@ -42,7 +42,7 @@ import { IdleComposer, MessageComposer } from "./thread/composers";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
 import { useNewestFirst } from "./thread/useNewestFirst";
-import { useThreadScroll } from "./thread/useThreadScroll";
+import { placeOf, useThreadScroll } from "./thread/useThreadScroll";
 import { store, stored } from "./thread/storage";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useResizableWidth } from "../lib/useResizableWidth";
@@ -102,6 +102,10 @@ export function terminalArea(main: DOMRect): { width: number; height: number } {
     height: Math.max(0, main.height - HEAD_HEIGHT - TERMINAL_BAR_HEIGHT),
   };
 }
+
+/** Where each session's thread was left, by `agent/id`, the newest last. */
+const places = new Map<string, { key: string; offset: number }>();
+const PLACES_KEPT = 50;
 
 export function sessionOf(review: Review): { agent: string; id: string } | null {
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
@@ -180,8 +184,12 @@ export function Thread({
   );
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
-  const { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems } =
+  const { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems, kept } =
     useSessionThread(named, focus, onSession);
+  // where the person left this session's thread, when it opens as it was
+  // shown then, at no question or stage
+  const placeKey = named ? `${named.agent}/${named.id}` : null;
+  const [place] = useState(() => (kept && placeKey && !focus && !stage ? places.get(placeKey) : undefined));
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
@@ -274,7 +282,31 @@ export function Thread({
   // the timeline: scrolled to what was opened, with room for the chat box
   // over it, and whether it shows its newest message
   const timeline = useRef<HTMLDivElement>(null);
-  const { atEnd, pinned } = useThreadScroll(timeline, footer, { focus, items, session, stage });
+  const { atEnd, pinned, holdAt } = useThreadScroll(timeline, footer, {
+    focus,
+    items,
+    session,
+    stage,
+    placed: !!place,
+  });
+  // the entries drawn and the element before them, if any, to find an
+  // entry's element by its key and back
+  const drawnRef = useRef<{ shown: Entry[]; leading: number }>({ shown: [], leading: 0 });
+  // where it is left, for the next time it is opened
+  useLayoutEffect(() => {
+    const el = timeline.current;
+    return () => {
+      if (!placeKey || !el) return;
+      // whether it is at its end as it is left, not as it opened
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const left = placeOf(el, pinned.current);
+      const { shown, leading } = drawnRef.current;
+      const entry = left ? shown[[...el.children].indexOf(left.element) - leading] : undefined;
+      places.delete(placeKey);
+      if (left && entry) places.set(placeKey, { key: entryKey(entry), offset: left.offset });
+      while (places.size > PLACES_KEPT) places.delete(places.keys().next().value!);
+    };
+  }, [placeKey, pinned]);
 
   // ⌘F finds text in the thread, unless the focus is in the panel beside
   // it, where a review's view has its own find
@@ -343,11 +375,24 @@ export function Thread({
   // scrolls up or, a chunk a frame, while find searches them, unless it
   // opens at one further up
   const { shown, whole, drawAll } = useNewestFirst(entries, timeline, {
+    // the entry it was left at, and older ones above it, so that it opens
+    // away from the top, where older ones would be drawn at once
+    least: place ? entries.length - entries.findIndex((entry) => entryKey(entry) === place.key) + 100 : 0,
     all: !!focus || !!stage,
     grow: finding,
     thread: named ? `${named.agent}/${named.id}` : null,
     pinned,
   });
+  useLayoutEffect(() => {
+    drawnRef.current = { shown, leading: session && whole ? 1 : 0 };
+  });
+  // where it was left, once it is drawn
+  useLayoutEffect(() => {
+    if (!place || !session) return;
+    const i = shown.findIndex((entry) => entryKey(entry) === place.key);
+    const leading = whole ? 1 : 0;
+    holdAt(i < 0 ? null : (timeline.current?.children[leading + i] ?? null), place.offset);
+  }, [place, session, shown, whole, holdAt]);
 
   /** Scrolls to an entry's element, drawing every entry first if it is not. */
   const jump = useCallback(

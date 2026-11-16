@@ -63,6 +63,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 - Ordered by status with sub-items shown, the work items list puts a
   parent first when any item under it is in progress.
+- A session you open again shows its thread at once, where you left it,
+  or at its newest message if you were there.
 
 ### Security
 

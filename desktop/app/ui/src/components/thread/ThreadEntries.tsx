@@ -6,7 +6,7 @@
 import { memo } from "react";
 import type { To } from "react-router";
 import { stamp } from "../../lib/format";
-import type { Entry, FromSession } from "../../lib/sessions";
+import { entryKey, type Entry, type FromSession } from "../../lib/sessions";
 import {
   CommentMessage,
   FinishedLine,
@@ -73,27 +73,21 @@ export const ThreadEntries = memo(function ThreadEntries({
       ) : null}
       {entries.map((entry) => {
         if (entry.kind === "message")
-          return (
-            <MessageBubble key={`m-${entry.message.id}`} message={entry.message} session={named!} onDeleted={load} />
-          );
-        if (entry.kind === "statuses")
-          return <StatusGroup key={`s-${entry.statuses[0].id}`} statuses={entry.statuses} />;
-        if (entry.kind === "started") return <StartedLine key={`s-${entry.status.id}`} status={entry.status} />;
-        if (entry.kind === "finished") return <FinishedLine key={`s-${entry.status.id}`} status={entry.status} />;
-        if (entry.kind === "itemEvents") return <ItemEventLine key={`e-${entry.events[0].id}`} events={entry.events} />;
-        if (entry.kind === "comment") return <CommentMessage key={`c-${entry.comment.id}`} comment={entry.comment} />;
+          return <MessageBubble key={entryKey(entry)} message={entry.message} session={named!} onDeleted={load} />;
+        if (entry.kind === "statuses") return <StatusGroup key={entryKey(entry)} statuses={entry.statuses} />;
+        if (entry.kind === "started") return <StartedLine key={entryKey(entry)} status={entry.status} />;
+        if (entry.kind === "finished") return <FinishedLine key={entryKey(entry)} status={entry.status} />;
+        if (entry.kind === "itemEvents") return <ItemEventLine key={entryKey(entry)} events={entry.events} />;
+        if (entry.kind === "comment") return <CommentMessage key={entryKey(entry)} comment={entry.comment} />;
         if (entry.kind === "turn")
-          return <TurnEntry key={`t-${entry.turn.turn}`} turn={entry.turn} agent={agent} waiting={waiting} />;
-        if (entry.kind === "run")
-          return <RunLine key={`r-${entry.run.id}-${entry.ended}`} run={entry.run} ended={entry.ended} />;
+          return <TurnEntry key={entryKey(entry)} turn={entry.turn} agent={agent} waiting={waiting} />;
+        if (entry.kind === "run") return <RunLine key={entryKey(entry)} run={entry.run} ended={entry.ended} />;
         if (entry.kind === "note")
-          return (
-            <NoteMessage key={`s-${entry.status.id}`} status={entry.status} agent={agent} session={named?.id ?? null} />
-          );
+          return <NoteMessage key={entryKey(entry)} status={entry.status} agent={agent} session={named?.id ?? null} />;
         if (entry.kind === "revised")
           return (
             <RevisedLine
-              key={`v-${entry.review.id}`}
+              key={entryKey(entry)}
               entry={entry}
               onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
             />
@@ -101,7 +95,7 @@ export const ThreadEntries = memo(function ThreadEntries({
         if (entry.kind === "withdrawn")
           return (
             <WithdrawnLine
-              key={`w-${entry.review.id}`}
+              key={entryKey(entry)}
               entry={entry}
               onOpen={panelMode ? () => showReview(entry.card.id) : undefined}
             />
@@ -109,7 +103,7 @@ export const ThreadEntries = memo(function ThreadEntries({
         const item = entry.review;
         return item.kind === "question" ? (
           <QuestionSet
-            key={item.id}
+            key={entryKey(entry)}
             review={item}
             active={item.id === active}
             footer={item.id === active ? footer : null}
@@ -118,7 +112,7 @@ export const ThreadEntries = memo(function ThreadEntries({
           />
         ) : (
           <ReviewCard
-            key={item.id}
+            key={entryKey(entry)}
             review={item}
             round={entry.round}
             to={reviewTo(item.id)}

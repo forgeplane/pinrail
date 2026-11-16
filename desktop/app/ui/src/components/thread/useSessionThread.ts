@@ -183,5 +183,18 @@ export function useSessionThread(
     if (thread) load();
   });
 
-  return { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems };
+  return {
+    session,
+    items,
+    statuses,
+    messages,
+    comments,
+    itemEvents,
+    turns,
+    error,
+    load,
+    sessionItems,
+    /** whether it opened showing the thread as it was last shown */
+    kept: !!cached,
+  };
 }

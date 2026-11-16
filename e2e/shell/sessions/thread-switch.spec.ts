@@ -64,3 +64,38 @@ test("the breadcrumb names the session shown, whatever ends loading last", async
   await page.waitForTimeout(500);
   await expect(crumb).toHaveText("First task");
 });
+
+test("a session opened again shows the entry it was left at, where it was", async ({ page, request }) => {
+  const [long, other] = [fresh(), fresh()];
+  for (let i = 0; i < 120; i++) {
+    const response = await request.post(`${core}/api/v1/sessions/claude-code/${long}/status`, {
+      data: { text: `Note ${i + 1} of the long session.`, kind: "note" },
+    });
+    expect(response.status(), await response.text()).toBe(200);
+  }
+  await request.post(`${core}/api/v1/sessions/claude-code/${other}/status`, { data: { text: "Another session" } });
+  const top = () =>
+    page.locator(".thread-items").evaluate((el) => {
+      const view = el.getBoundingClientRect().top;
+      const kid = [...el.children].find((k) => k.getBoundingClientRect().bottom > view)!;
+      return { text: kid.textContent?.slice(0, 40), offset: Math.round(kid.getBoundingClientRect().top - view) };
+    });
+  await page.goto(`/#/sessions/claude-code/${long}`);
+  await expect(page.getByText("Note 120 of the long session.")).toBeVisible();
+  await page.locator(".thread-items").evaluate((el) => (el.scrollTop -= 2500));
+  await page.waitForTimeout(300);
+  const left = await top();
+
+  await page.goto(`/#/sessions/claude-code/${other}`);
+  await expect(page.getByText("Another session")).toBeVisible();
+  await page.goto(`/#/sessions/claude-code/${long}`);
+  await expect.poll(top).toEqual(left);
+
+  // left at its end, it opens at its end
+  await page.locator(".thread-items").evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await page.waitForTimeout(300);
+  await page.goto(`/#/sessions/claude-code/${other}`);
+  await expect(page.getByText("Another session")).toBeVisible();
+  await page.goto(`/#/sessions/claude-code/${long}`);
+  await expect(page.getByText("Note 120 of the long session.")).toBeInViewport();
+});

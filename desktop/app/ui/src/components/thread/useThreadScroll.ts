@@ -9,7 +9,21 @@ import type { Review, Session } from "../../api/types";
 export function useThreadScroll(
   timelineRef: RefObject<HTMLDivElement | null>,
   footer: HTMLDivElement | null,
-  { focus, items, session, stage }: { focus?: Review; items: Review[]; session: Session | null; stage?: number },
+  {
+    focus,
+    items,
+    session,
+    stage,
+    placed = false,
+  }: {
+    focus?: Review;
+    items: Review[];
+    session: Session | null;
+    stage?: number;
+    /** whether the thread opens where it was left, which `holdAt` restores
+     *  once its entries are drawn, rather than at its end */
+    placed?: boolean;
+  },
 ) {
   // once the thread is there, the questions opened are scrolled to, or,
   // for the session alone, the stage asked for or its newest message,
@@ -19,13 +33,16 @@ export function useThreadScroll(
   const pinned = useRef(false);
   // what the thread was opened at, kept in place as entries above it lay
   // out, until the person scrolls; and where that left the timeline
-  const opened = useRef<{ target: Element; block: ScrollLogicalPosition; top: number } | null>(null);
+  const opened = useRef<{ target: Element; offset: number; top: number } | null>(null);
   useLayoutEffect(() => {
     const el = timelineRef.current;
     if (scrolled.current || !el) return;
+    const hold = (target: Element) => {
+      opened.current = { target, offset: offsetOf(el, target), top: el.scrollTop };
+    };
     const openAt = (target: Element, block: ScrollLogicalPosition) => {
       target.scrollIntoView({ block });
-      opened.current = { target, block, top: el.scrollTop };
+      hold(target);
     };
     if (focus) {
       // a question of a session waits for the session's thread
@@ -34,6 +51,8 @@ export function useThreadScroll(
       const set = document.getElementById(`set-${focus.id}`);
       if (set) openAt(set, "start");
     } else if (session) {
+      // where it was left is restored by holdAt
+      if (placed) return;
       scrolled.current = true;
       const started = stage ? document.getElementById(`status-${stage}`) : null;
       if (started) openAt(started, "center");
@@ -42,7 +61,26 @@ export function useThreadScroll(
         pinned.current = true;
       }
     }
-  }, [timelineRef, items, focus, session, stage]);
+  }, [timelineRef, items, focus, session, stage, placed]);
+
+  /** Opens the thread with `target` where it was, `offset` below the top
+   *  of the view, and keeps it there as entries above it lay out; at its
+   *  end without one. */
+  const holdAt = useCallback(
+    (target: Element | null, offset: number) => {
+      const el = timelineRef.current;
+      if (!el || scrolled.current) return;
+      scrolled.current = true;
+      if (target) {
+        el.scrollTop += offsetOf(el, target) - offset;
+        opened.current = { target, offset, top: el.scrollTop };
+      } else {
+        el.scrollTop = el.scrollHeight;
+        pinned.current = true;
+      }
+    },
+    [timelineRef],
+  );
 
   // What the thread was opened at stays in place while entries above it
   // lay out. While the newest message is in view, it stays there as the
@@ -67,7 +105,7 @@ export function useThreadScroll(
     const keepAtEnd = () => {
       const at = opened.current;
       if (at?.target.isConnected) {
-        at.target.scrollIntoView({ block: at.block });
+        el.scrollTop += offsetOf(el, at.target) - at.offset;
         at.top = el.scrollTop;
       } else if (pinned.current) el.scrollTop = el.scrollHeight;
     };
@@ -158,5 +196,19 @@ export function useThreadScroll(
     };
   }, [timelineRef]);
 
-  return { atEnd, pinned };
+  return { atEnd, pinned, holdAt };
+}
+
+/** How far below the top of `timeline` the top of `target` is. */
+function offsetOf(timeline: Element, target: Element): number {
+  return target.getBoundingClientRect().top - timeline.getBoundingClientRect().top;
+}
+
+/** The element at the top of `timeline`'s view and how far below the top
+ *  it is, or `null` at its end. */
+export function placeOf(timeline: Element, atEnd: boolean): { element: Element; offset: number } | null {
+  if (atEnd || timeline.clientHeight === 0) return null;
+  const top = timeline.getBoundingClientRect().top;
+  const element = [...timeline.children].find((kid) => kid.getBoundingClientRect().bottom > top);
+  return element ? { element, offset: offsetOf(timeline, element) } : null;
 }

@@ -25,6 +25,7 @@ export function useNewestFirst<T>(
     grow = false,
     thread,
     pinned,
+    least = 0,
   }: {
     /** whether to draw every entry at once, to scroll to one of them */
     all: boolean;
@@ -35,11 +36,14 @@ export function useNewestFirst<T>(
     thread: string | null;
     /** whether the thread stays at its end, as `useThreadScroll` keeps it */
     pinned: RefObject<boolean>;
+    /** how many of the newest entries to draw at least, from the start */
+    least?: number;
   },
 ) {
   // how many of the newest entries the thread shown draws
-  const [drawn, setDrawn] = useState<{ thread: string | null; count: number }>({ thread, count: FIRST });
-  const count = drawn.thread === thread ? drawn.count : FIRST;
+  const start = Math.max(FIRST, least);
+  const [drawn, setDrawn] = useState<{ thread: string | null; count: number }>({ thread, count: start });
+  const count = drawn.thread === thread ? drawn.count : start;
   const whole = all || count >= entries.length;
   const shown = whole ? entries : entries.slice(-count);
 
@@ -86,9 +90,13 @@ export function useNewestFirst<T>(
       if (el.clientHeight > 0 && el.scrollTop < el.clientHeight * NEAR_TOP)
         startTransition(() => setDrawn({ thread, count: count + CHUNK }));
     };
-    onScroll();
+    // once the thread is where it opens, which may be restored after this
+    const first = requestAnimationFrame(onScroll);
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    return () => {
+      cancelAnimationFrame(first);
+      el.removeEventListener("scroll", onScroll);
+    };
   }, [timelineRef, whole, thread, count]);
 
   return { shown, whole, drawAll };

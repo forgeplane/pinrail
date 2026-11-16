@@ -40,6 +40,35 @@ export type Entry =
   /** a run Pinrail started, where it started or where it ended */
   | { kind: "run"; run: Run; ended: boolean };
 
+/** An entry's key among the thread's entries, the same as long as the
+ *  entry is there: by the record it shows, or the first of those it groups. */
+export function entryKey(entry: Entry): string {
+  switch (entry.kind) {
+    case "message":
+      return `m-${entry.message.id}`;
+    case "statuses":
+      return `s-${entry.statuses[0].id}`;
+    case "started":
+    case "finished":
+    case "note":
+      return `s-${entry.status.id}`;
+    case "itemEvents":
+      return `e-${entry.events[0].id}`;
+    case "comment":
+      return `c-${entry.comment.id}`;
+    case "turn":
+      return `t-${entry.turn.turn}`;
+    case "run":
+      return `r-${entry.run.id}-${entry.ended}`;
+    case "revised":
+      return `v-${entry.review.id}`;
+    case "withdrawn":
+      return `w-${entry.review.id}`;
+    case "item":
+      return entry.review.id;
+  }
+}
+
 /** Each review's rounds among the items, oldest first, by the id of each
  *  of its rounds. A round that revises one from elsewhere starts a review. */
 function roundsOf(items: Review[]): Map<string, Review[]> {
