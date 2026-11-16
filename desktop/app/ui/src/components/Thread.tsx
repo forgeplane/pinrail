@@ -728,7 +728,12 @@ export function Thread({
                   </button>
                 )}
                 {active ? null : named ? (
-                  <MessageComposer session={named} typed={!!live && !!session?.types} onSent={load} />
+                  <MessageComposer
+                    session={named}
+                    repo={session?.repo ?? null}
+                    typed={!!live && !!session?.types}
+                    onSent={load}
+                  />
                 ) : (
                   <IdleComposer />
                 )}

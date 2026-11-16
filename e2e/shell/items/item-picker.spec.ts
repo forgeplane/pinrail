@@ -1,6 +1,6 @@
-// Typing # in an item's comment or description lists the open work items,
-// those of the item's repository first, and puts the chosen one's key in
-// the text.
+// Typing # in an item's comment or description, or in a message to an
+// agent, lists the open work items, those of the item's repository first,
+// and puts the chosen one's key in the text.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
 import { core } from "../helpers";
@@ -71,4 +71,23 @@ test("# in the description lists the items too", async ({ page, request }) => {
   await expect(picker(page).getByRole("option").first()).toContainText(other);
   await page.keyboard.press("Tab");
   await expect(field).toHaveValue(`Needs ${other} `);
+});
+
+test("# in a message to the agent lists the items, and Enter picks one without sending", async ({ page, request }) => {
+  const tag = `${Date.now()}`;
+  const key = await add(request, fresh("api"), `Tidy the platypus routes ${tag}`);
+  const session = `s-pick-message-${tag}`;
+  const status = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Reading the routes" },
+  });
+  expect(status.status(), await status.text()).toBe(200);
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const box = page.getByRole("textbox", { name: "Message to the agent" });
+  await box.pressSequentially("Start on #platypus");
+  await expect(picker(page).getByRole("option").first()).toContainText(key);
+  await page.keyboard.press("Enter");
+  await expect(picker(page)).toHaveCount(0);
+  await expect(box).toHaveValue(`Start on ${key} `);
+  await expect(page.getByTestId("thread").getByTestId("message")).toHaveCount(0);
 });

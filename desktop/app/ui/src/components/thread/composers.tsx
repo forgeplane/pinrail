@@ -1,12 +1,13 @@
 // The box under a thread while no question waits: a message to the agent,
 // or a disabled box when there is nothing to answer.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, errorMessage } from "../../api/client";
 import { readStored, writeStored } from "../../lib/storage";
 import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ComposeField } from "../ComposeField";
+import { useItemPicker } from "../ItemPicker";
 
 /** Where a message typed but not sent is kept, by session, while the
  *  window is open. */
@@ -14,13 +15,16 @@ const draftKey = (session: { agent: string; id: string }) => `pinrail:draft:mess
 
 /** The box under the thread while no question waits: a message to the
  *  agent, typed into its terminal as a prompt when Pinrail runs it
- *  (`typed`), and otherwise received with its next status. */
+ *  (`typed`), and otherwise received with its next status. `#` lists the
+ *  work items, those of `repo` first. */
 export function MessageComposer({
   session,
+  repo,
   typed,
   onSent,
 }: {
   session: { agent: string; id: string };
+  repo: string | null;
   typed: boolean;
   onSent: () => void;
 }) {
@@ -36,6 +40,8 @@ export function MessageComposer({
     setDraft({ key, text: next });
     writeStored(key, next || null, { session: true });
   };
+  const box = useRef<HTMLTextAreaElement>(null);
+  const picker = useItemPicker({ box, value: text, onChange: setText, repo });
   const [busy, setBusy] = useState(false);
   const send = async () => {
     if (!text.trim() || busy) return;
@@ -60,6 +66,7 @@ export function MessageComposer({
         label="Message to the agent"
         placeholder="Message the agent"
         onSubmit={send}
+        boxRef={box}
         keys="Enter to send · Shift+Enter for a new line"
         send={{
           label: connected ? "Send the message to the agent" : "Reconnect to send",
@@ -69,6 +76,7 @@ export function MessageComposer({
           testId: "send-message",
         }}
       />
+      {picker}
       <p className="thread-composer-hint faint">
         {typed
           ? "Sends to the agent's terminal as your prompt."
