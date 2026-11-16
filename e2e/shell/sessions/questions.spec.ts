@@ -262,17 +262,27 @@ test("a long session's thread shows its newest entries first, at its end", async
   });
   await page.goto(`/#/sessions/claude-code/${session}`);
   const items = thread(page).locator(".thread-items");
-  await expect(items.getByText("Session started")).toBeAttached();
   await expect(items.getByTestId("status").last()).toContainText("Step of stage 100");
   await expect.poll(() => items.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
+  await page.waitForTimeout(300);
 
   const { drawn, frames } = await page.evaluate(() => {
     const w = window as unknown as { drawn_: number[]; frames_: boolean[] };
     return { drawn: w.drawn_, frames: w.frames_ };
   });
-  // the newest entries are drawn first, and no frame shows the start
-  expect(drawn[0]).toBeLessThan(drawn[drawn.length - 1]);
+  // only the newest entries are drawn, and no frame shows the start
+  expect(drawn[drawn.length - 1]).toBeLessThan(150);
   expect(frames.filter((atEnd) => !atEnd)).toEqual([]);
+  await expect(items.getByText("Session started")).not.toBeAttached();
+
+  // the older ones are drawn as the person scrolls up to them
+  await expect
+    .poll(async () => {
+      await items.evaluate((el) => (el.scrollTop = 0));
+      return items.getByText("Session started").count();
+    })
+    .toBe(1);
+  await expect(items.getByText("Stage 1", { exact: true })).toBeAttached();
 });
 
 test("a question's thread links to its session's page", async ({ page }) => {

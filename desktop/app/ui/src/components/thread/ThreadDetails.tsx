@@ -46,6 +46,8 @@ type Props = {
   /** where a review's link goes, and what a click on it does */
   reviewLink: (review: Review) => { to: To; state?: FromSession; onClick: (event: MouseEvent) => void };
   onItemLink: (event: MouseEvent, key: string) => void;
+  /** scrolls the thread to the element of this id, drawn first if need be */
+  onJump: (id: string) => void;
 };
 
 export function ThreadDetails({
@@ -60,6 +62,7 @@ export function ThreadDetails({
   onWaiting,
   reviewLink,
   onItemLink,
+  onJump,
 }: Props) {
   // every item it worked on, those in progress first and the closed ones last
   const STANDING = { in_progress: 0, open: 1, on_hold: 2, done: 3, cancelled: 4 } as const;
@@ -132,7 +135,7 @@ export function ThreadDetails({
               data-testid="queued-message"
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById(`message-${m.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+                onJump(`message-${m.id}`);
               }}
             >
               <Clock size={14} className="thread-queued-icon" aria-hidden />
@@ -270,9 +273,7 @@ export function ThreadDetails({
                       aria-label={about}
                       onClick={(e) => {
                         e.preventDefault();
-                        document
-                          .getElementById(`status-${stage.start.id}`)
-                          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                        onJump(`status-${stage.start.id}`);
                       }}
                     >
                       <span className="thread-rail-dot" aria-hidden>

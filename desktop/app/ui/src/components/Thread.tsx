@@ -339,13 +339,22 @@ export function Thread({
     () => entriesOf(items, statuses, messages, comments, itemEvents, turns, runs),
     [items, statuses, messages, comments, itemEvents, turns, runs],
   );
-  // a long thread draws its newest entries first, unless it opens at one
-  // further up
-  const { shown, whole } = useNewestFirst(entries, timeline, {
-    all: !!focus || !!stage,
+  // a long thread draws its newest entries, and the rest as the person
+  // scrolls up, unless it opens at one further up or finds in them
+  const { shown, whole, drawAll } = useNewestFirst(entries, timeline, {
+    all: !!focus || !!stage || finding,
     thread: named ? `${named.agent}/${named.id}` : null,
     pinned,
   });
+
+  /** Scrolls to an entry's element, drawing every entry first if it is not. */
+  const jump = useCallback(
+    (id: string, block: ScrollLogicalPosition) => {
+      if (!document.getElementById(id)) drawAll();
+      document.getElementById(id)?.scrollIntoView({ block, behavior: "smooth" });
+    },
+    [drawAll],
+  );
 
   // the session's details beside the thread: shown or hidden with the
   // button or ⌘⇧B, and as wide as their edge is dragged; a side panel keeps
@@ -669,8 +678,9 @@ export function Thread({
               onWaiting={(r) => {
                 if (r.kind !== "question" && panelMode) showReview(r.id);
                 else if (r.kind !== "question") navigate(`/reviews/${r.id}`, { state: from });
-                else document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+                else jump(`set-${r.id}`, "start");
               }}
+              onJump={(id) => jump(id, "center")}
               reviewLink={(r) => ({
                 to: reviewTo(r.id),
                 state: panelMode ? undefined : from,

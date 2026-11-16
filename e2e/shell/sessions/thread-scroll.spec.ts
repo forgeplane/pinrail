@@ -44,10 +44,7 @@ test("a session opens at its newest message, under a long waiting question", asy
   expect(await fromEnd(page)).toBeLessThan(2);
 });
 
-test("a long session opens at its newest message once its replies fold and its older entries are drawn", async ({
-  page,
-  request,
-}) => {
+test("a long session opens at its newest message once its replies fold", async ({ page, request }) => {
   const session = fresh();
   await report(request, session, "Fix the scrolling", "start");
   // more entries than are drawn first, each reply long enough to fold
@@ -65,8 +62,6 @@ test("a long session opens at its newest message once its replies fold and its o
 
   await page.goto(`/#/sessions/claude-code/${session}`);
   await expect(page.getByText("Question 80")).toBeVisible();
-  // the oldest entries are drawn after the newest
-  await expect(page.getByText("Question 1", { exact: true })).toBeAttached();
   await page.waitForTimeout(500);
   expect(await fromEnd(page)).toBeLessThan(2);
 
