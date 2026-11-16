@@ -105,7 +105,16 @@ export function WorkingLine({ name }: { name: string }) {
 }
 
 /** A turn: what the person asked and what the agent replied. */
-export const TurnEntry = memo(function TurnEntry({ turn, agent }: { turn: SessionTurn; agent: string | null }) {
+export const TurnEntry = memo(function TurnEntry({
+  turn,
+  part,
+  agent,
+}: {
+  turn: SessionTurn;
+  /** the prompt, where the turn started, or its reply or how it ended */
+  part: "prompt" | "end";
+  agent: string | null;
+}) {
   const name = agentOf(agent)?.label ?? agent ?? "The agent";
   const took = turn.ended_at ? lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at)) : null;
   const interrupted = turn.end_kind === "interrupted";
@@ -119,7 +128,7 @@ export const TurnEntry = memo(function TurnEntry({ turn, agent }: { turn: Sessio
     .join(" · ");
   return (
     <div className="thread-turn" data-testid="turn">
-      {turn.prompt !== null ? (
+      {part === "prompt" && turn.prompt !== null ? (
         // what the person asked, on the right, as their messages are
         <div className="thread-turn-prompt" aria-label="You asked" title={stamp(turn.started_at)}>
           <div className="thread-message-row">
@@ -129,7 +138,7 @@ export const TurnEntry = memo(function TurnEntry({ turn, agent }: { turn: Sessio
           </div>
         </div>
       ) : null}
-      {turn.reply !== null ? (
+      {part === "end" && turn.reply !== null ? (
         // what the agent replied, under its icon, as its other messages are
         <div className="thread-note thread-turn-reply msg" data-testid="turn-reply">
           <span className="msg-avatar">
@@ -146,7 +155,7 @@ export const TurnEntry = memo(function TurnEntry({ turn, agent }: { turn: Sessio
           </div>
         </div>
       ) : null}
-      {turn.reply === null && turn.ended_at && ends ? (
+      {part === "end" && turn.reply === null && turn.ended_at && ends ? (
         // a turn with no reply kept says how it ended where the reply would be
         <div className="thread-note thread-turn-reply msg" data-testid="turn-state">
           <span className="msg-avatar">

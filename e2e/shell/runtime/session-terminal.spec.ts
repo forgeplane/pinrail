@@ -268,8 +268,9 @@ test("the summary shows turns, where the run started, and what it waits for", as
 
   const thread = page.getByTestId("thread");
   await expect(thread.getByTestId("run-line")).toHaveText("Started in Pinrail");
+  // the first turn's prompt and its reply, then the second turn's prompt
   const turns = thread.getByTestId("turn");
-  await expect(turns).toHaveCount(2);
+  await expect(turns).toHaveCount(3);
   // what the person asked, on the right, as their messages are
   const asked = turns.first().getByLabel("You asked");
   await expect(asked).toHaveText("Fix the login redirect");
@@ -279,7 +280,7 @@ test("the summary shows turns, where the run started, and what it waits for", as
   ];
   expect(bubble!.x + bubble!.width).toBeGreaterThan(items!.x + items!.width - 80);
   // and what Claude Code replied, under its icon
-  const reply = turns.first().getByTestId("turn-reply");
+  const reply = turns.nth(1).getByTestId("turn-reply");
   await expect(reply).toContainText("Claude Code replied");
   await expect(reply).toContainText("Fixed it in auth.ts.");
   // waiting for the person, it is not shown working

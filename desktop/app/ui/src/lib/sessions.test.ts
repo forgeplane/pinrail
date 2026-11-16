@@ -405,7 +405,7 @@ describe("a message typed into the agent's terminal", () => {
       reply_cut: false,
     }) as SessionTurn;
   const prompts = (entries: ReturnType<typeof timeline>) =>
-    entries.flatMap((e) => (e.kind === "turn" ? [e.turn.prompt] : []));
+    entries.flatMap((e) => (e.kind === "turn" && e.part === "prompt" ? [e.turn.prompt] : []));
 
   test("shows once, as the message, and not again as its turn's prompt", () => {
     const entries = timeline(
@@ -416,9 +416,9 @@ describe("a message typed into the agent's terminal", () => {
       [],
       [turn("Use the v2 endpoint.\n", "2026-11-15T10:00:01.000Z")],
     );
-    expect(prompts(entries)).toEqual([null]);
+    expect(prompts(entries)).toEqual([]);
     // the reply stays
-    expect(entries.find((e) => e.kind === "turn")).toMatchObject({ turn: { reply: "Done." } });
+    expect(entries.find((e) => e.kind === "turn")).toMatchObject({ part: "end", turn: { reply: "Done." } });
   });
 
   test("leaves the prompt of a turn that it did not start", () => {
@@ -440,5 +440,41 @@ describe("a message typed into the agent's terminal", () => {
       [turn("Use the v2 endpoint.", "2026-11-15T10:00:01.000Z")],
     );
     expect(prompts(queued)).toEqual(["Use the v2 endpoint."]);
+  });
+});
+
+describe("an agent's turn", () => {
+  const status = (id: number, text: string, at: string) =>
+    ({ id, at, kind: "step", text, attachments: [] }) as unknown as SessionStatus;
+  const turn = (over: Partial<SessionTurn>) =>
+    ({
+      turn: 1,
+      agent_turn: null,
+      started_at: "2026-11-15T10:00:00.000Z",
+      ended_at: null,
+      end_kind: null,
+      prompt: "Fix it",
+      prompt_cut: false,
+      reply: null,
+      reply_cut: false,
+      ...over,
+    }) as SessionTurn;
+  const kinds = (entries: ReturnType<typeof timeline>) =>
+    entries.map((e) => (e.kind === "turn" ? `turn ${e.part}` : e.kind));
+
+  test("shows its prompt where it started and its reply where it ended, after what it did", () => {
+    const entries = timeline(
+      [],
+      [status(1, "Working on PIN-406", "2026-11-15T10:00:30.000Z")],
+      [],
+      [],
+      [],
+      [turn({ ended_at: "2026-11-15T10:02:00.000Z", end_kind: "done", reply: "Done." })],
+    );
+    expect(kinds(entries)).toEqual(["turn prompt", "statuses", "turn end"]);
+  });
+
+  test("shows nothing while it runs with its prompt shown as a message", () => {
+    expect(timeline([], [], [], [], [], [turn({ prompt: null })])).toEqual([]);
   });
 });

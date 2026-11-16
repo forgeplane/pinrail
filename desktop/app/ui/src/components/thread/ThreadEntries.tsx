@@ -75,7 +75,8 @@ export const ThreadEntries = memo(function ThreadEntries({
         if (entry.kind === "finished") return <FinishedLine key={entryKey(entry)} status={entry.status} />;
         if (entry.kind === "itemEvents") return <ItemEventLine key={entryKey(entry)} events={entry.events} />;
         if (entry.kind === "comment") return <CommentMessage key={entryKey(entry)} comment={entry.comment} />;
-        if (entry.kind === "turn") return <TurnEntry key={entryKey(entry)} turn={entry.turn} agent={agent} />;
+        if (entry.kind === "turn")
+          return <TurnEntry key={entryKey(entry)} turn={entry.turn} part={entry.part} agent={agent} />;
         if (entry.kind === "run") return <RunLine key={entryKey(entry)} run={entry.run} ended={entry.ended} />;
         if (entry.kind === "note")
           return <NoteMessage key={entryKey(entry)} status={entry.status} agent={agent} session={named?.id ?? null} />;

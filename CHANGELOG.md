@@ -135,6 +135,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Opening a work item or a review from a session's details keeps the
   thread where you were reading. The narrower thread used to move what
   was in view.
+- An agent's reply now shows in a session's thread where it was written,
+  after what the agent did during its turn, and a message you typed into
+  the agent's terminal is no longer followed by an empty gap.
 
 ## [0.6.0]
 

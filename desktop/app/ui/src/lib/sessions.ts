@@ -36,7 +36,9 @@ export type Entry =
   | { kind: "message"; message: SessionMessage }
   | { kind: "comment"; comment: SessionComment }
   | { kind: "itemEvents"; events: SessionItemEvent[] }
-  | { kind: "turn"; turn: SessionTurn }
+  /** a turn's prompt, where it started, or its reply or how it ended, where
+   *  it ended */
+  | { kind: "turn"; turn: SessionTurn; part: "prompt" | "end" }
   /** a run Pinrail started, where it started or where it ended */
   | { kind: "run"; run: Run; ended: boolean };
 
@@ -57,7 +59,7 @@ export function entryKey(entry: Entry): string {
     case "comment":
       return `c-${entry.comment.id}`;
     case "turn":
-      return `t-${entry.turn.turn}`;
+      return `t-${entry.turn.turn}-${entry.part}`;
     case "run":
       return `r-${entry.run.id}-${entry.ended}`;
     case "revised":
@@ -137,7 +139,7 @@ export function timeline(
     | { kind: "itemEvent"; event: SessionItemEvent }
     | { kind: "comment"; comment: SessionComment }
     | { kind: "message"; message: SessionMessage }
-    | { kind: "turn"; turn: SessionTurn }
+    | { kind: "turn"; turn: SessionTurn; part: "prompt" | "end" }
     | { kind: "run"; run: Run; ended: boolean };
   // a run starts before the turns and the reports it brings, and ends
   // after them
@@ -158,8 +160,18 @@ export function timeline(
   for (const comment of comments)
     all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
   for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
-  for (const turn of turns)
-    all.push({ at: Date.parse(turn.started_at), happened: { kind: "turn", turn: withoutTypedPrompt(turn, messages) } });
+  for (const turn of turns) {
+    // its prompt where it started, unless the person's message shows it
+    // already, and its reply where it ended, after what it did meanwhile
+    const shown = withoutTypedPrompt(turn, messages);
+    if (shown.prompt !== null)
+      all.push({ at: Date.parse(shown.started_at), happened: { kind: "turn", turn: shown, part: "prompt" } });
+    if (shown.ended_at || shown.reply !== null)
+      all.push({
+        at: Date.parse(shown.ended_at ?? shown.started_at),
+        happened: { kind: "turn", turn: shown, part: "end" },
+      });
+  }
   for (const run of runs) {
     all.push({ at: Date.parse(run.started_at), happened: { kind: "run", run, ended: false } });
     if (run.ended_at) all.push({ at: Date.parse(run.ended_at) + 0.5, happened: { kind: "run", run, ended: true } });
@@ -188,7 +200,7 @@ export function timeline(
     }
     close();
     if (happened.kind === "comment") entries.push({ kind: "comment", comment: happened.comment });
-    else if (happened.kind === "turn") entries.push({ kind: "turn", turn: happened.turn });
+    else if (happened.kind === "turn") entries.push({ kind: "turn", turn: happened.turn, part: happened.part });
     else if (happened.kind === "run") entries.push({ kind: "run", run: happened.run, ended: happened.ended });
     else if (happened.kind === "itemEvent") {
       // the same change to several items in a row is one line
