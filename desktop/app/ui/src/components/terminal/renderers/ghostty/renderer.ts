@@ -9,6 +9,7 @@
 
 import type { LinkSpan } from "./links";
 import { drawGlyph, isDrawn, lightWidth, type Box } from "./glyphs";
+import { ICON_FAMILY, iconFontReady, isIcon } from "./icons";
 import type { GhosttyCell, GhosttyColor, GhosttySnapshot } from "./types";
 
 /** The size of a cell, and where text sits in it, in CSS pixels. */
@@ -30,8 +31,9 @@ export interface Run {
   end: number;
   /** text: plain glyphs in one style; glyph: one wide or other glyph,
    *  drawn by the font in its cells; drawn: by glyphs.ts; cached: an emoji,
-   *  from the glyph cache; blank: nothing to draw */
-  kind: "text" | "glyph" | "drawn" | "cached" | "blank";
+   *  from the glyph cache; icon: a private-use icon, from the glyph cache
+   *  in the symbols font; blank: nothing to draw */
+  kind: "text" | "glyph" | "drawn" | "cached" | "icon" | "blank";
 }
 
 const css = ({ r, g, b }: GhosttyColor) => `rgb(${r},${g},${b})`;
@@ -54,6 +56,7 @@ const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
 export function cellKind(cell: GhosttyCell): Run["kind"] {
   if (!cell.text || cell.text === " " || cell.invisible) return "blank";
   if (isDrawn(cell.text)) return "drawn";
+  if (isIcon(cell.text)) return "icon";
   if (plain(cell) && cell.wide === 0) return "text";
   return EMOJI.test(cell.text) ? "cached" : "glyph";
 }
@@ -156,6 +159,7 @@ export class CanvasRenderer {
   private observer: IntersectionObserver | null = null;
   private sizer: ResizeObserver | null = null;
   private shown: (() => void) | null = null;
+  private redraw: (() => void) | null = null;
   private glyphs = new Map<string, HTMLCanvasElement>();
   /** How many rows the canvas holds drawn: none after a resize, which
    *  clears it, so the next draw draws them all. */
@@ -479,6 +483,14 @@ export class CanvasRenderer {
       } else if (run.kind === "cached") {
         const span = spanOf(cells, run.start);
         ctx.drawImage(this.glyph(first, span), run.start * w, top, span * w, h);
+      } else if (run.kind === "icon") {
+        // drawn once the symbols font is in; every row is drawn again then
+        if (!iconFontReady(this.iconFontArrived)) continue;
+        // two cells of room when a blank cell follows, as in prompts and
+        // file trees, else its own
+        const next = cells[run.start + 1];
+        const room = next && cellKind(next) === "blank" && next.wide !== 2 ? 2 : 1;
+        ctx.drawImage(this.icon(first, room), run.start * w, top, room * w, h);
       }
     }
     flush();
@@ -531,6 +543,52 @@ export class CanvasRenderer {
     ctx.fillText(cell.text, Math.max(0, (span * w - width) / 2), baseline, span * w);
     this.glyphs.set(key, canvas);
     return canvas;
+  }
+
+  /** An icon drawn once into the cache, in `room` cells. It is scaled as a
+   *  whole by its outline, to 75% of two cells' width or 90% of one, and
+   *  72% of the cell's height, then centred in the line and in its own
+   *  cell; a wider icon starts at its cell and spills into the blank cell
+   *  after it. The terminal's font comes first, so a patched Nerd Font
+   *  keeps its own icons. */
+  private icon(cell: GhosttyCell, room: number): HTMLCanvasElement {
+    const { width: w, height: h } = this.metrics;
+    const family = `${this.font.family}, "${ICON_FAMILY}"`;
+    const key = `icon|${cell.text}|${family}|${room}|${css(cell.foreground)}`;
+    const kept = this.glyphs.get(key);
+    if (kept) return kept;
+    if (this.glyphs.size >= CACHE_LIMIT) this.glyphs.clear();
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(room * w * this.ratio);
+    canvas.height = Math.round(h * this.ratio);
+    const ctx = canvas.getContext("2d")!;
+    ctx.scale(this.ratio, this.ratio);
+    ctx.fillStyle = css(cell.foreground);
+    ctx.font = `${this.font.size}px ${family}`;
+    const m = ctx.measureText(cell.text);
+    const [left, right] = [m.actualBoundingBoxLeft, m.actualBoundingBoxRight];
+    const [ascent, descent] = [m.actualBoundingBoxAscent, m.actualBoundingBoxDescent];
+    const [gw, gh] = [left + right, ascent + descent];
+    if (gw > 0 && gh > 0) {
+      const scale = Math.min(((room === 2 ? 0.75 : 0.9) * room * w) / gw, (0.72 * h) / gh);
+      ctx.font = `${this.font.size * scale}px ${family}`;
+      const x = Math.max(0, (w - gw * scale) / 2) + left * scale;
+      const y = (h - gh * scale) / 2 + ascent * scale;
+      ctx.fillText(cell.text, x, y);
+    }
+    this.glyphs.set(key, canvas);
+    return canvas;
+  }
+
+  /** The symbols font is in: every row is drawn again, its icons too. */
+  private iconFontArrived = () => {
+    this.invalidate();
+    this.redraw?.();
+  };
+
+  /** Asks for a draw, as when the symbols font arrives. */
+  onRedraw(listener: () => void) {
+    this.redraw = listener;
   }
 
   /** A cell's lines: the underline in its style and colour, the

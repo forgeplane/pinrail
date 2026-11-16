@@ -58,6 +58,12 @@ describe("the runs of a row", () => {
     ]);
   });
 
+  test("draw a private-use icon from the symbols font, and the Powerline separators from the cell's edges", () => {
+    // a Nerd Font house, a Material icon past the BMP, and a Powerline arrow
+    expect(["\uf015", "\u{f0a1e}", "\ue0b0"].map((t) => cellKind(cell(t)))).toEqual(["icon", "icon", "drawn"]);
+    expect(row(cell("\uf015"), cell("\uf015"))).toEqual(["icon 0-1", "icon 1-2"]);
+  });
+
   test("draw no text for an invisible cell", () => {
     expect(cellKind(cell("x", { invisible: true }))).toBe("blank");
   });

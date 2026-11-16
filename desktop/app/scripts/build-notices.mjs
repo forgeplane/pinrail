@@ -3,8 +3,9 @@
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
 // icons in the official plugins, libghostty-vt, the code adapted from
-// herdr-core and the font the window draws in are added by hand. Each distinct licence
-// text is printed once, after the packages that use it.
+// herdr-core, the font the window draws in and the terminal's symbols font
+// are added by hand. Each distinct licence text is printed once, after the
+// packages that use it.
 //
 //   npm run build && npm run notices
 //
@@ -119,6 +120,13 @@ const entries = [
     id: "Apache-2.0",
     text: fs.readFileSync(path.join(root, "licenses", "herdr-core.txt"), "utf8"),
     packages: ["herdr-core, adapted in the terminal host and the pinrail command"],
+  },
+  // the symbols font the window's terminal draws Nerd Font icons from
+  {
+    name: "MIT License",
+    id: "MIT",
+    text: fs.readFileSync(path.join(root, "licenses", "nerd-fonts-symbols.txt"), "utf8"),
+    packages: ["Nerd Fonts Symbols Only 3.5.1, in the window's terminal"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),

@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The terminal shows Nerd Font icons, such as those in prompts and file
+  listings, without a patched font: Pinrail carries the symbols-only Nerd
+  Font and loads it once a screen shows an icon.
 - Settings has a **Terminal** section for the terminal of an agent that
   runs in Pinrail: its renderer, Option as Meta, the screen reader,
   clipboard writes, and the view a session opens in.

@@ -126,6 +126,8 @@ class GhosttyView implements TerminalView, BenchHooks {
     this.renderer.onShown(() => {
       if (this.missed) this.draw();
     });
+    // the symbols font arrived for an icon on screen
+    this.renderer.onRedraw(() => this.redraw());
     const { width, height } = this.renderer.cell;
     this.core = GhosttyCore.create(runtime, options.cols, options.rows, width, height, theme, (bytes) =>
       this.replies.forEach((l) => l(bytes)),
