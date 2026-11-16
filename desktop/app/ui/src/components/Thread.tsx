@@ -15,6 +15,7 @@ import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
 import { OpenInPinrail, ResumeButton, StopButton } from "./session/RunControls";
 import { OutsideRun } from "./session/OutsideRun";
+import { WaitMark } from "./WaitMark";
 import { runtime } from "../api/runtime";
 import { sessionGrid } from "./session/startRun";
 import { canOpenWhileRunning, canResume, resumeProblem } from "../lib/resume";
@@ -194,16 +195,27 @@ export function Thread({
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
   const onPage = !focus && !inPanel;
-  const { live, failed, ended, runs, reload: reloadRuns } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  const {
+    live,
+    failed,
+    ended,
+    runs,
+    reload: reloadRuns,
+    loaded: runsLoaded,
+  } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
   const terminal = live?.terminal ?? null;
+  // until its runs have loaded, whether it runs in Pinrail is not known: the
+  // terminal's place shows that it loads, and nothing offers to open or
+  // resume it
+  const runsLoading = onPage && prefs.labs.runtime && !!named && !runsLoaded;
   // a stopped session can be resumed in Pinrail, also one that ran outside it
-  const resumable = onPage && prefs.labs.runtime && canResume(session, runs);
+  const resumable = !runsLoading && onPage && prefs.labs.runtime && canResume(session, runs);
   // one still running in another terminal can be opened here, after a warning
-  const openable = onPage && prefs.labs.runtime && canOpenWhileRunning(session, runs);
+  const openable = !runsLoading && onPage && prefs.labs.runtime && canOpenWhileRunning(session, runs);
   const [askingOpen, setAskingOpen] = useState(false);
   const outside = openable || (resumable && runs.length === 0);
   // a run that ended shows how in the terminal's place
-  const hasTerminalView = !!terminal || !!failed || !!ended || outside;
+  const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || outside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   const [resuming, setResuming] = useState(false);
   // why the last resume did not happen, for the session it was of
@@ -614,7 +626,16 @@ export function Thread({
           <div className="thread-views">
             {showTerminal ? (
               <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
-                {terminal ? (
+                {runsLoading ? (
+                  <div
+                    className="thread-terminal-loading"
+                    data-testid="terminal-loading"
+                    role="status"
+                    aria-label="Loading"
+                  >
+                    <WaitMark />
+                  </div>
+                ) : terminal ? (
                   <TerminalPane terminal={terminal} autoFocus />
                 ) : failed ? (
                   <FailedStart run={failed} />

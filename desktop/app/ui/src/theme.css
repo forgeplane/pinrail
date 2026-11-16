@@ -7769,6 +7769,13 @@ a.item-ref {
   display: flex;
   flex-direction: column;
 }
+/* while a session's runs load, the terminal's place shows the app's mark */
+.thread-terminal-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 /* the terminal and the summary share one place, the terminal over the
    summary, which stays as it is behind it: showing it again lays out and
    styles nothing, and what it measures meanwhile has its real size */

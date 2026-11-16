@@ -22,19 +22,31 @@ const NONE: SessionRun = { live: null, failed: null, ended: null, runs: [] };
 
 const RUN_EVENTS = new Set(["run_started", "run_bound", "run_ended"]);
 
+/** The runs of the sessions shown last, by `agent/id`, the newest last, so
+ *  that a session opened again shows its terminal before its runs load. */
+const kept = new Map<string, SessionRun>();
+const KEPT = 8;
+
 /** The session's run, and `reload`, which asks for it again at once, as
  *  after starting one. `enabled` is the agent runtime's switch: without
  *  it the window asks for no runs. */
 export function useSessionRun(
   session: { agent: string; id: string } | null,
   enabled: boolean,
-): SessionRun & { reload: () => void } {
+): SessionRun & {
+  reload: () => void;
+  /** whether the runs of the session shown have loaded, or need not */
+  loaded: boolean;
+} {
   const key = session ? `${session.agent}/${session.id}` : null;
   const notices = useNoticeCount((notice) => RUN_EVENTS.has(notice.kind));
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
   const changes = notices + reloads;
-  const [found, setFound] = useState<{ key: string; run: SessionRun } | null>(null);
+  const [found, setFound] = useState<{ key: string; run: SessionRun } | null>(() => {
+    const run = key ? kept.get(key) : undefined;
+    return key && run ? { key, run } : null;
+  });
 
   useEffect(() => {
     if (!key || !enabled) return;
@@ -48,7 +60,11 @@ export function useSessionRun(
         const latest = !live && here[0]?.state === "ended" ? here[0] : null;
         const failed = latest && failedAtStart(latest) ? latest : null;
         const ended = latest && !failed ? latest : null;
-        if (current) setFound({ key, run: { live, failed, ended, runs: here } });
+        const run = { live, failed, ended, runs: here };
+        kept.delete(key);
+        kept.set(key, run);
+        while (kept.size > KEPT) kept.delete(kept.keys().next().value!);
+        if (current) setFound({ key, run });
       },
       () => {
         if (current) setFound({ key, run: NONE });
@@ -59,5 +75,6 @@ export function useSessionRun(
     };
   }, [key, enabled, changes]);
 
-  return { ...(enabled && found?.key === key ? found.run : NONE), reload };
+  const here = enabled && found?.key === key;
+  return { ...(here ? found.run : NONE), reload, loaded: !enabled || !key || here };
 }

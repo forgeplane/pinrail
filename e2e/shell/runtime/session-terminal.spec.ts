@@ -381,3 +381,22 @@ test("a link Cmd-clicked in the terminal opens", async ({ page }) => {
     .poll(() => page.evaluate(() => (window as unknown as { opened_: string[] }).opened_))
     .toEqual(["https://example.com/docs"]);
 });
+
+test("while a session's runs load, the terminal's place shows that it loads, then the terminal", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  // the runs answer only once let go
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/v1\/runs\?/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(page.getByTestId("terminal-loading")).toBeVisible();
+  await expect(page.getByTestId("outside-run")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Resume|Open in Pinrail/ })).toHaveCount(0);
+
+  release();
+  await expect(terminalBar(page)).toBeVisible();
+  await expect(page.getByTestId("terminal-loading")).toHaveCount(0);
+});
