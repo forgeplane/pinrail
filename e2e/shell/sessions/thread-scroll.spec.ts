@@ -177,3 +177,34 @@ test("opening a work item from the details keeps the thread where it was", async
   expect(after.note).toBe(before.note);
   expect(Math.abs(after.offset - before.offset)).toBeLessThan(3);
 });
+
+test("a question opened in a long session draws from it on, and the older entries as the person scrolls up", async ({
+  page,
+  request,
+}) => {
+  const session = fresh();
+  await report(request, session, "The oldest note of the session.", "note");
+  for (let i = 0; i < 150; i++) await report(request, session, `Note ${i + 1} before the question`, "note");
+  const asked = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      kind: "question",
+      title: "Ship it?",
+      requested_by: "claude-code",
+      session,
+      payload: { questions: [{ id: "q1", question: "Ship it?", answer: "yes-no" }] },
+    },
+  });
+  expect(asked.status(), await asked.text()).toBe(201);
+  const { id } = (await asked.json()) as { id: string };
+  for (let i = 0; i < 20; i++) await report(request, session, `Note ${i + 1} after the question`, "note");
+
+  await page.goto(`/#/reviews/${id}`);
+  await expect(page.locator(`#set-${id}`)).toBeInViewport();
+  await expect(page.getByText("The oldest note of the session.")).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      await page.locator(".thread-items").evaluate((el) => (el.scrollTop = 0));
+      return page.getByText("The oldest note of the session.").count();
+    })
+    .toBe(1);
+});

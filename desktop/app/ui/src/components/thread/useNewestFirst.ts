@@ -41,9 +41,10 @@ export function useNewestFirst<T>(
   },
 ) {
   // how many of the newest entries the thread shown draws
+  // at least as many as asked for, which may grow once the entries load
   const start = Math.max(FIRST, least);
   const [drawn, setDrawn] = useState<{ thread: string | null; count: number }>({ thread, count: start });
-  const count = drawn.thread === thread ? drawn.count : start;
+  const count = Math.max(drawn.thread === thread ? drawn.count : start, least);
   const whole = all || count >= entries.length;
   const shown = whole ? entries : entries.slice(-count);
 

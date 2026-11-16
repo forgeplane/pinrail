@@ -391,11 +391,21 @@ export function Thread({
   // a long thread draws its newest entries, and the rest as the person
   // scrolls up or, a chunk a frame, while find searches them, unless it
   // opens at one further up
+  const openedAt = useMemo(() => {
+    if (focus)
+      return entries.findIndex(
+        (entry) => (entry.kind === "item" || entry.kind === "revised") && entry.review.id === focus.id,
+      );
+    if (stage) return entries.findIndex((entry) => entry.kind === "started" && entry.status.id === stage);
+    return place ? entries.findIndex((entry) => entryKey(entry) === place.key) : -1;
+  }, [entries, focus, stage, place]);
   const { shown, whole, drawAll } = useNewestFirst(entries, timeline, {
-    // the entry it was left at, and older ones above it, so that it opens
-    // away from the top, where older ones would be drawn at once
-    least: place ? entries.length - entries.findIndex((entry) => entryKey(entry) === place.key) + 100 : 0,
-    all: !!focus || !!stage,
+    // the entry it opens at, the question or stage asked for or the one it
+    // was left at, and older ones above it, so that it opens away from the
+    // top, where older ones would be drawn at once; every entry when that
+    // entry is not among them
+    least: openedAt >= 0 ? entries.length - openedAt + 100 : 0,
+    all: (!!focus || !!stage) && openedAt < 0,
     grow: finding,
     thread: named ? `${named.agent}/${named.id}` : null,
     pinned,
