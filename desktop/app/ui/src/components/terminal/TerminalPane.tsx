@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { runtime } from "../../api/runtime";
 import type { Found } from "../../lib/findText";
 import { isMac } from "../../lib/keys";
+import { openAgentLink, revealFile } from "../../lib/native";
 import { reachesApp } from "../../lib/terminalKeys";
 import { useSettings } from "../../state/settings";
 import { FindBar, useFindBar } from "../FindBar";
@@ -102,6 +103,9 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
   useEffect(() => {
     if (entry && autoFocus) entry.view.focus();
   }, [entry, autoFocus]);
+
+  // a link Cmd-clicked (Ctrl-clicked on Linux) in the terminal opens
+  useEffect(() => entry?.view.onLink((uri) => openTerminalLink(uri)), [entry]);
 
   // find in the screen and the scrollback: the next match is older, as the
   // newest output is at the bottom
@@ -203,4 +207,20 @@ function exitText(exit: NonNullable<TerminalState["exit"]>): string {
   if (exit.code !== undefined) return `Exited with code ${exit.code}.`;
   if (exit.signal !== undefined) return `Ended by signal ${exit.signal}.`;
   return "The program ended.";
+}
+
+/** Opens a link from the terminal: a web or mail link in the system's
+ *  browser or mail client, as the agent's own links, which may lead to a
+ *  server on this machine; a file shown in its folder rather than opened,
+ *  since a program's output can name any file, an app among them. */
+export function openTerminalLink(uri: string) {
+  if (/^file:/i.test(uri)) {
+    let path: string;
+    try {
+      path = decodeURIComponent(new URL(uri).pathname);
+    } catch {
+      return;
+    }
+    revealFile(path);
+  } else openAgentLink(uri);
 }

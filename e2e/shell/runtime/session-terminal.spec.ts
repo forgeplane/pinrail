@@ -347,3 +347,37 @@ test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboa
   // nothing of it reached the program
   expect(received.join("")).toBe("echo ready");
 });
+
+test("a link Cmd-clicked in the terminal opens", async ({ page }) => {
+  const { session, received } = await sessionWithRun(page);
+  // outside the app's window, a link opens in a new tab
+  await page.addInitScript(() => {
+    const opened: string[] = [];
+    Object.assign(window, { opened_: opened });
+    window.open = (url?: string | URL) => (opened.push(String(url)), null);
+  });
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await page.keyboard.type("see https://example.com/docs");
+  await expect.poll(() => received.join("")).toBe("see https://example.com/docs");
+
+  // the second row, after "see ", with the pointer resting on it first
+  const canvas = page.locator(".terminal-host canvas").first();
+  const box = (await canvas.boundingBox())!;
+  const { cols, rows } = await page.evaluate(() => {
+    const text = document.querySelector(".terminal-size")?.textContent ?? "80 × 24";
+    const [c, r] = text.split("×").map((n) => Number(n.trim()));
+    return { cols: c, rows: r };
+  });
+  const x = box.x + (box.width / cols) * 8.5;
+  const y = box.y + (box.height / rows) * 1.5;
+  await page.mouse.move(x, y);
+  await page.waitForTimeout(200);
+  const mac = await page.evaluate(() => /Mac/i.test(navigator.platform));
+  await page.keyboard.down(mac ? "Meta" : "Control");
+  await page.mouse.click(x, y);
+  await page.keyboard.up(mac ? "Meta" : "Control");
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { opened_: string[] }).opened_))
+    .toEqual(["https://example.com/docs"]);
+});

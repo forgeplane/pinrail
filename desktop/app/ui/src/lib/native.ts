@@ -69,6 +69,12 @@ export function openAgentLink(url: string) {
   if (EXTERNAL.test(url)) openInBrowser(url);
 }
 
+/** Shows a file in its folder, in Finder or the system's file manager. */
+export function revealFile(path: string) {
+  if (!inTauri()) return;
+  import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(path)).catch(() => {});
+}
+
 function openInBrowser(url: string) {
   if (!inTauri()) {
     window.open(url, "_blank", "noreferrer");
