@@ -49,6 +49,29 @@ export function aboutThread(
 /** No items, the same array each time, while none have loaded. */
 const NO_ITEMS: WorkItem[] = [];
 
+/** A session's thread as last loaded. */
+type Loaded = {
+  session: Session;
+  items: Review[];
+  statuses: SessionStatus[];
+  messages: SessionMessage[];
+  comments: SessionComment[];
+  itemEvents: SessionItemEvent[];
+  turns: SessionTurn[];
+};
+
+/** How many threads opened last are kept to show at once when opened again. */
+const KEPT = 4;
+/** The threads opened last, by `agent/id`, the newest last. Opening one
+ *  shows it at once from here, and loads it again as usual. */
+const kept = new Map<string, Loaded>();
+
+function keep(key: string, loaded: Loaded) {
+  kept.delete(key);
+  kept.set(key, loaded);
+  while (kept.size > KEPT) kept.delete(kept.keys().next().value!);
+}
+
 export function useSessionThread(
   named: { agent: string; id: string } | null,
   focus: Review | undefined,
@@ -65,14 +88,24 @@ export function useSessionThread(
           : Promise.resolve<WorkItem[]>([]),
       [named?.agent, named?.id, itemsChanged],
     ).data ?? NO_ITEMS;
-  const [session, setSession] = useState<Session | null>(null);
-  const [items, setItems] = useState<Review[]>(focus ? [focus] : []);
-  const [statuses, setStatuses] = useState<SessionStatus[]>([]);
-  const [messages, setMessages] = useState<SessionMessage[]>([]);
-  const [comments, setComments] = useState<SessionComment[]>([]);
-  const [itemEvents, setItemEvents] = useState<SessionItemEvent[]>([]);
-  const [turns, setTurns] = useState<SessionTurn[]>([]);
+  // a thread opened lately shows as it was until it has loaded again
+  const key = named ? `${named.agent}/${named.id}` : null;
+  const [cached] = useState(() => (key ? kept.get(key) : undefined));
+  const [session, setSession] = useState<Session | null>(cached?.session ?? null);
+  const [items, setItems] = useState<Review[]>(cached?.items ?? (focus ? [focus] : []));
+  const [statuses, setStatuses] = useState<SessionStatus[]>(cached?.statuses ?? []);
+  const [messages, setMessages] = useState<SessionMessage[]>(cached?.messages ?? []);
+  const [comments, setComments] = useState<SessionComment[]>(cached?.comments ?? []);
+  const [itemEvents, setItemEvents] = useState<SessionItemEvent[]>(cached?.itemEvents ?? []);
+  const [turns, setTurns] = useState<SessionTurn[]>(cached?.turns ?? []);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (cached) onSession?.(cached.session);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, for the thread it opened with
+  // what it shows now, for the next time it is opened
+  useEffect(() => {
+    if (key && session) keep(key, { session, items, statuses, messages, comments, itemEvents, turns });
+  }, [key, session, items, statuses, messages, comments, itemEvents, turns]);
 
   // one load at a time: notices that come while one runs are answered by
   // one more load after it, however many they are
