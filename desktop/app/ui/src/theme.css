@@ -4623,10 +4623,6 @@ body.is-resizing iframe {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  /* a diff off screen is not laid out or painted: a session with many
-     diffs opens and resizes as fast as one with a few */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
   font-family: var(--mono);
   font-size: var(--text-xs);
   line-height: 1.5;
