@@ -1056,12 +1056,18 @@ export class GhosttyCore {
       });
     }
     while (cells.length < cols) cells.push(emptyCell(defaultFg, defaultBg));
+    // the row's text, which only the screen reader mirror reads, is built
+    // when it is first read
+    let text: string | null = null;
     return {
       cells,
-      text: cells
-        .map((c) => c.text || " ")
-        .join("")
-        .trimEnd(),
+      get text() {
+        text ??= cells
+          .map((c) => c.text || " ")
+          .join("")
+          .trimEnd();
+        return text;
+      },
       isWrapContinuation,
       wrapsToNext,
     };
