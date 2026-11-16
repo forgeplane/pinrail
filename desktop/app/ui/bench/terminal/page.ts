@@ -499,6 +499,52 @@ const cases: Record<string, () => Promise<Record<string, unknown>>> = {
     };
   },
 
+  // Wheel: a view holding a long history is scrolled up with the wheel,
+  // two events a frame as a trackpad sends them, for two seconds.
+  async wheel() {
+    const view = await newView();
+    await nextDrawn(view, 300);
+    const snap = await fetchSnapshot(q.get("snapshot") ?? "history-10000", formatsFor(view));
+    await view.restore(snap.format, snap.bytes);
+    await new Promise((r) => setTimeout(r, 300));
+    const canvas = hostElement("main").querySelector("canvas")!;
+    const draw0 = benchHooks(view).drawMs?.() ?? 0;
+    const gaps: number[] = [];
+    let last = performance.now();
+    const until = last + 2000;
+    await new Promise<void>((done) => {
+      const tick = (now: number) => {
+        gaps.push(now - last);
+        last = now;
+        for (let i = 0; i < 2; i++)
+          canvas.dispatchEvent(
+            new WheelEvent("wheel", {
+              deltaY: -30,
+              deltaMode: 0,
+              bubbles: true,
+              cancelable: true,
+              clientX: 200,
+              clientY: 200,
+            }),
+          );
+        if (now < until) requestAnimationFrame(tick);
+        else done();
+      };
+      requestAnimationFrame(tick);
+    });
+    gaps.shift();
+    const sorted = [...gaps].sort((a, b) => a - b);
+    const drawn = (benchHooks(view).drawMs?.() ?? 0) - draw0;
+    return {
+      frames: gaps.length,
+      frameP50Ms: sorted[sorted.length >> 1],
+      frameP95Ms: sorted[Math.floor(sorted.length * 0.95)],
+      frameMaxMs: sorted.at(-1),
+      framesOver20: gaps.filter((g) => g > 20).length,
+      drawMsPerFrame: drawn / gaps.length,
+    };
+  },
+
   // Attach: a new view restores a snapshot of a terminal with 5,000 lines of
   // history, until its first frame is drawn.
   async attach() {
