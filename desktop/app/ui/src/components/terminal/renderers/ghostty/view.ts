@@ -33,6 +33,10 @@ import type { GhosttyColor, GhosttySnapshot, GhosttyTheme } from "./types";
  *  The echo of a key is drawn at once. */
 export const OUTPUT_INTERVAL_MS = 33;
 
+/** How long a hidden view's output must be quiet before the view draws
+ *  it, so that it is current when shown. */
+export const HIDDEN_QUIET_MS = 100;
+
 /** The binary snapshot of the libghostty-vt build the window loads. */
 export const BINARY_FORMAT = "ghostty-bin;vt-1.0.0";
 const decoder = new TextDecoder();
@@ -90,8 +94,10 @@ class GhosttyView implements TerminalView, BenchHooks {
   private links = new Set<(uri: string, event: MouseEvent) => void>();
   private drawnListeners = new Set<() => void>();
   private disposed = false;
-  /** Whether output changed the screen while the view was out of sight. */
+  /** Whether output changed the screen while the view was out of sight,
+   *  and the timer that draws it once that output is quiet. */
   private missed = false;
+  private quiet: ReturnType<typeof setTimeout> | undefined;
   /** The time spent drawing, for the benchmark. */
   private drawing = 0;
   /** When the screen was last drawn, when a key was last typed, and
@@ -221,17 +227,22 @@ class GhosttyView implements TerminalView, BenchHooks {
   }
 
   /** Draws the screen, unless the view is out of sight: a pooled view
-   *  keeps parsing its output, and draws it all once it is shown. */
-  private draw() {
+   *  keeps parsing its output, and draws it once that output has been
+   *  quiet for a while, or once it is shown, whichever comes first, so
+   *  that showing a terminal that has gone quiet needs no draw. */
+  private draw(whileHidden = false) {
     if (this.disposed) return;
-    if (!this.renderer.showing) {
+    if (!whileHidden && !this.renderer.showing) {
       this.missed = true;
+      clearTimeout(this.quiet);
+      this.quiet = setTimeout(() => {
+        if (this.missed && !this.renderer.showing) this.draw(true);
+      }, HIDDEN_QUIET_MS);
       return;
     }
-    if (this.missed) {
-      this.missed = false;
-      this.renderer.invalidate();
-    }
+    // the canvas kept what it showed, and the rows that changed since are
+    // drawn as after any other output
+    this.missed = false;
     const started = performance.now();
     const snapshot = this.core.snapshot();
     this.snapshot = snapshot;
@@ -407,6 +418,7 @@ class GhosttyView implements TerminalView, BenchHooks {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    clearTimeout(this.quiet);
     this.queue?.stop();
     this.pointer?.dispose();
     this.keyboard?.dispose();

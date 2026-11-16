@@ -5,7 +5,7 @@ import host from "../../testing/ghostty-snapshot.json";
 import { GhosttyCore } from "./core";
 import { GhosttyRuntime } from "./runtime";
 import type { BenchHooks } from "../../view";
-import { BINARY_FORMAT, ghosttyRenderer } from "./view";
+import { BINARY_FORMAT, ghosttyRenderer, HIDDEN_QUIET_MS } from "./view";
 
 test("a snapshot the host wrote shows the host's screen, history and title", async () => {
   expect(host.format).toBe(BINARY_FORMAT);
@@ -218,7 +218,6 @@ test("a terminal taken out of the page draws nothing, and draws its screen when 
   host.remove();
   for (const line of ["one\r\n", "two\r\n", "three\r\n"])
     await new Promise<void>((r) => view.write(new TextEncoder().encode(line), r));
-  await new Promise((r) => setTimeout(r, 200));
   expect(drawn).toBe(0);
   document.body.append(host);
   await new Promise((r) => setTimeout(r, 200));
@@ -230,6 +229,39 @@ test("a terminal taken out of the page draws nothing, and draws its screen when 
   let lit = 0;
   for (let i = 0; i < row.length; i += 4) if (row[i]! > 128) lit++;
   expect(lit).toBeGreaterThan(0);
+  view.dispose();
+  host.remove();
+});
+
+test("a hidden terminal draws once its output is quiet, so that showing it needs no draw", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  hooks.onFrameDrawn(() => drawn++);
+  host.remove();
+  // output that keeps coming is not drawn
+  for (const line of ["one\r\n", "two\r\n", "three\r\n", "four\r\n"]) {
+    await new Promise<void>((r) => view.write(new TextEncoder().encode(line), r));
+    await new Promise((r) => setTimeout(r, HIDDEN_QUIET_MS / 2));
+  }
+  expect(drawn).toBe(0);
+  // once it stops, the screen is drawn once
+  await new Promise((r) => setTimeout(r, HIDDEN_QUIET_MS * 3));
+  expect(drawn).toBe(1);
+  document.body.append(host);
+  await new Promise((r) => setTimeout(r, 200));
+  expect(drawn).toBe(1);
   view.dispose();
   host.remove();
 });
