@@ -113,6 +113,31 @@ const BATCHED = /^[A-Za-z0-9 ]$/;
  *  cell's width. */
 const SAMPLE = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 mWil1";
 
+/** Text the terminal's font usually lacks: CJK, Hangul, kana and emoji,
+ *  which WebKit draws from fallback fonts. */
+const FALLBACK_SAMPLE = "日本語中文測試한국어かなカナ🙂👍🏽";
+/** The fonts whose fallbacks are found already, by CSS. */
+const warmed = new Set<string>();
+
+/** Finds the fallback fonts of a font's four styles in idle time. WebKit
+ *  looks them up the first time it measures or draws such text, which
+ *  took 50 to 90 ms in the first draw of a screen with CJK and emoji. */
+function warmFallbacks(font: Font) {
+  const fonts = [false, true].flatMap((bold) => [false, true].map((italic) => fontOf({ bold, italic }, font)));
+  if (fonts.every((f) => warmed.has(f))) return;
+  fonts.forEach((f) => warmed.add(f));
+  const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 0));
+  idle(() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return;
+    for (const f of fonts) {
+      ctx.font = f;
+      ctx.measureText(FALLBACK_SAMPLE);
+      ctx.fillText(FALLBACK_SAMPLE, 0, 10);
+    }
+  });
+}
+
 /** How many glyphs the cache keeps before it starts afresh. */
 const CACHE_LIMIT = 1024;
 
@@ -170,6 +195,7 @@ export class CanvasRenderer {
     host.append(this.canvas, this.cursor);
     this.context = this.canvas.getContext("2d", { alpha: false })!;
     this.metrics = measureCell(font);
+    warmFallbacks(font);
     // a terminal out of sight draws nothing
     if (typeof IntersectionObserver !== "undefined") {
       this.observer = new IntersectionObserver((entries) =>
@@ -216,6 +242,7 @@ export class CanvasRenderer {
   setFont(font: Font) {
     this.font = font;
     this.metrics = measureCell(font);
+    warmFallbacks(font);
     this.glyphs.clear();
     this.resize(this.cols, this.rows, true);
   }
