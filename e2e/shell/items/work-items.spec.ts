@@ -1277,6 +1277,37 @@ test("the filters are kept when the person leaves the page and comes back", asyn
   await expect(rows(page)).toHaveCount(1);
 });
 
+test("folded parents stay folded when the person leaves the page and comes back", async ({ page, request }) => {
+  const repo = fresh("folds");
+  const folded = await add(request, repo, "Folded parent");
+  await add(request, repo, "Hidden child", { parent: folded.key });
+  const open = await add(request, repo, "Open parent");
+  await add(request, repo, "Shown child", { parent: open.key });
+  const done = await add(request, repo, "Done parent");
+  const doneChild = await add(request, repo, "Done child", { parent: done.key });
+  await edit(request, doneChild.key, { status: "done" });
+  await edit(request, done.key, { status: "done" });
+  await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&status=all`);
+  await expect(rows(page)).toHaveCount(5);
+
+  // one folded, and a done one, which starts folded, unfolded
+  await page.getByRole("button", { name: `Hide the sub-items of ${folded.key}`, exact: true }).click();
+  await page.getByRole("button", { name: `Show the sub-items of ${done.key}`, exact: true }).click();
+  const shown = ["Folded parent", "Open parent", "Shown child", "Done parent", "Done child"];
+  const titles = () => rows(page).locator(".item-title-text").allTextContents();
+  await expect.poll(titles).toEqual(shown);
+
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await nav.getByRole("link", { name: /Inbox/ }).click();
+  await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: /Work items/ }).click();
+  await expect.poll(titles).toEqual(shown);
+
+  // and after the app starts again
+  await page.reload();
+  await expect.poll(titles).toEqual(shown);
+});
+
 test("the open item and the scroll position are kept when the person leaves the page and comes back", async ({
   page,
   request,

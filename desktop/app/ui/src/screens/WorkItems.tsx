@@ -39,6 +39,7 @@ import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { useDragDrop } from "../lib/useDragDrop";
 import { useLatest } from "../lib/useLatest";
 import { useLoad } from "../lib/useLoad";
+import { readStored, writeStored } from "../lib/storage";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -76,6 +77,26 @@ const DRAGGED = "application/x-pinrail-item";
 /** An item in the order J and K walk, at its depth in the tree. */
 type Shown = ItemTreeRow;
 
+/** Where the parents the person folded or unfolded are kept, and how many:
+ *  the oldest go first. */
+const FOLDED = "pinrail.items.folded";
+const MAX_FOLDED = 500;
+
+/** The parents the person folded (true) or unfolded (false), by key. */
+function storedFolds(): Map<string, boolean> {
+  try {
+    const entries: unknown = JSON.parse(readStored(FOLDED) ?? "[]");
+    if (!Array.isArray(entries)) return new Map();
+    return new Map(
+      entries.filter(
+        (e): e is [string, boolean] => Array.isArray(e) && typeof e[0] === "string" && typeof e[1] === "boolean",
+      ),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
 export function WorkItems() {
   const live = useLive();
   const toast = useToast();
@@ -94,8 +115,22 @@ export function WorkItems() {
   const openKey = params.get("open");
   const filtered = !!(query || status || scope || by || waiting || closedSubs);
   // each project's repositories, by its id: where an item dropped on it goes
-  // the parents the person folded or unfolded, the opposite of how they start
-  const [folded, setFolded] = useState<Set<string>>(new Set());
+  // the parents the person folded or unfolded, kept on this machine; the
+  // others are as they start
+  const [folded, setFoldedState] = useState(storedFolds);
+  /** Folds (true) or unfolds (false) parents, by key. */
+  const setFolds = useCallback((keys: string[], fold: boolean) => {
+    setFoldedState((f) => {
+      const next = new Map(f);
+      for (const key of keys) {
+        // the latest last, so that the oldest go first
+        next.delete(key);
+        next.set(key, fold);
+      }
+      writeStored(FOLDED, JSON.stringify([...next].slice(-MAX_FOLDED)));
+      return next;
+    });
+  }, []);
   // the page reloads after its own changes, whether or not an event brings them
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
@@ -188,7 +223,7 @@ export function WorkItems() {
     const shown = new Set<string>();
     for (const i of ordered) {
       const starts = foldClosed && (i.status === "done" || i.status === "cancelled");
-      if (starts !== folded.has(i.key)) shown.add(i.key);
+      if (folded.get(i.key) ?? starts) shown.add(i.key);
     }
     return shown;
   }, [ordered, foldClosed, folded]);
@@ -200,14 +235,7 @@ export function WorkItems() {
   }, [ordered, nested]);
   const allFolded = parents.length > 0 && parents.every((key) => shownFolded.has(key));
   /** Folds every parent, or unfolds them all when every one is folded. */
-  const foldAll = () => {
-    const starts = (key: string) => {
-      const item = ordered.find((i) => i.key === key);
-      return foldClosed && (item?.status === "done" || item?.status === "cancelled");
-    };
-    // kept are the parents whose state differs from how they start
-    setFolded(new Set(parents.filter((key) => starts(key) === allFolded)));
-  };
+  const foldAll = () => setFolds(parents, !allFolded);
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
   const shownGroups = useMemo(
@@ -265,13 +293,7 @@ export function WorkItems() {
   );
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
-  const toggleFold = (key: string) =>
-    setFolded((f) => {
-      const next = new Set(f);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const toggleFold = (key: string) => setFolds([key], !shownFolded.has(key));
 
   /** A change the person makes to an item from the list. */
   const change = useCallback(
