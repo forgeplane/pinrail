@@ -36,6 +36,8 @@ const SIZE_MAX = 0xffffffff;
 const UTF8_INITIAL = 64;
 
 const decoder = new TextDecoder();
+/** The one-character strings of ASCII, by code. */
+const ASCII = Array.from({ length: 128 }, (_, i) => String.fromCharCode(i));
 const encoder = new TextEncoder();
 
 function blend(foreground: GhosttyColor, background: GhosttyColor): GhosttyColor {
@@ -1016,7 +1018,9 @@ export class GhosttyCore {
       if (n < 3) this.ok("row_cells_get_multi", result);
       const selected = v.getUint8(this.scratch + 16) !== 0;
       const textLen = v.getUint32(this.utf8Desc + 8, true);
-      const text = textLen ? decoder.decode(rt.bytes(this.utf8, textLen)) : "";
+      // most cells hold one ASCII character, which needs no decoder
+      const first = textLen === 1 ? rt.memoryBytes()[this.utf8] : 0x80;
+      const text = !textLen ? "" : first < 0x80 ? ASCII[first]! : decoder.decode(rt.bytes(this.utf8, textLen));
       let background = n >= 4 ? readColor(v, this.scratch + 20) : defaultBg;
       let foreground: GhosttyColor;
       if (n === 5) foreground = readColor(v, this.scratch + 24);
