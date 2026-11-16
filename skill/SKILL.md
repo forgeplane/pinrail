@@ -89,7 +89,8 @@ pinrail status --done "Opened pull request #214"
 - The command does not wait. If it fails, carry on with your work.
 
 The output shows your current stage: if your work has moved on, use
-`--start`.
+`--start`. When no stage is open, as after `--done`, the output says so,
+but what you sent was received: do not send it again.
 
 Send a note when the person would want to read it later in the session: a
 summary at the end of a stage, a decision you took without asking, or what

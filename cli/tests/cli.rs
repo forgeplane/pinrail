@@ -3652,7 +3652,7 @@ fn status_prints_the_open_stage_above_the_messages() {
     );
     assert_eq!(
         status(),
-        "No open stage. Start one with pinrail status --start before new work.\n"
+        "Sent. No stage is open. Before new work, start one with pinrail status --start.\n"
     );
     assert_eq!(
         status(),

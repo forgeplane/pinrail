@@ -28,7 +28,8 @@ pub fn stage(answer: &Value) -> String {
     match answer.get("stage") {
         None => String::new(),
         Some(Value::Null) => {
-            "No open stage. Start one with pinrail status --start before new work.\n".to_string()
+            "Sent. No stage is open. Before new work, start one with pinrail status --start.\n"
+                .to_string()
         }
         Some(stage) => format!(
             "Current stage: {} (started {})\n",

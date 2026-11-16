@@ -71,6 +71,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- `pinrail status` says the status was sent when no stage is open, so
+  agents no longer send a note twice. Update the Pinrail skill in
+  Settings › Agents for the matching advice.
 - **Closed sub-items** on the Work items page also shows the closed items
   under a closed sub-item, so a done sub-item with its own sub-items can
   be unfolded.

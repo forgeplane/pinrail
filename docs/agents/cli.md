@@ -151,10 +151,10 @@ Every `pinrail status` prints the stage that the agent last reported, so the age
 Current stage: Add rate limiting to the public API (started 2026-11-02 10:00)
 ```
 
-When no stage is open, because none was started or the last one finished, it prints this line instead:
+When no stage is open, because none was started or the last one finished, it prints this line instead. What the agent sent was still received:
 
 ```text
-No open stage. Start one with pinrail status --start before new work.
+Sent. No stage is open. Before new work, start one with pinrail status --start.
 ```
 
 ### Messages from the person
