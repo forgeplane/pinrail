@@ -555,7 +555,25 @@ async fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
     .map_err(|error| error.to_string())
 }
 
+/// Turns off macOS's press-and-hold accent menu for this app, so that a
+/// held key repeats in a terminal; a `defaults write` the person makes for
+/// the app still wins over it.
+#[cfg(target_os = "macos")]
+// Foundation is Objective-C, reached only through objc2's unsafe calls
+#[allow(unsafe_code)]
+fn repeat_held_keys() {
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
+    let key = NSString::from_str("ApplePressAndHoldEnabled");
+    let off = NSNumber::new_bool(false);
+    let value: &AnyObject = &off;
+    let defaults = NSDictionary::from_slices(&[&*key], &[value]);
+    unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
+}
+
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    repeat_held_keys();
     let args: Vec<String> = std::env::args().collect();
     match headless::parse(&args) {
         Ok(Some(options)) => std::process::exit(headless::run(options)),
@@ -1002,6 +1020,17 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
 
 #[cfg(all(test, unix))]
 mod tests {
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn held_keys_repeat_instead_of_opening_the_accent_menu() {
+        use objc2_foundation::{NSString, NSUserDefaults};
+        let defaults = NSUserDefaults::standardUserDefaults();
+        let key = NSString::from_str("ApplePressAndHoldEnabled");
+        super::repeat_held_keys();
+        assert!(defaults.objectForKey(&key).is_some());
+        assert!(!defaults.boolForKey(&key));
+    }
+
     #[test]
     fn the_help_menu_links_to_the_docs_and_the_blog() {
         assert_eq!(
