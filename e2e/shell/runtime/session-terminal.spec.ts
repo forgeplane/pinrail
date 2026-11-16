@@ -100,6 +100,15 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
   expect(received.join("")).toBe("ls");
 });
 
+test("the terminal keeps room from the left edge of its view", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  const surface = page.locator(".thread-terminal .terminal-surface");
+  await expect(surface).toBeVisible();
+  const [view, drawn] = [await page.locator(".thread-terminal").boundingBox(), await surface.boundingBox()];
+  expect(drawn!.x - view!.x).toBeGreaterThanOrEqual(8);
+});
+
 test("a session opened in the Terminal view shows its summary whole when switched to it", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   const post = async (path: string, data: unknown) => {

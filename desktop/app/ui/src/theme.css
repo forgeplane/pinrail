@@ -7717,9 +7717,11 @@ a.item-ref {
   min-height: 0;
   overflow: hidden;
 }
+/* the terminal keeps room from the view's left edge and its top, as the
+   summary's text does; it fits its columns to what is left */
 .terminal-surface {
   position: absolute;
-  inset: 0;
+  inset: 6px 0 0 12px;
 }
 .terminal-bar {
   display: flex;

@@ -83,6 +83,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A session's terminal no longer touches the left edge of its view.
 - A diff in a question's context no longer starts with an empty file
   when it opens with a blank line.
 - `pinrail status` says the status was sent when no stage is open, so
