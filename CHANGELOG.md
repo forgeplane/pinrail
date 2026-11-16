@@ -66,6 +66,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Crash reports from the window keep each stack frame's function, file
+  name, line and column. The address before the file name is still
+  removed.
 - In a narrow window, a work item's repository no longer runs under its
   badges. The repository is shortened first, and an item blocked by
   several others shows the first and how many more.

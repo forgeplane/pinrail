@@ -123,9 +123,45 @@ fn unquote(text: &str) -> String {
     out
 }
 
+/// A stack frame's location, `[function@]scheme://host/dir/file.js:line:col`
+/// as WebKit writes it or the address in a V8 frame, as the function and
+/// `file.js:line:col`. A link that does not end in a line and a column is
+/// not a frame.
+fn stack_frame(word: &str) -> Option<String> {
+    let at = word.find("://")?;
+    let (function, link) = match word[..at].rfind('@') {
+        Some(i) => (Some(&word[..i]), &word[i + 1..]),
+        None => (None, word),
+    };
+    // the line and the column, and the address before them
+    let mut parts = link.rsplitn(3, ':');
+    let column = parts.next()?;
+    let line = parts.next()?;
+    let address = parts.next()?;
+    let number = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    if !number(line) || !number(column) {
+        return None;
+    }
+    // the host, then the path: only its last part is kept
+    let path = address.split(['?', '#']).next().unwrap_or_default();
+    let (_, after_host) = path.split_once("://")?.1.split_once('/')?;
+    let file = after_host.rsplit('/').next().unwrap_or_default();
+    if file.is_empty() {
+        return None;
+    }
+    let file = scrub_word(file);
+    Some(match function {
+        Some(function) => format!("{}@{file}:{line}:{column}", scrub_word(function)),
+        None => format!("{file}:{line}:{column}"),
+    })
+}
+
 fn scrub_word(word: &str) -> String {
     if word.is_empty() {
         return String::new();
+    }
+    if let Some(frame) = stack_frame(word) {
+        return frame;
     }
     let lower = word.to_ascii_lowercase();
     if lower.contains("://") || lower.starts_with("www.") {
@@ -301,6 +337,44 @@ mod tests {
             ("thread 'main' panicked\u{7}", "thread 'main' panicked"),
         ] {
             assert_eq!(scrub(text), scrubbed, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_stack_frame_keeps_its_function_and_file_position() {
+        for (text, scrubbed) in [
+            // WebKit, as the macOS and Linux windows give it
+            (
+                "getComputedStyle@[native code]\nreveal@tauri://localhost/assets/index-Bx3.js:10:2345\nglobal code@tauri://localhost/assets/index-Bx3.js:1:1",
+                "getComputedStyle@[native code]\nreveal@index-Bx3.js:10:2345\nglobal code@index-Bx3.js:1:1",
+            ),
+            // a frame with no function
+            (
+                "@http://tauri.localhost/assets/index.js:3:4",
+                "@index.js:3:4",
+            ),
+            // V8, with a query the dev server adds
+            (
+                "    at render (http://127.0.0.1:5173/src/screens/Inbox.tsx?t=17:12:5)",
+                "    at render (Inbox.tsx:12:5)",
+            ),
+            (
+                "    at http://127.0.0.1:5173/src/main.tsx:1:2",
+                "    at main.tsx:1:2",
+            ),
+        ] {
+            assert_eq!(scrub(text), scrubbed, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_link_that_is_not_a_frame_still_goes() {
+        for text in [
+            "https://acme.example/payroll/ana.md",
+            "https://acme.example/payroll/report.pdf#page=2",
+            "open@https://acme.example/ana/notes.md",
+        ] {
+            assert_eq!(scrub(text), "…", "{text}");
         }
     }
 

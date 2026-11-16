@@ -473,7 +473,10 @@ async fn an_uncaught_error_of_the_window_is_kept_scrubbed_while_crash_reports_ar
         crash["message"],
         "Cannot read properties of undefined (reading 'title')"
     );
-    assert_eq!(crash["stack"], "TypeError: x\n    at render (…)");
+    assert_eq!(
+        crash["stack"],
+        "TypeError: x\n    at render (Inbox.tsx:12:5)"
+    );
 
     // off: the report goes, and no other is kept
     call(
