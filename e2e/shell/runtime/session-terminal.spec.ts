@@ -322,3 +322,28 @@ test("the summary says how the run ended, and keeps turns without their texts wh
     await page.request.patch(`${core}/api/v1/settings`, { data: { runtime: { record_turns: true } } });
   }
 });
+
+test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboard again", async ({ page }) => {
+  const { session, received } = await sessionWithRun(page);
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await expect(terminalBar(page)).toBeVisible();
+  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await page.keyboard.type("echo ready");
+  await expect.poll(() => received.join("")).toBe("echo ready");
+
+  // Cmd+F on macOS, Ctrl+Shift+F elsewhere, as the window reports its platform
+  const mac = await page.evaluate(() => /Mac/i.test(navigator.platform));
+  await page.keyboard.press(mac ? "Meta+f" : "Control+Shift+f");
+  const bar = page.getByRole("search", { name: "Find in the terminal" });
+  await expect(bar).toBeVisible();
+  await bar.getByRole("textbox").fill("ready");
+  await expect(bar.getByRole("status")).toHaveText("2 matches");
+  await bar.getByRole("textbox").fill("nowhere");
+  await expect(bar.getByRole("status")).toHaveText("No matches");
+
+  await page.keyboard.press("Escape");
+  await expect(bar).toHaveCount(0);
+  await expect.poll(() => terminalFocused(page)).toBe(true);
+  // nothing of it reached the program
+  expect(received.join("")).toBe("echo ready");
+});

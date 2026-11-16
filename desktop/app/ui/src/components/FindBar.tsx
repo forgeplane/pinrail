@@ -72,7 +72,10 @@ export function FindBar({ query, onQuery, found, onFind, onClose, focus, label =
       ? ""
       : count === 0
         ? "No matches"
-        : `${found!.current} of ${count >= FIND_LIMIT ? `${FIND_LIMIT}+` : count}`;
+        : found!.current === 0
+          ? // a search that counts its matches without saying which is selected
+            `${count >= FIND_LIMIT ? `${FIND_LIMIT}+` : count} ${count === 1 ? "match" : "matches"}`
+          : `${found!.current} of ${count >= FIND_LIMIT ? `${FIND_LIMIT}+` : count}`;
 
   return (
     <div className="find-bar" role="search" aria-label={label}>

@@ -7703,6 +7703,8 @@ a.item-ref {
 
 /* A hosted terminal: the view fills the pane above its bar. */
 .terminal-pane {
+  /* the find bar floats over the terminal, which keeps its rows */
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;

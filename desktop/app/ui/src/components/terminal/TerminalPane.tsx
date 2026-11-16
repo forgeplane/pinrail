@@ -1,12 +1,14 @@
 // A hosted terminal in the window: the pooled view in the pane, attached
-// once the pane has its size, and the bar under it with the viewer's role
-// and the terminal's size.
+// once the pane has its size, the bar under it with the viewer's role and
+// the terminal's size, and find over it with Cmd+F (Ctrl+Shift+F on Linux).
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { runtime } from "../../api/runtime";
+import type { Found } from "../../lib/findText";
 import { isMac } from "../../lib/keys";
 import { reachesApp } from "../../lib/terminalKeys";
 import { useSettings } from "../../state/settings";
+import { FindBar, useFindBar } from "../FindBar";
 import { RENDERERS } from "./renderers";
 import { appearanceFrom, TerminalPool, type PooledTerminal, type TerminalState } from "./terminalPool";
 import { chooseRenderer } from "./view";
@@ -101,16 +103,46 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
     if (entry && autoFocus) entry.view.focus();
   }, [entry, autoFocus]);
 
+  // find in the screen and the scrollback: the next match is older, as the
+  // newest output is at the bottom
+  const { open: finding, focus: findFocus, query, setQuery, show: showFind, hide: hideFind } = useFindBar();
+  const [found, setFound] = useState<Found | null>(null);
+  const find = useCallback(
+    (text: string, backwards?: boolean) => {
+      if (!entry) return;
+      const result = entry.view.search(text, { backwards });
+      // the terminal counts its matches but does not say which is selected
+      setFound(text ? { count: result.count ?? (result.found ? 1 : 0), current: 0 } : null);
+    },
+    [entry],
+  );
+  const closeFind = () => {
+    entry?.view.search("", {});
+    hideFind();
+    setFound(null);
+    entry?.view.focus();
+  };
+
   // keys the terminal took stay with the program, except those the app
-  // keeps: Cmd on macOS, Ctrl+Shift on Linux, and the view switch
+  // keeps: Cmd on macOS, Ctrl+Shift on Linux, and the view switch. Cmd+F
+  // (Ctrl+Shift+F) opens find.
   useEffect(() => {
     const pane = host.current!;
     const keep = (event: KeyboardEvent) => {
+      const findKey = isMac
+        ? event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+        : event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey;
+      if (findKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        event.stopPropagation();
+        showFind();
+        return;
+      }
       if (!reachesApp(event, isMac)) event.stopPropagation();
     };
     pane.addEventListener("keydown", keep);
     return () => pane.removeEventListener("keydown", keep);
-  }, []);
+  }, [showFind]);
 
   const state = useSyncExternalStore(
     entry ? (listener) => entry.subscribe(listener) : none,
@@ -119,6 +151,17 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
 
   return (
     <div className="terminal-pane">
+      {finding && entry ? (
+        <FindBar
+          label="Find in the terminal"
+          query={query}
+          onQuery={setQuery}
+          found={found}
+          onFind={find}
+          onClose={closeFind}
+          focus={findFocus}
+        />
+      ) : null}
       <div className="terminal-host" ref={host} />
       <TerminalBar state={state} failed={failed} />
     </div>
