@@ -78,6 +78,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   page no longer scrolls the item you clicked out of view.
 - `pinrail status` and the other session commands now find the session of
   Cursor Agent.
+- A long session's thread now opens at its newest message. It used to
+  stop short of the end, or scroll back up once the older messages
+  loaded.
 
 ## [0.6.0]
 

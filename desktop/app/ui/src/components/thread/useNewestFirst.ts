@@ -14,11 +14,14 @@ export function useNewestFirst<T>(
   {
     all,
     thread,
+    pinned,
   }: {
     /** whether to draw every entry at once, to scroll to one of them */
     all: boolean;
     /** the thread shown, which starts again with its newest entries */
     thread: string | null;
+    /** whether the thread stays at its end, as `useThreadScroll` keeps it */
+    pinned: RefObject<boolean>;
   },
 ) {
   const [wholeFor, setWholeFor] = useState<string | null>(null);
@@ -28,9 +31,9 @@ export function useNewestFirst<T>(
     if (!whole) startTransition(() => setWholeFor(thread));
   }, [whole, thread]);
 
-  // the oldest entry drawn, where it is on screen, and whether the thread
-  // is at its end, kept up to date as the person scrolls
-  const kept = useRef<{ anchor: Element | null; top: number; atEnd: boolean }>({ anchor: null, top: 0, atEnd: true });
+  // the oldest entry drawn and where it is on screen, kept up to date as
+  // the person scrolls
+  const kept = useRef<{ anchor: Element | null; top: number }>({ anchor: null, top: 0 });
   useLayoutEffect(() => {
     const el = timelineRef.current;
     if (!el || whole) return;
@@ -39,7 +42,6 @@ export function useNewestFirst<T>(
       kept.current = {
         anchor,
         top: anchor ? anchor.getBoundingClientRect().top - el.getBoundingClientRect().top : 0,
-        atEnd: el.scrollHeight - el.clientHeight - el.scrollTop < 40,
       };
     };
     keep();
@@ -54,11 +56,11 @@ export function useNewestFirst<T>(
     const added = whole && !wasWhole.current;
     wasWhole.current = whole;
     if (!el || !added) return;
-    const { anchor, top, atEnd } = kept.current;
-    if (atEnd) el.scrollTop = el.scrollHeight;
+    const { anchor, top } = kept.current;
+    if (pinned.current) el.scrollTop = el.scrollHeight;
     else if (anchor?.isConnected)
       el.scrollTop += anchor.getBoundingClientRect().top - el.getBoundingClientRect().top - top;
-  }, [timelineRef, whole]);
+  }, [timelineRef, whole, pinned]);
 
   return { shown, whole };
 }

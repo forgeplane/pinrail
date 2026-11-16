@@ -274,7 +274,7 @@ export function Thread({
   // the timeline: scrolled to what was opened, with room for the chat box
   // over it, and whether it shows its newest message
   const timeline = useRef<HTMLDivElement>(null);
-  const { atEnd } = useThreadScroll(timeline, footer, { focus, items, session, stage });
+  const { atEnd, pinned } = useThreadScroll(timeline, footer, { focus, items, session, stage });
 
   // ⌘F finds text in the thread, unless the focus is in the panel beside
   // it, where a review's view has its own find
@@ -344,6 +344,7 @@ export function Thread({
   const { shown, whole } = useNewestFirst(entries, timeline, {
     all: !!focus || !!stage,
     thread: named ? `${named.agent}/${named.id}` : null,
+    pinned,
   });
 
   // the session's details beside the thread: shown or hidden with the

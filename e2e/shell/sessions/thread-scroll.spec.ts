@@ -44,6 +44,38 @@ test("a session opens at its newest message, under a long waiting question", asy
   expect(await fromEnd(page)).toBeLessThan(2);
 });
 
+test("a long session opens at its newest message once its replies fold and its older entries are drawn", async ({
+  page,
+  request,
+}) => {
+  const session = fresh();
+  await report(request, session, "Fix the scrolling", "start");
+  // more entries than are drawn first, each reply long enough to fold
+  // under Show more once it has laid out
+  const reply = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the reply.`).join("\n\n");
+  for (let i = 0; i < 80; i++) {
+    for (const data of [
+      { event: "prompt", detail: { prompt: `Question ${i + 1}` } },
+      { event: "turn_ended", end: "done", detail: { reply } },
+    ]) {
+      const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+      expect(response.status(), await response.text()).toBeLessThan(300);
+    }
+  }
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByText("Question 80")).toBeVisible();
+  // the oldest entries are drawn after the newest
+  await expect(page.getByText("Question 1", { exact: true })).toBeAttached();
+  await page.waitForTimeout(500);
+  expect(await fromEnd(page)).toBeLessThan(2);
+
+  // scrolled up, it stays there
+  await page.locator(".thread-items").evaluate((el) => (el.scrollTop -= 1000));
+  await page.waitForTimeout(300);
+  expect(await fromEnd(page)).toBeGreaterThan(900);
+});
+
 test("the newest message stays in view as the agent reports, until the person scrolls up", async ({
   page,
   request,

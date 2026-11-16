@@ -35,12 +35,22 @@ export function useThreadScroll(
   }, [timelineRef, items, focus, session, stage]);
 
   // While the newest message is in view, it stays there as the thread
-  // grows under it: as an image loads, a question lays out, or the room
-  // kept for the chat box grows. Scrolling away from it ends that.
+  // grows under it: as an image loads, a question lays out, a reply folds,
+  // or the room kept for the chat box grows. Scrolling up ends that, and
+  // scrolling back to the end starts it again. Growth under the newest
+  // message moves the end away without moving the thread up, so it does
+  // not end it.
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
-    const onScroll = () => (pinned.current = el.scrollHeight - el.clientHeight - el.scrollTop < 40);
+    let last = el.scrollTop;
+    const onScroll = () => {
+      // hidden, as behind the terminal, it has no size to judge by
+      if (el.clientHeight === 0) return;
+      if (el.scrollHeight - el.clientHeight - el.scrollTop < 40) pinned.current = true;
+      else if (el.scrollTop < last) pinned.current = false;
+      last = el.scrollTop;
+    };
     const keepAtEnd = () => {
       if (pinned.current) el.scrollTop = el.scrollHeight;
     };
@@ -68,7 +78,10 @@ export function useThreadScroll(
   useEffect(() => {
     const el = timelineRef.current;
     if (!footer || !el) return;
-    const size = () => el.style.setProperty("--footer-height", `${footer.offsetHeight}px`);
+    const size = () => {
+      el.style.setProperty("--footer-height", `${footer.offsetHeight}px`);
+      if (pinned.current) el.scrollTop = el.scrollHeight;
+    };
     size();
     const observer = new ResizeObserver(size);
     observer.observe(footer);
@@ -127,5 +140,5 @@ export function useThreadScroll(
     };
   }, [timelineRef]);
 
-  return { atEnd };
+  return { atEnd, pinned };
 }
