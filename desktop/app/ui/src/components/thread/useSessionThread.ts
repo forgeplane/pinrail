@@ -107,6 +107,15 @@ export function useSessionThread(
     if (key && session) keep(key, { session, items, statuses, messages, comments, itemEvents, turns });
   }, [key, session, items, statuses, messages, comments, itemEvents, turns]);
 
+  // whether the thread is still shown, for a load that ends after it
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
+
   // one load at a time: notices that come while one runs are answered by
   // one more load after it, however many they are
   const loading = useRef<{ key: string; running: boolean; again: boolean } | null>(null);
@@ -122,6 +131,8 @@ export function useSessionThread(
     try {
       if (named) {
         const thread = await api.session(named.agent, named.id);
+        // the thread was closed, or shows another session, meanwhile
+        if (!open.current) return;
         setSession(thread.session);
         onSession?.(thread.session);
         // what did not change stays the same objects, which the thread's
@@ -140,7 +151,7 @@ export function useSessionThread(
       setError(errorMessage(e, "The server did not answer."));
     } finally {
       mine.running = false;
-      if (mine.again && loading.current === mine) await load();
+      if (mine.again && loading.current === mine && open.current) await load();
     }
   }, [named?.agent, named?.id, focus?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the objects
   useEffect(() => {

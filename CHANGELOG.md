@@ -95,6 +95,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A long session's thread now opens at its newest message. It used to
   stop short of the end, or scroll back up once the older messages
   loaded.
+- The breadcrumb on a session's page now names that session after a quick
+  switch between sessions, not the one shown before.
 
 ## [0.6.0]
 

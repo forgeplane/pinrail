@@ -34,3 +34,33 @@ test("a session opened again shows its thread before it loads again, then what c
   release();
   await expect(page.getByText("A step while it was away")).toBeVisible();
 });
+
+test("the breadcrumb names the session shown, whatever ends loading last", async ({ page, request }) => {
+  const [first, second] = [fresh(), fresh()];
+  for (const [session, text] of [
+    [first, "First task"],
+    [second, "Second task"],
+  ]) {
+    const response = await request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+      data: { kind: "start", text },
+    });
+    expect(response.status(), await response.text()).toBe(200);
+  }
+  const crumb = page.locator(".crumb-title");
+  await page.goto(`/#/sessions/claude-code/${first}`);
+  await expect(crumb).toHaveText("First task");
+
+  // the second session's load ends only after the first is shown again
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(new RegExp(`/api/v1/sessions/claude-code/${second}$`), async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto(`/#/sessions/claude-code/${second}`);
+  await page.goto(`/#/sessions/claude-code/${first}`);
+  await expect(crumb).toHaveText("First task");
+  release();
+  await page.waitForTimeout(500);
+  await expect(crumb).toHaveText("First task");
+});

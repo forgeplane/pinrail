@@ -388,8 +388,11 @@ export function SessionScreen() {
   const { agent = "", id = "" } = useParams();
   // the stage the command palette opened the thread at
   const stage = (useLocation().state as { stage?: number } | null)?.stage;
-  // the task the agent works on names the session, once the thread has it
-  const [title, setTitle] = useState<string | null>(null);
+  // the task the agent works on names the session, once the thread has it;
+  // kept with the session it names, so that a title loaded for the session
+  // shown before is not this one's
+  const [titled, setTitled] = useState<{ key: string; title: string | null } | null>(null);
+  const title = titled?.key === `${agent}/${id}` ? titled.title : null;
   const crumb = useMemo(
     () => (
       <span className="crumb" data-tauri-drag-region>
@@ -409,7 +412,7 @@ export function SessionScreen() {
         key={`${agent}/${id}/${stage ?? ""}`}
         session={{ agent, id }}
         stage={stage}
-        onSession={(s) => setTitle(s.title)}
+        onSession={(s) => setTitled({ key: `${s.agent}/${s.id}`, title: s.title })}
         reviewPanel={({ id: review, linkTo, onEnded, onClose }) => (
           <ReviewView
             key={review}
