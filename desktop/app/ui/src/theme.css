@@ -6717,6 +6717,17 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   color: var(--faint);
   white-space: nowrap;
 }
+/* in a narrow row the repository shrinks before the title does */
+.item-title-text {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.item-repo {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .item-marks {
   display: flex;
   align-items: center;

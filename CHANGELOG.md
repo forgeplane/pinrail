@@ -64,6 +64,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- In a narrow window, a work item's repository no longer runs under its
+  badges. The repository is shortened first, and an item blocked by
+  several others shows the first and how many more.
 - An agent's reply in a session thread no longer shows **Show more** and
   a faded last line when it fits, after the window was made wider.
 - Opening or closing the side panel on the Work items, Sessions or inbox

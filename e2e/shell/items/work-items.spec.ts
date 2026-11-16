@@ -1308,3 +1308,28 @@ test("the open item stays where it was as its panel closes", async ({ page, requ
   const after = (await target.boundingBox())!;
   expect(Math.abs(after.y - before.y)).toBeLessThan(40);
 });
+
+test("in a narrow window the repository gives way to the badges, and several blockers show as one", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("a-repository-with-a-long-name");
+  const first = await add(request, repo, "Theme file format");
+  const second = await add(request, repo, "Theme loader");
+  const held = await add(request, repo, "Theme picker", { depends_on: [first.key, second.key] });
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { layout: "list" } } });
+  await page.setViewportSize({ width: 640, height: 800 });
+  await open(page, repo);
+
+  const heldRow = row(page, held.key);
+  await expect(heldRow).toBeVisible();
+  const repoBox = (await heldRow.locator(".item-repo").boundingBox())!;
+  const marks = (await heldRow.locator(".item-marks").boundingBox())!;
+  expect(repoBox.x + repoBox.width).toBeLessThanOrEqual(marks.x);
+  await expect(heldRow.locator(".item-title-text")).toHaveText("Theme picker");
+  // the title is whole: only the repository is cut
+  expect(await heldRow.locator(".item-title-text").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const badge = heldRow.getByTestId("item-blocked");
+  await expect(badge).toHaveText(`blocked by ${first.key} +1`);
+  await expect(badge).toHaveAttribute("title", `Blocked by ${first.key}, ${second.key}`);
+});

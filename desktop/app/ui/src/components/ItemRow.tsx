@@ -102,8 +102,13 @@ export const ItemRow = memo(function ItemRow({
             </span>
           ) : null}
           {item.blocked && !closed ? (
-            <span className="item-mark is-blocked" data-testid="item-blocked">
-              <Lock size={11} aria-hidden="true" /> blocked by {item.blocked_by.join(", ")}
+            <span
+              className="item-mark is-blocked"
+              data-testid="item-blocked"
+              title={`Blocked by ${item.blocked_by.join(", ")}`}
+            >
+              <Lock size={11} aria-hidden="true" /> blocked by {item.blocked_by[0]}
+              {item.blocked_by.length > 1 ? ` +${item.blocked_by.length - 1}` : ""}
             </span>
           ) : null}
           {item.sub_items.in_progress && !closed && item.status !== "in_progress" ? (
