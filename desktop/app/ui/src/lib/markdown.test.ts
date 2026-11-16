@@ -147,6 +147,16 @@ describe("a diff block", () => {
     expect(renderMarkdown(diff)).not.toContain("data-diff-step");
   });
 
+  test("blank lines before the first file are not a file of their own", () => {
+    const two = renderMarkdown(
+      "```diff\n\n\ndiff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-x\n+y\n" +
+        "diff --git a/b.ts b/b.ts\n--- a/b.ts\n+++ b/b.ts\n@@ -1 +1 @@\n-p\n+q\n```",
+    );
+    expect(two).toContain('data-files="2"');
+    expect(two).toContain('<span class="md-diff-count">1 of 2</span>');
+    expect(two).toContain(">a.ts</span>");
+  });
+
   test("shows in a note too, and leaves other blocks as code", () => {
     expect(renderNote(diff, () => null)).toContain('class="md-diff"');
     expect(renderMarkdown("```rust\nlet a = 1;\n```")).toContain("<pre>");

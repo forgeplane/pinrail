@@ -81,6 +81,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A diff in a question's context no longer starts with an empty file
+  when it opens with a blank line.
 - `pinrail status` says the status was sent when no stage is open, so
   agents no longer send a note twice. Update the Pinrail skill in
   Settings › Agents for the matching advice.

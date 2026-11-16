@@ -27,9 +27,13 @@ function pathOf(line: string): string | null {
 }
 
 /** The rows of a unified diff, as `git diff` and `diff -u` write it. A diff
- *  without hunk headers has lines without numbers. */
+ *  without hunk headers has lines without numbers. Blank lines before the
+ *  diff are left out. */
 export function diffRows(text: string): Row[] {
-  const lines = text.replace(/\n$/, "").split("\n");
+  const lines = text
+    .replace(/^(?:[ \t]*\n)+/, "")
+    .replace(/\n$/, "")
+    .split("\n");
   const rows: Row[] = [];
   let old: number | null = null;
   let now: number | null = null;
