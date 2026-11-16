@@ -42,9 +42,9 @@ test("the list shows 100 top-level items a page, each with its sub-items", async
   await expect(page).toHaveURL(/page=2/);
 
   // a filter changed starts again at the first page
-  // "11" matches 011 and 110 to 119
+  // "11" matches 011 and 110 to 119 in the titles, and item 11 by its number
   await page.getByPlaceholder(/Search/).fill("Paged item 11");
-  await expect(rows).toHaveCount(11);
+  await expect(rows).toHaveCount(12);
   await expect(page).not.toHaveURL(/page=/);
   await expect(page.getByTestId("pager-range")).toHaveCount(0);
 });
