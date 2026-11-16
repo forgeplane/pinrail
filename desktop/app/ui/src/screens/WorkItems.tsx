@@ -174,11 +174,11 @@ export function WorkItems() {
   // in the order chosen; the groups and the sub-items keep it
   // the closed sub-items added come after their open siblings
   const ordered = useMemo(() => {
-    const list = orderItems(kept, prefs.items.ordering);
+    const list = orderItems(kept, prefs.items.ordering, { nested });
     if (!addClosed) return list;
     const ended = (i: WorkItem) => i.status === "done" || i.status === "cancelled";
     return [...list.filter((i) => !ended(i)), ...list.filter(ended)];
-  }, [kept, prefs.items.ordering, addClosed]);
+  }, [kept, prefs.items.ordering, nested, addClosed]);
   const groups = useMemo(
     () =>
       layout === "list"

@@ -51,4 +51,16 @@ describe("orderItems", () => {
     const other = item("WEB-1", { repo: "acme/web" });
     expect(keys(orderItems([other, ...items.slice(0, 2)], "oldest"))).toEqual(["PIN-1", "PIN-3", "WEB-1"]);
   });
+
+  test("nested by status, a parent ranks by the most active item under it", () => {
+    const tree = [
+      item("PIN-1", { title: "Idle project" }),
+      item("PIN-2", { title: "Busy project" }),
+      item("PIN-3", { parent: "PIN-2" }),
+      item("PIN-4", { parent: "PIN-3", status: "in_progress", ready: false }),
+      item("PIN-5", { parent: "PIN-1" }),
+    ];
+    expect(keys(orderItems(tree, "status", { nested: true }))).toEqual(["PIN-4", "PIN-2", "PIN-3", "PIN-1", "PIN-5"]);
+    expect(keys(orderItems(tree, "status"))).toEqual(["PIN-4", "PIN-1", "PIN-2", "PIN-3", "PIN-5"]);
+  });
 });

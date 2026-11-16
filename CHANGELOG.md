@@ -49,6 +49,11 @@ The `pinrail` command ships inside the app and carries the app's version.
 - After the computer restarts, the Sessions page says which agents the
   restart stopped, with **Resume all** to resume them one by one.
 
+### Changed
+
+- Ordered by status with sub-items shown, the work items list puts a
+  parent first when any item under it is in progress.
+
 ### Security
 
 - Only the Pinrail app can now act as you. Sending an agent a message,
