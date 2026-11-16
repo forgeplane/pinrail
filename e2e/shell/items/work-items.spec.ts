@@ -1277,6 +1277,55 @@ test("the filters are kept when the person leaves the page and comes back", asyn
   await expect(rows(page)).toHaveCount(1);
 });
 
+test("the open item and the scroll position are kept when the person leaves the page and comes back", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("return");
+  const added = [];
+  for (let i = 1; i <= 40; i++) added.push(await add(request, repo, `Item number ${i}`));
+  const item = added[30];
+  const nav = page.getByRole("navigation", { name: "Main" });
+  const scrollOf = (selector: string) =>
+    page.evaluate((s) => document.querySelector<HTMLElement>(s)!.scrollTop, selector);
+  await open(page, repo, "&layout=flat");
+  await expect(rows(page)).toHaveCount(40);
+
+  // without a panel, the page scrolls
+  await row(page, item.key).scrollIntoViewIfNeeded();
+  const pageTop = await scrollOf(".app-main");
+  expect(pageTop).toBeGreaterThan(200);
+  await nav.getByRole("link", { name: /Sessions/ }).click();
+  await expect(page.getByRole("heading", { name: "Sessions", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: /Work items/ }).click();
+  await expect(row(page, item.key)).toBeInViewport();
+  await expect.poll(() => scrollOf(".app-main")).toBe(pageTop);
+
+  // with a panel, the list beside it scrolls
+  await row(page, item.key).click();
+  const panel = page.getByTestId("work item-panel");
+  await expect(panel).toBeVisible();
+  const listTop = await scrollOf(".split-side");
+  expect(listTop).toBeGreaterThan(200);
+  const backAt = async () => {
+    await expect(panel).toContainText(item.key);
+    await expect(row(page, item.key)).toBeInViewport();
+    await expect.poll(() => scrollOf(".split-side")).toBe(listTop);
+  };
+
+  // through the sidebar
+  await nav.getByRole("link", { name: /Inbox/ }).click();
+  await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: /Work items/ }).click();
+  await backAt();
+
+  // and with the history's Back
+  await nav.getByRole("link", { name: /Projects/ }).click();
+  await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
+  await page.goBack();
+  await backAt();
+});
+
 test("an item clicked low in a long list stays where it was as its panel opens", async ({ page, request }) => {
   const repo = fresh();
   const added = [];

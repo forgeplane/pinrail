@@ -23,7 +23,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { pageLink } from "../lib/pageMemory";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useScrollMemory } from "../lib/useScrollMemory";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
@@ -71,6 +72,9 @@ const pageTitle = (path: string) =>
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
   const location = useLocation();
+  // the element the pages scroll in
+  const main = useRef<HTMLElement>(null);
+  useScrollMemory(main);
   const navigate = useNavigate();
   const theme = useTheme();
   const topbar = useTopBarContent();
@@ -344,7 +348,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
           </Tooltip>
         </header>
-        <main className="app-main" tabIndex={-1}>
+        <main className="app-main" tabIndex={-1} ref={main}>
           {children}
         </main>
       </div>

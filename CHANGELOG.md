@@ -65,6 +65,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   parent first when any item under it is in progress.
 - A session you open again shows its thread at once, where you left it,
   or at its newest message if you were there.
+- When you come back to the inbox, Sessions, Work items or Projects, the
+  page keeps its open side panel and its scroll position.
 
 ### Security
 

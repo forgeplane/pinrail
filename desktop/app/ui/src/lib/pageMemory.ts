@@ -1,7 +1,8 @@
 // The query each main page was last left with, such as the Work items
-// page's filters, so that its sidebar link and its shortcut bring the
-// person back to the list as they left it. The open side panel is not
-// kept, and the inbox's tab is not either: Inbox opens on its own tab.
+// page's filters and the item open in its side panel, so that its sidebar
+// link and its shortcut bring the person back to the page as they left it.
+// The inbox's tab is not kept: Inbox opens on its own tab. Each page's
+// scroll position is kept too, by its address.
 
 import type { To } from "react-router";
 
@@ -9,13 +10,11 @@ import type { To } from "react-router";
 const PAGES = ["/", "/sessions", "/items", "/projects"];
 /** What a page's query keeps of the address. */
 const DROPPED: Record<string, string[]> = {
-  "/": ["open", "tab"],
-  "/sessions": ["open"],
-  "/items": ["open"],
-  "/projects": ["open"],
+  "/": ["tab"],
 };
 
 const remembered = new Map<string, string>();
+const scrolls = new Map<string, number>();
 
 /** Keeps the query of a main page the person is on. */
 export function rememberPage(pathname: string, search: string) {
@@ -30,4 +29,15 @@ export function rememberPage(pathname: string, search: string) {
 /** Where a main page's link and shortcut go: the page with its last query. */
 export function pageLink(pathname: string): To {
   return { pathname, search: remembered.get(pathname) ?? "" };
+}
+
+/** Keeps how far a main page's list is scrolled, at the address it is on. */
+export function rememberScroll(pathname: string, search: string, top: number) {
+  if (!PAGES.includes(pathname)) return;
+  scrolls.set(pathname + search, top);
+}
+
+/** How far a main page's list was scrolled at this address, if it was. */
+export function rememberedScroll(pathname: string, search: string): number | undefined {
+  return scrolls.get(pathname + search);
 }
