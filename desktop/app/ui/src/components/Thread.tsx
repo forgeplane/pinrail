@@ -429,7 +429,7 @@ export function Thread({
             {/* the stage the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}
             <div className="thread-title-row">
-              <h1 className={session?.title ? "thread-stage" : undefined}>
+              <h1 className={session?.title ? "thread-stage" : undefined} title={session?.title ?? undefined}>
                 {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
               </h1>
               {session ? <PresenceChip session={session} /> : null}
@@ -456,6 +456,11 @@ export function Thread({
                 )
               ) : null}
               {named ? <CopySessionId id={named.id} /> : null}
+            </div>
+            {/* the items it works on, on a line of their own, kept when
+              there are none, so that the header keeps its height and the
+              terminal under it its size */}
+            <div className="thread-held">
               {held.length ? (
                 // one item with its title; several by their keys, the titles
                 // on hover

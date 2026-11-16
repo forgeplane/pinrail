@@ -3408,14 +3408,14 @@ body.is-resizing iframe {
   min-width: 0;
 }
 .thread-title h1 {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  display: block;
   min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: var(--text-lg);
   font-weight: 600;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .thread.in-panel .thread-title h1 {
   font-size: var(--text-lg);
@@ -3442,6 +3442,17 @@ body.is-resizing iframe {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  height: 24px;
+  overflow: hidden;
+}
+/* in a narrow header the title keeps some room, and the badges after it
+   are cut */
+.thread-title-row h1 {
+  flex: 0 1 auto;
+  min-width: min(8em, 100%);
+}
+.thread-title-row > :not(h1) {
+  flex: none;
 }
 .thread-title-row h1 {
   overflow: hidden;
@@ -3512,19 +3523,32 @@ body.is-resizing iframe {
   white-space: nowrap;
 }
 /* who works where, since when, and the session's id, on one quiet line */
+/* The header keeps its height whatever it shows, since the terminal under
+   it is resized with it: the title, the meta line and the line of held
+   items take one line each, cut short where they do not fit. */
 .thread-meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 2px 16px;
+  gap: 16px;
+  height: 20px;
   overflow: hidden;
   font-size: var(--text-sm);
   color: var(--dim);
+}
+.thread-held {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--dim);
+  white-space: nowrap;
 }
 /* the dot sits in the gap before each item; at the start of a line it
    falls outside the box, which clips it. Each item wraps as a whole. */
 .thread-meta > * {
   position: relative;
+  flex: none;
   white-space: nowrap;
 }
 .thread-meta > *::before {
@@ -3552,30 +3576,16 @@ body.is-resizing iframe {
   font-size: var(--text-xs);
 }
 .thread-meta .thread-session {
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--faint);
 }
-/* a narrow header: the counts are in the details, and the held items'
-   chips wrap within their label's line */
-@container (max-width: 760px) {
-  /* the title takes the lines it needs, the badge after it */
-  .thread-title-row {
-    flex-wrap: wrap;
-    row-gap: 4px;
-  }
-  .thread-title-row h1 {
-    white-space: normal;
-  }
-}
+/* a narrow header: the counts are in the details */
 @container (max-width: 560px) {
   .thread-counts {
     display: none;
-  }
-  .thread-meta-item {
-    flex-wrap: wrap;
-    white-space: normal;
   }
 }
 .thread-session {
