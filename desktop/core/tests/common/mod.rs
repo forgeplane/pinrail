@@ -192,15 +192,26 @@ if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> hear
 exec sleep 600
 "#;
 
-/// Writes the stand-in agent as `claude` into `dir/bin`, and returns the
+/// Links the stand-in agent as `claude` into `dir/bin`, and returns the
 /// `PATH` that finds it.
+///
+/// The script itself is written once, under Cargo's target folder, and
+/// rewritten only when it changes: macOS scans a new executable for about
+/// 25 seconds the first time it runs, which a fresh copy for each test
+/// would pay every time.
 #[cfg(unix)]
 pub fn stand_in_path(dir: &std::path::Path) -> String {
     use std::os::unix::fs::PermissionsExt;
+    let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude");
+    if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT) {
+        // written beside it and renamed, as other tests may run it meanwhile
+        let fresh = script.with_extension(format!("{}", std::process::id()));
+        std::fs::write(&fresh, STAND_IN_AGENT).unwrap();
+        std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::rename(&fresh, &script).unwrap();
+    }
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    let claude = bin.join("claude");
-    std::fs::write(&claude, STAND_IN_AGENT).unwrap();
-    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::os::unix::fs::symlink(&script, bin.join("claude")).unwrap();
     format!("{}:/usr/bin:/bin", bin.display())
 }
