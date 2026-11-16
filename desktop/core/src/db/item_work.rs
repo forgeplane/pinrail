@@ -325,6 +325,18 @@ const QUEUED_AT: &str = "(WITH RECURSIVE up(id) AS (
       WHERE a.parent IS NOT NULL
    ) SELECT MIN(q.position) FROM up JOIN work_item_queue q ON q.item_id = up.id)";
 
+/// The order `items next` takes ready items `i` in, after the session's own:
+/// the queue first, then the item that unblocks the most others, then the
+/// oldest.
+fn next_order() -> String {
+    format!(
+        "{QUEUED_AT} IS NULL, {QUEUED_AT},
+         (SELECT COUNT(*) FROM work_item_deps x JOIN work_items d ON d.id = x.item_id
+           WHERE x.depends_on = i.id AND d.status IN {OPEN}) DESC,
+         i.number"
+    )
+}
+
 /// Where an item goes in the queue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Place {
@@ -756,14 +768,10 @@ impl Db {
                      )
                      SELECT i.id FROM work_items i JOIN repos g ON g.id = i.repo_id
                       WHERE g.name = ?1 AND {ready}
-                      ORDER BY i.id IN mine DESC,
-                        {queued} IS NULL, {queued},
-                        (SELECT COUNT(*) FROM work_item_deps x JOIN work_items d ON d.id = x.item_id
-                          WHERE x.depends_on = i.id AND d.status IN {OPEN}) DESC,
-                        i.number
+                      ORDER BY i.id IN mine DESC, {order}
                       LIMIT 1",
                     ready = super::items::READY,
-                    queued = QUEUED_AT,
+                    order = next_order(),
                 ),
                 params![repo, actor.name(), actor.session()],
                 |r| r.get(0),
@@ -779,6 +787,23 @@ impl Db {
         let item = item_row(&tx, &id)?;
         tx.commit()?;
         Ok(Some(item))
+    }
+
+    /// The key of each repository's next ready item, as `items next` takes
+    /// it for a session that holds nothing, by repository.
+    pub fn next_keys(&self) -> rusqlite::Result<Vec<String>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT key FROM (
+               SELECT g.prefix || '-' || i.number AS key, g.name AS repo,
+                      ROW_NUMBER() OVER (PARTITION BY i.repo_id ORDER BY {order}) AS n
+                 FROM work_items i JOIN repos g ON g.id = i.repo_id
+                WHERE {ready})
+              WHERE n = 1 ORDER BY repo",
+            ready = super::items::READY,
+            order = next_order(),
+        ))?;
+        stmt.query_map([], |r| r.get(0))?.collect()
     }
 
     /// Changes an item as `change` says, whole or not at all, recording each

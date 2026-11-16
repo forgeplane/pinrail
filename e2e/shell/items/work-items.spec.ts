@@ -70,7 +70,7 @@ async function open(page: Page, scope: string, extra = "") {
 // the defaults for the next
 test.afterEach(async ({ request }) => {
   await request.patch(`${core}/api/v1/settings`, {
-    data: { items: { layout: "project", nesting: "nested", ordering: "oldest", fold_closed: true } },
+    data: { items: { layout: "project", nesting: "nested", ordering: "oldest", fold_closed: true, show_next: false } },
   });
 });
 
@@ -1384,4 +1384,36 @@ test("Fold all and Unfold all fold every parent at once", async ({ page, request
   // flat, there is nothing to fold
   await pickIn(page, "Display options", "Sub-items", "Flat");
   await expect(page.getByRole("button", { name: /^(Fold|Unfold) all$/ })).toHaveCount(0);
+});
+
+test("Show next item marks the item an agent takes next", async ({ page, request }) => {
+  const repo = fresh("next");
+  const oldest = await add(request, repo, "Oldest");
+  const waits = await add(request, repo, "Waits for the loader");
+  const loader = await add(request, repo, "Loader");
+  await edit(request, waits.key, { depends_on: [loader.key] });
+  await open(page, repo);
+  await expect(row(page, loader.key)).toBeVisible();
+  // hidden until it is turned on
+  await expect(page.getByTestId("item-next")).toHaveCount(0);
+  const toggle = page.getByRole("button", { name: "Show next item" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await settingSaved(request, (s) => s.items.show_next, true);
+
+  // the loader unblocks another, so items next takes it first
+  await expect(row(page, loader.key).getByTestId("item-next")).toHaveText("Next");
+  await expect(page.getByTestId("item-next")).toHaveCount(1);
+
+  // queued, the oldest goes first
+  const queued = await request.put(`${core}/api/v1/items/${oldest.key}/queue`, {
+    data: {},
+    headers: { origin: shellOrigin },
+  });
+  expect(queued.status(), await queued.text()).toBe(200);
+  await expect(row(page, oldest.key).getByTestId("item-next")).toBeVisible();
+  await expect(page.getByTestId("item-next")).toHaveCount(1);
+  // the queue is one for every test of the shard's core
+  await request.delete(`${core}/api/v1/items/${oldest.key}/queue`, { headers: { origin: shellOrigin } });
 });

@@ -109,7 +109,8 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
 /// in progress; `repo`; `project`; `parent`, an item; `created_by`; `q`,
 /// words in the title or the body, or a number or key that matches the
 /// item's own; and `fields=summary`, which leaves the bodies out. Answers
-/// `items`.
+/// `items`, and in `next` the key of each repository's next ready item, as
+/// `items next` takes it.
 async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
@@ -149,9 +150,10 @@ async fn list(
         }
         json
     };
-    Ok(Json(
-        json!({ "items": items.iter().map(json).collect::<Vec<_>>() }),
-    ))
+    Ok(Json(json!({
+        "items": items.iter().map(json).collect::<Vec<_>>(),
+        "next": state.items().next_keys()?,
+    })))
 }
 
 /// Adds an item from `repo`, `title` and, optionally, `body`, `parent`,

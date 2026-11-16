@@ -39,6 +39,8 @@ type Props = {
   orphanOf: string | null;
   /** whether the row names its repository */
   showRepo: boolean;
+  /** whether pinrail items next gives an agent this item */
+  next: boolean;
   actions: ItemRowActions;
 };
 
@@ -54,6 +56,7 @@ export const ItemRow = memo(function ItemRow({
   dropTarget,
   orphanOf,
   showRepo,
+  next,
   actions,
 }: Props) {
   // on hold, it waits: dimmed as a closed item is
@@ -90,6 +93,15 @@ export const ItemRow = memo(function ItemRow({
           {showRepo ? <span className="item-repo">{item.repo}</span> : null}
         </span>
         <span className="item-marks">
+          {next ? (
+            <span
+              className="item-mark is-next"
+              data-testid="item-next"
+              title="An agent that runs pinrail items next in this repository takes this item"
+            >
+              Next
+            </span>
+          ) : null}
           {item.queue ? (
             <span className="item-mark is-queued" data-testid="item-queued" title={`Queued, ${ordinal(item.queue)}`}>
               <ListOrdered size={11} aria-hidden="true" />

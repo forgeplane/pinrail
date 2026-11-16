@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- **Show next item** on the Work items page marks each repository's next
+  item with **Next**: the one `pinrail items next` gives an agent.
 - The Work items page has **Fold all** beside the search field, which
   folds every parent, and **Unfold all** once they are folded.
 - On the Work items page, a done or cancelled item starts with its

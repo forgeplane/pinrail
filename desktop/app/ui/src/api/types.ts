@@ -493,6 +493,7 @@ export type ServerSettings = {
     nesting?: "nested" | "flat";
     ordering?: "oldest" | "newest" | "updated" | "status" | "title";
     fold_closed?: boolean;
+    show_next?: boolean;
     close_parents?: boolean;
   };
   whats_new?: { seen: string | null };

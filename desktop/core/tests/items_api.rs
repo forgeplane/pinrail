@@ -422,6 +422,26 @@ async fn a_breakdown_is_added_whole_through_the_api() {
 }
 
 #[tokio::test]
+async fn the_list_names_each_repositorys_next_item() {
+    let app = app();
+    for t in ["Oldest", "Waits for the third", "Unblocks the second"] {
+        add(&app, t).await;
+    }
+    edit(&app, "PIN-2", "s-1", json!({"depends_on": ["PIN-3"]})).await;
+    let web = add_to(&app, "acme/web", "Only one").await;
+    let (code, listed) = call(&app, "GET", "/api/v1/items", None).await;
+    assert_eq!(code, StatusCode::OK, "{listed}");
+    // by repository; the one that unblocks another first, as pinrail items
+    // next takes it
+    assert_eq!(listed["next"], json!([web, "PIN-3"]));
+
+    // a queued item comes first
+    queue(&app, "PIN-1", json!({})).await;
+    let (_, listed) = call(&app, "GET", "/api/v1/items", None).await;
+    assert_eq!(listed["next"], json!([web, "PIN-1"]));
+}
+
+#[tokio::test]
 async fn the_search_finds_an_item_by_its_number_or_key() {
     let app = app();
     for t in ["Theme loader", "Theme picker", "Version 3 of the format"] {

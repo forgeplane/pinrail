@@ -21,6 +21,7 @@ describe("fromServer", () => {
       nesting: "nested",
       ordering: "oldest",
       fold_closed: true,
+      show_next: false,
       close_parents: true,
     });
     expect(served.plugins).toEqual({});

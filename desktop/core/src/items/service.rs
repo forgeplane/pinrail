@@ -380,6 +380,12 @@ impl Items {
         Ok(item)
     }
 
+    /// The key of each repository's next ready item, the one `items next`
+    /// gives a session that holds nothing.
+    pub fn next_keys(&self) -> Result<Vec<String>, Error> {
+        Ok(self.db.next_keys()?)
+    }
+
     /// Changes an item, whole or not at all. An agent cancels only with a
     /// comment that says why.
     pub fn edit(

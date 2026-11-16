@@ -13,7 +13,7 @@ import { ItemStatusIcon } from "../components/ItemStatusIcon";
 import { Tooltip } from "../components/Tooltip";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
-import { ChevronsDownUp, ChevronsUpDown, List as ListIcon, ListTree } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, List as ListIcon, ListTree, SkipForward } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { hasMod, modalOpen, isTyping } from "../lib/keys";
@@ -105,14 +105,17 @@ export function WorkItems() {
   const itemNotices = useNoticeCount(aboutItems);
   // a status that already lists the closed items has no closed sub-items to add
   const addClosed = closedSubs && !["done", "cancelled", "all"].includes(status);
-  const { data: items, error: loadError } = useLoad(async () => {
+  const { data: loaded, error: loadError } = useLoad(async () => {
     const q = debounced || undefined;
     const [listed, closed] = await Promise.all([
-      api.items({ status: STATUSES.find((s) => s.value === status)?.query, q }).then((d) => d.items),
+      api.items({ status: STATUSES.find((s) => s.value === status)?.query, q }),
       addClosed ? api.items({ status: "done,cancelled", q }).then((d) => d.items) : Promise.resolve([]),
     ]);
-    return withClosedSubItems(listed, closed);
+    return { items: withClosedSubItems(listed.items, closed), next: new Set(listed.next) };
   }, [status, debounced, itemNotices, reloads, addClosed]);
+  const items = loaded?.items;
+  // each repository's item that pinrail items next gives an agent
+  const nextKeys = loaded?.next;
   // the person's queue, in its order: the items agents take first
   const [queue, setQueue] = useState<WorkItem[]>([]);
   useEffect(() => {
@@ -517,6 +520,7 @@ export function WorkItems() {
       // apart from it, or in another repository's group than it
       orphanOf={item.parent && depth === 0 ? item.parent : null}
       showRepo={layout !== "repository" && (layout === "list" || mixed.has(group))}
+      next={prefs.items.show_next && !!nextKeys?.has(item.key)}
       actions={rowActions}
     />
   );
@@ -629,6 +633,17 @@ export function WorkItems() {
                 </button>
               </Tooltip>
             ) : null}
+            <Tooltip label={prefs.items.show_next ? "Hide next item" : "Show next item"} side="bottom">
+              <button
+                type="button"
+                className="bar-button item-menu-button"
+                aria-label="Show next item"
+                aria-pressed={prefs.items.show_next}
+                onClick={() => void update({ items: { show_next: !prefs.items.show_next } })}
+              >
+                <SkipForward size={15} />
+              </button>
+            </Tooltip>
             <ListMenuButtons
               label="work items"
               filters={filters}

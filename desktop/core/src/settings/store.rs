@@ -112,6 +112,12 @@ const LEAVES: &[Leaf] = &[
         "How the Work items page shows sub-items: nested under their parent, or each as a row of its own.",
     ),
     (
+        "/items/show_next",
+        Kind::Bool,
+        || json!(false),
+        "Mark each repository's next work item, the one pinrail items next gives an agent, on the Work items page.",
+    ),
+    (
         "/items/fold_closed",
         Kind::Bool,
         || json!(true),

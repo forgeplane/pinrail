@@ -35,6 +35,8 @@ export type Settings = {
     ordering: Ordering;
     /** whether a done or cancelled parent starts folded */
     fold_closed: boolean;
+    /** whether each repository's next item shows Next */
+    show_next: boolean;
     /** whether a parent closes when its last open sub-item does */
     close_parents: boolean;
   };
@@ -174,6 +176,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     nesting: s.items?.nesting ?? "nested",
     ordering: s.items?.ordering ?? "oldest",
     fold_closed: s.items?.fold_closed ?? true,
+    show_next: s.items?.show_next ?? false,
     close_parents: s.items?.close_parents ?? true,
   },
   plugins: s.plugins ?? {},
@@ -286,7 +289,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     inbox: { open_in: "panel", layout: "repository" },
     sessions: { layout: "list" },
-    items: { layout: "project", nesting: "nested", ordering: "oldest", fold_closed: true, close_parents: true },
+    items: {
+      layout: "project",
+      nesting: "nested",
+      ordering: "oldest",
+      fold_closed: true,
+      show_next: false,
+      close_parents: true,
+    },
     plugins: {},
     links: {},
     port: 4747,

@@ -168,7 +168,7 @@ export const api = {
       session?: string;
       queued?: "true";
     } = {},
-  ) => request<{ items: WorkItem[] }>("GET", `/api/v1/items${query({ ...params, fields: "summary" })}`),
+  ) => request<{ items: WorkItem[]; next: string[] }>("GET", `/api/v1/items${query({ ...params, fields: "summary" })}`),
   /** puts an item in the person's queue, or moves it: at the end, or
    *  before or after a queued item; answers the queue in order */
   queueItem: (key: string, place: { before?: string; after?: string } = {}) =>
