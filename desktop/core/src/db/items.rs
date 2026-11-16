@@ -259,6 +259,9 @@ pub enum Refused {
     /// an agent cannot work on an item on hold, nor on one under it, nor
     /// change the hold: the key of the item on hold
     OnHold(String),
+    /// an agent cannot claim an item that waits for others: its key, and
+    /// the keys of the items it waits for
+    Blocked(String, Vec<String>),
     /// a place in the queue named by an item that is not in it
     NotQueued(String),
     /// a place in the queue named by the item being placed
@@ -312,6 +315,11 @@ impl std::fmt::Display for Refused {
             Refused::OnHold(key) => {
                 write!(f, "{key} is on hold: ask the person to take it off hold")
             }
+            Refused::Blocked(key, waits) => write!(
+                f,
+                "{key} waits for {}: work on those first, or ask the person",
+                waits.join(", ")
+            ),
             Refused::ClaimedBy(key, agent, session) => match session {
                 Some(session) => write!(f, "{key} is claimed by {agent} (session {session})"),
                 None => write!(f, "{key} is claimed by {agent}"),

@@ -390,6 +390,14 @@ fn claim_in(
     if holds(&item.claim, actor) {
         return Ok(Ok(()));
     }
+    // the person decides to start an item before what it waits for; an
+    // agent is refused
+    if matches!(actor, Actor::Agent { .. }) {
+        let waits = open_dependencies(conn, id)?;
+        if !waits.is_empty() {
+            return Ok(Err(Refused::Blocked(item.key.to_string(), waits)));
+        }
+    }
     if let Some((agent, session)) = &item.claim
         && !take
     {
@@ -409,6 +417,20 @@ fn claim_in(
         .map(|(agent, session)| json!({"agent": agent, "session": session}));
     item_event(conn, id, "claimed", actor, json!({ "from": from }), at)?;
     Ok(Ok(()))
+}
+
+/// The keys of the open or in-progress items that `id` depends on.
+fn open_dependencies(conn: &Connection, id: &str) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.prefix || '-' || d.number FROM work_item_deps x
+           JOIN work_items d ON d.id = x.depends_on JOIN repos g ON g.id = d.repo_id
+          WHERE x.item_id = ?1 AND d.status IN ('open', 'in_progress')",
+    )?;
+    let mut keys: Vec<String> = stmt
+        .query_map(params![id], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    keys.sort_by_key(|k| super::items::sort_key(k));
+    Ok(keys)
 }
 
 /// Gives up an item's claim: open again. An agent gives up only its own.

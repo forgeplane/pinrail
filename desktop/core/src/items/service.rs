@@ -56,6 +56,7 @@ fn refused(refused: Refused) -> Error {
         | Refused::PrefixTaken(_)
         | Refused::ClaimedBy(..)
         | Refused::OnHold(_)
+        | Refused::Blocked(..)
         | Refused::FileTaken(..)
         | Refused::Closed(..)
         | Refused::NotDone { .. } => Error::Conflict(refused.to_string()),

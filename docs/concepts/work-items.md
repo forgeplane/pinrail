@@ -59,6 +59,8 @@ Pinrail derives two more conditions from the items' dependencies and sub-items:
 - An open item is **ready** when every item it depends on is done and it has no open sub-item.
 - An item that waits for another is **blocked**. A parent is blocked by its open sub-items in the same way.
 
+An agent cannot claim an item while an item it depends on is open or in progress. Pinrail refuses the claim and names those items, such as *PIN-42 waits for PIN-41: work on those first, or ask the person*. You can still claim such an item in the app.
+
 An item on hold still blocks the items that depend on it. Pinrail refuses a dependency or a parent that would make items wait for each other in a circle.
 
 ## Who holds an item

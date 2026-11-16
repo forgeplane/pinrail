@@ -76,6 +76,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- An agent can no longer claim a work item while an item it depends on
+  is open. You can still claim it in the app.
 - Ordered by status with sub-items shown, the work items list puts a
   parent first when any item under it is in progress.
 - A session you open again shows its thread at once, where you left it,

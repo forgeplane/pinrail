@@ -684,6 +684,48 @@ async fn a_claim_another_session_holds_is_refused_unless_taken() {
 }
 
 #[tokio::test]
+async fn an_agent_cannot_claim_an_item_that_waits_for_another() {
+    let app = app();
+    add(&app, "Blocked").await;
+    add(&app, "First").await;
+    add(&app, "Second").await;
+    edit(
+        &app,
+        "PIN-1",
+        "s-1",
+        json!({"depends_on": ["PIN-2", "PIN-3"]}),
+    )
+    .await;
+    for body in [json!({"claim": "claim"}), json!({"status": "in_progress"})] {
+        let (code, refused) = edit(&app, "PIN-1", "s-1", body).await;
+        assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+        assert_eq!(
+            refused["message"],
+            "PIN-1 waits for PIN-2, PIN-3: work on those first, or ask the person"
+        );
+    }
+    assert_eq!(item(&app, "PIN-1").await["status"], "open");
+
+    // the person can still claim it
+    let (code, claimed) = call(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        Some(json!({"status": "in_progress"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{claimed}");
+
+    // once what it waits for is closed, an agent can claim it
+    done(&app, "PIN-2", "s-1", "Done").await;
+    done(&app, "PIN-3", "s-1", "Done").await;
+    add(&app, "Free").await;
+    edit(&app, "PIN-4", "s-1", json!({"depends_on": ["PIN-2"]})).await;
+    let (code, claimed) = edit(&app, "PIN-4", "s-1", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK, "{claimed}");
+}
+
+#[tokio::test]
 async fn releasing_a_claim_opens_the_item_and_closing_it_ends_the_claim() {
     let app = app();
     add(&app, "Released").await;
