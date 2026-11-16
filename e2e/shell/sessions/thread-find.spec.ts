@@ -111,3 +111,20 @@ test("⌘F finds text across the space between two inline elements", async ({ pa
   await field(page).fill("Quokkaloader");
   await expect.poll(() => highlighted(page, "pinrail-find")).toBe(0);
 });
+
+test("⌘F in a long thread finds text in entries not drawn yet", async ({ page, request }) => {
+  const session = fresh();
+  await note(request, session, "The oldest note names the quokka.");
+  for (let i = 0; i < 150; i++) await note(request, session, `Note ${i + 1} of the work.`);
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(page.getByText("Note 150 of the work.")).toBeVisible();
+  // only the newest entries are drawn
+  await expect(page.getByText("The oldest note names the quokka.")).toHaveCount(0);
+
+  await page.keyboard.press("ControlOrMeta+f");
+  await field(page).fill("quokka");
+  const count = bar(page).getByRole("status");
+  await expect(count).toHaveText("1 of 1");
+  await field(page).press("Enter");
+  await expect(page.getByText("The oldest note names the quokka.")).toBeInViewport();
+});

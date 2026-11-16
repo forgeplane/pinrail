@@ -2,16 +2,18 @@
 // scrolls up to them, a chunk at a time, so that opening it, switching to it
 // and its reloads draw what is near the end, not everything. While older
 // entries are added above, the thread stays at its end, or, when the person
-// has scrolled up, keeps what they see in place. Find and a jump to an
-// entry further up draw them all.
+// has scrolled up, keeps what they see in place. Find draws the rest a
+// chunk a frame, and a jump to an entry further up all of them at once.
 
 import { flushSync } from "react-dom";
-import { startTransition, useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 /** How many of the newest entries are drawn first. */
 const FIRST = 60;
 /** How many older entries are drawn at a time. */
 const CHUNK = 100;
+/** How many are drawn a frame while find draws the rest. */
+const GROW = 50;
 /** How close to the top, in heights of the view, older entries are drawn. */
 const NEAR_TOP = 2;
 
@@ -20,11 +22,15 @@ export function useNewestFirst<T>(
   timelineRef: RefObject<HTMLDivElement | null>,
   {
     all,
+    grow = false,
     thread,
     pinned,
   }: {
-    /** whether to draw every entry, to find in them or scroll to one */
+    /** whether to draw every entry at once, to scroll to one of them */
     all: boolean;
+    /** whether to draw the rest a chunk a frame without waiting for the
+     *  person to scroll, as find does to search them all */
+    grow?: boolean;
     /** the thread shown, which starts again with its newest entries */
     thread: string | null;
     /** whether the thread stays at its end, as `useThreadScroll` keeps it */
@@ -41,6 +47,13 @@ export function useNewestFirst<T>(
   const drawAll = useCallback(() => {
     flushSync(() => setDrawn({ thread, count: Infinity }));
   }, [thread]);
+
+  // the rest, a chunk a frame, each drawn when the page is free
+  useEffect(() => {
+    if (!grow || whole) return;
+    const frame = requestAnimationFrame(() => startTransition(() => setDrawn({ thread, count: count + GROW })));
+    return () => cancelAnimationFrame(frame);
+  }, [grow, whole, thread, count]);
 
   // the oldest entry drawn and where it was on screen
   const kept = useRef<{ anchor: Element | null; top: number }>({ anchor: null, top: 0 });

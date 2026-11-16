@@ -340,9 +340,11 @@ export function Thread({
     [items, statuses, messages, comments, itemEvents, turns, runs],
   );
   // a long thread draws its newest entries, and the rest as the person
-  // scrolls up, unless it opens at one further up or finds in them
+  // scrolls up or, a chunk a frame, while find searches them, unless it
+  // opens at one further up
   const { shown, whole, drawAll } = useNewestFirst(entries, timeline, {
-    all: !!focus || !!stage || finding,
+    all: !!focus || !!stage,
+    grow: finding,
     thread: named ? `${named.agent}/${named.id}` : null,
     pinned,
   });
