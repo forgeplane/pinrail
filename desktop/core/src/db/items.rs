@@ -334,6 +334,25 @@ pub(super) fn select() -> String {
     columns(true)
 }
 
+/// The number a search word names, as `42`, `#42` or a key such as
+/// `PIN-42`, with the key's prefix in capitals.
+fn searched_number(word: &str) -> Option<(Option<String>, i64)> {
+    let digits = |s: &str| -> Option<i64> {
+        if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        s.parse().ok()
+    };
+    if let Some(number) = digits(word.strip_prefix('#').unwrap_or(word)) {
+        return Some((None, number));
+    }
+    let (prefix, number) = word.split_once('-')?;
+    if prefix.is_empty() || !prefix.bytes().all(|b| b.is_ascii_alphabetic()) {
+        return None;
+    }
+    Some((Some(prefix.to_ascii_uppercase()), digits(number)?))
+}
+
 /// The item's columns, with its body or an empty one in its place.
 fn columns(body: bool) -> String {
     let body = if body { "i.body" } else { "''" };
@@ -841,8 +860,17 @@ impl Db {
                 .replace('_', "\\_");
             args.push(format!("%{escaped}%"));
             let n = args.len();
+            // a number, #number or key matches the item's own number too
+            let key = match searched_number(word) {
+                Some((Some(prefix), number)) => {
+                    args.push(prefix);
+                    format!(" OR (i.number = {number} AND g.prefix = ?{})", args.len())
+                }
+                Some((None, number)) => format!(" OR i.number = {number}"),
+                None => String::new(),
+            };
             wheres.push(format!(
-                "(i.title LIKE ?{n} ESCAPE '\\' OR i.body LIKE ?{n} ESCAPE '\\')"
+                "(i.title LIKE ?{n} ESCAPE '\\' OR i.body LIKE ?{n} ESCAPE '\\'{key})"
             ));
         }
         let order = if filters.queued {

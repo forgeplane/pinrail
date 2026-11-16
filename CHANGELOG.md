@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The work items search finds an item by its number or key, such as
+  `42`, `#42` or `PIN-42`, as does `pinrail items list --search`.
 - Settings has a **Labs** section for features still being built. Its
   first switch, **Run agents in Pinrail**, starts the terminal host that
   will run agents for Pinrail and keep them running after the app quits.

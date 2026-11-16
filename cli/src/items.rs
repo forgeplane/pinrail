@@ -143,7 +143,8 @@ struct ListArgs {
     /// Only the sub-items of this item
     #[arg(long, value_name = "ITEM")]
     parent: Option<String>,
-    /// Words that must all be in the title or the description
+    /// Words that must all be in the title or the description; a number
+    /// such as 42, #42 or PIN-42 also matches the item with that number
     #[arg(long, value_name = "WORDS")]
     search: Option<String>,
     /// Only the person's queue, in its order: the items next offers first

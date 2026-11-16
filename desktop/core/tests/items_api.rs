@@ -422,6 +422,30 @@ async fn a_breakdown_is_added_whole_through_the_api() {
 }
 
 #[tokio::test]
+async fn the_search_finds_an_item_by_its_number_or_key() {
+    let app = app();
+    for t in ["Theme loader", "Theme picker", "Version 3 of the format"] {
+        add(&app, t).await;
+    }
+    let list = |query: &'static str| {
+        let app = &app;
+        async move {
+            let (code, listed) = call(app, "GET", &format!("/api/v1/items?q={query}"), None).await;
+            assert_eq!(code, StatusCode::OK, "{listed}");
+            keys(&listed["items"])
+        }
+    };
+    assert_eq!(list("2").await, ["PIN-2"]);
+    assert_eq!(list("%232").await, ["PIN-2"]);
+    assert_eq!(list("PIN-2").await, ["PIN-2"]);
+    assert_eq!(list("pin-1").await, ["PIN-1"]);
+    // a number in a title still matches
+    assert_eq!(list("3").await, ["PIN-3"]);
+    assert_eq!(list("WEB-2").await, Vec::<String>::new());
+    assert_eq!(list("theme+2").await, ["PIN-2"]);
+}
+
+#[tokio::test]
 async fn the_list_filters_by_status_including_ready_and_blocked() {
     let app = app();
     for t in ["Ready", "Blocked", "Blocker", "Done"] {

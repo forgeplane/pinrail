@@ -107,8 +107,9 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
 /// The items the query keeps: `status`, any of open, in_progress, done,
 /// cancelled, ready and blocked, comma-separated, by default those open or
 /// in progress; `repo`; `project`; `parent`, an item; `created_by`; `q`,
-/// words in the title or the body; and `fields=summary`, which leaves the
-/// bodies out. Answers `items`.
+/// words in the title or the body, or a number or key that matches the
+/// item's own; and `fields=summary`, which leaves the bodies out. Answers
+/// `items`.
 async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
