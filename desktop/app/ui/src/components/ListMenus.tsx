@@ -58,6 +58,7 @@ export function ListMenuButtons({
   toggles,
   onReset,
   displays = [],
+  displayToggles = [],
 }: {
   /** what the list holds, such as "work items", for the menus' names */
   label: string;
@@ -65,6 +66,8 @@ export function ListMenuButtons({
   toggles: Toggle[];
   onReset: () => void;
   displays?: Display[];
+  /** what the Display menu turns on or off, after its choices */
+  displayToggles?: Toggle[];
 }) {
   // the menu open, and the button it opened from
   const [menu, setMenu] = useState<{ kind: "filter" | "display"; anchor: HTMLElement } | null>(null);
@@ -111,7 +114,7 @@ export function ListMenuButtons({
         />
       ) : null}
       {menu?.kind === "display" ? (
-        <DisplayMenu anchor={menu.anchor} displays={displays} onClose={() => setMenu(null)} />
+        <DisplayMenu anchor={menu.anchor} displays={displays} toggles={displayToggles} onClose={() => setMenu(null)} />
       ) : null}
     </>
   );
@@ -201,8 +204,18 @@ function FilterMenu({
   );
 }
 
-function DisplayMenu({ anchor, displays, onClose }: { anchor: HTMLElement; displays: Display[]; onClose: () => void }) {
-  const { menu, pos, submenu } = useOptionsMenu(anchor, onClose);
+function DisplayMenu({
+  anchor,
+  displays,
+  toggles,
+  onClose,
+}: {
+  anchor: HTMLElement;
+  displays: Display[];
+  toggles: Toggle[];
+  onClose: () => void;
+}) {
+  const { menu, pos, submenu, toggle } = useOptionsMenu(anchor, onClose);
   if (!pos) return null;
   return createPortal(
     <div
@@ -231,6 +244,14 @@ function DisplayMenu({ anchor, displays, onClose }: { anchor: HTMLElement; displ
           })),
         ),
       )}
+      {toggles.map((t) => (
+        <span key={t.key}>
+          {toggle(t.label, t.on, () => {
+            t.onChange(!t.on);
+            onClose();
+          })}
+        </span>
+      ))}
     </div>,
     document.body,
   );

@@ -1386,7 +1386,7 @@ test("Fold all and Unfold all fold every parent at once", async ({ page, request
   await expect(page.getByRole("button", { name: /^(Fold|Unfold) all$/ })).toHaveCount(0);
 });
 
-test("Show next item marks the item an agent takes next", async ({ page, request }) => {
+test("Show next item in Display options marks the item an agent takes next", async ({ page, request }) => {
   const repo = fresh("next");
   const oldest = await add(request, repo, "Oldest");
   const waits = await add(request, repo, "Waits for the loader");
@@ -1396,10 +1396,10 @@ test("Show next item marks the item an agent takes next", async ({ page, request
   await expect(row(page, loader.key)).toBeVisible();
   // hidden until it is turned on
   await expect(page.getByTestId("item-next")).toHaveCount(0);
-  const toggle = page.getByRole("button", { name: "Show next item" });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Display options" }).click();
+  const toggle = page.getByRole("menuitemcheckbox", { name: "Show next item" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await settingSaved(request, (s) => s.items.show_next, true);
 
   // the loader unblocks another, so items next takes it first

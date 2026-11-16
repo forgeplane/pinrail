@@ -7584,11 +7584,6 @@ a.item-ref {
   background: var(--bg-hover);
   color: var(--text);
 }
-/* a toggle that is on, in the accent colour */
-.item-menu-button[aria-pressed="true"] {
-  background: var(--accent-bg);
-  color: var(--accent);
-}
 /* the filters that are on, each a chip that removes it */
 .filter-chips {
   display: flex;

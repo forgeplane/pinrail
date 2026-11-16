@@ -13,7 +13,7 @@ import { ItemStatusIcon } from "../components/ItemStatusIcon";
 import { Tooltip } from "../components/Tooltip";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { ORDERINGS, orderItems, type Ordering } from "../lib/itemOrder";
-import { ChevronsDownUp, ChevronsUpDown, List as ListIcon, ListTree, SkipForward } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, List as ListIcon, ListTree } from "lucide-react";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { hasMod, modalOpen, isTyping } from "../lib/keys";
@@ -633,17 +633,6 @@ export function WorkItems() {
                 </button>
               </Tooltip>
             ) : null}
-            <Tooltip label={prefs.items.show_next ? "Hide next item" : "Show next item"} side="bottom">
-              <button
-                type="button"
-                className="bar-button item-menu-button"
-                aria-label="Show next item"
-                aria-pressed={prefs.items.show_next}
-                onClick={() => void update({ items: { show_next: !prefs.items.show_next } })}
-              >
-                <SkipForward size={15} />
-              </button>
-            </Tooltip>
             <ListMenuButtons
               label="work items"
               filters={filters}
@@ -667,6 +656,14 @@ export function WorkItems() {
                     { value: "flat", label: "Flat", icon: ListIcon },
                   ],
                   onChange: (next) => void update({ items: { nesting: next as "nested" | "flat" } }),
+                },
+              ]}
+              displayToggles={[
+                {
+                  key: "show_next",
+                  label: "Show next item",
+                  on: prefs.items.show_next,
+                  onChange: (on) => void update({ items: { show_next: on } }),
                 },
               ]}
             />
