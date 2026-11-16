@@ -454,4 +454,78 @@ mod tests {
             .is_err()
         );
     }
+
+    /// The full-text index starts with every item and its comments, and
+    /// follows each change to an item's title, body or comments.
+    #[test]
+    fn the_search_index_follows_the_items_and_their_comments() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.0 < 20261117120000)
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        let t = "'2026-11-01T10:00:00.000000Z'";
+        conn.execute_batch(&format!(
+            "INSERT INTO repos (id, name, prefix, created_at) VALUES (1, 'acme/api', 'API', {t});
+             INSERT INTO work_items (id, repo_id, number, title, body, status, created_by, created_at, updated_at)
+               VALUES ('a', 1, 1, 'Flickering header', 'The header jumps', 'open', 'person', {t}, {t});
+             INSERT INTO work_item_comments (id, item_id, body, author, created_at)
+               VALUES ('c1', 'a', 'Seen on the wombat page', 'person', {t});"
+        ))
+        .unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+
+        let found = |words: &str| -> Vec<String> {
+            conn.prepare(
+                "SELECT r.item_id FROM work_item_search s
+                   JOIN work_item_search_rows r ON r.row = s.rowid
+                  WHERE work_item_search MATCH ?1 ORDER BY r.item_id",
+            )
+            .unwrap()
+            .query_map([words], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+        };
+        // the item from before, its comment, and its words in other forms
+        assert_eq!(found("flicker"), ["a"]);
+        assert_eq!(found("jumping"), ["a"]);
+        assert_eq!(found("wombat"), ["a"]);
+
+        conn.execute_batch(&format!(
+            "INSERT INTO work_items (id, repo_id, number, title, body, status, created_by, created_at, updated_at)
+               VALUES ('b', 1, 2, 'Slow search', '', 'open', 'person', {t}, {t});
+             INSERT INTO work_item_comments (id, item_id, body, author, created_at)
+               VALUES ('c2', 'b', 'Also the wombat page', 'person', {t});"
+        ))
+        .unwrap();
+        assert_eq!(found("slow"), ["b"]);
+        assert_eq!(found("wombat"), ["a", "b"]);
+
+        conn.execute_batch(
+            "UPDATE work_items SET title = 'Fast search', body = 'Ranked' WHERE id = 'b';
+             UPDATE work_item_comments SET body = 'Seen on the quokka page' WHERE id = 'c1';
+             DELETE FROM work_item_comments WHERE id = 'c2';",
+        )
+        .unwrap();
+        assert!(found("slow").is_empty());
+        assert_eq!(found("ranked"), ["b"]);
+        assert!(found("wombat").is_empty());
+        assert_eq!(found("quokka"), ["a"]);
+
+        // a deleted item leaves the index, with its comments
+        conn.execute("DELETE FROM work_items WHERE id = 'a'", [])
+            .unwrap();
+        assert!(found("quokka").is_empty());
+        assert!(found("flicker").is_empty());
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM work_item_search_rows", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(rows, 1);
+    }
 }
