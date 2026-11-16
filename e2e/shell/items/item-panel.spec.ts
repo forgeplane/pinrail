@@ -769,3 +769,28 @@ test("a review is taken out of an item from the item's panel, and stays on its o
   const read = await (await request.get(`${core}/api/v1/reviews/${review.id}`)).json();
   expect(read.items.map((i: { key: string }) => i.key)).toEqual([two.key]);
 });
+
+test("the sub-items progress ring is centred on the capital letters beside it", async ({ page, request }) => {
+  const repo = fresh();
+  const parent = await add(request, repo, "Parent");
+  for (const n of [1, 2]) await add(request, repo, `Child ${n}`, { parent: parent.key });
+  await page.goto(`/#/items?open=${parent.key}`);
+  const progress = page.getByTestId("item-sub-progress");
+  await expect(progress).toBeVisible();
+  const { ring, caps } = await progress.evaluate((el) => {
+    const box = el.querySelector("svg")!.getBoundingClientRect();
+    const text = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE)!;
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const style = getComputedStyle(el);
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const metrics = context.measureText("O");
+    const baseline = range.getBoundingClientRect().top + metrics.fontBoundingBoxAscent;
+    return {
+      ring: (box.top + box.bottom) / 2,
+      caps: baseline - metrics.actualBoundingBoxAscent / 2,
+    };
+  });
+  expect(Math.abs(ring - caps)).toBeLessThan(0.3);
+});

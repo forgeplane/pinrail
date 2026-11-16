@@ -6756,6 +6756,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .progress-ring {
   flex: none;
 }
+/* centred on the capital letters of an uppercase heading, which sit
+   above the middle of the line */
+.item-section-progress .progress-ring {
+  transform: translateY(-0.075em);
+}
 .progress-ring-track {
   fill: none;
   stroke: var(--border-strong);
