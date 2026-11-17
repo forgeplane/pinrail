@@ -13,7 +13,7 @@ import { AgentIcon } from "./AgentIcon";
 import { sessionPath } from "./Thread";
 import { useState } from "react";
 import { sessionLabel } from "../lib/sessions";
-import { rememberSessions } from "../lib/knownSessions";
+import { useSessionsSeen } from "../lib/useSessionsSeen";
 
 /** How many sessions are fetched, more than the section shows, to tell
  *  whether there are more. */
@@ -24,12 +24,14 @@ const FETCHED = 50;
 export function useInboxAgents(): { rows: AgentRow[]; more: boolean; now: number } {
   const changed = useNoticeCount(aboutSessions);
   const [now, setNow] = useState(() => Date.now());
+  // each list keeps its sessions, and announces a rare discovery
+  const seen = useSessionsSeen();
   const sessions =
     useLoad(
       () =>
         api.sessions({ attention: "needs_you,finished", sort: "priority", limit: String(FETCHED) }).then((d) => {
           setNow(Date.now());
-          rememberSessions(d.sessions);
+          seen(d.sessions);
           return d.sessions;
         }),
       [changed],

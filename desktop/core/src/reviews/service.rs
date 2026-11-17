@@ -782,6 +782,11 @@ impl Reviews {
         Ok(())
     }
 
+    /// How many sessions each element names, archived ones included.
+    pub fn element_counts(&self) -> Result<std::collections::HashMap<u32, usize>, Error> {
+        Ok(self.db.element_counts()?)
+    }
+
     /// The session's name, if there is such a session.
     pub fn session_name(&self, agent: &str, id: &str) -> Result<Option<String>, Error> {
         Ok(self.db.session_name(agent, id)?)

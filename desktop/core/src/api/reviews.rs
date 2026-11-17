@@ -707,10 +707,20 @@ async fn archive(
 }
 
 /// The chemical elements sessions are named after: `elements`, each with
-/// its number, symbol, name, category, rarity, place on the periodic table
-/// and one sentence about it.
-async fn elements() -> Json<Value> {
-    Json(json!({ "elements": crate::elements::all() }))
+/// its number, symbol, name, category, rarity, place on the periodic table,
+/// one sentence about it, and `sessions`, how many sessions it names,
+/// archived ones included.
+async fn elements(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
+    let counts = state.reviews().element_counts()?;
+    let elements: Vec<Value> = crate::elements::all()
+        .iter()
+        .map(|e| {
+            let mut json = serde_json::to_value(e).unwrap_or(Value::Null);
+            json["sessions"] = json!(counts.get(&e.number).copied().unwrap_or(0));
+            json
+        })
+        .collect();
+    Ok(Json(json!({ "elements": elements })))
 }
 
 /// Renames a session, for the person: `name`, or `null` to give it back

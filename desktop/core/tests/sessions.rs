@@ -1244,4 +1244,30 @@ async fn the_elements_are_served_with_their_place_and_description() {
     assert_eq!(elements[0]["row"], 1);
     assert_eq!(elements[0]["column"], 1);
     assert!(elements[0]["description"].as_str().unwrap().ends_with('.'));
+
+    // with how many sessions each names, archived ones included
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-counted/status",
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-counted", None).await;
+    let number = thread["session"]["element"].as_u64().unwrap() as usize;
+    call(
+        &app,
+        "PUT",
+        "/api/v1/sessions/claude-code/s-counted/archive",
+        None,
+    )
+    .await;
+    let (_, body) = call(&app, "GET", "/api/v1/elements", None).await;
+    let elements = body["elements"].as_array().unwrap();
+    assert_eq!(elements[number - 1]["sessions"], 1);
+    let total: u64 = elements
+        .iter()
+        .map(|e| e["sessions"].as_u64().unwrap())
+        .sum();
+    assert_eq!(total, 1);
 }

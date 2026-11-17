@@ -375,6 +375,17 @@ impl Db {
             .map(Option::flatten)
     }
 
+    /// How many sessions each element names, archived ones included, by
+    /// atomic number.
+    pub fn element_counts(&self) -> rusqlite::Result<std::collections::HashMap<u32, usize>> {
+        self.read()
+            .prepare(
+                "SELECT element, COUNT(*) FROM sessions WHERE element IS NOT NULL GROUP BY element",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as usize)))?
+            .collect()
+    }
+
     /// What names the session where it is shown: the name the person gave
     /// it, else the stage it is on, else the name Pinrail gave it.
     pub fn session_label(&self, agent: &str, id: &str) -> rusqlite::Result<Option<String>> {

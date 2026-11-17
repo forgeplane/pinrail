@@ -45,7 +45,7 @@ import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 import { useLoad } from "../lib/useLoad";
-import { rememberSessions } from "../lib/knownSessions";
+import { useSessionsSeen } from "../lib/useSessionsSeen";
 
 /** How often the working marks are checked against the time. */
 const TICK_MS = 30_000;
@@ -127,13 +127,15 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
       "repository_deleted",
     ].includes(n.kind),
   );
+  // each list keeps its sessions, and announces a rare discovery
+  const seen = useSessionsSeen();
   const sessions =
     useLoad(
       () =>
         api.sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined }).then((d) => {
           // the clock moves on with each list, which ages its sessions
           setNow(Date.now());
-          rememberSessions(d.sessions);
+          seen(d.sessions);
           return d.sessions;
         }),
       [live.pending, reported, choices.archived],

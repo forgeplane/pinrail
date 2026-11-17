@@ -62,3 +62,25 @@ test("a session opened from the sidebar shows its element before its thread has 
   await expect(page.getByTestId("thread").getByRole("heading", { level: 1 })).toHaveText("Show the header at once");
   await expect(page.locator(".thread-head > .element-tile")).toBeVisible();
 });
+
+test("a session with a rare element no session had announces its discovery", async ({ page }) => {
+  const session = `s-rare-${Date.now()}`;
+  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Find a rare one" },
+  });
+  const { session: s } = (await (await page.request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json()) as {
+    session: { element: number; name: string };
+  };
+  // the list says its element is rare, and that no session had it before
+  const response = await page.request.get(`${core}/api/v1/elements`);
+  const { elements } = (await response.json()) as {
+    elements: { number: number; name: string; rarity: string; sessions: number }[];
+  };
+  const element = elements[s.element - 1];
+  element.rarity = "rare";
+  element.sessions = 0;
+  await page.route(/\/api\/v1\/elements$/, (route) => route.fulfill({ json: { elements } }));
+
+  await page.goto("/#/");
+  await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.name}.`)).toBeVisible();
+});

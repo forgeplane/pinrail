@@ -191,6 +191,8 @@ export type Element = {
   row: number;
   column: number;
   description: string;
+  /** how many sessions it names, archived ones included */
+  sessions?: number;
 };
 
 /** An agent's session, as the reviews and questions it sent make it. */
