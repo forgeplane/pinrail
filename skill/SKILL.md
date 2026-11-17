@@ -52,7 +52,10 @@ pinrail ask "Deploy to staging or production?" \
 - A question is one line, and can use inline Markdown: put commands,
   paths and endpoints in backticks.
 - Put code, logs and diffs in `--context` inside a fenced block that names
-  its language, such as ```` ```diff ````, so that they show as code.
+  its language, such as ```` ```diff ````, so that they show as code. When
+  the text has a line of three backticks, as a diff of a Markdown file
+  can, open and close the block with four, such as ````` ````diff `````,
+  or that line ends the block early.
 - `--attach` sends a file with the question it follows, such as a
   screenshot, a chart or a log, listed under it. Show an image in place in
   its `--context` with `![the menu](attachment:menu.png)`. At most 10

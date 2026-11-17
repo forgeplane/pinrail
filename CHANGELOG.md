@@ -81,6 +81,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- The Pinrail skill tells agents to fence a diff that has a line of three
+  backticks with four, so that the diff shows whole in a question. Update
+  the Pinrail skill in Settings › Agents for the new advice.
 - An agent can no longer claim a work item while an item it depends on
   is open. You can still claim it in the app.
 - Ordered by status with sub-items shown, the work items list puts a
