@@ -20,6 +20,7 @@ import { noticeItem, useConnected, useNotice } from "../../state/live";
 import { useLoad } from "../../lib/useLoad";
 import { useLatest } from "../../lib/useLatest";
 import { reuse } from "../../lib/reuse";
+import { knownSession } from "../../lib/knownSessions";
 
 /** What a live notice changes in a session's thread: `thread` when the
  *  thread is to load again, `item` when one of its work items changed.
@@ -93,7 +94,8 @@ export function useSessionThread(
   // a thread opened lately shows as it was until it has loaded again
   const key = named ? `${named.agent}/${named.id}` : null;
   const [cached] = useState(() => (key ? kept.get(key) : undefined));
-  const [session, setSession] = useState<Session | null>(cached?.session ?? null);
+  // a session a list gave already shows its header while its thread loads
+  const [session, setSession] = useState<Session | null>(cached?.session ?? knownSession(key));
   // a question of a session shows with its thread, not alone before it
   const [items, setItems] = useState<Review[]>(cached?.items ?? (focus && !named ? [focus] : []));
   const [statuses, setStatuses] = useState<SessionStatus[]>(cached?.statuses ?? []);
@@ -102,6 +104,9 @@ export function useSessionThread(
   const [itemEvents, setItemEvents] = useState<SessionItemEvent[]>(cached?.itemEvents ?? []);
   const [turns, setTurns] = useState<SessionTurn[]>(cached?.turns ?? []);
   const [error, setError] = useState<string | null>(null);
+  // whether the thread itself is there, kept or loaded, rather than only the
+  // session a list gave
+  const [loaded, setLoaded] = useState(!!cached);
   useEffect(() => {
     if (cached) onSession?.(cached.session);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, for the thread it opened with
@@ -146,6 +151,7 @@ export function useSessionThread(
         setComments((prev) => reuse(prev, thread.comments ?? [], (c) => c.id));
         setItemEvents((prev) => reuse(prev, thread.item_events ?? [], (e) => e.id));
         setTurns((prev) => reuse(prev, thread.turns ?? [], (t) => t.turn));
+        setLoaded(true);
       } else if (focus) {
         setItems([await api.getReview(focus.id)]);
       }
@@ -209,6 +215,8 @@ export function useSessionThread(
     error,
     load,
     sessionItems,
+    /** whether the thread is there, which its scroll waits for */
+    loaded,
     /** whether it opened showing the thread as it was last shown */
     kept: !!cached,
   };

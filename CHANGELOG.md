@@ -13,6 +13,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Every session has a name of its own, an adjective and a chemical element
+  such as **Careful Calcium**. A session with no stage yet shows it, and
+  its header shows the element's tile, with a card about the element on
+  hover. Click a session's name in its header to rename it.
 - The Work items page searches the full text of the work items, best
   match first, and shows where each one matched. The button at the left
   of the search field, or ⌥T, switches to searching the titles only.

@@ -180,6 +180,19 @@ export type Answer = {
 /** A stage an agent started, as the stage search finds it. */
 export type Stage = { id: number; agent: string; session: string; text: string; at: string; repo: string | null };
 
+/** A chemical element, which names sessions, as the periodic table shows it:
+ *  rows 1 to 7 are the periods, rows 9 and 10 the lanthanides and actinides. */
+export type Element = {
+  number: number;
+  symbol: string;
+  name: string;
+  category: string;
+  rarity: "common" | "uncommon" | "rare" | "legendary";
+  row: number;
+  column: number;
+  description: string;
+};
+
 /** An agent's session, as the reviews and questions it sent make it. */
 export type Session = {
   agent: string;

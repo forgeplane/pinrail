@@ -20,6 +20,8 @@ import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { fromSession, sessionLabel, stageBeside } from "../lib/sessions";
+import { elementOf, useElements } from "../lib/elements";
+import { ElementTile } from "./ElementTile";
 import {
   type Choices,
   type Group,
@@ -43,6 +45,7 @@ import { ProjectAvatar } from "./ProjectAvatar";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 import { useLoad } from "../lib/useLoad";
+import { rememberSessions } from "../lib/knownSessions";
 
 /** How often the working marks are checked against the time. */
 const TICK_MS = 30_000;
@@ -108,6 +111,8 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   // a session's own menu, by the button on its row
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; anchor: HTMLElement } | null>(null);
+  // the elements the sessions are named after, for their tooltips
+  const elements = useElements();
 
   // a status may change a session's stage or mark it done, the person may
   // rename it, and archiving one moves it in or out
@@ -128,6 +133,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
         api.sessions({ limit: String(FETCHED), include_archived: choices.archived ? "true" : undefined }).then((d) => {
           // the clock moves on with each list, which ages its sessions
           setNow(Date.now());
+          rememberSessions(d.sessions);
           return d.sessions;
         }),
       [live.pending, reported, choices.archived],
@@ -241,8 +247,15 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           return part ? [{ key: d, part }] : [];
         })
       : [];
+    const element = elementOf(elements, s.element);
     const tip = (
       <span className="sidebar-session-tip">
+        {element ? (
+          <span className="sidebar-session-tip-element">
+            <ElementTile element={element} />
+            {s.generated_name ?? s.name}
+          </span>
+        ) : null}
         <span>
           {STATE_LABEL[row.state]} · {age(s.status?.at ?? s.last_at, now)} ago
         </span>

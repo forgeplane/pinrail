@@ -30,6 +30,10 @@ type Props = {
   hoverOnly?: boolean;
   /** "danger" for a tooltip that says what went wrong */
   tone?: "danger";
+  /** a card of several lines, such as an element's, roomier than a label */
+  card?: boolean;
+  /** which edge of the trigger it lines up with; the middle by default */
+  align?: "center" | "start";
   children: ReactElement<Record<string, unknown>>;
 };
 
@@ -39,7 +43,16 @@ function setRef(ref: unknown, node: HTMLElement | null) {
   else if (ref && typeof ref === "object") (ref as { current: HTMLElement | null }).current = node;
 }
 
-export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone, children }: Props) {
+export function Tooltip({
+  label,
+  keys,
+  side = "bottom",
+  hoverOnly = false,
+  tone,
+  card = false,
+  align = "center",
+  children,
+}: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -60,13 +73,13 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
     if (!open || !trigger.current || !tip.current) return;
     const t = viewportRect(trigger.current);
     const box = tip.current.getBoundingClientRect();
-    let left = t.left + t.width / 2 - box.width / 2;
+    let left = align === "start" ? t.left : t.left + t.width / 2 - box.width / 2;
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - box.width - MARGIN));
     let top = side === "bottom" ? t.bottom + GAP : t.top - box.height - GAP;
     if (top < MARGIN) top = t.bottom + GAP;
     if (top + box.height > window.innerHeight - MARGIN) top = t.top - box.height - GAP;
     setPos({ top, left });
-  }, [open, side]);
+  }, [open, side, align]);
 
   useEffect(() => {
     if (!open) return;
@@ -126,7 +139,7 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
               ref={tip}
               id={id}
               role="tooltip"
-              className={`tooltip ${tone === "danger" ? "is-danger" : ""} ${pos ? "is-placed" : ""}`}
+              className={`tooltip ${tone === "danger" ? "is-danger" : ""} ${card ? "is-card" : ""} ${pos ? "is-placed" : ""}`}
               style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
             >
               <span className="tooltip-label">{label}</span>

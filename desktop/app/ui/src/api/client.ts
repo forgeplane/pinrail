@@ -26,6 +26,7 @@ import type {
   SessionStatus,
   SessionTurn,
   Stage,
+  Element,
   ThemeEntry,
   Violation,
   WorkItem,
@@ -272,6 +273,8 @@ export const api = {
   /** Marks a session seen, which clears Finished, or unread, which brings it back. */
   setSeen: (agent: string, id: string, seen: boolean) =>
     request<void>(seen ? "PUT" : "DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/seen`),
+  /** the chemical elements sessions are named after, by atomic number */
+  elements: () => request<{ elements: Element[] }>("GET", "/api/v1/elements"),
   /** the stages agents started, newest first, those whose names hold every word of q */
   stages: (params: { q?: string; limit?: string }) =>
     request<{ stages: Stage[] }>("GET", `/api/v1/stages${query(params)}`),

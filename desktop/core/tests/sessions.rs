@@ -1231,3 +1231,17 @@ async fn a_session_is_found_by_its_name() {
         .collect();
     assert_eq!(ids, ["s-found"]);
 }
+
+#[tokio::test]
+async fn the_elements_are_served_with_their_place_and_description() {
+    let app = app();
+    let (code, body) = call(&app, "GET", "/api/v1/elements", None).await;
+    assert_eq!(code, StatusCode::OK);
+    let elements = body["elements"].as_array().unwrap();
+    assert_eq!(elements.len(), 118);
+    assert_eq!(elements[0]["symbol"], "H");
+    assert_eq!(elements[0]["rarity"], "common");
+    assert_eq!(elements[0]["row"], 1);
+    assert_eq!(elements[0]["column"], 1);
+    assert!(elements[0]["description"].as_str().unwrap().ends_with('.'));
+}

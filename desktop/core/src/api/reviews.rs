@@ -44,6 +44,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
         .route("/api/v1/sessions", get(sessions))
         .route("/api/v1/stages", get(stages))
+        .route("/api/v1/elements", get(elements))
         .route("/api/v1/sessions/{agent}/{id}", get(session).patch(rename))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
         .route("/api/v1/sessions/{agent}/{id}/reports", post(report))
@@ -703,6 +704,13 @@ async fn archive(
 ) -> Result<StatusCode, ApiError> {
     state.reviews().archive_session(&agent, &id, true)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// The chemical elements sessions are named after: `elements`, each with
+/// its number, symbol, name, category, rarity, place on the periodic table
+/// and one sentence about it.
+async fn elements() -> Json<Value> {
+    Json(json!({ "elements": crate::elements::all() }))
 }
 
 /// Renames a session, for the person: `name`, or `null` to give it back

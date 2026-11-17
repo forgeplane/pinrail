@@ -3466,9 +3466,9 @@ body.is-resizing iframe {
     "avatar title end"
     "avatar meta meta";
   align-items: center;
-  column-gap: 14px;
-  row-gap: 3px;
-  padding: 12px 32px 14px;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 10px 32px 11px;
   border-bottom: 1px solid var(--border);
   container-type: inline-size;
 }
@@ -3476,22 +3476,20 @@ body.is-resizing iframe {
   padding: 2px 0 12px;
   column-gap: 10px;
 }
+/* as tall as the header's two rows, which it lines up with */
 .thread-avatar {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  margin-top: 1px;
+  align-self: stretch;
+  width: 42px;
+  height: auto;
   border-radius: var(--radius-lg);
   background: var(--bg-raised);
   border: 1px solid var(--border);
 }
-.thread.in-panel .thread-avatar {
-  width: 28px;
-  height: 28px;
-}
+
 .thread-title {
   display: contents;
 }
@@ -3499,14 +3497,21 @@ body.is-resizing iframe {
   grid-area: avatar;
   align-self: start;
 }
+/* the title at the top of the first row and the meta line at the bottom
+   of the second, which the avatar or the element spans exactly */
 .thread-title-row {
   grid-area: title;
+  align-self: start;
 }
 .thread-meta {
   grid-area: meta;
+  align-self: end;
 }
+/* the buttons stay in the first row's 22px, so the element beside the
+   two rows is a square */
 .thread-head-end {
   grid-area: end;
+  height: 22px;
 }
 .thread-title h1 {
   display: block;
@@ -3608,7 +3613,7 @@ body.is-resizing iframe {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  height: 24px;
+  height: 22px;
   overflow: hidden;
 }
 /* the title takes only its own width, so the badges and the menu sit
@@ -3699,7 +3704,7 @@ body.is-resizing iframe {
   display: flex;
   align-items: center;
   gap: 16px;
-  height: 20px;
+  height: 18px;
   overflow: hidden;
   font-size: var(--text-sm);
   color: var(--dim);
@@ -8492,4 +8497,207 @@ a.item-ref {
   .thread-turn-doing {
     animation: none;
   }
+}
+
+/* An element as the periodic table draws it: its symbol in its category's
+   colour, its number in a corner. The border says how rare it is: neutral
+   for common and uncommon, the category's colour for rare, and with a tint
+   too for legendary. The colours read on the dark and the light theme. */
+.element-tile {
+  --el: #8a8f9c;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--el);
+  font-family: var(--font);
+  line-height: 1;
+}
+.element-tile.is-rare,
+.element-tile.is-legendary {
+  border-color: color-mix(in srgb, var(--el) 75%, transparent);
+}
+.element-tile.is-legendary {
+  background: color-mix(in srgb, var(--el) 16%, var(--bg-raised));
+}
+.element-tile.is-lg {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-lg);
+}
+.element-tile.is-xl {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+}
+.element-tile-symbol {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.element-tile.is-lg .element-tile-symbol {
+  padding-top: 7px;
+  font-size: 16px;
+}
+.element-tile.is-xl .element-tile-symbol {
+  padding-top: 8px;
+  font-size: 20px;
+}
+.element-tile-number {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  color: var(--dim);
+  font-size: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.element-tile.is-xl .element-tile-number {
+  top: 5px;
+  left: 6px;
+  font-size: 9.5px;
+}
+/* the agent's icon on its corner */
+.element-tile-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+}
+/* in a header, in the avatar's place */
+/* in a header, in the avatar's place, as tall as its two rows */
+.thread-head > .element-tile {
+  grid-area: avatar;
+  align-self: stretch;
+  width: 42px;
+  height: auto;
+}
+
+.element-tile.is-alkali-metal,
+.element-card.is-alkali-metal {
+  --el: #e5707a;
+}
+.element-tile.is-alkaline-earth-metal,
+.element-card.is-alkaline-earth-metal {
+  --el: #e59a52;
+}
+.element-tile.is-transition-metal,
+.element-card.is-transition-metal {
+  --el: #6d9ee8;
+}
+.element-tile.is-post-transition-metal,
+.element-card.is-post-transition-metal {
+  --el: #5fb3b6;
+}
+.element-tile.is-metalloid,
+.element-card.is-metalloid {
+  --el: #4fb88e;
+}
+.element-tile.is-nonmetal,
+.element-card.is-nonmetal {
+  --el: #78bb58;
+}
+.element-tile.is-halogen,
+.element-card.is-halogen {
+  --el: #c4b13c;
+}
+.element-tile.is-noble-gas,
+.element-card.is-noble-gas {
+  --el: #a77fe0;
+}
+.element-tile.is-lanthanide,
+.element-card.is-lanthanide {
+  --el: #df7fb4;
+}
+.element-tile.is-actinide,
+.element-card.is-actinide {
+  --el: #d98a5e;
+}
+/* a tooltip that holds a card */
+.tooltip.is-card {
+  padding: 0;
+  overflow: hidden;
+  white-space: normal;
+  border-radius: var(--radius-lg);
+}
+.tooltip.is-card .tooltip-label {
+  display: block;
+}
+/* the element's card: the tile, its name and what it is, then one sentence,
+   under a line in its category's colour */
+.element-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 272px;
+  padding: 14px 16px 16px;
+  border-top: 2px solid color-mix(in srgb, var(--el) 70%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--el) 9%, transparent), transparent 72px);
+  text-align: left;
+}
+.element-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.element-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.element-card-name {
+  color: var(--tip-text);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.element-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: var(--text-xs);
+}
+.element-card-rarity {
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.element-card-rarity.is-rare,
+.element-card-rarity.is-legendary {
+  border-color: color-mix(in srgb, var(--el) 70%, transparent);
+  color: var(--el);
+}
+.element-card-rarity.is-legendary {
+  background: color-mix(in srgb, var(--el) 16%, transparent);
+}
+.element-card-text {
+  color: var(--tip-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+/* in a session's tooltip in the sidebar: its element and the name Pinrail
+   gave it */
+.sidebar-session-tip-element {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

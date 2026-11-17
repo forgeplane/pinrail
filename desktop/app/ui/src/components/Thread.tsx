@@ -6,6 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Link, useLocation, useNavigate, type To } from "react-router";
 import { api, errorMessage } from "../api/client";
 import { useToast } from "../state/toasts";
+import { elementOf, useElements } from "../lib/elements";
+import { ElementTile } from "./ElementTile";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, isMac, modalOpen, isTyping } from "../lib/keys";
@@ -198,8 +200,21 @@ export function Thread({
   );
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
-  const { session, rename, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems, kept } =
-    useSessionThread(named, focus, onSession);
+  const {
+    session,
+    rename,
+    items,
+    statuses,
+    messages,
+    comments,
+    itemEvents,
+    turns,
+    error,
+    load,
+    sessionItems,
+    loaded,
+    kept,
+  } = useSessionThread(named, focus, onSession);
   // where the person left this session's thread, when it opens as it was
   // shown then, at no question or stage
   const placeKey = named ? `${named.agent}/${named.id}` : null;
@@ -293,6 +308,7 @@ export function Thread({
   // renaming the session in its header, which Rename in a session's menu
   // elsewhere asks for as it opens the page
   const routed = useLocation();
+  const element = elementOf(useElements(), session?.element);
   const asksRename = (routed.state as { rename?: boolean } | null)?.rename === true;
   const [renaming, setRenaming] = useState(asksRename);
   const [routedKey, setRoutedKey] = useState(routed.key);
@@ -326,7 +342,8 @@ export function Thread({
   const { atEnd, pinned, holdAt } = useThreadScroll(timeline, footer, {
     focus,
     items,
-    session,
+    // the thread is there, not only the session a list gave
+    session: loaded ? session : null,
     stage,
     placed: !!place,
   });
@@ -439,15 +456,15 @@ export function Thread({
     pinned,
   });
   useLayoutEffect(() => {
-    drawnRef.current = { shown, leading: session && whole ? 1 : 0 };
+    drawnRef.current = { shown, leading: loaded && session && whole ? 1 : 0 };
   });
   // where it was left, once it is drawn
   useLayoutEffect(() => {
-    if (!place || !session) return;
+    if (!place || !session || !loaded) return;
     const i = shown.findIndex((entry) => entryKey(entry) === place.key);
     const leading = whole ? 1 : 0;
     holdAt(i < 0 ? null : (timeline.current?.children[leading + i] ?? null), place.offset);
-  }, [place, session, shown, whole, holdAt]);
+  }, [place, session, loaded, shown, whole, holdAt]);
 
   /** Scrolls to an entry's element, drawing every entry first if it is not. */
   const jump = useCallback(
@@ -541,9 +558,15 @@ export function Thread({
     <ItemOpener.Provider value={panelMode ? showItem : null}>
       <div className={`thread ${inPanel ? "in-panel" : ""}`} data-testid="thread">
         <header className="thread-head">
-          <span className="thread-avatar">
-            <AgentIcon requestedBy={agent} size={18} />
-          </span>
+          {/* the element it is named after, with its agent on its corner,
+            or else the agent */}
+          {element ? (
+            <ElementTile element={element} size="lg" card badge={<AgentIcon requestedBy={agent} size={10} />} />
+          ) : (
+            <span className="thread-avatar">
+              <AgentIcon requestedBy={agent} size={18} />
+            </span>
+          )}
           <div className="thread-title">
             {/* the stage the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}

@@ -13,6 +13,7 @@ import { AgentIcon } from "./AgentIcon";
 import { sessionPath } from "./Thread";
 import { useState } from "react";
 import { sessionLabel } from "../lib/sessions";
+import { rememberSessions } from "../lib/knownSessions";
 
 /** How many sessions are fetched, more than the section shows, to tell
  *  whether there are more. */
@@ -28,6 +29,7 @@ export function useInboxAgents(): { rows: AgentRow[]; more: boolean; now: number
       () =>
         api.sessions({ attention: "needs_you,finished", sort: "priority", limit: String(FETCHED) }).then((d) => {
           setNow(Date.now());
+          rememberSessions(d.sessions);
           return d.sessions;
         }),
       [changed],
