@@ -171,6 +171,16 @@ test("# in the first message lists the work items, the folder's repository's fir
   expect(started[0]).toMatchObject({ task: `Work on ${key}` });
 });
 
+test("the page shows a tip, the next one on request", async ({ page }) => {
+  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
+  await page.goto("/#/sessions/new");
+  const tip = page.getByTestId("new-session-tip");
+  await expect(tip).not.toHaveText("");
+  const first = await tip.textContent();
+  await tip.getByRole("button", { name: "Next tip" }).click();
+  await expect(tip).not.toHaveText(first!);
+});
+
 test("a typed folder is used as it is, and a flag that turns permission checks off is refused", async ({ page }) => {
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
   await page.goto("/#/sessions/new");
@@ -184,6 +194,8 @@ test("a typed folder is used as it is, and a flag that turns permission checks o
   await expect(page.getByRole("alert")).toHaveText(
     "Pinrail does not start agents with permission checks turned off (--dangerously-skip-permissions).",
   );
+  // the error takes the tip's place
+  await expect(page.getByTestId("new-session-tip")).toHaveCount(0);
   await expect(page).toHaveURL(/#\/sessions\/new$/);
 });
 

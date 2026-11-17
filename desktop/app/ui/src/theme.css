@@ -8125,6 +8125,56 @@ a.item-ref {
   color: var(--text);
   border-color: var(--border-strong);
 }
+/* one quiet tip under the box, its category first, with buttons for the
+   others */
+.new-session-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0 12px;
+  color: var(--faint);
+  font-size: var(--text-sm);
+}
+.new-session-tip-icon {
+  flex: none;
+}
+.new-session-tip-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.6;
+}
+.new-session-tip-category {
+  margin-right: 6px;
+  color: var(--dim);
+  font-weight: 600;
+}
+.new-session-tip-keys {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0 1px;
+  vertical-align: 1px;
+}
+.new-session-tip-keys kbd {
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: var(--text-2xs) / 16px var(--font);
+  text-align: center;
+}
+.new-session-tip-nav {
+  display: inline-flex;
+  flex: none;
+}
+.new-session-tip-nav .bar-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
 .new-session-start {
   display: grid;
   place-items: center;

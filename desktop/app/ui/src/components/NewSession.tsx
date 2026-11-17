@@ -4,7 +4,15 @@
 // An agent that names its session only once it starts, such as Codex, is
 // waited for until it does.
 
-import { ArrowUp, ChevronDown, FolderOpen, SlidersHorizontal } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FolderOpen,
+  Lightbulb,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
@@ -12,6 +20,7 @@ import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime"
 import { splitArgs } from "../lib/args";
 import { exitText } from "../lib/failedStart";
 import { combo, hasMod, MOD } from "../lib/keys";
+import { TIPS, tipParts } from "../lib/tips";
 import { useWindowKey } from "../lib/useWindowKey";
 import { AgentIcon } from "./AgentIcon";
 import { useItemPicker } from "./ItemPicker";
@@ -79,6 +88,8 @@ export function NewSession() {
   // the last lines of an agent that exited as it started
   const [output, setOutput] = useState<string | null>(null);
   const [agentMenu, setAgentMenu] = useState<HTMLElement | null>(null);
+  // a tip picked when the page opens, and the next one on request
+  const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
   const [folderOpen, setFolderOpen] = useState(false);
   const message = useRef<HTMLTextAreaElement>(null);
   const localId = useRef(crypto.randomUUID());
@@ -290,6 +301,45 @@ export function NewSession() {
             {starting}
           </p>
         ) : null}
+        {error || output || starting ? null : (
+          <aside className="new-session-tip" aria-label="Tip" data-testid="new-session-tip">
+            <Lightbulb size={13} className="new-session-tip-icon" aria-hidden="true" />
+            <p className="new-session-tip-text">
+              <span className="new-session-tip-category">{TIPS[tip].category}</span>
+              {tipParts(TIPS[tip].text).map((part, i) =>
+                typeof part === "string" ? (
+                  part
+                ) : (
+                  <span key={i} className="new-session-tip-keys">
+                    {part.map((key) => (
+                      <kbd key={key}>{key}</kbd>
+                    ))}
+                  </span>
+                ),
+              )}
+            </p>
+            <span className="new-session-tip-nav">
+              <button
+                type="button"
+                className="bar-button"
+                aria-label="Previous tip"
+                title="Previous tip"
+                onClick={() => setTip((t) => (t + TIPS.length - 1) % TIPS.length)}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                className="bar-button"
+                aria-label="Next tip"
+                title="Next tip"
+                onClick={() => setTip((t) => (t + 1) % TIPS.length)}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </span>
+          </aside>
+        )}
       </div>
     </div>
   );
