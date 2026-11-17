@@ -1102,3 +1102,39 @@ async fn a_session_says_how_its_agent_can_be_resumed_and_typed_into() {
         assert_eq!(thread["session"]["types"], resume, "{agent}");
     }
 }
+
+#[tokio::test]
+async fn a_new_session_is_named_after_an_element_and_no_two_active_ones_share_a_name() {
+    let app = app();
+    let mut names = Vec::new();
+    for id in ["s-name-1", "s-name-2", "s-name-3"] {
+        let (code, _) = call(
+            &app,
+            "POST",
+            &format!("/api/v1/sessions/claude-code/{id}/status"),
+            Some(json!({"text": "Working"})),
+        )
+        .await;
+        assert_eq!(code, StatusCode::OK);
+        let (_, thread) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/sessions/claude-code/{id}"),
+            None,
+        )
+        .await;
+        let session = &thread["session"];
+        let number = session["element"].as_u64().expect("an element") as u32;
+        let element = pinrail_core::elements::by_number(number).expect("a known element");
+        let name = session["name"].as_str().expect("a name");
+        let adjective = name
+            .strip_suffix(&format!(" {}", element.name))
+            .expect(name);
+        assert!(!adjective.is_empty() && !adjective.contains(' '), "{name}");
+        assert_eq!(session["named_by"], "pinrail");
+        names.push(name.to_string());
+    }
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), 3, "{names:?}");
+}

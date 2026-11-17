@@ -13,6 +13,7 @@ mod events;
 mod item_work;
 mod items;
 mod messages;
+mod names;
 mod outcomes;
 mod plugins;
 mod presence;
@@ -123,6 +124,8 @@ impl Db {
 
     fn init(conn: Connection) -> rusqlite::Result<Db> {
         migrate(&conn)?;
+        // the sessions recorded before they had names get theirs
+        names::name_new_sessions(&conn, &mut crate::elements::system_random)?;
         Ok(Db {
             conn: Mutex::new(conn),
             readers: Vec::new(),

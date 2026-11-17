@@ -141,3 +141,20 @@ fn a_database_from_0_6_0_takes_runs_for_its_sessions() {
         Some(("claude-code".to_string(), "s-060".to_string()))
     );
 }
+
+#[tokio::test]
+async fn the_sessions_of_an_earlier_release_are_named_when_it_opens() {
+    let (_dir, app) = from_0_6_0();
+    let (_, sessions) =
+        common::call(&app, "GET", "/api/v1/sessions?include_archived=true", None).await;
+    for session in sessions["sessions"].as_array().unwrap() {
+        let number = session["element"].as_u64().expect("an element") as u32;
+        let element = pinrail_core::elements::by_number(number).expect("a known element");
+        let name = session["name"].as_str().expect("a name");
+        assert!(name.ends_with(&format!(" {}", element.name)), "{name}");
+        // the stage title stays as it was
+        if session["id"] == "s-060" {
+            assert_eq!(session["title"], "Add rate limiting");
+        }
+    }
+}

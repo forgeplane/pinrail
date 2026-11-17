@@ -29,8 +29,14 @@ pub struct SessionRow {
     pub waiting_reviews: usize,
     /// what the agent last said it is doing
     pub status: Option<StatusRow>,
-    /// the stage the agent last said it started, which names the session
+    /// the stage the agent last said it started
     pub title: Option<String>,
+    /// the session's own name, such as Happy Hydrogen, and the atomic
+    /// number of the element it is named after
+    pub name: Option<String>,
+    pub element: Option<u32>,
+    /// who gave the name: "pinrail" or "person"
+    pub named_by: String,
     /// when the person archived the session, if they did
     pub archived_at: Option<DateTime<Utc>>,
     /// when the agent last reported anything, a note included
@@ -265,7 +271,7 @@ pub(super) fn touch(
             activity(at),
         ],
     )?;
-    Ok(())
+    super::names::name_new_sessions(conn, &mut crate::elements::system_random)
 }
 
 /// Shows a session known only from its agent's hooks, from now on: it
@@ -691,7 +697,8 @@ fn select() -> String {
     p.wait_summary AS p_wait_summary, p.stop_reason AS p_stop_reason, p.source AS p_source,
     p.pid AS p_pid, p.event_at AS p_event_at, p.state_since AS p_state_since,
     p.turn AS p_turn, p.turn_started AS p_turn_started, p.finished_at AS p_finished_at,
-    p.seen_at AS p_seen_at, p.updated_at AS p_updated_at
+    p.seen_at AS p_seen_at, p.updated_at AS p_updated_at,
+    s.name AS name, s.element AS element, s.named_by AS named_by
   FROM sessions s
   LEFT JOIN c ON c.agent = s.agent AND c.id = s.id
   LEFT JOIN session_presence p ON p.agent = s.agent AND p.session = s.id",
@@ -746,6 +753,9 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         waiting_reviews: count(10)?,
         status,
         title: row.get(15)?,
+        name: row.get("name")?,
+        element: row.get("element")?,
+        named_by: row.get("named_by")?,
         archived_at: row
             .get::<_, Option<String>>(16)?
             .and_then(|s| parse_datetime(&s)),
