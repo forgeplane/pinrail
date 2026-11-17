@@ -100,6 +100,11 @@ test("starting Claude Code opens its session in the terminal view at the size it
   await expect(agentPicker(page)).toHaveAccessibleName("Agent: Claude Code");
   await agentPicker(page).click();
   await expect(page.getByRole("menuitem", { name: /Codex/ })).toContainText("0.98.0");
+  // each agent with its icon
+  for (const name of ["Claude Code", "Codex"])
+    await expect(page.getByRole("menuitem", { name: new RegExp(name) }).locator(".menu-mark .agent-icon")).toHaveCount(
+      1,
+    );
   await page.keyboard.press("Escape");
   await folderPicker(page).click();
   await expect(page.getByRole("option", { name: /\/work\/old/ })).toContainText("This folder no longer exists.");

@@ -3,7 +3,7 @@
 // cannot clip it. A click outside, Escape or a pick closes it.
 
 import { Check, type LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { viewportRect } from "../lib/viewport";
 
@@ -12,6 +12,8 @@ export type MenuEntry =
       kind?: "item";
       label: string;
       icon?: LucideIcon;
+      /** a picture in the icon's place, such as an agent's icon */
+      mark?: ReactNode;
       onPick: () => void;
       /** why the action does not apply now, when it does not */
       disabled?: string;
@@ -119,6 +121,11 @@ export function PopoverMenu({
             }}
           >
             {Icon ? <Icon size={14} className="menu-icon" aria-hidden /> : null}
+            {entry.mark ? (
+              <span className="menu-mark" aria-hidden="true">
+                {entry.mark}
+              </span>
+            ) : null}
             <span className="menu-label truncate">{entry.label}</span>
             {entry.hint ? <span className="menu-hint">{entry.hint}</span> : null}
             {/* a choice that can be checked keeps the check's room, so that

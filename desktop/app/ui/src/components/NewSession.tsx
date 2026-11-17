@@ -172,6 +172,7 @@ export function NewSession() {
 
   const agentEntries: MenuEntry[] = shown.map((a) => ({
     label: a.name,
+    mark: <AgentIcon requestedBy={a.id} size={14} />,
     hint: a.installed ? (a.version ?? undefined) : undefined,
     checked: a.id === agent,
     disabled: a.installed ? undefined : "Not installed",
