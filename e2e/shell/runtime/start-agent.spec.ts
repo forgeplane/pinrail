@@ -1,4 +1,4 @@
-// The Start an agent dialog. The shell's core has no terminal host, so the
+// The New session page. The shell's core has no terminal host, so the
 // agents, the folders, the started run and its terminal are stood in for;
 // a flag that turns permission checks off goes to the real core, which
 // refuses it before it needs a host.
@@ -83,26 +83,31 @@ async function aSession(page: Page) {
   return session;
 }
 
-const dialog = (page: Page) => page.getByRole("dialog", { name: "Start an agent" });
+const folderPicker = (page: Page) => page.getByRole("button", { name: /^Folder:/ });
+const agentPicker = (page: Page) => page.getByRole("button", { name: /^Agent:/ });
+const message = (page: Page) => page.getByRole("textbox", { name: "First message" });
 
 test("starting Claude Code opens its session in the terminal view at the size it fits", async ({ page }) => {
   const session = await aSession(page);
   const { started, attached } = await standIn(page, session);
   await page.goto("/#/");
-  await page.getByRole("button", { name: "Start an agent" }).click();
-  const box = dialog(page);
-  await expect(box).toBeVisible();
+  await page.getByRole("link", { name: /New session/ }).click();
+  await expect(page).toHaveURL(/#\/sessions\/new$/);
 
   // the most recent folder that exists, and the agent used last
-  await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
-  await expect(box.getByRole("radio", { name: /Claude Code/ })).toHaveAttribute("aria-checked", "true");
-  await expect(box.getByRole("radio", { name: /Codex/ })).toContainText("0.98.0");
-  await box.getByRole("combobox", { name: "Folder" }).click();
-  await expect(box.getByRole("option", { name: /\/work\/old/ })).toContainText("This folder no longer exists.");
+  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /work/api");
+  await expect(folderPicker(page)).toContainText("acme/api · main");
+  await expect(agentPicker(page)).toHaveAccessibleName("Agent: Claude Code");
+  await agentPicker(page).click();
+  await expect(page.getByRole("menuitem", { name: /Codex/ })).toContainText("0.98.0");
+  await page.keyboard.press("Escape");
+  await folderPicker(page).click();
+  await expect(page.getByRole("option", { name: /\/work\/old/ })).toContainText("This folder no longer exists.");
+  await page.getByRole("option", { name: /\/work\/api/ }).click();
 
-  await box.getByLabel("Task").fill("Fix the login redirect");
-  await box.getByText("More").click();
-  await box.getByLabel("Extra arguments").fill('--model opus --name "login fix"');
+  await message(page).fill("Fix the login redirect");
+  await page.getByRole("button", { name: "Arguments" }).click();
+  await page.getByLabel("Extra arguments").fill('--model opus --name "login fix"');
   await page.keyboard.press("ControlOrMeta+Enter");
 
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
@@ -121,38 +126,60 @@ test("starting Claude Code opens its session in the terminal view at the size it
   expect(Math.abs(Number(started[0].rows) - Number(fit.get("rows")))).toBeLessThanOrEqual(2);
 });
 
-test("an agent that names its session once it starts is waited for", async ({ page }) => {
+test("a session starts without a first message, and the agent picked from its menu", async ({ page }) => {
   const session = await aSession(page);
-  const { polls } = await standIn(page, session, 3);
+  const { started, polls } = await standIn(page, session, 3);
   await page.goto("/#/");
   // the window knows the runtime is on once its settings are loaded
-  await expect(page.getByRole("button", { name: "Start an agent" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /New session/ })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+n");
-  const box = dialog(page);
-  await expect(box).toBeVisible();
-  // 2 picks the second agent
-  await box.getByRole("radio", { name: /Codex/ }).waitFor();
-  await box.getByRole("heading", { name: "Start an agent" }).click();
-  await page.keyboard.press("2");
-  await expect(box.getByRole("radio", { name: /Codex/ })).toHaveAttribute("aria-checked", "true");
-  await box.getByRole("button", { name: "Start" }).click();
+  await expect(page).toHaveURL(/#\/sessions\/new$/);
+  await agentPicker(page).click();
+  await page.getByRole("menuitem", { name: /Codex/ }).click();
+  await expect(agentPicker(page)).toHaveAccessibleName("Agent: Codex");
+  await page.getByRole("button", { name: "Start" }).click();
+  // an agent that names its session once it starts is waited for
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
   expect(polls()).toBeGreaterThanOrEqual(3);
+  expect(started[0]).toMatchObject({ agent: "codex", folder: "/work/api" });
+  expect(started[0].task).toBeUndefined();
 });
 
-test("a flag that turns permission checks off is refused", async ({ page }) => {
+test("# in the first message lists the work items, the folder's repository's first", async ({ page }) => {
+  const session = await aSession(page);
+  const { started } = await standIn(page, session);
+  const title = `Fix the login redirect ${Date.now()}`;
+  const added = await page.request.post(`${core}/api/v1/items`, { data: { repo: "acme/api", title } });
+  expect(added.status(), await added.text()).toBe(201);
+  const { key } = (await added.json()) as { key: string };
+  await page.goto("/#/sessions/new");
+  await message(page).fill("Work on #");
+  await page.keyboard.type(title.split(" ").at(-1)!);
+  const list = page.getByRole("listbox", { name: "Work items" });
+  await expect(list.getByRole("option").first()).toContainText(key);
+  await page.keyboard.press("Enter");
+  await expect(message(page)).toHaveValue(`Work on ${key} `);
+  // Enter picked the item; ⌘Enter starts
+  expect(started).toHaveLength(0);
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
+  expect(started[0]).toMatchObject({ task: `Work on ${key}` });
+});
+
+test("a typed folder is used as it is, and a flag that turns permission checks off is refused", async ({ page }) => {
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
-  await page.goto("/#/");
-  await page.getByRole("button", { name: "Start an agent" }).click();
-  const box = dialog(page);
-  await box.getByRole("combobox", { name: "Folder" }).fill("/tmp");
-  await box.getByText("More").click();
-  await box.getByLabel("Extra arguments").fill("--dangerously-skip-permissions");
-  await box.getByRole("button", { name: "Start" }).click();
-  await expect(box.getByRole("alert")).toHaveText(
+  await page.goto("/#/sessions/new");
+  await folderPicker(page).click();
+  await page.getByRole("combobox", { name: "Folder" }).fill("/tmp");
+  await page.keyboard.press("Enter");
+  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /tmp");
+  await page.getByRole("button", { name: "Arguments" }).click();
+  await page.getByLabel("Extra arguments").fill("--dangerously-skip-permissions");
+  await page.getByRole("button", { name: "Start" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
     "Pinrail does not start agents with permission checks turned off (--dangerously-skip-permissions).",
   );
-  await expect(box).toBeVisible();
+  await expect(page).toHaveURL(/#\/sessions\/new$/);
 });
 
 /** A run of `session` that exited with code 1 a second after it started. */
@@ -216,15 +243,14 @@ test("a session whose agent exited as it started shows why, and starts it again"
   // or after an edit
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
   await page.getByTestId("failed-start").getByRole("button", { name: "Edit and try again" }).click();
-  const box = dialog(page);
-  await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
-  await expect(box.getByLabel("Task")).toHaveValue("Fix the login redirect");
-  await expect(box.getByRole("radio", { name: /Claude Code/ })).toHaveAttribute("aria-checked", "true");
-  await box.getByText("More").click();
-  await expect(box.getByLabel("Extra arguments")).toHaveValue("--model opus");
+  await expect(page).toHaveURL(/#\/sessions\/new$/);
+  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /work/api");
+  await expect(message(page)).toHaveValue("Fix the login redirect");
+  await expect(agentPicker(page)).toHaveAccessibleName("Agent: Claude Code");
+  await expect(page.getByLabel("Extra arguments")).toHaveValue("--model opus");
 });
 
-test("an agent that exits before it names its session shows why in the dialog", async ({ page }) => {
+test("an agent that exits before it names its session shows why on the page", async ({ page }) => {
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
   await page.route(/\/api\/v1\/folders\/recent/, (route) => route.fulfill({ json: { folders: [] } }));
   await page.route(/\/api\/v1\/runs$/, (route) =>
@@ -237,17 +263,17 @@ test("an agent that exits before it names its session shows why in the dialog", 
   await page.route(/\/api\/v1\/runs\/run_failed\/output/, (route) =>
     route.fulfill({ json: { text: "codex: unknown flag --nope" } }),
   );
-  await page.goto("/#/");
-  await page.getByRole("button", { name: "Start an agent" }).click();
-  const box = dialog(page);
-  await box.getByRole("combobox", { name: "Folder" }).fill("/work/api");
-  await box.getByRole("heading", { name: "Start an agent" }).click();
-  await box.getByRole("radio", { name: /Codex/ }).click();
-  await box.getByRole("button", { name: "Start" }).click();
-  await expect(box.getByRole("alert")).toHaveText("Codex exited with code 1 as it started.");
-  await expect(box.getByLabel("The agent's last output")).toHaveText("codex: unknown flag --nope");
+  await page.goto("/#/sessions/new");
+  await folderPicker(page).click();
+  await page.getByRole("combobox", { name: "Folder" }).fill("/work/api");
+  await page.keyboard.press("Enter");
+  await agentPicker(page).click();
+  await page.getByRole("menuitem", { name: /Codex/ }).click();
+  await page.getByRole("button", { name: "Start" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Codex exited with code 1 as it started.");
+  await expect(page.getByLabel("The agent's last output")).toHaveText("codex: unknown flag --nope");
   // the fields stay, to edit and start again
-  await expect(box.getByRole("combobox", { name: "Folder" })).toHaveValue("/work/api");
+  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /work/api");
 });
 
 /** A run of `session` that ended after a while, as `over` says. */

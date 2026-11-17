@@ -9,6 +9,7 @@ import { rememberPage } from "./lib/pageMemory";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
+import { NEW_SESSION_PATH, NewSession } from "./components/NewSession";
 import { WorkItems } from "./screens/WorkItems";
 import { LiveProvider } from "./state/live";
 import { SettingsProvider } from "./state/settings";
@@ -40,6 +41,7 @@ function Shell() {
           <Route path="/reviews/:id" element={<ReviewScreen />} />
           <Route path="/history" element={<ToHistoryTab />} />
           <Route path="/sessions" element={<Sessions />} />
+          <Route path={NEW_SESSION_PATH} element={<NewSession />} />
           <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/items" element={<WorkItems />} />

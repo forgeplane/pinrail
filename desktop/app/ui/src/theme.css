@@ -344,6 +344,13 @@ h1 {
   gap: 4px;
   padding: 0 12px;
 }
+/* New session, at the bar's other end */
+.sidebar-new {
+  margin-left: auto;
+}
+.sidebar-new.active {
+  color: var(--text);
+}
 /* The colours a project's avatar takes, the same in every theme: white
    text reads on each of them. */
 :root {
@@ -7929,109 +7936,212 @@ a.item-ref {
   background: var(--bg);
 }
 
-/* The Start an agent dialog. */
-.start-agent-dialog {
-  width: min(560px, calc(100vw - 32px));
+/* The New session page: a column in the middle of the page, with the
+   agent and the folder above a message box, as a chat starts. */
+.new-session {
+  display: flex;
+  justify-content: center;
+  padding: 18vh 32px 32px;
+}
+.new-session-column {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  width: min(720px, 100%);
 }
-.start-agent-label {
-  margin-top: 8px;
-  color: var(--dim);
-  font: 500 var(--text-xs) var(--font);
+.new-session-title {
+  margin: 0 0 14px 4px;
+  font: 600 26px / 1.25 var(--font);
+  letter-spacing: -0.01em;
 }
-.start-agent-folder {
+.new-session-title em {
+  font-style: normal;
+  color: var(--accent);
+}
+.new-session-pickers {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
-.start-agent-folder input,
-.start-agent-more input,
-.start-agent-task {
-  flex: 1;
+.new-session-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  font: var(--text-base) var(--font);
+  cursor: pointer;
+}
+.new-session-picker:hover,
+.new-session-picker[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+.new-session-picker > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.new-session-picker > svg:last-child {
+  flex: none;
+  color: var(--faint);
+}
+.new-session-folder {
+  position: relative;
   min-width: 0;
+}
+.new-session-folders {
+  position: absolute;
+  z-index: var(--z-menu);
+  top: calc(100% + 4px);
+  left: 0;
+  width: min(560px, calc(100vw - 64px));
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+.new-session-folders input {
+  box-sizing: border-box;
+  width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
   font: var(--text-sm) var(--mono);
 }
-.start-agent-task {
-  font-family: var(--font);
-  resize: vertical;
-}
-.start-agent-folders {
-  margin: 0;
-  padding: 4px;
-  max-height: 220px;
+.new-session-folders ul {
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 260px;
   overflow: auto;
   list-style: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-raised);
 }
-.start-agent-folders li {
+.new-session-folders li {
   display: flex;
   flex-direction: column;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.start-agent-folders li:hover,
-.start-agent-folders li[aria-selected="true"] {
+.new-session-folders li > :first-child {
+  font: var(--text-sm) var(--mono);
+}
+.new-session-folders li > .dim {
+  font-size: var(--text-xs);
+}
+.new-session-folders li:hover,
+.new-session-folders li.is-active {
   background: var(--bg-hover);
 }
-.start-agent-folders li.is-gone {
+.new-session-folders li[aria-selected="true"] > :first-child {
+  color: var(--accent);
+}
+.new-session-folders li.is-gone {
   cursor: default;
   opacity: 0.6;
 }
-.start-agent-folder-path {
-  font: var(--text-sm) var(--mono);
-}
-.start-agent-folder-where {
-  font-size: var(--text-xs);
-}
-.start-agent-agents {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.start-agent-agent {
+.new-session-choose {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: var(--dim);
   font: var(--text-sm) var(--font);
   cursor: pointer;
 }
-.start-agent-agent.is-chosen {
+.new-session-choose:hover {
+  color: var(--text);
+}
+.new-session-box {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--bg-raised);
+}
+.new-session-box:focus-within {
   border-color: var(--accent);
-  background: var(--accent-bg);
 }
-.start-agent-agent:disabled {
-  cursor: default;
-  opacity: 0.55;
+.new-session-box .new-session-message,
+.new-session-box .new-session-message:focus,
+.new-session-box .new-session-message:focus-visible {
+  box-shadow: none;
+  outline: none;
+  background: none;
 }
-.start-agent-agent kbd {
-  font: var(--text-2xs) var(--mono);
-  color: var(--faint);
+.new-session-message {
+  min-height: 72px;
+  max-height: 40vh;
+  overflow-y: hidden;
+  padding: 14px 16px 6px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: none;
+  color: var(--text);
+  font: var(--text-base) / 1.5 var(--font);
 }
-.start-agent-more {
-  margin-top: 6px;
+.new-session-args {
+  margin: 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-sm) var(--mono);
 }
-.start-agent-more summary {
+.new-session-box-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 10px 12px;
+}
+.new-session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: none;
   color: var(--dim);
-  font-size: var(--text-xs);
+  font: var(--text-sm) var(--font);
   cursor: pointer;
 }
-.start-agent-more input {
-  width: 100%;
-  margin-top: 4px;
+.new-session-chip:hover,
+.new-session-chip.is-on {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.new-session-start {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--button-bg);
+  color: var(--button-text);
+  cursor: pointer;
+}
+.new-session-start:disabled {
+  background: var(--bg-hover);
+  color: var(--faint);
+  cursor: default;
 }
 /* A run whose agent exited with an error as it started. */
 .failed-start {
@@ -8048,7 +8158,7 @@ a.item-ref {
   font: 500 var(--text-base) var(--font);
 }
 .failed-start-output,
-.start-agent-output {
+.new-session-output {
   margin: 0;
   padding: 10px 12px;
   max-height: 360px;

@@ -9,7 +9,7 @@ import { errorMessage } from "../../api/client";
 import { runtime, type Run } from "../../api/runtime";
 import { exitText } from "../../lib/failedStart";
 import { agentOf } from "../AgentIcon";
-import type { StartAgentInitial } from "../StartAgentDialog";
+import type { NewSessionInitial } from "../NewSession";
 import { sessionPath } from "../Thread";
 import { startRun } from "./startRun";
 
@@ -62,7 +62,7 @@ export function FailedStart({ run }: { run: Run }) {
   };
 
   const edit = () => {
-    const initial: StartAgentInitial = {
+    const initial: NewSessionInitial = {
       folder: run.folder,
       agent: run.agent,
       task: launch?.task ?? undefined,

@@ -10,7 +10,7 @@ import {
   LayoutGrid,
   ListChecks,
   ListPlus,
-  SquareTerminal,
+  SquarePen,
   MessageSquare,
   Moon,
   PanelLeft,
@@ -35,7 +35,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, modalOpen, isTyping } from "../lib/keys";
 import { QuickAddDialog } from "./QuickAddDialog";
-import { StartAgentDialog, type StartAgentInitial } from "./StartAgentDialog";
+import { NEW_SESSION_PATH, type NewSessionInitial } from "./NewSession";
 import { HISTORY_PATH, Sidebar, useSidebarWidth } from "./Sidebar";
 import { useWelcome } from "./useWelcome";
 import { useWhatsNew } from "./useWhatsNew";
@@ -59,15 +59,17 @@ import { useLatest } from "../lib/useLatest";
 const pageTitle = (path: string) =>
   path === "/"
     ? "Inbox"
-    : path.startsWith("/sessions/")
-      ? "Session"
-      : path.startsWith("/sessions")
-        ? "Sessions"
-        : path.startsWith("/projects")
-          ? "Projects"
-          : path.startsWith("/items")
-            ? "Work items"
-            : "Review";
+    : path === "/sessions/new"
+      ? "New session"
+      : path.startsWith("/sessions/")
+        ? "Session"
+        : path.startsWith("/sessions")
+          ? "Sessions"
+          : path.startsWith("/projects")
+            ? "Projects"
+            : path.startsWith("/items")
+              ? "Work items"
+              : "Review";
 
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
@@ -96,16 +98,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, themes, update } = useSettings();
-  // ⌘N starts an agent, while the agent runtime is on; the sidebar's
-  // button asks for the dialog with an event
-  // what it opens with, when a run is to be edited and started again
-  const [startAgent, setStartAgent] = useState<StartAgentInitial | null>(null);
+  // ⌘N opens the New session page, while the agent runtime is on; a run
+  // to edit and start again asks for it with an event, with what it opens with
   const runtimeOn = prefs.labs.runtime;
   useEffect(() => {
-    const open = (event: Event) => setStartAgent((event as CustomEvent<StartAgentInitial | undefined>).detail ?? {});
+    const open = (event: Event) =>
+      navigate(NEW_SESSION_PATH, { state: { start: (event as CustomEvent<NewSessionInitial | undefined>).detail } });
     window.addEventListener("pinrail:start-agent", open);
     return () => window.removeEventListener("pinrail:start-agent", open);
-  }, []);
+  }, [navigate]);
   const sidebar = prefs.sidebar.open;
   const toggleSidebar = useCallback(() => update((s) => ({ sidebar: { open: !s.sidebar.open } })), [update]);
   const sidebarButton = (
@@ -208,7 +209,7 @@ export function Layout({ children }: { children: ReactNode }) {
       if (!modalOpen()) startQuickAdd();
     },
     "start-agent": () => {
-      if (runtimeOn && !modalOpen()) setStartAgent({});
+      if (runtimeOn && !modalOpen()) navigate(NEW_SESSION_PATH);
     },
     settings: () => setSettings((s) => (s ? null : "general")),
     "toggle-theme": () => void toggleTheme(),
@@ -240,7 +241,7 @@ export function Layout({ children }: { children: ReactNode }) {
     fromCommand("go-history", History),
     fromCommand("go-items", ListChecks),
     { ...fromCommand("add-item", ListPlus), run: startQuickAdd },
-    ...(runtimeOn ? [fromCommand("start-agent", SquareTerminal)] : []),
+    ...(runtimeOn ? [fromCommand("start-agent", SquarePen)] : []),
     fromCommand("go-projects", LayoutGrid),
     {
       id: "new-project",
@@ -354,7 +355,6 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
-      {startAgent && runtimeOn ? <StartAgentDialog initial={startAgent} onClose={() => setStartAgent(null)} /> : null}
       {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}
