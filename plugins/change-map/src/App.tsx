@@ -206,6 +206,8 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
   // the file chosen in the overview's files, and what on the map touches it;
   // choosing a part or an interaction leaves it
   const [found, setFound] = useState<string | null>(null);
+  // asks the overview's files to open with the filter focused, each time it grows
+  const [filesAt, setFilesAt] = useState(0);
   useEffect(() => {
     if (selection) setFound(null);
   }, [selection]);
@@ -396,10 +398,12 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
 
   // The view's keys, whether the view has the keyboard or the app forwards
   // them: N and P walk the parts, Enter opens the selection's first file,
-  // C comments on it, R marks it reviewed, and F fits the diagram. Esc is
-  // the drawer's while one is open, and the app's otherwise.
-  const keys = useRef({ selection, payload, readonly, diagram });
-  keys.current = { selection, payload, readonly, diagram };
+  // C comments on it, R marks it reviewed, and F fits the diagram. / goes
+  // to the overview's files with the filter focused, and Shift+N and
+  // Shift+P open the next and previous file of the change, in their order.
+  // Esc is the drawer's while one is open, and the app's otherwise.
+  const keys = useRef({ selection, payload, readonly, diagram, found, file });
+  keys.current = { selection, payload, readonly, diagram, found, file };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -423,6 +427,23 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
               : parts.length - 1
             : (at + (e.key === "n" ? 1 : parts.length - 1)) % parts.length;
         select(parts[next]);
+      } else if (e.key === "/") {
+        if (now) select(null);
+        setFilesAt((n) => n + 1);
+      } else if (e.key === "N" || e.key === "P") {
+        const { found: chosen, file: open } = keys.current;
+        const paths = p.files.map((x) => x.path);
+        if (!paths.length) return;
+        const at = paths.indexOf(chosen ?? open?.path ?? "");
+        const next =
+          at < 0
+            ? e.key === "N"
+              ? 0
+              : paths.length - 1
+            : (at + (e.key === "N" ? 1 : paths.length - 1)) % paths.length;
+        if (now) select(null);
+        setFound(paths[next]);
+        setFile({ path: paths[next] });
       } else if (e.key === "Enter" && now) {
         const first = changesOf(p, now)[0];
         if (!first) return;
@@ -637,6 +658,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
               coverage={covered}
               chosenFile={found}
               chooseFile={findFile}
+              focusFiles={filesAt}
               zoomTo={(node) => {
                 select({ node });
                 setTab(null);

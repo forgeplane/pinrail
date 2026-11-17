@@ -793,6 +793,48 @@ test("N and P walk the parts, and Enter opens the selected part's first file", a
   await expect(f.locator(".cm-diff-path")).toHaveText("priv/repo/migrations/20261019_add_dedup_key_to_tickets.exs");
 });
 
+test("/ goes to the overview's files from anywhere, with the filter focused", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: dedup() });
+  const f = plugin.frame;
+  await f.locator('[data-node="tickets-context"]').click();
+  await expect(f.getByTestId("part-detail")).toBeVisible();
+  await page.keyboard.press("/");
+  await expect(f.getByTestId("part-detail")).toHaveCount(0);
+  await expect(f.getByRole("searchbox", { name: "Filter files" })).toBeFocused();
+  // ↓ from the filter chooses the first file, and the list keeps the focus
+  await page.keyboard.press("ArrowDown");
+  const rows = f.locator(".cm-finder-list .cm-file");
+  await expect(rows.nth(0)).toHaveAttribute("aria-pressed", "true");
+  await expect(rows.nth(0)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(rows.nth(1)).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(rows.nth(0)).toHaveAttribute("aria-pressed", "true");
+  await expect(f.locator(".cm-diff-path")).toHaveText((await rows.nth(0).getAttribute("title"))!);
+});
+
+test("Shift+N and Shift+P open the next and previous file of the change from anywhere", async ({ page }) => {
+  const review = dedup();
+  const paths = (
+    JSON.parse(fs.readFileSync(path.join(dir, "samples", "dedup-tickets.json"), "utf8")).payload ?? {}
+  ).files?.map((x: { path: string }) => x.path);
+  const plugin = await mountPlugin(page, dir, { review });
+  const f = plugin.frame;
+  await f.locator('[data-node="api-client"]').click();
+  const shown = f.locator(".cm-diff-path");
+  await page.keyboard.press("Shift+N");
+  await expect(f.getByTestId("part-detail")).toHaveCount(0);
+  await expect(shown).toHaveText(paths[0]);
+  await page.keyboard.press("Shift+N");
+  await expect(shown).toHaveText(paths[1]);
+  await page.keyboard.press("Shift+P");
+  await page.keyboard.press("Shift+P");
+  // round from the first to the last
+  await expect(shown).toHaveText(paths[paths.length - 1]);
+  await expect(f.getByTestId("files").getByRole("button", { name: /^Files/ })).toContainText(paths[paths.length - 1]);
+});
+
 test("the app's forwarded keys work as the view's own: C comments, R marks reviewed", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: dedup() });
   const f = plugin.frame;

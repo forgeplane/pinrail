@@ -286,7 +286,8 @@ export function DiffViewer({
   useEffect(() => {
     const line = at && root.current?.querySelector(`[data-line="${at.side ?? "new"}:${firstLine(at)}"]`);
     (line || root.current?.querySelector(".cm-in-range"))?.scrollIntoView({ block: "center" });
-    root.current?.focus();
+    // the overview's files keep the focus, for their arrow keys
+    if (!document.activeElement?.closest(".cm-finder")) root.current?.focus();
   }, [path, at, ranges]);
 
   const save = () => {

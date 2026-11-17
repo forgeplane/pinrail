@@ -20,7 +20,7 @@ import {
   Play,
   Search,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { kindIcon, kindLabel, statusLabel, type Marks } from "./Diagram";
 import {
@@ -80,6 +80,8 @@ export type PanelProps = {
   coverage: { total: number; mapped: number; unmapped: Map<string, Unmapped> };
   /** the file chosen in the overview's files, shown on the map, or null */
   chosenFile: string | null;
+  /** opens the overview's files with the filter focused, each time it grows */
+  focusFiles?: number;
   /** chooses a file to show on the map, or none */
   chooseFile(path: string | null): void;
   /** the view the panel showed before, to go back to */
@@ -263,6 +265,32 @@ function FileFinder(props: PanelProps & { claimed: Set<string> }) {
   const { payload, chosenFile: found, chooseFile, claimed } = props;
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
+  const filterField = useRef<HTMLInputElement>(null);
+  const focusFiles = props.focusFiles ?? 0;
+  useEffect(() => {
+    if (focusFiles) setOpen(true);
+  }, [focusFiles]);
+  useEffect(() => {
+    if (focusFiles && open) filterField.current?.focus();
+  }, [focusFiles, open]);
+  // ↑ and ↓ move to the file above or below and choose it, and the list
+  // keeps the focus; ↓ in the filter goes to the first file
+  const onListKey = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const rows = [...e.currentTarget.querySelectorAll<HTMLButtonElement>(".cm-finder-list button.cm-file")];
+    const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+    const to =
+      at < 0
+        ? e.target === filterField.current && e.key === "ArrowDown"
+          ? rows[0]
+          : undefined
+        : rows[at + (e.key === "ArrowDown" ? 1 : -1)];
+    if (at < 0 && !to) return;
+    e.preventDefault();
+    if (!to) return;
+    to.focus();
+    to.click();
+  };
   const shown = payload.files.filter((f) => f.path.toLowerCase().includes(filter.trim().toLowerCase()));
   // what on the map touches the chosen file, named as the map names it
   const owners = found
@@ -275,7 +303,7 @@ function FileFinder(props: PanelProps & { claimed: Set<string> }) {
     : [];
   const listed = owners.length > 1 ? `${owners.slice(0, -1).join(", ")} and ${owners[owners.length - 1]}` : owners[0];
   return (
-    <section className={`cm-finder${open ? " cm-finder-open" : ""}`} data-testid="files">
+    <section className={`cm-finder${open ? " cm-finder-open" : ""}`} data-testid="files" onKeyDown={onListKey}>
       <button type="button" className="cm-finder-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span className="pinrail-eyebrow">Files · {payload.files.length}</span>
         {!open && found ? <span className="cm-finder-chosen mono">{found}</span> : null}
@@ -290,6 +318,7 @@ function FileFinder(props: PanelProps & { claimed: Set<string> }) {
               type="search"
               placeholder="Filter files"
               aria-label="Filter files"
+              ref={filterField}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -306,7 +335,11 @@ function FileFinder(props: PanelProps & { claimed: Set<string> }) {
                     type="button"
                     className={`cm-row cm-file${found === f.path ? " cm-current" : ""}`}
                     aria-pressed={found === f.path}
-                    onClick={() => chooseFile(found === f.path ? null : f.path)}
+                    onClick={(e) => {
+                      // WebKit does not focus a clicked button: the arrows work after a click
+                      e.currentTarget.focus();
+                      chooseFile(found === f.path ? null : f.path);
+                    }}
                     title={f.path}
                   >
                     <FileCode />

@@ -4,6 +4,16 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.2.0] - Unreleased
+
+### Added
+
+- Press / anywhere in the review to go to the overview's **Files** list
+  with its filter focused. In the list, the up and down arrow keys open
+  the file above or below.
+- Shift+N and Shift+P open the next and previous file of the change, in
+  the order of the **Files** list.
+
 ## [1.1.2] - Pinrail 0.6.0
 
 ### Fixed
