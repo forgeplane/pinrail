@@ -974,7 +974,7 @@ mod tests {
     }
 
     #[test]
-    fn routes_for_urls() {
+    fn a_pinrail_or_local_url_opens_its_route_and_a_bad_id_opens_nothing() {
         assert_eq!(
             route_for_url("pinrail://reviews/r_01"),
             Some("/reviews/r_01".to_string())
@@ -1018,7 +1018,7 @@ mod tests {
     }
 
     #[test]
-    fn labels_are_short() {
+    fn a_long_label_is_cut_with_an_ellipsis() {
         assert_eq!(truncate("short", 10), "short");
         assert_eq!(truncate("a title that is far too long", 12), "a title tha…");
     }

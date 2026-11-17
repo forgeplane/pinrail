@@ -354,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn status_is_derived() {
+    fn a_reviews_status_follows_its_expiry_discard_withdrawal_and_decision() {
         let now = parse_datetime("2026-09-11T12:00:00Z").unwrap();
         let mut r = review();
         assert_eq!(r.status(now), Status::Pending);

@@ -1,7 +1,7 @@
 // The output a terminal is given, parsed a piece at a time: no animation
 // frame spends more than 6 ms parsing, so a burst cannot hold the window,
 // and each write's bytes are credited back once they are parsed, as the
-// core's flow control expects (runtime spec 8.3). While the program holds
+// core's flow control expects. While the program holds
 // its output in synchronized mode (2026), drawing waits for it, for at most
 // 150 ms. A changed title or working folder is reported once. The echo
 // of what the person typed is parsed and drawn at once, without waiting

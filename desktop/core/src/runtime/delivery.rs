@@ -1,4 +1,4 @@
-//! Messages to an agent Pinrail runs, typed into its terminal (spec 7).
+//! Messages to an agent Pinrail runs, typed into its terminal.
 //! A message to a session with a live run whose agent has a typing plan
 //! goes by the Type route; any other goes by the Queue, to the agent's
 //! next status. A message to type waits while the agent works or waits for

@@ -1204,7 +1204,7 @@ Pending since "
 }
 
 #[tokio::test]
-async fn info_and_viewed() {
+async fn info_names_the_version_and_user_and_a_viewed_review_records_it() {
     let app = app();
     let (status, info) = call(&app, "GET", "/api/v1/info", None).await;
     assert_eq!(status, StatusCode::OK);

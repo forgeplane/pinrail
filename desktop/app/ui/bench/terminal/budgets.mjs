@@ -1,4 +1,4 @@
-// The window budgets of runtime-spec 8.6, checked against one adapter's
+// The terminal's window budgets, checked against one adapter's
 // results in one runner. Each check names the case that measures it.
 
 const fmt = (x, d = 1) => (x === null || x === undefined || Number.isNaN(x) ? "–" : Number(x).toFixed(d));

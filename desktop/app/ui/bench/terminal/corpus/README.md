@@ -1,6 +1,6 @@
 # Terminal benchmark corpus
 
-The input that the terminal benchmark replays (runtime-spec 8.6). All items
+The input that the terminal benchmark replays. All items
 assume a terminal of 120 columns and 40 rows. The benchmark (`../run.mjs`)
 plays them through its fake core.
 
@@ -22,7 +22,7 @@ first run, and git ignores them. Regenerate them with
 | `links.bin`    | 1.0 MiB | OSC 8 hyperlinks with ST and BEL terminators, link ids, `file://` links and long links that wrap, mixed with plain URLs.                                                                                                                                                                                                                                                                                                                                                                                                |
 | `trickle.cast` | 25 KiB  | A quiet minute (asciicast v2): typing echoed one character at a time, spinners redrawn every 80 ms, and occasional lines. It exercises the idle and small-write paths.                                                                                                                                                                                                                                                                                                                                                  |
 
-The 8 MiB items are the bursts of the budgets in spec 8.6. The benchmark also
+The 8 MiB items are the bursts that the budgets in `../budgets.mjs` time. The benchmark also
 paces them at a byte rate (2 MB/s by default) to imitate streaming agent
 output.
 

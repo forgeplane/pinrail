@@ -831,7 +831,7 @@ fn prune_cutoff() -> String {
         .to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
 }
 
-/// `terminal.spawn` (section 4.3 of the runtime specification).
+/// `terminal.spawn`: starts a program in a new terminal.
 fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     let invalid = |what: &str| Failure("invalid", format!("{what} is missing or invalid"));
     let argv: Vec<String> = params

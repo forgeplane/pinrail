@@ -1,6 +1,6 @@
 # Input, selection and accessibility checks
 
-These checks cover what the benchmark cannot measure: the renderer spec's
+These checks cover what the benchmark cannot measure: the renderers'
 requirements for input, selection, links, accessibility and glyphs. They run
 on macOS, in the system WKWebView that the app uses.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Runs every case for each of the window's renderers in each runner, prints
 // the results as a Markdown table, writes them to results/ as JSON and
-// Markdown, and exits with 1 when a budget of runtime-spec 8.6 fails.
+// Markdown, and exits with 1 when a budget in budgets.mjs fails.
 //
 //   node run.mjs [--runners webkit] [--adapters ghostty,xterm] [--cases burst,stream,...]
 //                [--repeat 3] [--no-fail] [--no-build] [--tag name]
@@ -409,7 +409,7 @@ function markdown(report) {
     const backends = report.adapters.map((a, i) => `${a}: ${byAdapter[i].find((r) => r.backend)?.backend ?? "–"}`);
     lines.push(`Drawing: ${backends.join("; ")}`);
     lines.push("");
-    lines.push(`| Budget (spec 8.6) | Limit | ${report.adapters.join(" | ")} |`);
+    lines.push(`| Budget | Limit | ${report.adapters.join(" | ")} |`);
     lines.push(`| --- | --- | ${report.adapters.map(() => "---").join(" | ")} |`);
     const checks = byAdapter.map((rs) => checkBudgets(rs));
     const names = [...new Set(checks.flat().map((c) => c.name))];

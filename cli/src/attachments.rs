@@ -320,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn kinds_by_extension() {
+    fn a_files_media_type_follows_its_extension_in_any_case() {
         assert_eq!(media_type("Pivot.GLB"), "model/gltf-binary");
         assert_eq!(media_type("desk.jpeg"), "image/jpeg");
         assert_eq!(media_type("take.m4a"), "audio/mp4");

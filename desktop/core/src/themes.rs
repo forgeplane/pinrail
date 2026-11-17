@@ -530,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn colours_are_checked() {
+    fn a_theme_colour_is_a_css_colour_without_names_urls_or_variables() {
         for good in [
             "#abc",
             "#aabbcc80",
@@ -558,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    fn ids_are_checked() {
+    fn a_theme_id_is_lowercase_letters_digits_and_hyphens_up_to_40() {
         assert!(valid_id("nord-2"));
         for bad in ["", "-a", "Nord", "a b", "../x", &"a".repeat(41)] {
             assert!(!valid_id(bad), "{bad}");

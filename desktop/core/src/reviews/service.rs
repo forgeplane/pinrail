@@ -33,7 +33,7 @@ const NOTE_MAX: usize = 10_000;
 /// The longest message to an agent's next status.
 const MESSAGE_MAX: usize = 4_000;
 /// The longest message typed into the terminal of an agent Pinrail runs,
-/// which takes a longer prompt than a status prints (spec 7.4).
+/// which takes a longer prompt than a status prints.
 const TYPED_MESSAGE_MAX: usize = 16_000;
 
 /// One page of a listing; see `Reviews::listing`.

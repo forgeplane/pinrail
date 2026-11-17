@@ -1,7 +1,7 @@
 # Terminal benchmark
 
 This benchmark measures the window's terminal renderers against the window
-budgets of runtime-spec 8.6. It loads each renderer from the app's registry
+budgets that `budgets.mjs` sets. It loads each renderer from the app's registry
 (`ui/src/components/terminal/renderers/`), so it measures the code the app
 ships, through the `TerminalView` interface the app uses.
 
@@ -9,7 +9,7 @@ ships, through the `TerminalView` interface the app uses.
 
 ```sh
 mise run bench:terminal                                  # every case, both renderers
-mise run bench:terminal -- --repeat 3                    # best of three, as spec 8.6 asks
+mise run bench:terminal -- --repeat 3                    # best of three
 mise run bench:terminal -- --adapters ghostty --cases burst,input
 ```
 

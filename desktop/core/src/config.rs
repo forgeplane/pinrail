@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn xdg_then_home() {
+    fn the_data_folder_is_under_xdg_data_home_or_else_the_home_folder() {
         let c = Config::from_vars(None, Some("/xdg".into()), Some("/home/u".into()), None);
         assert_eq!(c.data_dir, PathBuf::from("/xdg/pinrail"));
         let c = Config::from_vars(None, None, Some("/home/u".into()), None);
