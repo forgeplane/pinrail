@@ -18,7 +18,9 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{Claim, Edited, ItemChange, ItemFilters, Place, State as ItemState, WorkItem};
+use crate::db::{
+    Claim, Edited, ItemChange, ItemFilters, ItemSearch, Place, State as ItemState, WorkItem,
+};
 use crate::error::Error;
 use crate::items::{Actor, Breakdown, BreakdownItem, ItemRef, NewItem, Status};
 use crate::reviews::Via;
@@ -27,6 +29,7 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/items", get(list).post(add))
         .route("/api/v1/items/next", post(next))
+        .route("/api/v1/items/search", get(search))
         .route("/api/v1/items/{item}", get(show).patch(edit).delete(delete))
         .route("/api/v1/items/{item}/done", post(done))
         .route("/api/v1/items/{item}/comments", post(comment))
@@ -115,17 +118,10 @@ async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let mut filters = ItemFilters::default();
-    if let Some(statuses) = params.get("status") {
-        for s in statuses.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-            filters.states.push(ItemState::parse(s).ok_or_else(|| {
-                Error::invalid(
-                    "status",
-                    "must be open, in_progress, done, cancelled, ready or blocked",
-                )
-            })?);
-        }
-    }
+    let mut filters = ItemFilters {
+        states: states(params.get("status"))?,
+        ..Default::default()
+    };
     filters.repo = params.get("repo").cloned();
     filters.queued = params.get("queued").is_some_and(|v| v == "true");
     filters.project = params.get("project").cloned();
@@ -154,6 +150,80 @@ async fn list(
         "items": items.iter().map(json).collect::<Vec<_>>(),
         "next": state.items().next_keys()?,
     })))
+}
+
+/// The states `status` names, comma-separated.
+fn states(statuses: Option<&String>) -> Result<Vec<ItemState>, Error> {
+    statuses
+        .map(|s| s.split(',').map(str::trim).filter(|s| !s.is_empty()))
+        .into_iter()
+        .flatten()
+        .map(|s| {
+            ItemState::parse(s).ok_or_else(|| {
+                Error::invalid(
+                    "status",
+                    "must be open, in_progress, done, cancelled, ready or blocked",
+                )
+            })
+        })
+        .collect()
+}
+
+/// The items that match `q`, best first: any of its words in the title,
+/// the body or the comments, ranked by how well they match, or the item
+/// whose number or key it names. Several `q` are several phrasings of one
+/// search, each ranked and the rankings merged, so that an item several
+/// find comes first. `status` (by default every status), `repo` and
+/// `project` narrow it, and `limit` (by default 10, at most 100) caps it.
+/// Answers `items`, each without its body and with its `score`, where it
+/// `matched` (key, title, body or comment) and a `snippet` of the words
+/// around the match, each matched word in brackets.
+async fn search(
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<Vec<(String, String)>>,
+) -> Result<Json<Value>, ApiError> {
+    let get = |key: &str| params.iter().find(|(k, _)| k == key).map(|(_, v)| v);
+    let phrasings: Vec<String> = params
+        .iter()
+        .filter(|(k, v)| k == "q" && !v.trim().is_empty())
+        .map(|(_, v)| v.clone())
+        .collect();
+    if phrasings.is_empty() {
+        return Err(Error::invalid("q", "say what to search for").into());
+    }
+    let limit = match get("limit") {
+        Some(n) => n
+            .parse::<usize>()
+            .ok()
+            .filter(|n| (1..=100).contains(n))
+            .ok_or_else(|| Error::invalid("limit", "must be a number from 1 to 100"))?,
+        None => 10,
+    };
+    let search = ItemSearch {
+        phrasings,
+        filters: ItemFilters {
+            states: states(get("status"))?,
+            repo: get("repo").cloned(),
+            project: get("project").cloned(),
+            ..Default::default()
+        },
+        limit,
+    };
+    let found = state.items().search(&search)?;
+    let items: Vec<Value> = found
+        .iter()
+        .map(|f| {
+            let mut json = f.item.to_json();
+            if let Some(o) = json.as_object_mut() {
+                o.remove("body");
+                o.insert("score".into(), json!(f.score));
+                o.insert("matched".into(), json!(f.matched));
+                o.insert("snippet".into(), json!(f.snippet));
+            }
+            json
+        })
+        .collect();
+    Ok(Json(json!({ "items": items })))
 }
 
 /// Adds an item from `repo`, `title` and, optionally, `body`, `parent`,

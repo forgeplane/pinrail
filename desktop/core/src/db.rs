@@ -21,6 +21,7 @@ mod repos;
 mod reviews;
 mod runs;
 mod schema;
+mod search;
 mod sessions;
 
 pub use bundles::BundleRecord;
@@ -37,6 +38,7 @@ pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow}
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use runs::{Bound, NewRun, RunFilters, RunLaunch, RunRow, RunSession, TOKEN_GRACE};
 pub use schema::LATEST_MIGRATION;
+pub use search::{Found, ItemSearch};
 pub use sessions::{
     Added, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
     delivered_notice, status_notice,

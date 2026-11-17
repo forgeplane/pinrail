@@ -190,6 +190,11 @@ impl Items {
         Ok(self.db.items(filters)?)
     }
 
+    /// The items a search finds, best first.
+    pub fn search(&self, search: &crate::db::ItemSearch) -> Result<Vec<crate::db::Found>, Error> {
+        Ok(self.db.search_items(search)?)
+    }
+
     /// An item, named by its key, its id, or its number in `repo`.
     pub fn get(&self, item: &ItemRef, repo: Option<&str>) -> Result<WorkItem, Error> {
         self.db.item(item, repo)?.map_err(refused)

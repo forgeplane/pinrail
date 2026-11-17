@@ -12,7 +12,7 @@
 
 use std::path::PathBuf;
 
-use pinrail_core::db::{Db, ItemFilters, State};
+use pinrail_core::db::{Db, ItemFilters, ItemSearch, State};
 use serde_json::Value;
 
 /// How many results an agent reads.
@@ -42,6 +42,23 @@ fn like(db: &Db, repo: &str, query: &str) -> Vec<String> {
         .collect()
 }
 
+/// The ranked full-text search.
+fn ranked(db: &Db, repo: &str, query: &str) -> Vec<String> {
+    let search = ItemSearch {
+        phrasings: vec![query.to_string()],
+        filters: ItemFilters {
+            repo: Some(repo.to_string()),
+            ..Default::default()
+        },
+        limit: 50,
+    };
+    db.search_items(&search)
+        .unwrap()
+        .into_iter()
+        .map(|found| found.item.key.to_string())
+        .collect()
+}
+
 #[test]
 #[ignore = "needs PINRAIL_SEARCH_DB, a copy of a real database"]
 fn search_finds_the_expected_items() {
@@ -51,7 +68,7 @@ fn search_finds_the_expected_items() {
     let repo = set["repo"].as_str().unwrap();
     let queries = set["queries"].as_array().unwrap();
 
-    let searches: [(&str, Search); 1] = [("like", like)];
+    let searches: [(&str, Search); 2] = [("like", like), ("ranked", ranked)];
     for (name, search) in searches {
         let (mut expected, mut in_top, mut anywhere, mut returned) = (0, 0, 0, 0);
         println!("\n{name}");

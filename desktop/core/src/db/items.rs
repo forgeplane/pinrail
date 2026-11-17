@@ -358,7 +358,7 @@ pub(super) fn select() -> String {
 
 /// The number a search word names, as `42`, `#42` or a key such as
 /// `PIN-42`, with the key's prefix in capitals.
-fn searched_number(word: &str) -> Option<(Option<String>, i64)> {
+pub(super) fn searched_number(word: &str) -> Option<(Option<String>, i64)> {
     let digits = |s: &str| -> Option<i64> {
         if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
             return None;
