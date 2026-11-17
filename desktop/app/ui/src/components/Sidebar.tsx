@@ -100,13 +100,6 @@ export function Sidebar({
       />
       <div className="sidebar-bar" data-tauri-drag-region>
         {toggle}
-        {settings.labs.runtime ? (
-          <Tooltip label="New session" keys={[MOD, "N"]} side="bottom">
-            <NavLink to={NEW_SESSION_PATH} className="bar-button sidebar-new" aria-label="New session">
-              <SquarePen size={15} />
-            </NavLink>
-          </Tooltip>
-        ) : null}
       </div>
       <div className="sidebar-scroll" data-testid="sidebar-scroll">
         <nav className="app-nav" aria-label="Main">
@@ -145,6 +138,19 @@ export function Sidebar({
                   ) : null}
                 </NavLink>
               </Tooltip>
+              {/* a new session, under the sessions, while the agent runtime is on */}
+              {key === "sessions" && settings.labs.runtime ? (
+                <NavLink to={NEW_SESSION_PATH} className={({ isActive }) => `nav-new ${isActive ? "is-active" : ""}`}>
+                  <span className="nav-label">
+                    <SquarePen size={15} strokeWidth={1.75} />
+                    New session
+                  </span>
+                  <span className="nav-keys">
+                    <kbd>{MOD}</kbd>
+                    <kbd>N</kbd>
+                  </span>
+                </NavLink>
+              ) : null}
             </Fragment>
           ))}
           <button type="button" className="nav-search" onClick={onSearch}>

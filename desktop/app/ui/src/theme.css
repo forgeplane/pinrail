@@ -344,13 +344,6 @@ h1 {
   gap: 4px;
   padding: 0 12px;
 }
-/* New session, at the bar's other end */
-.sidebar-new {
-  margin-left: auto;
-}
-.sidebar-new.active {
-  color: var(--text);
-}
 /* The colours a project's avatar takes, the same in every theme: white
    text reads on each of them. */
 :root {
@@ -493,7 +486,8 @@ h1 {
   line-height: 1;
   text-box: trim-both cap alphabetic;
 }
-.nav-search {
+.nav-search,
+.app-nav a.nav-new {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -509,6 +503,10 @@ h1 {
 }
 .nav-search:hover {
   background: var(--bg-hover);
+  color: var(--text);
+}
+.app-nav a.nav-new.is-active {
+  background: var(--accent-bg);
   color: var(--text);
 }
 .nav-keys {
