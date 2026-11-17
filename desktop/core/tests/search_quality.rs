@@ -118,11 +118,26 @@ fn search_finds_the_expected_items() {
             anywhere += all;
             returned += found.len();
         }
+        // the time a query takes, once the database is warm
+        const ROUNDS: u32 = 20;
+        let started = std::time::Instant::now();
+        for _ in 0..ROUNDS {
+            for query in queries {
+                let more: Vec<String> = query["more"]
+                    .as_array()
+                    .map(|m| m.iter().map(|p| p.as_str().unwrap().to_string()).collect())
+                    .unwrap_or_default();
+                search(&db, repo, query["q"].as_str().unwrap(), &more);
+            }
+        }
+        let each = started.elapsed() / (ROUNDS * queries.len() as u32);
         println!(
-            "{name}: recall@{TOP} {:.2}, recall of all results {:.2}, {:.1} results a query",
+            "{name}: recall@{TOP} {:.2}, recall of all results {:.2}, {:.1} results a query, \
+             {:.2} ms a query",
             in_top as f64 / expected as f64,
             anywhere as f64 / expected as f64,
-            returned as f64 / queries.len() as f64
+            returned as f64 / queries.len() as f64,
+            each.as_secs_f64() * 1000.0
         );
     }
 }

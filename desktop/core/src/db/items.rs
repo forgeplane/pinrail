@@ -220,6 +220,8 @@ pub struct ItemFilters {
     /// the items without their bodies, which a list that shows none need
     /// not read
     pub summary: bool,
+    /// only these items, by id, when there are any
+    pub ids: Vec<String>,
 }
 
 /// Why a change to the items was not made.
@@ -354,6 +356,23 @@ pub(super) const OPEN: &str = "('open', 'in_progress')";
 
 pub(super) fn select() -> String {
     columns(true)
+}
+
+/// The SQL that keeps the items, as `i`, in any of `states`.
+pub(super) fn states_sql(states: &[State]) -> String {
+    let any: Vec<String> = states
+        .iter()
+        .map(|s| match s {
+            State::Open => "(i.status = 'open' AND i.held_at IS NULL)".to_string(),
+            State::OnHold => "i.held_at IS NOT NULL".to_string(),
+            State::InProgress => "i.status = 'in_progress'".to_string(),
+            State::Done => "i.status = 'done'".to_string(),
+            State::Cancelled => "i.status = 'cancelled'".to_string(),
+            State::Ready => READY.to_string(),
+            State::Blocked => format!("(i.status IN {OPEN} AND {BLOCKED})"),
+        })
+        .collect();
+    format!("({})", any.join(" OR "))
 }
 
 /// The number a search word names, as `42`, `#42` or a key such as
@@ -838,19 +857,13 @@ impl Db {
         } else {
             filters.states.clone()
         };
-        let any: Vec<String> = states
-            .iter()
-            .map(|s| match s {
-                State::Open => "(i.status = 'open' AND i.held_at IS NULL)".to_string(),
-                State::OnHold => "i.held_at IS NOT NULL".to_string(),
-                State::InProgress => "i.status = 'in_progress'".to_string(),
-                State::Done => "i.status = 'done'".to_string(),
-                State::Cancelled => "i.status = 'cancelled'".to_string(),
-                State::Ready => READY.to_string(),
-                State::Blocked => format!("(i.status IN {OPEN} AND {BLOCKED})"),
-            })
-            .collect();
-        wheres.push(format!("({})", any.join(" OR ")));
+        wheres.push(states_sql(&states));
+        if !filters.ids.is_empty() {
+            let first = args.len() + 1;
+            args.extend(filters.ids.iter().cloned());
+            let marks: Vec<String> = (first..=args.len()).map(|n| format!("?{n}")).collect();
+            wheres.push(format!("i.id IN ({})", marks.join(", ")));
+        }
         if let Some(repo) = &filters.repo {
             args.push(repo.clone());
             wheres.push(format!("g.name = ?{}", args.len()));
