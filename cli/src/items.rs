@@ -448,7 +448,40 @@ fn add(client: &Client, args: AddArgs, output: Output) -> Result<u8> {
             v["title"].as_str().unwrap_or_default()
         )
     });
+    if output.markdown
+        && let Some(text) = similar(client, &repo, &item, &description)
+    {
+        print!("{}", crate::out::terminal_safe(&text));
+    }
     Ok(0)
+}
+
+/// The three items most like a new one, by its title and by its title with
+/// its description, for the agent to check that none already covers it.
+/// None when there is none, or the search fails: the item is added anyway.
+fn similar(client: &Client, repo: &str, item: &Value, description: &str) -> Option<String> {
+    let title = s(&item["title"]);
+    let mut query: Vec<(&str, String)> = vec![("q", title.to_string())];
+    if !description.trim().is_empty() {
+        query.push(("q", format!("{title} {description}")));
+    }
+    query.push(("repo", repo.to_string()));
+    query.push(("limit", "4".into()));
+    let found = client.get("/api/v1/items/search", &query).ok()?;
+    let others: Vec<Value> = found["items"]
+        .as_array()?
+        .iter()
+        .filter(|f| f["key"] != item["key"])
+        .take(3)
+        .cloned()
+        .collect();
+    if others.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "\nSimilar work items, in case one already covers it:\n{}",
+        list_md(&Value::Array(others), false)
+    ))
 }
 
 fn search(client: &Client, args: SearchArgs, output: Output) -> Result<u8> {

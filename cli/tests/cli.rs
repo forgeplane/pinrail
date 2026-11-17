@@ -3767,6 +3767,58 @@ fn items_that_need_a_repository_say_so_outside_a_checkout() {
 }
 
 #[test]
+fn items_add_lists_the_items_most_like_the_new_one() {
+    let (server, sent) = items_server(|method, _| {
+        let row = |key: &str, title: &str, extra| {
+            serde_json::from_str::<serde_json::Value>(&work_item(key, title, extra)).unwrap()
+        };
+        if method == "POST" {
+            return (
+                201,
+                work_item("PIN-7", "Load themes", serde_json::json!({})),
+            );
+        }
+        (
+            200,
+            serde_json::json!({"items": [
+                row("PIN-7", "Load themes", serde_json::json!({})),
+                row("PIN-3", "Read theme files at start", serde_json::json!({"status": "done", "ready": false})),
+                row("PIN-5", "Theme picker", serde_json::json!({})),
+                row("PIN-6", "Theme colours", serde_json::json!({})),
+                row("PIN-8", "Theme fonts", serde_json::json!({})),
+            ]})
+            .to_string(),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "add",
+            "Load themes",
+            "--body",
+            "Read the files.",
+            "--repo",
+            "forgeplane/pinrail",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "Added PIN-7 Load themes.\n\n\
+         Similar work items, in case one already covers it:\n\
+         - PIN-3 Read theme files at start · done\n\
+         - PIN-5 Theme picker · open · ready\n\
+         - PIN-6 Theme colours · open · ready\n"
+    );
+    assert_eq!(
+        sent.lock().unwrap()[1].1,
+        "/api/v1/items/search?q=Load%20themes&q=Load%20themes%20Read%20the%20files.\
+         &repo=forgeplane%2Fpinrail&limit=4"
+    );
+}
+
+#[test]
 fn items_add_with_a_file_refuses_the_options_it_does_not_use() {
     let server = MockServer::start(Box::new(|_, path, _| panic!("nothing is sent: {path}")));
     for option in [
@@ -4341,6 +4393,10 @@ fn items_read_the_description_from_a_file_or_stdin_and_upload_the_files_they_att
             format!("HEAD {file}"),
             format!("PUT {file}"),
             "POST /api/v1/items".to_string(),
+            // the items like the new one
+            "GET /api/v1/items/search?q=Load%20themes&q=Load%20themes%20From%20stdin.\
+             &repo=forgeplane%2Fpinrail&limit=4"
+                .to_string(),
             format!("HEAD {file}"),
             format!("PUT {file}"),
             "PATCH /api/v1/items/PIN-7?repo=forgeplane%2Fpinrail".to_string(),
@@ -4355,8 +4411,8 @@ fn items_read_the_description_from_a_file_or_stdin_and_upload_the_files_they_att
     });
     for (at, body) in [
         (2, "From stdin."),
-        (5, "From a file."),
-        (8, "See the screen."),
+        (6, "From a file."),
+        (9, "See the screen."),
     ] {
         let request: serde_json::Value = serde_json::from_str(&sent[at].2).unwrap();
         assert_eq!(request["body"], body, "{}", requests[at]);

@@ -303,12 +303,13 @@ enum Command {
     ///     pinrail items show PIN-42
     ///     pinrail items done PIN-42 --comment "Loader in core/src/themes.rs"
     ///
-    /// Find items with the list's filters:
+    /// Find items with the list's filters, or search for what they are
+    /// about, open and closed, before adding one:
     ///
     ///     pinrail items list --ready
-    ///     pinrail items list --search "theme loader"
     ///     pinrail items list --parent PIN-40 --tree
     ///     pinrail items show --brief PIN-41 PIN-42
+    ///     pinrail items search "theme loader" "load themes at start"
     ///
     /// While a session holds items, the reviews and questions it sends
     /// belong to all of them, unless --item names the ones they are for.

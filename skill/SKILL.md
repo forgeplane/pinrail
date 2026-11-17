@@ -213,13 +213,25 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
 
   ```sh
   pinrail items list --ready                      # what you can start now
-  pinrail items list --search "theme loader"      # words in the title or description
   pinrail items list --status open,in_progress    # by status
   pinrail items list --parent PIN-40 --tree       # everything under an item, at every depth
   pinrail items show --brief PIN-41 PIN-42 43     # what several items ask, and nothing else
   ```
 
   Add `--json` when a program reads the result.
+- **Search for what an item is about** with `pinrail items search`. It
+  looks through open and closed items, their descriptions and comments,
+  and prints the best matches first. Give several phrasings of the same
+  question, in the words an item might use, to find more:
+
+  ```sh
+  pinrail items search "slow session" "thread takes long to open" "render performance"
+  ```
+
+  Search before you add an item, and before you work on a bug: an item may
+  already report it, or a closed one may say how it was fixed. If an item
+  already covers it, comment on that item instead of adding another.
+  `pinrail items add` lists the items most like the new one: check them.
 - **Record a plan of several steps as a breakdown.** Write the steps to a
   JSON file and add them in one request with `pinrail items add --file`.
   Give each step a `ref`, and list in `depends_on` the steps it needs
