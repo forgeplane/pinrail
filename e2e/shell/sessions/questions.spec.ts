@@ -291,9 +291,7 @@ test("a question's thread links to its session's page", async ({ page }) => {
   const session = fresh();
   const { id } = await send(page.request, asked(session, "Link: deploy"));
   await page.goto(`/#/reviews/${id}`);
-  await thread(page)
-    .getByRole("link", { name: /^session / })
-    .click();
+  await thread(page).getByRole("link", { name: "open the session" }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
   await expect(thread(page).getByTestId("question")).toHaveCount(3);
 });
@@ -671,7 +669,7 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   await sessionRow(second).click();
   await expect(panel.getByTestId("thread")).toBeVisible();
   await expect(panel.getByTestId("question")).toHaveCount(3);
-  await expect(panel.getByRole("link", { name: `session ${second}` })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Session actions" })).toBeVisible();
   await expect(sessionRow(second)).toHaveClass(/is-open/);
   await expect(page).toHaveURL(/\/sessions\?open=claude-code%2F/);
   // beside the panel, the list hides what the session holds, and keeps its id on one line
@@ -689,8 +687,8 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   // J opens the next session, with the details as they were, and Esc closes the panel
   await page.keyboard.press("j");
   await expect(sessionRow(first)).toHaveClass(/is-open/);
-  await expect(panel.getByRole("link", { name: `session ${first}` })).toBeVisible();
   await expect(details).toBeVisible();
+  await expect(details).toContainText(first);
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
 

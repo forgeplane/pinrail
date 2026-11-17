@@ -1,34 +1,34 @@
-// The two views of a session, as a segmented control.
+// The views of a session, as a segmented control of icons, each named by
+// its tooltip.
 
+import { ListCollapse, SquareTerminal, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
-import { combo, MOD, SHIFT } from "../../lib/keys";
 import type { SessionView } from "../../lib/sessionView";
 import { Tooltip } from "../Tooltip";
 
-const VIEWS: [SessionView, string][] = [
-  ["summary", "Summary"],
-  ["terminal", "Terminal"],
+const VIEWS: [SessionView, string, LucideIcon][] = [
+  ["summary", "Summary", ListCollapse],
+  ["terminal", "Terminal", SquareTerminal],
 ];
 
 export function ViewSwitch({ view, onView }: { view: SessionView; onView: (view: SessionView) => void }) {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   return (
-    <Tooltip label="Switch view" keys={["Ctrl", "`"]} side="bottom">
-      <div className="view-switch" role="tablist" aria-label="Session view" data-testid="view-switch">
-        {VIEWS.map(([id, label], i) => (
+    <div className="view-switch" role="tablist" aria-label="Session view" data-testid="view-switch">
+      {VIEWS.map(([id, label, Icon], i) => (
+        <Tooltip key={id} label={label} keys={["Ctrl", "`"]} side="bottom">
           <button
-            key={id}
             ref={(el) => {
               tabs.current[i] = el;
             }}
             type="button"
             role="tab"
             id={`view-tab-${id}`}
+            aria-label={label}
             aria-selected={view === id}
             aria-controls="session-view"
             tabIndex={view === id ? 0 : -1}
             className={view === id ? "is-active" : undefined}
-            title={id === "terminal" ? `Terminal (${combo(MOD, SHIFT, "T")})` : undefined}
             onClick={() => onView(id)}
             onKeyDown={(event) => {
               if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -38,10 +38,10 @@ export function ViewSwitch({ view, onView }: { view: SessionView; onView: (view:
               tabs.current[(i + 1) % VIEWS.length]?.focus();
             }}
           >
-            {label}
+            <Icon size={15} aria-hidden="true" />
           </button>
-        ))}
-      </div>
-    </Tooltip>
+        </Tooltip>
+      ))}
+    </div>
   );
 }

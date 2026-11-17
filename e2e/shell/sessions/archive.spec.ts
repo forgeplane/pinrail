@@ -35,9 +35,12 @@ test("a session is archived from its thread, and comes back with a new question"
   await page.goto(`/#/sessions/claude-code/${session}`);
   const thread = page.getByTestId("thread");
 
-  await thread.getByRole("button", { name: "Archive" }).click();
+  await thread.getByRole("button", { name: "Session actions" }).click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
   await expect(thread.getByText("Archived", { exact: true })).toBeVisible();
-  await expect(thread.getByRole("button", { name: "Unarchive" })).toBeVisible();
+  await thread.getByRole("button", { name: "Session actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Unarchive" })).toBeVisible();
+  await page.keyboard.press("Escape");
   // the Sessions page leaves it out
   await page.goto("/#/sessions");
   await expect(row(page, other)).toHaveCount(1);
@@ -88,10 +91,10 @@ test("E archives the session open in the side panel", async ({ page }) => {
   await page.goto("/#/sessions");
   await row(page, session).click();
   const panel = page.getByTestId("session-panel");
-  await expect(panel.getByRole("button", { name: "Archive" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Session actions" })).toBeVisible();
   // the focus off the answer field, as after reading the thread
   await panel.getByRole("heading", { level: 1 }).click();
   await page.keyboard.press("e");
-  await expect(panel.getByRole("button", { name: "Unarchive" })).toBeVisible();
+  await expect(panel.getByText("Archived", { exact: true })).toBeVisible();
   await expect(row(page, session)).toHaveCount(0);
 });

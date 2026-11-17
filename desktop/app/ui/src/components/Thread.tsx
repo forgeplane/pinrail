@@ -1,7 +1,7 @@
 // An agent session's thread: the questions it asked, as the agent's
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
-import { ArrowDown, CircleDot, Expand, GitBranch, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { ArrowDown, Expand, GitBranch, MoreHorizontal, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review, Session } from "../api/types";
@@ -29,14 +29,14 @@ import { FindBar, useFindBar } from "./FindBar";
 import { useUrlParams } from "../lib/url";
 import { timeline as entriesOf, entryKey, fromSession, newestRounds, stages, type Entry } from "../lib/sessions";
 import { useSettings } from "../state/settings";
-import { ItemChip, ItemOpener } from "./ItemChip";
+import { ItemOpener, itemPath, useItemLinkClick } from "./ItemChip";
+import { SessionMenu } from "./SessionMenu";
 import { AgentIcon, agentOf } from "./AgentIcon";
-import { ArchiveButton, useToggleArchive } from "./ArchiveButton";
+import { useToggleArchive } from "./ArchiveButton";
 import { PresenceChip } from "./PresenceChip";
 import { useMarkSeen } from "./thread/useMarkSeen";
 import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
-import { CopyButton } from "./CopyButton";
 import { Tooltip } from "./Tooltip";
 import { ThreadEntries } from "./thread/ThreadEntries";
 import { WorkingLine } from "./thread/runLines";
@@ -507,8 +507,6 @@ export function Thread({
     },
     { enabled: !focus },
   );
-  const questions = items.filter((r) => r.kind === "question").length;
-  const reviews = newest.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
   usePageRepo(repo);
   const ref = session?.ref ?? focus?.origin.ref ?? null;
@@ -529,7 +527,12 @@ export function Thread({
               </h1>
               {session ? <PresenceChip session={session} /> : null}
               {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
+              {/* what can be done with the session, beside its name */}
+              {session && !focus ? <SessionMenuButton session={session} markUnread={markUnread} /> : null}
             </div>
+            {/* one quiet line, kept when it is short, so that the header
+              keeps its height and the terminal under it its size: where it
+              works, since when, and the items it holds */}
             <div className="thread-meta">
               {session?.title ? (
                 <span className="thread-meta-where">
@@ -537,34 +540,12 @@ export function Thread({
                 </span>
               ) : null}
               {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
-              {named ? (
-                // from a question or a side panel, the session's own page; on
-                // it, the id alone
-                focus || inPanel ? (
-                  <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
-                    session {named.id}
-                  </Link>
-                ) : (
-                  <span className="thread-session" title={named.id}>
-                    session {named.id}
-                  </span>
-                )
-              ) : null}
-              {named ? <CopySessionId id={named.id} /> : null}
-            </div>
-            {/* the items it works on, on a line of their own, kept when
-              there are none, so that the header keeps its height and the
-              terminal under it its size */}
-            <div className="thread-held">
-              {held.length ? (
-                // one item with its title; several by their keys, the titles
-                // on hover
-                <span className="thread-meta-item" data-testid="thread-held-item">
-                  working on{" "}
-                  {held.map((item) => (
-                    <ItemChip key={item.key} item={item} keyOnly={held.length > 1} />
-                  ))}
-                </span>
+              {held.length ? <HeldItems items={held} /> : null}
+              {named && focus ? (
+                // from a question, the session's own page
+                <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
+                  open the session
+                </Link>
               ) : null}
             </div>
           </div>
@@ -592,24 +573,6 @@ export function Thread({
               />
             ) : null}
             {hasTerminalView ? <ViewSwitch view={view} onView={chooseView} /> : null}
-            {items.length > 0 ? (
-              <span className="thread-counts">
-                {[
-                  reviews ? `${reviews} ${reviews === 1 ? "review" : "reviews"}` : null,
-                  questions ? `${questions} ${questions === 1 ? "question" : "questions"}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            ) : null}
-            {markUnread && !focus ? (
-              <Tooltip label="Mark as unread" side="bottom">
-                <button type="button" className="bar-button" aria-label="Mark as unread" onClick={markUnread}>
-                  <CircleDot size={15} />
-                </button>
-              </Tooltip>
-            ) : null}
-            {named && !focus ? <ArchiveButton session={{ ...named, archived_at: session?.archived_at }} /> : null}
             {inPanel && named ? (
               <Tooltip label="Open as a page" side="bottom">
                 <button
@@ -842,7 +805,59 @@ function Where({ agent, repo, reference }: { agent: string | null; repo: string 
   );
 }
 
-/** Copies the session's id, for a message to the agent or a command line. */
-function CopySessionId({ id }: { id: string }) {
-  return <CopyButton text={id} label="Copy the id" ariaLabel="Copy the session id" />;
+/** The work items a session holds, on its header's meta line: one by its
+ *  key and title, several by their first two keys and how many more, with
+ *  every title on hover. */
+function HeldItems({ items }: { items: { key: string; title: string }[] }) {
+  const onLinkClick = useItemLinkClick();
+  const shown = items.length === 1 ? items : items.slice(0, 2);
+  const rest = items.slice(shown.length);
+  return (
+    <span className="thread-meta-items" data-testid="thread-held-item">
+      {shown.map((item) => (
+        <span key={item.key} className="thread-meta-item">
+          <Link
+            to={itemPath(item.key)}
+            className="item-ref"
+            title={`${item.key} ${item.title}`}
+            onClick={(e) => onLinkClick(e, item.key)}
+          >
+            {item.key}
+          </Link>
+          {items.length === 1 ? <span className="thread-meta-item-title">{item.title}</span> : null}
+        </span>
+      ))}
+      {rest.length ? (
+        <span className="thread-meta-more" title={rest.map((i) => `${i.key} ${i.title}`).join("\n")}>
+          +{rest.length}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** The ⋯ button of a session's header, with the menu its sidebar row has. */
+function SessionMenuButton({ session, markUnread }: { session: Session; markUnread: (() => void) | null }) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className="bar-button thread-menu"
+        aria-label="Session actions"
+        aria-haspopup="menu"
+        aria-expanded={!!anchor}
+        data-testid="thread-menu"
+        onClick={(event) => {
+          const button = event.currentTarget;
+          setAnchor((open) => (open ? null : button));
+        }}
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {anchor ? (
+        <SessionMenu session={session} anchor={anchor} markUnread={markUnread} onClose={() => setAnchor(null)} />
+      ) : null}
+    </>
+  );
 }

@@ -23,10 +23,13 @@ export function SessionMenu({
   session,
   anchor,
   onClose,
+  markUnread,
 }: {
   session: Session;
   anchor: HTMLElement;
   onClose: () => void;
+  /** marks it unread where its thread is shown, which keeps it so while it stays shown */
+  markUnread?: (() => void) | null;
 }) {
   const { settings } = useSettings();
   const runsOn = settings.labs.runtime;
@@ -90,7 +93,8 @@ export function SessionMenu({
     entries.push({
       label: unread ? "Mark as read" : "Mark as unread",
       icon: unread ? MailOpen : Mail,
-      onPick: () => void api.setSeen(session.agent, session.id, unread).catch(() => {}),
+      onPick: () =>
+        !unread && markUnread ? markUnread() : void api.setSeen(session.agent, session.id, unread).catch(() => {}),
     });
   entries.push({
     label: "Copy session id",

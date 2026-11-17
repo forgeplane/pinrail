@@ -84,6 +84,12 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- A session's header has the same two rows for every session: the title
+  and its state, then where the agent works, since when, and the work
+  items it holds. Archive, Mark as unread and Copy session id are in the
+  **⋯** menu beside the title, the same menu as the session's row in the
+  sidebar. The counts of reviews and questions are in the session's
+  details.
 - The Pinrail skill tells agents to fence a diff that has a line of three
   backticks with four, so that the diff shows whole in a question. Update
   the Pinrail skill in Settings › Agents for the new advice.

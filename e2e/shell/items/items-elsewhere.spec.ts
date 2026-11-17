@@ -205,7 +205,7 @@ test("a session's thread names the items it holds and worked on", async ({ page,
   await openReviewsIn(request, "panel");
   await page.goto(`/#/sessions/claude-code/${session}`);
   // the header names what it holds now
-  await expect(page.getByTestId("thread-held-item")).toHaveText([`working on ${held.key}Held`]);
+  await expect(page.getByTestId("thread-held-item")).toHaveText([`${held.key}Held`]);
   // its details list every item it worked on, the one in progress first
   const items = page.getByTestId("thread-work-items");
   await expect(items).toContainText("Work items · 2");
@@ -218,8 +218,8 @@ test("a session's thread names the items it holds and worked on", async ({ page,
   await expect(panelKey(page)).toHaveText(held.key);
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?item=${held.key}`));
   await expect(items).toHaveCount(0);
-  // and a chip in the header, in place of the one shown
-  await page.getByTestId("thread-held-item").getByTestId("item-chip").click();
+  // and a key in the header, in place of the one shown
+  await page.getByTestId("thread-held-item").getByRole("link", { name: held.key }).click();
   await expect(panelKey(page)).toHaveText(held.key);
   await page.getByTestId("item-panel").getByRole("button", { name: "Close" }).click();
   await expect(page.getByTestId("item-panel")).toHaveCount(0);
@@ -536,9 +536,11 @@ test("a session holding several items names them once, by their keys", async ({ 
   await page.goto(`/#/sessions/claude-code/${session}`);
   const held = page.getByTestId("thread-held-item");
   await expect(held).toHaveCount(1);
-  await expect(held).toHaveText(`working on ${keys.join("")}`);
-  // each title is on its chip's tooltip
-  await expect(held.getByTestId("item-chip").first()).toHaveAttribute("title", `${keys[0]} First of them`);
+  // the first two keys, and how many more
+  await expect(held).toHaveText(`${keys[0]}${keys[1]}+1`);
+  // each title is on its key's tooltip, and the rest on the count's
+  await expect(held.getByRole("link", { name: keys[0] })).toHaveAttribute("title", `${keys[0]} First of them`);
+  await expect(held.getByText("+1")).toHaveAttribute("title", `${keys[2]} Third of them`);
 });
 
 test("a session's details show its first five items, and the rest on request", async ({ page, request }) => {

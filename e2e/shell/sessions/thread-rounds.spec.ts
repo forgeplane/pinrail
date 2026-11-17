@@ -48,8 +48,6 @@ test("a review revised in a later stage stays in its stage, with a line where th
   await expect(cards.first()).toContainText("round 2 of 2");
   await expect(cards.first()).toHaveAttribute("href", new RegExp(`review=${second}$`));
   await expect(cards.last()).not.toContainText("round");
-  // the header counts reviews, not rounds
-  await expect(thread(page)).toContainText("2 reviews");
 
   const line = thread(page).getByTestId("revised");
   await expect(line).toHaveText(/Revised Rounds: the spec · round 2 · .* agoWaiting for you/);

@@ -3452,17 +3452,24 @@ body.is-resizing iframe {
   min-height: 0;
   width: 100%;
 }
+/* the avatar, the title row with the buttons at its end, and under them
+   the meta line, which runs on to the right edge */
 .thread-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "avatar title end"
+    "avatar meta meta";
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 3px;
   padding: 12px 32px 14px;
   border-bottom: 1px solid var(--border);
   container-type: inline-size;
 }
 .thread.in-panel .thread-head {
   padding: 2px 0 12px;
-  gap: 10px;
+  column-gap: 10px;
 }
 .thread-avatar {
   display: inline-flex;
@@ -3481,10 +3488,20 @@ body.is-resizing iframe {
   height: 28px;
 }
 .thread-title {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+  display: contents;
+}
+.thread-avatar {
+  grid-area: avatar;
+  align-self: start;
+}
+.thread-title-row {
+  grid-area: title;
+}
+.thread-meta {
+  grid-area: meta;
+}
+.thread-head-end {
+  grid-area: end;
 }
 .thread-title h1 {
   display: block;
@@ -3524,14 +3541,17 @@ body.is-resizing iframe {
   height: 24px;
   overflow: hidden;
 }
-/* in a narrow header the title keeps some room, and the badges after it
-   are cut */
+/* the title takes only its own width, so the badges and the menu sit
+   right after it; in a narrow header the title is cut, and they stay whole */
 .thread-title-row h1 {
   flex: 0 1 auto;
-  min-width: min(8em, 100%);
+  min-width: 0;
 }
 .thread-title-row > :not(h1) {
   flex: none;
+}
+.thread-title-row > .thread-menu {
+  margin-left: -4px;
 }
 .thread-title-row h1 {
   overflow: hidden;
@@ -3601,10 +3621,10 @@ body.is-resizing iframe {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* who works where, since when, and the session's id, on one quiet line */
-/* The header keeps its height whatever it shows, since the terminal under
-   it is resized with it: the title, the meta line and the line of held
-   items take one line each, cut short where they do not fit. */
+/* who works where, since when, and the items it holds, on one quiet line.
+   The header keeps its height whatever it shows, since the terminal under
+   it is resized with it: the title and the meta line take one line each,
+   cut short where they do not fit. */
 .thread-meta {
   display: flex;
   align-items: center;
@@ -3613,15 +3633,6 @@ body.is-resizing iframe {
   overflow: hidden;
   font-size: var(--text-sm);
   color: var(--dim);
-}
-.thread-held {
-  display: flex;
-  align-items: center;
-  height: 20px;
-  overflow: hidden;
-  font-size: var(--text-sm);
-  color: var(--dim);
-  white-space: nowrap;
 }
 /* the dot sits in the gap before each item; at the start of a line it
    falls outside the box, which clips it. Each item wraps as a whole. */
@@ -3637,12 +3648,32 @@ body.is-resizing iframe {
   left: -10px;
   color: var(--faint);
 }
-/* the copy button belongs to the id before it */
-.thread-meta > .id-copy {
+/* the held items give way first, their title before their keys */
+.thread-meta > .thread-meta-items {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  /* room for its dot, which it would clip */
   margin-left: -10px;
+  padding-left: 10px;
 }
-.thread-meta > .id-copy::before {
-  content: none;
+.thread-meta > .thread-meta-items::before {
+  left: 0;
+}
+.thread-meta-items .thread-meta-item {
+  min-width: 0;
+}
+.thread-meta-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-meta-more {
+  flex: none;
+  color: var(--faint);
 }
 .thread-meta-where {
   display: inline-flex;
@@ -3651,7 +3682,8 @@ body.is-resizing iframe {
 }
 .thread-meta .thread-ref {
   margin-left: 2px;
-  padding: 0 6px;
+  padding: 0;
+  border: 0;
   font-size: var(--text-xs);
 }
 .thread-meta .thread-session {
@@ -3661,12 +3693,6 @@ body.is-resizing iframe {
   text-overflow: ellipsis;
   color: var(--faint);
 }
-/* a narrow header: the counts are in the details */
-@container (max-width: 560px) {
-  .thread-counts {
-    display: none;
-  }
-}
 .thread-session {
   font-family: var(--mono);
   font-size: var(--text-xs);
@@ -3675,12 +3701,6 @@ body.is-resizing iframe {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
-  flex: none;
-}
-.thread-counts {
-  color: var(--faint);
-  font-size: var(--text-sm);
 }
 .thread-body {
   display: flex;
@@ -7863,7 +7883,9 @@ a.item-ref {
   background: var(--bg-raised);
 }
 .view-switch button {
-  padding: 2px 10px;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px 7px;
   border: 0;
   border-radius: 4px;
   background: transparent;

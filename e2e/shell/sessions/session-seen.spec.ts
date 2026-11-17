@@ -40,13 +40,16 @@ test("a finished session is seen once its thread was shown, and Mark as unread b
   await expect(chip).toHaveText("Idle", { timeout: 5_000 });
   await expect(mark).toHaveAttribute("data-state", "idle");
 
-  await page.getByTestId("thread").getByRole("button", { name: "Mark as unread" }).click();
+  await page.getByTestId("thread").getByRole("button", { name: "Session actions" }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
   await expect(chip).toHaveText("Finished");
   await expect(mark).toHaveAttribute("data-state", "finished");
   // still in view, it stays unread until the person comes back to it
   await page.waitForTimeout(2_000);
   await expect(chip).toHaveText("Finished");
-  await expect(page.getByTestId("thread").getByRole("button", { name: "Mark as unread" })).toHaveCount(0);
+  await page.getByTestId("thread").getByRole("button", { name: "Session actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Mark as read" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // shown again later, it is seen again
   await page.goto("/#/");
