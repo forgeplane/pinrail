@@ -31,11 +31,18 @@ pub fn stage(answer: &Value) -> String {
             "Sent. No stage is open. Before new work, start one with pinrail status --start.\n"
                 .to_string()
         }
-        Some(stage) => format!(
-            "Current stage: {} (started {})\n",
-            text(&stage["text"]),
-            when(&stage["at"])
-        ),
+        Some(stage) => match answer.get("name").and_then(Value::as_str) {
+            Some(name) => format!(
+                "Current stage: {} (started {}), in session {name}\n",
+                text(&stage["text"]),
+                when(&stage["at"])
+            ),
+            None => format!(
+                "Current stage: {} (started {})\n",
+                text(&stage["text"]),
+                when(&stage["at"])
+            ),
+        },
     }
 }
 

@@ -454,6 +454,7 @@ export function subscribe(handlers: {
       "session_seen",
       "session_archived",
       "session_unarchived",
+      "session_renamed",
       "run_started",
       "run_bound",
       "run_ended",

@@ -44,7 +44,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
         .route("/api/v1/sessions", get(sessions))
         .route("/api/v1/stages", get(stages))
-        .route("/api/v1/sessions/{agent}/{id}", get(session))
+        .route("/api/v1/sessions/{agent}/{id}", get(session).patch(rename))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
         .route("/api/v1/sessions/{agent}/{id}/reports", post(report))
         .route(
@@ -704,6 +704,23 @@ async fn archive(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Renames a session, for the person: `name`, or `null` to give it back
+/// the name Pinrail gave it. 204.
+async fn rename(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<StatusCode, ApiError> {
+    let name = match body.get("name") {
+        Some(Value::String(name)) => Some(name.as_str()),
+        Some(Value::Null) => None,
+        _ => return Err(Error::invalid("/name", "must be a string or null").into()),
+    };
+    state.reviews().rename_session(&agent, &id, name)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// Brings an archived session back: 204.
 async fn unarchive(
     _person: super::guard::Person,
@@ -811,6 +828,7 @@ async fn status(
     Ok(Json(json!({
         "messages": messages.iter().map(MessageRow::to_json).collect::<Vec<_>>(),
         "stage": stage.as_ref().map(OpenStage::to_json),
+        "name": state.reviews().session_name(&agent, &id)?,
     })))
 }
 

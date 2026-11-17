@@ -758,6 +758,38 @@ impl Reviews {
         Ok(())
     }
 
+    /// Renames a session, for the person: a name of 1 to 60 characters on
+    /// one line, without the spaces around it, or `None` to give it back
+    /// the name Pinrail gave it.
+    pub fn rename_session(&self, agent: &str, id: &str, name: Option<&str>) -> Result<(), Error> {
+        let name = name.map(str::trim);
+        if let Some(name) = name {
+            if name.is_empty() || name.chars().count() > 60 {
+                return Err(Error::invalid(
+                    "/name",
+                    "must be 1 to 60 characters, or null",
+                ));
+            }
+            if name.contains(['\n', '\r']) {
+                return Err(Error::invalid("/name", "must be on one line"));
+            }
+        }
+        let Some(event_id) = self.db.rename_session(agent, id, name)? else {
+            return Err(Error::NotFound(format!("session {id} of {agent}")));
+        };
+        self.bus.publish(Notice::new(
+            event_id,
+            events::SESSION_RENAMED,
+            &serde_json::json!({ "agent": agent, "id": id }),
+        ));
+        Ok(())
+    }
+
+    /// The session's name, if there is such a session.
+    pub fn session_name(&self, agent: &str, id: &str) -> Result<Option<String>, Error> {
+        Ok(self.db.session_name(agent, id)?)
+    }
+
     /// The stages agents started whose names hold every word of `text`,
     /// newest first.
     pub fn stages(&self, text: Option<&str>, limit: usize) -> Result<Vec<StageRow>, Error> {

@@ -3626,6 +3626,9 @@ fn status_prints_the_open_stage_above_the_messages() {
         r#"{"messages":[{"sent_by":"pnezis","sent_at":"2026-11-02T10:04:00Z","text":"Use v2."}],
             "stage":{"text":"Add rate limiting","at":"2026-11-02T10:00:00Z"}}"#
             .to_string(),
+        r#"{"messages":[],"stage":{"text":"Add rate limiting","at":"2026-11-02T10:00:00Z"},
+            "name":"Happy Hydrogen"}"#
+            .to_string(),
     ];
     let next = Mutex::new(answers);
     let server = MockServer::start(Box::new(move |_, _, _| {
@@ -3658,6 +3661,11 @@ fn status_prints_the_open_stage_above_the_messages() {
         status(),
         "Current stage: Add rate limiting (started 2026-11-02 10:00)\n\n\
          Message from pnezis, sent 2026-11-02 10:04:\nUse v2.\n"
+    );
+    // with the session's name, when the app gives it
+    assert_eq!(
+        status(),
+        "Current stage: Add rate limiting (started 2026-11-02 10:00), in session Happy Hydrogen\n"
     );
 }
 

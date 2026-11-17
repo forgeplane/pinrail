@@ -328,6 +328,49 @@ impl Db {
         Ok(Some(event_id))
     }
 
+    /// Renames a session to `name`, the person's, or with `None` gives it
+    /// back the name Pinrail gave it. The event's id; `None` when there is
+    /// no such session.
+    pub fn rename_session(
+        &self,
+        agent: &str,
+        id: &str,
+        name: Option<&str>,
+    ) -> rusqlite::Result<Option<i64>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let changed = tx.execute(
+            "UPDATE sessions SET name = COALESCE(?3, generated_name),
+               named_by = CASE WHEN ?3 IS NULL THEN 'pinrail' ELSE 'person' END
+             WHERE agent = ?1 AND id = ?2",
+            params![agent, id, name],
+        )?;
+        if changed == 0 {
+            return Ok(None);
+        }
+        let event_id = insert_event(
+            &tx,
+            None,
+            crate::events::SESSION_RENAMED,
+            None,
+            &json!({ "agent": agent, "id": id }),
+        )?;
+        tx.commit()?;
+        Ok(Some(event_id))
+    }
+
+    /// The session's name, if there is such a session.
+    pub fn session_name(&self, agent: &str, id: &str) -> rusqlite::Result<Option<String>> {
+        self.read()
+            .query_row(
+                "SELECT name FROM sessions WHERE agent = ?1 AND id = ?2",
+                params![agent, id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map(Option::flatten)
+    }
+
     /// The projects of all the sessions, sorted, and whether a session has
     /// none: what the project filter offers, whatever it filters by.
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {

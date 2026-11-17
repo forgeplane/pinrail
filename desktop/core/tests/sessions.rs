@@ -1138,3 +1138,67 @@ async fn a_new_session_is_named_after_an_element_and_no_two_active_ones_share_a_
     names.dedup();
     assert_eq!(names.len(), 3, "{names:?}");
 }
+
+#[tokio::test]
+async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
+    let app = app();
+    let path = "/api/v1/sessions/claude-code/s-rename";
+    let (code, _) = call(
+        &app,
+        "POST",
+        &format!("{path}/status"),
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let name = |thread: &Value| thread["session"]["name"].as_str().unwrap().to_string();
+    let (_, thread) = call(&app, "GET", path, None).await;
+    let generated = name(&thread);
+
+    let (code, _) = call(
+        &app,
+        "PATCH",
+        path,
+        Some(json!({"name": "  Login redirect  "})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    let (_, thread) = call(&app, "GET", path, None).await;
+    assert_eq!(name(&thread), "Login redirect");
+    assert_eq!(thread["session"]["named_by"], "person");
+    // the element stays
+    let element = thread["session"]["element"].clone();
+    assert!(element.is_u64());
+
+    // null gives it back the name Pinrail gave it
+    let (code, _) = call(&app, "PATCH", path, Some(json!({"name": null}))).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    let (_, thread) = call(&app, "GET", path, None).await;
+    assert_eq!(name(&thread), generated);
+    assert_eq!(thread["session"]["named_by"], "pinrail");
+    assert_eq!(thread["session"]["element"], element);
+
+    for bad in [
+        json!({"name": "   "}),
+        json!({"name": "a".repeat(61)}),
+        json!({"name": "two\nlines"}),
+        json!({}),
+    ] {
+        let (code, _) = call(&app, "PATCH", path, Some(bad.clone())).await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{bad}");
+    }
+    let (code, _) = call(
+        &app,
+        "PATCH",
+        "/api/v1/sessions/claude-code/s-none",
+        Some(json!({"name": "X"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+
+    // an agent cannot rename it
+    let (code, _) = common::call_as(&app, "PATCH", path, Some(json!({"name": "Mine"})), &[]).await;
+    assert_eq!(code, StatusCode::UNAUTHORIZED);
+    let (_, thread) = call(&app, "GET", path, None).await;
+    assert_eq!(name(&thread), generated);
+}

@@ -39,7 +39,7 @@ pub(super) fn name_new_sessions(
     for (agent, id, archived) in unnamed {
         let (element, name) = crate::elements::draw(&used, &taken, random);
         conn.execute(
-            "UPDATE sessions SET element = ?3, name = ?4
+            "UPDATE sessions SET element = ?3, name = ?4, generated_name = ?4
              WHERE agent = ?1 AND id = ?2 AND element IS NULL",
             params![agent, id, element, name],
         )?;

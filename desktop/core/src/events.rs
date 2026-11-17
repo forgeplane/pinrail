@@ -40,6 +40,8 @@ pub const SESSION_SEEN: &str = "session_seen";
 /// The person archived a session, or brought it back.
 pub const SESSION_ARCHIVED: &str = "session_archived";
 pub const SESSION_UNARCHIVED: &str = "session_unarchived";
+/// The person renamed a session, or gave it back the name Pinrail gave it.
+pub const SESSION_RENAMED: &str = "session_renamed";
 /// Pinrail started an agent in a terminal of a host; the run moved to
 /// another session, as on `/clear`; the run ended.
 pub const RUN_STARTED: &str = "run_started";
@@ -115,6 +117,7 @@ impl Notice {
                 SESSION_MESSAGE_STATE,
                 SESSION_ARCHIVED,
                 SESSION_UNARCHIVED,
+                SESSION_RENAMED,
                 SESSION_PRESENCE,
                 SESSION_TURN,
                 SESSION_SEEN,
