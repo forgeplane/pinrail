@@ -2,7 +2,7 @@
 // right-click: archive it, mark it read or unread, copy its id, and stop or
 // resume its agent when it runs in Pinrail, as the session's header does.
 
-import { Archive, ArchiveRestore, Copy, Mail, MailOpen, Play, Square } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Mail, MailOpen, Pencil, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api, errorMessage } from "../api/client";
@@ -24,10 +24,13 @@ export function SessionMenu({
   anchor,
   onClose,
   markUnread,
+  onRename,
 }: {
   session: Session;
   anchor: HTMLElement;
   onClose: () => void;
+  /** starts renaming it where it is shown; without, its page opens to rename it */
+  onRename?: () => void;
   /** marks it unread where its thread is shown, which keeps it so while it stays shown */
   markUnread?: (() => void) | null;
 }) {
@@ -83,6 +86,11 @@ export function SessionMenu({
   const archived = !!session.archived_at;
 
   const entries: MenuEntry[] = [
+    {
+      label: "Rename",
+      icon: Pencil,
+      onPick: () => (onRename ? onRename() : navigate(sessionPath(named), { state: { rename: true } })),
+    },
     {
       label: archived ? "Unarchive" : "Archive",
       icon: archived ? ArchiveRestore : Archive,

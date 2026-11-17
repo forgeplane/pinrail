@@ -1,9 +1,11 @@
 // An agent session's thread: the questions it asked, as the agent's
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
-import { ArrowDown, Expand, GitBranch, MoreHorizontal, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { ArrowDown, Expand, GitBranch, MoreHorizontal, PanelRightClose, PanelRightOpen, Pencil, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useNavigate, type To } from "react-router";
+import { Link, useLocation, useNavigate, type To } from "react-router";
+import { api, errorMessage } from "../api/client";
+import { useToast } from "../state/toasts";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, isMac, modalOpen, isTyping } from "../lib/keys";
@@ -196,7 +198,7 @@ export function Thread({
   );
   const body = useRef<HTMLDivElement>(null);
   const named = given ?? (focus ? sessionOf(focus) : null);
-  const { session, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems, kept } =
+  const { session, rename, items, statuses, messages, comments, itemEvents, turns, error, load, sessionItems, kept } =
     useSessionThread(named, focus, onSession);
   // where the person left this session's thread, when it opens as it was
   // shown then, at no question or stage
@@ -288,6 +290,20 @@ export function Thread({
     (i) => i.status === "in_progress" && i.claim?.agent === named?.agent && i.claim?.session === named?.id,
   );
   const navigate = useNavigate();
+  // renaming the session in its header, which Rename in a session's menu
+  // elsewhere asks for as it opens the page
+  const routed = useLocation();
+  const asksRename = (routed.state as { rename?: boolean } | null)?.rename === true;
+  const [renaming, setRenaming] = useState(asksRename);
+  const [routedKey, setRoutedKey] = useState(routed.key);
+  if (routed.key !== routedKey) {
+    setRoutedKey(routed.key);
+    if (asksRename) setRenaming(true);
+  }
+  // the request is answered: a reload or Back does not ask again
+  useEffect(() => {
+    if (asksRename) navigate(`${routed.pathname}${routed.search}`, { replace: true, state: null });
+  }, [asksRename, routed.pathname, routed.search, navigate]);
   // a side panel has details only for a question asked in a session
   const hasDetails = !inPanel || !!named;
 
@@ -534,9 +550,17 @@ export function Thread({
             <div className="thread-title-row">
               <h1
                 className={session && (session.name || session.title) ? "thread-stage" : undefined}
-                title={session ? sessionLabel(session) : undefined}
+                title={session && !renaming ? sessionLabel(session) : undefined}
               >
-                {session && (session.name || session.title) ? (
+                {session && named && !focus ? (
+                  <SessionName
+                    session={session}
+                    editing={renaming}
+                    onEdit={setRenaming}
+                    onRename={rename}
+                    onFailed={load}
+                  />
+                ) : session && (session.name || session.title) ? (
                   sessionLabel(session)
                 ) : (
                   <Where agent={agent} repo={repo} reference={ref} />
@@ -545,7 +569,9 @@ export function Thread({
               {session ? <PresenceChip session={session} /> : null}
               {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
               {/* what can be done with the session, beside its name */}
-              {session && !focus ? <SessionMenuButton session={session} markUnread={markUnread} /> : null}
+              {session && !focus ? (
+                <SessionMenuButton session={session} markUnread={markUnread} onRename={() => setRenaming(true)} />
+              ) : null}
             </div>
             {/* one quiet line, kept when it is short, so that the header
               keeps its height and the terminal under it its size: where it
@@ -863,8 +889,121 @@ function HeldItems({ items }: { items: { key: string; title: string }[] }) {
   );
 }
 
+/** The session's name in its header, which a click turns into a field to
+ *  rename it in place: Enter or a click elsewhere saves, Esc cancels, and
+ *  an empty name gives back the name Pinrail gave it. */
+function SessionName({
+  session,
+  editing,
+  onEdit,
+  onRename,
+  onFailed,
+}: {
+  session: Session;
+  editing: boolean;
+  onEdit: (editing: boolean) => void;
+  /** shows the new name, or with null the generated one */
+  onRename: (name: string | null) => void;
+  onFailed: () => void;
+}) {
+  const label = sessionLabel(session);
+  const toast = useToast();
+  // Esc ends the edit before the blur that follows would save it
+  const cancelled = useRef(false);
+  const save = async (text: string) => {
+    onEdit(false);
+    const name = text.trim();
+    if (cancelled.current || name === label) return;
+    // shown at once; a rename that fails loads the session's name again
+    onRename(name || null);
+    try {
+      await api.renameSession(session.agent, session.id, name || null);
+    } catch (e) {
+      onFailed();
+      toast(`Could not rename the session: ${errorMessage(e)}`, "danger");
+    }
+  };
+  if (!editing)
+    return (
+      <button
+        type="button"
+        className="thread-name"
+        onClick={() => {
+          cancelled.current = false;
+          onEdit(true);
+        }}
+        title="Rename"
+      >
+        <span className="thread-name-text">{label}</span>
+        <Pencil size={12} className="thread-name-pencil" aria-hidden="true" />
+      </button>
+    );
+  return (
+    <NameField
+      label={label}
+      onSave={(text) => void save(text)}
+      onCancel={() => {
+        cancelled.current = true;
+        onEdit(false);
+      }}
+    />
+  );
+}
+
+/** The field that renames the session, as wide as its text: a hidden copy
+ *  of the text beside it sets its width, since WebKit cannot size a field
+ *  to its content. */
+function NameField({
+  label,
+  onSave,
+  onCancel,
+}: {
+  label: string;
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(label);
+  return (
+    <span className="thread-name-edit">
+      <span className="thread-name-sizer" aria-hidden="true">
+        {text || " "}
+      </span>
+      <input
+        className="thread-name-field"
+        aria-label="Session name"
+        // no width of its own: the copy of the text sets it
+        size={1}
+        value={text}
+        maxLength={60}
+        autoFocus
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            onCancel();
+          }
+        }}
+        onBlur={(e) => onSave(e.currentTarget.value)}
+      />
+    </span>
+  );
+}
+
 /** The ⋯ button of a session's header, with the menu its sidebar row has. */
-function SessionMenuButton({ session, markUnread }: { session: Session; markUnread: (() => void) | null }) {
+function SessionMenuButton({
+  session,
+  markUnread,
+  onRename,
+}: {
+  session: Session;
+  markUnread: (() => void) | null;
+  onRename: () => void;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   return (
     <>
@@ -883,7 +1022,13 @@ function SessionMenuButton({ session, markUnread }: { session: Session; markUnre
         <MoreHorizontal size={15} />
       </button>
       {anchor ? (
-        <SessionMenu session={session} anchor={anchor} markUnread={markUnread} onClose={() => setAnchor(null)} />
+        <SessionMenu
+          session={session}
+          anchor={anchor}
+          markUnread={markUnread}
+          onRename={onRename}
+          onClose={() => setAnchor(null)}
+        />
       ) : null}
     </>
   );

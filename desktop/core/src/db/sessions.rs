@@ -332,14 +332,15 @@ impl Db {
     }
 
     /// Renames a session to `name`, the person's, or with `None` gives it
-    /// back the name Pinrail gave it. The event's id; `None` when there is
-    /// no such session.
+    /// back the name Pinrail gave it. The event's id and what it says: the
+    /// session, its name now and who gave it; `None` when there is no such
+    /// session.
     pub fn rename_session(
         &self,
         agent: &str,
         id: &str,
         name: Option<&str>,
-    ) -> rusqlite::Result<Option<i64>> {
+    ) -> rusqlite::Result<Option<(i64, Value)>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let changed = tx.execute(
@@ -351,15 +352,15 @@ impl Db {
         if changed == 0 {
             return Ok(None);
         }
-        let event_id = insert_event(
-            &tx,
-            None,
-            crate::events::SESSION_RENAMED,
-            None,
-            &json!({ "agent": agent, "id": id }),
+        let (name, named_by): (Option<String>, String) = tx.query_row(
+            "SELECT name, named_by FROM sessions WHERE agent = ?1 AND id = ?2",
+            params![agent, id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
+        let attrs = json!({ "agent": agent, "id": id, "name": name, "named_by": named_by });
+        let event_id = insert_event(&tx, None, crate::events::SESSION_RENAMED, None, &attrs)?;
         tx.commit()?;
-        Ok(Some(event_id))
+        Ok(Some((event_id, attrs)))
     }
 
     /// The session's name, if there is such a session.

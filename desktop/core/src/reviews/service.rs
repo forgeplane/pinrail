@@ -774,14 +774,11 @@ impl Reviews {
                 return Err(Error::invalid("/name", "must be on one line"));
             }
         }
-        let Some(event_id) = self.db.rename_session(agent, id, name)? else {
+        let Some((event_id, attrs)) = self.db.rename_session(agent, id, name)? else {
             return Err(Error::NotFound(format!("session {id} of {agent}")));
         };
-        self.bus.publish(Notice::new(
-            event_id,
-            events::SESSION_RENAMED,
-            &serde_json::json!({ "agent": agent, "id": id }),
-        ));
+        self.bus
+            .publish(Notice::new(event_id, events::SESSION_RENAMED, &attrs));
         Ok(())
     }
 

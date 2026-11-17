@@ -3521,6 +3521,71 @@ body.is-resizing iframe {
 .thread.in-panel .thread-title h1 {
   font-size: var(--text-lg);
 }
+/* the session's name, which a click renames in place: it reads as the
+   title, and shows a pencil while the pointer is over it */
+.thread-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+.thread-name-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.thread-name-pencil {
+  flex: none;
+  color: var(--faint);
+  opacity: 0;
+}
+.thread-name:hover .thread-name-pencil,
+.thread-name:focus-visible .thread-name-pencil {
+  opacity: 1;
+}
+/* while renaming, the name reads as it did: the field has no border or
+   background, and a hidden copy of its text in the same cell makes it as
+   wide as the text, up to the row's room */
+.thread-name-edit {
+  display: inline-grid;
+  max-width: 100%;
+  vertical-align: top;
+  /* the room of the name's pencil and its gap, less the caret's room in
+     the copy of the text, so the chip after the name stays where it was */
+  padding-right: 16px;
+}
+.thread-name-edit > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.thread-name-sizer {
+  visibility: hidden;
+  overflow: hidden;
+  white-space: pre;
+  /* room for the caret after the last letter */
+  padding-right: 2px;
+}
+.thread-name-field,
+.thread-name-field:focus,
+.thread-name-field:focus-visible {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  background: none;
+  color: var(--text);
+}
 .thread-in {
   font-weight: 400;
 }

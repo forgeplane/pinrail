@@ -266,6 +266,9 @@ export const api = {
   /** archives a session, or brings it back */
   archiveSession: (agent: string, id: string, archived: boolean) =>
     request<void>(archived ? "PUT" : "DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/archive`),
+  /** renames a session, or with null gives it back the name Pinrail gave it */
+  renameSession: (agent: string, id: string, name: string | null) =>
+    request<void>("PATCH", `/api/v1/sessions/${seg(agent)}/${seg(id)}`, { name }),
   /** Marks a session seen, which clears Finished, or unread, which brings it back. */
   setSeen: (agent: string, id: string, seen: boolean) =>
     request<void>(seen ? "PUT" : "DELETE", `/api/v1/sessions/${seg(agent)}/${seg(id)}/seen`),

@@ -406,8 +406,15 @@ export type Notice = {
   review: Review | null;
   /** for settings_changed: the settings that changed, as JSON pointers */
   keys?: string[];
-  /** for session_status: the session and the status the agent reported */
-  session?: { agent: string; id: string; status: SessionStatus };
+  /** for session_status: the session and the status the agent reported;
+   *  for session_renamed: its name now, and who gave it */
+  session?: {
+    agent: string;
+    id: string;
+    status: SessionStatus;
+    name?: string | null;
+    named_by?: "pinrail" | "person";
+  };
   /** for item_changed and item_deleted: the item, and the agent and session
    *  that changed it when an agent did; for prefix_changed: the repository
    *  and its new prefix */

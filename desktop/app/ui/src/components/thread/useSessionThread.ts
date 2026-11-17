@@ -38,11 +38,13 @@ export function aboutThread(
     !!named &&
     (notice.kind === "prefix_changed" ||
       (!!changed && ((changed.agent === named.agent && changed.session === named.id) || items.has(changed.key))));
+  // a rename changes the session's name only, which the notice carries
   const thread =
-    item ||
-    (!!notice.review_id && reviews.has(notice.review_id)) ||
-    (!!named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
-    (!!named && notice.session?.agent === named.agent && notice.session.id === named.id);
+    notice.kind !== "session_renamed" &&
+    (item ||
+      (!!notice.review_id && reviews.has(notice.review_id)) ||
+      (!!named && notice.review?.requested_by === named.agent && notice.review?.session === named.id) ||
+      (!!named && notice.session?.agent === named.agent && notice.session.id === named.id));
   return { thread, item };
 }
 
@@ -178,13 +180,26 @@ export function useSessionThread(
     ]),
   );
   useNotice((notice) => {
+    // a rename, here or elsewhere, carries the session's new name
+    const renamed = notice.kind === "session_renamed" ? notice.session : undefined;
+    if (renamed && named && renamed.agent === named.agent && renamed.id === named.id)
+      setSession((s) => (s ? { ...s, name: renamed.name ?? s.name, named_by: renamed.named_by ?? s.named_by } : s));
     const { thread, item } = aboutThread(notice, named, ids.current, keys.current);
     if (item) setItemsChanged((n) => n + 1);
     if (thread) load();
   });
 
+  /** Shows the session under a new name at once: the person's, or with
+   *  null the name Pinrail gave it. */
+  const rename = useCallback((name: string | null) => {
+    setSession((s) =>
+      s ? { ...s, name: name ?? s.generated_name ?? s.name, named_by: name ? "person" : "pinrail" } : s,
+    );
+  }, []);
+
   return {
     session,
+    rename,
     items,
     statuses,
     messages,

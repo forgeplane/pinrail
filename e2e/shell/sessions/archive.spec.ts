@@ -93,7 +93,7 @@ test("E archives the session open in the side panel", async ({ page }) => {
   const panel = page.getByTestId("session-panel");
   await expect(panel.getByRole("button", { name: "Session actions" })).toBeVisible();
   // the focus off the answer field, as after reading the thread
-  await panel.getByRole("heading", { level: 1 }).click();
+  await panel.getByTestId("presence-chip").click();
   await page.keyboard.press("e");
   await expect(panel.getByText("Archived", { exact: true })).toBeVisible();
   await expect(row(page, session)).toHaveCount(0);

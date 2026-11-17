@@ -32,7 +32,7 @@ test("a session's menu marks it read and unread, and archives it", async ({ page
   await expect(button).toHaveCSS("opacity", "1");
   await button.click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveText(["Archive", "Mark as read", "Copy session id"]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Rename", "Archive", "Mark as read", "Copy session id"]);
   await menu.getByRole("menuitem", { name: "Mark as read" }).click();
   await expect(row).toHaveAttribute("data-state", "idle");
 
