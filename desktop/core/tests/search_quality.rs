@@ -18,11 +18,12 @@ use serde_json::Value;
 /// How many results an agent reads.
 const TOP: usize = 10;
 
-/// A way of searching: the keys it finds for a query, best first.
-type Search = fn(&Db, &str, &str) -> Vec<String>;
+/// A way of searching: the keys it finds for a query and the other ways
+/// of saying it, best first.
+type Search = fn(&Db, &str, &str, &[String]) -> Vec<String>;
 
 /// Today's search: every word in the title or the body, in key order.
-fn like(db: &Db, repo: &str, query: &str) -> Vec<String> {
+fn like(db: &Db, repo: &str, query: &str, _: &[String]) -> Vec<String> {
     let filters = ItemFilters {
         states: vec![
             State::Open,
@@ -42,10 +43,22 @@ fn like(db: &Db, repo: &str, query: &str) -> Vec<String> {
         .collect()
 }
 
-/// The ranked full-text search.
-fn ranked(db: &Db, repo: &str, query: &str) -> Vec<String> {
+/// The ranked full-text search, with the query alone.
+fn ranked(db: &Db, repo: &str, query: &str, _: &[String]) -> Vec<String> {
+    search(db, repo, vec![query.to_string()])
+}
+
+/// The ranked full-text search, with the query and the other ways of
+/// saying it, as an agent told to search with several phrasings does.
+fn phrasings(db: &Db, repo: &str, query: &str, more: &[String]) -> Vec<String> {
+    let mut all = vec![query.to_string()];
+    all.extend(more.iter().cloned());
+    search(db, repo, all)
+}
+
+fn search(db: &Db, repo: &str, phrasings: Vec<String>) -> Vec<String> {
     let search = ItemSearch {
-        phrasings: vec![query.to_string()],
+        phrasings,
         filters: ItemFilters {
             repo: Some(repo.to_string()),
             ..Default::default()
@@ -68,7 +81,8 @@ fn search_finds_the_expected_items() {
     let repo = set["repo"].as_str().unwrap();
     let queries = set["queries"].as_array().unwrap();
 
-    let searches: [(&str, Search); 2] = [("like", like), ("ranked", ranked)];
+    let searches: [(&str, Search); 3] =
+        [("like", like), ("ranked", ranked), ("phrasings", phrasings)];
     for (name, search) in searches {
         let (mut expected, mut in_top, mut anywhere, mut returned) = (0, 0, 0, 0);
         println!("\n{name}");
@@ -80,7 +94,11 @@ fn search_finds_the_expected_items() {
                 .iter()
                 .map(|k| k.as_str().unwrap())
                 .collect();
-            let found = search(&db, repo, q);
+            let more: Vec<String> = query["more"]
+                .as_array()
+                .map(|m| m.iter().map(|p| p.as_str().unwrap().to_string()).collect())
+                .unwrap_or_default();
+            let found = search(&db, repo, q, &more);
             let top = &found[..found.len().min(TOP)];
             let hits = expect
                 .iter()
