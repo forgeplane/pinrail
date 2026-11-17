@@ -496,6 +496,7 @@ export type ServerSettings = {
     show_next?: boolean;
     close_parents?: boolean;
     count_nested?: boolean;
+    search?: "title" | "text";
   };
   whats_new?: { seen: string | null };
   /** each plugin's own settings, only the values someone changed */
@@ -598,6 +599,15 @@ export type WorkItem = {
   waiting: number;
   /** its place in the person's queue, from 1, or null when it is not queued */
   queue: number | null;
+};
+
+/** A work item a search found, with where it matched best. */
+export type FoundItem = WorkItem & {
+  /** how well it matched: higher is better */
+  score: number;
+  matched: "key" | "title" | "body" | "comment";
+  /** the words around the match, each matched word in brackets */
+  snippet: string | null;
 };
 
 /** An item another is related to. */

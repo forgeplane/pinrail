@@ -24,6 +24,7 @@ describe("fromServer", () => {
       show_next: false,
       close_parents: true,
       count_nested: false,
+      search: "text",
     });
     expect(served.plugins).toEqual({});
     expect(served.links).toEqual({});

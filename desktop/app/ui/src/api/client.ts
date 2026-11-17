@@ -29,6 +29,7 @@ import type {
   ThemeEntry,
   Violation,
   WorkItem,
+  FoundItem,
   ItemStatus,
 } from "./types";
 
@@ -167,8 +168,16 @@ export const api = {
       agent?: string;
       session?: string;
       queued?: "true";
+      /** `title`: `q` is looked for in the titles only */
+      in?: "title";
     } = {},
   ) => request<{ items: WorkItem[]; next: string[] }>("GET", `/api/v1/items${query({ ...params, fields: "summary" })}`),
+  /** the items whose title, description or comments match `q`, best first */
+  searchItems: (params: { q: string; status?: string; repo?: string; project?: string; limit?: number }) =>
+    request<{ items: FoundItem[] }>(
+      "GET",
+      `/api/v1/items/search${query({ ...params, limit: params.limit?.toString() })}`,
+    ),
   /** puts an item in the person's queue, or moves it: at the end, or
    *  before or after a queued item; answers the queue in order */
   queueItem: (key: string, place: { before?: string; after?: string } = {}) =>

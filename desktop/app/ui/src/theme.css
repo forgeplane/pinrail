@@ -928,6 +928,12 @@ h1 {
   background: var(--bg-hover);
   outline: none;
 }
+.menu-hint {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
 .menu-item:disabled {
   color: var(--faint);
   background: none;
@@ -964,9 +970,14 @@ h1 {
   color: var(--faint);
 }
 .menu-check {
+  display: flex;
   flex: none;
+  width: 13px;
   margin-left: auto;
   color: var(--accent);
+}
+.menu-hint + .menu-check {
+  margin-left: 8px;
 }
 .menu-separator {
   margin: 5px 2px;
@@ -2168,6 +2179,33 @@ body.is-resizing iframe {
 .search-field input {
   padding-left: 28px;
   min-width: 220px;
+}
+/* the search's mode, a button in place of the magnifier that opens a menu */
+.search-field.has-mode input {
+  padding-left: 46px;
+  min-width: 280px;
+}
+.search-mode {
+  position: absolute;
+  left: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: calc(100% - 8px);
+  padding: 0 4px 0 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--dim);
+}
+.search-field .search-mode svg {
+  position: static;
+  color: inherit;
+}
+.search-mode:hover,
+.search-mode[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .list-tabs {
   display: flex;
@@ -6689,6 +6727,37 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-row.is-closed {
   opacity: 0.55;
+}
+/* where a full-text search matched, under the title */
+.item-snippet {
+  grid-column: 4 / -1;
+  margin-top: -2px;
+  color: var(--dim);
+  font-size: var(--text-xs);
+}
+.item-snippet-where {
+  margin-right: 6px;
+  color: var(--faint);
+}
+.item-snippet mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+/* the closed items a full-text search found, after the open ones */
+.found-closed {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 4px;
+  padding: 0 4px;
+  color: var(--dim);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.found-closed span {
+  color: var(--faint);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 /* a row and its fold button, which sits over the row's first column */
 .item-line {

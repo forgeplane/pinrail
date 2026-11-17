@@ -124,6 +124,12 @@ const LEAVES: &[Leaf] = &[
         "Fold a done or cancelled work item's sub-items on the Work items page until it is unfolded.",
     ),
     (
+        "/items/search",
+        Kind::Enum(&["title", "text"]),
+        || json!("text"),
+        "How the Work items page searches: the titles only, or the full text of the items and their comments, ranked by how well they match.",
+    ),
+    (
         "/items/count_nested",
         Kind::Bool,
         || json!(false),

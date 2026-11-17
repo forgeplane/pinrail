@@ -111,7 +111,8 @@ fn edited_json(state: &Pinrail, edited: &Edited) -> Result<Value, Error> {
 /// cancelled, ready and blocked, comma-separated, by default those open or
 /// in progress; `repo`; `project`; `parent`, an item; `created_by`; `q`,
 /// words in the title or the body, or a number or key that matches the
-/// item's own; and `fields=summary`, which leaves the bodies out. Answers
+/// item's own; `in=title`, which looks for `q` in the titles only; and
+/// `fields=summary`, which leaves the bodies out. Answers
 /// `items`, and in `next` the key of each repository's next ready item, as
 /// `items next` takes it.
 async fn list(
@@ -127,6 +128,7 @@ async fn list(
     filters.project = params.get("project").cloned();
     filters.created_by = params.get("created_by").cloned();
     filters.text = params.get("q").cloned();
+    filters.title_only = params.get("in").is_some_and(|v| v == "title");
     if let (Some(agent), Some(session)) = (params.get("agent"), params.get("session")) {
         filters.session = Some((agent.clone(), session.clone()));
     }

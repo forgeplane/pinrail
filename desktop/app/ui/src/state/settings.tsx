@@ -41,6 +41,8 @@ export type Settings = {
     close_parents: boolean;
     /** whether a parent's progress counts every item under it, at any depth */
     count_nested: boolean;
+    /** whether the search looks in the titles only, or ranks the full text */
+    search: "title" | "text";
   };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
@@ -186,6 +188,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     show_next: s.items?.show_next ?? false,
     close_parents: s.items?.close_parents ?? true,
     count_nested: s.items?.count_nested ?? false,
+    search: s.items?.search ?? "text",
   },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
@@ -310,6 +313,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       show_next: false,
       close_parents: true,
       count_nested: false,
+      search: "text",
     },
     plugins: {},
     links: {},

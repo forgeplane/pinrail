@@ -513,6 +513,32 @@ async fn the_search_finds_an_item_by_its_number_or_key() {
 }
 
 #[tokio::test]
+async fn the_search_can_look_in_the_titles_only() {
+    let app = app();
+    add(&app, "Theme loader").await;
+    let (code, item) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": REPO, "title": "Settings file", "body": "It names the theme."})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{item}");
+    let list = |query: &'static str| {
+        let app = &app;
+        async move {
+            let (code, listed) = call(app, "GET", &format!("/api/v1/items?{query}"), None).await;
+            assert_eq!(code, StatusCode::OK, "{listed}");
+            keys(&listed["items"])
+        }
+    };
+    assert_eq!(list("q=theme").await, ["PIN-1", "PIN-2"]);
+    assert_eq!(list("q=theme&in=title").await, ["PIN-1"]);
+    // a key still names its item
+    assert_eq!(list("q=PIN-2&in=title").await, ["PIN-2"]);
+}
+
+#[tokio::test]
 async fn the_list_filters_by_status_including_ready_and_blocked() {
     let app = app();
     for t in ["Ready", "Blocked", "Blocker", "Done"] {

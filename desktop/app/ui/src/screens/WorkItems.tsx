@@ -2,10 +2,10 @@
 // list grouped like the inbox, with sub-items nested under their parent or
 // each as a row of its own, a quick add at the top, and filters.
 
-import { FolderGit2, ListChecks, Lock, Plus, Search, SearchX } from "lucide-react";
+import { ChevronDown, FolderGit2, Heading, ListChecks, Lock, Plus, SearchX, TextSearch } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, errorMessage } from "../api/client";
-import type { WorkItem } from "../api/types";
+import type { FoundItem, WorkItem } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
 import { EmptyState } from "../components/EmptyState";
 import { GroupHeading } from "../components/GroupHeading";
@@ -26,7 +26,7 @@ import { DeleteItemDialog } from "../components/DeleteItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
 import { PopoverMenu } from "../components/PopoverMenu";
-import { inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
+import { NO_PROJECT, inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive, aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
@@ -41,8 +41,20 @@ import { useLatest } from "../lib/useLatest";
 import { useLoad } from "../lib/useLoad";
 import { readStored, writeStored } from "../lib/storage";
 
+/** What the search looks in: the titles, or everything an item holds. */
+const SEARCH_MODES = {
+  title: { label: "Titles", hint: "Strict", icon: Heading, tip: "Search titles only" },
+  text: { label: "Full text", hint: "Ranked", icon: TextSearch, tip: "Search titles, descriptions and comments" },
+} as const;
+type SearchMode = keyof typeof SEARCH_MODES;
+/** The group of a full-text search's closed matches. */
+const CLOSED_GROUP = "closed";
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
+/** The most items a full-text search lists, of the open and of the closed ones each. */
+const FOUND_LIMIT = 100;
+/** Whether an item is closed, for the full-text search that lists those last. */
+const ended = (i: WorkItem) => i.status === "done" || i.status === "cancelled";
 
 /** The choices of the status filter, and what each asks the core for. */
 const STATUSES: { value: string; label: string; query?: string }[] = [
@@ -136,19 +148,48 @@ export function WorkItems() {
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
+  // titles only, or the full text ranked by how well it matches
+  const searchMode = prefs.items.search;
+  const ModeIcon = SEARCH_MODES[searchMode].icon;
+  // the search mode's menu, open under its button
+  const [modeMenu, setModeMenu] = useState<HTMLElement | null>(null);
+  const ranked = searchMode === "text" && !!debounced.trim();
+  // a full-text search asks only for the matches in the repository or
+  // project chosen; the items without a repository the list keeps itself
+  const repoParam = (ranked && params.get("repo") !== NO_PROJECT && params.get("repo")) || undefined;
+  const projectParam = (ranked && params.get("project")) || undefined;
   // the notices that can change the items, which load them again
   const itemNotices = useNoticeCount(aboutItems);
   // a status that already lists the closed items has no closed sub-items to add
   const addClosed = closedSubs && !["done", "cancelled", "all"].includes(status);
   const { data: loaded, error: loadError } = useLoad(async () => {
     const q = debounced || undefined;
+    const statusQuery = STATUSES.find((s) => s.value === status)?.query;
+    if (ranked) {
+      // the best matches first, in the repository or project chosen; with
+      // the statuses open by default, the closed items that match follow
+      // the open ones
+      const within = { q: debounced, repo: repoParam, project: projectParam, limit: FOUND_LIMIT };
+      const [listed, closed] = await Promise.all([
+        api.searchItems({ ...within, status: statusQuery }),
+        status === "" ? api.searchItems({ ...within, status: "done,cancelled" }) : Promise.resolve({ items: [] }),
+      ]);
+      const found: FoundItem[] = [...listed.items, ...closed.items];
+      return {
+        items: found as WorkItem[],
+        next: new Set<string>(),
+        found: new Map(found.map((f) => [f.key, f])),
+      };
+    }
     const [listed, closed] = await Promise.all([
-      api.items({ status: STATUSES.find((s) => s.value === status)?.query, q }),
+      api.items({ status: statusQuery, q, in: searchMode === "title" ? "title" : undefined }),
       addClosed ? api.items({ status: "done,cancelled", q }).then((d) => d.items) : Promise.resolve([]),
     ]);
-    return { items: withClosedSubItems(listed.items, closed), next: new Set(listed.next) };
-  }, [status, debounced, itemNotices, reloads, addClosed]);
+    return { items: withClosedSubItems(listed.items, closed), next: new Set(listed.next), found: null };
+  }, [status, debounced, itemNotices, reloads, addClosed, ranked, searchMode, repoParam, projectParam]);
   const items = loaded?.items;
+  // what a full-text search found in each item, by key
+  const found = loaded?.found ?? null;
   // each repository's item that pinrail items next gives an agent
   const nextKeys = loaded?.next;
   // the person's queue, in its order: the items agents take first
@@ -204,18 +245,24 @@ export function WorkItems() {
   );
   // in the order chosen; the groups and the sub-items keep it
   // the closed sub-items added come after their open siblings
+  // a full-text search's matches stay in the order it ranked them
   const ordered = useMemo(() => {
-    const list = orderItems(kept, prefs.items.ordering, { nested });
-    if (!addClosed) return list;
-    const ended = (i: WorkItem) => i.status === "done" || i.status === "cancelled";
+    const list = found ? kept : orderItems(kept, prefs.items.ordering, { nested });
+    if (!addClosed && !found) return list;
     return [...list.filter((i) => !ended(i)), ...list.filter(ended)];
-  }, [kept, prefs.items.ordering, nested, addClosed]);
+  }, [kept, prefs.items.ordering, nested, addClosed, found]);
+  // ranked, the matches are one list, with the closed ones under a heading
   const groups = useMemo(
     () =>
-      layout === "list"
-        ? [["", ordered] as [string, WorkItem[]]]
-        : grouped(ordered, (i) => groupKey(layout, i.repo, i.project)),
-    [ordered, layout],
+      found
+        ? ([
+            ["", ordered.filter((i) => !ended(i))],
+            [CLOSED_GROUP, ordered.filter(ended)],
+          ].filter(([, list]) => list.length) as [string, WorkItem[]][])
+        : layout === "list"
+          ? [["", ordered] as [string, WorkItem[]]]
+          : grouped(ordered, (i) => groupKey(layout, i.repo, i.project)),
+    [ordered, layout, found],
   );
   // a done or cancelled parent starts folded, with the option on
   const foldClosed = prefs.items.fold_closed;
@@ -239,8 +286,11 @@ export function WorkItems() {
   const mixed = useMemo(() => mixedGroups(groups, (i) => i.repo), [groups]);
 
   const shownGroups = useMemo(
-    () => groups.map(([key, list]) => [key, itemTree(list, { nested, folded: shownFolded })] as [string, Shown[]]),
-    [groups, nested, shownFolded],
+    () =>
+      groups.map(
+        ([key, list]) => [key, itemTree(list, { nested: nested && !found, folded: shownFolded })] as [string, Shown[]],
+      ),
+    [groups, nested, shownFolded, found],
   );
   // one page of the top-level items, each with its sub-items: drawing
   // thousands of rows at once makes the page slow to show and to use
@@ -404,6 +454,14 @@ export function WorkItems() {
 
   // J, K and Enter, and walking the side panel, as in the other lists
   const search = useRef<HTMLInputElement>(null);
+  /** Searches in `mode` from now on, and goes back to the search field. */
+  const setSearchMode = useCallback(
+    (mode: SearchMode) => {
+      void update({ items: { search: mode } });
+      search.current?.focus();
+    },
+    [update],
+  );
   const { focused, hover } = useListKeys({
     items: rows,
     keyOf: (r) => r.item.key,
@@ -465,6 +523,13 @@ export function WorkItems() {
     ) {
       event.preventDefault();
       void act("delete");
+      return;
+    }
+    // ⌥T switches the search between the titles and the full text, in the
+    // search field too
+    if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyT" && !modalOpen()) {
+      event.preventDefault();
+      setSearchMode(searchMode === "title" ? "text" : "title");
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
@@ -541,7 +606,8 @@ export function WorkItems() {
       // a sub-item not shown under its parent names it: flat, filtered
       // apart from it, or in another repository's group than it
       orphanOf={item.parent && depth === 0 ? item.parent : null}
-      showRepo={layout !== "repository" && (layout === "list" || mixed.has(group))}
+      showRepo={found ? true : layout !== "repository" && (layout === "list" || mixed.has(group))}
+      found={found?.get(item.key) ?? null}
       next={prefs.items.show_next && !!nextKeys?.has(item.key)}
       countNested={prefs.items.count_nested}
       actions={rowActions}
@@ -626,8 +692,21 @@ export function WorkItems() {
             {items ? <span className="inbox-total">{kept.length}</span> : null}
           </div>
           <div className="inbox-controls">
-            <label className="search-field">
-              <Search size={14} aria-hidden="true" />
+            <span className="search-field has-mode">
+              <Tooltip label={`${SEARCH_MODES[searchMode].tip} (⌥T)`} side="bottom">
+                <button
+                  type="button"
+                  className="search-mode"
+                  aria-label={`Search in: ${SEARCH_MODES[searchMode].label}`}
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  data-testid="search-mode"
+                  onClick={(event) => setModeMenu(event.currentTarget)}
+                >
+                  <ModeIcon size={13} aria-hidden="true" />
+                  <ChevronDown size={11} aria-hidden="true" />
+                </button>
+              </Tooltip>
               <input
                 ref={search}
                 autoCorrect="off"
@@ -635,7 +714,7 @@ export function WorkItems() {
                 type="search"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="Search work items…"
+                placeholder={searchMode === "title" ? "Search titles…" : "Search work items…"}
                 aria-label="Search work items"
                 value={q}
                 onChange={(e) => {
@@ -643,7 +722,24 @@ export function WorkItems() {
                   setParam("q", e.target.value);
                 }}
               />
-            </label>
+            </span>
+            {modeMenu ? (
+              <PopoverMenu
+                anchor={modeMenu}
+                label="Search in"
+                entries={(Object.keys(SEARCH_MODES) as SearchMode[]).map((mode) => ({
+                  label: SEARCH_MODES[mode].label,
+                  hint: SEARCH_MODES[mode].hint,
+                  icon: SEARCH_MODES[mode].icon,
+                  checked: mode === searchMode,
+                  onPick: () => {
+                    void update({ items: { search: mode } });
+                    search.current?.focus();
+                  },
+                }))}
+                onClose={() => setModeMenu(null)}
+              />
+            ) : null}
             {parents.length ? (
               <Tooltip label={allFolded ? "Unfold all" : "Fold all"} side="bottom">
                 <button
@@ -735,7 +831,16 @@ export function WorkItems() {
               </div>
             ) : null}
             {pageGroups.map(([key, shown]) =>
-              layout === "list" ? (
+              found ? (
+                <div key={key || "found"} className="inbox-list">
+                  {key === CLOSED_GROUP ? (
+                    <h2 className="found-closed" data-testid="found-closed">
+                      Closed <span>{groupTotals.get(key) ?? shown.length}</span>
+                    </h2>
+                  ) : null}
+                  {shown.map((s) => row(s, ++index, key))}
+                </div>
+              ) : layout === "list" ? (
                 <div key="list" className="inbox-list">
                   {shown.map((s) => row(s, ++index, key))}
                 </div>
@@ -789,6 +894,7 @@ export function WorkItems() {
               { keys: ["Enter"], label: "Open" },
               { keys: ["C"], label: "Add" },
               { keys: ["/"], label: "Search" },
+              { keys: ["⌥T"], label: "Search mode" },
               { keys: ["S"], label: "Claim" },
               { keys: ["D"], label: "Done" },
               { keys: ["X"], label: "Cancel" },

@@ -24,9 +24,16 @@ async function add(request: APIRequestContext, repo: string, count: number) {
   }
 }
 
+// the search mode is a setting the core keeps: the test leaves the default
+test.afterEach(async ({ request }) => {
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { search: "text" } } });
+});
+
 test("the list shows 100 top-level items a page, each with its sub-items", async ({ page, request }) => {
   const repo = fresh();
   await add(request, repo, 120);
+  // the titles search, where every word must match
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { search: "title" } } });
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}`);
   const rows = page.getByTestId("item-row");
   // 100 top-level items, and the first one's two sub-items with it

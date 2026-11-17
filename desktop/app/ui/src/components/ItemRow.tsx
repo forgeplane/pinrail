@@ -5,7 +5,7 @@
 
 import { ChevronDown, ChevronRight, Clock, ListOrdered, Lock, User } from "lucide-react";
 import { memo } from "react";
-import type { WorkItem } from "../api/types";
+import type { FoundItem, WorkItem } from "../api/types";
 import { age, ordinal, stamp } from "../lib/format";
 import { AgentIcon } from "./AgentIcon";
 import { ItemStatusIcon } from "./ItemStatusIcon";
@@ -43,8 +43,26 @@ type Props = {
   next: boolean;
   /** whether its progress counts every item under it, at any depth */
   countNested: boolean;
+  /** what a full-text search found in it */
+  found?: FoundItem | null;
   actions: ItemRowActions;
 };
+
+/** Where a search matched, as the row names it. */
+const MATCHED_IN: Record<string, string> = { body: "Description", comment: "Comment" };
+
+/** A snippet with each word in brackets marked, without the Markdown
+ *  marks of bold text and code. */
+function Snippet({ text }: { text: string }) {
+  return (
+    <>
+      {text
+        .replace(/\*\*|`/g, "")
+        .split(/\[([^\]]*)\]/)
+        .map((part, i) => (i % 2 ? <mark key={i}>{part}</mark> : part))}
+    </>
+  );
+}
 
 export const ItemRow = memo(function ItemRow({
   item,
@@ -60,8 +78,11 @@ export const ItemRow = memo(function ItemRow({
   showRepo,
   next,
   countNested,
+  found,
   actions,
 }: Props) {
+  // a match in the description or a comment shows under the title
+  const matchedIn = found?.snippet ? MATCHED_IN[found.matched] : undefined;
   // its progress: its own sub-items, or every item under them
   const all = countNested ? item.sub_items.all : undefined;
   const progress = all ?? item.sub_items;
@@ -160,6 +181,12 @@ export const ItemRow = memo(function ItemRow({
         <time className="review-row-time" dateTime={item.updated_at} title={stamp(item.updated_at)}>
           {age(item.updated_at)}
         </time>
+        {matchedIn && found?.snippet ? (
+          <span className="item-snippet truncate" data-testid="item-snippet">
+            <span className="item-snippet-where">{matchedIn}</span>
+            <Snippet text={found.snippet} />
+          </span>
+        ) : null}
       </div>
       {children ? (
         <button

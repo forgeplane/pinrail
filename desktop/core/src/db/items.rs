@@ -213,6 +213,8 @@ pub struct ItemFilters {
     pub created_by: Option<String>,
     /// words that must all be in the title or the body
     pub text: Option<String>,
+    /// whether `text` looks in the titles only
+    pub title_only: bool,
     /// the items a session holds or worked on, by its agent and id
     pub session: Option<(String, String)>,
     /// only the queued items, in the queue's order
@@ -918,9 +920,12 @@ impl Db {
                 Some((None, number)) => format!(" OR i.number = {number}"),
                 None => String::new(),
             };
-            wheres.push(format!(
-                "(i.title LIKE ?{n} ESCAPE '\\' OR i.body LIKE ?{n} ESCAPE '\\'{key})"
-            ));
+            let body = if filters.title_only {
+                String::new()
+            } else {
+                format!(" OR i.body LIKE ?{n} ESCAPE '\\'")
+            };
+            wheres.push(format!("(i.title LIKE ?{n} ESCAPE '\\'{body}{key})"));
         }
         let order = if filters.queued {
             wheres.push("EXISTS (SELECT 1 FROM work_item_queue q WHERE q.item_id = i.id)".into());

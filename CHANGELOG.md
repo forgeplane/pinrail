@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The Work items page searches the full text of the work items, best
+  match first, and shows where each one matched. The button at the left
+  of the search field, or ⌥T, switches to searching the titles only.
 - `pinrail items search` finds the work items, open and closed, that match
   its words in their title, description or comments, best match first.
   Several phrasings of one question find more.

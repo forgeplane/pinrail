@@ -78,6 +78,7 @@ test.afterEach(async ({ request }) => {
         fold_closed: true,
         show_next: false,
         count_nested: false,
+        search: "text",
       },
     },
   });
@@ -266,6 +267,61 @@ test("the filters narrow the items by status, author, what waits and words, and 
   await expect(page.getByLabel("Search work items")).toBeFocused();
   await page.keyboard.type("theme ready");
   await expect.poll(() => keys(page)).toEqual([ready.key]);
+});
+
+test("the search ranks the full text or looks in the titles only, and the choice is kept", async ({
+  page,
+  request,
+}) => {
+  const repo = fresh("search");
+  const word = `zorbex${Date.now()}`;
+  const titled = await add(request, repo, `Load the ${word} files`);
+  const described = await add(request, repo, "Settings file", { body: `It names the ${word} folder.` });
+  const commented = await add(request, repo, "Cache");
+  const answer = await request.post(`${core}/api/v1/items/${commented.key}/comments`, {
+    data: { body: `The ${word} cache is per process.`, by: "claude-code", session: "s-shell" },
+  });
+  expect(answer.status()).toBe(201);
+  const closed = await add(request, repo, `Old ${word} loader`);
+  await edit(request, closed.key, { status: "done" });
+  await add(request, repo, "Unrelated");
+
+  await open(page, repo);
+  const mode = page.getByTestId("search-mode");
+  await expect(mode).toHaveAttribute("aria-label", "Search in: Full text");
+  await page.getByLabel("Search work items").fill(word);
+  // the title's match first, the closed one under its own heading, and
+  // where each matched under its title
+  // the description's and the comment's matches count the same
+  const ranked = async () => {
+    const found = await keys(page);
+    return [found[0], [...found.slice(1, 3)].sort(), ...found.slice(3)];
+  };
+  const expected = [titled.key, [described.key, commented.key].sort(), closed.key];
+  await expect.poll(ranked).toEqual(expected);
+  await expect(page.getByTestId("found-closed")).toHaveText("Closed 1");
+  await expect(row(page, described.key).getByTestId("item-snippet")).toHaveText(
+    `DescriptionIt names the ${word} folder.`,
+  );
+  await expect(row(page, described.key).locator("mark")).toHaveText(word);
+  await expect(row(page, commented.key).getByTestId("item-snippet")).toContainText("Comment");
+  await expect(row(page, titled.key).getByTestId("item-snippet")).toHaveCount(0);
+
+  // the titles only, from the mode's menu, which goes back to the field
+  await mode.click();
+  await page.getByRole("menuitem", { name: /Titles/ }).click();
+  await expect(page.getByLabel("Search work items")).toBeFocused();
+  await expect.poll(() => keys(page)).toEqual([titled.key]);
+  await settingSaved(request, (s) => s.items.search, "title");
+
+  // kept through a reload, and ⌥T switches back
+  await page.reload();
+  await expect(mode).toHaveAttribute("aria-label", "Search in: Titles");
+  await expect.poll(() => keys(page)).toEqual([titled.key]);
+  await page.keyboard.press("Alt+KeyT");
+  await expect(mode).toHaveAttribute("aria-label", "Search in: Full text");
+  await expect.poll(ranked).toEqual(expected);
+  await settingSaved(request, (s) => s.items.search, "text");
 });
 
 test("a pick in the Filter or Display menu closes the menu", async ({ page, request }) => {
@@ -786,6 +842,8 @@ test("grouped by project, a drop asks which repository of a project with several
   const moved = await add(request, one, `Moves ${run}`);
   await add(request, one, `Stays in one ${run}`);
   await add(request, api, `Stays ${run}`);
+  // the titles search keeps the groups that a full-text search sets aside
+  await request.patch(`${core}/api/v1/settings`, { data: { items: { search: "title" } } });
   await page.goto(`/#/items`);
   await page.locator(".work-items input[type=search]").fill(run);
   const heading = (name: string) => page.getByTestId("inbox-group-heading").filter({ hasText: name });
