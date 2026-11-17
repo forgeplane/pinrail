@@ -212,6 +212,8 @@ export function Thread({
   const resumable = !runsLoading && onPage && prefs.labs.runtime && canResume(session, runs);
   // one still running in another terminal can be opened here, after a warning
   const openable = !runsLoading && onPage && prefs.labs.runtime && canOpenWhileRunning(session, runs);
+  // without hooks, nothing tells whether it still runs there
+  const unsure = openable && !session?.presence;
   const [askingOpen, setAskingOpen] = useState(false);
   const outside = openable || (resumable && runs.length === 0);
   // a run that ended shows how in the terminal's place
@@ -582,6 +584,7 @@ export function Thread({
             {openable && named ? (
               <OpenInPinrail
                 agent={named.agent}
+                unsure={unsure}
                 opening={resuming}
                 asking={askingOpen}
                 onAsking={setAskingOpen}
@@ -669,7 +672,13 @@ export function Thread({
                 ) : failed ? (
                   <FailedStart run={failed} />
                 ) : openable ? (
-                  <OutsideRun agent={named!.agent} running resuming={resuming} onResume={() => setAskingOpen(true)} />
+                  <OutsideRun
+                    agent={named!.agent}
+                    running
+                    unsure={unsure}
+                    resuming={resuming}
+                    onResume={() => setAskingOpen(true)}
+                  />
                 ) : ended ? (
                   <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
                 ) : (

@@ -121,8 +121,11 @@ export function OpenInPinrail({
   asking,
   onAsking,
   onOpen,
+  unsure = false,
 }: {
   agent: string;
+  /** whether nothing tells if it still runs in another terminal */
+  unsure?: boolean;
   opening: boolean;
   /** whether the warning shows, which the Terminal view's button opens too */
   asking: boolean;
@@ -156,8 +159,9 @@ export function OpenInPinrail({
             <h2 id="open-title">Open {name} in Pinrail?</h2>
           </div>
           <p className="dim">
-            {name} is still running in another terminal. Opening it in Pinrail starts a second {name} on this session,
-            and both answer it. Close the other terminal first, or open it here anyway.
+            {unsure
+              ? `Pinrail cannot tell whether ${name} still runs in another terminal. If it does, opening it in Pinrail starts a second ${name} on this session, and both answer it. Close the other terminal first, or open it here anyway.`
+              : `${name} is still running in another terminal. Opening it in Pinrail starts a second ${name} on this session, and both answer it. Close the other terminal first, or open it here anyway.`}
           </p>
           <div className="dialog-actions">
             <button ref={cancel} type="button" className="chrome-button" onClick={() => onAsking(false)}>

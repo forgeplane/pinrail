@@ -9,12 +9,15 @@ import { EmptyState } from "../EmptyState";
 export function OutsideRun({
   agent,
   running = false,
+  unsure = false,
   onResume,
   resuming,
 }: {
   agent: string;
   /** whether it still runs there */
   running?: boolean;
+  /** with running: whether nothing tells if it still runs there */
+  unsure?: boolean;
   onResume: () => void;
   resuming: boolean;
 }) {
@@ -22,7 +25,13 @@ export function OutsideRun({
   return (
     <div className="outside-run" data-testid="outside-run">
       <EmptyState
-        title={running ? `${name} runs in another terminal` : `${name} ran in another terminal`}
+        title={
+          running
+            ? unsure
+              ? `${name} may run in another terminal`
+              : `${name} runs in another terminal`
+            : `${name} ran in another terminal`
+        }
         icon={<SquareTerminal size={28} strokeWidth={1.5} />}
         actions={
           <button type="button" className="chrome-button button-primary" disabled={resuming} onClick={onResume}>
@@ -34,9 +43,11 @@ export function OutsideRun({
           </button>
         }
       >
-        {running
-          ? `This session runs in a terminal outside Pinrail. Open it here to see its terminal and type to ${name}. Pinrail starts its own ${name} on the session, so close the other terminal first.`
-          : `This session ran in a terminal outside Pinrail. Resume it in Pinrail to continue it here, with its terminal in this view.`}
+        {running && unsure
+          ? `Pinrail cannot tell whether this session still runs in a terminal outside Pinrail. Open it here to see its terminal and type to ${name}. Pinrail starts its own ${name} on the session, so close any other terminal it runs in first.`
+          : running
+            ? `This session runs in a terminal outside Pinrail. Open it here to see its terminal and type to ${name}. Pinrail starts its own ${name} on the session, so close the other terminal first.`
+            : `This session ran in a terminal outside Pinrail. Resume it in Pinrail to continue it here, with its terminal in this view.`}
       </EmptyState>
     </div>
   );

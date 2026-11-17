@@ -31,11 +31,13 @@ describe("whether a session running elsewhere can be opened in Pinrail", () => {
   test("one that has not stopped, of an agent that allows a second process", () => {
     expect(canOpenWhileRunning({ resume: claude, presence: presence("working") }, [])).toBe(true);
     expect(canOpenWhileRunning({ resume: claude, presence: presence("idle") }, [ended])).toBe(true);
+    // no hooks and no run of Pinrail's tell whether it still runs
+    expect(canOpenWhileRunning({ resume: claude, presence: null }, [])).toBe(true);
   });
-  test("not once stopped, while Pinrail runs it, without hooks, or for Codex", () => {
+  test("not once stopped, while Pinrail runs it, after a run of Pinrail's ended, or for Codex", () => {
     expect(canOpenWhileRunning({ resume: claude, presence: presence("stopped") }, [])).toBe(false);
     expect(canOpenWhileRunning({ resume: claude, presence: presence("working") }, [running])).toBe(false);
-    expect(canOpenWhileRunning({ resume: claude, presence: null }, [])).toBe(false);
+    expect(canOpenWhileRunning({ resume: claude, presence: null }, [ended])).toBe(false);
     expect(canOpenWhileRunning({ resume: codex, presence: presence("working") }, [])).toBe(false);
   });
 });

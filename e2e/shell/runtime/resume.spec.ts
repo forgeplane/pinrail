@@ -253,6 +253,30 @@ test("a session running in another terminal opens in Pinrail after a warning", a
   expect(posted[0]).toMatchObject({ anyway: true });
 });
 
+test("a session whose hooks never reported opens in Pinrail after a warning that it may still run", async ({
+  page,
+}) => {
+  // only a status, from a session older than its hooks: nothing tells
+  // whether it still runs
+  const session = fresh();
+  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Make a thumbnail", origin: { folder: "/work/api" } },
+  });
+  expect(response.status(), await response.text()).toBeLessThan(300);
+  const posted = await standIn(page, session, []);
+  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+
+  const outside = page.getByTestId("outside-run");
+  await expect(outside.getByRole("heading", { name: "Claude Code may run in another terminal" })).toBeVisible();
+  await header(page).getByRole("button", { name: "Open Claude Code in Pinrail" }).click();
+  const warning = page.getByRole("dialog", { name: "Open Claude Code in Pinrail?" });
+  await expect(warning).toContainText("Pinrail cannot tell whether Claude Code still runs in another terminal.");
+  await warning.getByRole("button", { name: "Open anyway" }).click();
+  await expect(page.getByTestId("terminal-bar")).toBeVisible();
+  expect(posted).toHaveLength(1);
+  expect(posted[0]).toMatchObject({ anyway: true });
+});
+
 test("the Terminal view of a session running in another terminal offers to open it", async ({ page }) => {
   const session = await runningSession(page);
   const posted = await standIn(page, session, []);
