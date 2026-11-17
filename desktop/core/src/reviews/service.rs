@@ -1387,10 +1387,17 @@ impl Reviews {
         self.bus.publish(Notice::new(event_id, kind, &Value::Null));
     }
 
+    /// Announces a change to a review, with the review and what names its
+    /// session, which a notification shows.
     fn publish(&self, event_id: i64, kind: &str, review: &Review) {
+        let mut json = review.to_json(false);
+        if let (Some(agent), Some(session)) = (&review.requested_by, &review.session)
+            && let Ok(Some(name)) = self.db.session_label(agent, session)
+        {
+            json["session_name"] = Value::String(name);
+        }
         self.bus.publish(
-            Notice::new(event_id, kind, &Value::Null)
-                .about(Some(review.id.clone()), Some(review.to_json(false))),
+            Notice::new(event_id, kind, &Value::Null).about(Some(review.id.clone()), Some(json)),
         );
     }
 

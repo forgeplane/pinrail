@@ -792,10 +792,16 @@ fn notify(app: &AppHandle, notice: &Notice) {
     if let Some(counts) = summary_counts(review.get("summary")) {
         lines.push(counts);
     }
-    lines.push(match review["requested_by"].as_str() {
-        Some(by) => format!("{plugin} · requested by {by}"),
-        None => plugin.to_string(),
-    });
+    lines.push(
+        match (
+            review["requested_by"].as_str(),
+            review["session_name"].as_str(),
+        ) {
+            (Some(by), Some(session)) => format!("{plugin} · requested by {by} in {session}"),
+            (Some(by), None) => format!("{plugin} · requested by {by}"),
+            _ => plugin.to_string(),
+        },
+    );
     let body = lines.join("\n");
     #[cfg(target_os = "macos")]
     if crate::notify_mac::available() {

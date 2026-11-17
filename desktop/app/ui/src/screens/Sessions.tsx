@@ -32,6 +32,7 @@ import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
 import { useLoad } from "../lib/useLoad";
+import { sessionLabel, stageBeside } from "../lib/sessions";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -211,12 +212,13 @@ export function Sessions() {
         </span>
         <span className="review-row-main">
           <span className="review-row-title truncate">
-            {s.title ?? s.agent}
+            {sessionLabel(s)}
             {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
             {s.archived_at ? <span className="archived-chip">Archived</span> : null}
           </span>
           <span className="review-row-meta">
-            {s.title ? <span>{s.agent}</span> : null}
+            {stageBeside(s) ? <span className="session-row-stage truncate">{stageBeside(s)}</span> : null}
+            {s.name || s.title ? <span>{s.agent}</span> : null}
             {s.repo && (!group || mixed.has(group)) ? <span className="review-row-project">{s.repo}</span> : null}
             <span className="session-row-id mono" title={s.id}>
               {s.id}
@@ -412,7 +414,7 @@ export function SessionScreen() {
         key={`${agent}/${id}/${stage ?? ""}`}
         session={{ agent, id }}
         stage={stage}
-        onSession={(s) => setTitled({ key: `${s.agent}/${s.id}`, title: s.title })}
+        onSession={(s) => setTitled({ key: `${s.agent}/${s.id}`, title: sessionLabel(s) })}
         reviewPanel={({ id: review, linkTo, onEnded, onClose }) => (
           <ReviewView
             key={review}

@@ -190,8 +190,16 @@ export type Session = {
   folder: string | null;
   /** what the agent last said it is doing */
   status: SessionStatus | null;
-  /** the stage the agent last said it started, which names the session */
+  /** the stage the agent last said it started */
   title: string | null;
+  /** the session's own name, such as Happy Hydrogen, which the person can
+   *  change; the atomic number of the element it is named after; and who
+   *  gave the name */
+  name?: string | null;
+  /** the name Pinrail gave it, kept when the person renames it */
+  generated_name?: string | null;
+  element?: number | null;
+  named_by?: "pinrail" | "person";
   /** when the person archived the session, if they did */
   archived_at?: string | null;
   /** when the agent last reported anything, a note included */

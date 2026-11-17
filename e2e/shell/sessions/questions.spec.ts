@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { clearInbox, core, onePayload, openReviewsIn, pickIn, toggleFilter } from "../helpers";
+import { clearInbox, core, onePayload, openReviewsIn, pickIn, sessionName, toggleFilter } from "../helpers";
 
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
 const thread = (page: Page) => page.getByTestId("thread");
@@ -314,8 +314,9 @@ test("questions stand apart from reviews in the inbox, and their session waits i
   await expect(row(page, "Apart: the schema")).not.toHaveClass(/is-question/);
   await expect(row(page, "Apart: the schema")).toContainText("list");
 
+  // no stage yet: the name Pinrail gave it
   const waiting = inSidebar(page, session);
-  await expect(waiting).toContainText("claude-code");
+  await expect(waiting).toContainText(await sessionName(page.request, "claude-code", session));
   await expect(waiting.getByTestId("sidebar-session-waiting")).toHaveText("1");
   await waiting.click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
@@ -591,11 +592,34 @@ test("a stage the agent starts renames its session in the sidebar at once", asyn
   await send(page.request, asked(session, "Rename: deploy"));
   await page.goto("/#/");
   const waiting = inSidebar(page, session);
-  await expect(waiting).toHaveText(/claude-code/);
+  await expect(waiting).toHaveText(new RegExp(await sessionName(page.request, "claude-code", session)));
   // after the loads the page makes as it starts
   await page.waitForTimeout(1500);
   await report(page.request, session, { text: "Ship the deploy script", kind: "start" });
   await expect(waiting).toHaveText(/Ship the deploy script/);
+});
+
+test("a name the person gives a session heads it, with its stage and the generated name beside it", async ({
+  page,
+}) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await report(page.request, session, { text: "Ship the deploy script", kind: "start" });
+  const generated = await sessionName(page.request, "claude-code", session);
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const heading = thread(page).getByRole("heading", { level: 1 });
+  // the stage heads it, and the name Pinrail gave it shows under it
+  await expect(heading).toHaveText("Ship the deploy script");
+  await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
+
+  const renamed = await page.request.patch(`${core}/api/v1/sessions/claude-code/${session}`, {
+    data: { name: "Deploy work" },
+  });
+  expect(renamed.status(), await renamed.text()).toBe(204);
+  await expect(heading).toHaveText("Deploy work");
+  await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
+  await expect(thread(page).locator(".thread-meta-stage")).toHaveText("Ship the deploy script");
+  await expect(inSidebar(page, session)).toContainText("Deploy work");
 });
 
 test("a session's details hide, show and resize, and stay so", async ({ page }) => {

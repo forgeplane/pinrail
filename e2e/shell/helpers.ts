@@ -196,3 +196,10 @@ export async function fakeRecognition(page: Page) {
 
 export const speak = (page: Page, text: string) => page.evaluate((t) => (window as any).__speak(t), text);
 export const listening = (page: Page) => page.evaluate(() => (window as any).__listening());
+
+/** The name the core gave a session, such as Happy Hydrogen. */
+export async function sessionName(request: APIRequestContext, agent: string, id: string): Promise<string> {
+  const response = await request.get(`${core}/api/v1/sessions/${agent}/${id}`);
+  const { session } = (await response.json()) as { session: { name: string } };
+  return session.name;
+}

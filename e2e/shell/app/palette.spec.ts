@@ -1,5 +1,5 @@
 import { expect, test } from "../fixtures";
-import { clearInbox, core, createReview } from "../helpers";
+import { clearInbox, core, createReview, sessionName } from "../helpers";
 
 test("⌘K finds every review, discarded ones included", async ({ page }) => {
   await clearInbox(page.request);
@@ -102,4 +102,20 @@ test("⌘K finds the stages agents started, and opens the thread at one", async 
 
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
   await expect(page.getByTestId("started").filter({ hasText: `${tag} add rate limiting` })).toBeInViewport();
+});
+
+test("⌘K finds a session by its name, with the stage it is on", async ({ page }) => {
+  const session = `s-named-${Date.now()}`;
+  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { text: "Tidy the palette", kind: "start", origin: { repo: "acme/api" } },
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  const name = await sessionName(page.request, "claude-code", session);
+  await page.goto("/#/");
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.keyboard.type(name);
+  const found = page.getByRole("option").filter({ hasText: name });
+  await expect(found.first()).toContainText("Tidy the palette");
+  await found.first().click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
 });

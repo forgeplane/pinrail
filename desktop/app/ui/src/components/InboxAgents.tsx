@@ -12,6 +12,7 @@ import { aboutSessions, useNoticeCount } from "../state/live";
 import { AgentIcon } from "./AgentIcon";
 import { sessionPath } from "./Thread";
 import { useState } from "react";
+import { sessionLabel } from "../lib/sessions";
 
 /** How many sessions are fetched, more than the section shows, to tell
  *  whether there are more. */
@@ -68,7 +69,7 @@ export function InboxAgents({
               <AgentIcon requestedBy={session.agent} size={15} />
             </span>
             <span className="review-row-main">
-              <span className="review-row-title truncate">{session.title ?? session.agent}</span>
+              <span className="review-row-title truncate">{sessionLabel(session)}</span>
               <span className="review-row-meta">
                 <span>{reason}</span>
                 {session.repo ? <span className="review-row-project">{session.repo}</span> : null}

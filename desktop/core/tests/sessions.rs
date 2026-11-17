@@ -1202,3 +1202,32 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     let (_, thread) = call(&app, "GET", path, None).await;
     assert_eq!(name(&thread), generated);
 }
+
+#[tokio::test]
+async fn a_session_is_found_by_its_name() {
+    let app = app();
+    let path = "/api/v1/sessions/claude-code/s-found";
+    call(
+        &app,
+        "POST",
+        &format!("{path}/status"),
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-other/status",
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    call(&app, "PATCH", path, Some(json!({"name": "Quartz Fox"}))).await;
+    let (_, found) = call(&app, "GET", "/api/v1/sessions?q=quartz%20fox", None).await;
+    let ids: Vec<&str> = found["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["s-found"]);
+}

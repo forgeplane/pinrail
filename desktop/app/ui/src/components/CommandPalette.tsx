@@ -6,9 +6,10 @@ import { GitCommitHorizontal, Search, Zap, type LucideIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { api, EVERY_ITEM_STATUS } from "../api/client";
-import type { Plugin, Review, Stage, WorkItem } from "../api/types";
+import type { Plugin, Review, Session, Stage, WorkItem } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
+import { sessionLabel, stageBeside } from "../lib/sessions";
 import { AgentIcon } from "./AgentIcon";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
@@ -29,12 +30,13 @@ export type PaletteAction = {
   run: () => void;
 };
 
-type Filter = "all" | "inbox" | "history" | "items" | "stages" | "plugins" | "actions";
+type Filter = "all" | "inbox" | "history" | "items" | "sessions" | "stages" | "plugins" | "actions";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "inbox", label: "Inbox" },
   { key: "history", label: "History" },
   { key: "items", label: "Work items" },
+  { key: "sessions", label: "Sessions" },
   { key: "stages", label: "Stages" },
   { key: "plugins", label: "Plugins" },
   { key: "actions", label: "Actions" },
@@ -46,6 +48,7 @@ const GROUP_TITLES: Record<Exclude<Filter, "all">, [string, string]> = {
   inbox: ["Pending reviews", "Pending reviews"],
   history: ["Recent decisions", "Decisions"],
   items: ["Work items", "Work items"],
+  sessions: ["Sessions", "Sessions"],
   stages: ["Stages", "Stages"],
   plugins: ["Plugins", "Plugins"],
   actions: ["Actions", "Actions"],
@@ -77,6 +80,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   const [history, setHistory] = useState<Review[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -113,6 +117,26 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
           })
           .then((listing) => current && setHistory(listing.reviews))
           .catch(() => current && setHistory([]));
+      },
+      q ? 150 : 0,
+    );
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [q, filter, all]);
+
+  // the sessions whose name, stage or agent holds the words, from the
+  // server, once something is typed
+  useEffect(() => {
+    if ((filter !== "all" && filter !== "sessions") || (!q && all)) return;
+    let current = true;
+    const timer = window.setTimeout(
+      () => {
+        api
+          .sessions({ q: q || undefined, limit: all ? "5" : "20", include_archived: "true" })
+          .then((found) => current && setSessions(found.sessions))
+          .catch(() => current && setSessions([]));
       },
       q ? 150 : 0,
     );
@@ -208,6 +232,26 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
         });
       }
     }
+    if (want("sessions")) {
+      for (const s of !q && all ? [] : sessions) {
+        out.push({
+          key: `session:${s.agent}/${s.id}`,
+          group: "sessions",
+          icon: <AgentIcon requestedBy={s.agent} size={15} />,
+          title: sessionLabel(s),
+          meta: (
+            <>
+              {/* the other name it goes by, which the search may have matched */}
+              {s.name && sessionLabel(s) !== s.name ? <span>{s.name}</span> : null}
+              {stageBeside(s) ? <span className="truncate">{stageBeside(s)}</span> : null}
+              {s.repo ? <span>{s.repo}</span> : null}
+              <span>{age(s.last_at)}</span>
+            </>
+          ),
+          run: () => navigate(sessionPath(s)),
+        });
+      }
+    }
     if (want("stages")) {
       for (const s of !q && all ? [] : stages) {
         out.push({
@@ -266,7 +310,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, workItems, stages, plugins, actions, navigate, openIn]);
+  }, [all, filter, q, waiting, history, workItems, sessions, stages, plugins, actions, navigate, openIn]);
 
   useEffect(() => {
     list.current?.querySelectorAll<HTMLElement>("[data-item]")[active]?.scrollIntoView({ block: "nearest" });

@@ -27,7 +27,17 @@ import { usePageRepo } from "../lib/pageRepo";
 import { countFeature } from "../lib/usage";
 import { FindBar, useFindBar } from "./FindBar";
 import { useUrlParams } from "../lib/url";
-import { timeline as entriesOf, entryKey, fromSession, newestRounds, stages, type Entry } from "../lib/sessions";
+import {
+  timeline as entriesOf,
+  entryKey,
+  fromSession,
+  newestRounds,
+  generatedBeside,
+  sessionLabel,
+  stageBeside,
+  stages,
+  type Entry,
+} from "../lib/sessions";
 import { useSettings } from "../state/settings";
 import { ItemOpener, itemPath, useItemLinkClick } from "./ItemChip";
 import { SessionMenu } from "./SessionMenu";
@@ -378,8 +388,8 @@ export function Thread({
     [named?.agent, named?.id], // eslint-disable-line react-hooks/exhaustive-deps -- the names, not the object
   );
   const from = useMemo(
-    () => (namedRef ? fromSession({ ...namedRef, title: session?.title }) : undefined),
-    [namedRef, session?.title],
+    () => (namedRef ? fromSession({ ...namedRef, title: session ? sessionLabel(session) : null }) : undefined),
+    [namedRef, session],
   );
   // each review once, by its newest round
   const newest = useMemo(() => newestRounds(items), [items]);
@@ -522,8 +532,15 @@ export function Thread({
             {/* the stage the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}
             <div className="thread-title-row">
-              <h1 className={session?.title ? "thread-stage" : undefined} title={session?.title ?? undefined}>
-                {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
+              <h1
+                className={session && (session.name || session.title) ? "thread-stage" : undefined}
+                title={session ? sessionLabel(session) : undefined}
+              >
+                {session && (session.name || session.title) ? (
+                  sessionLabel(session)
+                ) : (
+                  <Where agent={agent} repo={repo} reference={ref} />
+                )}
               </h1>
               {session ? <PresenceChip session={session} /> : null}
               {session?.archived_at ? <span className="archived-chip">Archived</span> : null}
@@ -534,7 +551,17 @@ export function Thread({
               keeps its height and the terminal under it its size: where it
               works, since when, and the items it holds */}
             <div className="thread-meta">
-              {session?.title ? (
+              {/* the name Pinrail gave it, when another heads it */}
+              {session && generatedBeside(session) ? (
+                <span className="thread-meta-generated">{generatedBeside(session)}</span>
+              ) : null}
+              {/* the stage it is on, when a name the person gave heads it */}
+              {session && stageBeside(session) ? (
+                <span className="thread-meta-stage" title={stageBeside(session) ?? undefined}>
+                  {stageBeside(session)}
+                </span>
+              ) : null}
+              {session?.name || session?.title ? (
                 <span className="thread-meta-where">
                   <Where agent={agent} repo={repo} reference={ref} />
                 </span>

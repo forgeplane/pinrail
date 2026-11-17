@@ -600,6 +600,7 @@ fn session_json(session: &SessionRow) -> Value {
         "status": session.status.as_ref().map(|s| s.to_json()),
         "title": session.title,
         "name": session.name,
+        "generated_name": session.generated_name,
         "element": session.element,
         "named_by": session.named_by,
         "archived_at": session.archived_at.map(crate::reviews::iso),

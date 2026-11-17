@@ -3653,6 +3653,25 @@ body.is-resizing iframe {
   left: -10px;
   color: var(--faint);
 }
+/* the stage the session is on, first on the line, gives way with the items */
+.thread-meta > .thread-meta-stage {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  /* room for its dot, which it would clip */
+  margin-left: -10px;
+  padding-left: 10px;
+}
+.thread-meta > .thread-meta-stage::before {
+  left: 0;
+}
+/* a stage that starts the line has no dot */
+.thread-meta > .thread-meta-stage:first-child {
+  margin-left: 0;
+  padding-left: 0;
+}
 /* the held items give way first, their title before their keys */
 .thread-meta > .thread-meta-items {
   display: inline-flex;

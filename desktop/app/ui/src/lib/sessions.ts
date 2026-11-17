@@ -17,10 +17,38 @@ import type { Run } from "../api/runtime";
  *  names the session, and its decision leads back to the session. */
 export type FromSession = { from: "session"; session: { agent: string; id: string; title: string | null } };
 
-export const fromSession = (s: { agent: string; id: string; title?: string | null }): FromSession => ({
+export const fromSession = (s: {
+  agent: string;
+  id: string;
+  title?: string | null;
+  name?: string | null;
+}): FromSession => ({
   from: "session",
-  session: { agent: s.agent, id: s.id, title: s.title ?? null },
+  session: { agent: s.agent, id: s.id, title: s.title ?? s.name ?? null },
 });
+
+/** What names a session where it is listed: the name the person gave it,
+ *  else the stage it is on, else the name Pinrail gave it, else its agent. */
+export const sessionLabel = (s: { agent: string; name?: string | null; named_by?: string; title?: string | null }) =>
+  s.named_by === "person" && s.name ? s.name : (s.title ?? s.name ?? s.agent);
+
+/** The name Pinrail gave a session, when its label is something else, so
+ *  that the name still shows beside it. */
+export const generatedBeside = (s: {
+  agent: string;
+  name?: string | null;
+  named_by?: string;
+  generated_name?: string | null;
+  title?: string | null;
+}) => {
+  const generated = s.generated_name ?? (s.named_by === "person" ? null : s.name);
+  return generated && generated !== sessionLabel(s) ? generated : null;
+};
+
+/** The stage a session is on, when its label is another name, so that the
+ *  stage still shows beside it. */
+export const stageBeside = (s: { name?: string | null; named_by?: string; title?: string | null }) =>
+  s.named_by === "person" && s.name && s.title ? s.title : null;
 
 /** Which round a review's card shows, of how many. */
 export type Round = { n: number; of: number };

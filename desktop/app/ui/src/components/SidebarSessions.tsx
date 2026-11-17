@@ -19,7 +19,7 @@ import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { fromSession } from "../lib/sessions";
+import { fromSession, sessionLabel, stageBeside } from "../lib/sessions";
 import {
   type Choices,
   type Group,
@@ -246,7 +246,8 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
         <span>
           {STATE_LABEL[row.state]} · {age(s.status?.at ?? s.last_at, now)} ago
         </span>
-        {s.status?.text ? <span className="faint">{s.status.text}</span> : null}
+        {stageBeside(s) ? <span>{stageBeside(s)}</span> : null}
+        {s.status?.text && s.status.text !== s.title ? <span className="faint">{s.status.text}</span> : null}
         <span className="faint">{[s.agent, s.ref].filter(Boolean).join(" · ")}</span>
       </span>
     );
@@ -270,7 +271,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
               <AgentIcon requestedBy={s.agent} size={14} />
             </span>
             <span className="sidebar-session-text">
-              <span className="sidebar-review-title truncate">{s.title ?? s.agent}</span>
+              <span className="sidebar-review-title truncate">{sessionLabel(s)}</span>
               {details.length > 0 ? (
                 <span className="sidebar-session-details" title={stamp(s.last_at)}>
                   {details.map(({ key, part }, i) => (
@@ -297,7 +298,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
         <button
           type="button"
           className="bar-button sidebar-session-menu"
-          aria-label={`${s.title ?? s.agent} actions`}
+          aria-label={`${sessionLabel(s)} actions`}
           aria-haspopup="menu"
           data-testid="sidebar-session-menu"
           onClick={(event) => setSessionMenu({ session: s, anchor: event.currentTarget })}

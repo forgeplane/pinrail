@@ -139,7 +139,7 @@ export function SessionMenu({
   ) : (
     <PopoverMenu
       anchor={anchor}
-      label={`${session.title ?? name} actions`}
+      label={`${session.name ?? session.title ?? name} actions`}
       entries={entries}
       onClose={onClose}
       align="right"

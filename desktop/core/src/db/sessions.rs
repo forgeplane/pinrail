@@ -34,6 +34,8 @@ pub struct SessionRow {
     /// the session's own name, such as Happy Hydrogen, and the atomic
     /// number of the element it is named after
     pub name: Option<String>,
+    /// the name Pinrail gave it, kept when the person renames it
+    pub generated_name: Option<String>,
     pub element: Option<u32>,
     /// who gave the name: "pinrail" or "person"
     pub named_by: String,
@@ -217,7 +219,8 @@ pub struct SessionFilters {
     pub repo: Option<String>,
     /// only the sessions in the repositories of this project, by its id
     pub project: Option<String>,
-    /// words found in the agent, the session id or a title in the session
+    /// words found in the agent, the session id, its name or a title in the
+    /// session
     pub text: Option<String>,
     /// only sessions with something waiting for the person
     pub waiting: bool,
@@ -371,6 +374,24 @@ impl Db {
             .map(Option::flatten)
     }
 
+    /// What names the session where it is shown: the name the person gave
+    /// it, else the stage it is on, else the name Pinrail gave it.
+    pub fn session_label(&self, agent: &str, id: &str) -> rusqlite::Result<Option<String>> {
+        self.read()
+            .query_row(
+                &format!(
+                    "SELECT CASE WHEN s.named_by = 'person' THEN s.name
+                       ELSE COALESCE({title}, s.name) END
+                     FROM sessions s WHERE s.agent = ?1 AND s.id = ?2",
+                    title = title()
+                ),
+                params![agent, id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map(Option::flatten)
+    }
+
     /// The projects of all the sessions, sorted, and whether a session has
     /// none: what the project filter offers, whatever it filters by.
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
@@ -431,7 +452,7 @@ impl Db {
                     "(EXISTS (SELECT 1 FROM reviews r WHERE r.requested_by = s.agent \
                        AND r.session = s.id AND r.title LIKE ?{n} ESCAPE '\\') \
                      OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\' \
-                     OR {title} LIKE ?{n} ESCAPE '\\')",
+                     OR s.name LIKE ?{n} ESCAPE '\\' OR {title} LIKE ?{n} ESCAPE '\\')",
                     title = title()
                 ));
             }
@@ -741,7 +762,8 @@ fn select() -> String {
     p.pid AS p_pid, p.event_at AS p_event_at, p.state_since AS p_state_since,
     p.turn AS p_turn, p.turn_started AS p_turn_started, p.finished_at AS p_finished_at,
     p.seen_at AS p_seen_at, p.updated_at AS p_updated_at,
-    s.name AS name, s.element AS element, s.named_by AS named_by
+    s.name AS name, s.generated_name AS generated_name, s.element AS element,
+    s.named_by AS named_by
   FROM sessions s
   LEFT JOIN c ON c.agent = s.agent AND c.id = s.id
   LEFT JOIN session_presence p ON p.agent = s.agent AND p.session = s.id",
@@ -797,6 +819,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         status,
         title: row.get(15)?,
         name: row.get("name")?,
+        generated_name: row.get("generated_name")?,
         element: row.get("element")?,
         named_by: row.get("named_by")?,
         archived_at: row
