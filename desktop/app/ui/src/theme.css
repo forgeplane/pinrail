@@ -393,6 +393,26 @@ h1 {
   background: none;
   color: var(--dim);
 }
+/* icon buttons side by side in a header sit close together, narrower
+   than elsewhere and with no space between them, whatever space their
+   header leaves between its other parts; a button with a label, such as
+   Resume or Stop, keeps its size */
+.app-topbar > .bar-button,
+.thread-head-end > .bar-button:not(.run-resume, .run-stop) {
+  width: 24px;
+  padding: 0;
+}
+.inbox-controls > .bar-button {
+  width: 26px;
+  padding: 0;
+}
+.app-topbar > .bar-button + .bar-button {
+  margin-left: -10px;
+}
+.inbox-controls > .bar-button + .bar-button,
+.thread-head-end > .bar-button:not(.run-resume, .run-stop) + .bar-button:not(.run-resume, .run-stop) {
+  margin-left: -8px;
+}
 .bar-button:hover {
   background: var(--bg-hover);
   color: var(--text);

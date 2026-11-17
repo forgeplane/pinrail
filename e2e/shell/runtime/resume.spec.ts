@@ -117,7 +117,11 @@ test("Resume in the header resumes a stopped session and shows its terminal", as
   expect(box.width).toBeGreaterThan(box.height * 2);
   await resume.click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
-  await expect(header(page).getByRole("button", { name: "Stop Claude Code" })).toBeVisible();
+  const stop = header(page).getByRole("button", { name: "Stop Claude Code" });
+  await expect(stop).toBeVisible();
+  // Stop too has room for its icon and its label
+  const stopBox = (await stop.boundingBox())!;
+  expect(stopBox.width).toBeGreaterThan(stopBox.height * 2);
   await expect(header(page).getByRole("button", { name: "Resume Claude Code" })).toHaveCount(0);
   expect(posted).toHaveLength(1);
   expect(posted[0]).toMatchObject({ cols: expect.any(Number), rows: expect.any(Number) });
