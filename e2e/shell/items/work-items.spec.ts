@@ -90,8 +90,10 @@ test("a row shows the status, key, title, what waits, what blocks it, its progre
   const repo = fresh("rows");
   const parent = await add(request, repo, "Custom themes");
   const part = await add(request, repo, "Theme file format", { parent: parent.key });
-  const held = await add(request, repo, "Load themes", { parent: parent.key, depends_on: [part.key] });
+  // claimed before it waits for another: a blocked item cannot be claimed
+  const held = await add(request, repo, "Load themes", { parent: parent.key });
   await edit(request, held.key, { claim: "claim" });
+  await edit(request, held.key, { depends_on: [part.key] });
   await add(request, repo, "Theme picker");
   const reviewed = await add(request, repo, "Reviewed");
   const sent = await request.post(`${core}/api/v1/reviews`, {
