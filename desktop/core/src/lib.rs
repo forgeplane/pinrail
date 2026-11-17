@@ -14,6 +14,7 @@ pub mod config;
 pub mod db;
 #[cfg(feature = "docs")]
 pub mod docs;
+pub mod elements;
 pub mod error;
 pub mod events;
 pub mod folders;

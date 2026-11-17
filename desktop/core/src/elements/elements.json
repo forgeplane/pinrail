@@ -1,0 +1,1182 @@
+[
+ {
+  "number": 1,
+  "symbol": "H",
+  "name": "Hydrogen",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 1,
+  "column": 1,
+  "description": "The lightest element, it makes up about three quarters of the ordinary matter in the universe."
+ },
+ {
+  "number": 2,
+  "symbol": "He",
+  "name": "Helium",
+  "category": "noble gas",
+  "rarity": "common",
+  "row": 1,
+  "column": 18,
+  "description": "Found in the Sun's spectrum before it was found on Earth, it stays liquid down to absolute zero at normal pressure."
+ },
+ {
+  "number": 3,
+  "symbol": "Li",
+  "name": "Lithium",
+  "category": "alkali metal",
+  "rarity": "uncommon",
+  "row": 2,
+  "column": 1,
+  "description": "The lightest metal, it floats on water and powers most rechargeable batteries."
+ },
+ {
+  "number": 4,
+  "symbol": "Be",
+  "name": "Beryllium",
+  "category": "alkaline earth metal",
+  "rarity": "uncommon",
+  "row": 2,
+  "column": 2,
+  "description": "Light and stiff, it lets X-rays through and was used for the mirrors of the James Webb Space Telescope."
+ },
+ {
+  "number": 5,
+  "symbol": "B",
+  "name": "Boron",
+  "category": "metalloid",
+  "rarity": "uncommon",
+  "row": 2,
+  "column": 13,
+  "description": "Added to glass, it makes the heat-resistant borosilicate kind used in laboratories and kitchens."
+ },
+ {
+  "number": 6,
+  "symbol": "C",
+  "name": "Carbon",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 2,
+  "column": 14,
+  "description": "The basis of all known life, it forms soft graphite and hard diamond alike."
+ },
+ {
+  "number": 7,
+  "symbol": "N",
+  "name": "Nitrogen",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 2,
+  "column": 15,
+  "description": "It makes up about 78 percent of the air we breathe."
+ },
+ {
+  "number": 8,
+  "symbol": "O",
+  "name": "Oxygen",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 2,
+  "column": 16,
+  "description": "The most abundant element in the Earth's crust, it fills the air thanks to billions of years of photosynthesis."
+ },
+ {
+  "number": 9,
+  "symbol": "F",
+  "name": "Fluorine",
+  "category": "halogen",
+  "rarity": "uncommon",
+  "row": 2,
+  "column": 17,
+  "description": "The most reactive of all elements, it protects teeth as fluoride in toothpaste."
+ },
+ {
+  "number": 10,
+  "symbol": "Ne",
+  "name": "Neon",
+  "category": "noble gas",
+  "rarity": "common",
+  "row": 2,
+  "column": 18,
+  "description": "It glows reddish orange in an electric discharge, the light of the first neon signs."
+ },
+ {
+  "number": 11,
+  "symbol": "Na",
+  "name": "Sodium",
+  "category": "alkali metal",
+  "rarity": "common",
+  "row": 3,
+  "column": 1,
+  "description": "A soft metal that reacts violently with water, it is half of table salt."
+ },
+ {
+  "number": 12,
+  "symbol": "Mg",
+  "name": "Magnesium",
+  "category": "alkaline earth metal",
+  "rarity": "common",
+  "row": 3,
+  "column": 2,
+  "description": "It burns with a brilliant white light and sits at the heart of every chlorophyll molecule."
+ },
+ {
+  "number": 13,
+  "symbol": "Al",
+  "name": "Aluminium",
+  "category": "post-transition metal",
+  "rarity": "common",
+  "row": 3,
+  "column": 13,
+  "description": "The most abundant metal in the Earth's crust, it was so hard to extract that it was once prized like gold."
+ },
+ {
+  "number": 14,
+  "symbol": "Si",
+  "name": "Silicon",
+  "category": "metalloid",
+  "rarity": "common",
+  "row": 3,
+  "column": 14,
+  "description": "The second most abundant element in the Earth's crust, it is the material of computer chips."
+ },
+ {
+  "number": 15,
+  "symbol": "P",
+  "name": "Phosphorus",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 3,
+  "column": 15,
+  "description": "First isolated from urine in 1669, its white form glows faintly in the dark."
+ },
+ {
+  "number": 16,
+  "symbol": "S",
+  "name": "Sulfur",
+  "category": "nonmetal",
+  "rarity": "common",
+  "row": 3,
+  "column": 16,
+  "description": "Known since ancient times as brimstone, it burns with a blue flame."
+ },
+ {
+  "number": 17,
+  "symbol": "Cl",
+  "name": "Chlorine",
+  "category": "halogen",
+  "rarity": "common",
+  "row": 3,
+  "column": 17,
+  "description": "A yellow-green gas, it keeps drinking water and swimming pools free of germs."
+ },
+ {
+  "number": 18,
+  "symbol": "Ar",
+  "name": "Argon",
+  "category": "noble gas",
+  "rarity": "uncommon",
+  "row": 3,
+  "column": 18,
+  "description": "The third most abundant gas in the air, it fills light bulbs to protect their filaments."
+ },
+ {
+  "number": 19,
+  "symbol": "K",
+  "name": "Potassium",
+  "category": "alkali metal",
+  "rarity": "common",
+  "row": 4,
+  "column": 1,
+  "description": "Essential to every nerve signal, it gives bananas their reputation."
+ },
+ {
+  "number": 20,
+  "symbol": "Ca",
+  "name": "Calcium",
+  "category": "alkaline earth metal",
+  "rarity": "common",
+  "row": 4,
+  "column": 2,
+  "description": "The most abundant metal in the human body, it builds bones and teeth."
+ },
+ {
+  "number": 21,
+  "symbol": "Sc",
+  "name": "Scandium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 3,
+  "description": "Predicted by Mendeleev before its discovery, it strengthens the aluminium of bicycle frames."
+ },
+ {
+  "number": 22,
+  "symbol": "Ti",
+  "name": "Titanium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 4,
+  "description": "As strong as steel at nearly half the weight, it is used in aircraft and medical implants."
+ },
+ {
+  "number": 23,
+  "symbol": "V",
+  "name": "Vanadium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 5,
+  "description": "Named after a Norse goddess of beauty, it makes steel tools tougher."
+ },
+ {
+  "number": 24,
+  "symbol": "Cr",
+  "name": "Chromium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 6,
+  "description": "It gives rubies their red and stainless steel its resistance to rust."
+ },
+ {
+  "number": 25,
+  "symbol": "Mn",
+  "name": "Manganese",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 7,
+  "description": "Essential to making steel, it also helps plants split water during photosynthesis."
+ },
+ {
+  "number": 26,
+  "symbol": "Fe",
+  "name": "Iron",
+  "category": "transition metal",
+  "rarity": "common",
+  "row": 4,
+  "column": 8,
+  "description": "The most common element on Earth by mass, most of it lies in the planet's core."
+ },
+ {
+  "number": 27,
+  "symbol": "Co",
+  "name": "Cobalt",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 9,
+  "description": "It has coloured glass and ceramics deep blue for thousands of years."
+ },
+ {
+  "number": 28,
+  "symbol": "Ni",
+  "name": "Nickel",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 10,
+  "description": "One of the few elements that are magnetic at room temperature, it makes up part of the Earth's core."
+ },
+ {
+  "number": 29,
+  "symbol": "Cu",
+  "name": "Copper",
+  "category": "transition metal",
+  "rarity": "common",
+  "row": 4,
+  "column": 11,
+  "description": "One of the first metals people worked, it still carries most of the world's electricity."
+ },
+ {
+  "number": 30,
+  "symbol": "Zn",
+  "name": "Zinc",
+  "category": "transition metal",
+  "rarity": "common",
+  "row": 4,
+  "column": 12,
+  "description": "A coat of it keeps steel from rusting, a process called galvanizing."
+ },
+ {
+  "number": 31,
+  "symbol": "Ga",
+  "name": "Gallium",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 13,
+  "description": "It melts at about 30 °C, so it turns liquid in the palm of a hand."
+ },
+ {
+  "number": 32,
+  "symbol": "Ge",
+  "name": "Germanium",
+  "category": "metalloid",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 14,
+  "description": "Predicted by Mendeleev, it was the material of the first transistor."
+ },
+ {
+  "number": 33,
+  "symbol": "As",
+  "name": "Arsenic",
+  "category": "metalloid",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 15,
+  "description": "Long known as a poison, it is now used in fast semiconductors such as gallium arsenide."
+ },
+ {
+  "number": 34,
+  "symbol": "Se",
+  "name": "Selenium",
+  "category": "nonmetal",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 16,
+  "description": "Named after the Moon, it conducts electricity better in light than in darkness."
+ },
+ {
+  "number": 35,
+  "symbol": "Br",
+  "name": "Bromine",
+  "category": "halogen",
+  "rarity": "uncommon",
+  "row": 4,
+  "column": 17,
+  "description": "One of only two elements that are liquid at room temperature, it smells strongly."
+ },
+ {
+  "number": 36,
+  "symbol": "Kr",
+  "name": "Krypton",
+  "category": "noble gas",
+  "rarity": "rare",
+  "row": 4,
+  "column": 18,
+  "description": "A rare gas of the air, it defined the length of the metre from 1960 to 1983."
+ },
+ {
+  "number": 37,
+  "symbol": "Rb",
+  "name": "Rubidium",
+  "category": "alkali metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 1,
+  "description": "Named after the red lines of its spectrum, it keeps time in atomic clocks."
+ },
+ {
+  "number": 38,
+  "symbol": "Sr",
+  "name": "Strontium",
+  "category": "alkaline earth metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 2,
+  "description": "It gives fireworks and flares their bright red."
+ },
+ {
+  "number": 39,
+  "symbol": "Y",
+  "name": "Yttrium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 3,
+  "description": "One of four elements named after the Swedish village of Ytterby, it makes the red in old colour televisions."
+ },
+ {
+  "number": 40,
+  "symbol": "Zr",
+  "name": "Zirconium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 4,
+  "description": "It barely absorbs neutrons, so it clads the fuel rods of nuclear reactors."
+ },
+ {
+  "number": 41,
+  "symbol": "Nb",
+  "name": "Niobium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 5,
+  "description": "Named after Niobe, daughter of Tantalus, it makes the superconducting magnets of MRI scanners."
+ },
+ {
+  "number": 42,
+  "symbol": "Mo",
+  "name": "Molybdenum",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 6,
+  "description": "It melts at over 2600 °C and strengthens steel at high temperatures."
+ },
+ {
+  "number": 43,
+  "symbol": "Tc",
+  "name": "Technetium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 7,
+  "description": "The first element made artificially, it is used in millions of medical scans each year."
+ },
+ {
+  "number": 44,
+  "symbol": "Ru",
+  "name": "Ruthenium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 8,
+  "description": "Named after Russia, it hardens platinum and palladium."
+ },
+ {
+  "number": 45,
+  "symbol": "Rh",
+  "name": "Rhodium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 9,
+  "description": "One of the rarest and costliest metals, it cleans car exhaust in catalytic converters."
+ },
+ {
+  "number": 46,
+  "symbol": "Pd",
+  "name": "Palladium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 10,
+  "description": "It can soak up hundreds of times its own volume of hydrogen."
+ },
+ {
+  "number": 47,
+  "symbol": "Ag",
+  "name": "Silver",
+  "category": "transition metal",
+  "rarity": "common",
+  "row": 5,
+  "column": 11,
+  "description": "It conducts electricity and heat better than any other element."
+ },
+ {
+  "number": 48,
+  "symbol": "Cd",
+  "name": "Cadmium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 12,
+  "description": "It gives artists' paints their bright yellows and reds."
+ },
+ {
+  "number": 49,
+  "symbol": "In",
+  "name": "Indium",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 13,
+  "description": "Soft enough to cut with a knife, it makes the transparent electrodes of touch screens."
+ },
+ {
+  "number": 50,
+  "symbol": "Sn",
+  "name": "Tin",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 14,
+  "description": "Mixed with copper, it made the bronze that named an age."
+ },
+ {
+  "number": 51,
+  "symbol": "Sb",
+  "name": "Antimony",
+  "category": "metalloid",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 15,
+  "description": "Ancient Egyptians used its sulfide as the black eye cosmetic kohl."
+ },
+ {
+  "number": 52,
+  "symbol": "Te",
+  "name": "Tellurium",
+  "category": "metalloid",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 16,
+  "description": "Named after the Earth, it is used in rewritable discs and solar panels."
+ },
+ {
+  "number": 53,
+  "symbol": "I",
+  "name": "Iodine",
+  "category": "halogen",
+  "rarity": "uncommon",
+  "row": 5,
+  "column": 17,
+  "description": "Its crystals turn straight into a violet vapour, and the thyroid gland needs it."
+ },
+ {
+  "number": 54,
+  "symbol": "Xe",
+  "name": "Xenon",
+  "category": "noble gas",
+  "rarity": "rare",
+  "row": 5,
+  "column": 18,
+  "description": "Named from the Greek for stranger, it lights car headlamps and drives ion engines in space."
+ },
+ {
+  "number": 55,
+  "symbol": "Cs",
+  "name": "Caesium",
+  "category": "alkali metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 1,
+  "description": "Its atoms define the second, the base of all atomic clocks."
+ },
+ {
+  "number": 56,
+  "symbol": "Ba",
+  "name": "Barium",
+  "category": "alkaline earth metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 2,
+  "description": "Swallowed as a sulfate, it makes the gut visible on X-rays."
+ },
+ {
+  "number": 57,
+  "symbol": "La",
+  "name": "Lanthanum",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 3,
+  "description": "The first of the lanthanides, it makes camera lenses sharper."
+ },
+ {
+  "number": 58,
+  "symbol": "Ce",
+  "name": "Cerium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 4,
+  "description": "The most abundant rare earth, it makes the sparks of lighter flints."
+ },
+ {
+  "number": 59,
+  "symbol": "Pr",
+  "name": "Praseodymium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 5,
+  "description": "It colours glass a yellow-green and goes into welders' goggles."
+ },
+ {
+  "number": 60,
+  "symbol": "Nd",
+  "name": "Neodymium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 6,
+  "description": "It makes the strongest permanent magnets, found in headphones and electric motors."
+ },
+ {
+  "number": 61,
+  "symbol": "Pm",
+  "name": "Promethium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 7,
+  "description": "Named after Prometheus, it is the only lanthanide with no stable form."
+ },
+ {
+  "number": 62,
+  "symbol": "Sm",
+  "name": "Samarium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 8,
+  "description": "The first element named after a person, it makes magnets that work at high temperatures."
+ },
+ {
+  "number": 63,
+  "symbol": "Eu",
+  "name": "Europium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 9,
+  "description": "Named after Europe, it glows red under ultraviolet light and guards euro banknotes against forgery."
+ },
+ {
+  "number": 64,
+  "symbol": "Gd",
+  "name": "Gadolinium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 10,
+  "description": "It brightens tissues in MRI scans and is magnetic below about 20 °C."
+ },
+ {
+  "number": 65,
+  "symbol": "Tb",
+  "name": "Terbium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 11,
+  "description": "Another element named after Ytterby, it gives screens and lamps their green."
+ },
+ {
+  "number": 66,
+  "symbol": "Dy",
+  "name": "Dysprosium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 12,
+  "description": "Named from the Greek for hard to get, it keeps magnets strong in electric car motors."
+ },
+ {
+  "number": 67,
+  "symbol": "Ho",
+  "name": "Holmium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 13,
+  "description": "Named after Stockholm, it has the highest magnetic strength of any element."
+ },
+ {
+  "number": 68,
+  "symbol": "Er",
+  "name": "Erbium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 14,
+  "description": "It amplifies the light that carries data through optical fibres."
+ },
+ {
+  "number": 69,
+  "symbol": "Tm",
+  "name": "Thulium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 15,
+  "description": "Named after Thule, a mythical far north, it is among the rarest lanthanides."
+ },
+ {
+  "number": 70,
+  "symbol": "Yb",
+  "name": "Ytterbium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 16,
+  "description": "The fourth element named after Ytterby, it keeps time in some of the most precise atomic clocks."
+ },
+ {
+  "number": 71,
+  "symbol": "Lu",
+  "name": "Lutetium",
+  "category": "lanthanide",
+  "rarity": "rare",
+  "row": 9,
+  "column": 17,
+  "description": "Named after Lutetia, the Roman name of Paris, it is the last and densest lanthanide."
+ },
+ {
+  "number": 72,
+  "symbol": "Hf",
+  "name": "Hafnium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 4,
+  "description": "Named after Copenhagen, it absorbs neutrons in the control rods of reactors."
+ },
+ {
+  "number": 73,
+  "symbol": "Ta",
+  "name": "Tantalum",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 5,
+  "description": "Named after Tantalus of Greek myth, it makes the small capacitors in phones."
+ },
+ {
+  "number": 74,
+  "symbol": "W",
+  "name": "Tungsten",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 6,
+  "description": "It has the highest melting point of any metal and lit the filaments of light bulbs."
+ },
+ {
+  "number": 75,
+  "symbol": "Re",
+  "name": "Rhenium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 7,
+  "description": "The last stable element to be discovered, in 1925, it goes into jet engine blades."
+ },
+ {
+  "number": 76,
+  "symbol": "Os",
+  "name": "Osmium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 8,
+  "description": "The densest natural element, it was once used for fountain pen tips."
+ },
+ {
+  "number": 77,
+  "symbol": "Ir",
+  "name": "Iridium",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 9,
+  "description": "A layer of it in rocks 66 million years old marks the asteroid that ended the dinosaurs."
+ },
+ {
+  "number": 78,
+  "symbol": "Pt",
+  "name": "Platinum",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 10,
+  "description": "It barely corrodes, and it speeds up reactions in car exhaust and fuel cells."
+ },
+ {
+  "number": 79,
+  "symbol": "Au",
+  "name": "Gold",
+  "category": "transition metal",
+  "rarity": "common",
+  "row": 6,
+  "column": 11,
+  "description": "It never tarnishes, and all the gold ever mined would fit in a cube about 22 metres wide."
+ },
+ {
+  "number": 80,
+  "symbol": "Hg",
+  "name": "Mercury",
+  "category": "transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 12,
+  "description": "The only metal that is liquid at room temperature, it once filled thermometers."
+ },
+ {
+  "number": 81,
+  "symbol": "Tl",
+  "name": "Thallium",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 13,
+  "description": "Named after the green line of its spectrum, it is highly toxic."
+ },
+ {
+  "number": 82,
+  "symbol": "Pb",
+  "name": "Lead",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 14,
+  "description": "Dense and soft, it shields X-ray rooms, and the Romans made water pipes of it."
+ },
+ {
+  "number": 83,
+  "symbol": "Bi",
+  "name": "Bismuth",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 15,
+  "description": "It forms iridescent stepped crystals and soothes upset stomachs."
+ },
+ {
+  "number": 84,
+  "symbol": "Po",
+  "name": "Polonium",
+  "category": "post-transition metal",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 16,
+  "description": "Discovered by Marie and Pierre Curie, it was named after Poland."
+ },
+ {
+  "number": 85,
+  "symbol": "At",
+  "name": "Astatine",
+  "category": "halogen",
+  "rarity": "uncommon",
+  "row": 6,
+  "column": 17,
+  "description": "The rarest element that occurs in nature, only a few grams of it exist in the Earth's crust at any time."
+ },
+ {
+  "number": 86,
+  "symbol": "Rn",
+  "name": "Radon",
+  "category": "noble gas",
+  "rarity": "rare",
+  "row": 6,
+  "column": 18,
+  "description": "A radioactive gas that seeps from the ground, it can gather in cellars."
+ },
+ {
+  "number": 87,
+  "symbol": "Fr",
+  "name": "Francium",
+  "category": "alkali metal",
+  "rarity": "uncommon",
+  "row": 7,
+  "column": 1,
+  "description": "Discovered in 1939 by Marguerite Perey, it was the last element found in nature."
+ },
+ {
+  "number": 88,
+  "symbol": "Ra",
+  "name": "Radium",
+  "category": "alkaline earth metal",
+  "rarity": "uncommon",
+  "row": 7,
+  "column": 2,
+  "description": "Discovered by the Curies, it once made watch dials glow in the dark."
+ },
+ {
+  "number": 89,
+  "symbol": "Ac",
+  "name": "Actinium",
+  "category": "actinide",
+  "rarity": "rare",
+  "row": 10,
+  "column": 3,
+  "description": "Named from the Greek for ray, it gives the actinides their name and glows blue in the dark."
+ },
+ {
+  "number": 90,
+  "symbol": "Th",
+  "name": "Thorium",
+  "category": "actinide",
+  "rarity": "rare",
+  "row": 10,
+  "column": 4,
+  "description": "Named after Thor, it is about three times as abundant as uranium."
+ },
+ {
+  "number": 91,
+  "symbol": "Pa",
+  "name": "Protactinium",
+  "category": "actinide",
+  "rarity": "rare",
+  "row": 10,
+  "column": 5,
+  "description": "One of the rarest natural elements, it decays into actinium."
+ },
+ {
+  "number": 92,
+  "symbol": "U",
+  "name": "Uranium",
+  "category": "actinide",
+  "rarity": "rare",
+  "row": 10,
+  "column": 6,
+  "description": "The heaviest element found in nature in quantity, it fuels nuclear power stations."
+ },
+ {
+  "number": 93,
+  "symbol": "Np",
+  "name": "Neptunium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 7,
+  "description": "The first element beyond uranium, made in 1940, it was named after the planet Neptune."
+ },
+ {
+  "number": 94,
+  "symbol": "Pu",
+  "name": "Plutonium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 8,
+  "description": "Named after Pluto, it powers space probes such as Voyager and New Horizons."
+ },
+ {
+  "number": 95,
+  "symbol": "Am",
+  "name": "Americium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 9,
+  "description": "Named after the Americas, a tiny amount of it sits in most smoke detectors."
+ },
+ {
+  "number": 96,
+  "symbol": "Cm",
+  "name": "Curium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 10,
+  "description": "Named after Marie and Pierre Curie, it was the radiation source of instruments on Mars rovers."
+ },
+ {
+  "number": 97,
+  "symbol": "Bk",
+  "name": "Berkelium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 11,
+  "description": "Named after Berkeley, California, where it was first made in 1949."
+ },
+ {
+  "number": 98,
+  "symbol": "Cf",
+  "name": "Californium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 12,
+  "description": "A strong source of neutrons, it helps start nuclear reactors and find gold and oil."
+ },
+ {
+  "number": 99,
+  "symbol": "Es",
+  "name": "Einsteinium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 13,
+  "description": "Named after Albert Einstein, it was first found in the debris of a hydrogen bomb test."
+ },
+ {
+  "number": 100,
+  "symbol": "Fm",
+  "name": "Fermium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 14,
+  "description": "Named after Enrico Fermi, it is the heaviest element that can be made by bombarding lighter ones with neutrons."
+ },
+ {
+  "number": 101,
+  "symbol": "Md",
+  "name": "Mendelevium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 15,
+  "description": "Named after Dmitri Mendeleev, the father of the periodic table."
+ },
+ {
+  "number": 102,
+  "symbol": "No",
+  "name": "Nobelium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 16,
+  "description": "Named after Alfred Nobel, its discovery was disputed for decades."
+ },
+ {
+  "number": 103,
+  "symbol": "Lr",
+  "name": "Lawrencium",
+  "category": "actinide",
+  "rarity": "legendary",
+  "row": 10,
+  "column": 17,
+  "description": "Named after Ernest Lawrence, inventor of the cyclotron, it closes the actinide row."
+ },
+ {
+  "number": 104,
+  "symbol": "Rf",
+  "name": "Rutherfordium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 4,
+  "description": "Named after Ernest Rutherford, it is the first of the superheavy elements."
+ },
+ {
+  "number": 105,
+  "symbol": "Db",
+  "name": "Dubnium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 5,
+  "description": "Named after Dubna, the Russian town where it was made."
+ },
+ {
+  "number": 106,
+  "symbol": "Sg",
+  "name": "Seaborgium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 6,
+  "description": "Named after Glenn Seaborg, who was still alive when it got his name."
+ },
+ {
+  "number": 107,
+  "symbol": "Bh",
+  "name": "Bohrium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 7,
+  "description": "Named after Niels Bohr, only a few atoms of it have ever been made."
+ },
+ {
+  "number": 108,
+  "symbol": "Hs",
+  "name": "Hassium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 8,
+  "description": "Named after the German state of Hesse, it is thought to be denser than osmium."
+ },
+ {
+  "number": 109,
+  "symbol": "Mt",
+  "name": "Meitnerium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 9,
+  "description": "Named after Lise Meitner, who helped explain nuclear fission."
+ },
+ {
+  "number": 110,
+  "symbol": "Ds",
+  "name": "Darmstadtium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 10,
+  "description": "Named after the German city of Darmstadt, its atoms last only seconds."
+ },
+ {
+  "number": 111,
+  "symbol": "Rg",
+  "name": "Roentgenium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 11,
+  "description": "Named after Wilhelm Röntgen, the discoverer of X-rays."
+ },
+ {
+  "number": 112,
+  "symbol": "Cn",
+  "name": "Copernicium",
+  "category": "transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 12,
+  "description": "Named after Nicolaus Copernicus, it may be a liquid or a gas at room temperature."
+ },
+ {
+  "number": 113,
+  "symbol": "Nh",
+  "name": "Nihonium",
+  "category": "post-transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 13,
+  "description": "Named after Japan, it was the first element discovered in Asia."
+ },
+ {
+  "number": 114,
+  "symbol": "Fl",
+  "name": "Flerovium",
+  "category": "post-transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 14,
+  "description": "Named after the Flerov Laboratory in Dubna, it may behave almost like a noble gas."
+ },
+ {
+  "number": 115,
+  "symbol": "Mc",
+  "name": "Moscovium",
+  "category": "post-transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 15,
+  "description": "Named after the Moscow region, its atoms last a fraction of a second."
+ },
+ {
+  "number": 116,
+  "symbol": "Lv",
+  "name": "Livermorium",
+  "category": "post-transition metal",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 16,
+  "description": "Named after Lawrence Livermore National Laboratory in California."
+ },
+ {
+  "number": 117,
+  "symbol": "Ts",
+  "name": "Tennessine",
+  "category": "halogen",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 17,
+  "description": "Named after Tennessee, it was among the last four elements to be named, in 2016."
+ },
+ {
+  "number": 118,
+  "symbol": "Og",
+  "name": "Oganesson",
+  "category": "noble gas",
+  "rarity": "legendary",
+  "row": 7,
+  "column": 18,
+  "description": "The heaviest element known, it is named after the physicist Yuri Oganessian."
+ }
+]
