@@ -43,6 +43,20 @@ enum ItemsCommand {
     Add(AddArgs),
     /// List the work items that are open, in progress or on hold
     List(ListArgs),
+    /// Find work items by what they are about, open and closed, best match
+    /// first
+    ///
+    /// Matches the words in each item's title, description and comments,
+    /// in any of their forms, and ranks the items by how well they match.
+    /// Any word may match; words in double quotes must match as a phrase.
+    /// A number or a key, such as 42 or PIN-42, finds that item first.
+    ///
+    /// Give several phrasings of the same question to find more: the items
+    /// that several of them find come first.
+    ///
+    ///     pinrail items search "slow session" "thread takes long to open"
+    #[command(verbatim_doc_comment)]
+    Search(SearchArgs),
     /// Print the next work item that is ready, and claim it with --claim
     ///
     /// Ready means open, not on hold nor under an item on hold, waiting for
@@ -154,6 +168,22 @@ struct ListArgs {
     /// items above each one the other filters keep
     #[arg(long, requires = "parent", conflicts_with = "queued")]
     tree: bool,
+    #[command(flatten)]
+    common: Common,
+}
+
+#[derive(Args, Debug)]
+struct SearchArgs {
+    /// What to look for, in one or more phrasings
+    #[arg(required = true, num_args = 1.., value_name = "WORDS")]
+    phrasings: Vec<String>,
+    /// Only these: open, in_progress, on_hold, done, cancelled, ready or
+    /// blocked, separated by commas [default: every status]
+    #[arg(long)]
+    status: Option<String>,
+    /// The most items to print, from 1 to 100
+    #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u8).range(1..=100))]
+    limit: u8,
     #[command(flatten)]
     common: Common,
 }
@@ -319,6 +349,7 @@ pub fn run(client: &Client, args: ItemsArgs, output: Output) -> Result<u8> {
     match args.command {
         ItemsCommand::Add(args) => add(client, args, output),
         ItemsCommand::List(args) => list(client, args, output),
+        ItemsCommand::Search(args) => search(client, args, output),
         ItemsCommand::Next(args) => next(client, args, output),
         ItemsCommand::Show(args) => {
             let cx = Scope::of(&args.common);
@@ -417,6 +448,22 @@ fn add(client: &Client, args: AddArgs, output: Output) -> Result<u8> {
             v["title"].as_str().unwrap_or_default()
         )
     });
+    Ok(0)
+}
+
+fn search(client: &Client, args: SearchArgs, output: Output) -> Result<u8> {
+    let cx = Scope::of(&args.common);
+    let mut query: Vec<(&str, String)> = args.phrasings.iter().map(|p| ("q", p.clone())).collect();
+    if let Some(status) = &args.status {
+        query.push(("status", status.clone()));
+    }
+    if let Some(repo) = &cx.repo {
+        query.push(("repo", repo.clone()));
+    }
+    query.push(("limit", args.limit.to_string()));
+    let found = client.get("/api/v1/items/search", &query)?;
+    let everywhere = cx.repo.is_none();
+    output.data(&found, |v| search_md(&v["items"], everywhere));
     Ok(0)
 }
 
@@ -800,6 +847,23 @@ fn list_md(items: &Value, everywhere: bool) -> String {
             s(&item["title"]),
             parts.join(" · ")
         ));
+    }
+    out
+}
+
+/// The items a search found, each as `list` prints it, with where it
+/// matched under it.
+fn search_md(items: &Value, everywhere: bool) -> String {
+    let found = items.as_array().map(Vec::as_slice).unwrap_or_default();
+    if found.is_empty() {
+        return "No work items match.\n".to_string();
+    }
+    let mut out = String::new();
+    for item in found {
+        out.push_str(&list_md(&Value::Array(vec![item.clone()]), everywhere));
+        if let Some(snippet) = item["snippet"].as_str() {
+            out.push_str(&format!("  {}: {snippet}\n", s(&item["matched"])));
+        }
     }
     out
 }

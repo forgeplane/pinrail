@@ -3884,6 +3884,56 @@ fn items_list_asks_for_the_states_and_prints_a_line_each() {
 }
 
 #[test]
+fn items_search_sends_each_phrasing_and_prints_where_each_item_matched() {
+    let (server, sent) = items_server(|_, _| {
+        let row = |key: &str, title: &str, extra| {
+            serde_json::from_str::<serde_json::Value>(&work_item(key, title, extra)).unwrap()
+        };
+        (
+            200,
+            serde_json::json!({"items": [
+                row("PIN-7", "Slow session page", serde_json::json!({"status": "done", "ready": false,
+                    "matched": "title", "snippet": "[Slow] [session] page"})),
+                row("PIN-3", "Rename the file", serde_json::json!({
+                    "matched": "comment", "snippet": "…the thread takes long to [open]…"})),
+                row("PIN-9", "Named by its key", serde_json::json!({"matched": "key", "snippet": null})),
+            ]})
+            .to_string(),
+        )
+    });
+    let (code, out, err) = items_run(
+        &server,
+        &[
+            "items",
+            "search",
+            "slow session",
+            "thread takes long to open",
+            "--status",
+            "open,done",
+            "--limit",
+            "5",
+            "--repo",
+            "forgeplane/pinrail",
+        ],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "- PIN-7 Slow session page · done\n  title: [Slow] [session] page\n\
+         - PIN-3 Rename the file · open · ready\n  comment: …the thread takes long to [open]…\n\
+         - PIN-9 Named by its key · open · ready\n"
+    );
+    assert_eq!(
+        sent.lock().unwrap()[0].1,
+        "/api/v1/items/search?q=slow%20session&q=thread%20takes%20long%20to%20open\
+         &status=open%2Cdone&repo=forgeplane%2Fpinrail&limit=5"
+    );
+    let (server, _) = items_server(|_, _| (200, r#"{"items": []}"#.into()));
+    let (_, out, _) = items_run(&server, &["items", "search", "nothing"]);
+    assert_eq!(out, "No work items match.\n");
+}
+
+#[test]
 fn items_next_claims_and_prints_the_item_with_what_its_session_now_holds() {
     let (server, sent) = items_server(|_, path| {
         if path.starts_with("/api/v1/items/next") {

@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- `pinrail items search` finds the work items, open and closed, that match
+  its words in their title, description or comments, best match first.
+  Several phrasings of one question find more.
 - Typing `#` in the message box under a session lists the work items, as
   it does in a work item's comment or description.
 - **Count sub-items at every level**, in Settings › Work items, makes a
