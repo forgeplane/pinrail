@@ -33,6 +33,9 @@ import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
 import { useLoad } from "../lib/useLoad";
 import { sessionLabel, stageBeside } from "../lib/sessions";
+import { useElements } from "../lib/elements";
+import { ElementTile } from "../components/ElementTile";
+import { PeriodicTable } from "../components/PeriodicTable";
 
 /** How long the search waits for typing to pause before it asks the server. */
 const SEARCH_DELAY_MS = 250;
@@ -69,7 +72,12 @@ export function Sessions() {
   // needs_you,finished from the inbox's Agents section
   const attention = params.get("attention") ?? "";
   const needsYou = attention === "needs_you";
-  const filtered = !!(query || repo || project || attention);
+  // the sessions named after an element, as a click on the table asks
+  const element = params.get("element") ?? "";
+  // the list, or the periodic table of the sessions
+  const view = params.get("view") === "table" ? "table" : "list";
+  const elements = useElements();
+  const filtered = !!(query || repo || project || attention || element);
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
 
@@ -87,6 +95,7 @@ export function Sessions() {
           project,
           include_archived: withArchived ? "true" : undefined,
           attention: attention || undefined,
+          element: element || undefined,
           limit: String(size),
           offset: String((page - 1) * size),
         })
@@ -94,7 +103,7 @@ export function Sessions() {
           setNow(Date.now());
           return d;
         }),
-    [debounced, repo, project, withArchived, attention, page, size, sessionNotices],
+    [debounced, repo, project, withArchived, attention, element, page, size, sessionNotices],
   );
 
   // grouped by project or by repository within the page shown, or one
@@ -251,7 +260,7 @@ export function Sessions() {
   const clearFilters = () =>
     updateParams(
       (next) => {
-        for (const key of ["q", "repo", "project", "archived", "attention", "page"]) next.delete(key);
+        for (const key of ["q", "repo", "project", "archived", "attention", "element", "page"]) next.delete(key);
       },
       { replace: true },
     );
@@ -279,6 +288,20 @@ export function Sessions() {
         ),
     },
   ];
+  // the elements some session was named after
+  const found = (elements ?? []).filter((e) => (e.sessions ?? 0) > 0 || String(e.number) === element);
+  filters.push({
+    key: "element",
+    label: "Element",
+    value: element,
+    off: "",
+    searchable: true,
+    choices: [
+      { value: "", label: "Any element" },
+      ...found.map((e) => ({ value: String(e.number), label: e.name, mark: <ElementTile element={e} /> })),
+    ],
+    onChange: (v) => setParam("element", v || null),
+  });
   const toggles: Toggle[] = [
     {
       key: "attention",
@@ -299,6 +322,20 @@ export function Sessions() {
       <div className="sessions-side split-side">
         <header className="page-head">
           <h1>Sessions</h1>
+          <div className="sessions-views" role="tablist" aria-label="Show the sessions as">
+            {(["list", "table"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                className={view === v ? "is-active" : undefined}
+                onClick={() => setParam("view", v === "table" ? "table" : null)}
+              >
+                {v === "list" ? "List" : "Periodic table"}
+              </button>
+            ))}
+          </div>
           <div className="inbox-controls">
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
@@ -335,7 +372,18 @@ export function Sessions() {
         {prefs.labs.runtime ? <RestartBanner /> : null}
         <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
         {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
-        {!data ? null : total === 0 ? (
+        {view === "table" ? (
+          <PeriodicTable
+            changed={sessionNotices}
+            onPick={(n) =>
+              updateParams((next) => {
+                next.delete("view");
+                next.set("element", String(n));
+                next.delete("page");
+              })
+            }
+          />
+        ) : !data ? null : total === 0 ? (
           <EmptyState
             title={filtered ? "No matching sessions" : "Agents' sessions belong here"}
             icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <MessagesSquare size={28} strokeWidth={1.5} />}

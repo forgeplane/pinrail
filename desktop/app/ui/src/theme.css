@@ -8586,43 +8586,63 @@ a.item-ref {
 }
 
 .element-tile.is-alkali-metal,
-.element-card.is-alkali-metal {
+.element-card.is-alkali-metal,
+.ptable-cell.is-alkali-metal,
+.ptable-card.is-alkali-metal {
   --el: #e5707a;
 }
 .element-tile.is-alkaline-earth-metal,
-.element-card.is-alkaline-earth-metal {
+.element-card.is-alkaline-earth-metal,
+.ptable-cell.is-alkaline-earth-metal,
+.ptable-card.is-alkaline-earth-metal {
   --el: #e59a52;
 }
 .element-tile.is-transition-metal,
-.element-card.is-transition-metal {
+.element-card.is-transition-metal,
+.ptable-cell.is-transition-metal,
+.ptable-card.is-transition-metal {
   --el: #6d9ee8;
 }
 .element-tile.is-post-transition-metal,
-.element-card.is-post-transition-metal {
+.element-card.is-post-transition-metal,
+.ptable-cell.is-post-transition-metal,
+.ptable-card.is-post-transition-metal {
   --el: #5fb3b6;
 }
 .element-tile.is-metalloid,
-.element-card.is-metalloid {
+.element-card.is-metalloid,
+.ptable-cell.is-metalloid,
+.ptable-card.is-metalloid {
   --el: #4fb88e;
 }
 .element-tile.is-nonmetal,
-.element-card.is-nonmetal {
+.element-card.is-nonmetal,
+.ptable-cell.is-nonmetal,
+.ptable-card.is-nonmetal {
   --el: #78bb58;
 }
 .element-tile.is-halogen,
-.element-card.is-halogen {
+.element-card.is-halogen,
+.ptable-cell.is-halogen,
+.ptable-card.is-halogen {
   --el: #c4b13c;
 }
 .element-tile.is-noble-gas,
-.element-card.is-noble-gas {
+.element-card.is-noble-gas,
+.ptable-cell.is-noble-gas,
+.ptable-card.is-noble-gas {
   --el: #a77fe0;
 }
 .element-tile.is-lanthanide,
-.element-card.is-lanthanide {
+.element-card.is-lanthanide,
+.ptable-cell.is-lanthanide,
+.ptable-card.is-lanthanide {
   --el: #df7fb4;
 }
 .element-tile.is-actinide,
-.element-card.is-actinide {
+.element-card.is-actinide,
+.ptable-cell.is-actinide,
+.ptable-card.is-actinide {
   --el: #d98a5e;
 }
 /* a tooltip that holds a card */
@@ -8700,4 +8720,233 @@ a.item-ref {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* the Sessions page's two views, the list and the periodic table */
+.sessions-views {
+  display: inline-flex;
+  margin-right: auto;
+  margin-left: 14px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.sessions-views button {
+  padding: 2px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--dim);
+  font: var(--text-sm) var(--font);
+  cursor: pointer;
+}
+.sessions-views button.is-active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* The periodic table of sessions: 18 columns of square cells, the
+   lanthanides and actinides two rows below, after a gap, and the card of
+   the element pointed at in the space above the transition metals. */
+.ptable {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 24px;
+}
+.ptable-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+.ptable-count strong {
+  color: var(--text);
+  font-size: var(--text-lg);
+}
+.ptable-rarities {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ptable-rarity {
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.ptable-rarity.is-rare {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--accent);
+}
+.ptable-rarity.is-legendary {
+  border-color: color-mix(in srgb, #e5b85c 70%, transparent);
+  background: color-mix(in srgb, #e5b85c 14%, transparent);
+  color: #d9a441;
+}
+.ptable-grid {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  grid-template-rows: repeat(7, auto) 10px repeat(2, auto);
+  gap: 3px;
+  max-width: 1180px;
+}
+.ptable-cell {
+  --el: #8a8f9c;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--el);
+  font-family: var(--font);
+  cursor: default;
+  overflow: hidden;
+}
+.ptable-cell.is-found {
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--el) 10%, var(--bg-raised));
+  cursor: pointer;
+}
+.ptable-cell.is-found.is-rare,
+.ptable-cell.is-found.is-legendary {
+  border-color: color-mix(in srgb, var(--el) 75%, transparent);
+}
+.ptable-cell.is-found.is-legendary {
+  background: color-mix(in srgb, var(--el) 22%, var(--bg-raised));
+}
+.ptable-cell.is-unfound {
+  color: var(--faint);
+  background: transparent;
+  border-style: dashed;
+}
+.ptable-cell.is-unfound.is-rare,
+.ptable-cell.is-unfound.is-legendary {
+  border-color: color-mix(in srgb, var(--el) 45%, transparent);
+}
+.ptable-cell:hover,
+.ptable-cell.is-shown,
+.ptable-cell:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--el) 70%, transparent);
+  outline-offset: 1px;
+  z-index: 1;
+}
+.ptable-number {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ptable-cell.is-unfound .ptable-number {
+  color: var(--faint);
+}
+.ptable-sessions {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  color: var(--el);
+  font-size: 9px;
+  font-weight: 700;
+}
+.ptable-symbol {
+  margin-top: 4px;
+  font-size: clamp(12px, 1.5vw, 18px);
+  font-weight: 700;
+}
+.ptable-name {
+  max-width: 100%;
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 8.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* the card, in the space above the transition metals */
+.ptable-inset {
+  grid-row: 1 / 4;
+  grid-column: 3 / 13;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-start;
+  padding: 2px 10px 10px;
+  min-width: 0;
+}
+.ptable-hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: var(--text-sm);
+}
+.ptable-card {
+  --el: #8a8f9c;
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+}
+.ptable-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ptable-card-name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.ptable-card-facts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: var(--text-xs);
+}
+.ptable-card-text {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.ptable-card-sessions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: var(--text-xs);
+}
+.ptable-card-session {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ptable-card-session:hover {
+  text-decoration: underline;
+}
+.ptable-card-mystery {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--faint);
+  font-size: 22px;
+  font-weight: 700;
 }

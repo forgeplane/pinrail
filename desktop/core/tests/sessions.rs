@@ -1271,3 +1271,39 @@ async fn the_elements_are_served_with_their_place_and_description() {
         .sum();
     assert_eq!(total, 1);
 }
+
+#[tokio::test]
+async fn the_sessions_of_an_element_are_listed_by_its_number() {
+    let app = app();
+    for id in ["s-el-1", "s-el-2", "s-el-3"] {
+        call(
+            &app,
+            "POST",
+            &format!("/api/v1/sessions/claude-code/{id}/status"),
+            Some(json!({"text": "Working"})),
+        )
+        .await;
+    }
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-el-2", None).await;
+    let element = thread["session"]["element"].as_u64().unwrap();
+    let (code, found) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions?element={element}"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    for s in found["sessions"].as_array().unwrap() {
+        assert_eq!(s["element"], element);
+    }
+    assert!(
+        found["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == "s-el-2")
+    );
+    let (code, _) = call(&app, "GET", "/api/v1/sessions?element=hydrogen", None).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);
+}

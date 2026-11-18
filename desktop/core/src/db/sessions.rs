@@ -222,6 +222,8 @@ pub struct SessionFilters {
     /// words found in the agent, the session id, its name or a title in the
     /// session
     pub text: Option<String>,
+    /// only the sessions named after this element, by its atomic number
+    pub element: Option<u32>,
     /// only sessions with something waiting for the person
     pub waiting: bool,
     /// only sessions that ask one of these attentions of the person
@@ -451,6 +453,10 @@ impl Db {
         }
         if !filters.include_archived {
             wheres.push("s.archived_at IS NULL".to_string());
+        }
+        if let Some(element) = filters.element {
+            args.push(element.to_string());
+            wheres.push(format!("s.element = ?{}", args.len()));
         }
         if let Some(text) = &filters.text {
             for word in text.split_whitespace() {

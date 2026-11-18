@@ -84,3 +84,42 @@ test("a session with a rare element no session had announces its discovery", asy
   await page.goto("/#/");
   await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.name}.`)).toBeVisible();
 });
+
+test("the periodic table lights a session's element, describes it, and a click lists its sessions", async ({
+  page,
+}) => {
+  const session = `s-table-${Date.now()}`;
+  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Fill the table" },
+  });
+  const { session: s } = (await (await page.request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json()) as {
+    session: { element: number };
+  };
+  const { elements } = (await (await page.request.get(`${core}/api/v1/elements`)).json()) as {
+    elements: { name: string; description: string; sessions: number }[];
+  };
+  const element = elements[s.element - 1];
+
+  await page.goto("/#/sessions");
+  await page.getByRole("tab", { name: "Periodic table" }).click();
+  await expect(page).toHaveURL(/view=table/);
+  const cell = page.getByRole("button", { name: new RegExp(`^${element.name}, \\d+ sessions?$`) });
+  await cell.hover();
+  const table = page.getByRole("region", { name: "Periodic table of sessions" });
+  await expect(table).toContainText(element.description);
+  await expect(table.getByRole("link", { name: "Fill the table" })).toBeVisible();
+  // an element no session had keeps its secret
+  const unfound = elements.findIndex((e) => e.sessions === 0);
+  if (unfound >= 0) {
+    await page.getByRole("button", { name: `Element ${unfound + 1}, not discovered` }).hover();
+    await expect(table).toContainText("Not discovered yet");
+    await expect(table).not.toContainText(elements[unfound].description);
+  }
+
+  // a click lists the sessions named after it
+  await cell.click();
+  await expect(page).toHaveURL(new RegExp(`element=${s.element}`));
+  await expect(page).not.toHaveURL(/view=table/);
+  // (other specs name sessions meanwhile, so it does not count them)
+  await expect(page.getByTestId("session-row").filter({ hasText: "Fill the table" })).toHaveCount(1);
+});

@@ -636,6 +636,13 @@ async fn sessions(
     let text = |key: &str| params.get(key).filter(|v| !v.is_empty()).cloned();
     let number = |key: &str| params.get(key).and_then(|v| v.parse().ok()).unwrap_or(0);
     let filters = SessionFilters {
+        element: match text("element") {
+            None => None,
+            Some(n) => Some(
+                n.parse()
+                    .map_err(|_| Error::invalid("element", "must be an atomic number"))?,
+            ),
+        },
         agent: text("agent"),
         repo: text("repo"),
         project: text("project"),
