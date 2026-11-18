@@ -1104,39 +1104,25 @@ async fn a_session_says_how_its_agent_can_be_resumed_and_typed_into() {
 }
 
 #[tokio::test]
-async fn a_new_session_is_named_after_an_element_and_no_two_active_ones_share_a_name() {
+async fn a_session_is_named_after_an_element_by_its_id() {
     let app = app();
-    let mut names = Vec::new();
-    for id in ["s-name-1", "s-name-2", "s-name-3"] {
-        let (code, _) = call(
-            &app,
-            "POST",
-            &format!("/api/v1/sessions/claude-code/{id}/status"),
-            Some(json!({"text": "Working"})),
-        )
-        .await;
-        assert_eq!(code, StatusCode::OK);
-        let (_, thread) = call(
-            &app,
-            "GET",
-            &format!("/api/v1/sessions/claude-code/{id}"),
-            None,
-        )
-        .await;
-        let session = &thread["session"];
-        let number = session["element"].as_u64().expect("an element") as u32;
-        let element = pinrail_core::elements::by_number(number).expect("a known element");
-        let name = session["name"].as_str().expect("a name");
-        let adjective = name
-            .strip_suffix(&format!(" {}", element.name))
-            .expect(name);
-        assert!(!adjective.is_empty() && !adjective.contains(' '), "{name}");
-        assert_eq!(session["named_by"], "pinrail");
-        names.push(name.to_string());
-    }
-    names.sort();
-    names.dedup();
-    assert_eq!(names.len(), 3, "{names:?}");
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-name/status",
+        Some(json!({"text": "Working"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-name", None).await;
+    let session = &thread["session"];
+    let (number, name) = pinrail_core::elements::name_of("claude-code", "s-name");
+    assert_eq!(session["element"], number);
+    assert_eq!(session["generated_name"], name.as_str());
+    let element = pinrail_core::elements::by_number(number).expect("a known element");
+    assert!(name.ends_with(&format!(" {}", element.name)), "{name}");
+    // no name of the person's
+    assert!(session["name"].is_null());
 }
 
 #[tokio::test]
@@ -1151,9 +1137,10 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     )
     .await;
     assert_eq!(code, StatusCode::OK);
-    let name = |thread: &Value| thread["session"]["name"].as_str().unwrap().to_string();
+    let name = |thread: &Value| thread["session"]["name"].clone();
     let (_, thread) = call(&app, "GET", path, None).await;
-    let generated = name(&thread);
+    let generated = thread["session"]["generated_name"].clone();
+    assert!(generated.is_string());
 
     let (code, _) = call(
         &app,
@@ -1165,17 +1152,17 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     assert_eq!(code, StatusCode::NO_CONTENT);
     let (_, thread) = call(&app, "GET", path, None).await;
     assert_eq!(name(&thread), "Login redirect");
-    assert_eq!(thread["session"]["named_by"], "person");
-    // the element stays
+    // the generated name and the element stay
+    assert_eq!(thread["session"]["generated_name"], generated);
     let element = thread["session"]["element"].clone();
     assert!(element.is_u64());
 
-    // null gives it back the name Pinrail gave it
+    // null clears the person's name
     let (code, _) = call(&app, "PATCH", path, Some(json!({"name": null}))).await;
     assert_eq!(code, StatusCode::NO_CONTENT);
     let (_, thread) = call(&app, "GET", path, None).await;
-    assert_eq!(name(&thread), generated);
-    assert_eq!(thread["session"]["named_by"], "pinrail");
+    assert!(name(&thread).is_null());
+    assert_eq!(thread["session"]["generated_name"], generated);
     assert_eq!(thread["session"]["element"], element);
 
     for bad in [
@@ -1200,7 +1187,7 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     let (code, _) = common::call_as(&app, "PATCH", path, Some(json!({"name": "Mine"})), &[]).await;
     assert_eq!(code, StatusCode::UNAUTHORIZED);
     let (_, thread) = call(&app, "GET", path, None).await;
-    assert_eq!(name(&thread), generated);
+    assert!(name(&thread).is_null());
 }
 
 #[tokio::test]
@@ -1230,6 +1217,22 @@ async fn a_session_is_found_by_its_name() {
         .map(|s| s["id"].as_str().unwrap())
         .collect();
     assert_eq!(ids, ["s-found"]);
+    // and by the name Pinrail derives
+    let (_, generated) = pinrail_core::elements::name_of("claude-code", "s-other");
+    let (_, found) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions?q={}", generated.replace(' ', "%20")),
+        None,
+    )
+    .await;
+    let ids: Vec<&str> = found["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert!(ids.contains(&"s-other"), "{generated}: {ids:?}");
 }
 
 #[tokio::test]

@@ -603,7 +603,6 @@ fn session_json(session: &SessionRow) -> Value {
         "name": session.name,
         "generated_name": session.generated_name,
         "element": session.element,
-        "named_by": session.named_by,
         "archived_at": session.archived_at.map(crate::reviews::iso),
         "reported_at": session.reported_at.map(crate::reviews::iso),
         "project": session.project.as_ref().map(crate::db::ProjectRef::to_json),
@@ -730,8 +729,8 @@ async fn elements(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiE
     Ok(Json(json!({ "elements": elements })))
 }
 
-/// Renames a session, for the person: `name`, or `null` to give it back
-/// the name Pinrail gave it. 204.
+/// Renames a session, for the person: `name`, or `null` to clear the
+/// person's name, so that the session goes by its generated name. 204.
 async fn rename(
     _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,

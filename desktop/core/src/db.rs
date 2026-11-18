@@ -111,6 +111,7 @@ impl Db {
                 OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
             )?;
             reader.execute_batch("PRAGMA busy_timeout = 5000;")?;
+            names::register(&reader)?;
             db.readers.push(Mutex::new(reader));
         }
         Ok(db)
@@ -124,8 +125,7 @@ impl Db {
 
     fn init(conn: Connection) -> rusqlite::Result<Db> {
         migrate(&conn)?;
-        // the sessions recorded before they had names get theirs
-        names::name_new_sessions(&conn, &mut crate::elements::system_random)?;
+        names::register(&conn)?;
         Ok(Db {
             conn: Mutex::new(conn),
             readers: Vec::new(),

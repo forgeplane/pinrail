@@ -625,7 +625,7 @@ fn create_hidden(
             activity(at)
         ],
     )?;
-    super::names::name_new_sessions(conn, &mut crate::elements::system_random)
+    Ok(())
 }
 
 /// Keeps the session's turns as the report says, whenever it fired: a

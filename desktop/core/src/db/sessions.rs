@@ -31,14 +31,12 @@ pub struct SessionRow {
     pub status: Option<StatusRow>,
     /// the stage the agent last said it started
     pub title: Option<String>,
-    /// the session's own name, such as Happy Hydrogen, and the atomic
-    /// number of the element it is named after
+    /// the name the person gave the session, if they did
     pub name: Option<String>,
-    /// the name Pinrail gave it, kept when the person renames it
-    pub generated_name: Option<String>,
-    pub element: Option<u32>,
-    /// who gave the name: "pinrail" or "person"
-    pub named_by: String,
+    /// the name Pinrail derives from the session's id, such as Happy
+    /// Hydrogen, and the atomic number of its element
+    pub generated_name: String,
+    pub element: u32,
     /// when the person archived the session, if they did
     pub archived_at: Option<DateTime<Utc>>,
     /// when the agent last reported anything, a note included
@@ -276,7 +274,7 @@ pub(super) fn touch(
             activity(at),
         ],
     )?;
-    super::names::name_new_sessions(conn, &mut crate::elements::system_random)
+    Ok(())
 }
 
 /// Shows a session known only from its agent's hooks, from now on: it
@@ -335,7 +333,7 @@ impl Db {
 
     /// Renames a session to `name`, the person's, or with `None` gives it
     /// back the name Pinrail gave it. The event's id and what it says: the
-    /// session, its name now and who gave it; `None` when there is no such
+    /// session and the person's name for it; `None` when there is no such
     /// session.
     pub fn rename_session(
         &self,
@@ -346,44 +344,37 @@ impl Db {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let changed = tx.execute(
-            "UPDATE sessions SET name = COALESCE(?3, generated_name),
-               named_by = CASE WHEN ?3 IS NULL THEN 'pinrail' ELSE 'person' END
-             WHERE agent = ?1 AND id = ?2",
+            "UPDATE sessions SET name = ?3 WHERE agent = ?1 AND id = ?2",
             params![agent, id, name],
         )?;
         if changed == 0 {
             return Ok(None);
         }
-        let (name, named_by): (Option<String>, String) = tx.query_row(
-            "SELECT name, named_by FROM sessions WHERE agent = ?1 AND id = ?2",
-            params![agent, id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )?;
-        let attrs = json!({ "agent": agent, "id": id, "name": name, "named_by": named_by });
+        let attrs = json!({ "agent": agent, "id": id, "name": name });
         let event_id = insert_event(&tx, None, crate::events::SESSION_RENAMED, None, &attrs)?;
         tx.commit()?;
         Ok(Some((event_id, attrs)))
     }
 
-    /// The session's name, if there is such a session.
+    /// The session's name: the person's, else the one Pinrail derives;
+    /// `None` when there is no such session.
     pub fn session_name(&self, agent: &str, id: &str) -> rusqlite::Result<Option<String>> {
-        self.read()
+        let name: Option<Option<String>> = self
+            .read()
             .query_row(
                 "SELECT name FROM sessions WHERE agent = ?1 AND id = ?2",
                 params![agent, id],
                 |r| r.get(0),
             )
-            .optional()
-            .map(Option::flatten)
+            .optional()?;
+        Ok(name.map(|name| name.unwrap_or_else(|| crate::elements::name_of(agent, id).1)))
     }
 
     /// How many sessions each element names, archived ones included, by
     /// atomic number.
     pub fn element_counts(&self) -> rusqlite::Result<std::collections::HashMap<u32, usize>> {
         self.read()
-            .prepare(
-                "SELECT element, COUNT(*) FROM sessions WHERE element IS NOT NULL GROUP BY element",
-            )?
+            .prepare("SELECT session_element(agent, id) AS e, COUNT(*) FROM sessions GROUP BY e")?
             .query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as usize)))?
             .collect()
     }
@@ -394,8 +385,7 @@ impl Db {
         self.read()
             .query_row(
                 &format!(
-                    "SELECT CASE WHEN s.named_by = 'person' THEN s.name
-                       ELSE COALESCE({title}, s.name) END
+                    "SELECT COALESCE(s.name, {title}, session_generated_name(s.agent, s.id))
                      FROM sessions s WHERE s.agent = ?1 AND s.id = ?2",
                     title = title()
                 ),
@@ -456,7 +446,10 @@ impl Db {
         }
         if let Some(element) = filters.element {
             args.push(element.to_string());
-            wheres.push(format!("s.element = ?{}", args.len()));
+            wheres.push(format!(
+                "session_element(s.agent, s.id) = CAST(?{} AS INTEGER)",
+                args.len()
+            ));
         }
         if let Some(text) = &filters.text {
             for word in text.split_whitespace() {
@@ -470,7 +463,9 @@ impl Db {
                     "(EXISTS (SELECT 1 FROM reviews r WHERE r.requested_by = s.agent \
                        AND r.session = s.id AND r.title LIKE ?{n} ESCAPE '\\') \
                      OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\' \
-                     OR s.name LIKE ?{n} ESCAPE '\\' OR {title} LIKE ?{n} ESCAPE '\\')",
+                     OR s.name LIKE ?{n} ESCAPE '\\' \
+                     OR session_generated_name(s.agent, s.id) LIKE ?{n} ESCAPE '\\' \
+                     OR {title} LIKE ?{n} ESCAPE '\\')",
                     title = title()
                 ));
             }
@@ -780,8 +775,7 @@ fn select() -> String {
     p.pid AS p_pid, p.event_at AS p_event_at, p.state_since AS p_state_since,
     p.turn AS p_turn, p.turn_started AS p_turn_started, p.finished_at AS p_finished_at,
     p.seen_at AS p_seen_at, p.updated_at AS p_updated_at,
-    s.name AS name, s.generated_name AS generated_name, s.element AS element,
-    s.named_by AS named_by
+    s.name AS name
   FROM sessions s
   LEFT JOIN c ON c.agent = s.agent AND c.id = s.id
   LEFT JOIN session_presence p ON p.agent = s.agent AND p.session = s.id",
@@ -822,9 +816,11 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         }),
         None => None,
     };
+    let (agent, id): (String, String) = (row.get(0)?, row.get(1)?);
+    let (element, generated_name) = crate::elements::name_of(&agent, &id);
     Ok(SessionRow {
-        agent: row.get(0)?,
-        id: row.get(1)?,
+        agent,
+        id,
         repo: row.get(2)?,
         reference: row.get(3)?,
         folder: row.get(4)?,
@@ -837,9 +833,8 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         status,
         title: row.get(15)?,
         name: row.get("name")?,
-        generated_name: row.get("generated_name")?,
-        element: row.get("element")?,
-        named_by: row.get("named_by")?,
+        generated_name,
+        element,
         archived_at: row
             .get::<_, Option<String>>(16)?
             .and_then(|s| parse_datetime(&s)),

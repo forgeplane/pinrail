@@ -150,8 +150,10 @@ async fn the_sessions_of_an_earlier_release_are_named_when_it_opens() {
     for session in sessions["sessions"].as_array().unwrap() {
         let number = session["element"].as_u64().expect("an element") as u32;
         let element = pinrail_core::elements::by_number(number).expect("a known element");
-        let name = session["name"].as_str().expect("a name");
+        let name = session["generated_name"].as_str().expect("a name");
         assert!(name.ends_with(&format!(" {}", element.name)), "{name}");
+        // no name of the person's
+        assert!(session["name"].is_null());
         // the stage title stays as it was
         if session["id"] == "s-060" {
             assert_eq!(session["title"], "Add rate limiting");
