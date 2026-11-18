@@ -16,7 +16,7 @@ export function useSessionsSeen(): (sessions: Session[]) => void {
       for (const { element, count } of discover(sessions)) {
         if (element.rarity !== "rare" && element.rarity !== "legendary") continue;
         const by = sessions.find((s) => s.element === element.number);
-        const name = by?.generated_name ?? by?.name;
+        const name = by?.generated_name;
         toast(
           `New ${element.rarity} element discovered: ${element.name}${name ? `, by ${name}` : ""}. Your sessions have found ${count} of 118 elements.`,
         );

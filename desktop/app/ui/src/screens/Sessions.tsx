@@ -227,7 +227,7 @@ export function Sessions() {
           </span>
           <span className="review-row-meta">
             {stageBeside(s) ? <span className="session-row-stage truncate">{stageBeside(s)}</span> : null}
-            {s.name || s.title ? <span>{s.agent}</span> : null}
+            {s.name || s.title || s.generated_name ? <span>{s.agent}</span> : null}
             {s.repo && (!group || mixed.has(group)) ? <span className="review-row-project">{s.repo}</span> : null}
             <span className="session-row-id mono" title={s.id}>
               {s.id}

@@ -69,7 +69,7 @@ test("a session with a rare element no session had announces its discovery", asy
     data: { kind: "start", text: "Find a rare one" },
   });
   const { session: s } = (await (await page.request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json()) as {
-    session: { element: number; name: string };
+    session: { element: number; generated_name: string };
   };
   // the list says its element is rare, and that no session had it before
   const response = await page.request.get(`${core}/api/v1/elements`);
@@ -82,7 +82,7 @@ test("a session with a rare element no session had announces its discovery", asy
   await page.route(/\/api\/v1\/elements$/, (route) => route.fulfill({ json: { elements } }));
 
   await page.goto("/#/");
-  await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.name}.`)).toBeVisible();
+  await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.generated_name}.`)).toBeVisible();
 });
 
 test("the periodic table lights a session's element, describes it, and a click lists its sessions", async ({

@@ -9,7 +9,7 @@ import { api, EVERY_ITEM_STATUS } from "../api/client";
 import type { Plugin, Review, Session, Stage, WorkItem } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
-import { sessionLabel, stageBeside } from "../lib/sessions";
+import { generatedBeside, sessionLabel, stageBeside } from "../lib/sessions";
 import { AgentIcon } from "./AgentIcon";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
@@ -242,7 +242,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
           meta: (
             <>
               {/* the other name it goes by, which the search may have matched */}
-              {s.name && sessionLabel(s) !== s.name ? <span>{s.name}</span> : null}
+              {generatedBeside(s) ? <span>{generatedBeside(s)}</span> : null}
               {stageBeside(s) ? <span className="truncate">{stageBeside(s)}</span> : null}
               {s.repo ? <span>{s.repo}</span> : null}
               <span>{age(s.last_at)}</span>

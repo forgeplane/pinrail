@@ -22,33 +22,33 @@ export const fromSession = (s: {
   id: string;
   title?: string | null;
   name?: string | null;
+  generated_name?: string | null;
 }): FromSession => ({
   from: "session",
-  session: { agent: s.agent, id: s.id, title: s.title ?? s.name ?? null },
+  session: { agent: s.agent, id: s.id, title: s.title ?? s.name ?? s.generated_name ?? null },
 });
 
 /** What names a session where it is listed: the name the person gave it,
  *  else the stage it is on, else the name Pinrail gave it, else its agent. */
-export const sessionLabel = (s: { agent: string; name?: string | null; named_by?: string; title?: string | null }) =>
-  s.named_by === "person" && s.name ? s.name : (s.title ?? s.name ?? s.agent);
+export const sessionLabel = (s: {
+  agent: string;
+  name?: string | null;
+  generated_name?: string | null;
+  title?: string | null;
+}) => s.name ?? s.title ?? s.generated_name ?? s.agent;
 
 /** The name Pinrail gave a session, when its label is something else, so
  *  that the name still shows beside it. */
 export const generatedBeside = (s: {
   agent: string;
   name?: string | null;
-  named_by?: string;
   generated_name?: string | null;
   title?: string | null;
-}) => {
-  const generated = s.generated_name ?? (s.named_by === "person" ? null : s.name);
-  return generated && generated !== sessionLabel(s) ? generated : null;
-};
+}) => (s.generated_name && s.generated_name !== sessionLabel(s) ? s.generated_name : null);
 
 /** The stage a session is on, when its label is another name, so that the
  *  stage still shows beside it. */
-export const stageBeside = (s: { name?: string | null; named_by?: string; title?: string | null }) =>
-  s.named_by === "person" && s.name && s.title ? s.title : null;
+export const stageBeside = (s: { name?: string | null; title?: string | null }) => (s.name && s.title ? s.title : null);
 
 /** Which round a review's card shows, of how many. */
 export type Round = { n: number; of: number };

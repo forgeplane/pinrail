@@ -207,14 +207,12 @@ export type Session = {
   status: SessionStatus | null;
   /** the stage the agent last said it started */
   title: string | null;
-  /** the session's own name, such as Happy Hydrogen, which the person can
-   *  change; the atomic number of the element it is named after; and who
-   *  gave the name */
+  /** the name the person gave the session, if they did */
   name?: string | null;
-  /** the name Pinrail gave it, kept when the person renames it */
+  /** the name Pinrail derives from the session's id, such as Happy
+   *  Hydrogen, and the atomic number of its element */
   generated_name?: string | null;
   element?: number | null;
-  named_by?: "pinrail" | "person";
   /** when the person archived the session, if they did */
   archived_at?: string | null;
   /** when the agent last reported anything, a note included */
@@ -422,13 +420,12 @@ export type Notice = {
   /** for settings_changed: the settings that changed, as JSON pointers */
   keys?: string[];
   /** for session_status: the session and the status the agent reported;
-   *  for session_renamed: its name now, and who gave it */
+   *  for session_renamed: the person's name for it, or null */
   session?: {
     agent: string;
     id: string;
     status: SessionStatus;
     name?: string | null;
-    named_by?: "pinrail" | "person";
   };
   /** for item_changed and item_deleted: the item, and the agent and session
    *  that changed it when an agent did; for prefix_changed: the repository

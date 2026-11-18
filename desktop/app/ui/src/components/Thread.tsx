@@ -572,7 +572,9 @@ export function Thread({
               and where it works under it; without one, those are the title */}
             <div className="thread-title-row">
               <h1
-                className={session && (session.name || session.title) ? "thread-stage" : undefined}
+                className={
+                  session && (session.name || session.title || session.generated_name) ? "thread-stage" : undefined
+                }
                 title={session && !renaming ? sessionLabel(session) : undefined}
               >
                 {session && named && !focus ? (
@@ -583,7 +585,7 @@ export function Thread({
                     onRename={rename}
                     onFailed={load}
                   />
-                ) : session && (session.name || session.title) ? (
+                ) : session && (session.name || session.title || session.generated_name) ? (
                   sessionLabel(session)
                 ) : (
                   <Where agent={agent} repo={repo} reference={ref} />
@@ -610,7 +612,7 @@ export function Thread({
                   {stageBeside(session)}
                 </span>
               ) : null}
-              {session?.name || session?.title ? (
+              {session?.name || session?.title || session?.generated_name ? (
                 <span className="thread-meta-where">
                   <Where agent={agent} repo={repo} reference={ref} />
                 </span>

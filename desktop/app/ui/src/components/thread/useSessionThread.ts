@@ -189,7 +189,7 @@ export function useSessionThread(
     // a rename, here or elsewhere, carries the session's new name
     const renamed = notice.kind === "session_renamed" ? notice.session : undefined;
     if (renamed && named && renamed.agent === named.agent && renamed.id === named.id)
-      setSession((s) => (s ? { ...s, name: renamed.name ?? s.name, named_by: renamed.named_by ?? s.named_by } : s));
+      setSession((s) => (s ? { ...s, name: renamed.name ?? null } : s));
     const { thread, item } = aboutThread(notice, named, ids.current, keys.current);
     if (item) setItemsChanged((n) => n + 1);
     if (thread) load();
@@ -198,9 +198,7 @@ export function useSessionThread(
   /** Shows the session under a new name at once: the person's, or with
    *  null the name Pinrail gave it. */
   const rename = useCallback((name: string | null) => {
-    setSession((s) =>
-      s ? { ...s, name: name ?? s.generated_name ?? s.name, named_by: name ? "person" : "pinrail" } : s,
-    );
+    setSession((s) => (s ? { ...s, name } : s));
   }, []);
 
   return {

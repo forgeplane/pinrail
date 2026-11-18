@@ -255,7 +255,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
         {element ? (
           <span className="sidebar-session-tip-element">
             <ElementTile element={element} />
-            {s.generated_name ?? s.name}
+            {s.generated_name}
           </span>
         ) : null}
         <span>
