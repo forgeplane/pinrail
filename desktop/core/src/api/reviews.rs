@@ -607,7 +607,6 @@ fn session_json(session: &SessionRow) -> Value {
         "generated_name": session.generated_name,
         "element": session.element,
         "archived_at": session.archived_at.map(crate::reviews::iso),
-        "reported_at": session.reported_at.map(crate::reviews::iso),
         "project": session.project.as_ref().map(crate::db::ProjectRef::to_json),
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),

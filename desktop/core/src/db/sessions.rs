@@ -39,8 +39,6 @@ pub struct SessionRow {
     pub element: u32,
     /// when the person archived the session, if they did
     pub archived_at: Option<DateTime<Utc>>,
-    /// when the agent last reported anything, a note included
-    pub reported_at: Option<DateTime<Utc>>,
     /// the project its repository is in
     pub project: Option<super::ProjectRef>,
     /// what its agent's hooks reported, if they ever did
@@ -838,8 +836,6 @@ fn select() -> String {
     {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,
     {title} AS title,
     s.archived_at,
-    (SELECT t.created_at FROM session_statuses t
-     WHERE t.agent = s.agent AND t.session = s.id ORDER BY t.id DESC LIMIT 1) AS reported_at,
     {project},
     ({attention}) AS attention,
     p.state AS p_state, p.wait_kind AS p_wait_kind, p.wait_tool AS p_wait_tool,
@@ -910,10 +906,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         archived_at: row
             .get::<_, Option<String>>(16)?
             .and_then(|s| parse_datetime(&s)),
-        reported_at: row
-            .get::<_, Option<String>>(17)?
-            .and_then(|s| parse_datetime(&s)),
-        project: super::ProjectRef::from_column(row.get(18)?),
+        project: super::ProjectRef::from_column(row.get(17)?),
         attention: row.get("attention")?,
         presence: match row.get::<_, Option<String>>("p_state")? {
             None => None,

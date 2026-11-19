@@ -279,7 +279,7 @@ export function Thread({
   const [askingStop, setAskingStop] = useState(false);
   const sessionNow = useLatest(session);
   // asked when Stop is pressed
-  const working = () => !!sessionNow.current && stateOf(sessionNow.current, Date.now()) === "working";
+  const working = () => !!sessionNow.current && stateOf(sessionNow.current) === "working";
   useWindowKey(
     (event) => {
       if (!isStopKey(event, isMac) || modalOpen()) return;

@@ -215,8 +215,6 @@ export type Session = {
   element?: number | null;
   /** when the person archived the session, if they did */
   archived_at?: string | null;
-  /** when the agent last reported anything, a note included */
-  reported_at?: string | null;
   /** the project its repository is in */
   project?: ProjectRef | null;
   first_at: string;

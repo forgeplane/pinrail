@@ -84,25 +84,18 @@ export function Sessions() {
   const debounced = useDebounced(query, SEARCH_DELAY_MS);
   // anything sent, answered or withdrawn moves the sessions
   const sessionNotices = useNoticeCount(aboutSessions);
-  // the time each list was loaded, which ages the sessions without hooks
-  const [now, setNow] = useState(() => Date.now());
   const { data, error: loadError } = useLoad(
     () =>
-      api
-        .sessions({
-          q: debounced,
-          repo,
-          project,
-          include_archived: withArchived ? "true" : undefined,
-          attention: attention || undefined,
-          element: element || undefined,
-          limit: String(size),
-          offset: String((page - 1) * size),
-        })
-        .then((d) => {
-          setNow(Date.now());
-          return d;
-        }),
+      api.sessions({
+        q: debounced,
+        repo,
+        project,
+        include_archived: withArchived ? "true" : undefined,
+        attention: attention || undefined,
+        element: element || undefined,
+        limit: String(size),
+        offset: String((page - 1) * size),
+      }),
     [debounced, repo, project, withArchived, attention, element, page, size, sessionNotices],
   );
 
@@ -202,7 +195,7 @@ export function Sessions() {
     const waiting = s.waiting.questions + s.waiting.reviews;
     // the newest status, unless it is the start that titles the session
     const status = s.status && !(s.status.kind === "start" && s.title) ? s.status : null;
-    const state = stateOf(s, now);
+    const state = stateOf(s);
     // since the state last changed, for a session whose hooks report it
     const since = s.presence?.since ?? s.last_at;
     return (

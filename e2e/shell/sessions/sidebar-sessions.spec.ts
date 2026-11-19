@@ -81,11 +81,12 @@ test("a session shows whether it works or is done, and what waits sits under it"
   await expect(working).toContainText("Build the sidebar");
   // its question waits on the person
   await expect(working).toHaveAttribute("data-state", "needs_you");
-  await expect(done).toHaveAttribute("data-state", "stopped");
+  // its statuses say nothing of its state
+  await expect(done).toHaveAttribute("data-state", "idle");
   // the project counts what waits in it, and the session too
   await expect(group(page, repo).locator(".count-badge")).toHaveText("1");
   await expect(working.getByTestId("sidebar-session-waiting")).toHaveText("1");
-  // what waits first, the done one last
+  // what waits first
   await expect(
     region(page)
       .getByTestId("sidebar-session")
@@ -319,6 +320,8 @@ test("a long branch in a session's details shortens, and keeps its icon and its 
   await page.goto("/#/");
   await page.evaluate(() => localStorage.removeItem("pinrail.sidebar.width"));
   await page.reload();
+  // other tests' sessions may push it below the fold
+  await sessionRow(page, "claude-code", session).scrollIntoViewIfNeeded();
   const branch = sessionRow(page, "claude-code", session).locator(".sidebar-session-branch");
   await expect(branch.locator("svg")).toBeInViewport();
   // the name keeps its first letters in view, shortened at its end

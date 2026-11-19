@@ -579,10 +579,11 @@ test("a status the agent reports shows in an open thread at once", async ({ page
   await expect(thread(page).getByTestId("status")).toHaveCount(0);
   await report(page.request, session, { text: "Waiting for the answers" });
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
-  // once nothing waits, a session whose agent said it is done has stopped
+  // once nothing waits, a session whose agent reports no state shows none,
+  // whatever its statuses say
   await report(page.request, session, { kind: "done" });
   await clearInbox(page.request);
-  await expect(thread(page).getByTestId("presence-chip")).toHaveText("Stopped");
+  await expect(thread(page).getByTestId("presence-chip")).toHaveCount(0);
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
 });
 

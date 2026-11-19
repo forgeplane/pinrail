@@ -59,7 +59,7 @@ export function InboxAgents({
     <section className="inbox-agents" aria-label="Agents">
       <h2 className="inbox-agents-title">Agents</h2>
       {rows.map(({ session, reason, since }, i) => {
-        const state = stateOf(session, now);
+        const state = stateOf(session);
         return (
           <Link
             key={`${session.agent}/${session.id}`}

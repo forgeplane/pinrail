@@ -53,26 +53,21 @@ const presence = (attention: Attention): Pick<Session, "presence" | "attention">
 });
 
 describe("stateOf", () => {
-  test("without hooks, a status in the last five minutes is working, and done stops it", () => {
-    expect(stateOf(session("a", { status: status(4) }), NOW)).toBe("working");
-    expect(stateOf(session("a", { status: status(6) }), NOW)).toBe("idle");
-    expect(stateOf(session("a", { status: status(1, "done") }), NOW)).toBe("stopped");
-    expect(stateOf(session("a"), NOW)).toBe("idle");
-  });
-
-  test("without hooks, a recent note is working too, but a note after the end leaves it stopped", () => {
-    expect(stateOf(session("a", { status: status(30) }, { reported_at: ago(2) }), NOW)).toBe("working");
-    expect(stateOf(session("a", { status: status(30, "done") }, { reported_at: ago(2) }), NOW)).toBe("stopped");
+  test("without hooks or terminal records, a session is idle, whatever its statuses say", () => {
+    expect(stateOf(session("a", { status: status(1) }))).toBe("idle");
+    expect(stateOf(session("a", { status: status(1, "done") }))).toBe("idle");
+    expect(stateOf(session("a", { status: status(30) }))).toBe("idle");
+    expect(stateOf(session("a"))).toBe("idle");
   });
 
   test("a question or review waiting on the person needs them, with hooks or without", () => {
-    expect(stateOf(session("a", { status: status(4), waiting: 1 }), NOW)).toBe("needs_you");
-    expect(stateOf(session("a", { waiting: 1 }, presence("needs_you")), NOW)).toBe("needs_you");
+    expect(stateOf(session("a", { status: status(4), waiting: 1 }))).toBe("needs_you");
+    expect(stateOf(session("a", { waiting: 1 }, presence("needs_you")))).toBe("needs_you");
   });
 
   test("with hooks, the server's attention is the state, whatever the statuses say", () => {
     for (const attention of ["finished", "working", "idle", "stopped", "unknown"] as const)
-      expect(stateOf(session("a", { status: status(1, "done") }, presence(attention)), NOW)).toBe(attention);
+      expect(stateOf(session("a", { status: status(1, "done") }, presence(attention)))).toBe(attention);
   });
 });
 
@@ -87,8 +82,8 @@ describe("steadyOrder", () => {
 describe("arrange", () => {
   const sessions = [
     session("quiet-api", { last: 30 }),
-    session("done-web", { repo: "acme/web", last: 2, status: status(2, "done") }),
-    session("working-web", { repo: "acme/web", last: 3, status: status(3) }),
+    session("done-web", { repo: "acme/web", last: 2, status: status(2, "done") }, presence("stopped")),
+    session("working-web", { repo: "acme/web", last: 3, status: status(3) }, presence("working")),
     session("waiting-api", { last: 120, waiting: 2 }),
   ];
 
@@ -274,9 +269,8 @@ describe("chipOf", () => {
     expect(chipOf(reported("unknown"), NOW)?.text).toBe("Status unknown");
   });
 
-  test("without hooks, shows only what the statuses tell for sure", () => {
-    expect(chipOf(session("a", { status: status(1) }), NOW)?.text).toBe("Working");
-    expect(chipOf(session("a", { status: status(1, "done") }), NOW)?.text).toBe("Stopped");
-    expect(chipOf(session("a", { status: status(30) }), NOW)).toBeNull();
+  test("without hooks or terminal records, shows none, whatever the statuses say", () => {
+    expect(chipOf(session("a", { status: status(1) }), NOW)).toBeNull();
+    expect(chipOf(session("a", { status: status(1, "done") }), NOW)).toBeNull();
   });
 });

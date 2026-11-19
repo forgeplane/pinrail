@@ -6,9 +6,6 @@
 import type { Attention, Review, Session } from "../api/types";
 import { age } from "./format";
 
-/** A session without hooks sent a status this recently: it is working. */
-export const WORKING_MS = 5 * 60_000;
-
 export type Grouping = "project" | "repository" | "status" | "updated" | "none";
 export type Ordering = "status" | "updated";
 /** What a session's mark shows: the attention it asks of the person. */
@@ -76,16 +73,12 @@ export const filtersSet = (c: Choices) =>
 
 /**
  * What a session asks of the person: the server's attention when its
- * agent's hooks report on it, and otherwise a guess from its statuses.
+ * agent's hooks or terminal report on it, and otherwise idle. Statuses
+ * name the work, and say nothing of the state.
  */
-export function stateOf(session: Session, now: number): State {
+export function stateOf(session: Session): State {
   if (waitingCount(session) > 0) return "needs_you";
   if (session.presence && session.attention) return session.attention;
-  const status = session.status;
-  if (status?.kind === "done") return "stopped";
-  // a note is not the latest status, but it is a report of work
-  const at = session.reported_at ?? status?.at;
-  if (at && now - Date.parse(at) < WORKING_MS) return "working";
   return "idle";
 }
 
@@ -99,10 +92,11 @@ const STOPPED: Record<string, string> = {
 
 /**
  * The chip beside a session's title: its state, and what explains it. A
- * session without hooks shows one only for what its statuses say for sure.
+ * session whose agent reports no state shows one only while something
+ * waits on the person.
  */
 export function chipOf(session: Session, now: number): { state: State; text: string } | null {
-  const state = stateOf(session, now);
+  const state = stateOf(session);
   const p = session.presence;
   const chip = (text: string) => ({ state, text });
   switch (state) {
@@ -230,7 +224,7 @@ export function arrange(sessions: Session[], pending: Review[], choices: Choices
     .filter((s) => listed(s.repo, s.project))
     .map((session) => ({
       session,
-      state: stateOf(session, now),
+      state: stateOf(session),
       reviews: bySession.get(sessionKey(session.agent, session.id)) ?? [],
       waiting: waitingCount(session),
     }))

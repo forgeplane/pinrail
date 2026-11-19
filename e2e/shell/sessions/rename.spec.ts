@@ -6,11 +6,17 @@ import { core, sessionName } from "../helpers";
 let n = 0;
 const fresh = () => `s-rename-${Date.now()}-${++n}`;
 
+/** A session that started a stage, and whose hooks say it works. */
 async function started(page: Page, session: string, text: string) {
-  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+  const base = `${core}/api/v1/sessions/claude-code/${session}`;
+  const response = await page.request.post(`${base}/status`, {
     data: { kind: "start", text, origin: { repo: "acme/api" } },
   });
   expect(response.status(), await response.text()).toBe(200);
+  const reported = await page.request.post(`${base}/reports`, {
+    data: { event: "working", at: new Date().toISOString() },
+  });
+  expect(reported.status(), await reported.text()).toBe(204);
 }
 
 const thread = (page: Page) => page.getByTestId("thread");

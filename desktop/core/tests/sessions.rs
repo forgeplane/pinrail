@@ -212,7 +212,6 @@ async fn the_listing_searches_titles_and_reports_the_newest_status() {
         .unwrap()
         .clone();
     assert_eq!(newest["text"], "A note last");
-    assert_eq!(session["reported_at"], newest["at"]);
 }
 
 #[tokio::test]
@@ -660,9 +659,8 @@ async fn a_note_is_kept_with_its_markdown_and_is_not_the_latest_status() {
         .clone();
     assert_eq!(last["kind"], "note");
     assert_eq!(last["text"], markdown);
-    // the latest status is still the step, and the note is the newest report
+    // the latest status is still the step
     assert_eq!(thread["session"]["status"]["text"], "Running the tests");
-    assert_eq!(thread["session"]["reported_at"], last["at"]);
     assert_eq!(thread["session"]["title"], "Add rate limiting");
 
     // a note after the end leaves the session finished
