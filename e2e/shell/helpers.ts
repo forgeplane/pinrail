@@ -24,6 +24,23 @@ export const personToken = "shell-person-token";
 /** The header that makes a request the person's, as the window's are. */
 export const asPerson = { authorization: `Bearer ${personToken}` };
 
+/** Waits until `page` has asked for nothing `matches` takes for `quiet`
+ *  milliseconds: the loads its start causes, such as the one when the event
+ *  stream connects and those for the notices it catches up on, are over, so
+ *  a count of loads started next sees only what the test causes. */
+export async function settled(page: Page, matches: (url: URL) => boolean, quiet = 500) {
+  let last = Date.now();
+  const seen = (r: { url(): string }) => {
+    if (matches(new URL(r.url()))) last = Date.now();
+  };
+  page.on("request", seen);
+  try {
+    await expect.poll(() => Date.now() - last, { timeout: 10_000 }).toBeGreaterThanOrEqual(quiet);
+  } finally {
+    page.off("request", seen);
+  }
+}
+
 /** A list review with one proposal, for when the content does not matter. */
 export const onePayload = {
   summary: "One proposal.",

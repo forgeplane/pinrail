@@ -3,7 +3,7 @@
 // repository's key prefix on the Projects page, and the command palette.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core, onReviewPages, openReviewsIn, shellOrigin } from "../helpers";
+import { core, onReviewPages, openReviewsIn, settled, shellOrigin } from "../helpers";
 
 // a review opens on a page of its own, where its header is
 onReviewPages();
@@ -378,6 +378,10 @@ test("a session's thread loads again only for changes to its own items", async (
   const own = await add(request, repo, "Its own", { session });
   await page.goto(`/#/sessions/claude-code/${session}`);
   await expect(page.getByTestId("thread-work-item")).toHaveCount(1);
+  // the thread loads again once the event stream connects, and for the
+  // notices it catches up on: the count starts after
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await settled(page, (url) => url.pathname === `/api/v1/sessions/claude-code/${session}`);
   let loads = 0;
   page.on("request", (r) => {
     if (r.url().endsWith(`/api/v1/sessions/claude-code/${session}`)) loads += 1;

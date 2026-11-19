@@ -4,7 +4,7 @@
 // shared.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core, pickIn, settingSaved, settingsDialog, settingsSection, shellOrigin } from "../helpers";
+import { core, pickIn, settingSaved, settingsDialog, settingsSection, settled, shellOrigin } from "../helpers";
 
 let counter = 0;
 /** A repository no other test uses. Its names sort in the order they are made. */
@@ -1074,6 +1074,9 @@ test("the list loads again for item changes, not for a session's statuses", asyn
   const item = await add(request, repo, "Listed");
   await open(page, repo);
   await expect(row(page, item.key)).toBeVisible();
+  // the list loads again once the event stream connects: the count starts after
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await settled(page, (url) => url.pathname === "/api/v1/items");
   let loads = 0;
   page.on("request", (r) => {
     if (new URL(r.url()).pathname === "/api/v1/items") loads += 1;
