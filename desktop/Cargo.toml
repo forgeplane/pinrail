@@ -20,3 +20,8 @@ todo = "warn"
 # dependencies build without debug info; our own crates keep it
 [profile.dev.package."*"]
 debug = false
+
+# SHA-256 runs on every embedded plugin file when the core opens, and on
+# the host's executable when it starts: unoptimised, it dominates tests
+[profile.dev.package.sha2]
+opt-level = 3
