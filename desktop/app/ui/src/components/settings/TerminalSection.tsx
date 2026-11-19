@@ -104,6 +104,7 @@ export function TerminalSection() {
               { value: "last", label: "Last used" },
               { value: "summary", label: "Summary" },
               { value: "terminal", label: "Terminal" },
+              { value: "split", label: "Split view" },
             ]}
           />
         </SettingsRow>
@@ -118,6 +119,7 @@ export function TerminalSection() {
             options={[
               { value: "summary", label: "Summary" },
               { value: "terminal", label: "Terminal" },
+              { value: "split", label: "Split view" },
             ]}
           />
         </SettingsRow>

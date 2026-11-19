@@ -38,4 +38,13 @@ describe("session views", () => {
     expect(openingView(null, "last", null, true)).toBe("summary");
     expect(openingView("terminal", "terminal", "terminal", false)).toBe("summary");
   });
+
+  test("the split view is named in the address, remembered, and the summary without a terminal", () => {
+    const store = memory();
+    rememberView("claude-code/a", "split", store);
+    expect(lastView("claude-code/a", store)).toBe("split");
+    expect(openingView("split", "summary", null, true)).toBe("split");
+    expect(openingView(null, "last", "split", true)).toBe("split");
+    expect(openingView("split", "summary", null, false)).toBe("summary");
+  });
 });

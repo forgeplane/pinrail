@@ -13,6 +13,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- A session that Pinrail runs has a **Split view** beside Summary and
+  Terminal, with the summary above the terminal. Drag the divider between
+  them to resize the summary; the size is kept for every session. Settings ›
+  Terminal can open sessions in it.
 - Delete a session from its menu in the sidebar or in its header. Pinrail
   stops its agent if it runs it, withdraws the questions and reviews that
   still wait, and gives up the work items it holds; decided reviews stay in

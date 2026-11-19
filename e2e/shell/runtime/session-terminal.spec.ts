@@ -203,6 +203,42 @@ test("a session keeps its view across a reload, and opens in the last one used",
   await expect(page.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("the split view shows the summary above the terminal, with a divider that keeps its place", async ({ page }) => {
+  const { session, received } = await sessionWithRun(page);
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.getByRole("tab", { name: "Split view" }).click();
+  await expect(page).toHaveURL(/view=split/);
+
+  // both show, the summary above, and the terminal is where the person types
+  await expect(page.locator(".thread-items").getByText("Started: Fix the login redirect")).toBeVisible();
+  await expect(terminalBar(page)).toBeVisible();
+  const [top, bottom] = [await page.locator(".thread-main").boundingBox(), await terminalBar(page).boundingBox()];
+  expect(top!.y + top!.height).toBeLessThanOrEqual(bottom!.y);
+  await expect(page.getByRole("textbox", { name: "Message to the agent" })).toHaveCount(0);
+  await page.locator(".terminal-surface").click();
+  await terminalReady(page);
+  await page.keyboard.type("ls");
+  await expect.poll(() => received.join("")).toBe("ls");
+
+  // the arrow keys move the divider, and its place is kept for every session
+  const divider = page.getByRole("separator", { name: "Resize the summary" });
+  await expect(divider).toHaveAttribute("aria-valuenow", "50");
+  await divider.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(divider).toHaveAttribute("aria-valuenow", "60");
+  const higher = (await page.locator(".thread-main").boundingBox())!.height;
+  expect(higher).toBeGreaterThan(top!.height);
+  await page.reload();
+  await expect(page.getByRole("separator", { name: "Resize the summary" })).toHaveAttribute("aria-valuenow", "60");
+
+  // Ctrl+` leaves the split for the summary
+  await page.locator(".terminal-surface").click();
+  await page.keyboard.press("Control+`");
+  await expect(page.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
+  await expect(divider).toHaveCount(0);
+});
+
 for (const system of ["macOS", "Linux"] as const) {
   test(`keys in a terminal go to the program, except those the app keeps, on ${system}`, async ({ page }) => {
     const platform = system === "macOS" ? "MacIntel" : "Linux x86_64";

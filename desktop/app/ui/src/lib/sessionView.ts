@@ -1,7 +1,8 @@
 // The view a session shows, Summary or Terminal, and the last one used for
 // each session, kept in the browser's storage for the last 500 sessions.
 
-export type SessionView = "summary" | "terminal";
+/** Summary, Terminal, or both, the summary above the terminal. */
+export type SessionView = "summary" | "terminal" | "split";
 
 const KEY = "pinrail:session-views";
 /** How many sessions keep their last view. */
@@ -15,7 +16,7 @@ function read(store: Store): [string, SessionView][] {
     if (!Array.isArray(saved)) return [];
     return saved.filter(
       (e): e is [string, SessionView] =>
-        Array.isArray(e) && typeof e[0] === "string" && (e[1] === "summary" || e[1] === "terminal"),
+        Array.isArray(e) && typeof e[0] === "string" && (e[1] === "summary" || e[1] === "terminal" || e[1] === "split"),
     );
   } catch {
     return [];
@@ -42,12 +43,12 @@ export function rememberView(session: string, view: SessionView, store: Store = 
  *  the setting gives, and the summary when the session has no terminal. */
 export function openingView(
   asked: string | null,
-  setting: "last" | "summary" | "terminal",
+  setting: "last" | SessionView,
   last: SessionView | null,
   hasTerminal: boolean,
 ): SessionView {
   if (!hasTerminal) return "summary";
-  if (asked === "terminal" || asked === "summary") return asked;
+  if (asked === "terminal" || asked === "summary" || asked === "split") return asked;
   if (setting === "last") return last ?? "summary";
   return setting;
 }

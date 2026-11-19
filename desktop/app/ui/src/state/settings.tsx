@@ -82,8 +82,8 @@ export type Settings = {
       clipboard_write: boolean;
     };
     /** the view a session opens in, and the session of a run just started */
-    default_view: "last" | "summary" | "terminal";
-    new_run_view: "summary" | "terminal";
+    default_view: "last" | "summary" | "terminal" | "split";
+    new_run_view: "summary" | "terminal" | "split";
   };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;

@@ -15,6 +15,7 @@ import { isViewToggle } from "../lib/terminalKeys";
 import { useSessionRun } from "./session/useSessionRun";
 import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
+import { useSplit } from "./session/useSplit";
 import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
 import { OpenInPinrail, ResumeButton, StopButton } from "./session/RunControls";
@@ -266,7 +267,10 @@ export function Thread({
       setResuming(false);
     }
   };
+  // the terminal over the summary, or under it in the split
   const showTerminal = view === "terminal" && hasTerminalView;
+  const split = view === "split" && hasTerminalView;
+  const splitRows = useSplit();
   const showTerminalRef = useLatest(showTerminal);
   // what a live run's agent waits for the person to allow, if anything
   const wait = session?.presence?.state === "needs_input" ? session.presence.wait : null;
@@ -700,9 +704,16 @@ export function Thread({
           ref={body}
           style={{ "--details-width": `${detailsWidth}px` } as React.CSSProperties}
         >
-          <div className="thread-views">
-            {showTerminal ? (
-              <div className="thread-terminal" id="session-view" role="tabpanel" aria-labelledby="view-tab-terminal">
+          <div
+            className={`thread-views ${split ? "is-split" : ""}`}
+            style={split ? { gridTemplateRows: splitRows.rows } : undefined}
+            {...(split ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-split" } : {})}
+          >
+            {showTerminal || split ? (
+              <div
+                className="thread-terminal"
+                {...(split ? {} : { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-terminal" })}
+              >
                 {runsLoading ? (
                   <div
                     className="thread-terminal-loading"
@@ -739,7 +750,7 @@ export function Thread({
               // out of the keyboard's way
               aria-hidden={showTerminal || undefined}
               inert={showTerminal && !terminal}
-              {...(hasTerminalView && !showTerminal
+              {...(hasTerminalView && !showTerminal && !split
                 ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
                 : {})}
             >
@@ -800,7 +811,8 @@ export function Thread({
                     <ArrowDown size={15} />
                   </button>
                 )}
-                {active ? null : named ? (
+                {/* in the split, the terminal is where the person types */}
+                {active || split ? null : named ? (
                   <MessageComposer
                     session={named}
                     repo={session?.repo ?? null}
@@ -813,6 +825,11 @@ export function Thread({
                 )}
               </div>
             </div>
+            {split ? (
+              <div className="thread-split-divider" {...splitRows.divider}>
+                <span aria-hidden="true" />
+              </div>
+            ) : null}
           </div>
           {openReview && reviewPanel ? (
             <SidePanel split={body}>

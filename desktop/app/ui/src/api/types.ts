@@ -557,8 +557,8 @@ export type ServerSettings = {
       screen_reader?: boolean;
       clipboard_write?: boolean;
     };
-    default_view?: "last" | "summary" | "terminal";
-    new_run_view?: "summary" | "terminal";
+    default_view?: "last" | "summary" | "terminal" | "split";
+    new_run_view?: "summary" | "terminal" | "split";
   };
   [key: string]: unknown;
 };

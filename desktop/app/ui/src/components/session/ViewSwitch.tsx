@@ -1,7 +1,7 @@
 // The views of a session, as a segmented control of icons, each named by
 // its tooltip.
 
-import { ListCollapse, SquareTerminal, type LucideIcon } from "lucide-react";
+import { ListCollapse, Rows2, SquareTerminal, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
 import type { SessionView } from "../../lib/sessionView";
 import { Tooltip } from "../Tooltip";
@@ -9,6 +9,7 @@ import { Tooltip } from "../Tooltip";
 const VIEWS: [SessionView, string, LucideIcon][] = [
   ["summary", "Summary", ListCollapse],
   ["terminal", "Terminal", SquareTerminal],
+  ["split", "Split view", Rows2],
 ];
 
 export function ViewSwitch({ view, onView }: { view: SessionView; onView: (view: SessionView) => void }) {

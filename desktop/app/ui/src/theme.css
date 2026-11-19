@@ -9144,3 +9144,38 @@ a.item-ref {
   background: var(--bg);
   color: var(--text);
 }
+
+/* The split view: the summary above, the divider, the terminal below, each
+   in a row of its own, the summary's share as the person left it. */
+.thread-views.is-split > .thread-main {
+  grid-area: 1 / 1;
+}
+.thread-views.is-split > .thread-split-divider {
+  grid-area: 2 / 1;
+}
+.thread-views.is-split > .thread-terminal {
+  grid-area: 3 / 1;
+}
+.thread-split-divider {
+  display: grid;
+  place-items: center;
+  border-block: 1px solid var(--border);
+  background: var(--bg-raised);
+  cursor: row-resize;
+}
+.thread-split-divider span {
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.thread-split-divider:hover span,
+.thread-split-divider:focus-visible span {
+  background: var(--accent);
+}
+.thread-split-divider:focus-visible {
+  outline: none;
+}
+body.is-resizing-rows {
+  cursor: row-resize;
+}

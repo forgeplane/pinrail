@@ -41,13 +41,13 @@ test("the Terminal section changes the terminal's settings and the session views
   await settingSaved(request, (s) => s.runtime.terminal.clipboard_write, false);
 
   const opens = dialog.getByRole("radiogroup", { name: "Open a session in" });
-  await opens.getByRole("radio", { name: "Summary" }).click();
-  await settingSaved(request, (s) => s.runtime.default_view, "summary");
-  await expect(opens.getByRole("radio", { name: "Summary" })).toBeChecked();
+  await opens.getByRole("radio", { name: "Split view" }).click();
+  await settingSaved(request, (s) => s.runtime.default_view, "split");
+  await expect(opens.getByRole("radio", { name: "Split view" })).toBeChecked();
   const started = dialog.getByRole("radiogroup", { name: "Open an agent you start in" });
-  await started.getByRole("radio", { name: "Summary" }).click();
-  await settingSaved(request, (s) => s.runtime.new_run_view, "summary");
-  await expect(started.getByRole("radio", { name: "Summary" })).toBeChecked();
+  await started.getByRole("radio", { name: "Split view" }).click();
+  await settingSaved(request, (s) => s.runtime.new_run_view, "split");
+  await expect(started.getByRole("radio", { name: "Split view" })).toBeChecked();
   await expect(dialog.getByRole("switch", { name: "Screen reader" })).toHaveAttribute("aria-checked", "true");
   await expect(dialog.getByRole("button", { name: "Renderer", exact: true })).toContainText("xterm.js");
   // the other settings of the terminal are kept

@@ -329,13 +329,13 @@ const LEAVES: &[Leaf] = &[
     ),
     (
         "/runtime/default_view",
-        Kind::Enum(&["last", "summary", "terminal"]),
+        Kind::Enum(&["last", "summary", "terminal", "split"]),
         || json!("last"),
-        "The view a session opens in: `last`, the view last used for it, else the summary; `summary`; or `terminal`.",
+        "The view a session opens in: `last`, the view last used for it, else the summary; `summary`; `terminal`; or `split`, the summary above the terminal.",
     ),
     (
         "/runtime/new_run_view",
-        Kind::Enum(&["summary", "terminal"]),
+        Kind::Enum(&["summary", "terminal", "split"]),
         || json!("terminal"),
         "The view the session of an agent you just started opens in.",
     ),

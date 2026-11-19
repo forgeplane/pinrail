@@ -62,8 +62,8 @@ These settings apply to agents that run in Pinrail, which you turn on in Setting
 | **Option as Meta** | On macOS, chooses which Option keys act as Meta in a terminal: they send Esc and the key rather than the character Option types. Off by default. |
 | **Screen reader** | Makes a terminal's text readable by screen readers such as VoiceOver and Orca, and announces new output. Off by default. |
 | **Let programs copy to the clipboard** | Lets programs in a terminal copy text to the clipboard, up to 1 MiB at a time. They can never read it. On by default. |
-| **Open a session in** | Chooses the view a session opens in: **Last used**, the view you last used for it, or else the summary; **Summary**; or **Terminal**. |
-| **Open an agent you start in** | Chooses the view the session of an agent you just started opens in: **Summary** or **Terminal**, the default. |
+| **Open a session in** | Chooses the view a session opens in: **Last used**, the view you last used for it, or else the summary; **Summary**; **Terminal**; or **Split view**, the summary above the terminal. |
+| **Open an agent you start in** | Chooses the view the session of an agent you just started opens in: **Summary**, **Terminal**, the default, or **Split view**. |
 
 ## Shortcuts
 

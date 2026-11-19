@@ -1,4 +1,5 @@
-// The view a session's page shows, Summary or Terminal. The address holds
+// The view a session's page shows: Summary, Terminal, or both, the summary
+// above the terminal. The address holds
 // it as `?view=`, so back, forward and links keep it; without one, the
 // setting decides, and the last view used for the session is remembered.
 
@@ -30,6 +31,8 @@ export function useSessionView(session: { agent: string; id: string } | null, ha
     },
     [key, updateParams],
   );
-  const toggle = useCallback(() => choose(view === "terminal" ? "summary" : "terminal"), [choose, view]);
+  // Ctrl+` takes the keyboard out of a terminal: from Terminal, or the
+  // split, to the summary, and from the summary to the terminal
+  const toggle = useCallback(() => choose(view === "summary" ? "terminal" : "summary"), [choose, view]);
   return { view, choose, toggle, switches };
 }
