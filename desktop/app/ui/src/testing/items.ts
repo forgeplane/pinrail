@@ -1,5 +1,5 @@
-// Work items for component tests, with what the core fills in.
-import type { ItemDetail, WorkItem } from "../api/types";
+// Work items and sessions for component tests, with what the core fills in.
+import type { ItemDetail, Session, WorkItem } from "../api/types";
 
 let next = 1;
 
@@ -49,3 +49,23 @@ export function itemDetail(fields: Partial<ItemDetail> & { title: string }, repo
   };
 }
 
+/** A session as the core lists it, started at `first_at`, with no stage,
+ *  status or presence unless `fields` give them. */
+export function session(fields: Partial<Session> & { id: string }): Session {
+  return {
+    agent: "claude-code",
+    repo: "acme/app",
+    ref: "main",
+    folder: "/work/app",
+    status: null,
+    title: null,
+    name: null,
+    generated_name: "Happy Hydrogen",
+    element: 1,
+    first_at: "2026-11-19T09:00:00Z",
+    last_at: "2026-11-19T09:00:00Z",
+    total: { questions: 0, reviews: 0 },
+    waiting: { questions: 0, reviews: 0 },
+    ...fields,
+  };
+}
