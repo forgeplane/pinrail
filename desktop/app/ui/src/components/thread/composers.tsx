@@ -8,6 +8,8 @@ import { useConnected } from "../../state/live";
 import { useToast } from "../../state/toasts";
 import { ComposeField } from "../ComposeField";
 import { useItemPicker } from "../ItemPicker";
+import type { SessionMessage } from "../../api/types";
+import { MessageQueue } from "./messages";
 
 /** Where a message typed but not sent is kept, by session, while the
  *  window is open. */
@@ -16,16 +18,20 @@ const draftKey = (session: { agent: string; id: string }) => `pinrail:draft:mess
 /** The box under the thread while no question waits: a message to the
  *  agent, typed into its terminal as a prompt when Pinrail runs it
  *  (`typed`), and otherwise received with its next status. `#` lists the
- *  work items, those of `repo` first. */
+ *  work items, those of `repo` first. The messages that still wait on the
+ *  agent show at the top of the box. */
 export function MessageComposer({
   session,
   repo,
   typed,
+  waiting = [],
   onSent,
 }: {
   session: { agent: string; id: string };
   repo: string | null;
   typed: boolean;
+  /** the messages the agent has not received yet, oldest first */
+  waiting?: SessionMessage[];
   onSent: () => void;
 }) {
   const connected = useConnected();
@@ -67,6 +73,7 @@ export function MessageComposer({
         placeholder="Message the agent"
         onSubmit={send}
         boxRef={box}
+        above={waiting.length ? <MessageQueue messages={waiting} session={session} onChanged={onSent} /> : null}
         keys="Enter to send · Shift+Enter for a new line"
         send={{
           label: connected ? "Send the message to the agent" : "Reconnect to send",

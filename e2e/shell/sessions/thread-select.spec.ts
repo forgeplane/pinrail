@@ -25,6 +25,10 @@ test("the text of a session's thread can be selected, and its buttons cannot", a
   await post(request, status, { text: "Running the quokka suite" });
   await post(request, status, { text: "The quokka loader reads each file.", kind: "note" });
   await post(request, `/api/v1/sessions/claude-code/${session}/messages`, { text: "Keep the old quokka endpoint." });
+  // the agent's next status hands the message over, which joins the thread
+  const handed = await request.post(`${core}${status}`, { data: { text: "Reading the quokka docs" } });
+  const { messages } = (await handed.json()) as { messages: { id: number }[] };
+  await post(request, `/api/v1/sessions/claude-code/${session}/messages/ack`, { ids: messages.map((m) => m.id) });
   await post(request, "/api/v1/reviews", {
     kind: "question",
     title: "A question",

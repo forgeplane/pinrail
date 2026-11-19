@@ -17,6 +17,7 @@ import {
   Star,
   Trash2,
   Undo2,
+  X,
 } from "lucide-react";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, type To } from "react-router";
@@ -495,6 +496,134 @@ export const MessageBubble = memo(function MessageBubble({
   );
 });
 
+/** The messages the agent has not received yet, oldest first, a line each
+ *  at the top of the message box: what it says, its state in its tooltip,
+ *  and Delete while it is queued, or Retry and Copy when it was typed with
+ *  no confirmation. The thread shows a message once the agent receives it. */
+export function MessageQueue({
+  messages,
+  session,
+  onChanged,
+}: {
+  messages: SessionMessage[];
+  session: { agent: string; id: string };
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  if (!messages.length) return null;
+  const remove = async (message: SessionMessage) => {
+    try {
+      await api.deleteMessage(session.agent, session.id, message.id);
+    } catch (e) {
+      toast(errorMessage(e, "The message was not deleted."));
+    }
+    onChanged();
+  };
+  const retry = async (message: SessionMessage) => {
+    try {
+      await api.typeMessage(session.agent, session.id, message.id);
+    } catch (e) {
+      toast(errorMessage(e, "The message was not typed."));
+    }
+  };
+  const copy = async (message: SessionMessage) => {
+    try {
+      await copyText(message.text);
+      toast("Copied the message.");
+    } catch {
+      toast("The message was not copied.");
+    }
+  };
+  return (
+    <ul className="message-queue" aria-label="Messages waiting for the agent">
+      {messages.map((message) => {
+        const state = message.state ?? "queued";
+        const { icon, text, warn } = messageState(message, state);
+        return (
+          <li
+            key={message.id}
+            className={`message-queue-line ${warn ? "is-warning" : ""}`}
+            data-testid="waiting-message"
+          >
+            <Tooltip
+              side="top"
+              label={
+                <span className="message-queue-tip">
+                  <span className="message-queue-tip-text">{message.text}</span>
+                  <span className={`message-queue-tip-state ${warn ? "is-warning" : ""}`}>
+                    {icon}
+                    {text}
+                  </span>
+                </span>
+              }
+            >
+              <span className="message-queue-body" tabIndex={0}>
+                <span className="message-queue-icon" aria-hidden>
+                  {icon}
+                </span>
+                <span className="message-queue-text">{message.text}</span>
+                <span className="visually-hidden" data-testid="message-state">
+                  {text}
+                </span>
+              </span>
+            </Tooltip>
+            <span className="message-queue-when" data-testid="message-when">
+              {waitsUntil(message, state)}
+            </span>
+            {state === "unconfirmed" ? (
+              <>
+                <button type="button" className="message-queue-action" onClick={() => void retry(message)}>
+                  <RefreshCw size={12} aria-hidden /> Retry
+                </button>
+                <button type="button" className="message-queue-action" onClick={() => void copy(message)}>
+                  <Copy size={12} aria-hidden /> Copy
+                </button>
+              </>
+            ) : null}
+            {state === "queued" ? (
+              <Tooltip label="Delete it: the agent has not received it yet" side="top">
+                <button
+                  type="button"
+                  className="message-queue-delete"
+                  aria-label="Delete the message"
+                  onClick={() => void remove(message)}
+                >
+                  <X size={12} />
+                </button>
+              </Tooltip>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** When a waiting message goes to the agent, in a few words, beside it in
+ *  the queue: with its next status, after the turn it works on, once it is
+ *  idle, or what is happening to it now. */
+function waitsUntil(message: SessionMessage, state: NonNullable<SessionMessage["state"]>): string {
+  switch (state) {
+    case "claimed":
+      return "being handed over";
+    case "typing":
+      return "being typed";
+    case "unconfirmed":
+      return "not confirmed";
+    default:
+      switch (message.held) {
+        case "working":
+          return "after this turn";
+        case "needs_input":
+          return "once it is answered";
+        case "not_foreground":
+          return "once its terminal is back";
+        default:
+          return message.route === "type" ? "when it is idle" : "with its next status";
+      }
+  }
+}
+
 /** What a message's state line says, with its icon, and whether it warns. */
 function messageState(
   message: SessionMessage,
@@ -531,7 +660,9 @@ function messageState(
         case "not_foreground":
           return { icon: clock, text: "Waits until the agent holds its terminal again" };
         default:
-          return { icon: clock, text: "Queued" };
+          return message.route === "type"
+            ? { icon: clock, text: "Queued. It is typed into the agent's terminal once the agent is idle." }
+            : { icon: clock, text: "Queued. The agent receives it with its next status." };
       }
   }
 }

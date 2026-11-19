@@ -118,8 +118,8 @@ export function newestRounds(items: Review[]): Review[] {
 }
 
 /** The items, the statuses, what the agent did to work items and its
- *  comments on them, and the person's messages, oldest first, by their
- *  times, which the core keeps to the microsecond. Within one time, a
+ *  comments on them, and the messages the agent received, oldest first, by
+ *  their times, which the core keeps to the microsecond. Within one time, a
  *  withdrawn review's line goes first, then a review, a status, a work item
  *  change, a comment and a message: older times, kept to the second, share
  *  one often.
@@ -128,6 +128,15 @@ export function newestRounds(items: Review[]): Review[] {
  *  sent. A later round adds a line where it was sent, unless only
  *  statuses came between it and the round before. A review the agent
  *  withdrew adds a line by the time it did. */
+/** Whether a message still waits on the agent: queued, being handed over
+ *  or typed, or typed with no confirmation. It shows in the queue above the
+ *  message box, not in the timeline, until the agent receives it. A message
+ *  typed into an agent that cannot confirm it counts as received. */
+export const waitsOnAgent = (message: SessionMessage) => {
+  const state = message.state ?? (message.delivered_at ? "delivered" : "queued");
+  return state !== "delivered" && state !== "typed";
+};
+
 /** How far apart a turn's start and the confirmation of the message typed
  *  as its prompt can be: the same report sets both. */
 const TYPED_PROMPT_WITHIN_MS = 5_000;
@@ -187,7 +196,11 @@ export function timeline(
   for (const event of itemEvents) all.push({ at: Date.parse(event.at), happened: { kind: "itemEvent", event } });
   for (const comment of comments)
     all.push({ at: Date.parse(comment.created_at), happened: { kind: "comment", comment } });
-  for (const message of messages) all.push({ at: Date.parse(message.sent_at), happened: { kind: "message", message } });
+  // a message shows where the agent received it, once it has; one that
+  // still waits is in the queue above the message box
+  for (const message of messages)
+    if (!waitsOnAgent(message))
+      all.push({ at: Date.parse(message.delivered_at ?? message.sent_at), happened: { kind: "message", message } });
   for (const turn of turns) {
     // its prompt where it started, unless the person's message shows it
     // already, and its reply where it ended, after what it did meanwhile

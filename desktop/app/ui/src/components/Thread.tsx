@@ -40,6 +40,7 @@ import {
   sessionLabel,
   stageBeside,
   stages,
+  waitsOnAgent,
   type Entry,
 } from "../lib/sessions";
 import { useSettings } from "../state/settings";
@@ -429,6 +430,9 @@ export function Thread({
   const waiting = newest.filter((r) => r.status === "pending");
   const started = useMemo(() => stages(statuses), [statuses]);
   // the reviews each stage sent, for its tooltip
+  // the messages the agent has not received yet, oldest first, which the
+  // message box shows at its top
+  const waitingMessages = useMemo(() => messages.filter(waitsOnAgent), [messages]);
   const entries = useMemo(
     () => entriesOf(items, statuses, messages, comments, itemEvents, turns, runs),
     [items, statuses, messages, comments, itemEvents, turns, runs],
@@ -801,6 +805,7 @@ export function Thread({
                     session={named}
                     repo={session?.repo ?? null}
                     typed={!!live && !!session?.types}
+                    waiting={waitingMessages}
                     onSent={load}
                   />
                 ) : (

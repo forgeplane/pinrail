@@ -1,7 +1,8 @@
-// Messages the person sends the agent from its session's thread: queued
-// until the agent reports a status, which hands them over, and deleted
-// while they are queued; or, to an agent Pinrail runs, typed into its
-// terminal, with each state shown and the buttons that go with it.
+// Messages the person sends the agent from its session's thread: queued at
+// the top of the message box until the agent reports a status, which hands
+// them over, and deleted while they are queued; or, to an agent Pinrail
+// runs, typed into its terminal, with each state shown and the buttons that
+// go with it. A message joins the thread where the agent received it.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
 import { core } from "../helpers";
@@ -12,6 +13,8 @@ const fresh = () => `s-message-${Date.now()}-${++n}`;
 
 const thread = (page: Page) => page.getByTestId("thread");
 const queuedList = (page: Page) => page.getByRole("region", { name: "Waiting on the agent" });
+/** The messages at the top of the message box, which wait on the agent. */
+const waiting = (page: Page) => page.getByTestId("waiting-message");
 
 /** Reports a status as the agent, and answers the messages it handed
  *  over, which it acknowledges as `pinrail status` does once it printed
@@ -36,41 +39,44 @@ test("a message is queued, delivered with the agent's next status, and deleted o
   const box = page.getByRole("textbox", { name: "Message to the agent" });
   await expect(page.getByText("The agent receives your message the next time it reports a status.")).toBeVisible();
 
-  // a message sent by mistake, deleted while queued
+  // a message sent by mistake waits at the top of the box, not in the
+  // thread, and is deleted there
   await box.fill("Never mind this one.");
   await box.press("Enter");
   const messages = thread(page).getByTestId("message");
-  await expect(messages).toHaveCount(1);
-  await expect(messages.first().getByTestId("message-state")).toHaveText("Queued");
+  await expect(waiting(page)).toHaveCount(1);
+  await expect(waiting(page).getByTestId("message-state")).toHaveText(
+    "Queued. The agent receives it with its next status.",
+  );
+  await expect(messages).toHaveCount(0);
   await expect(box).toHaveValue("");
   await expect(queuedList(page)).toContainText("Waiting on the agent · 1");
-  await messages.first().hover();
-  await messages.first().getByRole("button", { name: "Delete the message" }).click();
-  await expect(messages).toHaveCount(0);
+  await waiting(page).getByRole("button", { name: "Delete the message" }).click();
+  await expect(waiting(page)).toHaveCount(0);
   await expect(queuedList(page)).toHaveCount(0);
 
   // a message the agent receives with its next status
   await box.fill("Use the v2 endpoint.\nThe v1 one is going away.");
   await page.getByTestId("send-message").click();
-  await expect(messages.first()).toContainText("Use the v2 endpoint.");
+  await expect(waiting(page)).toContainText("Use the v2 endpoint.");
   await expect(queuedList(page).getByTestId("queued-message")).toHaveCount(1);
   expect(await report(page.request, session, "Switching to v2")).toEqual([
     expect.objectContaining({ text: "Use the v2 endpoint.\nThe v1 one is going away." }),
   ]);
+  await expect(waiting(page)).toHaveCount(0);
   await expect(messages.first().getByTestId("message-state")).toHaveText(/Delivered \d+\w ago$/);
   await expect(messages.first().getByRole("button", { name: "Delete the message" })).toHaveCount(0);
   await expect(queuedList(page)).toHaveCount(0);
-  // the message sits between the status before it and the one that delivered it
+  // the message joins the thread where the agent received it: after the
+  // status that handed it over, not where it was sent
   const order = await thread(page)
     .locator(".thread-items > *")
     .evaluateAll((els) =>
       els.map((el) => (el.matches('[data-testid="message"]') ? "message" : (el.textContent ?? "").trim())),
     );
-  expect(order.filter((x) => x === "message" || /Reading|Switching/.test(x))).toEqual([
-    expect.stringMatching(/Reading the callers/),
-    "message",
-    expect.stringMatching(/Switching to v2/),
-  ]);
+  const switching = order.findIndex((x) => /Switching to v2/.test(x));
+  expect(switching).toBeGreaterThanOrEqual(0);
+  expect(order.indexOf("message")).toBeGreaterThan(switching);
 });
 
 test("a message typed but not sent stays in the box when the person leaves the session and comes back", async ({
@@ -94,13 +100,32 @@ test("a message typed but not sent stays in the box when the person leaves the s
   await page.goto(`/#/sessions/claude-code/${first}`);
   await expect(box).toHaveValue("Also check the retry path.");
 
-  // sent, it is gone
+  // sent, it is gone from the field, and waits at the top of the box
   await box.press("Enter");
-  await expect(thread(page).getByTestId("message")).toHaveCount(1);
+  await expect(waiting(page)).toHaveCount(1);
   await page.goto(`/#/sessions/claude-code/${other}`);
   await page.goto(`/#/sessions/claude-code/${first}`);
-  await expect(thread(page).getByTestId("message")).toHaveCount(1);
+  await expect(waiting(page)).toHaveCount(1);
   await expect(box).toHaveValue("");
+});
+
+test("a long message waits on one line that ends in an ellipsis, inside the box", async ({ page }) => {
+  const session = fresh();
+  await report(page.request, session, "Reading the callers");
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const box = page.getByRole("textbox", { name: "Message to the agent" });
+  await box.fill(`Before you merge:\n\n${"Keep the old route working for the mobile app. ".repeat(12)}`);
+  await box.press("Enter");
+  const line = waiting(page);
+  await expect(line).toHaveCount(1);
+  // its Delete and when it goes stay in the box, and nothing scrolls sideways
+  const [shown, frame] = [
+    await line.getByRole("button", { name: "Delete the message" }).boundingBox(),
+    await page.locator(".thread-composer .compose").boundingBox(),
+  ];
+  expect(shown!.x + shown!.width).toBeLessThanOrEqual(frame!.x + frame!.width);
+  await expect(line.getByTestId("message-when")).toBeInViewport();
+  expect(await page.locator(".thread-main").evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
 });
 
 test("while questions wait, the box holds the comment on the answers", async ({ page }) => {
@@ -211,13 +236,23 @@ test.describe("an agent Pinrail runs", () => {
       { text: "five", state: "delivered", delivered_at: new Date(Date.now() - 60_000).toISOString() },
     ]);
     await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
-    const states = thread(page).getByTestId("message-state");
-    await expect(states).toHaveText([
+    // what the agent has not received waits at the top of the box
+    await expect(waiting(page).getByTestId("message-state")).toHaveText([
       "Queued while the agent works. It is sent as your prompt when the agent finishes its turn.",
       "The agent is waiting for an answer in its terminal. Your message is sent when it is idle again.",
       "Typed into the terminal",
-      "Typed into the terminal. The agent cannot confirm it.",
+    ]);
+    // and when each goes, in a word, beside it
+    await expect(waiting(page).getByTestId("message-when")).toHaveText([
+      "after this turn",
+      "once it is answered",
+      "being typed",
+    ]);
+    // what it received, where it received it, and what was typed into it
+    // with no way to confirm, where it was sent, are in the thread
+    await expect(thread(page).getByTestId("message").getByTestId("message-state")).toHaveText([
       /^Delivered 1m ago$/,
+      "Typed into the terminal. The agent cannot confirm it.",
     ]);
     // what still waits on the agent, in a word, without the typed one that
     // cannot be confirmed
@@ -234,7 +269,7 @@ test.describe("an agent Pinrail runs", () => {
     await report(page.request, session, "Reading the callers");
     const typed = await hosted(page, session, [{ text: "Use the v2 endpoint.", state: "unconfirmed" }]);
     await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
-    const message = thread(page).getByTestId("message");
+    const message = waiting(page);
     await expect(message.getByTestId("message-state")).toHaveText(
       "Not confirmed. The agent may not have received this message.",
     );

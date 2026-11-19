@@ -39,6 +39,9 @@ type Props = {
   keys?: string;
   /** buttons before the send button */
   tools?: ReactNode;
+  /** what shows inside the field's frame, above the text, such as the
+   *  messages that still wait on the agent */
+  above?: ReactNode;
   /** the round arrow button at the end, which does what Enter does */
   send?: SendButton;
   /** Esc, after the dictation is stopped */
@@ -61,6 +64,7 @@ export function ComposeField({
   submitKey = "enter",
   keys,
   tools,
+  above,
   send,
   onEscape,
   disabled = false,
@@ -128,6 +132,7 @@ export function ComposeField({
 
   return (
     <div className={`compose ${wide ? "is-wide" : ""} ${disabled ? "is-disabled" : ""} ${className}`}>
+      {above ? <div className="compose-above">{above}</div> : null}
       <textarea
         ref={box}
         rows={1}

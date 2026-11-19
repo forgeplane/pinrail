@@ -97,6 +97,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Messages the agent has not received yet wait at the top of the message
+  box, a line each, where you can delete them. A message joins the session's
+  thread when the agent receives it, so it no longer sits above what the
+  agent did after you sent it.
 - A session's header has the same two rows for every session: the title
   and its state, then where the agent works, since when, and the work
   items it holds. Archive, Mark as unread and Copy session id are in the

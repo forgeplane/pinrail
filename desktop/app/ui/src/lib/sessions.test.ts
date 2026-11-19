@@ -230,12 +230,15 @@ describe("withdrawn reviews", () => {
 });
 
 describe("messages", () => {
-  const message = (id: number, at: string): SessionMessage => ({
+  /** A message sent at `sent`, which the agent received at `delivered`, or
+   *  still waits for with `null`. */
+  const message = (id: number, sent: string, delivered: string | null = sent): SessionMessage => ({
     id,
     text: `m${id}`,
     sent_by: "pnezis",
-    sent_at: at,
-    delivered_at: null,
+    sent_at: sent,
+    delivered_at: delivered,
+    state: delivered ? "delivered" : "queued",
   });
   const show = (entries: ReturnType<typeof timeline>) =>
     entries.map((e) =>
@@ -248,7 +251,7 @@ describe("messages", () => {
             : e.kind,
     );
 
-  test("shows a message when it was sent, among the reviews and the statuses", () => {
+  test("shows a message where the agent received it, among the reviews and the statuses", () => {
     const entries = timeline(
       [review("r1", "2026-10-30T10:02:00Z")],
       [
@@ -256,23 +259,29 @@ describe("messages", () => {
         status(2, "2026-10-30T10:01:00Z", "Building"),
         status(3, "2026-10-30T10:03:00Z", "Testing"),
       ],
-      [message(1, "2026-10-30T10:00:30Z"), message(2, "2026-10-30T10:04:00Z")],
+      // sent before Building, received with Testing; sent and received last
+      [message(1, "2026-10-30T10:00:30Z", "2026-10-30T10:03:00Z"), message(2, "2026-10-30T10:04:00Z")],
     );
-    // a message between two steps splits them
-    expect(show(entries)).toEqual([["Planning"], "m1", ["Building"], "r1", ["Testing"], "m2"]);
+    // a message between two steps splits them; at the time of the status
+    // that handed it over, it follows it
+    expect(show(entries)).toEqual([["Planning", "Building"], "r1", ["Testing"], "m1", "m2"]);
   });
 
-  test("puts a message between the statuses it was sent between, within one second", () => {
+  test("leaves out a message that still waits, which the message box shows", () => {
     const entries = timeline(
       [],
-      [status(1, "2026-10-30T10:00:00.100000Z", "Reading"), status(2, "2026-10-30T10:00:00.300000Z", "Switching")],
-      [message(1, "2026-10-30T10:00:00.200000Z")],
+      [status(1, "2026-10-30T10:00:00Z", "Reading"), status(2, "2026-10-30T10:01:00Z", "Switching")],
+      [message(1, "2026-10-30T10:00:30Z", null), { ...message(2, "2026-10-30T10:00:40Z", null), state: "unconfirmed" }],
     );
-    expect(show(entries)).toEqual([["Reading"], "m1", ["Switching"]]);
+    expect(show(entries)).toEqual([["Reading", "Switching"]]);
   });
 
-  test("shows a message sent before anything else first", () => {
-    const entries = timeline([review("r1", "2026-10-30T10:02:00Z")], [], [message(1, "2026-10-30T10:00:00Z")]);
+  test("shows a message typed into an agent that cannot confirm it where it was sent", () => {
+    const entries = timeline(
+      [review("r1", "2026-10-30T10:02:00Z")],
+      [],
+      [{ ...message(1, "2026-10-30T10:00:00Z", null), state: "typed" }],
+    );
     expect(show(entries)).toEqual(["m1", "r1"]);
   });
 });
