@@ -13,6 +13,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Delete a session from its menu in the sidebar or in its header. Pinrail
+  stops its agent if it runs it, withdraws the questions and reviews that
+  still wait, and gives up the work items it holds; decided reviews stay in
+  History.
 - Every session has a name of its own, an adjective and a chemical element
   such as **Careful Calcium**. A session with no stage yet shows it, and
   its header shows the element's tile, with a card about the element on

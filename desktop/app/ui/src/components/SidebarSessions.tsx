@@ -115,7 +115,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const elements = useElements();
 
   // a status may change a session's stage or mark it done, the person may
-  // rename it, and archiving one moves it in or out
+  // rename it, archiving one moves it in or out, and deleting one takes it out
   const reported = useNoticeCount((n) =>
     [
       "session_status",
@@ -124,6 +124,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
       "session_archived",
       "session_unarchived",
       "session_renamed",
+      "session_deleted",
       "repository_deleted",
     ].includes(n.kind),
   );

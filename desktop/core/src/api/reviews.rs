@@ -45,7 +45,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/sessions", get(sessions))
         .route("/api/v1/stages", get(stages))
         .route("/api/v1/elements", get(elements))
-        .route("/api/v1/sessions/{agent}/{id}", get(session).patch(rename))
+        .route(
+            "/api/v1/sessions/{agent}/{id}",
+            get(session).patch(rename).delete(delete_session),
+        )
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
         .route("/api/v1/sessions/{agent}/{id}/reports", post(report))
         .route(
@@ -743,6 +746,23 @@ async fn rename(
         _ => return Err(Error::invalid("/name", "must be a string or null").into()),
     };
     state.reviews().rename_session(&agent, &id, name)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Deletes a session, for the person: stops its run if Pinrail runs it,
+/// withdraws its reviews that still wait, gives up the work items it holds,
+/// and deletes it with its statuses, messages, presence and turns. Its
+/// decided reviews stay in the history. 204; 404 when there is none.
+async fn delete_session(
+    _person: super::guard::Person,
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    #[cfg(unix)]
+    if let Err(error) = state.runtime().stop_session(&agent, &id).await {
+        eprintln!("pinrail: stopping the run of session {id} failed: {error}");
+    }
+    state.reviews().delete_session(&agent, &id)?;
     Ok(StatusCode::NO_CONTENT)
 }
 

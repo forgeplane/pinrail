@@ -41,7 +41,7 @@ pub use runs::{Bound, NewRun, RunFilters, RunLaunch, RunRow, RunSession, TOKEN_G
 pub use schema::LATEST_MIGRATION;
 pub use search::{Found, ItemSearch};
 pub use sessions::{
-    Added, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
+    Added, DeletedSession, OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
     delivered_notice, status_notice,
 };
 

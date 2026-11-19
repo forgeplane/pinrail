@@ -21,6 +21,9 @@ export type MenuEntry =
       checked?: boolean;
       /** a word or two after the label, such as what the choice means */
       hint?: string;
+      /** the pick opens a dialog in the menu's place, which its holder keeps
+       *  open: the menu does not close, the dialog takes it away */
+      asks?: boolean;
     }
   | { kind: "heading"; label: string }
   | { kind: "separator" };
@@ -116,7 +119,7 @@ export function PopoverMenu({
             disabled={!!entry.disabled}
             title={entry.disabled}
             onClick={() => {
-              onClose();
+              if (!entry.asks) onClose();
               entry.onPick();
             }}
           >

@@ -132,6 +132,59 @@ impl Db {
     ) -> rusqlite::Result<Option<i64>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
+        let ended = insert_outcome_in(&tx, id, bundle, outcome, event, actor, attrs)?;
+        tx.commit()?;
+        Ok(ended)
+    }
+}
+
+/// Withdraws a review within the transaction `conn`, as
+/// [`Db::insert_withdrawal`] does in one of its own; `None` when it had
+/// already ended.
+pub(super) fn withdraw_in(
+    conn: &rusqlite::Connection,
+    id: &str,
+    at: DateTime<Utc>,
+    by: Option<&str>,
+    reason: Option<&str>,
+    via: Option<Via>,
+) -> rusqlite::Result<Option<i64>> {
+    let mut attrs = serde_json::json!({ "by": by, "via": via.map(Via::as_str) });
+    if let Some(r) = reason {
+        attrs["reason"] = Value::String(r.to_string());
+    }
+    insert_outcome_in(
+        conn,
+        id,
+        None,
+        Outcome {
+            kind: "withdrawn",
+            at,
+            by,
+            reason,
+            data: None,
+            summary: None,
+            agent_note: None,
+            via,
+            session: None,
+        },
+        crate::events::WITHDRAWN,
+        by,
+        attrs,
+    )
+}
+
+/// [`Db::insert_outcome`] within the transaction `conn`.
+fn insert_outcome_in(
+    tx: &rusqlite::Connection,
+    id: &str,
+    bundle: Option<&str>,
+    outcome: Outcome<'_>,
+    event: &str,
+    actor: Option<&str>,
+    attrs: Value,
+) -> rusqlite::Result<Option<i64>> {
+    {
         // An expired review has no outcome row, so the insert itself checks
         // the time: an ending that arrives as the review expires loses.
         let inserted = tx.execute(
@@ -157,16 +210,15 @@ impl Db {
         if inserted == 0 {
             return Ok(None);
         }
-        let event_id = insert_event(&tx, Some(id), event, actor, &attrs)?;
+        let event_id = insert_event(tx, Some(id), event, actor, &attrs)?;
         super::item_work::review_ended(
-            &tx,
+            tx,
             id,
             outcome.kind,
             outcome.by,
             &serde_json::json!({"summary": outcome.summary, "reason": outcome.reason}),
             outcome.at,
         )?;
-        tx.commit()?;
         Ok(Some(event_id))
     }
 }

@@ -311,6 +311,96 @@ async fn the_history_sweep_releases_the_claims_of_the_sessions_it_deletes() {
 }
 
 #[tokio::test]
+async fn deleting_a_session_withdraws_what_waits_gives_up_its_items_and_keeps_the_history() {
+    let app = app();
+    add(&app, "Held by the session").await;
+    let session = "/api/v1/sessions/claude-code/s-del";
+    let (code, _) = call(
+        &app,
+        "POST",
+        &format!("{session}/status"),
+        Some(json!({"text": "Working", "kind": "start"})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let (code, claimed) = edit(&app, "PIN-1", "s-del", json!({"claim": "claim"})).await;
+    assert_eq!(code, StatusCode::OK, "{claimed}");
+    let (_, waiting) = submit(&app, review("s-del", "Still waiting", None)).await;
+    let (_, ended) = submit(&app, review("s-del", "Decided already", None)).await;
+    decide(&app, ended["id"].as_str().unwrap()).await;
+    let (code, _) = call(
+        &app,
+        "POST",
+        &format!("{session}/messages"),
+        Some(json!({"text": "Use the v2 endpoint."})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED);
+
+    let mut notices = app.state.events().subscribe();
+    let (code, _) = call(&app, "DELETE", session, None).await;
+    assert_eq!(code, StatusCode::NO_CONTENT);
+    let (code, _) = call(&app, "GET", session, None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+
+    // what waited is withdrawn, and the app told; what was decided stays
+    let (_, waiting) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", waiting["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(waiting["status"], "withdrawn", "{waiting}");
+    let (_, ended) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", ended["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(ended["status"], "decided", "{ended}");
+    let mut kinds = Vec::new();
+    while let Ok(notice) = notices.try_recv() {
+        kinds.push(notice.kind);
+    }
+    assert_eq!(kinds, ["withdrawn", "session_deleted"]);
+
+    // its item is open again, and keeps the history of its claim
+    let released = item(&app, "PIN-1").await;
+    assert_eq!(released["status"], "open", "{released}");
+    assert!(released["claim"].is_null(), "{released}");
+    assert!(
+        timeline_kinds(&released).iter().any(|k| k == "claimed"),
+        "{released}"
+    );
+
+    // a session that is gone is not found again
+    let (code, _) = call(&app, "DELETE", session, None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+    // and its agent reporting again brings it back, empty
+    call(
+        &app,
+        "POST",
+        &format!("{session}/status"),
+        Some(json!({"text": "Back again"})),
+    )
+    .await;
+    let (code, back) = call(&app, "GET", session, None).await;
+    assert_eq!(code, StatusCode::OK, "{back}");
+    assert_eq!(back["statuses"].as_array().unwrap().len(), 1, "{back}");
+    assert!(back["messages"].as_array().unwrap().is_empty(), "{back}");
+    assert!(
+        back["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["status"] != "pending"),
+        "{back}"
+    );
+}
+
+#[tokio::test]
 async fn deleting_a_repository_releases_what_its_sessions_held_elsewhere() {
     let app = app();
     add(&app, "Held from another repository").await;

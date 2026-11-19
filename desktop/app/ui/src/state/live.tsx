@@ -311,9 +311,14 @@ export function useNoticeCount(about: (notice: Notice) => boolean): number {
 export const aboutItems = (notice: Notice) =>
   !!notice.item ||
   !!notice.review?.items?.length ||
-  ["session_archived", "session_unarchived", "history_swept", "projects_changed", "repository_deleted"].includes(
-    notice.kind,
-  );
+  [
+    "session_archived",
+    "session_unarchived",
+    "session_deleted",
+    "history_swept",
+    "projects_changed",
+    "repository_deleted",
+  ].includes(notice.kind);
 
 /** The item a notice is about, if it is about one: a prefix change is about
  *  every item of a repository. */

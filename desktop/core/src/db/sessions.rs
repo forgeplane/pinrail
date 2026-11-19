@@ -710,6 +710,78 @@ impl Db {
     }
 }
 
+/// What deleting a session did: its event, and the event of each of its
+/// reviews it withdrew, by the review's id.
+pub struct DeletedSession {
+    pub event_id: i64,
+    pub withdrawn: Vec<(String, i64)>,
+}
+
+impl Db {
+    /// Deletes a session, in one transaction: withdraws its reviews that
+    /// still wait, as `by`, gives up the work items it holds, and deletes it
+    /// with its statuses, messages, presence and turns. Its decided reviews
+    /// stay, and so do the items' events and comments. `None` when there is
+    /// no such session.
+    pub fn delete_session(
+        &self,
+        agent: &str,
+        id: &str,
+        by: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> rusqlite::Result<Option<DeletedSession>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let known: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE agent = ?1 AND id = ?2)",
+            params![agent, id],
+            |r| r.get(0),
+        )?;
+        if !known {
+            return Ok(None);
+        }
+        let pending: Vec<String> = tx
+            .prepare(
+                "SELECT r.id FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+                 WHERE r.requested_by = ?1 AND r.session = ?2 AND o.review_id IS NULL
+                   AND (r.expires_at IS NULL OR r.expires_at > ?3)
+                 ORDER BY r.id",
+            )?
+            .query_map(params![agent, id, crate::reviews::iso(now)], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut withdrawn = Vec::new();
+        for review in pending {
+            if let Some(event_id) = super::outcomes::withdraw_in(
+                &tx,
+                &review,
+                now,
+                by,
+                Some("Its session was deleted"),
+                Some(crate::reviews::Via::App),
+            )? {
+                withdrawn.push((review, event_id));
+            }
+        }
+        super::item_work::release_session_claims(&tx, agent, id, "deleted", now)?;
+        tx.execute(
+            "DELETE FROM sessions WHERE agent = ?1 AND id = ?2",
+            params![agent, id],
+        )?;
+        let event_id = insert_event(
+            &tx,
+            None,
+            crate::events::SESSION_DELETED,
+            by,
+            &json!({ "agent": agent, "id": id }),
+        )?;
+        tx.commit()?;
+        Ok(Some(DeletedSession {
+            event_id,
+            withdrawn,
+        }))
+    }
+}
+
 /// How many of the session's questions and reviews wait for the person.
 const WAITING: &str = "(COALESCE(c.waiting_questions, 0) + COALESCE(c.waiting_reviews, 0))";
 

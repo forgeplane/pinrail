@@ -800,6 +800,18 @@ impl super::Runtime {
             .filter(|link| matches!(link.state(), HostState::Ready { .. }))
     }
 
+    /// Stops the session's live runs, if Pinrail runs it, without waiting
+    /// for them to end.
+    pub async fn stop_session(&self, agent: &str, session: &str) -> Result<(), RunError> {
+        let key = (agent.to_string(), session.to_string());
+        for run in self.live_runs()? {
+            if run.session.as_ref() == Some(&key) {
+                self.stop(&run.id, false).await?;
+            }
+        }
+        Ok(())
+    }
+
     fn live_runs(&self) -> Result<Vec<RunRow>, RunError> {
         Ok(self.db.runs(&RunFilters {
             live: Some(true),

@@ -758,6 +758,29 @@ impl Reviews {
         Ok(())
     }
 
+    /// Deletes a session, for the person: its reviews that still wait are
+    /// withdrawn, the work items it holds given up, and it goes with its
+    /// statuses, messages, presence and turns; see [`crate::db::Db::delete_session`].
+    pub fn delete_session(&self, agent: &str, id: &str) -> Result<(), Error> {
+        let Some(deleted) = self
+            .db
+            .delete_session(agent, id, Some(&self.user), Utc::now())?
+        else {
+            return Err(Error::NotFound(format!("session {id} of {agent}")));
+        };
+        for (review, event_id) in &deleted.withdrawn {
+            if let Ok(review) = self.get(review) {
+                self.publish(*event_id, events::WITHDRAWN, &review);
+            }
+        }
+        self.bus.publish(Notice::new(
+            deleted.event_id,
+            events::SESSION_DELETED,
+            &serde_json::json!({ "agent": agent, "id": id }),
+        ));
+        Ok(())
+    }
+
     /// Renames a session, for the person: a name of 1 to 60 characters on
     /// one line, without the spaces around it, or `None` to give it back
     /// the name Pinrail gave it.

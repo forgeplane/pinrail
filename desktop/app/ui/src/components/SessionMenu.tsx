@@ -1,16 +1,18 @@
 // A session's menu in the sidebar, from the ⋯ button on its row or a
-// right-click: archive it, mark it read or unread, copy its id, and stop or
-// resume its agent when it runs in Pinrail, as the session's header does.
+// right-click, and in its header: rename or archive it, mark it read or
+// unread, copy its id, stop or resume its agent when it runs in Pinrail, and
+// delete it, after asking.
 
-import { Archive, ArchiveRestore, Copy, Mail, MailOpen, Pencil, Play, Square } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Mail, MailOpen, Pencil, Play, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { api, errorMessage } from "../api/client";
 import { runtime, type Run } from "../api/runtime";
 import type { Session } from "../api/types";
 import { agentOf } from "./AgentIcon";
 import { copyText } from "../lib/clipboard";
 import { canResume, resumeProblem } from "../lib/resume";
+import { sessionLabel } from "../lib/sessions";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { useToggleArchive } from "./ArchiveButton";
@@ -38,6 +40,7 @@ export function SessionMenu({
   const runsOn = settings.labs.runtime;
   const toast = useToast();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const toggleArchive = useToggleArchive();
   const name = agentOf(session.agent)?.label ?? session.agent;
   const named = { agent: session.agent, id: session.id };
@@ -77,6 +80,20 @@ export function SessionMenu({
     } catch (e) {
       toast(resumeProblem(e, runs?.[0]?.folder ?? session.folder ?? null), "danger");
     }
+  };
+
+  // Delete asks first, and leaves the session's page if it shows
+  const [deleting, setDeleting] = useState(false);
+  const label = sessionLabel(session);
+  const remove = async () => {
+    try {
+      await api.deleteSession(session.agent, session.id);
+      toast(`Deleted ${label}`);
+      if (pathname === sessionPath(named)) navigate("/sessions");
+    } catch (e) {
+      toast(`Could not delete ${label}: ${errorMessage(e)}`, "danger");
+    }
+    onClose();
   };
 
   // read once its finished turn was seen, unread while it waits to be
@@ -120,13 +137,40 @@ export function SessionMenu({
         label: `Stop ${name}`,
         icon: Square,
         danger: true,
+        // while the agent works, Stop asks first, in place of the menu
+        asks: session.presence?.state === "working",
         onPick: () => (session.presence?.state === "working" ? setAsking(live) : void stop(live)),
       },
     );
   else if (resumable)
     entries.push({ kind: "separator" }, { label: `Resume ${name}`, icon: Play, onPick: () => void resume() });
+  entries.push(
+    { kind: "separator" },
+    { label: "Delete…", icon: Trash2, danger: true, asks: true, onPick: () => setDeleting(true) },
+  );
 
   const keep = useRef<HTMLButtonElement>(null);
+  if (deleting)
+    return (
+      <Dialog labelledBy="menu-delete-title" className="discard-dialog" initialFocus={keep} onClose={onClose}>
+        <div className="dialog-head">
+          <h2 id="menu-delete-title">Delete {label}?</h2>
+        </div>
+        <p className="dim">
+          {live ? `Pinrail stops ${name} first. ` : ""}Its statuses, notes and messages are deleted, and its questions
+          and reviews that still wait are withdrawn. Its decided reviews stay in History, and the work items it holds
+          are given up. This cannot be undone.
+        </p>
+        <div className="dialog-actions">
+          <button ref={keep} type="button" className="chrome-button" onClick={onClose}>
+            Keep it
+          </button>
+          <button type="button" className="chrome-button button-danger" onClick={() => void remove()}>
+            Delete
+          </button>
+        </div>
+      </Dialog>
+    );
   return asking ? (
     <Dialog labelledBy="menu-stop-title" className="discard-dialog" initialFocus={keep} onClose={onClose}>
       <div className="dialog-head">
