@@ -1,5 +1,5 @@
 // Work items for component tests, with what the core fills in.
-import type { WorkItem } from "../api/types";
+import type { ItemDetail, WorkItem } from "../api/types";
 
 let next = 1;
 
@@ -30,3 +30,22 @@ export function workItem(fields: Partial<WorkItem> & { title: string }, repo = "
     ...fields,
   };
 }
+
+/** An item as its panel loads it: with its description, relations and
+ *  timeline, empty unless `fields` give them. */
+export function itemDetail(fields: Partial<ItemDetail> & { title: string }, repo = "acme/app"): ItemDetail {
+  return {
+    ...workItem(fields, repo),
+    body: "",
+    ancestors: [],
+    depends_on: [],
+    blocks: [],
+    sub_items_list: [],
+    files: [],
+    reviews: [],
+    sessions: [],
+    timeline: [],
+    ...fields,
+  };
+}
+
