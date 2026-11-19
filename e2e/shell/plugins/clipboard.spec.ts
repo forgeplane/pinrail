@@ -8,7 +8,11 @@ import { scratch } from "../../helpers/scratch";
 // The clipboard capability: the app copies text, or an image the review
 // carries, for a view whose manifest declares "clipboard", and for no other.
 
-test.use({ permissions: ["clipboard-read", "clipboard-write"] });
+// WebKit knows clipboard-read only, and lets a page write without asking
+test.use({
+  permissions: async ({ browserName }, use) =>
+    use(browserName === "webkit" ? ["clipboard-read"] : ["clipboard-read", "clipboard-write"]),
+});
 
 /** A one-pixel PNG. */
 const PNG = Buffer.from(

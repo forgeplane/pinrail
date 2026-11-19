@@ -16,6 +16,20 @@ const feedbackUrl = "https://feedback.test/v1/feedback";
 const ui = path.join(__dirname, ".state", "shell-ui");
 const workers = Number(process.env.SHELL_WORKERS) || Math.max(1, Math.floor(os.availableParallelism() / 2));
 
+/** The smoke subset that runs in WebKit too. */
+const webkit = {
+  name: "webkit",
+  use: { browserName: "webkit" as const },
+  testMatch: [
+    "app/shortcuts.spec.ts",
+    "plugins/sandbox.spec.ts",
+    "plugins/hand-over.spec.ts",
+    "sessions/thread-scroll.spec.ts",
+    "items/projects.spec.ts",
+    "plugins/clipboard.spec.ts",
+  ],
+};
+
 export default defineConfig({
   testDir: path.join(__dirname, "shell"),
   // after the web server: a core for each worker
@@ -39,6 +53,11 @@ export default defineConfig({
     // for less motion, so they do not keep the browsers of every worker busy
     contextOptions: { reducedMotion: "reduce" },
   },
+  // every spec in Chromium, and on macOS and Linux a smoke subset in
+  // WebKit, the engine of the app's window there: the keys, the plugin
+  // frame and its sandbox, a thread's scrolling, drag and drop, and the
+  // clipboard. On Windows the window is WebView2, which is Chromium.
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }, ...(process.platform === "win32" ? [] : [webkit])],
   webServer: [
     {
       // a production build of the UI, served as files: far lighter than the

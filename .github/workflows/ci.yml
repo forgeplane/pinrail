@@ -216,8 +216,9 @@ jobs:
           npm ci
           (cd ../sdk && npm ci)
           echo "playwright=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      # The headless shell the tests run, kept per Playwright version. Only
-      # main saves, as with the other caches.
+      # The browsers the tests run, Chromium's headless shell and, but on
+      # Windows, WebKit, kept per Playwright version. Only main saves, as
+      # with the other caches.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: browser
         with:
@@ -225,7 +226,7 @@ jobs:
             ~/.cache/ms-playwright
             ~/Library/Caches/ms-playwright
             ~/AppData/Local/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.e2e.outputs.playwright }}
+          key: playwright-webkit-${{ runner.os }}-${{ runner.arch }}-${{ steps.e2e.outputs.playwright }}
       # The system's libraries only on Linux, where the browser needs them.
       # On Windows --with-deps installs Media Foundation, which takes three
       # or four minutes and which no test uses.
@@ -234,8 +235,12 @@ jobs:
         env:
           CACHED: ${{ steps.browser.outputs.cache-hit }}
         run: |
-          if [ "$CACHED" != true ]; then npx playwright install --only-shell chromium; fi
-          if [ "$RUNNER_OS" = Linux ]; then npx playwright install-deps chromium; fi
+          browsers="chromium"
+          if [ "$RUNNER_OS" != Windows ]; then browsers="chromium webkit"; fi
+          # shellcheck disable=SC2086 # a word for each browser
+          if [ "$CACHED" != true ]; then npx playwright install --only-shell $browsers; fi
+          # shellcheck disable=SC2086
+          if [ "$RUNNER_OS" = Linux ]; then npx playwright install-deps $browsers; fi
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.ref == 'refs/heads/main' && steps.browser.outputs.cache-hit != 'true'
         with:

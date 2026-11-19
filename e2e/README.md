@@ -27,6 +27,11 @@ servers (`shell.config.ts`). `mise run e2e:shell` runs them with
 `run-shell.mjs`, with a Playwright worker for every two CPUs, each with a
 server of its own. `SHELL_WORKERS` sets how many workers.
 
+Every spec runs in Chromium. On macOS and Linux, a smoke subset also runs
+in WebKit, the engine of the app's window there: the specs listed in the
+`webkit` project of `shell.config.ts`. Add `--project=chromium` or
+`--project=webkit` to run one of them.
+
 The specs are grouped in folders under `shell/` by the part of the app
 they check. The shared fixtures and helpers stay in `shell/` itself. A new
 spec goes in the folder of the part it checks:
