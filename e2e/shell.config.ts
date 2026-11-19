@@ -1,55 +1,28 @@
 import { defineConfig } from "@playwright/test";
-import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { corePort, personToken, shard, uiPort } from "./shell/helpers";
+import { uiPort } from "./shell/helpers";
 
-// The desktop shell in a browser: the app's UI from vite against the
-// desktop core running headless on a scratch data directory. The
-// core is built first when it is out of date, which takes a while once, and
-// the CLI with it, for the one test where an agent waits on a person.
-// The data starts as a returning person's: the setup already seen, so its
-// dialog does not cover what the tests click.
+// The desktop shell in a browser: a production build of the app's UI against
+// headless desktop cores on scratch data folders, one core for each worker,
+// which global-setup.ts starts and fixtures.ts gives each page.
 //
-// Runs side by side, with --shard, each set SHELL_SHARD for ports and folders
-// of their own, SHELL_SDK_BUILT once the SDK copy is built, which they
-// would otherwise write at the same time, and SHELL_BUILT once the core and
-// the CLI are: run-shell.mjs does all three.
+// SHELL_WORKERS sets how many workers, else one for every two CPUs.
+// SHELL_SDK_BUILT says the SDK copy and the terminal's WebAssembly are built,
+// and SHELL_BUILT that the core and the CLI are: run-shell.mjs builds them
+// first and sets both.
 const root = path.resolve(__dirname, "..");
 const feedbackUrl = "https://feedback.test/v1/feedback";
-const data = path.join(__dirname, ".state", `shell-data-${shard}`);
-const exe = process.platform === "win32" ? ".exe" : "";
-const core = path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
-// the person token the core takes and the window is built with
-const tokenFile = path.join(__dirname, ".state", `shell-token-${shard}`);
-fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
-fs.writeFileSync(tokenFile, personToken, { mode: 0o600 });
-
-// An official plugin at two versions, which the app does not carry, so an
-// installed older one is offered the newer: notes, made from hello.
-const catalog = path.join(__dirname, ".state", `shell-catalog-${shard}`);
-const ui = path.join(__dirname, ".state", `shell-ui-${shard}`);
-fs.rmSync(catalog, { recursive: true, force: true });
-for (const version of ["1.0.0", "1.1.0"]) {
-  const dir = path.join(catalog, `notes-${version}`);
-  fs.cpSync(path.join(root, "plugins", "hello"), dir, {
-    recursive: true,
-    filter: (src) => !/[\\/](tests|fixtures|node_modules)([\\/]|$)/.test(src),
-  });
-  const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
-  fs.writeFileSync(
-    path.join(dir, "manifest.json"),
-    JSON.stringify({ ...manifest, name: "notes", title: "Notes", version }),
-  );
-}
+const ui = path.join(__dirname, ".state", "shell-ui");
+const workers = Number(process.env.SHELL_WORKERS) || Math.max(1, Math.floor(os.availableParallelism() / 2));
 
 export default defineConfig({
   testDir: path.join(__dirname, "shell"),
-  // after the web servers: the official plugins the specs use
+  // after the web server: a core for each worker
   globalSetup: "./shell/global-setup.ts",
-  // one worker for each core, which the tests share; a shard has a core of
-  // its own, and every test stands alone, so the shards split the tests
-  // evenly rather than file by file
-  workers: 1,
+  // every test stands alone, so the workers split the tests one by one
+  // rather than file by file
+  workers,
   // a test that fails once in CI runs again, and the report marks it flaky
   retries: process.env.CI ? 1 : 0,
   fullyParallel: true,
@@ -63,39 +36,18 @@ export default defineConfig({
     // test runs again after a failure, and a local run with --trace
     trace: process.env.CI ? "on-first-retry" : "off",
     // the app's endless animations stop, as they do for a person who asks
-    // for less motion, so they do not keep the browsers of every shard busy
+    // for less motion, so they do not keep the browsers of every worker busy
     contextOptions: { reducedMotion: "reduce" },
   },
   webServer: [
     {
-      // commands that sh and Windows' cmd both run
-      command: `${process.env.SHELL_BUILT ? "" : "cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && "}node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}" --person-token-file "${tokenFile}"`,
-      cwd: path.join(root, "desktop"),
-      env: {
-        PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}`,
-        // a terminal host that is never there: a spec that turns the agent
-        // runtime on must not start a real host, which would outlive it
-        PINRAIL_HOST_SOCKET: path.join(data, "no-host.sock"),
-        PINRAIL_HOST_SECRET: "none",
-      },
-      url: `http://127.0.0.1:${corePort}/api/v1/info`,
-      reuseExistingServer: false,
-      timeout: 600_000,
-      stdout: "ignore",
-      stderr: "pipe",
-    },
-    {
-      // a production build of the UI, made for this shard's core and served
-      // as files: far lighter than the dev server, which compiles every
-      // module again for each page a test opens
+      // a production build of the UI, served as files: far lighter than the
+      // dev server, which compiles every module again for each page a test
+      // opens
       command: `${process.env.SHELL_SDK_BUILT ? "" : "npm run sdk:build && npm run ghostty:wasm && "}npx vite build --outDir "${ui}" --emptyOutDir --logLevel error && npx vite preview --outDir "${ui}" --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
       // feedback goes to an address the tests answer, never to the service
-      env: {
-        VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`,
-        VITE_PINRAIL_TOKEN: personToken,
-        VITE_PINRAIL_FEEDBACK_URL: feedbackUrl,
-      },
+      env: { VITE_PINRAIL_FEEDBACK_URL: feedbackUrl },
       url: `http://127.0.0.1:${uiPort}`,
       reuseExistingServer: false,
       timeout: 120_000,

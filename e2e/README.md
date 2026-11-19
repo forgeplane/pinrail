@@ -22,10 +22,10 @@ installs a copy of the artifact plugin. The teardown stops the server.
 
 ## The app suites
 
-The app suites run a production build of the app's UI against a headless
-server (`shell.config.ts`). `mise run e2e:shell` runs them with
-`run-shell.mjs`, in several shards at once, each with its own server, UI
-and browser.
+The app suites run one production build of the app's UI against headless
+servers (`shell.config.ts`). `mise run e2e:shell` runs them with
+`run-shell.mjs`, with a Playwright worker for every two CPUs, each with a
+server of its own. `SHELL_WORKERS` sets how many workers.
 
 The specs are grouped in folders under `shell/` by the part of the app
 they check. The shared fixtures and helpers stay in `shell/` itself. A new

@@ -3,7 +3,7 @@ import { core, createReview, decide, openReviewsIn } from "../helpers";
 
 const approved = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
 
-// one test opens reviews as pages; the others in the shard expect the panel
+// one test opens reviews as pages; the others of the worker expect the panel
 test.afterEach(({ request }) => openReviewsIn(request, "panel"));
 
 test("the history's menu deletes a review with every round of it", async ({ page, request }) => {

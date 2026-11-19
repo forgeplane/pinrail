@@ -247,12 +247,12 @@ jobs:
       - name: CLI end to end
         working-directory: e2e
         run: npx playwright test
-      # Three shards side by side, each with its own core, UI and browser,
-      # built once first. Each shard's log is printed whole, a failed one last.
+      # Three workers, each with a core of its own, against one build of
+      # the UI, all built once first.
       - name: Shell end to end
         working-directory: e2e
         env:
-          SHELL_SHARDS: 3
+          SHELL_WORKERS: 3
         run: node run-shell.mjs
       # The traces of the tests that ran again after a failure, kept also
       # when the retry passed, so a flaky test can be looked into. A run

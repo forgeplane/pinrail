@@ -1,6 +1,6 @@
 // The Work items page: rows, grouping, nested and flat, the filters, the
 // quick add, the keys and live updates. Every test works in repositories of
-// its own and opens the page filtered to them, since the shard's core is
+// its own and opens the page filtered to them, since the worker's core is
 // shared.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
@@ -525,7 +525,7 @@ test("the sidebar counts the items the page lists when it opens, as they change"
 });
 
 test("with no items, the page says how to add one", async ({ page }) => {
-  // the shard's core has other tests' items: this window is answered with none
+  // the worker's core has other tests' items: this window is answered with none
   await page.route("**/api/v1/items*", (route) => route.fulfill({ json: { items: [] } }));
   await page.goto("/#/items");
   await expect(page.getByText("No work items yet")).toBeVisible();
@@ -1596,6 +1596,6 @@ test("Show next item in Display options marks the item an agent takes next", asy
   expect(queued.status(), await queued.text()).toBe(200);
   await expect(row(page, oldest.key).getByTestId("item-next")).toBeVisible();
   await expect(page.getByTestId("item-next")).toHaveCount(1);
-  // the queue is one for every test of the shard's core
+  // the queue is one for every test of the worker's core
   await request.delete(`${core}/api/v1/items/${oldest.key}/queue`, { headers: { origin: shellOrigin } });
 });

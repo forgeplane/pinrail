@@ -9,7 +9,7 @@ const defaults = {
   },
 };
 
-// the settings are the core's, shared by the shard: each test leaves the
+// the settings are the core's, shared by the worker: each test leaves the
 // defaults for the next
 test.afterEach(async ({ request }) => {
   await request.patch(`${core}/api/v1/settings`, { data: defaults });

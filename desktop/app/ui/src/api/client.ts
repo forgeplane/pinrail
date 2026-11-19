@@ -1,6 +1,8 @@
 // The typed client for /api/v1. Inside the app the shell asks Tauri for the
-// server's URL and the person token; in a browser (development, tests) it uses
-// VITE_PINRAIL_URL or the default port, and VITE_PINRAIL_TOKEN.
+// server's URL and the person token. In a browser (development, tests) it uses
+// the server set as window.__PINRAIL_SERVER__ before the page loads, which the
+// end-to-end tests set for the core of each worker, else VITE_PINRAIL_URL or
+// the default port, and VITE_PINRAIL_TOKEN.
 
 import type { Attached } from "../lib/attach";
 import type {
@@ -78,10 +80,14 @@ function serverInfo(): Promise<Server> {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<Server>("server_url");
     }
-    return {
-      url: import.meta.env.VITE_PINRAIL_URL ?? "http://127.0.0.1:4747",
-      token: import.meta.env.VITE_PINRAIL_TOKEN ?? "",
-    };
+    const given =
+      typeof window === "undefined" ? undefined : (window as { __PINRAIL_SERVER__?: Server }).__PINRAIL_SERVER__;
+    return (
+      given ?? {
+        url: import.meta.env.VITE_PINRAIL_URL ?? "http://127.0.0.1:4747",
+        token: import.meta.env.VITE_PINRAIL_TOKEN ?? "",
+      }
+    );
   })();
   return server;
 }

@@ -1,7 +1,7 @@
 // A work item in the side panel: opening and closing it, editing it in
 // place, its dependencies with their graph, sub-items, reviews, sessions,
 // comments with the activity, and deleting it. Each test works in a
-// repository of its own, since the shard's core is shared.
+// repository of its own, since the worker's core is shared.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
 import { createHash } from "node:crypto";

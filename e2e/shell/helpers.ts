@@ -5,20 +5,22 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import fs from "node:fs";
 import path from "node:path";
 
-/** Which of the runs side by side this is, from SHELL_SHARD (0 when the
- *  suite runs alone): each has its own ports and data folder. */
-export const shard = Number(process.env.SHELL_SHARD ?? 0);
-/** The port of the headless core the shell runs against. */
-export const corePort = 4799 + 10 * shard;
+/** Which worker runs this test, from 1: each worker has a core of its own,
+ *  with its own port and data folder. 0 outside a worker. */
+export const worker = Number(process.env.TEST_PARALLEL_INDEX ?? -1) + 1;
+/** The port of the headless core of worker `n`. */
+export const corePortOf = (n: number) => 4799 + 10 * n;
+/** The port of this worker's core, and its address. */
+export const corePort = corePortOf(worker);
 export const core = `http://127.0.0.1:${corePort}`;
-/** The port the shell is served on. */
-export const uiPort = 5199 + 10 * shard;
+/** The port the shell is served on, one build for every worker. */
+export const uiPort = 5199;
 /** The origin the shell runs on in these tests, which the core takes for the app's. */
 export const shellOrigin = `http://127.0.0.1:${uiPort}`;
 
-/** The person token this shard's core takes, from a file the config writes,
- *  and the window is built with. */
-export const personToken = `shell-person-token-${shard}`;
+/** The person token every core takes, from a file the global setup writes,
+ *  and the window is given when it opens. */
+export const personToken = "shell-person-token";
 /** The header that makes a request the person's, as the window's are. */
 export const asPerson = { authorization: `Bearer ${personToken}` };
 
