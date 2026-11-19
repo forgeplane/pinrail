@@ -3527,11 +3527,13 @@ body.is-resizing iframe {
   font-size: var(--text-lg);
 }
 /* the session's name, which a click renames in place: it reads as the
-   title, and shows a pencil while the pointer is over it */
+   title, and shows a pencil over the end of the name while the pointer is
+   over it, which fades out the letters under the pencil. The pencil takes
+   no room, so the badges after the name do not move */
 .thread-name {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   max-width: 100%;
   padding: 0;
   border: 0;
@@ -3546,13 +3548,20 @@ body.is-resizing iframe {
   text-overflow: ellipsis;
 }
 .thread-name-pencil {
-  flex: none;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
   color: var(--faint);
   opacity: 0;
 }
 .thread-name:hover .thread-name-pencil,
 .thread-name:focus-visible .thread-name-pencil {
   opacity: 1;
+}
+.thread-name:hover .thread-name-text,
+.thread-name:focus-visible .thread-name-text {
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent calc(100% - 14px));
 }
 /* while renaming, the name reads as it did: the field has no border or
    background, and a hidden copy of its text in the same cell makes it as
@@ -3561,9 +3570,9 @@ body.is-resizing iframe {
   display: inline-grid;
   max-width: 100%;
   vertical-align: top;
-  /* the room of the name's pencil and its gap, less the caret's room in
-     the copy of the text, so the chip after the name stays where it was */
-  padding-right: 16px;
+  /* takes back the caret's room in the copy of the text, so the chip after
+     the name stays where it was */
+  margin-right: -2px;
 }
 .thread-name-edit > * {
   grid-area: 1 / 1;
