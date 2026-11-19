@@ -48,13 +48,20 @@ pub fn fill_quietly(body: &mut Value) {
 }
 
 /// Fills the body's origin: the folder the command works in, then what
-/// the checkout gives. Answers what it took from git, as key=value.
+/// the checkout gives: the checkout of the folder the origin names, such as
+/// the one an agent's hook reports, else of the folder the command runs
+/// in. Answers what it took from git, as key=value.
 fn fill_body(body: &mut Value) -> Vec<String> {
     let mut origin = match body.get("origin") {
         Some(Value::Object(map)) => map.clone(),
         _ => Map::new(),
     };
-    let found = from_git();
+    let found = match origin.get("folder").and_then(Value::as_str) {
+        Some(folder) if !folder.is_empty() => {
+            pinrail_runtime::checkout::of(std::path::Path::new(folder))
+        }
+        _ => from_git(),
+    };
     if missing(&origin, "folder")
         && let Some(folder) = found
             .as_ref()

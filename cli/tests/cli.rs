@@ -4923,6 +4923,53 @@ fn a_hook_posts_its_report_to_the_session_and_prints_nothing() {
 }
 
 #[test]
+fn a_hook_takes_its_repository_from_the_folder_the_agent_names() {
+    // agy runs its hooks in the folder of its hooks file, not the project's
+    let project = tempdir();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&*project)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    git(&["init", "-q", "-b", "fix/login"]);
+    git(&["remote", "add", "origin", "git@github.com:acme/api.git"]);
+    let folder = project.to_str().unwrap();
+    let mut input: serde_json::Value =
+        serde_json::from_str(&hook_input("antigravity", "session-start")).unwrap();
+    input["cwd"] = serde_json::json!(folder);
+    let posted = Arc::new(Mutex::new(Vec::new()));
+    let kept = posted.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        kept.lock().unwrap().push(body.to_string());
+        (204, String::new())
+    }));
+    let (code, _, _) = hook(
+        &["antigravity", "session-start"],
+        &input.to_string(),
+        &[
+            ("PINRAIL_URL", server.url.as_str()),
+            (
+                "ANTIGRAVITY_CONVERSATION_ID",
+                input["conversationId"].as_str().unwrap(),
+            ),
+        ],
+    );
+    assert_eq!(code, 0);
+    let body: serde_json::Value = serde_json::from_str(&posted.lock().unwrap()[0]).unwrap();
+    assert_eq!(body["origin"]["folder"], folder);
+    assert_eq!(body["origin"]["repo"], "acme/api");
+    assert_eq!(body["origin"]["ref"], "fix/login");
+}
+
+#[test]
 fn a_hook_that_reports_nothing_posts_nothing() {
     let server = MockServer::start(Box::new(|_, _, _| (204, String::new())));
     let url = [
