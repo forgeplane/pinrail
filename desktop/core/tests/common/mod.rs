@@ -178,14 +178,15 @@ pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
 }
 
 /// A stand-in for Claude Code: it writes its arguments and its run token
-/// into the folder it starts in, then exits with the code in the folder's
+/// into the folder it starts in, each file whole, then exits with the code in the folder's
 /// `exit` file, or waits.
 #[cfg(unix)]
 pub const STAND_IN_AGENT: &str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then echo "1.0.0 (stand-in)"; exit 0; fi
 echo "stand-in agent starting"
-printf '%s\n' "$@" > argv
-printf '%s' "$PINRAIL_RUN_TOKEN" > token
+# each written whole, then renamed, so a test never reads half of one
+printf '%s\n' "$@" > argv.part && mv argv.part argv
+printf '%s' "$PINRAIL_RUN_TOKEN" > token.part && mv token.part token
 if [ -f exit ]; then exit "$(cat exit)"; fi
 # with a file named listen, it writes each line it is sent to heard
 if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> heard; done; exit 0; fi
