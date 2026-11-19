@@ -9,5 +9,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   reporter: [["list"]],
+  // a CI runner gives the tests every core; Playwright's default is half
+  workers: process.env.CI ? "100%" : undefined,
   use: { headless: true, trace: "retain-on-failure" },
 });
