@@ -131,6 +131,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Messages you write to a session while it is not running are typed into
+  its terminal once you resume it in Pinrail.
 - With a session open, the sidebar marks only the session's own row, not
   Sessions as well.
 - A filter's search field keeps the focus when you open its menu by

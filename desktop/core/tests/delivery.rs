@@ -252,6 +252,56 @@ async fn a_message_held_for_half_an_hour_goes_to_the_queue() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_message_queued_while_the_session_was_stopped_is_typed_once_it_is_resumed() {
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    // a run that ends at once leaves a stopped session
+    std::fs::write(folder.join("exit"), "0").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    let run = started["run"]["id"].as_str().unwrap().to_string();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.state.runtime().message_route("claude-code", &session) != "queue"
+        || call(&app, "GET", &format!("/api/v1/runs/{run}"), None)
+            .await
+            .1["state"]
+            != "ended"
+    {
+        assert!(Instant::now() < deadline, "the run did not end");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    // written while nothing runs the session: it waits in the queue
+    let sent = send(&app, &session, "Use the v2 endpoint.").await;
+    assert_eq!(sent["route"], "queue");
+
+    // resumed in Pinrail, the agent listens, says it started, and is idle
+    std::fs::remove_file(folder.join("exit")).unwrap();
+    std::fs::write(folder.join("listen"), "").unwrap();
+    let (status, resumed) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{session}/resume"),
+        Some(json!({"cols": 80, "rows": 24})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{resumed}");
+    report(&app, &session, "started", json!({})).await;
+    let heard = file(folder.join("heard")).await;
+    assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
+    let typing = message_becomes(&app, &session, &sent["id"], |m| m["state"] == "typing").await;
+    assert_eq!(typing["route"], "type");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_session_pinrail_does_not_run_gets_its_messages_by_the_queue() {
     let app = linked().await;
     let (status, _) = call(
@@ -265,6 +315,20 @@ async fn a_session_pinrail_does_not_run_gets_its_messages_by_the_queue() {
     let sent = send(&app, "s-outside", "Use the v2 endpoint.").await;
     assert_eq!(sent["route"], "queue");
     assert_eq!(sent["state"], "queued");
+
+    // the session's reports leave it there, and announce no change of it
+    let mut notices = app.state.events().subscribe();
+    report(&app, "s-outside", "started", json!({})).await;
+    report(&app, "s-outside", "turn_ended", json!({"end": "done"})).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    while let Ok(notice) = notices.try_recv() {
+        assert_ne!(notice.kind, "session_message_state", "{notice:?}");
+    }
+    let still = message_becomes(&app, "s-outside", &sent["id"], |_| true).await;
+    assert_eq!(
+        (still["state"].as_str(), still["route"].as_str()),
+        (Some("queued"), Some("queue"))
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

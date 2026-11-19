@@ -288,13 +288,14 @@ impl Db {
         Ok(Deleted::Yes(event_id, deleted))
     }
 
-    /// The session's messages waiting to be typed into its run's terminal,
-    /// oldest first.
+    /// The session's messages that wait, oldest first, to be typed into its
+    /// run's terminal: those sent to be typed, and those the queue still
+    /// holds, sent while nothing ran the session or moved there since.
     pub fn messages_to_type(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<MessageRow>> {
         let conn = self.read();
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM session_messages
-             WHERE agent = ?1 AND session = ?2 AND route = 'type' AND state = 'queued'
+             WHERE agent = ?1 AND session = ?2 AND state = 'queued'
              ORDER BY id"
         ))?;
         stmt.query_map(params![agent, id], row_to_message)?

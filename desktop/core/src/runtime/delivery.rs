@@ -96,22 +96,25 @@ impl super::Runtime {
         let Some(first) = waiting.first() else {
             return Ok(());
         };
-        let Some(run) = self.typing_run(agent, session)? else {
-            for message in &waiting {
-                self.to_queue(agent, session, message.id)?;
+        // with no run to type into, those sent to be typed go to the queue;
+        // those there already stay as they are
+        let to_queue = |runtime: &Self| -> Result<(), RunError> {
+            for message in waiting
+                .iter()
+                .filter(|m| m.route.as_deref() == Some("type"))
+            {
+                runtime.to_queue(agent, session, message.id)?;
             }
-            return Ok(());
+            Ok(())
+        };
+        let Some(run) = self.typing_run(agent, session)? else {
+            return to_queue(self);
         };
         let presence = self.db.presence(agent, session)?;
         let hold = match presence.as_ref().map(|p| p.state.as_str()) {
             Some("working") => Some("working"),
             Some("needs_input") => Some("needs_input"),
-            Some("stopped") => {
-                for message in &waiting {
-                    self.to_queue(agent, session, message.id)?;
-                }
-                return Ok(());
-            }
+            Some("stopped") => return to_queue(self),
             _ => None,
         };
         if let Some(why) = hold {
