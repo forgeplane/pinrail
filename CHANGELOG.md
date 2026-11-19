@@ -153,6 +153,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A table in a message or note no longer splits short words, such as an
+  id or a time, across lines to make room for a long column.
 - A message typed into a session that Pinrail runs no longer shows as not
   confirmed when its agent's hooks are off. The agent starting work
   confirms it, and the next waiting message is typed when the turn ends.

@@ -47,3 +47,32 @@ test("a long reply keeps Show less while open, whatever the width", async ({ pag
   await thread.getByRole("button", { name: "Show less" }).click();
   await expect(thread.getByRole("button", { name: "Show more" })).toBeVisible();
 });
+
+test("a table in a reply breaks no word of a short column to make room for a long one", async ({ page }) => {
+  const session = fresh();
+  const long =
+    "Report status was on by then. `SessionStart` arrived 2.7 s after the start, the run was bound to " +
+    "session `58e14fd6…`, and its first turn finished.";
+  await replied(
+    page.request,
+    session,
+    `There were two attempts:\n\n| Run | Started | What happened |\n| --- | --- | --- |\n` +
+      `| \`run_01M7V062…\` | 00:52:37 | ${long} |\n| \`run_01M7V08A…\` | 00:53:50 | ${long} |`,
+  );
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const table = page.getByTestId("thread").locator("table");
+  await expect(table).toBeVisible();
+  // a cell whose text is one word is one line high, like the header's cells
+  const lines = (selector: string) =>
+    table
+      .locator(selector)
+      .first()
+      .evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      });
+  expect(await lines("tbody td:nth-child(1) code")).toBe(1);
+  expect(await lines("tbody td:nth-child(2)")).toBe(1);
+});

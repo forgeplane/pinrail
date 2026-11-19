@@ -4113,11 +4113,15 @@ body.is-resizing iframe {
 .thread-note-body table {
   border-collapse: collapse;
 }
+/* a cell breaks a word only when the word alone is wider than the
+   message, so a column of short words keeps them whole and a column of
+   long text wraps instead */
 .thread-note-body th,
 .thread-note-body td {
   padding: 3px 8px;
   border: 1px solid var(--border);
   text-align: left;
+  overflow-wrap: break-word;
 }
 .thread-note-body p {
   margin: 6px 0;
