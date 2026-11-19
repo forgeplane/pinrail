@@ -1560,12 +1560,12 @@ async fn each_change_is_announced_and_a_delete_too() {
 async fn a_review_that_expires_is_recorded_on_its_item() {
     let app = app();
     add(&app, "Work").await;
-    let soon = chrono::Utc::now() + chrono::Duration::seconds(1);
+    let soon = chrono::Utc::now() + chrono::Duration::milliseconds(300);
     let mut body = review("s-1", "Short-lived", Some(json!(["PIN-1"])));
-    body["expires_at"] = json!(soon.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    body["expires_at"] = json!(soon.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
     let (code, sent) = submit(&app, body).await;
     assert_eq!(code, StatusCode::CREATED, "{sent}");
-    std::thread::sleep(std::time::Duration::from_millis(2100));
+    std::thread::sleep(std::time::Duration::from_millis(400));
     app.state.reviews().sweep_expired().unwrap();
     let read = item(&app, "PIN-1").await;
     let ended = read["timeline"]

@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 use crate::frame::Frame;
+use crate::log::Log;
 use crate::outbox::Outbox;
 use serde_json::{Value, json};
 
@@ -13,6 +14,8 @@ const RECENT: usize = 1024;
 
 pub struct Events {
     inner: Mutex<Inner>,
+    /// `host.log`, where a subscriber that falls behind is noted
+    log: Option<Log>,
 }
 
 struct Inner {
@@ -30,11 +33,18 @@ impl Default for Events {
                 recent: VecDeque::new(),
                 subscriber: None,
             }),
+            log: None,
         }
     }
 }
 
 impl Events {
+    /// The events, noting in `log` each subscriber that falls behind.
+    pub fn logging_to(mut self, log: Log) -> Self {
+        self.log = Some(log);
+        self
+    }
+
     /// Sends an event to the subscriber, if any, and keeps it for a
     /// subscriber that resumes.
     pub fn emit(&self, method: &str, mut params: Value) {
@@ -42,12 +52,15 @@ impl Events {
         inner.seq += 1;
         params["seq"] = json!(inner.seq);
         let message = json!({"jsonrpc": "2.0", "method": method, "params": params});
-        if let Some((_, out)) = &inner.subscriber
+        if let Some((connection, out)) = &inner.subscriber
             && !out.event(&message)
         {
             // too many events wait unread: the subscriber is told, and
             // resubscribes for a new snapshot
             missed(out, inner.seq);
+            if let Some(log) = &self.log {
+                log.line(&format!("connection {connection} fell behind on events"));
+            }
             inner.subscriber = None;
         }
         let seq = inner.seq;

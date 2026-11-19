@@ -34,6 +34,17 @@ fn call(stream: &mut UnixStream, id: u64, method: &str, params: Value) {
     frame::write_blocking(stream, &Frame::json(&message)).unwrap();
 }
 
+/// Waits until `host.log` has a line with `text`, as the host notes what
+/// it did to a connection; fails after ten seconds.
+fn wait_for_log(folders: &common::Folders, text: &str) {
+    let log = folders.data.join("host/host.log");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !std::fs::read_to_string(&log).is_ok_and(|l| l.contains(text)) {
+        assert!(Instant::now() < deadline, "no {text:?} in the host's log");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 fn message(stream: &mut UnixStream) -> Option<Value> {
     let frame = frame::read_blocking(stream).ok()??;
     if frame.channel != 0 || frame.kind != kind::DATA {
@@ -118,9 +129,9 @@ fn a_subscriber_that_falls_behind_is_told_it_missed_events() {
         json!({"argv": ["awk", "BEGIN { for (i = 0; i < 150000; i++) printf \"\\033]0;title %d\\007\", i }"],
                "cwd": folders.runtime, "cols": 80, "rows": 24}),
     );
-    std::thread::sleep(Duration::from_secs(4));
+    wait_for_log(&folders, "fell behind on events");
     stream
-        .set_read_timeout(Some(Duration::from_secs(3)))
+        .set_read_timeout(Some(Duration::from_millis(500)))
         .unwrap();
     let mut titles = 0;
     let mut missed = false;
@@ -167,7 +178,7 @@ fn a_connection_that_reads_no_replies_is_closed() {
     }
     // while nothing is read, the host closes the connection rather than
     // keep the replies
-    std::thread::sleep(Duration::from_secs(5));
+    wait_for_log(&folders, "read none of its replies");
     let mut buf = vec![0u8; 1 << 20];
     // macOS refuses the option on a socket the other side reset
     let reset = stream

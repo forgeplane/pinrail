@@ -193,7 +193,7 @@ async fn run(
         terminals: Mutex::new(BTreeMap::new()),
         probe: Probe::default(),
         context: terminal::Context {
-            events: Arc::new(Events::default()),
+            events: Arc::new(Events::default().logging_to(Log::open(&paths.log()))),
             records: Arc::new(Records::open(paths.host_dir.join("terminals.json"))),
             screens: paths.host_dir.join("screens"),
             controlled: Arc::new(AtomicBool::new(false)),
@@ -449,6 +449,7 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
                 break;
             }
             () = out.overflowed() => {
+                shared.log.line(&format!("connection {id} closed: it read none of its replies"));
                 overflowed = true;
                 break;
             }
