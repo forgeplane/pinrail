@@ -45,6 +45,8 @@ function fitInWindow(node: HTMLElement | null) {
 /** The state and parts of an options menu anchored under `anchor`. */
 export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   const menu = useRef<HTMLDivElement>(null);
+  // the open submenu's search field, if it has one
+  const search = useRef<HTMLInputElement>(null);
   const [open, setOpenKey] = useState<string | null>(null);
   // what is typed in a searchable submenu
   const [query, setQueryText] = useState("");
@@ -152,6 +154,9 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
             if (waiting.current) window.clearTimeout(waiting.current.timer);
             waiting.current = null;
             setOpen(key);
+            // the click focused this row: a search the pointer opened
+            // before it takes the focus back
+            if (open === key) search.current?.focus();
           }}
         >
           {text}
@@ -167,6 +172,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
           >
             {searchable && all.length ? (
               <input
+                ref={search}
                 autoFocus
                 className="select-search"
                 type="text"

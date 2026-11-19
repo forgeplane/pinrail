@@ -250,6 +250,14 @@ test("the project or repository filter narrows its choices to what is typed", as
   await openScope();
   const search = page.getByRole("textbox", { name: "Filter project or repository" });
   await expect(search).toBeFocused();
+  // and keeps it when the pointer opened it before the click
+  await page.keyboard.press("Escape");
+  await filter.click();
+  const row = page.getByRole("menuitem", { name: /^Project or repository/ });
+  await row.hover();
+  await expect(search).toBeFocused();
+  await row.click();
+  await expect(search).toBeFocused();
   await search.fill(`${tag}/we`);
   await expect(choices.locator(".menu-label")).toHaveText([web]);
 

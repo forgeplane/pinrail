@@ -131,6 +131,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A filter's search field keeps the focus when you open its menu by
+  pointing at it and then click it.
 - A message typed in a session's message box stays there when you open
   another page or session and come back.
 - A session's terminal no longer touches the left edge of its view.
