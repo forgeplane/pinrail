@@ -318,15 +318,11 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
-    use std::os::unix::fs::PermissionsExt;
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
     // Claude Code is installed and Codex is not
     let bin = hosts.path().join("versions");
-    std::fs::create_dir_all(&bin).unwrap();
-    let claude = bin.join("claude");
-    std::fs::write(&claude, "#!/bin/sh\necho '2.1.325 (Claude Code)'\n").unwrap();
-    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -426,23 +422,18 @@ async fn recent_folders_come_most_recent_first_with_their_repository_and_branch(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
-    use std::os::unix::fs::PermissionsExt;
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
     // the stand-in Claude Code counts each time its version is read
     let bin = hosts.path().join("counting");
-    std::fs::create_dir_all(&bin).unwrap();
     let checks = hosts.path().join("checks");
-    let claude = bin.join("claude");
-    std::fs::write(
-        &claude,
-        format!(
-            "#!/bin/sh\necho x >> '{}'\necho '2.1.325 (Claude Code)'\n",
-            checks.display()
-        ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // it counts beside the folder it is run from, so the script stays the
+    // same for every run of the test
+    common::program(
+        &bin,
+        "claude",
+        "echo x >> \"$(dirname \"$0\")/../checks\"\necho '2.1.325 (Claude Code)'",
+    );
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config

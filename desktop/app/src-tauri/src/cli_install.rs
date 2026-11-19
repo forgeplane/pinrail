@@ -698,14 +698,19 @@ mod tests {
         // a start-up file that leaves something running holds the shell's
         // output open: the answer is in by the command line, not at its end
         use std::os::unix::fs::PermissionsExt;
-        let dir = tempfile::tempdir().unwrap();
-        let shell = dir.path().join("slow-shell");
-        std::fs::write(
-            &shell,
-            format!("#!/bin/sh\nprintf '\\n{PATH_MARK}/usr/bin\\n{COMMAND_MARK}/usr/local/bin/pinrail\\n'\nexec sleep 10\n"),
-        )
-        .unwrap();
-        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // written once, in a folder that outlives the test: macOS scans a
+        // new executable the first time it runs, longer than a shell has
+        let content = format!(
+            "#!/bin/sh\nprintf '\\n{PATH_MARK}/usr/bin\\n{COMMAND_MARK}/usr/local/bin/pinrail\\n'\nexec sleep 10\n"
+        );
+        let shell = std::env::temp_dir().join("pinrail-test-slow-shell");
+        if std::fs::read_to_string(&shell).ok().as_deref() != Some(content.as_str()) {
+            // written beside it and renamed, as another run may run it meanwhile
+            let fresh = shell.with_extension(std::process::id().to_string());
+            std::fs::write(&fresh, &content).unwrap();
+            std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
+            std::fs::rename(&fresh, &shell).unwrap();
+        }
 
         let started = std::time::Instant::now();
         let view = ask_shell(shell.to_str().unwrap()).expect("the shell answered");

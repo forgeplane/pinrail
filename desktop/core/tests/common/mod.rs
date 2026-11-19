@@ -193,6 +193,32 @@ if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> hear
 exec sleep 600
 "#;
 
+/// Links `name` in `dir` to a script that runs `script`, written once for
+/// its content under Cargo's target folder: macOS scans a new executable
+/// for about 25 seconds the first time it runs, longer than a program has
+/// to print its version.
+#[cfg(unix)]
+pub fn program(dir: &std::path::Path, name: &str, script: &str) {
+    use std::hash::{Hash, Hasher};
+    use std::os::unix::fs::PermissionsExt;
+    let content = format!("#!/bin/sh\n{script}\n");
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    content.hash(&mut hasher);
+    let kept = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("programs")
+        .join(format!("{:016x}", hasher.finish()));
+    if !kept.is_file() {
+        std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+        // written beside it and renamed, as other tests may run it meanwhile
+        let fresh = kept.with_extension(std::process::id().to_string());
+        std::fs::write(&fresh, content).unwrap();
+        std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::rename(&fresh, &kept).unwrap();
+    }
+    std::fs::create_dir_all(dir).unwrap();
+    std::os::unix::fs::symlink(&kept, dir.join(name)).unwrap();
+}
+
 /// Links the stand-in agent as `claude` into `dir/bin`, and returns the
 /// `PATH` that finds it.
 ///

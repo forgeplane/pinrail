@@ -78,10 +78,27 @@ mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
+    /// Links `name` in `dir` to a script that runs `script`. The script is
+    /// written once for its content, in a folder that outlives the test:
+    /// macOS scans a new executable the first time it runs, which can take
+    /// longer than a program has to print its version.
     fn program(dir: &Path, name: &str, script: &str) {
-        let path = dir.join(name);
-        std::fs::write(&path, format!("#!/bin/sh\n{script}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        use std::hash::{Hash, Hasher};
+        let content = format!("#!/bin/sh\n{script}\n");
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        content.hash(&mut hasher);
+        let kept = std::env::temp_dir()
+            .join("pinrail-test-programs")
+            .join(format!("{:016x}", hasher.finish()));
+        if !kept.is_file() {
+            std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+            // written beside it and renamed, as another test may run it meanwhile
+            let fresh = kept.with_extension(std::process::id().to_string());
+            std::fs::write(&fresh, content).unwrap();
+            std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
+            std::fs::rename(&fresh, &kept).unwrap();
+        }
+        std::os::unix::fs::symlink(&kept, dir.join(name)).unwrap();
     }
 
     #[test]
@@ -133,15 +150,15 @@ mod tests {
     fn the_version_is_asked_in_the_temporary_folder() {
         let dir = tempfile::tempdir().unwrap();
         let said = dir.path().join("folder");
-        program(
-            dir.path(),
-            "claude",
-            &format!("pwd -P > '{}'; echo 1.0", said.display()),
-        );
-        let env = vec![(
-            "PATH".to_string(),
-            dir.path().to_string_lossy().into_owned(),
-        )];
+        // where to write is in the environment, so the script stays the same
+        program(dir.path(), "claude", "pwd -P > \"$SAID\"; echo 1.0");
+        let env = vec![
+            (
+                "PATH".to_string(),
+                dir.path().to_string_lossy().into_owned(),
+            ),
+            ("SAID".to_string(), said.to_string_lossy().into_owned()),
+        ];
         find(&["claude".into()], &env);
         let folder = std::fs::read_to_string(&said).unwrap();
         assert_eq!(
