@@ -820,12 +820,23 @@ fn a_discard_reason_cannot_drive_the_terminal() {
 
 #[test]
 fn a_slow_answer_is_not_reported_as_an_app_that_is_not_running() {
-    // the app is there and takes its time: past the CLI's 15 seconds
+    // the app is there and takes its time: past the CLI's limit, here
+    // shortened to a second
     let server = MockServer::start(Box::new(|_, _, _| {
-        std::thread::sleep(std::time::Duration::from_secs(17));
+        std::thread::sleep(std::time::Duration::from_secs(2));
         (200, review("pending"))
     }));
-    let (code, _, stderr) = run(&server, &["show", "r_1"]);
+    let out = pinrail()
+        .args(["show", "r_1"])
+        .current_dir(std::env::temp_dir())
+        .env("PINRAIL_URL", &server.url)
+        .env("PINRAIL_REQUEST_TIMEOUT", "1")
+        .output()
+        .unwrap();
+    let (code, stderr) = (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    );
     assert_eq!(code, 1, "{stderr}");
     assert!(stderr.contains("did not finish answering"), "{stderr}");
     assert!(!stderr.contains("open the Pinrail app"), "{stderr}");

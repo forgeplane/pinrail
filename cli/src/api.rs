@@ -146,9 +146,18 @@ impl Client {
     /// after a restart is abandoned within `POLL_SECS + 5`, not minutes.
     pub const POLL_SECS: u64 = 15;
 
+    /// How long a request may take: 15 seconds, or the seconds the
+    /// undocumented PINRAIL_REQUEST_TIMEOUT sets, which the tests shorten.
+    fn request_timeout() -> Duration {
+        std::env::var("PINRAIL_REQUEST_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .map_or(Duration::from_secs(15), Duration::from_secs)
+    }
+
     pub fn new(base: &str) -> Self {
         Client {
-            agent: Self::agent(Duration::from_secs(15)),
+            agent: Self::agent(Self::request_timeout()),
             base: base.trim_end_matches('/').to_string(),
             person: None,
         }
