@@ -1,7 +1,7 @@
 // The bridge between the app and a plugin's view, with a stand-in view in a
 // real frame: it says it is ready, shows the review it is given, answers a
 // request for its decision, and shows what the app says back.
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Review } from "../api/types";
@@ -48,7 +48,7 @@ function View({
   readonly?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  const src = useRef(URL.createObjectURL(new Blob([VIEW], { type: "text/html" }))).current;
+  const [src] = useState(() => URL.createObjectURL(new Blob([VIEW], { type: "text/html" })));
   const bridge = usePluginBridge({
     frame,
     reviewId: review.id,
