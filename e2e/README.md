@@ -104,6 +104,8 @@ mise run e2e:shell               # the app suites
 cd e2e && npm install && npx playwright install chromium && npm test
 ```
 
-Add `--headed` to watch the browser. The traces of failed tests are saved in
-`test-results/`. To test a particular binary instead of a fresh debug build,
-set `PINRAIL_CLI` or `PINRAIL_DESKTOP_BIN`.
+Add `--headed` to watch the browser. No trace is recorded unless you ask for
+one: add `--trace retain-on-failure` to keep the traces of failed tests in
+`test-results/`. In CI, a test that fails runs again with a trace. To test a
+particular binary instead of a fresh debug build, set `PINRAIL_CLI` or
+`PINRAIL_DESKTOP_BIN`.

@@ -254,8 +254,9 @@ jobs:
         env:
           SHELL_SHARDS: 3
         run: node run-shell.mjs
-      # The traces of failed attempts, kept also when a retry passed, so a
-      # flaky test can be looked into. A run where nothing failed has none.
+      # The traces of the tests that ran again after a failure, kept also
+      # when the retry passed, so a flaky test can be looked into. A run
+      # where nothing failed has none.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

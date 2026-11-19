@@ -59,7 +59,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${uiPort}`,
     headless: true,
-    trace: "retain-on-failure",
+    // recording a trace slows every test, so CI records one only when a
+    // test runs again after a failure, and a local run with --trace
+    trace: process.env.CI ? "on-first-retry" : "off",
     // the app's endless animations stop, as they do for a person who asks
     // for less motion, so they do not keep the browsers of every shard busy
     contextOptions: { reducedMotion: "reduce" },
