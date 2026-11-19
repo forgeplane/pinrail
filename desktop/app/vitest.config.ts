@@ -1,7 +1,7 @@
 // Unit tests for the UI's pure logic: formatting, key handling, how events
-// change the pending list. Components are tested end to end, in a real
-// browser against the real core (e2e/shell), so these tests run in Node,
-// with no DOM.
+// change the pending list. They run in Node, with no DOM. Components are
+// tested in a browser: against a fake core with vitest.browser.config.ts
+// (ui/src/testing/), and end to end against the real core (e2e/shell).
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
