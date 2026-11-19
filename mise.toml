@@ -185,8 +185,18 @@ run = [
 ]
 
 [tasks.test]
-description = "Every suite: the desktop core and UI, the CLI, the SDK, the plugins, end to end"
-depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "test:examples", "e2e", "e2e:shell"]
+description = "Every suite, one after another: the desktop core and UI, the CLI, the SDK, the plugins, end to end"
+# in turn, not side by side: each suite runs its own tests in parallel, and
+# suites sharing the CPUs and cargo's lock made the timing tests flaky
+run = [
+  { task = "test:desktop" },
+  { task = "test:cli" },
+  { task = "test:sdk" },
+  { task = "test:plugins" },
+  { task = "test:examples" },
+  { task = "e2e" },
+  { task = "e2e:shell" },
+]
 
 [tasks."docs:generate"]
 description = "The docs' generated reference pages: the CLI's from its own definition, the settings and the manifest from the core's tables"
