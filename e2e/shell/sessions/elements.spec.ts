@@ -85,9 +85,7 @@ test("a session with a rare element no session had announces its discovery", asy
   await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.generated_name}.`)).toBeVisible();
 });
 
-test("the periodic table lights a session's element, describes it, and a click lists its sessions", async ({
-  page,
-}) => {
+test("the periodic table lights a session's element, describes it, and a click keeps its card", async ({ page }) => {
   const session = `s-table-${Date.now()}`;
   await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
     data: { kind: "start", text: "Fill the table" },
@@ -100,9 +98,7 @@ test("the periodic table lights a session's element, describes it, and a click l
   };
   const element = elements[s.element - 1];
 
-  await page.goto("/#/sessions");
-  await page.getByRole("tab", { name: "Periodic table" }).click();
-  await expect(page).toHaveURL(/view=table/);
+  await page.goto("/#/elements");
   const cell = page.getByRole("button", { name: new RegExp(`^${element.name}, \\d+ sessions?$`) });
   await cell.hover();
   const table = page.getByRole("region", { name: "Periodic table of sessions" });
@@ -116,10 +112,34 @@ test("the periodic table lights a session's element, describes it, and a click l
     await expect(table).not.toContainText(elements[unfound].description);
   }
 
-  // a click lists the sessions named after it
+  // a click keeps the element's card after the pointer leaves the table,
+  // so that its sessions can be opened from the card
   await cell.click();
-  await expect(page).toHaveURL(new RegExp(`element=${s.element}`));
-  await expect(page).not.toHaveURL(/view=table/);
-  // (other specs name sessions meanwhile, so it does not count them)
-  await expect(page.getByTestId("session-row").filter({ hasText: "Fill the table" })).toHaveCount(1);
+  await expect(page).toHaveURL(/#\/elements$/);
+  await page.getByText(/elements discovered/).hover();
+  await expect(table).toContainText(element.description);
+  await table.getByRole("link", { name: "Fill the table" }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
+});
+
+test("the periodic table opens from the command palette over the whole window, and returns to the page before", async ({
+  page,
+}) => {
+  await page.request.post(`${core}/api/v1/sessions/claude-code/s-palette-${Date.now()}/status`, {
+    data: { kind: "start", text: "Open the table" },
+  });
+  await page.goto("/#/sessions");
+  await expect(page.getByTestId("session-row").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Periodic table" })).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Search" });
+  await palette.getByRole("textbox").fill("periodic");
+  await palette.getByRole("option", { name: /Show the periodic table/ }).click();
+  await expect(page).toHaveURL(/#\/elements$/);
+  await expect(page.getByRole("region", { name: "Periodic table of sessions" })).toBeVisible();
+  // it takes the whole window
+  await expect(page.getByRole("link", { name: "Inbox" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to the app" }).click();
+  await expect(page).toHaveURL(/#\/sessions$/);
+  await expect(page.getByRole("link", { name: "Inbox" }).first()).toBeVisible();
 });

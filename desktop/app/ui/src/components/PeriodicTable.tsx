@@ -3,7 +3,9 @@
 // sessions it named; the others are faint, a question mark in the place of
 // their symbol. The space above the transition metals, where a printed
 // table has its key, holds the card of the element pointed at: what it is,
-// one sentence about it, and the sessions named after it.
+// one sentence about it, and the sessions named after it. A click on an
+// element keeps its card there while the pointer is elsewhere, so that its
+// sessions can be opened from the card.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -23,9 +25,8 @@ const RARITY_LABEL: Record<Element["rarity"], string> = {
   legendary: "Legendary",
 };
 
-/** The table, loaded again each time `changed` moves on; a click on a
- *  discovered element calls `onPick` with its atomic number. */
-export function PeriodicTable({ changed, onPick }: { changed: number; onPick: (element: number) => void }) {
+/** The table, loaded again each time `changed` moves on. */
+export function PeriodicTable({ changed }: { changed: number }) {
   const [elements, setElements] = useState<Element[] | null>(null);
   useEffect(() => {
     let current = true;
@@ -37,8 +38,11 @@ export function PeriodicTable({ changed, onPick }: { changed: number; onPick: (e
       current = false;
     };
   }, [changed]);
-  // the element pointed at or focused, whose card the table shows
-  const [shown, setShown] = useState<number | null>(null);
+  // the element pointed at or focused, whose card the table shows, and
+  // the one clicked, whose card it shows otherwise
+  const [pointed, setPointed] = useState<number | null>(null);
+  const [kept, setKept] = useState<number | null>(null);
+  const shown = pointed ?? kept;
   if (!elements) return null;
 
   const found = (e: Element) => (e.sessions ?? 0) > 0;
@@ -64,19 +68,19 @@ export function PeriodicTable({ changed, onPick }: { changed: number; onPick: (e
           })}
         </span>
       </div>
-      <div className="ptable-grid" onMouseLeave={() => setShown(null)}>
-        <div className="ptable-inset" aria-live="polite">
+      <div className="ptable-grid" onMouseLeave={() => setPointed(null)}>
+        <div className="ptable-inset" aria-live="polite" onMouseEnter={() => kept !== null && setPointed(null)}>
           {card ? (
             <ElementInset element={card} />
           ) : (
-            <p className="ptable-hint">Point at an element to read about it.</p>
+            <p className="ptable-hint">Point at an element to read about it, or click it to keep its card.</p>
           )}
         </div>
         {elements.map((e) => (
           <button
             key={e.number}
             type="button"
-            className={`ptable-cell is-${categoryClass(e.category)} is-${e.rarity} ${found(e) ? "is-found" : "is-unfound"} ${shown === e.number ? "is-shown" : ""}`}
+            className={`ptable-cell is-${categoryClass(e.category)} is-${e.rarity} ${found(e) ? "is-found" : "is-unfound"} ${shown === e.number ? "is-shown" : ""} ${kept === e.number ? "is-kept" : ""}`}
             // the lanthanides and actinides below the table, a row apart
             style={{ gridRow: e.row > 7 ? e.row + 1 : e.row, gridColumn: e.column }}
             aria-label={
@@ -84,10 +88,12 @@ export function PeriodicTable({ changed, onPick }: { changed: number; onPick: (e
                 ? `${e.name}, ${e.sessions} ${e.sessions === 1 ? "session" : "sessions"}`
                 : `Element ${e.number}, not discovered`
             }
+            aria-pressed={kept === e.number}
             data-testid="ptable-cell"
-            onMouseEnter={() => setShown(e.number)}
-            onFocus={() => setShown(e.number)}
-            onClick={() => found(e) && onPick(e.number)}
+            onMouseEnter={() => setPointed(e.number)}
+            onFocus={() => setPointed(e.number)}
+            onBlur={() => setPointed(null)}
+            onClick={() => setKept((k) => (k === e.number ? null : e.number))}
           >
             <span className="ptable-number">{e.number}</span>
             {(e.sessions ?? 0) > 1 ? <span className="ptable-sessions">{e.sessions}</span> : null}

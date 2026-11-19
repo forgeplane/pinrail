@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Atom,
   ArrowRight,
   Ban,
   Blocks,
@@ -55,6 +56,10 @@ import { useLatest } from "../lib/useLatest";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
+
+/** The pages that take the whole window, with no sidebar: their bar has a
+ *  link back to the page they were opened from. */
+const FULL_PAGES: Record<string, string> = { "/elements": "Periodic table" };
 
 const pageTitle = (path: string) =>
   path === "/"
@@ -257,6 +262,7 @@ export function Layout({ children }: { children: ReactNode }) {
       run: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
     })),
     fromCommand("go-plugins", Blocks),
+    { id: "periodic-table", label: "Show the periodic table", icon: Atom, run: () => void navigate("/elements") },
     {
       ...fromCommand("toggle-theme", SunMoon),
       label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",
@@ -304,6 +310,13 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
 
   const sidebarWidth = useSidebarWidth();
+  const fullPage = FULL_PAGES[location.pathname];
+  // the page a full page was opened from, or the session list when it was
+  // opened first, as after a reload
+  const leaveFullPage = () => {
+    if ((window.history.state as { idx?: number } | null)?.idx) void navigate(-1);
+    else void navigate("/sessions");
+  };
 
   // declared last, so it runs after the effects that listen for the app's
   // keys, here and in the page inside: from then on a key press is heard,
@@ -314,10 +327,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}
+      className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar && !fullPage ? "" : "sidebar-closed"}`}
       style={{ "--sidebar-width": `${sidebarWidth.width}px` } as CSSProperties}
     >
-      {sidebar ? (
+      {sidebar && !fullPage ? (
         <Sidebar
           width={sidebarWidth}
           toggle={sidebarButton}
@@ -331,20 +344,32 @@ export function Layout({ children }: { children: ReactNode }) {
       ) : null}
       <div className="app-shell">
         <header className="app-topbar" data-tauri-drag-region data-testid="top-bar">
-          {sidebar ? null : sidebarButton}
-          <span className="topbar-history">
-            <Tooltip label="Back" keys={[MOD, "["]}>
-              <button type="button" className="bar-button" onClick={() => navigate(-1)} aria-label="Back">
-                <ArrowLeft size={16} />
+          {fullPage ? (
+            <>
+              <button type="button" className="bar-button topbar-leave" onClick={leaveFullPage}>
+                <ArrowLeft size={16} aria-hidden="true" />
+                Back to the app
               </button>
-            </Tooltip>
-            <Tooltip label="Forward" keys={[MOD, "]"]}>
-              <button type="button" className="bar-button" onClick={() => navigate(1)} aria-label="Forward">
-                <ArrowRight size={16} />
-              </button>
-            </Tooltip>
-          </span>
-          {topbar?.crumb ?? <span className="topbar-title">{pageTitle(location.pathname)}</span>}
+              <span className="topbar-title">{fullPage}</span>
+            </>
+          ) : (
+            <>
+              {sidebar ? null : sidebarButton}
+              <span className="topbar-history">
+                <Tooltip label="Back" keys={[MOD, "["]}>
+                  <button type="button" className="bar-button" onClick={() => navigate(-1)} aria-label="Back">
+                    <ArrowLeft size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Forward" keys={[MOD, "]"]}>
+                  <button type="button" className="bar-button" onClick={() => navigate(1)} aria-label="Forward">
+                    <ArrowRight size={16} />
+                  </button>
+                </Tooltip>
+              </span>
+              {topbar?.crumb ?? <span className="topbar-title">{pageTitle(location.pathname)}</span>}
+            </>
+          )}
           <Tooltip label="Keyboard shortcuts" keys={["?"]}>
             <button type="button" className="bar-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
               <Keyboard size={16} />

@@ -27,9 +27,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Every session has a name of its own, an adjective and a chemical element
   such as **Careful Calcium**. A session with no stage yet shows it, and
   its header shows the element's tile, with a card about the element on
-  hover. Click a session's name in its header to rename it. The Sessions
-  page's **Periodic table** shows which elements your sessions have
-  found, and the first session to find a rare one announces it.
+  hover. Click a session's name in its header to rename it. **Show the
+  periodic table** in the command palette shows which elements your
+  sessions have found. Click an element to keep its card open. The first
+  session to find a rare element announces it.
 - Settings › Appearance chooses how tables look in messages, notes and
   work item descriptions: bordered, with lines between rows, or striped.
   **Table width** makes them fit their content or fill the full width.

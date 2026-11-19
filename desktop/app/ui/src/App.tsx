@@ -9,6 +9,7 @@ import { rememberPage } from "./lib/pageMemory";
 import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { SessionScreen, Sessions } from "./screens/Sessions";
+import { Elements } from "./screens/Elements";
 import { NEW_SESSION_PATH, NewSession } from "./components/NewSession";
 import { WorkItems } from "./screens/WorkItems";
 import { LiveProvider } from "./state/live";
@@ -45,6 +46,7 @@ function Shell() {
           <Route path="/sessions/:agent/:id" element={<SessionScreen />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/items" element={<WorkItems />} />
+          <Route path="/elements" element={<Elements />} />
           <Route path="/plugins" element={<Navigate to="/" replace state={{ settings: "plugins" }} />} />
         </Routes>
       </ErrorBoundary>
