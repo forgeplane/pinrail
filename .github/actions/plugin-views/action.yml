@@ -1,0 +1,35 @@
+# The view/ of each plugin in plugins/ that has a build of its own, from the
+# cache when the plugins' sources are unchanged, else built with
+# scripts/build-plugins.sh. Only main saves, as with the other caches.
+name: plugin views
+description: Restore or build the views of the plugins that have a build
+runs:
+  using: composite
+  steps:
+    # the built plugins' view folders: only theirs, since the others commit
+    # their view/
+    - name: Find the plugins with a build
+      id: built
+      shell: bash
+      run: |
+        {
+          echo "paths<<EOF"
+          for dir in plugins/*/; do
+            [ -f "$dir/package.json" ] && [ -f "$dir/manifest.json" ] && echo "${dir}view"
+          done
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+    - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      id: views
+      with:
+        path: ${{ steps.built.outputs.paths }}
+        key: plugin-views-${{ runner.os }}-${{ hashFiles('plugins/*/package.json', 'plugins/*/package-lock.json', 'plugins/*/src/**', 'plugins/*/vite.config.*', 'plugins/*/tsconfig.json', 'plugins/*/*.d.ts', 'scripts/build-plugins.sh') }}
+    - name: Build the plugins
+      if: steps.views.outputs.cache-hit != 'true'
+      shell: bash
+      run: sh scripts/build-plugins.sh
+    - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: github.ref == 'refs/heads/main' && steps.views.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.built.outputs.paths }}
+        key: ${{ steps.views.outputs.cache-primary-key }}

@@ -170,9 +170,9 @@ jobs:
           workspaces: |
             desktop
             cli
-      # the plugins with a build of their own, whose view/ the core embeds
-      - name: Build the plugins
-        run: sh scripts/build-plugins.sh
+      # the plugins with a build of their own, whose view/ the core embeds,
+      # from the cache while their sources are unchanged
+      - uses: ./.github/actions/plugin-views # zizmor: ignore[self-repository]
       # the app crate embeds dist/ at compile time
       - name: Build the shell
         working-directory: desktop/app
@@ -312,6 +312,14 @@ jobs:
             fi
             pinrail plugins check "$dir"
           done
+      # the browsers the SDK's, the new plugins' and the plugins' tests
+      # download, kept while the lock files that pick them are unchanged;
+      # only main saves
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: plugin-browsers-${{ hashFiles('sdk/package-lock.json', 'plugins/package-lock.json', 'docs/examples/ship-it/*/package-lock.json') }}
       - name: pinrail-sdk tests
         working-directory: sdk
         run: |
@@ -332,9 +340,9 @@ jobs:
             pinrail plugins check "$dir"
           done
       # the plugins with a build of their own, which the check and their
-      # tests read as the app would
-      - name: Build the plugins
-        run: sh scripts/build-plugins.sh
+      # tests read as the app would, from the cache while their sources are
+      # unchanged
+      - uses: ./.github/actions/plugin-views # zizmor: ignore[self-repository]
       - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do
@@ -365,6 +373,11 @@ jobs:
             pinrail plugins check "$dir"
           done
           node --test same.test.mjs
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.ref == 'refs/heads/main' && steps.browsers.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.browsers.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
