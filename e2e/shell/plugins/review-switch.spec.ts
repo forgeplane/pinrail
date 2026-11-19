@@ -26,9 +26,14 @@ function bundlesLoaded(page: Page) {
   };
 }
 
+// on every worker that runs a test of this file, since each has a core of
+// its own
+test.beforeAll(async ({ request }) => {
+  await linkPlugin(request, hello, "hello");
+});
+
 test("switching to a review of another plugin loads that plugin's view, and only that one", async ({ page }) => {
   await clearInbox(page.request);
-  await linkPlugin(page.request, hello, "hello");
 
   const list = await createReview(page.request, {
     plugin: "list",
