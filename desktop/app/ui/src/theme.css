@@ -8636,13 +8636,22 @@ a.item-ref {
   border-radius: 5px;
   background: var(--bg);
 }
-/* in a header, in the avatar's place */
-/* in a header, in the avatar's place, as tall as its two rows */
+/* in a header, in the avatar's place, as tall as its two rows, with the
+   symbol and the number sized for that box */
 .thread-head > .element-tile {
   grid-area: avatar;
   align-self: stretch;
   width: 42px;
   height: auto;
+}
+.thread-head > .element-tile .element-tile-symbol {
+  padding-top: 7px;
+  font-size: 18px;
+}
+.thread-head > .element-tile .element-tile-number {
+  top: 4px;
+  left: 5px;
+  font-size: 9px;
 }
 
 .element-tile.is-alkali-metal,
