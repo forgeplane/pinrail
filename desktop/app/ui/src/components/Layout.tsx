@@ -305,6 +305,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const sidebarWidth = useSidebarWidth();
 
+  // declared last, so it runs after the effects that listen for the app's
+  // keys, here and in the page inside: from then on a key press is heard,
+  // which the end-to-end tests wait for before they press one
+  useEffect(() => {
+    document.documentElement.dataset.ready = "true";
+  }, []);
+
   return (
     <div
       className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}

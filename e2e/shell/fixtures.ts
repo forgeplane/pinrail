@@ -17,6 +17,15 @@ export const test = base.extend({
   page: async ({ page, playwright }, use) => {
     const request = await playwright.request.newContext({ extraHTTPHeaders: asPerson });
     Object.defineProperty(page, "request", { get: () => request });
+    // the app renders after an awaited call and listens for keys from its
+    // effects: going to one of its pages waits until it does, so that a
+    // key pressed next is not lost
+    const goto = page.goto.bind(page);
+    page.goto = async (url, options) => {
+      const response = await goto(url, options);
+      if (url === "/" || url.startsWith("/#")) await page.locator("html[data-ready]").waitFor({ state: "attached" });
+      return response;
+    };
     await use(page);
     await request.dispose();
   },
