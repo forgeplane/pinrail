@@ -107,15 +107,19 @@ test("⌘K finds the stages agents started, and opens the thread at one", async 
 test("⌘K finds a session by its name, with the stage it is on", async ({ page }) => {
   const session = `s-named-${Date.now()}`;
   const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
-    data: { text: "Tidy the palette", kind: "start", origin: { repo: "acme/api" } },
+    data: { text: `Tidy the palette ${session}`, kind: "start", origin: { repo: "acme/api" } },
   });
   expect(response.status(), await response.text()).toBe(200);
   const name = await sessionName(page.request, "claude-code", session);
   await page.goto("/#/");
   await page.keyboard.press("ControlOrMeta+k");
-  await page.keyboard.type(name);
-  const found = page.getByRole("option").filter({ hasText: name });
-  await expect(found.first()).toContainText("Tidy the palette");
-  await found.first().click();
+  await page.getByRole("dialog", { name: "Search" }).getByRole("textbox").fill(name);
+  // names are not unique, so other sessions of the core may share this one
+  const found = page
+    .getByRole("option")
+    .filter({ hasText: name })
+    .filter({ hasText: `Tidy the palette ${session}` });
+  await expect(found).toHaveCount(1);
+  await found.click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
 });
