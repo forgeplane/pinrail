@@ -8,7 +8,8 @@
 //
 // Then `core.answer("items", { items: [...] })` sets what `api.items()`
 // resolves to, `core.calls("patchItem")` lists what a component sent, and
-// `core.notice({ kind: "item_changed", ... })` delivers a notice. A method
+// `core.notice({ kind: "item_changed", ... })` delivers a notice, and
+// `core.drop()` and `core.reopen()` break the stream and open it again. A method
 // with no answer never resolves, so a component stays loading rather than
 // failing on an answer the test did not mean to give.
 
@@ -22,7 +23,7 @@ type Answer = unknown | ((...args: unknown[]) => unknown);
 
 const answers = new Map<string, Answer>();
 const mocks = new Map<string, Mock>();
-const streams = new Set<{ onNotice: (notice: Notice) => void; onOpen?: () => void }>();
+const streams = new Set<{ onNotice: (notice: Notice) => void; onOpen?: () => void; onError?: () => void }>();
 
 const mockOf = (name: string): Mock => {
   let mock = mocks.get(name);
@@ -53,6 +54,14 @@ export const core = {
   /** Delivers a notice to every open event stream. */
   notice(notice: Notice) {
     for (const stream of streams) stream.onNotice(notice);
+  },
+  /** Breaks every open event stream, as when the core goes away. */
+  drop() {
+    for (const stream of streams) stream.onError?.();
+  },
+  /** Opens every event stream again, as when the core comes back. */
+  reopen() {
+    for (const stream of streams) stream.onOpen?.();
   },
   /** Forgets the answers and calls, between tests. */
   reset() {
