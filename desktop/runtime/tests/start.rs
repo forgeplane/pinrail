@@ -50,6 +50,27 @@ fn codex_starts_without_its_daemon_and_learns_its_session_later() {
 }
 
 #[test]
+fn antigravity_starts_with_its_task_and_learns_its_conversation_later() {
+    let agy = adapter("antigravity").unwrap();
+    // a bare argument is ignored: the task goes with --prompt-interactive,
+    // as one argument, so a task that starts with - is never a flag
+    let extra = args(&["--model", "gemini-4-neon"]);
+    let plan = agy.start(&request(Some("-fix the login"), &extra)).unwrap();
+    assert_eq!(
+        plan.argv,
+        args(&[
+            "agy",
+            "--model",
+            "gemini-4-neon",
+            "--prompt-interactive=-fix the login"
+        ])
+    );
+    assert_eq!(plan.session, None);
+    let plan = agy.start(&request(None, &[])).unwrap();
+    assert_eq!(plan.argv, args(&["agy"]));
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -89,6 +110,11 @@ fn flags_that_turn_permission_checks_off_are_refused() {
             &["--dangerously-bypass-hook-trust=true"],
             "--dangerously-bypass-hook-trust=true",
         ),
+        (
+            adapter("antigravity").unwrap(),
+            &["--dangerously-skip-permissions"],
+            "--dangerously-skip-permissions",
+        ),
     ] {
         assert_eq!(denied_arg(agent, &args(given)), Some(refused), "{given:?}");
     }
@@ -114,7 +140,7 @@ fn no_start_plan_carries_a_denied_flag() {
 }
 
 #[test]
-fn claude_code_and_codex_resume_a_session_by_its_id() {
+fn each_agent_resumes_a_session_by_its_id() {
     assert_eq!(
         adapter("claude-code").unwrap().resume(ID),
         Some(args(&["claude", "--resume", ID]))
@@ -122,6 +148,10 @@ fn claude_code_and_codex_resume_a_session_by_its_id() {
     assert_eq!(
         adapter("codex").unwrap().resume(ID),
         Some(args(&["codex", "--no-daemon", "resume", ID]))
+    );
+    assert_eq!(
+        adapter("antigravity").unwrap().resume(ID),
+        Some(args(&["agy", &format!("--conversation={ID}")]))
     );
 }
 
@@ -136,6 +166,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
     ] {
         assert_eq!(adapter("claude-code").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("codex").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("antigravity").unwrap().resume(id), None, "{id:?}");
     }
 }
 
@@ -154,4 +185,13 @@ fn claude_code_and_codex_take_a_message_as_a_bracketed_paste_and_enter() {
         assert_eq!(plan.submit, "\r", "{id}");
         assert_eq!(plan.confirms, Some("prompt"), "{id}");
     }
+}
+
+#[test]
+fn antigravity_takes_a_message_as_a_bracketed_paste_and_enter() {
+    let plan = adapter("antigravity").unwrap().submit().unwrap();
+    assert!(plan.bracketed);
+    assert_eq!(plan.submit, "\r");
+    // the turn's first model call carries the prompt that confirms it
+    assert_eq!(plan.confirms, Some("invocation"));
 }

@@ -16,6 +16,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Antigravity CLI reports its status to Pinrail. Turn on **Report status**
   for it in Settings › Agents, and its sessions show their turns, prompts
   and replies, and whether the agent is working or finished.
+- Start and resume Antigravity CLI sessions from Pinrail, and send them
+  messages, which are typed into the agent's terminal.
 - A session that Pinrail runs has a **Split view** beside Summary and
   Terminal, with the summary above the terminal. Drag the divider between
   them to resize the summary; the size is kept for every session. Settings ›

@@ -8,7 +8,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, text};
 use crate::integration::{HookEntry, HookPlan, Layout};
 use crate::registry::AgentSpec;
@@ -99,6 +101,37 @@ impl Agent for Antigravity {
                 entry("PostToolUse", Some("*"), "tool-done"),
                 entry("Stop", None, "stop"),
             ],
+        })
+    }
+
+    /// `agy [extra args] [--prompt-interactive=<task>]`: agy ignores a bare
+    /// argument, and the task as one `=` argument is never read as a flag.
+    /// agy chooses the conversation's id, which the run learns from its
+    /// first `SessionStart`.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec!["agy".to_string()];
+        argv.extend(request.extra_args.iter().cloned());
+        if let Some(task) = request.task.filter(|t| !t.trim().is_empty()) {
+            argv.push(format!("--prompt-interactive={task}"));
+        }
+        Some(StartPlan {
+            argv,
+            session: None,
+        })
+    }
+
+    /// `agy --conversation=<id>`. An id agy does not know starts a new
+    /// conversation, whose first `SessionStart` moves the run to it.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| vec!["agy".to_string(), format!("--conversation={session}")])
+    }
+
+    /// A bracketed paste and Enter, which agy takes as one prompt with its
+    /// line breaks; the turn's first `PreInvocation` carries it.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(SubmitPlan {
+            confirms: Some("invocation"),
+            ..PASTE_AND_ENTER
         })
     }
 }

@@ -320,9 +320,10 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    // Claude Code is installed and Codex is not
+    // Claude Code and agy are installed, and Codex is not
     let bin = hosts.path().join("versions");
     common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
+    common::program(&bin, "agy", "echo '1.5.12'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -349,12 +350,12 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("claude-code")["name"], "Claude Code");
     assert_eq!(agent("codex")["installed"], false);
     assert_eq!(agent("codex")["version"], Value::Null);
+    assert_eq!(agent("antigravity")["version"], "1.5.12");
+    assert_eq!(agent("antigravity")["name"], "Antigravity CLI");
     // only agents Pinrail starts are listed
-    assert!(
-        agents
-            .iter()
-            .all(|a| a["id"] == "claude-code" || a["id"] == "codex")
-    );
+    let mut ids: Vec<_> = agents.iter().map(|a| a["id"].as_str().unwrap()).collect();
+    ids.sort();
+    assert_eq!(ids, ["antigravity", "claude-code", "codex"]);
     assert!(agents.iter().all(|a| a["last_used"] == false));
 
     // the agent started last is marked
