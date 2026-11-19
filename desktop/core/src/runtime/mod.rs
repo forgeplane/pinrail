@@ -219,7 +219,7 @@ fn start(app: &Pinrail) -> pinrail_host::link::HostLink {
         None => Connector::Launch(Arc::new(Launcher {
             bundled: config.host_binary.clone().unwrap_or_else(bundled_host),
             data_dir: config.data_dir.clone(),
-            env: std::env::vars().collect(),
+            env: host_env(std::env::vars()),
             methods: Launcher::methods(),
         })),
     };
@@ -381,6 +381,42 @@ fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
     }
 }
 
+#[cfg(any(unix, test))]
+/// The environment the host and the agents it starts get: the app's, and
+/// in a debug build started by `cargo run` (`tauri dev`), the app's without
+/// what cargo, rustup, the Tauri CLI and npm set for that run. Left in,
+/// they make every cargo build an agent runs rebuild what a build from a
+/// terminal made, and the reverse, and pin rustup's toolchain in other
+/// projects. A release build hands on its environment as it is.
+fn host_env(vars: impl Iterator<Item = (String, String)>) -> Vec<(String, String)> {
+    let vars: Vec<(String, String)> = vars.collect();
+    if !cfg!(debug_assertions) || !vars.iter().any(|(k, _)| k == "CARGO_MANIFEST_DIR") {
+        return vars;
+    }
+    let set_by_cargo = |key: &str| {
+        matches!(
+            key,
+            "CARGO"
+                | "CARGO_MANIFEST_DIR"
+                | "CARGO_MANIFEST_PATH"
+                | "CARGO_MANIFEST_LINKS"
+                | "CARGO_PRIMARY_PACKAGE"
+                | "CARGO_BIN_NAME"
+                | "CARGO_CRATE_NAME"
+                | "CARGO_RUSTC_CURRENT_DIR"
+                | "DYLD_FALLBACK_LIBRARY_PATH"
+                | "RUSTUP_TOOLCHAIN"
+                | "RUSTUP_TOOLCHAIN_SOURCE"
+                | "RUST_RECURSION_COUNT"
+                | "INIT_CWD"
+        ) || key.starts_with("CARGO_PKG_")
+            || key.starts_with("CARGO_TERM_PROGRESS_")
+            || key.starts_with("TAURI_")
+            || key.starts_with("npm_")
+    };
+    vars.into_iter().filter(|(k, _)| !set_by_cargo(k)).collect()
+}
+
 /// The `pinrail-host` the app carries beside its own binary.
 #[cfg(unix)]
 fn bundled_host() -> std::path::PathBuf {
@@ -388,4 +424,60 @@ fn bundled_host() -> std::path::PathBuf {
         .ok()
         .and_then(|exe| exe.parent().map(|dir| dir.join("pinrail-host")))
         .unwrap_or_else(|| "pinrail-host".into())
+}
+
+#[cfg(test)]
+mod host_env_tests {
+    use super::host_env;
+
+    fn vars(pairs: &[(&str, &str)]) -> impl Iterator<Item = (String, String)> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    #[test]
+    fn a_debug_build_started_by_cargo_hands_on_none_of_its_build_variables() {
+        let env = host_env(vars(&[
+            ("PATH", "/usr/bin"),
+            ("HOME", "/Users/p"),
+            ("CARGO_HOME", "/Users/p/.cargo"),
+            ("CARGO_TARGET_DIR", "/tmp/target"),
+            ("RUSTUP_HOME", "/Users/p/.rustup"),
+            ("CARGO", "/bin/cargo"),
+            ("CARGO_MANIFEST_DIR", "/work/app/src-tauri"),
+            ("CARGO_MANIFEST_PATH", "/work/app/src-tauri/Cargo.toml"),
+            ("CARGO_PKG_NAME", "pinrail-desktop"),
+            ("CARGO_TERM_PROGRESS_WHEN", "always"),
+            ("RUSTUP_TOOLCHAIN", "1.98.1"),
+            ("RUST_RECURSION_COUNT", "1"),
+            ("DYLD_FALLBACK_LIBRARY_PATH", "/work/target/debug"),
+            ("TAURI_ENV_TARGET_TRIPLE", "aarch64-apple-darwin"),
+            ("npm_config_local_prefix", "/work/app"),
+            ("INIT_CWD", "/work/app"),
+        ]));
+        let keys: Vec<&str> = env.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            keys,
+            [
+                "PATH",
+                "HOME",
+                "CARGO_HOME",
+                "CARGO_TARGET_DIR",
+                "RUSTUP_HOME"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_app_not_started_by_cargo_hands_on_its_environment_as_it_is() {
+        let given = [
+            ("PATH", "/usr/bin"),
+            ("RUSTUP_TOOLCHAIN", "nightly"),
+            ("DYLD_FALLBACK_LIBRARY_PATH", "/opt/lib"),
+        ];
+        assert_eq!(host_env(vars(&given)), vars(&given).collect::<Vec<_>>());
+    }
 }
