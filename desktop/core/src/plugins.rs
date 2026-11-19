@@ -17,7 +17,7 @@ pub use bundles::Bundles;
 pub use catalog::Catalog;
 pub use install::Options as InstallOptions;
 /// The manifest's JSON Schema, for the docs' manifest reference.
-#[cfg(feature = "docs")]
+#[cfg(any(test, feature = "docs"))]
 pub use manifest::{FEATURES as MANIFEST_FEATURES, SCHEMA as MANIFEST_SCHEMA};
 pub use manifest::{Install, Plugin};
 pub use sample::Sample;

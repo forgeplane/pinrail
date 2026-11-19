@@ -12,7 +12,7 @@ pub mod app;
 pub mod attachments;
 pub mod config;
 pub mod db;
-#[cfg(feature = "docs")]
+#[cfg(any(test, feature = "docs"))]
 pub mod docs;
 pub mod elements;
 pub mod error;

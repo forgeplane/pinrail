@@ -206,7 +206,6 @@ jobs:
           failed=0
           cargo test --manifest-path cli/Cargo.toml --locked --no-fail-fast || failed=1
           cargo nextest run --manifest-path desktop/Cargo.toml --workspace --locked --no-fail-fast || failed=1
-          cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs:: || failed=1
           exit $failed
       # the shell suite checks fixtures with the plugin SDK's harness, which
       # needs the package's own dependencies

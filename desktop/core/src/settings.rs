@@ -8,7 +8,7 @@ mod store;
 pub(crate) use service::SettingsReader;
 pub use service::SettingsService;
 pub use store::port_in;
-#[cfg(feature = "docs")]
+#[cfg(any(test, feature = "docs"))]
 pub use store::reference;
 
 /// The group that holds each plugin's own settings, its name to an object

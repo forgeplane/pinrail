@@ -391,7 +391,7 @@ const LEAVES: &[Leaf] = &[
 
 /// Every setting as the reference shows it: dotted key, what it holds, its
 /// default as JSON, and what it does.
-#[cfg(feature = "docs")]
+#[cfg(any(test, feature = "docs"))]
 pub fn reference() -> Vec<(String, String, String, &'static str)> {
     LEAVES
         .iter()
@@ -402,7 +402,7 @@ pub fn reference() -> Vec<(String, String, String, &'static str)> {
         .collect()
 }
 
-#[cfg(feature = "docs")]
+#[cfg(any(test, feature = "docs"))]
 impl Kind {
     /// What a value of this kind looks like, in words.
     fn describe(&self) -> String {
@@ -419,7 +419,7 @@ impl Kind {
             Kind::NullableHours => "`{\"from\": \"HH:MM\", \"to\": \"HH:MM\"}`, or `null`".into(),
             Kind::Port => "a port, 1 to 65535".into(),
             Kind::NullableDays => {
-                format!("a number of days from 1 to {MAX_DAYS}, or `null`").into()
+                format!("a number of days from 1 to {MAX_DAYS}, or `null`")
             }
             Kind::NullableVersion => "a version such as `\"0.3.0\"`, or `null`".into(),
             Kind::ThemeId => "a theme's id, such as `\"nord\"`".into(),

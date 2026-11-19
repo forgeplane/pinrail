@@ -10,7 +10,7 @@ publish = false
 [features]
 # The docs' reference pages, rendered from the tables the core reads:
 # `cargo run -p pinrail-core --features docs --bin pinrail-docs -- settings`.
-# Only the docs build turns it on.
+# Only the docs build turns it on; the tests compile the docs module too.
 docs = []
 
 [[bin]]
