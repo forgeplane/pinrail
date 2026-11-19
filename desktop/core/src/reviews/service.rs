@@ -544,6 +544,7 @@ impl Reviews {
                 transcript_path: None,
                 agent_turn: None,
                 cut: false,
+                source: crate::db::Source::Process,
             };
             self.report(&agent, &id, &report, false, now)?;
         }

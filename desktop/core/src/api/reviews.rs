@@ -1042,6 +1042,7 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
         at,
         process,
         origin,
+        source: crate::db::Source::Hook,
     })
 }
 

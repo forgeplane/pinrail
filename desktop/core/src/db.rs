@@ -33,7 +33,7 @@ pub use messages::{Deleted, MessageChange, MessageRow, message_notice};
 pub use plugins::InstallRecord;
 pub use presence::{
     ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,
-    StoredState, Transition, TurnRow,
+    Source, StoredState, Transition, TurnRow,
 };
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};

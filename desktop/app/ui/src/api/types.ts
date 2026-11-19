@@ -241,7 +241,7 @@ export type Attention = "needs_you" | "finished" | "working" | "idle" | "stopped
 /** What an agent's hooks reported about its session. */
 export type Presence = {
   state: "working" | "needs_input" | "idle" | "stopped";
-  wait: { kind: "permission" | "question"; tool: string | null; summary: string | null } | null;
+  wait: { kind: "permission" | "question" | "auth"; tool: string | null; summary: string | null } | null;
   stop_reason: string | null;
   /** when the state began */
   since: string;

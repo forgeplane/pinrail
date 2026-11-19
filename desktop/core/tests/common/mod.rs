@@ -190,6 +190,14 @@ printf '%s' "$PINRAIL_RUN_TOKEN" > token.part && mv token.part token
 if [ -f exit ]; then exit "$(cat exit)"; fi
 # with a file named listen, it writes each line it is sent to heard
 if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> heard; done; exit 0; fi
+# with a file named records, it writes what a test puts in the file named
+# record as an OSC 7501 record, and removes it
+if [ -f records ]; then
+  while :; do
+    if [ -f record ]; then printf '\033]7501;%s\033\\' "$(cat record)"; rm record; fi
+    sleep 0.05
+  done
+fi
 exec sleep 600
 "#;
 

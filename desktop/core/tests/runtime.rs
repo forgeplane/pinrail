@@ -457,3 +457,131 @@ async fn a_message_is_typed_into_a_run_and_refused_once_the_run_ended() {
         .unwrap_err();
     assert_eq!(refused.code(), "exited");
 }
+
+/// Has the stand-in agent in `folder` write `record` as an OSC 7501 record,
+/// and waits until it has.
+async fn record(folder: &Path, record: &str) {
+    std::fs::write(folder.join("record.part"), record).unwrap();
+    std::fs::rename(folder.join("record.part"), folder.join("record")).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while folder.join("record").exists() {
+        assert!(Instant::now() < deadline, "the record was not written");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+/// The session's presence once `done` holds for it.
+async fn presence_becomes(
+    db: &Db,
+    (agent, session): &(String, String),
+    done: impl Fn(&pinrail_core::db::PresenceRow) -> bool,
+) -> pinrail_core::db::PresenceRow {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let presence = db.presence(agent, session).unwrap();
+        if let Some(presence) = presence.as_ref().filter(|p| done(p)) {
+            return presence.clone();
+        }
+        assert!(Instant::now() < deadline, "{presence:?}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+/// A report of the session's hooks, as `pinrail hook` sends it.
+fn hook(app: &Pinrail, (agent, session): &(String, String), event: pinrail_core::db::ReportEvent) {
+    let now = chrono::Utc::now();
+    let report = pinrail_core::db::Report {
+        event,
+        at: now,
+        process: None,
+        origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
+        source: pinrail_core::db::Source::Hook,
+    };
+    app.reviews()
+        .report(agent, session, &report, true, now)
+        .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() {
+    use pinrail_core::db::ReportEvent;
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+
+    // before its terminal reports, its hooks set the state
+    hook(&setup.app, &session, ReportEvent::Working);
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "working"
+    );
+
+    // the terminal's records set it from then on
+    record(&folder, "state=idle:app=claude-code").await;
+    let idle = presence_becomes(&db, &session, |p| p.state == "idle").await;
+    assert_eq!(idle.source, "terminal");
+    hook(
+        &setup.app,
+        &session,
+        ReportEvent::Prompt {
+            prompt: Some("fix the login".into()),
+        },
+    );
+    let presence = db.presence(&session.0, &session.1).unwrap().unwrap();
+    assert_eq!(presence.state, "idle", "a hook no longer sets the state");
+    // but its prompt opens a turn
+    assert_eq!(presence.turn, 1);
+
+    record(&folder, "state=working:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "working").await;
+    // "answer: Red or blue?"
+    record(
+        &folder,
+        "state=blocked:kind=question:app=claude-code:msg=YW5zd2VyOiBSZWQgb3IgYmx1ZT8=",
+    )
+    .await;
+    let waiting = presence_becomes(&db, &session, |p| p.state == "needs_input").await;
+    assert_eq!(waiting.wait_kind.as_deref(), Some("question"));
+    assert_eq!(
+        waiting.wait_summary.as_deref(),
+        Some("answer: Red or blue?")
+    );
+
+    // a subagent's record leaves the session as it is
+    record(&folder, "state=working:app=claude-code:id=agent-1").await;
+    record(&folder, "state=done:app=claude-code:id=agent-1").await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "needs_input"
+    );
+
+    // the end of the turn finishes it
+    record(&folder, "state=working:app=claude-code").await;
+    record(&folder, "state=done:app=claude-code").await;
+    let done = presence_becomes(&db, &session, |p| p.state == "idle").await;
+    assert!(done.finished_at.is_some());
+
+    // once the run is stopped, the session's hooks set its state again, as
+    // for a session in the person's own terminal
+    setup.app.runtime().stop(&run.id, true).await.unwrap();
+    presence_becomes(&db, &session, |p| p.state == "stopped").await;
+    hook(&setup.app, &session, ReportEvent::Working);
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "working"
+    );
+}

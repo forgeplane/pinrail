@@ -253,6 +253,20 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                     // link and as its event, and checks once
                     check_startable_later(app.clone(), just_before());
                 }
+                Ok(HostEvent::Event { method, params }) if method == "program_status" => {
+                    let now = chrono::Utc::now();
+                    match app.runtime().program_status(&params, now) {
+                        Ok(Some((agent, session, report))) => {
+                            if let Err(error) =
+                                app.reviews().report(&agent, &session, &report, false, now)
+                            {
+                                eprintln!("pinrail: recording a program status failed: {error:?}");
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),
+                    }
+                }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
                     match app.runtime().exited(&params) {
                         Ok(Some(run)) => {
@@ -375,6 +389,7 @@ fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
         transcript_path: None,
         agent_turn: None,
         cut: false,
+        source: crate::db::Source::Host,
     };
     if let Err(error) = app.reviews().report(agent, session, &report, false, now) {
         eprintln!("pinrail: marking session {session} stopped failed: {error:?}");

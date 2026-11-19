@@ -101,6 +101,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- A session that Pinrail runs takes its status from its terminal when its
+  agent reports there, as Claude Code does. It shows Working, Needs you
+  with the prompt's text, and Finished even with **Report status** off.
 - Messages the agent has not received yet wait at the top of the message
   box, a line each, where you can delete them. A message joins the session's
   thread when the agent receives it, so it no longer sits above what the

@@ -250,6 +250,7 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         transcript_path: None,
         agent_turn: None,
         cut: false,
+        source: Default::default(),
     };
     let now = chrono::Utc::now();
     // a time far ahead counts as now
@@ -653,6 +654,7 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
         transcript_path: None,
         agent_turn: None,
         cut: false,
+        source: Default::default(),
     };
     let now = chrono::Utc::now();
     // one report from a clock a minute ahead of the others
@@ -850,6 +852,7 @@ async fn a_prompt_whose_clock_stepped_back_moves_no_turn_s_end() {
         transcript_path: None,
         agent_turn: None,
         cut: false,
+        source: Default::default(),
     };
     let now = chrono::Utc::now();
     let prompt = || pinrail_core::db::ReportEvent::Prompt { prompt: None };

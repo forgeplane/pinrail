@@ -34,6 +34,35 @@ pub struct Report {
     pub agent_turn: Option<String>,
     /// Whether the report's prompt or reply was cut to its excerpt.
     pub cut: bool,
+    /// Where the report comes from.
+    pub source: Source,
+}
+
+/// Where a report comes from, which decides whether it may set the
+/// session's state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Source {
+    /// The agent's hooks.
+    #[default]
+    Hook,
+    /// The OSC 7501 records of the terminal a hosted run's agent runs in.
+    /// Once they set a session's state, hooks no longer do.
+    Terminal,
+    /// The host: a hosted run's agent exited.
+    Host,
+    /// The core's check that an external session's process still runs.
+    Process,
+}
+
+impl Source {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Source::Hook => "hook",
+            Source::Terminal => "terminal",
+            Source::Host => "host",
+            Source::Process => "process",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -135,6 +164,7 @@ impl StoredState {
 /// What a report needs of the presence stored before it.
 struct Stored {
     state: StoredState,
+    source: String,
     event_at: String,
     state_at: String,
     state_since: String,
@@ -220,7 +250,7 @@ impl Db {
         let stored = tx
             .query_row(
                 "SELECT state, wait_kind, wait_tool, wait_summary, stop_reason, event_at,
-                   state_at, state_since, pid, proc_started
+                   state_at, state_since, pid, proc_started, source
                  FROM session_presence WHERE agent = ?1 AND session = ?2",
                 params![agent, id],
                 |r| {
@@ -234,6 +264,7 @@ impl Db {
                             pid: r.get(8)?,
                             proc_started: r.get(9)?,
                         },
+                        source: r.get(10)?,
                         event_at: r.get(5)?,
                         state_at: r.get(6)?,
                         state_since: r.get(7)?,
@@ -245,6 +276,13 @@ impl Db {
         let newer = stored.as_ref().is_none_or(|s| {
             at >= s.event_at || micros_between(&s.state_at, &now_at) > WINDOW_MICROS
         });
+        // once a hosted run's terminal sets the state, its hooks add turns
+        // and detail only
+        let held = report.source == Source::Hook
+            && stored
+                .as_ref()
+                .is_some_and(|s| s.source == Source::Terminal.as_str());
+        let sets_state = newer && !held;
         // the presence service decides the state; a report it ignores
         // changes nothing at all
         let Some(next) = transition(
@@ -287,7 +325,7 @@ impl Db {
             .optional()?
             .unwrap_or((0, None));
 
-        match (&stored, newer) {
+        match (&stored, sets_state) {
             // older than the state: only the turns, the finish and the
             // process change, and what a wait still lacks
             (Some(s), false) => {
@@ -345,7 +383,7 @@ impl Db {
                     "INSERT INTO session_presence (agent, session, state, wait_kind, wait_tool,
                        wait_summary, stop_reason, source, pid, proc_started, event_at,
                        state_at, state_since, turn, turn_started, finished_at, updated_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'hook', ?8, ?9, ?10, ?15, ?11, ?12,
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?16, ?8, ?9, ?10, ?15, ?11, ?12,
                        ?13, CASE WHEN ?14 THEN ?15 END, ?15)
                      ON CONFLICT (agent, session) DO UPDATE SET
                        state = excluded.state, wait_kind = excluded.wait_kind,
@@ -374,13 +412,14 @@ impl Db {
                         turn_started,
                         finished,
                         now_at,
+                        report.source.as_str(),
                     ],
                 )?;
             }
         }
         // the events of what changed, stored with it
         let mut recorded = Recorded {
-            taken: newer,
+            taken: sets_state,
             ..Recorded::default()
         };
         // announced when anything the window shows changed: the state, the

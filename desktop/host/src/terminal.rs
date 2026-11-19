@@ -1324,6 +1324,10 @@ impl Actor {
                 if !status.id.is_empty() {
                     params["id"] = json!(status.id);
                 }
+                // what it waits for or works on, such as "approve Bash: ls"
+                if !status.message.is_empty() {
+                    params["msg"] = json!(trimmed(&status.message, 240));
+                }
                 events.emit("program_status", params);
             }
             // a program that asks for focus reports learns at once whether

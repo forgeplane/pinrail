@@ -527,6 +527,77 @@ impl super::Runtime {
 
     /// Ends the run of a terminal that exited, for the host's `exited`
     /// event. Returns the run when it ended now.
+    /// The report an OSC 7501 record of a run's terminal makes for the
+    /// session the run is bound to, as §6.2 of the runtime spec maps it,
+    /// with that session's agent and id. `None` for a record about a child,
+    /// such as a subagent, for `clear`, and for a terminal with no live run
+    /// bound to a session.
+    pub fn program_status(
+        &self,
+        params: &Value,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<(String, String, crate::db::Report)>, RunError> {
+        use crate::db::ReportEvent;
+        let Some(terminal) = params["terminal"].as_str() else {
+            return Ok(None);
+        };
+        // a child's record leaves the session's state as it is
+        if params["id"].as_str().is_some_and(|id| !id.is_empty()) {
+            return Ok(None);
+        }
+        let message = params["msg"]
+            .as_str()
+            .filter(|m| !m.is_empty())
+            .map(|m| m.chars().take(200).collect::<String>());
+        let event = match params["state"].as_str() {
+            Some("working") => ReportEvent::Working,
+            Some("blocked") => ReportEvent::NeedsInput {
+                kind: match params["kind"].as_str() {
+                    Some(kind @ ("question" | "auth")) => kind.to_string(),
+                    _ => "permission".to_string(),
+                },
+                tool: None,
+                summary: message,
+            },
+            Some("done") => ReportEvent::TurnEnded {
+                end: "done".to_string(),
+                reply: None,
+            },
+            // the agent waits for a prompt: at its start, or after the
+            // person interrupted a turn
+            Some("idle") => ReportEvent::TurnEnded {
+                end: "interrupted".to_string(),
+                reply: None,
+            },
+            Some("error") => ReportEvent::TurnEnded {
+                end: "failed".to_string(),
+                reply: message,
+            },
+            _ => return Ok(None),
+        };
+        let Some(run) = self
+            .live_runs()?
+            .into_iter()
+            .find(|r| r.terminal.as_deref() == Some(terminal))
+        else {
+            return Ok(None);
+        };
+        let Some((agent, session)) = run.session else {
+            return Ok(None);
+        };
+        let report = crate::db::Report {
+            event,
+            at: now,
+            process: run.process,
+            origin: Default::default(),
+            transcript_path: None,
+            agent_turn: None,
+            cut: false,
+            source: crate::db::Source::Terminal,
+        };
+        Ok(Some((agent, session, report)))
+    }
+
     pub fn exited(&self, params: &Value) -> Result<Option<RunRow>, RunError> {
         let Some(terminal) = params["terminal"].as_str() else {
             return Ok(None);
