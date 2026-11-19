@@ -131,6 +131,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- With a session open, the sidebar marks only the session's own row, not
+  Sessions as well.
 - A filter's search field keeps the focus when you open its menu by
   pointing at it and then click it.
 - A message typed in a session's message box stays there when you open

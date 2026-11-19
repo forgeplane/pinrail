@@ -109,7 +109,8 @@ export function Sidebar({
                 <NavLink
                   // a list page comes back with the filters it was left with
                   to={pageLink(to)}
-                  end={to === "/"}
+                  // a session's own page is marked by its row, not by Sessions
+                  end={to === "/" || to === "/sessions"}
                   // the New session page is no session's
                   className={({ isActive }) => (isActive && pathname !== NEW_SESSION_PATH ? "is-active" : "")}
                 >
