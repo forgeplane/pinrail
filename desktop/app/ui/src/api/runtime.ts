@@ -35,6 +35,12 @@ export type StartableAgent = {
   installed: boolean;
   version: string | null;
   last_used: boolean;
+  /** Whether Pinrail chooses the session's id; one that chooses its own
+   *  tells Pinrail only through its hooks */
+  names_session?: boolean;
+  /** Whether its hooks report its status on this computer; null for an
+   *  agent whose hooks Pinrail does not install */
+  reports?: boolean | null;
 };
 
 /** A folder agents worked in lately. */

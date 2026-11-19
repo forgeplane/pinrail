@@ -134,7 +134,27 @@ export function NewSession() {
   const folderGone = !!known && !known.exists;
   // # lists the work items, the folder's repository's first
   const picker = useItemPicker({ box: message, value: task, onChange: setTask, repo: known?.repo ?? null });
-  const ready = !!folder.trim() && !!chosen?.installed && !folderGone && !starting;
+  // an agent that chooses its own session's id tells Pinrail only through
+  // its hooks: without them, its session would never show
+  const needsReports = !!chosen?.installed && chosen.names_session === false && chosen.reports === false;
+  const ready = !!folder.trim() && !!chosen?.installed && !folderGone && !starting && !needsReports;
+  const [turningOn, setTurningOn] = useState(false);
+  const turnOnReports = async () => {
+    if (!chosen) return;
+    setTurningOn(true);
+    setError(null);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("set_agent_hooks", { id: chosen.id, on: true });
+      const found = await runtime.startable();
+      knownAgents = found;
+      setAgents(found);
+    } catch (e) {
+      setError(typeof e === "string" ? e : `Pinrail could not turn on Report status for ${chosen.name}.`);
+    } finally {
+      setTurningOn(false);
+    }
+  };
 
   const start = async () => {
     if (!ready || !chosen) return;
@@ -286,6 +306,25 @@ export function NewSession() {
         </div>
 
         {folderGone ? <p className="notice notice-danger">This folder no longer exists.</p> : null}
+        {needsReports ? (
+          <div className="notice new-session-reports" role="status">
+            <p>
+              {chosen.name} needs Report status to start from Pinrail: it tells Pinrail its session only through its
+              status hooks.
+              {inTauri() ? null : " Turn it on in Settings › Agents."}
+            </p>
+            {inTauri() ? (
+              <button
+                type="button"
+                className="chrome-button button-primary"
+                disabled={turningOn}
+                onClick={() => void turnOnReports()}
+              >
+                Turn on Report status
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {error ? (
           <p className="notice notice-danger" role="alert">
             {error}

@@ -9197,3 +9197,18 @@ a.item-ref {
 body.is-resizing-rows {
   cursor: row-resize;
 }
+
+/* Start an agent: an agent that needs Report status says so, with the
+   button that turns it on beside the text */
+.new-session-reports {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.new-session-reports p {
+  flex: 1;
+  margin: 0;
+}
+.new-session-reports .chrome-button {
+  flex: none;
+}

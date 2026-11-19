@@ -352,6 +352,9 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("codex")["version"], Value::Null);
     assert_eq!(agent("antigravity")["version"], "1.5.12");
     assert_eq!(agent("antigravity")["name"], "Antigravity CLI");
+    // Pinrail chooses Claude Code's session id; agy tells it with a hook
+    assert_eq!(agent("claude-code")["names_session"], true);
+    assert_eq!(agent("antigravity")["names_session"], false);
     // only agents Pinrail starts are listed
     let mut ids: Vec<_> = agents.iter().map(|a| a["id"].as_str().unwrap()).collect();
     ids.sort();

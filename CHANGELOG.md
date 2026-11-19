@@ -107,6 +107,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Starting Codex or Antigravity CLI from Pinrail needs **Report status**
+  on, since the agent tells Pinrail its session only through its hooks.
+  The **New session** page says so and turns it on with one click.
 - A session that Pinrail runs takes its status from its terminal when its
   agent reports there, as Claude Code does. It shows Working, Needs you
   with the prompt's text, and Finished even with **Report status** off.

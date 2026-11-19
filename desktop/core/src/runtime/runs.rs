@@ -809,7 +809,9 @@ impl super::Runtime {
         // a check that began since covers what made it due
         let due = refresh || stale || Utc::now() - begun > STARTABLE_FOR;
         let last = self.db.latest_run_agent()?;
-        let agents = startable_list(&startable_agents(), &found, last.as_deref());
+        let home = crate::config::home_dir();
+        let reports = |id: &str| reports(home.as_deref(), id);
+        let agents = startable_list(&startable_agents(), &found, last.as_deref(), &reports);
         Ok((
             json!({ "agents": agents, "checked_at": crate::reviews::iso(checked_at) }),
             due,
@@ -860,7 +862,7 @@ impl super::Runtime {
     async fn find_startable(&self) -> Result<Vec<Value>, RunError> {
         let agents = startable_agents();
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
-        let names: Vec<&str> = agents.iter().map(|(_, program)| program.as_str()).collect();
+        let names: Vec<&str> = agents.iter().map(|a| a.program.as_str()).collect();
         let mut params = json!({ "names": names });
         if let Some(path) = self.run_env.get("PATH") {
             params["path"] = json!(path);
@@ -1008,8 +1010,17 @@ pub(super) struct Startable {
     begun: Option<DateTime<Utc>>,
 }
 
-/// Every agent Pinrail can start, in Settings' order, with its program.
-fn startable_agents() -> Vec<(&'static pinrail_runtime::AgentSpec, String)> {
+/// An agent Pinrail can start: its program, and whether Pinrail chooses
+/// its session's id. An agent that chooses its own tells Pinrail only
+/// through its hooks.
+struct StartableAgent {
+    spec: &'static pinrail_runtime::AgentSpec,
+    program: String,
+    names_session: bool,
+}
+
+/// Every agent Pinrail can start, in Settings' order.
+fn startable_agents() -> Vec<StartableAgent> {
     pinrail_runtime::all()
         .iter()
         .filter_map(|spec| {
@@ -1019,30 +1030,49 @@ fn startable_agents() -> Vec<(&'static pinrail_runtime::AgentSpec, String)> {
                     extra_args: &[],
                     session_id: "00000000-0000-4000-8000-000000000000",
                 })?;
-            Some((spec, plan.argv.first()?.clone()))
+            Some(StartableAgent {
+                spec,
+                program: plan.argv.first()?.clone(),
+                names_session: plan.session.is_some(),
+            })
         })
         .collect()
+}
+
+/// Whether the agent's hooks report its status on this computer: Pinrail's
+/// hooks are in its file, whatever version wrote them. `None` for an agent
+/// whose hooks Pinrail does not install, or with no home folder.
+fn reports(home: Option<&std::path::Path>, id: &str) -> Option<bool> {
+    use pinrail_runtime::integration::{HookState, file_state};
+    let plan = pinrail_runtime::adapter(id)?.hook_plan(home?, &|key| std::env::var(key).ok())?;
+    Some(matches!(
+        file_state(&plan),
+        HookState::Current | HookState::Outdated | HookState::Modified
+    ))
 }
 
 /// The agents Pinrail can start, from what the host found of their
 /// programs.
 fn startable_list(
-    agents: &[(&pinrail_runtime::AgentSpec, String)],
+    agents: &[StartableAgent],
     found: &[Value],
     last: Option<&str>,
+    reports: &dyn Fn(&str) -> Option<bool>,
 ) -> Vec<Value> {
     agents
         .iter()
         .enumerate()
-        .map(|(i, (spec, program))| {
+        .map(|(i, agent)| {
             let one = found.get(i).unwrap_or(&Value::Null);
             json!({
-                "id": spec.id,
-                "name": spec.label,
-                "program": program,
+                "id": agent.spec.id,
+                "name": agent.spec.label,
+                "program": agent.program,
                 "installed": one["path"].is_string(),
                 "version": one["version"],
-                "last_used": last == Some(spec.id),
+                "last_used": last == Some(agent.spec.id),
+                "names_session": agent.names_session,
+                "reports": reports(agent.spec.id),
             })
         })
         .collect()
@@ -1062,10 +1092,14 @@ async fn checkout_of(folder: &str) -> Option<pinrail_runtime::checkout::Checkout
 mod tests {
     use super::*;
 
-    fn agents() -> Vec<(&'static pinrail_runtime::AgentSpec, String)> {
-        ["claude-code", "codex"]
+    fn agents() -> Vec<StartableAgent> {
+        [("claude-code", true), ("codex", false)]
             .iter()
-            .map(|id| (pinrail_runtime::find(id).unwrap(), id.to_string()))
+            .map(|(id, names_session)| StartableAgent {
+                spec: pinrail_runtime::find(id).unwrap(),
+                program: id.to_string(),
+                names_session: *names_session,
+            })
             .collect()
     }
 
@@ -1083,10 +1117,16 @@ mod tests {
             json!({"name": "claude", "path": "/bin/claude", "version": "2.1.325"}),
             json!({"name": "codex", "path": null, "version": null}),
         ];
-        let list = startable_list(&agents(), &found, Some("codex"));
+        let reports = |id: &str| (id == "codex").then_some(false);
+        let list = startable_list(&agents(), &found, Some("codex"), &reports);
         assert_eq!(list[0]["installed"], true);
         assert_eq!(list[0]["version"], "2.1.325");
         assert_eq!(list[1]["installed"], false);
         assert_eq!(list[1]["last_used"], true);
+        // an agent that chooses its own session's id needs its hooks on
+        assert_eq!(list[0]["names_session"], true);
+        assert_eq!(list[1]["names_session"], false);
+        assert_eq!(list[1]["reports"], false);
+        assert_eq!(list[0]["reports"], Value::Null);
     }
 }
