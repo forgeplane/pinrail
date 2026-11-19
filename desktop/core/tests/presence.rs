@@ -1500,3 +1500,132 @@ async fn a_session_whose_agent_process_is_gone_has_stopped() {
         ("stopped", Some("exited"))
     );
 }
+
+#[tokio::test]
+async fn a_turn_keeps_its_reply_whichever_of_the_hook_and_the_terminal_ends_it_last() {
+    use pinrail_core::db::{ReportEvent, Source};
+    let app = app();
+    let db = db(&app);
+    let report = |event, source| pinrail_core::db::Report {
+        event,
+        at: chrono::Utc::now(),
+        process: None,
+        origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
+        source,
+    };
+    let prompt = || ReportEvent::Prompt {
+        prompt: Some("fix the login".into()),
+    };
+    let stop = || ReportEvent::TurnEnded {
+        end: "done".into(),
+        reply: Some("Fixed the redirect.".into()),
+    };
+    let done = || ReportEvent::TurnEnded {
+        end: "done".into(),
+        reply: None,
+    };
+    let ends = |session: &str| {
+        db.turns("claude-code", session)
+            .unwrap()
+            .into_iter()
+            .map(|t| (t.end_kind, t.reply))
+            .collect::<Vec<_>>()
+    };
+    let replied = vec![(
+        Some("done".to_string()),
+        Some("Fixed the redirect.".to_string()),
+    )];
+    let now = chrono::Utc::now;
+
+    // the hook's end, then the terminal's: the reply stays
+    db.record(
+        "claude-code",
+        "s-hook-first",
+        &report(ReportEvent::Working, Source::Terminal),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-first",
+        &report(prompt(), Source::Hook),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-first",
+        &report(stop(), Source::Hook),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-first",
+        &report(done(), Source::Terminal),
+        true,
+        now(),
+    )
+    .unwrap();
+    assert_eq!(ends("s-hook-first"), replied);
+
+    // the terminal's end, then the hook's: the hook brings the reply
+    db.record(
+        "claude-code",
+        "s-hook-last",
+        &report(ReportEvent::Working, Source::Terminal),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-last",
+        &report(prompt(), Source::Hook),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-last",
+        &report(done(), Source::Terminal),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-hook-last",
+        &report(stop(), Source::Hook),
+        true,
+        now(),
+    )
+    .unwrap();
+    assert_eq!(ends("s-hook-last"), replied);
+
+    // with no hook, the terminal's end closes the open turn
+    db.record(
+        "claude-code",
+        "s-terminal",
+        &report(prompt(), Source::Hook),
+        true,
+        now(),
+    )
+    .unwrap();
+    db.record(
+        "claude-code",
+        "s-terminal",
+        &report(done(), Source::Terminal),
+        true,
+        now(),
+    )
+    .unwrap();
+    assert_eq!(ends("s-terminal"), vec![(Some("done".to_string()), None)]);
+}

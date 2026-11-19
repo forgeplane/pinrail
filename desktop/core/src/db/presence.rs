@@ -744,6 +744,17 @@ fn record_turns(
             };
             let turn = match named {
                 Some(turn) => Some(turn),
+                // the terminal's end carries no reply: it closes only a turn
+                // still open, and leaves one a hook ended with its reply
+                None if report.source == Source::Terminal => conn
+                    .query_row(
+                        "SELECT id FROM session_turns
+                         WHERE agent = ?1 AND session = ?2 AND ended_at IS NULL
+                         ORDER BY started_at DESC, turn DESC LIMIT 1",
+                        params![agent, id],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
                 None => turn_at(conn, agent, id, at, continued)?,
             };
             match turn {
