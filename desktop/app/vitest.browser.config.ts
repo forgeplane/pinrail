@@ -1,6 +1,7 @@
 // The tests that need a real browser: the terminal renderers' contract,
-// which draws on a canvas, measures fonts and runs WebAssembly. They run in
-// WebKit, the engine of the app's window on macOS and Linux.
+// which draws on a canvas, measures fonts and runs WebAssembly, and what
+// reads the page's layout, such as find in page. They run in WebKit, the
+// engine of the app's window on macOS and Linux.
 import path from "node:path";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
