@@ -62,8 +62,9 @@ test("a long session opens at its newest message once its replies fold", async (
 
   await page.goto(`/#/sessions/claude-code/${session}`);
   await expect(page.getByText("Question 80")).toBeVisible();
-  await page.waitForTimeout(500);
-  expect(await fromEnd(page)).toBeLessThan(2);
+  // the replies fold as they lay out, slower under load, and the end
+  // stays in view
+  await expect.poll(() => fromEnd(page)).toBeLessThan(2);
 
   // scrolled up, it stays there
   await page.locator(".thread-items").evaluate((el) => (el.scrollTop -= 1000));
