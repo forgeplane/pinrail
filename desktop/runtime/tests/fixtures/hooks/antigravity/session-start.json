@@ -1,0 +1,12 @@
+{
+  "artifactDirectoryPath": "/Users/you/.gemini/antigravity-cli/brain/13da3c35-ffb7-4e19-9cd9-b25ce4f1c890",
+  "conversationId": "13da3c35-ffb7-4e19-9cd9-b25ce4f1c890",
+  "cwd": "/Users/you/code/app",
+  "hookEventName": "SessionStart",
+  "lastUserInput": "Say hello in one word.\nThen say bye.",
+  "modelName": "gemini-4-neon-medium",
+  "transcriptPath": "/Users/you/.gemini/antigravity-cli/brain/13da3c35-ffb7-4e19-9cd9-b25ce4f1c890/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/Users/you/code/app"
+  ]
+}

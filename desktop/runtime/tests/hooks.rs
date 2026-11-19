@@ -31,9 +31,15 @@ fn parse(agent: &str, event: &str, name: &str) -> Option<HookReport> {
     let session = input(agent, name)["session_id"]
         .as_str()
         .map(str::to_string);
-    match (agent, session) {
-        ("claude-code", Some(id)) => {
+    let conversation = input(agent, name)["conversationId"]
+        .as_str()
+        .map(str::to_string);
+    match (agent, session, conversation) {
+        ("claude-code", Some(id), _) => {
             parse_in(agent, event, name, &[("CLAUDE_CODE_SESSION_ID", &id)])
+        }
+        ("antigravity", _, Some(id)) => {
+            parse_in(agent, event, name, &[("ANTIGRAVITY_CONVERSATION_ID", &id)])
         }
         _ => parse_in(agent, event, name, &[]),
     }
@@ -283,4 +289,95 @@ fn a_report_is_sent_as_the_core_reads_it() {
     assert_eq!(cut["detail"]["prompt_cut"], true);
     // a reply that fits is not marked
     assert!(body(c, "stop", "stop")["detail"].get("reply_cut").is_none());
+}
+
+const AGY_CONVERSATION: &str = "13da3c35-ffb7-4e19-9cd9-b25ce4f1c890";
+
+#[test]
+fn antigravity_reports_each_event_of_its_session() {
+    let started = parse("antigravity", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, AGY_CONVERSATION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    // the first model call of a turn carries its prompt
+    let prompt = parse("antigravity", "invocation", "first-invocation").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Say hello in one word.\nThen say bye.")
+    );
+    assert!(
+        prompt
+            .detail
+            .transcript_path
+            .as_deref()
+            .is_some_and(|p| p.ends_with("/logs/transcript_full.jsonl"))
+    );
+    assert_eq!(prompt.detail.cwd.as_deref(), Some("/Users/you/code/app"));
+    // the next ones, and each tool call, are work in the turn
+    assert_eq!(
+        event("antigravity", "invocation", "next-invocation"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(
+        event("antigravity", "tool-done", "tool-done"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(
+        event("antigravity", "stop", "stop-canceled"),
+        Some(HookEvent::TurnEnded {
+            end: TurnEnd::Interrupted
+        })
+    );
+    let failed = parse("antigravity", "stop", "stop-error").unwrap();
+    assert_eq!(
+        failed.event,
+        HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        }
+    );
+    assert_eq!(failed.detail.error.as_deref(), Some("model unavailable"));
+    assert_eq!(event("antigravity", "unknown", "stop"), None);
+}
+
+#[test]
+fn antigravity_s_reply_is_the_last_response_of_its_transcript() {
+    let mut stop = input("antigravity", "stop");
+    stop["transcriptPath"] = Value::from(format!(
+        "{}/tests/fixtures/hooks/antigravity/transcript_full.jsonl",
+        env!("CARGO_MANIFEST_DIR")
+    ));
+    let parse = |input: &Value| {
+        adapter("antigravity")
+            .unwrap()
+            .parse_hook("stop", input, &|k| {
+                (k == "ANTIGRAVITY_CONVERSATION_ID").then(|| AGY_CONVERSATION.to_string())
+            })
+    };
+    let done = parse(&stop).unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("Hello.\n\nBye."));
+    // a transcript it cannot read ends the turn all the same, with no reply
+    stop["transcriptPath"] = Value::from("/nowhere/transcript_full.jsonl");
+    let done = parse(&stop).unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply, None);
+}
+
+#[test]
+fn only_the_conversation_s_own_hooks_report() {
+    assert!(parse_in("antigravity", "stop", "stop-canceled", &[]).is_none());
+    assert!(
+        parse_in(
+            "antigravity",
+            "stop",
+            "stop-canceled",
+            &[("ANTIGRAVITY_CONVERSATION_ID", "another")]
+        )
+        .is_none()
+    );
 }

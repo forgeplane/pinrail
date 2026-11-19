@@ -1,0 +1,4 @@
+{"step_index": 0, "source": "USER_EXPLICIT", "type": "USER_INPUT", "status": "DONE", "content": "Say hello in one word.\nThen say bye."}
+{"step_index": 1, "source": "MODEL", "type": "PLANNER_RESPONSE", "status": "DONE", "content": "Hello.\n\nBye."}
+{"step_index": 2, "source": "MODEL", "type": "PLANNER_RESPONSE", "status": "DONE"}
+{"step_index": 3, "source": "MODEL", "type": "GENERIC", "status": "DONE", "content": "Created At: 2026-11-20T00:27:52+02:00"}

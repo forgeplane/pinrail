@@ -24,3 +24,10 @@ every file in `codex/`.
 **Claude Code's status file**, `tests/fixtures/status/claude-code-idle.json`:
 `~/.claude/sessions/<pid>.json` of Claude Code 2.1.323, captured seconds after
 an interrupt, with its paths rewritten.
+
+**Antigravity CLI 1.5.12, captured** from an interactive session with a
+workspace `.agents/hooks.json` whose hooks saved their input:
+`session-start`, `first-invocation` (the first `PreInvocation` of a turn),
+`next-invocation`, `tool-done` (`PostToolUse`) and `stop`. Built from the
+same fields: `stop-canceled` and `stop-error`. `transcript_full.jsonl` has
+the shape of the transcript agy keeps, with made-up content.

@@ -16,11 +16,27 @@ pub const COMMAND_PREFIX: &str = "\"${PINRAIL_CLI:-pinrail}\" hook";
 /// one.
 pub const TIMEOUT_SECONDS: u64 = 2;
 
-/// Where an agent keeps its hooks, and the entries Pinrail adds there.
+/// Where an agent keeps its hooks, how the file lays them out, and the
+/// entries Pinrail adds there.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HookPlan {
     pub file: PathBuf,
+    pub layout: Layout,
     pub entries: Vec<HookEntry>,
+}
+
+/// How a file holds its hooks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layout {
+    /// A settings file whose `hooks` maps each event to groups of
+    /// `{matcher, hooks}`, as Claude Code's does. Pinrail's handlers go in
+    /// groups of their own beside the person's.
+    Settings,
+    /// A file of named hooks, each mapping events to its handlers, as
+    /// Antigravity's does. Pinrail owns the hook of this name: an event
+    /// with a matcher takes groups of `{matcher, hooks}`, any other a list
+    /// of handlers.
+    Named(&'static str),
 }
 
 /// One hook: the agent's event, its matcher if it takes one, and the
@@ -116,12 +132,68 @@ fn installed(settings: &Value) -> Vec<(String, Option<String>, Value)> {
     found
 }
 
+/// The named hook Pinrail writes for `plan`.
+fn named_hook(plan: &HookPlan) -> Value {
+    let mut events = Map::new();
+    for entry in &plan.entries {
+        let item = match entry.matcher {
+            Some(matcher) => json!({"matcher": matcher, "hooks": [handler(&entry.command)]}),
+            None => handler(&entry.command),
+        };
+        events
+            .entry(entry.event)
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+            .expect("an event's hooks are a list")
+            .push(item);
+    }
+    Value::Object(events)
+}
+
+/// The state of the named hook `name` in `file` against `plan`.
+fn named_state(file: &Value, name: &str, plan: &HookPlan) -> HookState {
+    let Some(hooks) = file.as_object() else {
+        return HookState::Unreadable;
+    };
+    let Some(hook) = hooks.get(name) else {
+        return HookState::Absent;
+    };
+    if !hook.is_object() {
+        return HookState::Unreadable;
+    }
+    if hook == &named_hook(plan) {
+        return HookState::Current;
+    }
+    // every handler as Pinrail writes one, for other events: another
+    // version's; anything else was edited
+    let handlers = hook.as_object().into_iter().flat_map(|events| {
+        events
+            .values()
+            .filter_map(Value::as_array)
+            .flatten()
+            .flat_map(|item| match item.get("hooks").and_then(Value::as_array) {
+                Some(group) => group.iter().collect::<Vec<_>>(),
+                None => vec![item],
+            })
+    });
+    let as_written =
+        |h: &Value| is_pinrail(h) && h == &handler(h["command"].as_str().unwrap_or_default());
+    if handlers.clone().all(as_written) && handlers.count() > 0 {
+        HookState::Outdated
+    } else {
+        HookState::Modified
+    }
+}
+
 /// The state of Pinrail's hooks in `settings` (a file's parsed contents, or
 /// `None` when the file does not parse) against `plan`.
 pub fn state(settings: Option<&Value>, plan: &HookPlan) -> HookState {
     let Some(settings) = settings else {
         return HookState::Unreadable;
     };
+    if let Layout::Named(name) = plan.layout {
+        return named_state(settings, name, plan);
+    }
     // hooks Pinrail could not edit without guessing: not an object of
     // events, each a list
     let hooks_ok = match settings.get("hooks") {
@@ -168,7 +240,11 @@ pub fn state(settings: Option<&Value>, plan: &HookPlan) -> HookState {
 
 /// `settings` without Pinrail's hooks: groups and events left empty go,
 /// and every other entry stays as it was.
-pub fn remove(settings: &mut Value) {
+pub fn remove(settings: &mut Value, plan: &HookPlan) {
+    if let Layout::Named(name) = plan.layout {
+        settings.as_object_mut().map(|s| s.remove(name));
+        return;
+    }
     let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) else {
         return;
     };
@@ -197,11 +273,15 @@ pub fn remove(settings: &mut Value) {
 /// held before. Each goes in a group of its own, so the person's groups are
 /// never changed.
 pub fn install(settings: &mut Value, plan: &HookPlan) {
-    remove(settings);
+    remove(settings, plan);
     if !settings.is_object() {
         *settings = Value::Object(Map::new());
     }
     let root = settings.as_object_mut().expect("an object");
+    if let Layout::Named(name) = plan.layout {
+        root.insert(name.to_string(), named_hook(plan));
+        return;
+    }
     let hooks = root
         .entry("hooks")
         .or_insert_with(|| Value::Object(Map::new()))
@@ -247,7 +327,7 @@ pub fn apply(plan: &HookPlan, installed: bool) -> Result<HookState, String> {
     if installed {
         install(&mut settings, plan);
     } else {
-        remove(&mut settings);
+        remove(&mut settings, plan);
     }
     if settings != before {
         write(&plan.file, &settings)?;

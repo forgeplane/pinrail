@@ -9,7 +9,7 @@ use crate::agent::{
     resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
-use crate::integration::{HookEntry, HookPlan};
+use crate::integration::{HookEntry, HookPlan, Layout};
 use crate::registry::AgentSpec;
 
 pub struct ClaudeCode;
@@ -102,6 +102,7 @@ impl Agent for ClaudeCode {
         let entry = |event, matcher, hook| HookEntry::new("claude-code", event, matcher, hook);
         Some(HookPlan {
             file: config_folder(home, env).join("settings.json"),
+            layout: Layout::Settings,
             entries: vec![
                 entry("SessionStart", None, "session-start"),
                 entry("UserPromptSubmit", None, "prompt"),

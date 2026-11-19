@@ -57,7 +57,7 @@ fn installing_keeps_the_person_s_settings_and_removing_restores_them() {
     let mut again = settings.clone();
     install(&mut again, &plan);
     assert_eq!(again, settings);
-    remove(&mut settings);
+    remove(&mut settings, &plan);
     assert_eq!(settings, original);
 }
 
@@ -73,7 +73,7 @@ fn an_empty_file_gets_one_hook_for_each_event_and_loses_them_again() {
     );
     assert_eq!(stop["timeout"], 2);
     assert_eq!(settings["hooks"]["PermissionRequest"][0]["matcher"], "*");
-    remove(&mut settings);
+    remove(&mut settings, &plan);
     assert_eq!(settings, json!({}));
 }
 
@@ -82,8 +82,8 @@ fn hooks_from_another_version_or_edited_by_hand_are_told_apart() {
     let plan = plan();
     let mut older = json!({});
     let fewer = HookPlan {
-        file: plan.file.clone(),
         entries: plan.entries[..3].to_vec(),
+        ..plan.clone()
     };
     install(&mut older, &fewer);
     assert_eq!(state(Some(&older), &plan), HookState::Outdated);
@@ -185,4 +185,86 @@ fn a_missing_file_is_created_with_the_hooks() {
     assert_eq!(file_state(&plan), HookState::Absent);
     assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
     assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
+}
+
+fn agy_plan() -> HookPlan {
+    adapter("antigravity")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .unwrap()
+}
+
+/// agy's hooks file as herdr leaves it: a named hook of its own.
+fn herdr_hook() -> Value {
+    json!({
+        "herdr": {
+            "PreInvocation": [
+                {"command": "bash '/Users/you/.gemini/config/hooks/herdr-agent-state.sh' session",
+                 "timeout": 10, "type": "command"}
+            ]
+        }
+    })
+}
+
+#[test]
+fn antigravity_s_hooks_go_in_its_global_hooks_file_as_a_named_hook() {
+    let plan = agy_plan();
+    assert_eq!(plan.file, Path::new("/Users/you/.gemini/config/hooks.json"));
+    let original = herdr_hook();
+    assert_eq!(state(Some(&original), &plan), HookState::Absent);
+    let mut hooks = original.clone();
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    // beside the others, which stay as they were
+    assert_eq!(hooks["herdr"], original["herdr"]);
+    // most events take their handlers in a list, a tool's event in groups
+    assert_eq!(
+        hooks["pinrail"]["Stop"][0]["command"],
+        "\"${PINRAIL_CLI:-pinrail}\" hook antigravity stop"
+    );
+    assert_eq!(hooks["pinrail"]["PostToolUse"][0]["matcher"], "*");
+    assert_eq!(
+        hooks["pinrail"]["PostToolUse"][0]["hooks"][0]["command"],
+        "\"${PINRAIL_CLI:-pinrail}\" hook antigravity tool-done"
+    );
+    let mut again = hooks.clone();
+    install(&mut again, &plan);
+    assert_eq!(again, hooks);
+    remove(&mut hooks, &plan);
+    assert_eq!(hooks, original);
+}
+
+#[test]
+fn antigravity_s_hooks_from_another_version_or_edited_by_hand_are_told_apart() {
+    let plan = agy_plan();
+    let mut older = json!({});
+    let fewer = HookPlan {
+        entries: plan.entries[..2].to_vec(),
+        ..plan.clone()
+    };
+    install(&mut older, &fewer);
+    assert_eq!(state(Some(&older), &plan), HookState::Outdated);
+    let mut edited = json!({});
+    install(&mut edited, &plan);
+    edited["pinrail"]["Stop"][0]["timeout"] = json!(30);
+    assert_eq!(state(Some(&edited), &plan), HookState::Modified);
+    for unreadable in [json!([]), json!({"pinrail": "off"})] {
+        assert_eq!(
+            state(Some(&unreadable), &plan),
+            HookState::Unreadable,
+            "{unreadable}"
+        );
+    }
+}
+
+#[test]
+fn every_antigravity_hook_installed_is_one_pinrail_hook_reads() {
+    for entry in agy_plan().entries {
+        let hook = entry.command.rsplit(' ').next().unwrap();
+        assert!(
+            ["session-start", "invocation", "tool-done", "stop"].contains(&hook),
+            "{}",
+            entry.command
+        );
+    }
 }
