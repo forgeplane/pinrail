@@ -68,6 +68,12 @@ async function sessionWithRun(page: Page) {
 
 const terminalBar = (page: Page) => page.getByTestId("terminal-bar");
 const terminalFocused = (page: Page) => page.evaluate(() => !!document.activeElement?.closest(".terminal-surface"));
+/** Waits until the terminal has the keyboard and its stream is live: what
+ *  is typed while it still connects is dropped, as the app means it to be. */
+async function terminalReady(page: Page) {
+  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await expect(terminalBar(page).getByRole("status")).not.toHaveText(/Connecting|Reconnecting/);
+}
 
 test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always leave the terminal", async ({ page }) => {
   const { session, received } = await sessionWithRun(page);
@@ -82,7 +88,7 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
   await expect(page.getByRole("tabpanel", { name: "Summary" })).toBeHidden();
   await expect(page.locator(".thread-main")).toHaveAttribute("aria-hidden", "true");
   await expect(page).toHaveURL(/view=terminal/);
-  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await terminalReady(page);
   await page.keyboard.type("ls");
   await expect.poll(() => received.join("")).toBe("ls");
 
@@ -94,7 +100,7 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
 
   await page.keyboard.press("ControlOrMeta+Shift+T");
   await expect(terminalBar(page)).toBeVisible();
-  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await terminalReady(page);
   await page.keyboard.press("ControlOrMeta+Shift+T");
   await expect(terminalBar(page)).toBeHidden();
   expect(received.join("")).toBe("ls");
@@ -204,7 +210,7 @@ for (const system of ["macOS", "Linux"] as const) {
     const { session, received } = await sessionWithRun(page);
     await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
     await expect(terminalBar(page)).toBeVisible();
-    await expect.poll(() => terminalFocused(page)).toBe(true);
+    await terminalReady(page);
     const palette = page.getByRole("dialog", { name: "Search" });
 
     // Esc goes to the agent, and the page stays
@@ -277,7 +283,7 @@ for (const system of ["macOS", "Linux"] as const) {
     const { session, received } = await sessionWithRun(page);
     const asked = await stops(page);
     await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
-    await expect.poll(() => terminalFocused(page)).toBe(true);
+    await terminalReady(page);
     await page.keyboard.press(system === "macOS" ? "Meta+Shift+X" : "Control+Shift+X");
     const confirm = page.getByRole("dialog", { name: "Stop Claude Code?" });
     await expect(confirm).toBeVisible();
@@ -377,7 +383,7 @@ test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboa
   const { session, received } = await sessionWithRun(page);
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
   await expect(terminalBar(page)).toBeVisible();
-  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await terminalReady(page);
   await page.keyboard.type("echo ready");
   await expect.poll(() => received.join("")).toBe("echo ready");
 
@@ -393,7 +399,7 @@ test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboa
 
   await page.keyboard.press("Escape");
   await expect(bar).toHaveCount(0);
-  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await terminalReady(page);
   // nothing of it reached the program
   expect(received.join("")).toBe("echo ready");
 });
@@ -407,7 +413,7 @@ test("a link Cmd-clicked in the terminal opens", async ({ page }) => {
     window.open = (url?: string | URL) => (opened.push(String(url)), null);
   });
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
-  await expect.poll(() => terminalFocused(page)).toBe(true);
+  await terminalReady(page);
   await page.keyboard.type("see https://example.com/docs");
   await expect.poll(() => received.join("")).toBe("see https://example.com/docs");
 
