@@ -176,6 +176,29 @@ test("nested, a sub-item whose parent the filters hide names its parent", async 
   await expect(row(page, child.key).locator(".item-parent")).toHaveText(`in ${parent.key}`);
 });
 
+test("a sub-item's parent shows beside its title, clear of its marks", async ({ page, request }) => {
+  const repo = fresh("parentmarks");
+  const parent = await add(request, repo, "Support more agents");
+  const first = await add(request, repo, "Take hosted agents' status from OSC 7501");
+  const child = await add(request, repo, "Add the OpenCode adapter", {
+    parent: parent.key,
+    depends_on: [first.key],
+  });
+  await edit(request, parent.key, { claim: "claim" });
+  await edit(request, first.key, { claim: "claim" });
+  // a narrow window, with the sidebar hidden
+  await page.setViewportSize({ width: 560, height: 600 });
+  await open(page, repo, "&status=open");
+  await expect.poll(() => keys(page)).toEqual([child.key]);
+  const shown = row(page, child.key);
+  const [named, blocked] = [
+    await shown.locator(".item-parent").boundingBox(),
+    await shown.getByTestId("item-blocked").boundingBox(),
+  ];
+  expect(named!.x + named!.width).toBeLessThanOrEqual(blocked!.x);
+  await expect(shown.locator(".item-parent")).toHaveText(`in ${parent.key}`);
+});
+
 test("the items are grouped by project, by repository or in one list, and the choice is kept", async ({
   page,
   request,

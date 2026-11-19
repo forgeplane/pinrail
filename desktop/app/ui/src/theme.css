@@ -6998,13 +6998,14 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   color: var(--faint);
   white-space: nowrap;
 }
-/* in a narrow row the repository shrinks before the title does */
+/* in a narrow row the repository shrinks first, then the title, while the
+   parent's key stays whole beside it */
 .item-title-text {
-  flex-shrink: 0;
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .item-repo {
-  flex: 0 1 auto;
+  flex: 0 1000 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
