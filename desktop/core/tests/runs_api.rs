@@ -831,6 +831,7 @@ async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
             created_by: "app",
             token_digest: "d",
             session: Some("s-rebooted"),
+            checkout: None,
         },
         now,
     )

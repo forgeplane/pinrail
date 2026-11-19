@@ -149,6 +149,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A session started from Pinrail is listed under its repository and branch
+  from the start, also when its agent does not report status.
 - Messages you write to a session while it is not running are typed into
   its terminal once you resume it in Pinrail.
 - With a session open, the sidebar marks only the session's own row, not

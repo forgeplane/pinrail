@@ -221,6 +221,7 @@ impl super::Runtime {
 
         let id = crate::id::next_run();
         let token = new_token();
+        let checkout = checkout_of(&start.folder).await;
         let run = self.db.insert_run(
             &NewRun {
                 id: &id,
@@ -234,6 +235,7 @@ impl super::Runtime {
                 created_by: &start.created_by,
                 token_digest: &super::digest(&token),
                 session: plan.session.as_deref(),
+                checkout: checkout.as_ref(),
             },
             Utc::now(),
         )?;
@@ -317,6 +319,14 @@ impl super::Runtime {
                 return Err(RunError::FolderMissing(folder));
             }
             let id = crate::id::next_run();
+            // a session started before its folder was read, or outside
+            // Pinrail with no hooks, learns its repository now; git answers
+            // in milliseconds, and the start waits for the lock anyway
+            let checkout = session
+                .repo
+                .is_none()
+                .then(|| pinrail_runtime::checkout::of(std::path::Path::new(&folder)))
+                .flatten();
             let run = self.db.insert_run(
                 &NewRun {
                     id: &id,
@@ -330,6 +340,7 @@ impl super::Runtime {
                     created_by: &resume.created_by,
                     token_digest: &super::digest(&token),
                     session: Some(&resume.session),
+                    checkout: checkout.as_ref(),
                 },
                 now,
             )?;
@@ -1035,6 +1046,16 @@ fn startable_list(
             })
         })
         .collect()
+}
+
+/// The git checkout `folder` is in, read off the async threads, since git
+/// runs as a process.
+async fn checkout_of(folder: &str) -> Option<pinrail_runtime::checkout::Checkout> {
+    let folder = std::path::PathBuf::from(folder);
+    tokio::task::spawn_blocking(move || pinrail_runtime::checkout::of(&folder))
+        .await
+        .ok()
+        .flatten()
 }
 
 #[cfg(test)]

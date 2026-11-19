@@ -275,6 +275,7 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         created_by: "app",
         token_digest: id,
         session: None,
+        checkout: None,
     };
     // a running run whose terminal the host no longer has
     db.insert_run(&new_run("run_gone"), now).unwrap();
@@ -352,6 +353,7 @@ async fn after_a_restart_the_lost_runs_end_as_restart_and_their_sessions_are_lis
         created_by: "app",
         token_digest: id,
         session: Some(session),
+        checkout: None,
     };
     db.insert_run(&new_run("run_a", "s-a"), now).unwrap();
     db.run_spawned("run_a", "t_a", None).unwrap();
@@ -406,6 +408,7 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
             created_by: "app",
             token_digest: "d",
             session: Some("s-lost"),
+            checkout: None,
         },
         now,
     )
@@ -584,4 +587,63 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
         db.presence(&session.0, &session.1).unwrap().unwrap().state,
         "working"
     );
+}
+
+/// Runs git in `folder`, which must succeed.
+fn git(folder: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(folder)
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_s_session_takes_the_repository_and_branch_of_its_folder() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let db = setup.db();
+
+    let checkout = setup.folder("api");
+    git(&checkout, &["init", "-q", "-b", "fix/login"]);
+    git(
+        &checkout,
+        &["remote", "add", "origin", "git@github.com:acme/api.git"],
+    );
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &checkout))
+        .await
+        .unwrap();
+    let (agent, id) = run.session.clone().unwrap();
+    // no hook has reported, and the session already knows where it works
+    let session = db
+        .session(&agent, &id, chrono::Utc::now())
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.repo.as_deref(), Some("acme/api"));
+    assert_eq!(session.reference.as_deref(), Some("fix/login"));
+
+    // a folder outside a checkout starts all the same, with no repository
+    let plain = setup.folder("plain");
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &plain))
+        .await
+        .unwrap();
+    let (agent, id) = run.session.clone().unwrap();
+    let session = db
+        .session(&agent, &id, chrono::Utc::now())
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.repo, None);
+    assert_eq!(session.folder.as_deref(), plain.to_str());
 }

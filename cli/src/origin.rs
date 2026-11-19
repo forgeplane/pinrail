@@ -4,8 +4,8 @@
 //! `--origin` gives wins; only what is missing is filled.
 
 use std::collections::BTreeMap;
-use std::process::{Command, Stdio};
 
+use pinrail_runtime::checkout::Checkout as Found;
 use serde_json::{Map, Value, json};
 
 /// The origin keys the app keeps, as the core's `ORIGIN_KEYS` lists them;
@@ -116,64 +116,9 @@ pub fn repo() -> Option<String> {
     from_git()?.repo
 }
 
-struct Found {
-    /// the top of the checkout
-    top: String,
-    repo: Option<String>,
-    reference: Option<String>,
-}
-
+/// The checkout the command runs in.
 fn from_git() -> Option<Found> {
-    let top = git(&["rev-parse", "--show-toplevel"])?;
-    let remote = git(&["remote", "get-url", "origin"]).or_else(|| {
-        let first = git(&["remote"])?.lines().next()?.to_string();
-        git(&["remote", "get-url", &first])
-    });
-    let repo = remote
-        .as_deref()
-        .and_then(project_of)
-        .or_else(|| top.rsplit('/').next().map(str::to_string))
-        .filter(|r| !r.is_empty());
-    // the branch, even before its first commit; none on a detached HEAD
-    let reference = git(&["symbolic-ref", "--short", "HEAD"]);
-    Some(Found {
-        top,
-        repo,
-        reference,
-    })
-}
-
-fn git(args: &[&str]) -> Option<String> {
-    let out = Command::new("git")
-        .args(args)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
-    let text = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    (out.status.success() && !text.is_empty()).then_some(text)
-}
-
-/// The project a remote names: its path on the host, without `.git`.
-/// `git@github.com:acme/api.git` and `https://github.com/acme/api` are
-/// `acme/api`; a subgroup stays in (`group/sub/api`); a local path gives its
-/// last folder.
-fn project_of(url: &str) -> Option<String> {
-    let url = url.trim().trim_end_matches('/');
-    let url = url.strip_suffix(".git").unwrap_or(url);
-    let path = if let Some((_, rest)) = url.split_once("://") {
-        // scheme://[user@]host[:port]/path
-        rest.split_once('/').map(|(_, path)| path)?
-    } else if url.starts_with('/') || url.starts_with('.') || url.starts_with('~') {
-        url.rsplit('/').next()?
-    } else if let Some((_, path)) = url.split_once(':') {
-        // [user@]host:path
-        path
-    } else {
-        url
-    };
-    let path = path.trim_matches('/');
-    (!path.is_empty()).then(|| path.to_string())
+    pinrail_runtime::checkout::of(&std::env::current_dir().ok()?)
 }
 
 /// `--origin repo=acme/api,url=https://…`: comma-separated pairs. A url
@@ -207,8 +152,6 @@ pub fn parse(s: &str) -> Result<BTreeMap<String, String>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::project_of;
-
     #[test]
     fn a_branch_is_taken_only_for_the_checkouts_own_project() {
         let checkout = || super::Found {
@@ -247,25 +190,5 @@ mod tests {
         assert_eq!(origin["url"], "https://ci.example/run?ids=1,2");
         assert_eq!(origin["repo"], "acme/api");
         assert_eq!(origin["workflow"], "deploy");
-    }
-
-    #[test]
-    fn a_remote_names_its_project_by_its_path() {
-        for (url, project) in [
-            ("git@github.com:acme/api.git", "acme/api"),
-            ("https://github.com/acme/api.git", "acme/api"),
-            ("https://github.com/acme/api", "acme/api"),
-            ("https://github.com/acme/api/", "acme/api"),
-            (
-                "ssh://git@gitlab.example.com:2222/group/sub/api.git",
-                "group/sub/api",
-            ),
-            ("https://token@gitlab.com/group/api.git", "group/api"),
-            ("/srv/git/api.git", "api"),
-            ("../api", "api"),
-        ] {
-            assert_eq!(project_of(url).as_deref(), Some(project), "{url}");
-        }
-        assert_eq!(project_of("https://github.com"), None);
     }
 }

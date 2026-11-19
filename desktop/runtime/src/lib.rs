@@ -4,6 +4,7 @@
 
 pub mod agent;
 mod agents;
+pub mod checkout;
 pub mod detect;
 pub mod hooks;
 pub mod integration;

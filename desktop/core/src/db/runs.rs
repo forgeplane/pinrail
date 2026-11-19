@@ -110,6 +110,9 @@ pub struct NewRun<'a> {
     /// The session the run starts in, when Pinrail chose its id or resumes
     /// it: created and shown if it is new.
     pub session: Option<&'a str>,
+    /// The git checkout the folder is in, which gives the session its
+    /// repository and branch.
+    pub checkout: Option<&'a pinrail_runtime::checkout::Checkout>,
 }
 
 /// Which runs to list.
@@ -211,6 +214,13 @@ impl Db {
         if let Some(session) = run.session {
             let mut origin = Map::new();
             origin.insert("folder".to_string(), json!(run.folder));
+            if let Some(checkout) = run.checkout {
+                for (key, value) in [("repo", &checkout.repo), ("ref", &checkout.reference)] {
+                    if let Some(value) = value {
+                        origin.insert(key.to_string(), json!(value));
+                    }
+                }
+            }
             super::sessions::touch(&tx, run.agent, session, &origin, now)?;
             tx.execute(
                 "INSERT INTO run_sessions (run_id, agent, session, bound_at) VALUES (?1, ?2, ?3, ?4)",
