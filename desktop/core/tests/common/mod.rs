@@ -191,8 +191,11 @@ if [ -f exit ]; then exit "$(cat exit)"; fi
 # with a file named listen, it writes each line it is sent to heard
 if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> heard; done; exit 0; fi
 # with a file named records, it writes what a test puts in the file named
-# record as an OSC 7501 record, and removes it
+# record as an OSC 7501 record, and removes it, and writes each line it is
+# sent to heard
 if [ -f records ]; then
+  exec 3<&0
+  (while IFS= read -r line; do printf '%s\n' "$line" >> heard; done) <&3 &
   while :; do
     if [ -f record ]; then printf '\033]7501;%s\033\\' "$(cat record)"; rm record; fi
     sleep 0.05
@@ -249,4 +252,20 @@ pub fn stand_in_path(dir: &std::path::Path) -> String {
     std::fs::create_dir_all(&bin).unwrap();
     std::os::unix::fs::symlink(&script, bin.join("claude")).unwrap();
     format!("{}:/usr/bin:/bin", bin.display())
+}
+
+#[cfg(unix)]
+/// Has the stand-in agent in `folder` write `record` as an OSC 7501 record,
+/// and waits until it has.
+pub async fn record(folder: &std::path::Path, record: &str) {
+    std::fs::write(folder.join("record.part"), record).unwrap();
+    std::fs::rename(folder.join("record.part"), folder.join("record")).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while folder.join("record").exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the record was not written"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
 }

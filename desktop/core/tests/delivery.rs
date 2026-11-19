@@ -352,3 +352,53 @@ async fn each_change_of_a_message_s_state_is_announced() {
         }
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn without_hooks_the_terminal_confirms_a_typed_message_and_lets_the_next_through() {
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("records"), "").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    file(folder.join("token")).await;
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    common::record(&folder, "state=idle:app=claude-code").await;
+
+    // typed into the idle agent, then confirmed by the work it starts
+    let first = send(&app, &session, "Use the v2 endpoint.").await;
+    message_becomes(&app, &session, &first["id"], |m| m["state"] == "typing").await;
+    // the agent starts work once Enter is pressed, which ends the line
+    let heard = file(folder.join("heard")).await;
+    assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
+    common::record(&folder, "state=working:app=claude-code").await;
+    message_becomes(&app, &session, &first["id"], |m| m["state"] == "delivered").await;
+
+    // held while it works, which no record of work confirms
+    let second = send(&app, &session, "Also check the logout.").await;
+    message_becomes(&app, &session, &second["id"], |m| m["held"] == "working").await;
+    common::record(&folder, "state=working:app=claude-code").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    message_becomes(&app, &session, &second["id"], |m| m["state"] == "queued").await;
+
+    // typed once the turn ends
+    common::record(&folder, "state=done:app=claude-code").await;
+    message_becomes(&app, &session, &second["id"], |m| m["state"] == "typing").await;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !std::fs::read_to_string(folder.join("heard"))
+        .unwrap()
+        .contains("Also check the logout.")
+    {
+        assert!(
+            Instant::now() < deadline,
+            "the second message was not typed"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}

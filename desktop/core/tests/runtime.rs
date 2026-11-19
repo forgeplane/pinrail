@@ -461,18 +461,6 @@ async fn a_message_is_typed_into_a_run_and_refused_once_the_run_ended() {
     assert_eq!(refused.code(), "exited");
 }
 
-/// Has the stand-in agent in `folder` write `record` as an OSC 7501 record,
-/// and waits until it has.
-async fn record(folder: &Path, record: &str) {
-    std::fs::write(folder.join("record.part"), record).unwrap();
-    std::fs::rename(folder.join("record.part"), folder.join("record")).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while folder.join("record").exists() {
-        assert!(Instant::now() < deadline, "the record was not written");
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-}
-
 /// The session's presence once `done` holds for it.
 async fn presence_becomes(
     db: &Db,
@@ -533,7 +521,7 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
     );
 
     // the terminal's records set it from then on
-    record(&folder, "state=idle:app=claude-code").await;
+    common::record(&folder, "state=idle:app=claude-code").await;
     let idle = presence_becomes(&db, &session, |p| p.state == "idle").await;
     assert_eq!(idle.source, "terminal");
     hook(
@@ -548,10 +536,10 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
     // but its prompt opens a turn
     assert_eq!(presence.turn, 1);
 
-    record(&folder, "state=working:app=claude-code").await;
+    common::record(&folder, "state=working:app=claude-code").await;
     presence_becomes(&db, &session, |p| p.state == "working").await;
     // "answer: Red or blue?"
-    record(
+    common::record(
         &folder,
         "state=blocked:kind=question:app=claude-code:msg=YW5zd2VyOiBSZWQgb3IgYmx1ZT8=",
     )
@@ -564,8 +552,8 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
     );
 
     // a subagent's record leaves the session as it is
-    record(&folder, "state=working:app=claude-code:id=agent-1").await;
-    record(&folder, "state=done:app=claude-code:id=agent-1").await;
+    common::record(&folder, "state=working:app=claude-code:id=agent-1").await;
+    common::record(&folder, "state=done:app=claude-code:id=agent-1").await;
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(
         db.presence(&session.0, &session.1).unwrap().unwrap().state,
@@ -573,8 +561,8 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
     );
 
     // the end of the turn finishes it
-    record(&folder, "state=working:app=claude-code").await;
-    record(&folder, "state=done:app=claude-code").await;
+    common::record(&folder, "state=working:app=claude-code").await;
+    common::record(&folder, "state=done:app=claude-code").await;
     let done = presence_becomes(&db, &session, |p| p.state == "idle").await;
     assert!(done.finished_at.is_some());
 

@@ -262,6 +262,17 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                             {
                                 eprintln!("pinrail: recording a program status failed: {error:?}");
                             }
+                            // the work confirms the message just typed
+                            if report.event == crate::db::ReportEvent::Working
+                                && let Err(error) = app.runtime().confirm_by_work(&agent, &session)
+                            {
+                                eprintln!("pinrail: confirming a typed message failed: {error}");
+                            }
+                            // an agent that went idle takes the next message
+                            let app = app.clone();
+                            tokio::spawn(async move {
+                                let _ = app.runtime().deliver(&agent, &session).await;
+                            });
                         }
                         Ok(None) => {}
                         Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),

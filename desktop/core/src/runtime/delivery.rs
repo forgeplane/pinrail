@@ -3,7 +3,8 @@
 //! goes by the Type route; any other goes by the Queue, to the agent's
 //! next status. A message to type waits while the agent works or waits for
 //! an answer, and is typed once it is idle, one at a time; the agent's
-//! prompt hook confirms it, whatever the person did in the terminal. A
+//! prompt hook confirms it, whatever the person did in the terminal, and
+//! without hooks, the agent's terminal reporting work right after it. A
 //! message is typed once by itself: after that, the person retries it. One held for 30 minutes, or whose run
 //! ended, goes to the Queue.
 
@@ -260,6 +261,26 @@ impl super::Runtime {
                 session,
                 message.id,
                 &["typing", "unconfirmed"],
+                MessageChange {
+                    state: "delivered",
+                    ..MessageChange::default()
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Delivers the message being typed into the session's agent, now that
+    /// its terminal reports work: Pinrail types only into an idle agent, so
+    /// the work is the message's. Hooks off, nothing else confirms it.
+    pub fn confirm_by_work(&self, agent: &str, session: &str) -> Result<(), RunError> {
+        let typed = self.db.typed_messages(agent, session)?;
+        if let Some(message) = typed.iter().find(|m| m.state == "typing") {
+            self.move_message(
+                agent,
+                session,
+                message.id,
+                &["typing"],
                 MessageChange {
                     state: "delivered",
                     ..MessageChange::default()

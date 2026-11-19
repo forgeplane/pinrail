@@ -149,6 +149,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A message typed into a session that Pinrail runs no longer shows as not
+  confirmed when its agent's hooks are off. The agent starting work
+  confirms it, and the next waiting message is typed when the turn ends.
 - A session started from Pinrail is listed under its repository and branch
   from the start, also when its agent does not report status.
 - Messages you write to a session while it is not running are typed into
