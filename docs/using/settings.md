@@ -41,6 +41,8 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 | **Dark theme**, **Light theme** | The theme for each colour scheme. See [Themes](/docs/using/themes/). |
 | **Custom themes** | *Open folder* opens the folder of your own themes, and *New theme…* creates one from the current theme. Any error in a theme file shows here. |
 | **Text size** | *Small*, *Default* or *Large*. |
+| **Tables** | How tables look in messages, notes and work item descriptions. *Bordered* draws a line around every cell, *Lines* draws lines between rows under a tinted header, and *Striped* tints every other row. |
+| **Table width** | *Fit* makes each table as wide as its content, and *Full width* stretches it across the text. |
 
 ## Work items
 

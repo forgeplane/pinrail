@@ -7,7 +7,7 @@
 import type { Ordering } from "../lib/itemOrder";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, inTauri } from "../api/client";
-import type { LinkPermission, ServerSettings, ThemeEntry } from "../api/types";
+import type { LinkPermission, ServerSettings, TableStyle, TableWidth, ThemeEntry } from "../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
 import { type Choices, DEFAULT_CHOICES } from "../lib/sidebarSessions";
 import { cacheAppearance, setThemeOverlays, setThemePreference, type ThemePreference } from "../lib/theme";
@@ -18,7 +18,14 @@ import { useLatest } from "../lib/useLatest";
 export type TextSize = "small" | "default" | "large";
 
 export type Settings = {
-  appearance: { theme: ThemePreference; dark_theme: string; light_theme: string; text_size: TextSize };
+  appearance: {
+    theme: ThemePreference;
+    dark_theme: string;
+    light_theme: string;
+    text_size: TextSize;
+    tables: TableStyle;
+    table_width: TableWidth;
+  };
   /** whether the sidebar is open, and how it lists the sessions */
   sidebar: { open: boolean; sessions: Choices & { collapsed: string[] } };
   close_window: "hide" | "quit";
@@ -167,6 +174,8 @@ export const fromServer = (s: ServerSettings): Served => ({
     dark_theme: s.appearance.dark_theme,
     light_theme: s.appearance.light_theme,
     text_size: s.appearance.text_size,
+    tables: s.appearance.tables,
+    table_width: s.appearance.table_width,
   },
   sidebar: { open: s.sidebar.open, sessions: { ...SESSIONS, ...s.sidebar.sessions } },
   close_window: s.close_window,
@@ -297,7 +306,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const native = inTauri();
   const connected = useConnected();
   const [settings, setSettings] = useState<Settings>(() => ({
-    appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
+    appearance: {
+      theme: "system",
+      dark_theme: "dark",
+      light_theme: "light",
+      text_size: "default",
+      tables: "bordered",
+      table_width: "fit",
+    },
     sidebar: { open: true, sessions: SESSIONS },
     close_window: "hide",
     menu_bar_icon: true,
@@ -353,6 +369,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const apply = useCallback((s: Pick<Settings, "appearance">) => {
     if (applied.current?.appearance.theme !== s.appearance.theme) setThemePreference(s.appearance.theme);
     if (applied.current?.appearance.text_size !== s.appearance.text_size) applyTextSize(s.appearance.text_size);
+    document.documentElement.dataset.tables = s.appearance.tables;
+    document.documentElement.dataset.tableWidth = s.appearance.table_width;
     applied.current = s;
     cacheAppearance(s.appearance);
   }, []);

@@ -501,12 +501,18 @@ export type ThemeEntry = {
   error: string | null;
 };
 
+/** How tables in Markdown look, and how wide they are. */
+export type TableStyle = "bordered" | "lines" | "striped";
+export type TableWidth = "fit" | "full";
+
 export type ServerSettings = {
   appearance: {
     theme: "system" | "dark" | "light";
     dark_theme: string;
     light_theme: string;
     text_size: "small" | "default" | "large";
+    tables: TableStyle;
+    table_width: TableWidth;
   };
   sidebar: { open: boolean; sessions?: Partial<import("../lib/sidebarSessions").Choices & { collapsed: string[] }> };
   close_window: "hide" | "quit";

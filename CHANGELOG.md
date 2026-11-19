@@ -19,6 +19,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   hover. Click a session's name in its header to rename it. The Sessions
   page's **Periodic table** shows which elements your sessions have
   found, and the first session to find a rare one announces it.
+- Settings › Appearance chooses how tables look in messages, notes and
+  work item descriptions: bordered, with lines between rows, or striped.
+  **Table width** makes them fit their content or fill the full width.
 - The Work items page searches the full text of the work items, best
   match first, and shows where each one matched. The button at the left
   of the search field, or ⌥T, switches to searching the titles only.

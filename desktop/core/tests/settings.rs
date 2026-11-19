@@ -14,6 +14,8 @@ async fn every_setting_is_listed_at_its_default() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["appearance"]["theme"], "system");
     assert_eq!(body["appearance"]["text_size"], "default");
+    assert_eq!(body["appearance"]["tables"], "bordered");
+    assert_eq!(body["appearance"]["table_width"], "fit");
     assert_eq!(body["autostart"], false);
     assert_eq!(body["close_window"], "hide");
     assert_eq!(body["menu_bar_icon"], true);

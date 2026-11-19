@@ -450,6 +450,32 @@ export function SettingsDialog({
                   ]}
                 />
               </SettingsRow>
+              <SettingsRow label="Tables" description="How tables look in messages, notes and work item descriptions">
+                <Segmented
+                  label="Tables"
+                  value={settings.appearance.tables}
+                  onChange={(v) => update({ appearance: { tables: v } })}
+                  options={[
+                    { value: "bordered", label: "Bordered" },
+                    { value: "lines", label: "Lines" },
+                    { value: "striped", label: "Striped" },
+                  ]}
+                />
+              </SettingsRow>
+              <SettingsRow
+                label="Table width"
+                description="Fit each table to its content, or stretch it across the text"
+              >
+                <Segmented
+                  label="Table width"
+                  value={settings.appearance.table_width}
+                  onChange={(v) => update({ appearance: { table_width: v } })}
+                  options={[
+                    { value: "fit", label: "Fit" },
+                    { value: "full", label: "Full width" },
+                  ]}
+                />
+              </SettingsRow>
             </SettingsGroup>
           </SettingsPage>
         ) : null}

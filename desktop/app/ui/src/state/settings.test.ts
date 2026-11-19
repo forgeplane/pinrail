@@ -4,7 +4,14 @@ import { fromServer, mergeSettings, patchBody } from "./settings";
 
 // what an older core answers: no inbox, items, plugins or links sections
 const served = fromServer({
-  appearance: { theme: "dark", dark_theme: "dark", light_theme: "light", text_size: "default" },
+  appearance: {
+    theme: "dark",
+    dark_theme: "dark",
+    light_theme: "light",
+    text_size: "default",
+    tables: "bordered",
+    table_width: "fit",
+  },
   sidebar: { open: true, sessions: { archived: true } },
   close_window: "quit",
   menu_bar_icon: true,

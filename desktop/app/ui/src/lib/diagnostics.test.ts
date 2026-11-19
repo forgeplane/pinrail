@@ -24,7 +24,14 @@ const plugin = (name: string, more: Partial<Plugin> = {}) =>
   }) as Plugin;
 
 const settings = {
-  appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
+  appearance: {
+    theme: "system",
+    dark_theme: "dark",
+    light_theme: "light",
+    text_size: "default",
+    tables: "bordered",
+    table_width: "fit",
+  },
   sidebar: { open: true },
   close_window: "hide",
   menu_bar_icon: true,

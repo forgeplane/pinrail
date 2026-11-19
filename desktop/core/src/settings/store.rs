@@ -70,6 +70,18 @@ const LEAVES: &[Leaf] = &[
         "The size of the interface's text.",
     ),
     (
+        "/appearance/tables",
+        Kind::Enum(&["bordered", "lines", "striped"]),
+        || json!("bordered"),
+        "How tables look in messages, notes and work item descriptions: a border around every cell, lines between rows, or striped rows.",
+    ),
+    (
+        "/appearance/table_width",
+        Kind::Enum(&["fit", "full"]),
+        || json!("fit"),
+        "The width of those tables: as wide as their content, or the full width of the text.",
+    ),
+    (
         "/autostart",
         Kind::Bool,
         || json!(false),
