@@ -195,13 +195,17 @@ jobs:
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets --locked
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
+        with:
+          tool: cargo-nextest@0.9.152
       # every test binary of both workspaces, so that one run shows every
-      # failure; the step fails at the end if any did
+      # failure; the step fails at the end if any did. nextest runs the
+      # desktop's test binaries in parallel, which have no doc tests
       - name: Rust tests
         run: |
           failed=0
           cargo test --manifest-path cli/Cargo.toml --locked --no-fail-fast || failed=1
-          cargo test --manifest-path desktop/Cargo.toml --workspace --locked --no-fail-fast || failed=1
+          cargo nextest run --manifest-path desktop/Cargo.toml --workspace --locked --no-fail-fast || failed=1
           cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs:: || failed=1
           exit $failed
       # the shell suite checks fixtures with the plugin SDK's harness, which
