@@ -7,8 +7,34 @@ import { spawn, spawnSync } from "node:child_process";
 
 const cli = process.env.PINRAIL_CLI || "pinrail";
 
-export default function (pi: any) {
-  const report = (event: string, ctx: any, fields: Record<string, unknown> = {}, sync = false) => {
+/** The part of Pi's extension API this extension uses. */
+interface Context {
+  cwd: string;
+  sessionManager: { getSessionId(): string; getSessionFile(): string | null | undefined };
+}
+interface Message {
+  role: string;
+  stopReason?: string;
+  errorMessage?: string;
+  content?: { type: string; text?: string }[];
+}
+interface PiEvent {
+  reason?: string;
+  text?: string;
+  source?: string;
+  streamingBehavior?: string;
+  toolName?: string;
+  kind?: string;
+  title?: string;
+  aborted?: boolean;
+  messages?: Message[];
+}
+interface Pi {
+  on(event: string, handler: (event: PiEvent, ctx: Context) => void): void;
+}
+
+export default function (pi: Pi) {
+  const report = (event: string, ctx: Context, fields: Record<string, unknown> = {}, sync = false) => {
     const body = JSON.stringify({
       session_id: ctx.sessionManager.getSessionId(),
       transcript_path: ctx.sessionManager.getSessionFile() ?? null,
@@ -21,7 +47,9 @@ export default function (pi: any) {
       // Pi exits right after session_shutdown, before an async child reads
       try {
         spawnSync(cli, ["hook", "pi", event], { input: body, stdio: ["pipe", "ignore", "ignore"], timeout: 1500 });
-      } catch {}
+      } catch {
+        // a report Pinrail misses must never stop Pi
+      }
       return;
     }
     try {
@@ -29,31 +57,33 @@ export default function (pi: any) {
       child.on("error", () => {});
       child.stdin.on("error", () => {});
       child.stdin.end(body);
-    } catch {}
+    } catch {
+      // a report Pinrail misses must never stop Pi
+    }
   };
   // the turn's reply and how it ended, from its last assistant message
   let last: Record<string, unknown> = {};
-  pi.on("session_start", (e: any, ctx: any) => report("session-start", ctx, { reason: e.reason }));
-  pi.on("input", (e: any, ctx: any) => {
+  pi.on("session_start", (e, ctx) => report("session-start", ctx, { reason: e.reason }));
+  pi.on("input", (e, ctx) => {
     if (e.source !== "extension") report("prompt", ctx, { prompt: e.text, streaming: e.streamingBehavior ?? null });
   });
-  pi.on("tool_execution_start", (e: any, ctx: any) => report("tool", ctx, { tool_name: e.toolName }));
-  pi.on("ui_prompt_start", (e: any, ctx: any) => report("waiting", ctx, { kind: e.kind, title: e.title }));
-  pi.on("ui_prompt_end", (e: any, ctx: any) => report("answered", ctx, { kind: e.kind }));
-  pi.on("agent_end", (e: any) => {
-    const message = [...(e.messages ?? [])].reverse().find((m: any) => m.role === "assistant");
+  pi.on("tool_execution_start", (e, ctx) => report("tool", ctx, { tool_name: e.toolName }));
+  pi.on("ui_prompt_start", (e, ctx) => report("waiting", ctx, { kind: e.kind, title: e.title }));
+  pi.on("ui_prompt_end", (e, ctx) => report("answered", ctx, { kind: e.kind }));
+  pi.on("agent_end", (e) => {
+    const message = [...(e.messages ?? [])].reverse().find((m) => m.role === "assistant");
     last = {
       stop_reason: message?.stopReason ?? null,
       error: message?.errorMessage ?? null,
       reply: (message?.content ?? [])
-        .filter((c: any) => c.type === "text")
-        .map((c: any) => c.text)
+        .filter((c) => c.type === "text")
+        .map((c) => c.text ?? "")
         .join(""),
     };
   });
-  pi.on("agent_settled", (e: any, ctx: any) => {
+  pi.on("agent_settled", (e, ctx) => {
     report("stop", ctx, { aborted: e.aborted, ...last });
     last = {};
   });
-  pi.on("session_shutdown", (e: any, ctx: any) => report("session-end", ctx, { reason: e.reason }, true));
+  pi.on("session_shutdown", (e, ctx) => report("session-end", ctx, { reason: e.reason }, true));
 }
