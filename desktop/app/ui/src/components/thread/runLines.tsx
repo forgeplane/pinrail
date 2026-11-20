@@ -139,8 +139,10 @@ export function turnEndText(turn: SessionTurn, name: string): string | null {
   if (!turn.ended_at) return null;
   const took = lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at));
   switch (turn.end_kind) {
+    // the person pressed Esc, or declined a permission, which agents
+    // report the same way
     case "interrupted":
-      return `You interrupted ${name} after ${took}`;
+      return `${name} stopped after ${took}`;
     case "failed":
       return `${name}'s turn failed after ${took}`;
     case "ended":

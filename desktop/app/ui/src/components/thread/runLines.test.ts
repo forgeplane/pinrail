@@ -51,7 +51,7 @@ const turn = (over: Partial<SessionTurn>): SessionTurn => ({
 describe("a turn that ended without a reply", () => {
   test("says how it ended, and after how long", () => {
     const name = "Antigravity CLI";
-    expect(turnEndText(turn({ end_kind: "interrupted" }), name)).toBe("You interrupted Antigravity CLI after 10 min");
+    expect(turnEndText(turn({ end_kind: "interrupted" }), name)).toBe("Antigravity CLI stopped after 10 min");
     expect(turnEndText(turn({ end_kind: "failed" }), name)).toBe("Antigravity CLI's turn failed after 10 min");
     expect(turnEndText(turn({ end_kind: "ended" }), name)).toBe(
       "The session ended during Antigravity CLI's turn, after 10 min",
