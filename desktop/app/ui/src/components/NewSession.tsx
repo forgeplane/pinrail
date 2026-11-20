@@ -137,6 +137,8 @@ export function NewSession() {
   // one whose session Pinrail names starts without them, and shows its
   // terminal, but its session shows no turns, prompts or replies
   const offersReports = !!chosen?.installed && !needsReports && chosen.reports === false;
+  // what Report status installs for it, which the button names
+  const installs = chosen?.installs === "extension" ? "extension" : "hooks";
   const ready = !!folder.trim() && !!chosen?.installed && !folderGone && !starting && !needsReports;
   const [turningOn, setTurningOn] = useState(false);
   const turnOnReports = async () => {
@@ -294,9 +296,9 @@ export function NewSession() {
         {needsReports ? (
           <div className="notice new-session-reports" role="status">
             <p>
-              {chosen.name} needs Report status to start from Pinrail: it tells Pinrail its session only through its
-              status hooks.
-              {inTauri() ? null : " Turn it on in Settings › Agents."}
+              {chosen.name} needs Pinrail&apos;s {installs} to start from Pinrail: it tells Pinrail its session only
+              through {installs === "extension" ? "it" : "them"}.
+              {inTauri() ? null : " Turn on Report status in Settings › Agents."}
             </p>
             {inTauri() ? (
               <button
@@ -305,7 +307,7 @@ export function NewSession() {
                 disabled={turningOn}
                 onClick={() => void turnOnReports()}
               >
-                Turn on Report status
+                Install {installs}
               </button>
             ) : null}
           </div>
@@ -313,12 +315,13 @@ export function NewSession() {
         {offersReports ? (
           <div className="notice new-session-reports" data-testid="new-session-reports-offer">
             <p>
-              Report status shows {chosen.name}&apos;s turns, prompts and replies in its session.
-              {inTauri() ? null : " Turn it on in Settings › Agents."}
+              Pinrail&apos;s {installs === "extension" ? "extension shows" : "hooks show"} {chosen.name}&apos;s turns,
+              prompts and replies in its session.
+              {inTauri() ? null : " Turn on Report status in Settings › Agents."}
             </p>
             {inTauri() ? (
               <button type="button" className="chrome-button" disabled={turningOn} onClick={() => void turnOnReports()}>
-                Turn on Report status
+                Install {installs}
               </button>
             ) : null}
           </div>

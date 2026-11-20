@@ -1065,6 +1065,15 @@ fn reports(home: Option<&std::path::Path>, id: &str) -> Option<bool> {
     ))
 }
 
+/// What Report status installs for the agent: `hooks` or `extension`, or
+/// `None` for an agent it installs nothing for. The kind is the adapter's,
+/// whatever the home folder.
+fn installs(id: &str) -> Option<&'static str> {
+    pinrail_runtime::adapter(id)?
+        .integration(std::path::Path::new("/"), &|_| None)
+        .map(|integration| integration.kind.as_str())
+}
+
 /// The agents Pinrail can start, from what the host found of their
 /// programs.
 fn startable_list(
@@ -1087,6 +1096,7 @@ fn startable_list(
                 "last_used": last == Some(agent.spec.id),
                 "names_session": agent.names_session,
                 "reports": reports(agent.spec.id),
+                "installs": installs(agent.spec.id),
             })
         })
         .collect()

@@ -45,6 +45,9 @@ export type StartableAgent = {
   /** Whether its hooks report its status on this computer; null for an
    *  agent whose hooks Pinrail does not install */
   reports?: boolean | null;
+  /** What Report status installs for it: hooks, or an extension; null for
+   *  an agent it installs nothing for */
+  installs?: "hooks" | "extension" | null;
 };
 
 /** A folder agents worked in lately. */

@@ -540,6 +540,9 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("copilot")["names_session"], true);
     assert_eq!(agent("pi")["version"], "1.5.2");
     assert_eq!(agent("pi")["names_session"], true);
+    // what Report status installs for each, which the start names
+    assert_eq!(agent("pi")["installs"], "extension");
+    assert_eq!(agent("copilot")["installs"], "hooks");
     // Pinrail chooses Claude Code's session id; agy tells it with a hook
     assert_eq!(agent("claude-code")["names_session"], true);
     assert_eq!(agent("antigravity")["names_session"], false);
