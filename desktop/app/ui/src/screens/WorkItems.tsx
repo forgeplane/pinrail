@@ -25,6 +25,7 @@ import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { DeleteItemDialog } from "../components/DeleteItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
+import { SearchInput } from "../components/SearchInput";
 import { PopoverMenu } from "../components/PopoverMenu";
 import { NO_PROJECT, inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { useLive, aboutItems, useNoticeCount } from "../state/live";
@@ -707,19 +708,14 @@ export function WorkItems() {
                   <ChevronDown size={11} aria-hidden="true" />
                 </button>
               </Tooltip>
-              <input
+              <SearchInput
                 ref={search}
-                autoCorrect="off"
-                autoCapitalize="off"
-                type="search"
-                autoComplete="off"
-                spellCheck={false}
                 placeholder={searchMode === "title" ? "Search titles…" : "Search work items…"}
-                aria-label="Search work items"
+                label="Search work items"
                 value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setParam("q", e.target.value);
+                onChange={(text) => {
+                  setQ(text);
+                  setParam("q", text);
                 }}
               />
             </span>

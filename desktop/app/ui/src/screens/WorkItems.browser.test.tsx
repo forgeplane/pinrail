@@ -4,6 +4,7 @@
 // in the end-to-end specs (e2e/shell/items/work-items.spec.ts).
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { flushSync } from "react-dom";
 import { useLocation } from "react-router";
 import type { Notice, WorkItem } from "../api/types";
 import { core } from "../testing/core";
@@ -90,6 +91,24 @@ describe("the list's keys", () => {
     await userEvent.keyboard("/");
     await userEvent.keyboard("dsx");
     expect(core.calls("editItem")).toEqual([]);
+  });
+});
+
+describe("the search field", () => {
+  test("keeps text entered while the page draws again for a notice", async () => {
+    await open([workItem({ title: "One", number: 1 })]);
+    const field = page.getByLabelText("Search work items").element() as HTMLInputElement;
+    // the browser has the text, and a notice draws the page again before
+    // React hears of the change, as when an answer lands during the event
+    window.addEventListener(
+      "input",
+      () => flushSync(() => core.notice({ kind: "item_changed", item: { key: "ACME-1" } } as unknown as Notice)),
+      { capture: true, once: true },
+    );
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "On");
+    field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    await expect.element(where()).toMatchTextContent("q=On");
+    expect(field.value).toBe("On");
   });
 });
 

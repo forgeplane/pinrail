@@ -29,6 +29,7 @@ import { api, errorMessage } from "../api/client";
 import type { Project, ProjectRepo } from "../api/types";
 import { PopoverMenu, type MenuEntry } from "../components/PopoverMenu";
 import { Tooltip } from "../components/Tooltip";
+import { SearchInput } from "../components/SearchInput";
 import { PROJECT_COLORS, ProjectAvatar, colorOf, type ProjectColor } from "../components/ProjectAvatar";
 import { leastUsedColor } from "../lib/projectAvatar";
 import { iconInput } from "../lib/projectAvatar";
@@ -285,17 +286,12 @@ export function Projects() {
         <div className="inbox-controls">
           <label className="search-field">
             <Search size={14} aria-hidden="true" />
-            <input
+            <SearchInput
               ref={search}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              type="search"
-              aria-label="Filter projects and repositories"
+              label="Filter projects and repositories"
               placeholder="Filter projects and repositories…"
               value={filter}
-              onChange={(event) => setFilter(event.target.value)}
+              onChange={setFilter}
             />
           </label>
           <Tooltip label={allFolded ? "Expand all" : "Collapse all"} side="bottom">

@@ -9,6 +9,7 @@ import type { ReactNode, RefObject } from "react";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { PluginIcon } from "../components/PluginIcon";
 import { ProjectAvatar } from "../components/ProjectAvatar";
+import { SearchInput } from "../components/SearchInput";
 import { Tooltip } from "../components/Tooltip";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { filtering, waitingFilter } from "../lib/waiting";
@@ -184,20 +185,15 @@ export function InboxHead({
           >
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
-              <input
+              <SearchInput
                 ref={search}
                 id="inbox-search"
-                type="search"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
                 placeholder={history ? "Search history…" : "Search inbox…"}
-                aria-label={history ? "Search history" : "Search inbox"}
+                label={history ? "Search history" : "Search inbox"}
                 value={q}
-                onChange={(e) => {
-                  onSearch(e.target.value);
-                  setParam("q", e.target.value);
+                onChange={(text) => {
+                  onSearch(text);
+                  setParam("q", text);
                 }}
               />
             </label>

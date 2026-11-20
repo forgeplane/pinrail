@@ -219,6 +219,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - An agent's reply now shows in a session's thread where it was written,
   after what the agent did during its turn, and a message you typed into
   the agent's terminal is no longer followed by an empty gap.
+- The search fields of the inbox and of the Sessions, Work items and
+  Projects pages keep text entered while the page updates. The text was
+  sometimes dropped.
 
 ## [0.6.0]
 

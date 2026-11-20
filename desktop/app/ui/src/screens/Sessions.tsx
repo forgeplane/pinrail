@@ -17,6 +17,7 @@ import { groupKey, grouped, mixedGroups } from "../lib/grouping";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { RestartBanner } from "../components/session/RestartBanner";
 import { SidePanel } from "../components/SidePanel";
+import { SearchInput } from "../components/SearchInput";
 import { Thread, sessionPath } from "../components/Thread";
 import { statusLine } from "../components/thread/messages";
 import { age, stamp } from "../lib/format";
@@ -319,19 +320,14 @@ export function Sessions() {
           <div className="inbox-controls">
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
-              <input
+              <SearchInput
                 ref={search}
-                autoCorrect="off"
-                autoCapitalize="off"
-                type="search"
-                autoComplete="off"
-                spellCheck={false}
                 placeholder="Search sessions…"
-                aria-label="Search sessions"
+                label="Search sessions"
                 value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setParam("q", e.target.value);
+                onChange={(text) => {
+                  setQ(text);
+                  setParam("q", text);
                 }}
               />
             </label>
