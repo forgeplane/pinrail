@@ -26,13 +26,25 @@ pub fn process(pid: u32) -> Option<Process> {
     read(pid)
 }
 
-/// The nearest process above `from` (itself included) whose name is one of
-/// `names`: the agent a hook or a command runs under.
+/// Whether a process named `name` runs `binary`: by its own name, or by
+/// the name of a versioned file it links to, `<binary>-<version>…`, as
+/// Grok's installer links `grok` to `grok-1.0.89-macos-aarch64`. The
+/// system names a process after the file it runs.
+pub fn named(name: &str, binary: &str) -> bool {
+    name == binary
+        || name
+            .strip_prefix(binary)
+            .and_then(|rest| rest.strip_prefix('-'))
+            .is_some_and(|version| version.starts_with(|c: char| c.is_ascii_digit()))
+}
+
+/// The nearest process above `from` (itself included) that runs one of
+/// `names` (see [`named`]): the agent a hook or a command runs under.
 pub fn ancestor(from: u32, names: &[&str]) -> Option<Process> {
     let mut pid = from;
     for _ in 0..MAX_DEPTH {
         let process = read(pid)?;
-        if names.iter().any(|n| *n == process.name) {
+        if names.iter().any(|n| named(&process.name, n)) {
             return Some(process);
         }
         if process.parent == 0 || process.parent == pid {
@@ -139,5 +151,18 @@ mod tests {
         let name = first.name.clone();
         assert_eq!(ancestor(me, &[name.as_str()]).unwrap().pid, me);
         assert_eq!(ancestor(me, &["no-such-agent"]), None);
+    }
+
+    #[test]
+    fn a_process_named_after_a_versioned_binary_is_that_binary() {
+        // Grok's installer links grok to grok-<version>-<platform>, and the
+        // system names the process after the file it runs
+        assert!(named("grok-1.0.89-macos-aarch64", "grok"));
+        // cut to 15 bytes on Linux
+        assert!(named("grok-1.0.89-lin", "grok"));
+        assert!(named("grok", "grok"));
+        assert!(!named("grok-helper", "grok"));
+        assert!(!named("groker", "grok"));
+        assert!(!named("claude", "grok"));
     }
 }

@@ -134,8 +134,12 @@ pub(crate) fn own_process(
     let (Ok(spawned), Ok(child)) = (u32::try_from(*pid), u32::try_from(*reported_pid)) else {
         return false;
     };
-    let launcher = lookup(spawned)
-        .is_some_and(|p| &p.started == started && !binaries.contains(&p.name.as_str()));
+    let launcher = lookup(spawned).is_some_and(|p| {
+        &p.started == started
+            && !binaries
+                .iter()
+                .any(|b| pinrail_runtime::process::named(&p.name, b))
+    });
     launcher && lookup(child).is_some_and(|p| &p.started == reported_started && p.parent == spawned)
 }
 

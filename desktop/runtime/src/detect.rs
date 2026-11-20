@@ -86,7 +86,11 @@ fn running_nearest(agents: &[&str]) -> Option<String> {
     let found = crate::process::ancestor(std::process::id(), &binaries)?;
     specs
         .iter()
-        .find(|a| a.binaries.contains(&found.name.as_str()))
+        .find(|a| {
+            a.binaries
+                .iter()
+                .any(|b| crate::process::named(&found.name, b))
+        })
         .map(|a| a.id.to_string())
 }
 
