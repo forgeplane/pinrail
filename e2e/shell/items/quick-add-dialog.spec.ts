@@ -121,6 +121,33 @@ test("from a session or a review, the dialog starts on its repository", async ({
   await request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "spec cleanup" } });
 });
 
+test("the app menu's Add Work Item opens the dialog while a plugin view has the focus", async ({ page, request }) => {
+  const repo = fresh("menu-repo");
+  const sent = await request.post(`${core}/api/v1/reviews`, {
+    data: {
+      plugin: "list",
+      title: "Menu add",
+      origin: { repo },
+      requested_by: "claude-code",
+      payload: { groups: [{ title: "g", items: [{ id: 1, title: "x" }] }] },
+    },
+  });
+  expect(sent.status(), await sent.text()).toBe(201);
+  const id = ((await sent.json()) as { id: string }).id;
+  await page.goto(`/#/reviews/${id}`);
+  const view = page.frameLocator("iframe").first();
+  await view.locator("body").click();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe("IFRAME");
+
+  // a key pressed in the frame never reaches the shell, so the menu's
+  // accelerator sends the command, as the native menu does
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("pinrail:command", { detail: "add-item" })));
+  await expect(field(page)).toBeFocused();
+  await expect(dialog(page).getByRole("button", { name: "Repository" })).toHaveText(repo);
+  await field(page).press("Escape");
+  await request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "spec cleanup" } });
+});
+
 test("the Enter that confirms an input method's text does not add the item", async ({ page, request }) => {
   const repo = fresh("ime");
   await add(request, repo, "Existing");

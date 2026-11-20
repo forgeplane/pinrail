@@ -169,6 +169,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- ⌘⇧C opens the quick add while a review has the focus. The Navigate
+  menu also has **Add Work Item…**.
 - A table in a message or note no longer splits short words, such as an
   id or a time, across lines to make room for a long column.
 - A message typed into a session that Pinrail runs no longer shows as not

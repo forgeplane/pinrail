@@ -759,6 +759,7 @@ pub fn run() {
                 id,
                 "search"
                     | "settings"
+                    | "add-item"
                     | "go-inbox"
                     | "go-sessions"
                     | "go-items"
@@ -867,6 +868,13 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         &[
             &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
             &MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
+            &MenuItem::with_id(
+                app,
+                "add-item",
+                "Add Work Item…",
+                true,
+                Some("CmdOrCtrl+Shift+C"),
+            )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "go-inbox", "Inbox", true, Some("CmdOrCtrl+I"))?,
             &MenuItem::with_id(app, "go-sessions", "Sessions", true, Some("CmdOrCtrl+2"))?,
