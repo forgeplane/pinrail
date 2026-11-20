@@ -57,7 +57,7 @@ import { SessionItemPanel } from "./SessionItemPanel";
 import { SidePanel } from "./SidePanel";
 import { Tooltip } from "./Tooltip";
 import { ThreadEntries } from "./thread/ThreadEntries";
-import { WorkingLine } from "./thread/runLines";
+import { WaitingLine, WorkingLine } from "./thread/runLines";
 import { IdleComposer, MessageComposer } from "./thread/composers";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
@@ -300,7 +300,7 @@ export function Thread({
   const wait = session?.presence?.state === "needs_input" ? session.presence.wait : null;
   // what a live run's agent waits for in its terminal: a permission, or
   // an answer to a question it asks there
-  const waitingFor = !live || !wait ? null : waitLine(wait);
+  const waitingFor = live ? wait : null;
   // Stop asks first while the agent works, and always from its key
   const [askingStop, setAskingStop] = useState(false);
   const sessionNow = useLatest(session);
@@ -826,12 +826,7 @@ export function Thread({
                   height is kept, so that nothing moves as it changes */}
                 <div className="thread-state">
                   {waitingFor ? (
-                    <div className="thread-waiting" data-testid="waiting-line">
-                      <span className="truncate">{waitingFor}</span>
-                      <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
-                        Open the terminal
-                      </button>
-                    </div>
+                    <WaitingLine name={agentName} wait={waitingFor} onOpen={() => chooseView("terminal")} />
                   ) : agentWorking ? (
                     <WorkingLine name={agentName} />
                   ) : null}
@@ -1117,14 +1112,4 @@ function SessionMenuButton({
       ) : null}
     </>
   );
-}
-
-/** The line that says what an agent waits for in its terminal. */
-function waitLine(wait: NonNullable<NonNullable<Session["presence"]>["wait"]>): string {
-  if (wait.kind === "permission") {
-    const what = [wait.tool, wait.summary].filter(Boolean).join(" · ");
-    return what ? `Waiting for permission: ${what}` : "Waiting for permission";
-  }
-  if (wait.kind === "auth") return "Waiting for you to sign in";
-  return wait.summary ? `Waiting for your answer: ${wait.summary}` : "Waiting for your answer to a question";
 }

@@ -1,8 +1,9 @@
 // A session's turns and the runs Pinrail started for it, in its thread.
 
+import { KeyRound, MessageCircleQuestion, ShieldAlert } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Run } from "../../api/runtime";
-import type { SessionTurn } from "../../api/types";
+import type { Session, SessionTurn } from "../../api/types";
 import { stamp } from "../../lib/format";
 import { AgentIcon, agentOf } from "../AgentIcon";
 import { MarkdownHtml } from "../MarkdownHtml";
@@ -100,6 +101,34 @@ export function WorkingLine({ name }: { name: string }) {
       <span key={at} className="thread-turn-doing">
         {DOING[at]}…
       </span>
+    </div>
+  );
+}
+
+type Wait = NonNullable<NonNullable<Session["presence"]>["wait"]>;
+
+/** What the agent waits for in its terminal, above the message box: what
+ *  it asks, and a button that opens the terminal to answer it there. */
+export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; onOpen: () => void }) {
+  const [Icon, label] =
+    wait.kind === "permission"
+      ? [ShieldAlert, `${name} needs permission`]
+      : wait.kind === "auth"
+        ? [KeyRound, `${name} needs you to sign in`]
+        : [MessageCircleQuestion, `${name} asks`];
+  const detail = wait.kind === "permission" ? [wait.tool, wait.summary].filter(Boolean).join(" · ") : wait.summary;
+  return (
+    <div className={`thread-waiting is-${wait.kind}`} data-testid="waiting-line">
+      <Icon size={15} aria-hidden />
+      <span className="thread-waiting-label">{label}</span>
+      {detail ? (
+        <span className="thread-waiting-detail truncate" title={detail}>
+          {detail}
+        </span>
+      ) : null}
+      <button type="button" className="chrome-button" onClick={onOpen}>
+        Open the terminal
+      </button>
     </div>
   );
 }

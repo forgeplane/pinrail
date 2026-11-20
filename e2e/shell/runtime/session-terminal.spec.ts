@@ -344,7 +344,8 @@ test("the summary shows a question the agent asks in its terminal, and opens the
   await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
 
   const waiting = page.getByTestId("thread").getByTestId("waiting-line");
-  await expect(waiting).toContainText("Waiting for your answer: What would you like to do today?");
+  await expect(waiting).toContainText("Claude Code asks");
+  await expect(waiting).toContainText("What would you like to do today?");
   await waiting.getByRole("button", { name: "Open the terminal" }).click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
 });
@@ -380,7 +381,8 @@ test("the summary shows turns, where the run started, and what it waits for", as
   await expect(thread.getByTestId("turn-working")).toHaveCount(0);
 
   const waiting = thread.getByTestId("waiting-line");
-  await expect(waiting).toContainText("Waiting for permission: Bash · npm test");
+  await expect(waiting).toContainText("Claude Code needs permission");
+  await expect(waiting).toContainText("Bash · npm test");
   await waiting.getByRole("button", { name: "Open the terminal" }).click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
 

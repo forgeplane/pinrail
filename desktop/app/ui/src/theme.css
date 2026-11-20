@@ -8517,16 +8517,41 @@ a.item-ref {
   padding-inline: 4px;
   min-width: 0;
 }
+/* in the tint of the Needs you chip, the whole line's width */
 .thread-waiting {
   display: flex;
+  flex: 1;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--attention-warn) 12%, transparent);
   color: var(--text);
   font-size: var(--text-sm);
 }
+.thread-waiting > svg {
+  flex: none;
+  color: var(--attention-warn);
+}
+.thread-waiting-label {
+  flex: none;
+  color: var(--attention-warn);
+  font-weight: 600;
+}
+/* a permission's command reads as code */
+.thread-waiting-detail {
+  flex: 1;
+  min-width: 0;
+}
+.thread-waiting.is-permission .thread-waiting-detail {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
 .thread-waiting .chrome-button {
   flex: none;
+  margin-left: auto;
   padding: 2px 8px;
   font-size: var(--text-xs);
 }
