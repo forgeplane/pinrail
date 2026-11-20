@@ -265,6 +265,8 @@ const STARTUP: Duration = Duration::from_secs(10);
 struct Typing {
     submit: Submit,
     reply: oneshot::Sender<Result<(), SubmitError>>,
+    /// When the keys that clear the input were written, once they were.
+    cleared_at: Option<Instant>,
     /// When the paste was written, once it was.
     pasted_at: Option<Instant>,
 }
@@ -805,12 +807,10 @@ async fn actor(mut actor: Actor) {
 /// asked, with every end-of-paste marker removed from it, so that the text
 /// cannot end the paste early and have its rest read as typed keys.
 fn paste(submit: &Submit) -> Vec<u8> {
-    let mut bytes = submit.clear.clone().into_bytes();
     if !submit.bracketed {
-        bytes.extend(submit.text.clone().into_bytes());
-        return bytes;
+        return submit.text.clone().into_bytes();
     }
-    bytes.extend(b"\x1b[200~");
+    let mut bytes = b"\x1b[200~".to_vec();
     bytes.extend(submit.text.replace("\x1b[201~", "").into_bytes());
     bytes.extend(b"\x1b[201~");
     bytes
@@ -1170,6 +1170,7 @@ impl Actor {
         self.typing = Some(Typing {
             submit,
             reply,
+            cleared_at: None,
             pasted_at: None,
         });
         self.type_on();
@@ -1179,10 +1180,16 @@ impl Actor {
     fn typing_due(&self) -> Option<Instant> {
         let typing = self.typing.as_ref()?;
         let submit = &typing.submit;
-        Some(match typing.pasted_at {
+        Some(match (typing.cleared_at, typing.pasted_at) {
+            // after the keys that clear the input, wait for the output to
+            // settle before the paste: Cursor drops a paste that comes with
+            // them
+            (Some(cleared_at), None) => {
+                ((self.last_output.max(cleared_at)) + submit.settle).min(cleared_at + submit.max)
+            }
             // wait for a starting program to go quiet, within its first
             // 10 seconds
-            None => {
+            (None, None) => {
                 let startup_ends = self.started + STARTUP;
                 if submit.startup_quiet.is_zero() {
                     Instant::now()
@@ -1191,7 +1198,7 @@ impl Actor {
                 }
             }
             // after the paste, wait for the output to settle, or `max`
-            Some(pasted_at) => {
+            (_, Some(pasted_at)) => {
                 ((self.last_output.max(pasted_at)) + submit.settle).min(pasted_at + submit.max)
             }
         })
@@ -1211,6 +1218,11 @@ impl Actor {
         let Some(input) = &self.input else {
             return;
         };
+        if typing.cleared_at.is_none() && !typing.submit.clear.is_empty() {
+            let _ = input.send(typing.submit.clear.clone().into_bytes());
+            typing.cleared_at = Some(Instant::now());
+            return;
+        }
         if typing.pasted_at.is_none() {
             let _ = input.send(paste(&typing.submit));
             typing.pasted_at = Some(Instant::now());
@@ -1622,14 +1634,6 @@ mod tests {
             b"\x1b[200~abc\x1b[201~"
         );
         assert_eq!(paste(&submit("plain", false)), b"plain");
-    }
-
-    #[test]
-    fn the_keys_that_clear_the_input_come_before_the_paste() {
-        // Cursor puts an interrupted prompt back in its input
-        let mut cleared = submit("pong", true);
-        cleared.clear = "\x15".to_string();
-        assert_eq!(paste(&cleared), b"\x15\x1b[200~pong\x1b[201~");
     }
 
     #[test]

@@ -102,6 +102,49 @@ fn the_message_is_pasted_without_its_end_marker_then_submitted() {
 }
 
 #[test]
+fn the_keys_that_clear_the_input_come_first_and_the_paste_once_it_settles() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = Client::connect(&host.registration).unwrap();
+    // reads the clear key, answers it, takes what else came within a tenth
+    // of a second, then the paste and the submit key
+    let script = "stty raw -echo; echo ready; \
+         c=$(dd bs=1 count=1 2>/dev/null | od -An -c | tr -s ' \\n' ' '); printf 'cleared\\r\\n'; \
+         stty min 0 time 1; e=$(dd bs=1 count=64 2>/dev/null | od -An -c | tr -s ' \\n' ' '); \
+         stty min 1 time 0; r=$(dd bs=1 count=15 2>/dev/null | od -An -c | tr -s ' \\n' ' '); \
+         printf '\\r\\ngot: clear=[%s] early=[%s] rest=[%s]\\r\\n' \"$c\" \"$e\" \"$r\"; sleep 5";
+    let (id, pid) = spawn(&mut client, &folders, script);
+    screen_shows(&mut client, &id, "ready");
+    client
+        .call(
+            "terminal.submit",
+            json!({
+                "terminal": id,
+                "text": "hi",
+                "bracketed": true,
+                "clear": "\u{15}",
+                "settle_ms": 300,
+                "max_ms": 2000,
+                "startup_quiet_ms": 0,
+                "submit": "\r",
+                "expect_pid": pid,
+            }),
+        )
+        .unwrap();
+    let screen = screen_shows(&mut client, &id, "got:");
+    // Cursor drops a paste written with the key that clears its input
+    assert!(screen.contains("clear=[ 025 ]"), "{screen}");
+    assert!(
+        screen.contains("early=[ ]") || screen.contains("early=[]"),
+        "{screen}"
+    );
+    assert!(
+        screen.contains("rest=[ 033 [ 2 0 0 ~ h i 033 [ 2 0 1 ~ \\r ]"),
+        "{screen}"
+    );
+}
+
+#[test]
 fn a_starting_program_is_left_to_go_quiet_first() {
     let folders = folders();
     let host = serve(&folders, &[]);
