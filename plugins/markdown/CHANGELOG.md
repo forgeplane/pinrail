@@ -4,6 +4,13 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.4.0] - Unreleased
+
+### Changed
+
+- A long context above the document starts folded to its first lines.
+  **Show more** opens it, and **Show less** folds it again.
+
 ## [1.3.1] - Pinrail 0.6.0
 
 ### Fixed

@@ -153,6 +153,35 @@ test("a decision the app refuses says why in the confirmation bar", async ({ pag
   await expect(bar).toContainText("/comments/0/body: is too long");
 });
 
+test("a long context starts collapsed and expands with Show more", async ({ page }) => {
+  const long = round();
+  long.payload.context = Array.from({ length: 20 }, (_, i) => `- Point ${i + 1} to check.`).join("\n");
+  const plugin = await mountPlugin(page, dir, { review: long });
+  const f = plugin.frame;
+  const context = f.locator("#context");
+  const more = f.locator("#context-toggle");
+  await expect(more).toBeVisible();
+  await expect(more).toHaveText("Show more");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  const collapsed = (await context.boundingBox())!.height;
+  expect(collapsed).toBeLessThan(80);
+  await expect(f.getByText("Point 20 to check.")).not.toBeInViewport();
+
+  await more.click();
+  await expect(more).toHaveText("Show less");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  expect((await context.boundingBox())!.height).toBeGreaterThan(collapsed);
+
+  await more.click();
+  await expect(more).toHaveText("Show more");
+});
+
+test("a short context shows in full, without Show more", async ({ page }) => {
+  const plugin = await mount(page);
+  await expect(plugin.frame.locator("#context")).toContainText("Mostly the Design section needs a look.");
+  await expect(plugin.frame.locator("#context-toggle")).toBeHidden();
+});
+
 test("renders the document with its diagram, its outline and its raw source", async ({ page }) => {
   const plugin = await mount(page);
   const f = plugin.frame;

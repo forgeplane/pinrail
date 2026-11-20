@@ -167,10 +167,10 @@ async function load(review) {
   source = String(text).replace(/\r\n?/g, "\n");
   lines = source.split("\n");
   $("path").textContent = payload.path || review.title || "Markdown";
-  const context = $("context");
   if (payload.context) {
-    context.hidden = false;
-    context.innerHTML = md.render(payload.context, { heading: 10000 });
+    $("context-wrap").hidden = false;
+    $("context").innerHTML = md.render(payload.context, { heading: 10000 });
+    foldContext(false);
   }
   headings = outlineOf(source);
   previousSource = await previousDocument();
@@ -182,6 +182,33 @@ async function load(review) {
   renderSide();
   setMode(mode, false);
 }
+
+/**
+ * Folds the context to its first lines, or unfolds it. A context that fits
+ * in those lines shows in full, without the button.
+ */
+function foldContext(open) {
+  const context = $("context");
+  const toggle = $("context-toggle");
+  context.classList.remove("folded", "unfolded");
+  context.classList.add("folded");
+  const overflows = context.scrollHeight > context.clientHeight + 1;
+  toggle.hidden = !overflows;
+  if (!overflows) {
+    context.classList.remove("folded");
+    return;
+  }
+  if (open) context.classList.replace("folded", "unfolded");
+  toggle.textContent = open ? "Show less" : "Show more";
+  toggle.setAttribute("aria-expanded", String(open));
+}
+
+$("context-toggle").addEventListener("click", (event) => {
+  foldContext(event.currentTarget.getAttribute("aria-expanded") !== "true");
+});
+window.addEventListener("resize", () => {
+  if (!$("context-wrap").hidden) foldContext($("context-toggle").getAttribute("aria-expanded") === "true");
+});
 
 /** The headings of the document, from markdown-it's own reading of it. */
 function outlineOf(text) {

@@ -25,8 +25,15 @@
   .modes button[aria-pressed="true"] { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
   .tally { margin-left: auto; font-size: 12px; color: var(--pinrail-dim); }
   .tally b { color: var(--pinrail-text); font-variant-numeric: tabular-nums; }
-  .context { flex-basis: 100%; font-size: 12.5px; color: var(--pinrail-dim); }
-  .context p { margin: 2px 0; }
+  /* the agent's note above the document: folded to three lines when longer */
+  .context-wrap { flex-basis: 100%; min-width: 0; }
+  .context { font-size: 12.5px; line-height: 1.5; color: var(--pinrail-dim); }
+  .context p, .context ul, .context ol { margin: 2px 0; }
+  .context ul, .context ol { padding-left: 20px; }
+  .context.folded { max-height: 4.5em; overflow: hidden; mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+  .context.unfolded { max-height: 40vh; overflow: auto; }
+  .context-toggle { margin-top: 2px; padding: 0; border: 0; background: none; color: var(--pinrail-accent); font: 500 12px var(--pinrail-sans); cursor: pointer; }
+  .context-toggle:hover { text-decoration: underline; }
 
   .work { display: grid; grid-template-columns: 230px minmax(0, 1fr) 340px; min-height: 0; }
   .work.no-outline { grid-template-columns: minmax(0, 1fr) 340px; }
@@ -216,7 +223,10 @@
     <span class="tally" id="tally"></span>
     <button type="button" class="comments-toggle" id="comments-toggle" aria-expanded="false" aria-controls="side"></button>
     <button type="button" class="side-toggle" id="side-toggle" aria-controls="side"></button>
-    <div class="context" id="context" hidden></div>
+    <div class="context-wrap" id="context-wrap" hidden>
+      <div class="context" id="context"></div>
+      <button type="button" class="context-toggle" id="context-toggle" aria-expanded="false" aria-controls="context" hidden>Show more</button>
+    </div>
   </header>
   <div class="work" id="work">
     <nav class="outline" id="outline" aria-label="Outline" tabindex="-1"><h2>Outline</h2><div id="outline-items"></div></nav>
