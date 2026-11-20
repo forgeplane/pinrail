@@ -498,7 +498,8 @@ async fn a_session_whose_agent_never_gave_its_id_is_not_resumed() {
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    // Claude Code, agy, Grok, Copilot, Pi and Cursor are installed, and Codex is not
+    // Claude Code, agy, Grok, Copilot, Pi, Cursor and OpenCode are installed,
+    // and Codex is not
     let bin = hosts.path().join("versions");
     common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
     common::program(&bin, "agy", "echo '1.5.12'");
@@ -506,6 +507,7 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     common::program(&bin, "copilot", "echo 'GitHub Copilot CLI 1.0.114.'");
     common::program(&bin, "pi", "echo '1.5.2'");
     common::program(&bin, "cursor-agent", "echo '2026.11.19-f005e9d'");
+    common::program(&bin, "opencode", "echo 'opencode v2.0.20'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -543,6 +545,9 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("pi")["names_session"], true);
     assert_eq!(agent("cursor")["version"], "2026.11.19-f005e9d");
     assert_eq!(agent("cursor")["names_session"], true);
+    assert_eq!(agent("opencode")["version"], "2.0.20");
+    assert_eq!(agent("opencode")["names_session"], true);
+    assert_eq!(agent("opencode")["installs"], "plugin");
     // what Report status installs for each, which the start names
     assert_eq!(agent("pi")["installs"], "extension");
     assert_eq!(agent("copilot")["installs"], "hooks");
@@ -562,6 +567,7 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
             "copilot",
             "cursor",
             "grok",
+            "opencode",
             "pi"
         ]
     );

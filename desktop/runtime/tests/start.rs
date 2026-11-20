@@ -186,6 +186,30 @@ fn cursor_clears_its_input_before_a_message() {
 }
 
 #[test]
+fn opencode_starts_with_a_session_id_pinrail_chose_in_its_own_form() {
+    let extra = args(&["--model", "fake/fake"]);
+    let plan = adapter("opencode")
+        .unwrap()
+        .start(&request(Some("-fix the login"), &extra))
+        .unwrap();
+    // OpenCode takes an id that starts with ses
+    let session = format!("ses_{}", ID.replace('-', ""));
+    assert_eq!(
+        plan.argv,
+        args(&[
+            "opencode",
+            "--standalone",
+            "--session",
+            &session,
+            "--model",
+            "fake/fake",
+            "--prompt=-fix the login"
+        ])
+    );
+    assert_eq!(plan.session.as_deref(), Some(session.as_str()));
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -243,6 +267,7 @@ fn flags_that_turn_permission_checks_off_are_refused() {
         (adapter("copilot").unwrap(), &["--allow-all"], "--allow-all"),
         (adapter("pi").unwrap(), &["--approve"], "--approve"),
         (adapter("cursor").unwrap(), &["--force"], "--force"),
+        (adapter("opencode").unwrap(), &["--auto"], "--auto"),
         (adapter("cursor").unwrap(), &["-f"], "-f"),
         (adapter("pi").unwrap(), &["-a"], "-a"),
         (
@@ -310,6 +335,17 @@ fn each_agent_resumes_a_session_by_its_id() {
         adapter("cursor").unwrap().resume(ID),
         Some(args(&["cursor-agent", "--resume", ID]))
     );
+    assert_eq!(
+        adapter("opencode")
+            .unwrap()
+            .resume("ses_e063c6992ffe3mk4xvk3VR60oe"),
+        Some(args(&[
+            "opencode",
+            "--standalone",
+            "--session",
+            "ses_e063c6992ffe3mk4xvk3VR60oe"
+        ]))
+    );
 }
 
 #[test]
@@ -328,6 +364,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("copilot").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("pi").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("cursor").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("opencode").unwrap().resume(id), None, "{id:?}");
     }
 }
 
@@ -339,7 +376,7 @@ fn only_claude_code_resumes_a_session_still_running_elsewhere() {
 
 #[test]
 fn each_agent_typed_into_takes_a_message_as_a_bracketed_paste_and_enter() {
-    for id in ["claude-code", "codex", "grok", "copilot", "pi"] {
+    for id in ["claude-code", "codex", "grok", "copilot", "pi", "opencode"] {
         let plan = adapter(id).unwrap().submit().unwrap();
         assert!(plan.bracketed, "{id}");
         assert_eq!((plan.settle_ms, plan.max_ms), (150, 1_000), "{id}");

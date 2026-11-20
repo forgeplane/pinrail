@@ -8,7 +8,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{Integration, Kind, Layout};
 use crate::registry::AgentSpec;
@@ -101,5 +103,48 @@ impl Agent for OpenCode {
             },
             entries: vec![],
         })
+    }
+
+    /// `opencode --standalone --session ses_<id> [extra args]
+    /// [--prompt=<task>]`: an id OpenCode does not know is created with
+    /// it at the first prompt, so Pinrail chooses it, in OpenCode's form,
+    /// which starts with `ses`. Its own server runs inside the terminal's
+    /// process, with the run's environment, not in the background service
+    /// another terminal may have started.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let session = format!("ses_{}", request.session_id.replace('-', ""));
+        let mut argv = vec![
+            "opencode".to_string(),
+            "--standalone".to_string(),
+            "--session".to_string(),
+            session.clone(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        if let Some(task) = request.task.filter(|t| !t.trim().is_empty()) {
+            argv.push(format!("--prompt={task}"));
+        }
+        Some(StartPlan {
+            argv,
+            session: Some(session),
+        })
+    }
+
+    /// `opencode --standalone --session <id>`.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| {
+            ["opencode", "--standalone", "--session", session]
+                .map(str::to_string)
+                .to_vec()
+        })
+    }
+
+    /// A bracketed paste and Enter, which OpenCode takes as one prompt with
+    /// its line breaks, confirmed by the plugin's prompt report.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &["--auto"]
     }
 }
