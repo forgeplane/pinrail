@@ -2,7 +2,7 @@
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
-// icons in the official plugins, libghostty-vt, the code adapted from
+// icons in the official plugins, the Lobe Icons agent marks, libghostty-vt, the code adapted from
 // herdr-core, the font the window draws in and the terminal's symbols font
 // are added by hand. Each distinct licence text is printed once, after the
 // packages that use it.
@@ -94,6 +94,12 @@ const entries = [
     id: "ISC",
     text: fs.readFileSync(path.join(root, "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons, in the official plugins"],
+  },
+  {
+    name: "MIT License",
+    id: "MIT",
+    text: fs.readFileSync(path.join(root, "licenses", "lobe-icons.txt"), "utf8"),
+    packages: ["Lobe Icons 1.95.0, the coding agents' icons in the window"],
   },
   // the terminal emulator the terminal host links statically, with what is
   // built into it, which cargo-about cannot see
