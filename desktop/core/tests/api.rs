@@ -107,7 +107,10 @@ async fn a_review_keeps_the_session_it_was_asked_from() {
     let mut body = submission();
     body["session"] = json!("c-1");
     let review = submit(&app, body).await;
-    assert_eq!(review["session"], "c-1");
+    // the agent's id for its session leads to Pinrail's
+    let session = common::sid(&app, "agent", "c-1");
+    assert!(session.starts_with("ses_"), "{session}");
+    assert_eq!(review["session"], session.as_str());
     let (_, shown) = call(
         &app,
         "GET",
@@ -115,7 +118,7 @@ async fn a_review_keeps_the_session_it_was_asked_from() {
         None,
     )
     .await;
-    assert_eq!(shown["session"], "c-1");
+    assert_eq!(shown["session"], session.as_str());
 
     let mut other = submission();
     other["title"] = json!("No session");
@@ -131,11 +134,11 @@ async fn a_review_keeps_the_session_it_was_asked_from() {
         &app,
         "POST",
         "/api/v1/plugins/list/sample",
-        Some(json!({ "session": "c-2" })),
+        Some(json!({ "requested_by": "claude-code", "session": "c-2" })),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "{sample}");
-    assert_eq!(sample["session"], "c-2");
+    assert_eq!(sample["session"], common::sid(&app, "claude-code", "c-2"));
 }
 
 async fn submit(app: &App, body: Value) -> Value {
@@ -3967,11 +3970,12 @@ async fn a_decision_a_discard_and_a_withdrawal_record_where_they_came_from() {
             Value::Null,
             Value::Null,
         ),
+        // a session named without its agent, which no agent's session has
         (
             &[("origin", "https://example.com")],
             json!({"session": "s-7"}),
             "api",
-            json!("s-7"),
+            Value::Null,
             Value::Null,
         ),
         (
@@ -3999,6 +4003,11 @@ async fn a_decision_a_discard_and_a_withdrawal_record_where_they_came_from() {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{review}");
+        // the agent's session, by Pinrail's id
+        let session = match session.as_str() {
+            Some(own) => json!(common::sid(&app, "claude-code", own)),
+            None => Value::Null,
+        };
         assert_eq!(review["decision"]["via"], via, "{headers:?}");
         assert_eq!(review["decision"]["session"], session, "{headers:?}");
         assert_eq!(review["decision"]["decided_by"], by, "{headers:?}");
@@ -4089,7 +4098,10 @@ async fn newest_status(app: &App, session: &str) -> (i64, Value) {
     let (_, thread) = call(
         app,
         "GET",
-        &format!("/api/v1/sessions/claude-code/{session}"),
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(app, "claude-code", session)
+        ),
         None,
     )
     .await;
@@ -4127,13 +4139,19 @@ async fn a_note_carries_its_files_and_serves_them() {
             { "name": "run.log", "size": 12, "media_type": "text/plain" },
         ])
     );
-    let path = format!("/api/v1/sessions/claude-code/s-1/statuses/{id}/attachments/run.log");
+    let path = format!(
+        "/api/v1/sessions/claude-code/{}/statuses/{id}/attachments/run.log",
+        common::sid(&app, "claude-code", "s-1")
+    );
     assert_eq!(
         get_bytes(&app, &path).await,
         (StatusCode::OK, b"the test log".to_vec())
     );
     // only the names this note carries
-    let path = format!("/api/v1/sessions/claude-code/s-1/statuses/{id}/attachments/other.log");
+    let path = format!(
+        "/api/v1/sessions/claude-code/{}/statuses/{id}/attachments/other.log",
+        common::sid(&app, "claude-code", "s-1")
+    );
     assert_eq!(get_bytes(&app, &path).await.0, StatusCode::NOT_FOUND);
 }
 
@@ -4216,8 +4234,10 @@ async fn a_file_a_note_carries_outlives_the_review_that_shared_it() {
     app.state.reviews().sweep_history_before(later).unwrap();
     assert!(db(&app).get_review(&review).unwrap().is_none());
     assert_eq!(app.state.attachments().sweep(later).unwrap(), 0);
-    let path =
-        format!("/api/v1/sessions/claude-code/s-kept/statuses/{status}/attachments/chart.png");
+    let path = format!(
+        "/api/v1/sessions/claude-code/{}/statuses/{status}/attachments/chart.png",
+        common::sid(&app, "claude-code", "s-kept")
+    );
     assert_eq!(
         get_bytes(&app, &path).await,
         (StatusCode::OK, b"a shared chart".to_vec())
@@ -4234,7 +4254,16 @@ async fn a_file_a_review_carries_outlives_the_session_that_shared_it() {
     // the session has only its note, so the sweep deletes it
     let later = chrono::Utc::now() + chrono::Duration::hours(2);
     app.state.reviews().sweep_history_before(later).unwrap();
-    let (code, _) = call(&app, "GET", "/api/v1/sessions/claude-code/s-idle", None).await;
+    let (code, _) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-idle")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::NOT_FOUND);
     assert_eq!(app.state.attachments().sweep(later).unwrap(), 0);
     let path = format!("/api/v1/reviews/{review}/attachments/chart.png");

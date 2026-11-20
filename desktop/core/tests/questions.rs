@@ -370,7 +370,7 @@ async fn the_same_questions_from_another_session_are_their_own() {
         let (status, theirs) = call(&app, "POST", "/api/v1/reviews", Some(other)).await;
         assert_eq!(status, StatusCode::CREATED, "{agent} {session}: {theirs}");
         assert_ne!(theirs["id"], first["id"], "{agent} {session}");
-        assert_eq!(theirs["session"], session);
+        assert_eq!(theirs["session"], common::sid(&app, agent, session));
     }
 }
 

@@ -35,6 +35,11 @@ pub fn next_run() -> String {
     format!("run_{}", &next()[PREFIX.len()..])
 }
 
+/// The next session id: `ses_` and a ULID from the same sequence.
+pub fn next_session() -> String {
+    format!("ses_{}", &next()[PREFIX.len()..])
+}
+
 /// The next work item id: `w_` and a ULID from the same sequence.
 pub fn next_item() -> String {
     format!("w_{}", &next()[PREFIX.len()..])

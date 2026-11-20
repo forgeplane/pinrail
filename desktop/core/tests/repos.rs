@@ -107,7 +107,7 @@ async fn a_session_follows_the_repository_it_last_reported() {
         strings(
             app,
             "SELECT IFNULL(g.name, '-') FROM sessions s LEFT JOIN repos g ON g.id = s.repo_id \
-             WHERE s.id = 's-1'",
+             WHERE s.agent_session = 's-1'",
         )
     };
     // a status naming no repository leaves the session where it was
@@ -115,7 +115,16 @@ async fn a_session_follows_the_repository_it_last_reported() {
 
     status(&app, "codex", "s-1", Some("acme/web"), "Moved").await;
     assert_eq!(repo_of(&app), ["acme/web"]);
-    let (_, read) = call(&app, "GET", "/api/v1/sessions/codex/s-1", None).await;
+    let (_, read) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/codex/{}",
+            common::sid(&app, "codex", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(read["session"]["repo"], "acme/web");
     // the repository it left keeps its row
     assert_eq!(
@@ -197,7 +206,7 @@ async fn the_filters_read_the_repository_of_each_review_and_session() {
                 .as_array()
                 .unwrap()
                 .iter()
-                .map(|s| s["id"].as_str().unwrap().to_string())
+                .map(|s| s["agent_session"].as_str().unwrap().to_string())
                 .collect();
             ids.sort();
             ids
@@ -295,7 +304,16 @@ async fn deleting_a_repository_deletes_its_rounds_files_events_and_sessions_only
     assert_eq!(strings(&app, "SELECT name FROM repos"), ["acme/web"]);
     let (code, _) = call(&app, "GET", &format!("/api/v1/reviews/{kept}"), None).await;
     assert_eq!(code, StatusCode::OK);
-    let (code, _) = call(&app, "GET", "/api/v1/sessions/claude-code/s-web", None).await;
+    let (code, _) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-web")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::OK);
 
     // a review sent later from the same repository starts it again

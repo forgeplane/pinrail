@@ -141,13 +141,22 @@ async fn reviews_and_sessions_name_their_project_and_filter_by_it() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     ids.sort();
     assert_eq!(ids, ["s-1", "s-2"]);
     assert_eq!(sessions["sessions"][0]["project"]["name"], "Pinrail");
 
-    let (_, session) = call(&app, "GET", "/api/v1/sessions/claude-code/s-3", None).await;
+    let (_, session) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-3")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(session["session"]["project"], Value::Null);
 }
 
@@ -380,7 +389,16 @@ async fn a_project_has_an_optional_colour_and_emoji_that_its_reviews_and_session
         read["project"],
         json!({"id": id, "name": "Pinrail", "color": "blue", "emoji": "🚂", "image": null})
     );
-    let (_, session) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, session) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(session["session"]["project"]["emoji"], "🚂");
 
     // each is changed or removed on its own
@@ -596,7 +614,16 @@ async fn deleting_a_repository_discards_what_waits_and_deletes_its_reviews_and_s
         let (status, _) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{id}");
     }
-    let (status, _) = call(&app, "GET", "/api/v1/sessions/claude-code/s-api", None).await;
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-api")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // the other repository, its session and the project stay; the deleted

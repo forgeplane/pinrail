@@ -40,16 +40,26 @@ async fn every_replayed_notice_matches_the_live_one() {
     let sent = person(
         &app,
         "POST",
-        "/api/v1/sessions/claude-code/s-1/messages",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         Some(json!({"text": "Use the new endpoint."})),
     )
     .await;
-    let deleted = format!("/api/v1/sessions/claude-code/s-1/messages/{}", sent["id"]);
+    let deleted = format!(
+        "/api/v1/sessions/claude-code/{}/messages/{}",
+        common::sid(&app, "claude-code", "s-1"),
+        sent["id"]
+    );
     person(&app, "DELETE", &deleted, None).await;
     person(
         &app,
         "POST",
-        "/api/v1/sessions/claude-code/s-1/messages",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         Some(json!({"text": "Run the tests too."})),
     )
     .await;
@@ -62,7 +72,10 @@ async fn every_replayed_notice_matches_the_live_one() {
         json!({"ids": [handed["messages"][0]["id"]]}),
     )
     .await;
-    let archive = "/api/v1/sessions/claude-code/s-1/archive";
+    let archive = &format!(
+        "/api/v1/sessions/claude-code/{}/archive",
+        common::sid(&app, "claude-code", "s-1")
+    );
     person(&app, "PUT", archive, None).await;
     person(&app, "DELETE", archive, None).await;
     agent(

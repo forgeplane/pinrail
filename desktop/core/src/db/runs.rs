@@ -37,8 +37,10 @@ pub struct RunRow {
     pub created_by: String,
     pub started_at: String,
     pub ended_at: Option<String>,
-    /// The session the run is in now, as `(agent, id)`.
+    /// The session the run is in now, as `(agent, id)`, by Pinrail's id.
     pub session: Option<(String, String)>,
+    /// The agent's own id for that session, once the agent reported it.
+    pub agent_session: Option<String>,
 }
 
 impl RunRow {
@@ -63,8 +65,18 @@ impl RunRow {
             "end_reason": self.end_reason,
             "exit_code": self.exit_code,
             "exit_signal": self.exit_signal,
-            "session": self.session.as_ref().map(|(agent, id)| json!({"agent": agent, "id": id})),
+            "session": self.session_json(),
         })
+    }
+
+    /// The session the run is in now, as the API shows it, or null.
+    pub fn session_json(&self) -> Value {
+        match &self.session {
+            Some((agent, id)) => {
+                json!({"agent": agent, "id": id, "agent_session": self.agent_session})
+            }
+            None => Value::Null,
+        }
     }
 }
 
@@ -73,6 +85,7 @@ impl RunRow {
 pub struct RunSession {
     pub agent: String,
     pub id: String,
+    pub agent_session: Option<String>,
     pub bound_at: String,
     pub unbound_at: Option<String>,
 }
@@ -82,6 +95,7 @@ impl RunSession {
         json!({
             "agent": self.agent,
             "id": self.id,
+            "agent_session": self.agent_session,
             "bound_at": self.bound_at,
             "unbound_at": self.unbound_at,
         })
@@ -107,12 +121,30 @@ pub struct NewRun<'a> {
     pub created_by: &'a str,
     /// The SHA-256 digest of the run's token, in hex.
     pub token_digest: &'a str,
-    /// The session the run starts in, when Pinrail chose its id or resumes
-    /// it: created and shown if it is new.
+    /// The session the run starts in, by Pinrail's id: created and shown
+    /// if it is new.
     pub session: Option<&'a str>,
+    /// The agent's own id for that session, when Pinrail chose it, as it
+    /// does for Claude Code; otherwise the agent's first report gives it.
+    pub agent_session: Option<&'a str>,
     /// The git checkout the folder is in, which gives the session its
     /// repository and branch.
     pub checkout: Option<&'a pinrail_runtime::checkout::Checkout>,
+}
+
+/// What a report sent with a run's token is for.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunResolved {
+    /// The session, by Pinrail's id, whether it was created, and the run's
+    /// move to it when the report moved it.
+    Session {
+        id: String,
+        created: bool,
+        bound: Option<Bound>,
+    },
+    /// Another session than the run's, which the report does not start:
+    /// the run as it is.
+    Mismatch(Box<RunRow>),
 }
 
 /// Which runs to list.
@@ -131,17 +163,18 @@ pub type Stored = (i64, Value);
 /// A run moved to a session.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bound {
-    /// The session it was in before, as `(agent, id)`.
+    /// The session it was in before, as `(agent, id)`, by Pinrail's id.
     pub previous: Option<(String, String)>,
     pub event: Stored,
 }
 
 const COLUMNS: &str = "r.id, r.host_id, r.agent, r.kind, r.terminal_id, r.pid, r.proc_started,
      r.folder, r.state, r.end_reason, r.exit_code, r.exit_signal, r.created_by, r.started_at,
-     r.ended_at, s.agent, s.session";
+     r.ended_at, s.agent, s.session, ss.agent_session";
 
 /// The run's current session: the binding not yet ended.
-const CURRENT: &str = "LEFT JOIN run_sessions s ON s.run_id = r.id AND s.unbound_at IS NULL";
+const CURRENT: &str = "LEFT JOIN run_sessions s ON s.run_id = r.id AND s.unbound_at IS NULL
+     LEFT JOIN sessions ss ON ss.agent = s.agent AND ss.id = s.session";
 
 fn from_row(r: &Row) -> rusqlite::Result<RunRow> {
     let pid: Option<i64> = r.get(5)?;
@@ -164,7 +197,66 @@ fn from_row(r: &Row) -> rusqlite::Result<RunRow> {
         started_at: r.get(13)?,
         ended_at: r.get(14)?,
         session: agent.zip(session),
+        agent_session: r.get(17)?,
     })
+}
+
+/// Moves the live run `row` to the session `session`, by Pinrail's id,
+/// which is created and shown if it is new, and ends its binding to the
+/// session it was in. Announces `run_bound` with that previous session.
+/// `None` when the run is already in this session, or is not live.
+fn bind_in(
+    tx: &Connection,
+    row: &RunRow,
+    session: &str,
+    origin: &Map<String, Value>,
+    now: DateTime<Utc>,
+) -> rusqlite::Result<Option<Bound>> {
+    if !row.is_live()
+        || row
+            .session
+            .as_ref()
+            .is_some_and(|(_, current)| current == session)
+    {
+        return Ok(None);
+    }
+    let at = activity(now);
+    tx.execute(
+        "UPDATE run_sessions SET unbound_at = ?2 WHERE run_id = ?1 AND unbound_at IS NULL",
+        params![row.id, at],
+    )?;
+    super::sessions::touch(tx, &row.agent, session, origin, now)?;
+    // a run that comes back to a session it was in before binds again
+    tx.execute(
+        "INSERT INTO run_sessions (run_id, agent, session, bound_at) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT (run_id, agent, session) DO UPDATE SET bound_at = excluded.bound_at,
+           unbound_at = NULL",
+        params![row.id, row.agent, session, at],
+    )?;
+    let previous = row.session.clone();
+    let agent_session: Option<String> = tx
+        .query_row(
+            "SELECT agent_session FROM sessions WHERE agent = ?1 AND id = ?2",
+            params![row.agent, session],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    let attrs = json!({
+        "run": row.id,
+        "session": {"agent": row.agent, "id": session, "agent_session": agent_session},
+        "previous": match &previous {
+            Some((agent, id)) => {
+                json!({"agent": agent, "id": id, "agent_session": row.agent_session})
+            }
+            None => Value::Null,
+        },
+    });
+    let event = insert_event(tx, None, crate::events::RUN_BOUND, None, &attrs)?;
+    Ok(Some(Bound {
+        previous,
+        event: (event, attrs),
+    }))
 }
 
 fn get(conn: &Connection, id: &str) -> rusqlite::Result<Option<RunRow>> {
@@ -222,6 +314,13 @@ impl Db {
                 }
             }
             super::sessions::touch(&tx, run.agent, session, &origin, now)?;
+            if let Some(agent_session) = run.agent_session {
+                tx.execute(
+                    "UPDATE sessions SET agent_session = ?3
+                     WHERE agent = ?1 AND id = ?2 AND agent_session IS NULL",
+                    params![run.agent, session, agent_session],
+                )?;
+            }
             tx.execute(
                 "INSERT INTO run_sessions (run_id, agent, session, bound_at) VALUES (?1, ?2, ?3, ?4)",
                 params![run.id, run.agent, session, at],
@@ -288,8 +387,8 @@ impl Db {
         Ok(Some((row, (event, attrs))))
     }
 
-    /// Moves a live run to the session `(agent, id)`, which is created and
-    /// shown if it is new, and ends its binding to the session it was in.
+    /// Moves a live run to the session `session`, by Pinrail's id, which is
+    /// created and shown if it is new, and ends its binding to the session it was in.
     /// Announces `run_bound` with that previous session. `None` when the
     /// run is already in this session, or is not live.
     pub fn bind_run(
@@ -301,41 +400,77 @@ impl Db {
     ) -> rusqlite::Result<Option<Bound>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let Some(row) = get(&tx, run)?.filter(RunRow::is_live) else {
+        let Some(row) = get(&tx, run)? else {
             return Ok(None);
         };
-        if row
-            .session
-            .as_ref()
-            .is_some_and(|(_, current)| current == session)
-        {
-            return Ok(None);
-        }
-        let at = activity(now);
-        tx.execute(
-            "UPDATE run_sessions SET unbound_at = ?2 WHERE run_id = ?1 AND unbound_at IS NULL",
-            params![run, at],
-        )?;
-        super::sessions::touch(&tx, &row.agent, session, origin, now)?;
-        // a run that comes back to a session it was in before binds again
-        tx.execute(
-            "INSERT INTO run_sessions (run_id, agent, session, bound_at) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT (run_id, agent, session) DO UPDATE SET bound_at = excluded.bound_at,
-               unbound_at = NULL",
-            params![run, row.agent, session, at],
-        )?;
-        let previous = row.session.clone();
-        let attrs = json!({
-            "run": row.id,
-            "session": {"agent": row.agent, "id": session},
-            "previous": previous.as_ref().map(|(agent, id)| json!({"agent": agent, "id": id})),
-        });
-        let event = insert_event(&tx, None, crate::events::RUN_BOUND, None, &attrs)?;
+        let bound = bind_in(&tx, &row, session, origin, now)?;
         tx.commit()?;
-        Ok(Some(Bound {
-            previous,
-            event: (event, attrs),
-        }))
+        Ok(bound)
+    }
+
+    /// The session a report sent with the token of the run `run` is for,
+    /// by Pinrail's id, from the agent's own id for it, `agent_session`:
+    ///
+    /// - the run's session, when its agent's id is this one, or is not
+    ///   known yet, which the report then gives it;
+    /// - otherwise, for a report that starts a session (`starts`), the
+    ///   session with this id, created if it is new, to which the run
+    ///   moves, as on `/clear` or a fork;
+    /// - otherwise none: the report is for another session than the run's.
+    pub fn resolve_run_session(
+        &self,
+        run: &str,
+        agent: &str,
+        agent_session: &str,
+        starts: bool,
+        origin: &Map<String, Value>,
+        now: DateTime<Utc>,
+    ) -> rusqlite::Result<RunResolved> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let Some(row) = get(&tx, run)? else {
+            let (id, created) = super::sessions::find_or_create(&tx, agent, agent_session, now)?;
+            tx.commit()?;
+            return Ok(RunResolved::Session {
+                id,
+                created,
+                bound: None,
+            });
+        };
+        if row.agent != agent {
+            return Ok(RunResolved::Mismatch(Box::new(row)));
+        }
+        if let Some((_, current)) = &row.session {
+            if row.agent_session.as_deref() == Some(agent_session) {
+                return Ok(RunResolved::Session {
+                    id: current.clone(),
+                    created: false,
+                    bound: None,
+                });
+            }
+            // the agent names the session Pinrail started for the first time
+            if row.agent_session.is_none()
+                && super::sessions::find(&tx, agent, agent_session)?.is_none()
+            {
+                tx.execute(
+                    "UPDATE sessions SET agent_session = ?3 WHERE agent = ?1 AND id = ?2",
+                    params![agent, current, agent_session],
+                )?;
+                tx.commit()?;
+                return Ok(RunResolved::Session {
+                    id: current.clone(),
+                    created: false,
+                    bound: None,
+                });
+            }
+        }
+        if !starts || !row.is_live() {
+            return Ok(RunResolved::Mismatch(Box::new(row)));
+        }
+        let (id, created) = super::sessions::find_or_create(&tx, agent, agent_session, now)?;
+        let bound = bind_in(&tx, &row, &id, origin, now)?;
+        tx.commit()?;
+        Ok(RunResolved::Session { id, created, bound })
     }
 
     /// The folders of this computer's runs and of sessions, most recently
@@ -398,8 +533,9 @@ impl Db {
     pub fn run_sessions(&self, id: &str) -> rusqlite::Result<Vec<RunSession>> {
         let conn = self.read();
         let mut stmt = conn.prepare(
-            "SELECT agent, session, bound_at, unbound_at FROM run_sessions
-             WHERE run_id = ?1 ORDER BY bound_at, rowid",
+            "SELECT b.agent, b.session, b.bound_at, b.unbound_at, s.agent_session
+             FROM run_sessions b LEFT JOIN sessions s ON s.agent = b.agent AND s.id = b.session
+             WHERE b.run_id = ?1 ORDER BY b.bound_at, b.rowid",
         )?;
         stmt.query_map(params![id], |r| {
             Ok(RunSession {
@@ -407,6 +543,7 @@ impl Db {
                 id: r.get(1)?,
                 bound_at: r.get(2)?,
                 unbound_at: r.get(3)?,
+                agent_session: r.get(4)?,
             })
         })?
         .collect()

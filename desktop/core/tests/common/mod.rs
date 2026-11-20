@@ -85,6 +85,15 @@ pub fn db(app: &App) -> pinrail_core::db::Db {
     pinrail_core::db::Db::open(&app.state.config().db_path()).unwrap()
 }
 
+/// Pinrail's id for the session the agent names by its own id, or that
+/// id itself when Pinrail knows no such session.
+pub fn sid(app: &App, agent: &str, agent_session: &str) -> String {
+    db(app)
+        .find_session(agent, agent_session)
+        .unwrap()
+        .unwrap_or_else(|| agent_session.to_string())
+}
+
 /// A request as the app's window sends it: from the app's origin, so a
 /// decision or a discard made through it is recorded as the person's, and
 /// with the person token. Answered as JSON, or the text when it is not JSON.
@@ -239,6 +248,13 @@ pub fn program(dir: &std::path::Path, name: &str, script: &str) {
 /// would pay every time.
 #[cfg(unix)]
 pub fn stand_in_path(dir: &std::path::Path) -> String {
+    stand_in_path_as(dir, &["claude"])
+}
+
+/// Links the stand-in agent as each of `names` into `dir/bin`, and returns
+/// the `PATH` that finds them.
+#[cfg(unix)]
+pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
     use std::os::unix::fs::PermissionsExt;
     let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude");
     if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT) {
@@ -250,7 +266,9 @@ pub fn stand_in_path(dir: &std::path::Path) -> String {
     }
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    std::os::unix::fs::symlink(&script, bin.join("claude")).unwrap();
+    for name in names {
+        std::os::unix::fs::symlink(&script, bin.join(name)).unwrap();
+    }
     format!("{}:/usr/bin:/bin", bin.display())
 }
 

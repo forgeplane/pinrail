@@ -113,6 +113,8 @@ pub struct PresenceRow {
 pub struct ActiveSession {
     pub agent: String,
     pub id: String,
+    /// the agent's own id for the session, once the agent reported it
+    pub agent_session: Option<String>,
     pub state: String,
     pub pid: i64,
     /// the process's start time, as `pinrail_runtime::process` reads it
@@ -496,9 +498,11 @@ impl Db {
     pub fn active_sessions(&self) -> rusqlite::Result<Vec<ActiveSession>> {
         let conn = self.read();
         let mut stmt = conn.prepare(
-            "SELECT agent, session, state, pid, proc_started, state_since FROM session_presence
-             WHERE state IN ('working', 'needs_input')
-               AND pid IS NOT NULL AND proc_started IS NOT NULL",
+            "SELECT p.agent, p.session, p.state, p.pid, p.proc_started, p.state_since,
+               s.agent_session
+             FROM session_presence p JOIN sessions s ON s.agent = p.agent AND s.id = p.session
+             WHERE p.state IN ('working', 'needs_input')
+               AND p.pid IS NOT NULL AND p.proc_started IS NOT NULL",
         )?;
         stmt.query_map([], |r| {
             Ok(ActiveSession {
@@ -508,6 +512,7 @@ impl Db {
                 pid: r.get(3)?,
                 started: r.get(4)?,
                 since: crate::reviews::parse_datetime(&r.get::<_, String>(5)?).unwrap_or_default(),
+                agent_session: r.get(6)?,
             })
         })?
         .collect()

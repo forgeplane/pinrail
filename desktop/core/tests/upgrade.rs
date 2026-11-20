@@ -41,24 +41,37 @@ async fn a_database_from_0_6_0_keeps_its_sessions_reviews_and_items() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     assert_eq!(sessions["total"], 2, "{sessions}");
     assert!(ids.contains(&"s-060") && ids.contains(&"s-old"));
+    // each has an id of Pinrail's own, and keeps the agent's beside it
+    for session in sessions["sessions"].as_array().unwrap() {
+        assert!(
+            session["id"].as_str().unwrap().starts_with("ses_"),
+            "{session}"
+        );
+    }
     // no hook ever reported for them: no presence, shown, the question
     // still waiting on the person
     let session = sessions["sessions"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|s| s["id"] == "s-060")
+        .find(|s| s["agent_session"] == "s-060")
         .unwrap();
+    let id = session["id"].as_str().unwrap().to_string();
     assert_eq!(session["presence"], Value::Null);
     assert_eq!(session["attention"], "needs_you");
     assert_eq!(session["title"], "Add rate limiting");
 
-    let (code, thread) =
-        common::call(&app, "GET", "/api/v1/sessions/claude-code/s-060", None).await;
+    let (code, thread) = common::call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{id}"),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::OK);
     assert_eq!(thread["statuses"].as_array().unwrap().len(), 3);
     assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
@@ -67,6 +80,15 @@ async fn a_database_from_0_6_0_keeps_its_sessions_reviews_and_items() {
     let (_, reviews) =
         common::call(&app, "GET", "/api/v1/reviews?status=pending,decided", None).await;
     assert_eq!(reviews["reviews"].as_array().unwrap().len(), 2, "{reviews}");
+    // the reviews name their sessions by Pinrail's ids
+    for review in reviews["reviews"].as_array().unwrap() {
+        if !review["session"].is_null() {
+            assert!(
+                review["session"].as_str().unwrap().starts_with("ses_"),
+                "{review}"
+            );
+        }
+    }
 
     let (_, items) = common::call(
         &app,
@@ -93,6 +115,17 @@ async fn a_database_from_0_6_0_keeps_its_sessions_reviews_and_items() {
     )
     .await;
     assert_eq!(code, StatusCode::NO_CONTENT);
+    let (_, thread) = common::call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{id}"),
+        None,
+    )
+    .await;
+    assert_eq!(
+        thread["session"]["presence"]["state"], "working",
+        "{thread}"
+    );
     let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
     let broken: Vec<String> = conn
         .prepare("PRAGMA foreign_key_check")
@@ -117,6 +150,7 @@ fn a_database_from_0_6_0_takes_runs_for_its_sessions() {
     )
     .unwrap();
     let db = pinrail_core::db::Db::open(&path).unwrap();
+    let session = db.find_session("claude-code", "s-060").unwrap().unwrap();
     let run = db
         .insert_run(
             &pinrail_core::db::NewRun {
@@ -130,17 +164,16 @@ fn a_database_from_0_6_0_takes_runs_for_its_sessions() {
                 args: &[],
                 created_by: "app",
                 token_digest: "d1",
-                session: Some("s-060"),
+                session: Some(&session),
+                agent_session: None,
                 checkout: None,
             },
             chrono::Utc::now(),
         )
         .unwrap();
     assert_eq!(run.host, "local");
-    assert_eq!(
-        run.session,
-        Some(("claude-code".to_string(), "s-060".to_string()))
-    );
+    assert_eq!(run.session, Some(("claude-code".to_string(), session)));
+    assert_eq!(run.agent_session.as_deref(), Some("s-060"));
 }
 
 #[tokio::test]
@@ -156,7 +189,7 @@ async fn the_sessions_of_an_earlier_release_are_named_when_it_opens() {
         // no name of the person's
         assert!(session["name"].is_null());
         // the stage title stays as it was
-        if session["id"] == "s-060" {
+        if session["agent_session"] == "s-060" {
             assert_eq!(session["title"], "Add rate limiting");
         }
     }

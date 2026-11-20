@@ -176,12 +176,12 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
         .unwrap();
     let (agent, session) = run.session.clone().unwrap();
     assert_eq!(agent, "claude-code");
+    assert!(session.starts_with("ses_"), "{session}");
+    // the agent's own id is the one Pinrail chose for it
+    let own = run.agent_session.clone().unwrap();
 
     let argv = file(folder.join("argv")).await;
-    assert_eq!(
-        argv,
-        format!("--session-id\n{session}\n--\nfix the login\n")
-    );
+    assert_eq!(argv, format!("--session-id\n{own}\n--\nfix the login\n"));
     // the core keeps only the token's digest
     let token = file(folder.join("token")).await;
     let db = setup.db();
@@ -275,6 +275,7 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         created_by: "app",
         token_digest: id,
         session: None,
+        agent_session: None,
         checkout: None,
     };
     // a running run whose terminal the host no longer has
@@ -353,6 +354,7 @@ async fn after_a_restart_the_lost_runs_end_as_restart_and_their_sessions_are_lis
         created_by: "app",
         token_digest: id,
         session: Some(session),
+        agent_session: None,
         checkout: None,
     };
     db.insert_run(&new_run("run_a", "s-a"), now).unwrap();
@@ -408,6 +410,7 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
             created_by: "app",
             token_digest: "d",
             session: Some("s-lost"),
+            agent_session: Some("c-lost"),
             checkout: None,
         },
         now,

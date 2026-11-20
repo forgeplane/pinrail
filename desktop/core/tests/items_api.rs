@@ -176,7 +176,10 @@ async fn an_agent_adds_an_item_and_reads_it_back() {
     assert_eq!(added["status"], "open");
     assert_eq!(added["ready"], true);
     assert_eq!(added["created_by"], "claude-code");
-    assert_eq!(added["created_session"], "s-1");
+    assert_eq!(
+        added["created_session"],
+        common::sid(&app, "claude-code", "s-1")
+    );
     assert_eq!(timeline_kinds(&added), ["created"]);
 
     // by its key, by its number in its repository, and by its id
@@ -314,15 +317,18 @@ async fn the_history_sweep_releases_the_claims_of_the_sessions_it_deletes() {
 async fn deleting_a_session_withdraws_what_waits_gives_up_its_items_and_keeps_the_history() {
     let app = app();
     add(&app, "Held by the session").await;
-    let session = "/api/v1/sessions/claude-code/s-del";
     let (code, _) = call(
         &app,
         "POST",
-        &format!("{session}/status"),
+        "/api/v1/sessions/claude-code/s-del/status",
         Some(json!({"text": "Working", "kind": "start"})),
     )
     .await;
     assert_eq!(code, StatusCode::OK);
+    let session = &format!(
+        "/api/v1/sessions/claude-code/{}",
+        common::sid(&app, "claude-code", "s-del")
+    );
     let (code, claimed) = edit(&app, "PIN-1", "s-del", json!({"claim": "claim"})).await;
     assert_eq!(code, StatusCode::OK, "{claimed}");
     let (_, waiting) = submit(&app, review("s-del", "Still waiting", None)).await;
@@ -382,10 +388,14 @@ async fn deleting_a_session_withdraws_what_waits_gives_up_its_items_and_keeps_th
     call(
         &app,
         "POST",
-        &format!("{session}/status"),
+        "/api/v1/sessions/claude-code/s-del/status",
         Some(json!({"text": "Back again"})),
     )
     .await;
+    let session = &format!(
+        "/api/v1/sessions/claude-code/{}",
+        common::sid(&app, "claude-code", "s-del")
+    );
     let (code, back) = call(&app, "GET", session, None).await;
     assert_eq!(code, StatusCode::OK, "{back}");
     assert_eq!(back["statuses"].as_array().unwrap().len(), 1, "{back}");
@@ -734,7 +744,8 @@ async fn next_with_claim_puts_the_item_in_progress_for_the_session() {
     assert_eq!(claimed["status"], "in_progress");
     assert_eq!(
         claimed["claim"],
-        json!({"agent": "claude-code", "session": "s-1"})
+        json!({"agent": "claude-code", "session": common::sid(&app, "claude-code", "s-1"),
+               "agent_session": "s-1"})
     );
     assert_eq!(timeline_kinds(&claimed), ["created", "claimed"]);
     // and it is not offered again
@@ -796,7 +807,7 @@ async fn a_claim_another_session_holds_is_refused_unless_taken() {
     assert_eq!(code, StatusCode::FORBIDDEN);
     let (code, taken) = edit(&app, "PIN-1", "s-2", json!({"claim": "take"})).await;
     assert_eq!(code, StatusCode::OK, "{taken}");
-    assert_eq!(taken["item"]["claim"]["session"], "s-2");
+    assert_eq!(taken["item"]["claim"]["agent_session"], "s-2");
 }
 
 #[tokio::test]
@@ -885,7 +896,10 @@ async fn archiving_a_session_releases_its_claims_and_no_others() {
     let (code, _) = call(
         &app,
         "PUT",
-        "/api/v1/sessions/claude-code/s-1/archive",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/archive",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         None,
     )
     .await;
@@ -1113,7 +1127,10 @@ async fn each_change_goes_on_the_timeline_with_who_made_it() {
     assert_eq!(entries[3]["attrs"]["removed"], json!(["PIN-2"]));
     assert_eq!(entries[5]["attrs"], json!({"from": "PIN-1", "to": "ELS-2"}));
     assert_eq!(entries[1]["actor"], "claude-code");
-    assert_eq!(entries[1]["session"], "s-1");
+    assert_eq!(
+        entries[1]["session"],
+        common::sid(&app, "claude-code", "s-1")
+    );
 }
 
 // --- comments
@@ -1141,7 +1158,7 @@ async fn the_person_and_agents_comment_on_an_item() {
     .await;
     assert_eq!(code, StatusCode::CREATED, "{mine}");
     assert_eq!(mine["author"], "claude-code");
-    assert_eq!(mine["session"], "s-1");
+    assert_eq!(mine["session"], common::sid(&app, "claude-code", "s-1"));
     let read = item(&app, "PIN-1").await;
     let bodies: Vec<&str> = read["timeline"]
         .as_array()
@@ -1544,7 +1561,10 @@ async fn an_item_lists_the_sessions_that_worked_on_it_with_their_status() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| (s["session"].as_str().unwrap().into(), s["status"].clone()))
+        .map(|s| {
+            let own = s["agent_session"].as_str().unwrap().into();
+            (own, s["status"].clone())
+        })
         .collect();
     assert!(
         sessions.contains(&("s-2".into(), json!("Running the theme tests"))),
@@ -2092,7 +2112,16 @@ async fn a_sessions_thread_lists_the_comments_its_agent_wrote_on_items() {
     )
     .await;
 
-    let (code, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (code, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::OK, "{thread}");
     let comments = thread["comments"].as_array().unwrap();
     let said: Vec<(&str, &str, &str)> = comments
@@ -2126,7 +2155,16 @@ async fn a_sessions_thread_lists_the_comments_its_agent_wrote_on_items() {
     .await;
     assert!(code.is_success(), "{code}");
     call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(thread["comments"], json!([]));
 }
 
@@ -2157,7 +2195,16 @@ async fn times_order_a_thread_written_within_one_second() {
     )
     .await;
     report("Testing").await;
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let at = |v: &Value| v.as_str().unwrap().to_string();
     let reading = at(&thread["statuses"][0]["at"]);
     let comment = at(&thread["comments"][0]["created_at"]);
@@ -2218,7 +2265,16 @@ async fn a_sessions_thread_lists_what_its_agent_did_to_work_items() {
     )
     .await;
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let did: Vec<String> = thread["item_events"]
         .as_array()
         .unwrap_or_else(|| panic!("no item_events in {thread}"))

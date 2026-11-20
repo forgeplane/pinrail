@@ -7,7 +7,7 @@ use chrono::Utc;
 use pinrail_runtime::process::Process;
 use sha2::{Digest, Sha256};
 
-use crate::db::{Report, ReportEvent, RunRow};
+use crate::db::{Report, ReportEvent, RunResolved, RunRow};
 use crate::events::Notice;
 
 /// The SHA-256 digest of a run token, in hex, as the core keeps it.
@@ -15,11 +15,12 @@ pub fn digest(token: &str) -> String {
     format!("{:x}", Sha256::digest(token.as_bytes()))
 }
 
-/// What a report with a run token may do.
+/// The session a report is for, by Pinrail's id.
 #[derive(Debug, Default, PartialEq)]
 pub struct Admitted {
+    pub session: String,
     /// The session the run left for the report's, on `/clear` or a fork,
-    /// whose agent no longer works in it.
+    /// whose agent no longer works in it, as `(agent, id)`.
     pub cleared: Option<(String, String)>,
 }
 
@@ -35,64 +36,78 @@ impl std::fmt::Display for Mismatch {
 }
 
 impl super::Runtime {
-    /// Checks a report of the session `(agent, session)` sent with a run
-    /// token. From the run's own process, a report for the run's session
-    /// passes, and a session start for another session moves the run to
-    /// it; any other report for another session is a mismatch. A token
-    /// that is unknown, or comes from any other process, is ignored.
+    /// The session a report names by the agent and the agent's own id for
+    /// it, `agent_session`, by Pinrail's id. Sent with the token of a run,
+    /// from the run's own process, the report is for the run's session,
+    /// which learns the agent's id from it if it did not know it; a session
+    /// start for another session moves the run to that one; any other
+    /// report for another session is a mismatch. Without a token, or with
+    /// one that is unknown or comes from any other process, it is for the
+    /// session with that id, created, hidden, if it is new.
     pub fn admit_report(
         &self,
-        token: &str,
+        token: Option<&str>,
         agent: &str,
-        session: &str,
+        agent_session: &str,
         report: &Report,
-    ) -> Result<Admitted, Mismatch> {
+    ) -> Result<Result<Admitted, Mismatch>, crate::error::Error> {
         let now = Utc::now();
-        let Ok(Some(run)) = self.db.run_for_token(&digest(token), now) else {
-            return Ok(Admitted::default());
+        let run = match token {
+            Some(token) => self.db.run_for_token(&digest(token), now)?,
+            None => None,
         };
-        let binaries = pinrail_runtime::adapter(&run.agent)
+        let binaries = run
+            .as_ref()
+            .and_then(|run| pinrail_runtime::adapter(&run.agent))
             .map(|a| a.spec().binaries)
             .unwrap_or_default();
         let lookup = |pid: u32| pinrail_runtime::process::process(pid);
-        if !own_process(&run, report.process.as_ref(), binaries, &lookup) {
-            return Ok(Admitted::default());
-        }
-        let current = run
-            .session
-            .as_ref()
-            .is_some_and(|(a, id)| a == agent && id == session);
-        if current {
-            return Ok(Admitted::default());
-        }
-        let ReportEvent::Started { source } = &report.event else {
-            return Err(mismatch(&run, agent, session));
+        let Some(run) =
+            run.filter(|run| own_process(run, report.process.as_ref(), binaries, &lookup))
+        else {
+            let (session, _) = self.db.resolve_session(agent, agent_session, now)?;
+            return Ok(Ok(Admitted {
+                session,
+                cleared: None,
+            }));
         };
-        if run.agent != agent {
-            return Err(mismatch(&run, agent, session));
+        let source = match &report.event {
+            ReportEvent::Started { source } => Some(source.as_deref()),
+            _ => None,
+        };
+        let resolved = self.db.resolve_run_session(
+            &run.id,
+            agent,
+            agent_session,
+            source.is_some(),
+            &report.origin,
+            now,
+        )?;
+        let (session, bound) = match resolved {
+            RunResolved::Session { id, bound, .. } => (id, bound),
+            RunResolved::Mismatch(run) => return Ok(Err(mismatch(&run, agent, agent_session))),
+        };
+        let mut cleared = None;
+        if let Some(bound) = bound {
+            let (event, attrs) = &bound.event;
+            self.bus
+                .publish(Notice::new(*event, crate::events::RUN_BOUND, attrs));
+            if matches!(source, Some(Some("clear" | "fork"))) {
+                cleared = bound.previous;
+            }
         }
-        let bound = self
-            .db
-            .bind_run(&run.id, session, &report.origin, now)
-            .map_err(|e| Mismatch(format!("the run could not move: {e}")))?
-            .ok_or_else(|| mismatch(&run, agent, session))?;
-        let (event, attrs) = &bound.event;
-        self.bus
-            .publish(Notice::new(*event, crate::events::RUN_BOUND, attrs));
-        let cleared = matches!(source.as_deref(), Some("clear" | "fork"));
-        Ok(Admitted {
-            cleared: bound.previous.filter(|_| cleared),
-        })
+        Ok(Ok(Admitted { session, cleared }))
     }
 }
 
-fn mismatch(run: &RunRow, agent: &str, session: &str) -> Mismatch {
-    let theirs = match &run.session {
-        Some((a, id)) => format!("session {id} of {a}"),
-        None => "no session yet".to_string(),
+fn mismatch(run: &RunRow, agent: &str, agent_session: &str) -> Mismatch {
+    let theirs = match (&run.session, &run.agent_session) {
+        (Some((a, _)), Some(id)) => format!("session {id} of {a}"),
+        (Some((a, id)), None) => format!("session {id} of {a}"),
+        (None, _) => "no session yet".to_string(),
     };
     Mismatch(format!(
-        "the report is for session {session} of {agent}, but its run {} is in {theirs}",
+        "the report is for session {agent_session} of {agent}, but its run {} is in {theirs}",
         run.id
     ))
 }
@@ -144,6 +159,7 @@ mod tests {
             started_at: String::new(),
             ended_at: None,
             session: None,
+            agent_session: None,
         }
     }
 

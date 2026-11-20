@@ -222,6 +222,9 @@ impl super::Runtime {
         let id = crate::id::next_run();
         let token = new_token();
         let checkout = checkout_of(&start.folder).await;
+        // the session has Pinrail's id from the start; the agent's own id
+        // is the one Pinrail chose, or comes with the agent's first report
+        let session = crate::id::next_session();
         let run = self.db.insert_run(
             &NewRun {
                 id: &id,
@@ -234,7 +237,8 @@ impl super::Runtime {
                 args: &start.args,
                 created_by: &start.created_by,
                 token_digest: &super::digest(&token),
-                session: plan.session.as_deref(),
+                session: Some(&session),
+                agent_session: plan.session.as_deref(),
                 checkout: checkout.as_ref(),
             },
             Utc::now(),
@@ -260,9 +264,18 @@ impl super::Runtime {
         let agent = pinrail_runtime::adapter(&resume.agent).ok_or_else(|| {
             RunError::NotResumable(format!("Pinrail cannot resume {} sessions.", resume.agent))
         })?;
-        let argv = agent.resume(&resume.session).ok_or_else(|| {
-            RunError::NotResumable(format!("Pinrail cannot resume {} sessions.", resume.agent))
+        let cannot =
+            || RunError::NotResumable(format!("Pinrail cannot resume {} sessions.", resume.agent));
+        if agent.resume("session").is_none() {
+            return Err(cannot());
+        }
+        // the agent resumes the session by its own id
+        let agent_session = session.agent_session.clone().ok_or_else(|| {
+            RunError::NotResumable(
+                "Pinrail does not know the agent's own id for this session.".into(),
+            )
         })?;
+        let argv = agent.resume(&agent_session).ok_or_else(cannot)?;
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let token = new_token();
         let run = {
@@ -340,6 +353,7 @@ impl super::Runtime {
                     created_by: &resume.created_by,
                     token_digest: &super::digest(&token),
                     session: Some(&resume.session),
+                    agent_session: Some(&agent_session),
                     checkout: checkout.as_ref(),
                 },
                 now,

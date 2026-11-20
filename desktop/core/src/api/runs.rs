@@ -62,8 +62,9 @@ async fn host(
 /// Starts `agent` in `folder`, with an optional first `task`, extra `args`
 /// and the terminal's `cols` and `rows`. `host` is `local`, the only host
 /// so far. A `local_id` makes the call idempotent for 10 minutes. Answers
-/// 201 with the run and its session, which is null for an agent that
-/// names its session only once it starts.
+/// 201 with the run and its session, by Pinrail's id, whose
+/// `agent_session` is null until an agent that names its session itself
+/// reports it.
 async fn start(
     State(state): State<Arc<Pinrail>>,
     _person: Person,
@@ -222,7 +223,7 @@ fn parse_start(body: &Value) -> Result<Start, RunError> {
 fn started(run: &RunRow) -> Value {
     json!({
         "run": run.to_json(),
-        "session": run.session.as_ref().map(|(agent, id)| json!({"agent": agent, "id": id})),
+        "session": run.session_json(),
     })
 }
 

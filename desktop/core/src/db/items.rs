@@ -31,8 +31,11 @@ pub struct WorkItem {
     /// the parent's key, if it has one
     pub parent: Option<String>,
     pub link: Option<String>,
-    /// the agent and session holding the claim, while in progress
+    /// the agent and session holding the claim, while in progress, by
+    /// Pinrail's id for the session
     pub claim: Option<(String, Option<String>)>,
+    /// the agent's own id for the session holding the claim, if it is known
+    pub claim_agent_session: Option<String>,
     pub created_by: String,
     pub created_session: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -90,7 +93,11 @@ impl WorkItem {
             "status": self.status.as_str(),
             "parent": self.parent,
             "link": self.link,
-            "claim": self.claim.as_ref().map(|(agent, session)| json!({"agent": agent, "session": session})),
+            "claim": self.claim.as_ref().map(|(agent, session)| json!({
+                "agent": agent,
+                "session": session,
+                "agent_session": self.claim_agent_session,
+            })),
             "created_by": self.created_by,
             "created_session": self.created_session,
             "created_at": iso(self.created_at),
@@ -425,7 +432,9 @@ fn columns(body: bool) -> String {
               SELECT c.id, c.status FROM work_items c WHERE c.parent = i.id
               UNION ALL SELECT c.id, c.status FROM work_items c JOIN d ON c.parent = d.id)
             SELECT COUNT(*) || ' ' || IFNULL(SUM(status NOT IN {OPEN}), 0) || ' '
-                   || IFNULL(SUM(status = 'in_progress'), 0) FROM d)
+                   || IFNULL(SUM(status = 'in_progress'), 0) FROM d),
+           (SELECT s.agent_session FROM sessions s
+             WHERE s.agent = i.claim_agent AND s.id = i.claim_session)
          FROM work_items i JOIN repos g ON g.id = i.repo_id",
         status = status_of("i"),
         ready = READY,
@@ -503,6 +512,7 @@ pub(super) fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkItem>
                 n.next().unwrap_or(0),
             )
         },
+        claim_agent_session: row.get(25)?,
     })
 }
 

@@ -180,7 +180,10 @@ impl ItemReview {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemSession {
     pub agent: String,
+    /// Pinrail's id for the session
     pub session: String,
+    /// the agent's own id for it, if it is known
+    pub agent_session: Option<String>,
     pub status: Option<String>,
     pub last_at: Option<DateTime<Utc>>,
 }
@@ -188,7 +191,8 @@ pub struct ItemSession {
 impl ItemSession {
     pub fn to_json(&self) -> Value {
         json!({
-            "agent": self.agent, "session": self.session, "status": self.status,
+            "agent": self.agent, "session": self.session,
+            "agent_session": self.agent_session, "status": self.status,
             "last_at": self.last_at.map(iso),
         })
     }
@@ -404,7 +408,8 @@ fn claim_in(
         return Ok(Err(Refused::ClaimedBy(
             item.key.to_string(),
             agent.clone(),
-            session.clone(),
+            // the agent knows its sessions by its own ids
+            item.claim_agent_session.clone().or(session.clone()),
         )));
     }
     conn.execute(
@@ -1007,7 +1012,8 @@ impl Db {
                 return Ok(Err(Refused::ClaimedBy(
                     current.key.to_string(),
                     agent.clone(),
-                    session.clone(),
+                    // the agent knows its sessions by its own ids
+                    current.claim_agent_session.clone().or(session.clone()),
                 )));
             }
             // a sub-item opened again needs its parent open
@@ -1410,7 +1416,7 @@ impl Db {
              SELECT w.agent, w.session,
                (SELECT t.text FROM session_statuses t WHERE t.agent = w.agent AND t.session = w.session
                   AND t.kind <> 'note' ORDER BY t.id DESC LIMIT 1),
-               s.last_at
+               s.last_at, s.agent_session
              FROM worked w LEFT JOIN sessions s ON s.agent = w.agent AND s.id = w.session
              ORDER BY s.last_at DESC, w.agent, w.session",
         )?;
@@ -1422,6 +1428,7 @@ impl Db {
                 last_at: r
                     .get::<_, Option<String>>(3)?
                     .and_then(|t| parse_datetime(&t)),
+                agent_session: r.get(4)?,
             })
         })?
         .collect()

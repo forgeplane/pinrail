@@ -15,9 +15,15 @@ use common::{App, call, call_as};
 
 /// A core linked to a host, whose runs find the stand-in `claude`.
 async fn linked() -> App {
+    linked_as(&["claude"]).await
+}
+
+/// A core linked to a host, whose runs find the stand-in agent as each of
+/// `names`.
+async fn linked_as(names: &[&str]) -> App {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    let path = common::stand_in_path(hosts.path());
+    let path = common::stand_in_path_as(hosts.path(), names);
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config.run_env.insert("PATH".into(), path);
@@ -271,10 +277,19 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
     .await;
     let id = started["run"]["id"].as_str().unwrap().to_string();
     let first = started["session"]["id"].as_str().unwrap().to_string();
+    // the agent names its session by its own id
+    let agent_session = started["session"]["agent_session"].as_str().unwrap();
     let token = token(&folder).await;
     let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
 
-    let (status, _) = report(&app, &first, json!({"event": "working"}), &own, &token).await;
+    let (status, _) = report(
+        &app,
+        agent_session,
+        json!({"event": "working"}),
+        &own,
+        &token,
+    )
+    .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     // another session's report from the run's process is refused
     let (status, answer) = report(&app, "s-other", json!({"event": "working"}), &own, &token).await;
@@ -291,8 +306,11 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    let run = run_becomes(&app, &id, |r| r["session"]["id"] == "s-2").await;
+    let run = run_becomes(&app, &id, |r| r["session"]["agent_session"] == "s-2").await;
     assert_eq!(run["sessions"].as_array().unwrap().len(), 2);
+    // a new session of Pinrail's
+    let second = run["session"]["id"].as_str().unwrap().to_string();
+    assert!(second.starts_with("ses_") && second != first, "{run}");
     let presence = common::db(&app)
         .presence("claude-code", &first)
         .unwrap()
@@ -313,7 +331,156 @@ async fn a_run_token_speaks_for_the_runs_session_only_from_its_own_process() {
         assert_eq!(status, StatusCode::NO_CONTENT);
     }
     let (_, run) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
-    assert_eq!(run["session"]["id"], "s-2");
+    assert_eq!(run["session"]["id"], second.as_str());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_claude_code_start_has_pinrails_session_id_and_the_one_it_chose() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let session = started["session"]["id"].as_str().unwrap();
+    assert!(session.starts_with("ses_"), "{started}");
+    // the agent's own id is the one Pinrail passed it
+    let argv = argv(&folder).await;
+    let chosen = argv
+        .lines()
+        .skip_while(|a| *a != "--session-id")
+        .nth(1)
+        .unwrap();
+    assert_eq!(started["session"]["agent_session"], chosen, "{started}");
+    let (status, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{shown}");
+    assert_eq!(shown["session"]["agent_session"], chosen);
+    assert_eq!(shown["session"]["resume"]["resume"], true);
+
+    // the agent's reports name the session by its own id
+    let token = token(&folder).await;
+    let id = started["run"]["id"].as_str().unwrap();
+    let own = common::db(&app).run(id).unwrap().unwrap().process.unwrap();
+    let (status, _) = report(&app, chosen, json!({"event": "working"}), &own, &token).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert_eq!(shown["session"]["presence"]["state"], "working", "{shown}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_that_chooses_its_session_id_gives_it_with_its_first_report() {
+    let app = linked_as(&["claude", "codex"]).await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "codex", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    // the session is there at once, without the agent's id
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    assert!(session.starts_with("ses_"), "{started}");
+    assert!(started["session"]["agent_session"].is_null(), "{started}");
+    let path = format!("/api/v1/sessions/codex/{session}");
+    let (status, shown) = call(&app, "GET", &path, None).await;
+    assert_eq!(status, StatusCode::OK, "{shown}");
+    assert!(shown["session"]["agent_session"].is_null());
+    assert_eq!(shown["session"]["resume"]["resume"], false);
+
+    // the run's first report names it
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let token = token(&folder).await;
+    let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
+    let mut body = json!({"event": "started", "source": "startup",
+                          "process": {"pid": own.0, "started": own.1}});
+    let (status, answer) = call_as(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/019a-codex-own/reports",
+        Some(body.clone()),
+        &[("authorization", &format!("Run {token}"))],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{answer}");
+    let (_, shown) = call(&app, "GET", &path, None).await;
+    assert_eq!(
+        shown["session"]["agent_session"], "019a-codex-own",
+        "{shown}"
+    );
+    assert_eq!(shown["session"]["resume"]["resume"], true);
+    let (_, run) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
+    assert_eq!(run["session"]["id"], session.as_str(), "{run}");
+    assert_eq!(run["sessions"].as_array().unwrap().len(), 1, "{run}");
+
+    // what the agent sends later, without the token, reaches that session
+    let (status, _) = call_as(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/019a-codex-own/status",
+        Some(json!({"text": "Reading the code"})),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, shown) = call(&app, "GET", &path, None).await;
+    assert_eq!(shown["statuses"][0]["text"], "Reading the code", "{shown}");
+
+    // another report of another session from the run is refused
+    body["event"] = json!("working");
+    let (status, answer) = call_as(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/019a-codex-other/reports",
+        Some(body),
+        &[("authorization", &format!("Run {token}"))],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{answer}");
+    assert_eq!(answer["error"], "run_mismatch");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_session_whose_agent_never_gave_its_id_is_not_resumed() {
+    let app = linked_as(&["claude", "codex"]).await;
+    let folder = folder(&app, "app");
+    std::fs::write(std::path::Path::new(&folder).join("exit"), "0").unwrap();
+    let (_, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "codex", "folder": folder})),
+    )
+    .await;
+    run_becomes(&app, started["run"]["id"].as_str().unwrap(), |r| {
+        r["state"] == "ended"
+    })
+    .await;
+    let session = started["session"]["id"].as_str().unwrap();
+    let (status, answer) = resume(&app, "codex", session).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert_eq!(answer["error"], "not_resumable");
+    assert_eq!(
+        answer["message"],
+        "Pinrail does not know the agent's own id for this session."
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -624,7 +791,9 @@ async fn the_person_resumes_a_stopped_session_in_its_folder() {
     assert_eq!(run["kind"], "resume");
     assert_eq!(run["folder"], folder.as_str());
     assert_eq!(run["session"]["id"], session.as_str());
-    assert_eq!(argv(&folder).await, format!("--resume\n{session}\n"));
+    // the agent resumes it by its own id
+    let own = run["session"]["agent_session"].as_str().unwrap();
+    assert_eq!(argv(&folder).await, format!("--resume\n{own}\n"));
 
     // a running session is not resumed twice
     let (status, again) = resume(&app, "claude-code", &session).await;
@@ -717,7 +886,8 @@ async fn a_resume_that_cannot_happen_answers_with_its_reason() {
     )
     .await;
     assert!(status.is_success(), "{status}");
-    let (status, answer) = resume(&app, "gemini", "g-1").await;
+    let gemini = common::sid(&app, "gemini", "g-1");
+    let (status, answer) = resume(&app, "gemini", &gemini).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
     assert_eq!(answer["error"], "not_resumable");
 
@@ -736,7 +906,8 @@ async fn a_resume_that_cannot_happen_answers_with_its_reason() {
     )
     .await;
     assert!(status.is_success(), "{status}");
-    let (status, answer) = resume(&app, "claude-code", "c-outside").await;
+    let outside = common::sid(&app, "claude-code", "c-outside");
+    let (status, answer) = resume(&app, "claude-code", &outside).await;
     assert_eq!(status, StatusCode::CONFLICT, "{answer}");
     assert_eq!(answer["error"], "already_running");
     assert_eq!(
@@ -780,13 +951,14 @@ async fn a_session_running_in_another_terminal_is_resumed_when_asked_to_anyway()
     .await;
     assert!(status.is_success(), "{status}");
 
-    let (status, resumed) = resume_anyway(&app, "claude-code", "c-outside").await;
+    let outside = common::sid(&app, "claude-code", "c-outside");
+    let (status, resumed) = resume_anyway(&app, "claude-code", &outside).await;
     assert_eq!(status, StatusCode::CREATED, "{resumed}");
     assert_eq!(resumed["run"]["kind"], "resume");
     assert_eq!(argv(&folder).await, "--resume\nc-outside\n");
 
     // a session Pinrail runs is never resumed twice, anyway or not
-    let (status, again) = resume_anyway(&app, "claude-code", "c-outside").await;
+    let (status, again) = resume_anyway(&app, "claude-code", &outside).await;
     assert_eq!(status, StatusCode::CONFLICT, "{again}");
     assert_eq!(again["run"]["id"], resumed["run"]["id"]);
     assert_eq!(again["anyway"], false, "{again}");
@@ -804,7 +976,8 @@ async fn a_session_running_in_another_terminal_is_resumed_when_asked_to_anyway()
     )
     .await;
     assert!(status.is_success(), "{status}");
-    let (status, refused) = resume_anyway(&app, "codex", "x-outside").await;
+    let x_outside = common::sid(&app, "codex", "x-outside");
+    let (status, refused) = resume_anyway(&app, "codex", &x_outside).await;
     assert_eq!(status, StatusCode::CONFLICT, "{refused}");
     assert_eq!(refused["anyway"], false, "{refused}");
 }
@@ -821,6 +994,7 @@ async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
     .await;
     assert!(status.is_success());
     let db = common::db(&app);
+    let session = common::sid(&app, "claude-code", "s-rebooted");
     let now = chrono::Utc::now();
     db.insert_run(
         &pinrail_core::db::NewRun {
@@ -834,7 +1008,8 @@ async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
             args: &[],
             created_by: "app",
             token_digest: "d",
-            session: Some("s-rebooted"),
+            session: Some(&session),
+            agent_session: None,
             checkout: None,
         },
         now,
@@ -847,7 +1022,8 @@ async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(listed["runs"][0]["id"], "run_rebooted");
     assert_eq!(listed["runs"][0]["title"], "Fix the login redirect");
-    assert_eq!(listed["runs"][0]["session"]["id"], "s-rebooted");
+    assert_eq!(listed["runs"][0]["session"]["id"], session.as_str());
+    assert_eq!(listed["runs"][0]["session"]["agent_session"], "s-rebooted");
 
     // the setting turns the offer off
     app.state

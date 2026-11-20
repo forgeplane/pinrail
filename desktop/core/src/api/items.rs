@@ -50,15 +50,20 @@ pub fn routes() -> Router<ApiState> {
 
 /// Who makes the request: the person from the app's window, or the agent
 /// named by `by` in the body, with its `session`.
-fn actor(headers: &HeaderMap, body: &Value) -> Actor {
+/// The agent names its session by its own id, which is resolved to
+/// Pinrail's.
+fn actor(state: &Pinrail, headers: &HeaderMap, body: &Value) -> Result<Actor, Error> {
     let source = super::reviews::source(headers, body);
-    match source.via {
+    Ok(match source.via {
         Via::App => Actor::Person,
-        _ => Actor::Agent {
-            name: source.by.unwrap_or_else(|| "agent".to_string()),
-            session: source.session,
-        },
-    }
+        _ => {
+            let name = source.by.unwrap_or_else(|| "agent".to_string());
+            let session = state
+                .reviews()
+                .session_of(Some(&name), source.session.as_deref())?;
+            Actor::Agent { name, session }
+        }
+    })
 }
 
 fn item_ref(path: &str) -> Result<ItemRef, Error> {
@@ -129,8 +134,10 @@ async fn list(
     filters.created_by = params.get("created_by").cloned();
     filters.text = params.get("q").cloned();
     filters.title_only = params.get("in").is_some_and(|v| v == "title");
+    // an agent names its session by its own id, and the app by Pinrail's
     if let (Some(agent), Some(session)) = (params.get("agent"), params.get("session")) {
-        filters.session = Some((agent.clone(), session.clone()));
+        let found = state.reviews().find_session(agent, session)?;
+        filters.session = Some((agent.clone(), found.unwrap_or_else(|| session.clone())));
     }
     if let Some(parent) = params.get("parent") {
         let parent = state
@@ -239,7 +246,7 @@ async fn add(
     body: Bytes,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let repo = text(&body, "repo")?.unwrap_or_default();
     let parent = text(&body, "parent")?
         .map(|p| ItemRef::parse(&p).map_err(|e| Error::invalid("/parent", e)))
@@ -310,7 +317,7 @@ async fn next(
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let repo = text(&body, "repo")?.unwrap_or_default();
     let claim = body.get("claim").and_then(Value::as_bool).unwrap_or(false);
     let item = state.items().next(&repo, claim, &actor)?;
@@ -347,7 +354,7 @@ async fn edit(
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let status = text(&body, "status")?
         .map(|s| {
             Status::parse(&s).ok_or_else(|| {
@@ -413,7 +420,7 @@ async fn done(
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let comment = text(&body, "comment")?;
     let edited = state.items().done(
         &item_ref(&item)?,
@@ -432,7 +439,7 @@ async fn delete(
     Path(item): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let actor = actor(&headers, &Value::Null);
+    let actor = actor(&state, &headers, &Value::Null)?;
     let deleted = state.items().delete(
         &item_ref(&item)?,
         params.get("repo").map(String::as_str),
@@ -451,7 +458,7 @@ async fn comment(
     body: Bytes,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let comment = state.items().comment(
         &item_ref(&item)?,
         params.get("repo").map(String::as_str),
@@ -471,7 +478,7 @@ async fn edit_comment(
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let edited = state.items().edit_comment(
         &item_ref(&item)?,
         params.get("repo").map(String::as_str),
@@ -491,7 +498,7 @@ async fn delete_comment(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<StatusCode, ApiError> {
     let who = json!({"by": params.get("by"), "session": params.get("session")});
-    let actor = actor(&headers, &who);
+    let actor = actor(&state, &headers, &who)?;
     state.items().delete_comment(
         &item_ref(&item)?,
         params.get("repo").map(String::as_str),
@@ -524,7 +531,7 @@ async fn set_review_items(
     body: Bytes,
 ) -> Result<StatusCode, ApiError> {
     let body = parse_body(&body)?;
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let Some(Value::Array(named)) = body.get("items") else {
         return Err(Error::invalid("/items", "list the items by their keys").into());
     };
@@ -553,7 +560,7 @@ async fn queue(
     } else {
         parse_body(&body)?
     };
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let place = match (text(&body, "before")?, text(&body, "after")?) {
         (Some(before), None) => Place::Before(item_ref(&before)?),
         (None, Some(after)) => Place::After(item_ref(&after)?),
@@ -580,7 +587,7 @@ async fn unqueue(
     } else {
         parse_body(&body)?
     };
-    let actor = actor(&headers, &body);
+    let actor = actor(&state, &headers, &body)?;
     let queued = state.items().unqueue(&item_ref(&item)?, &actor)?;
     Ok(Json(json!({
         "items": queued.iter().map(WorkItem::to_json).collect::<Vec<_>>()

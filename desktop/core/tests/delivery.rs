@@ -73,8 +73,14 @@ async fn hosted(app: &App, name: &str) -> (String, std::path::PathBuf) {
     (session, folder)
 }
 
-/// What the session's hooks report, as `pinrail hook` sends it.
+/// What the session's hooks report, as `pinrail hook` sends it, naming
+/// the session by the agent's own id.
 async fn report(app: &App, session: &str, event: &str, extra: Value) {
+    let session = common::db(app)
+        .session("claude-code", session, chrono::Utc::now())
+        .unwrap()
+        .and_then(|s| s.agent_session)
+        .unwrap_or_else(|| session.to_string());
     let mut body = json!({"event": event, "at": chrono::Utc::now().to_rfc3339()});
     body.as_object_mut()
         .unwrap()
@@ -312,7 +318,8 @@ async fn a_session_pinrail_does_not_run_gets_its_messages_by_the_queue() {
     )
     .await;
     assert!(status.is_success());
-    let sent = send(&app, "s-outside", "Use the v2 endpoint.").await;
+    let outside = common::sid(&app, "claude-code", "s-outside");
+    let sent = send(&app, &outside, "Use the v2 endpoint.").await;
     assert_eq!(sent["route"], "queue");
     assert_eq!(sent["state"], "queued");
 
@@ -324,7 +331,7 @@ async fn a_session_pinrail_does_not_run_gets_its_messages_by_the_queue() {
     while let Ok(notice) = notices.try_recv() {
         assert_ne!(notice.kind, "session_message_state", "{notice:?}");
     }
-    let still = message_becomes(&app, "s-outside", &sent["id"], |_| true).await;
+    let still = message_becomes(&app, &outside, &sent["id"], |_| true).await;
     assert_eq!(
         (still["state"].as_str(), still["route"].as_str()),
         (Some("queued"), Some("queue"))

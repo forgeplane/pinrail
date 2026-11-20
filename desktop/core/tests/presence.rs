@@ -72,13 +72,13 @@ async fn listed(app: &App) -> Vec<String> {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap().to_string())
+        .map(|s| s["agent_session"].as_str().unwrap().to_string())
         .collect()
 }
 
 fn state(app: &App, session: &str) -> Option<String> {
     db(app)
-        .presence("claude-code", session)
+        .presence("claude-code", &common::sid(app, "claude-code", session))
         .unwrap()
         .map(|p| p.state)
 }
@@ -96,7 +96,16 @@ async fn a_session_known_only_from_its_hooks_is_hidden_until_it_reports_a_status
     let (_, projects) = call(&app, "GET", "/api/v1/projects", None).await;
     assert!(!projects.to_string().contains("acme/api"), "{projects}");
     // its thread still opens, from a notification
-    let (code, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (code, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::OK);
     assert_eq!(thread["session"]["folder"], "/work/api");
 
@@ -124,7 +133,16 @@ async fn a_hook_report_fills_the_repository_a_session_was_created_without() {
     .await;
     assert_eq!(code, StatusCode::OK);
     let repo = |thread: &Value| thread["session"]["repo"].clone();
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(repo(&thread), Value::Null);
 
     let origin = json!({"origin": {"repo": "acme/api", "ref": "main", "folder": "/work/api"}});
@@ -132,14 +150,32 @@ async fn a_hook_report_fills_the_repository_a_session_was_created_without() {
         report(&app, "s-1", "prompt", 1, origin).await,
         StatusCode::NO_CONTENT
     );
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(repo(&thread), "acme/api");
     assert_eq!(thread["session"]["ref"], "main");
 
     // what the agent reported itself stays
     let other = json!({"origin": {"repo": "acme/web", "ref": "dev"}});
     report(&app, "s-1", "prompt", 2, other).await;
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(repo(&thread), "acme/api");
     assert_eq!(thread["session"]["ref"], "main");
 }
@@ -168,8 +204,16 @@ async fn hidden_sessions_go_after_seven_days_without_a_report_and_others_stay() 
             .unwrap(),
         1
     );
-    assert!(db.presence("claude-code", "hidden").unwrap().is_none());
-    assert!(db.presence("claude-code", "shown").unwrap().is_some());
+    assert!(
+        db.presence("claude-code", &common::sid(&app, "claude-code", "hidden"))
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.presence("claude-code", &common::sid(&app, "claude-code", "shown"))
+            .unwrap()
+            .is_some()
+    );
     assert_eq!(listed(&app).await, ["shown"]);
 }
 
@@ -186,11 +230,16 @@ async fn a_report_that_fired_before_the_last_still_opens_its_turn() {
         json!({"detail": {"prompt": "Go"}}),
     )
     .await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     assert_eq!(turns.len(), 1);
     assert_eq!(turns[0].prompt.as_deref(), Some("Go"));
     assert_eq!(turns[0].started_at.to_rfc3339(), at(10));
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!((presence.state.as_str(), presence.turn), ("working", 1));
     assert_eq!(presence.event_at.to_rfc3339(), at(11));
 }
@@ -223,7 +272,9 @@ async fn a_late_turn_end_closes_its_own_turn_with_its_reply() {
         json!({"end": "done", "detail": {"reply": "Did the first"}}),
     )
     .await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     let ends: Vec<_> = turns
         .iter()
         .map(|t| (t.turn, t.end_kind.as_deref(), t.reply.as_deref()))
@@ -232,7 +283,10 @@ async fn a_late_turn_end_closes_its_own_turn_with_its_reply() {
         ends,
         [(1, Some("done"), Some("Did the first")), (2, None, None)]
     );
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     // the second turn still runs, and the first finished
     assert_eq!(presence.state, "working");
     assert!(presence.finished_at.is_some());
@@ -265,7 +319,10 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         now,
     )
     .unwrap();
-    let presence = db.presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert!(presence.event_at <= chrono::Utc::now());
     // within 2 seconds, a report that fired earlier does not set the state
     let ended = || {
@@ -288,7 +345,10 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         .unwrap();
     assert!(!taken);
     assert_eq!(
-        db.presence("claude-code", "s-1").unwrap().unwrap().state,
+        db.presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+            .unwrap()
+            .unwrap()
+            .state,
         "working"
     );
     // later than that, whatever its clock says, it does
@@ -303,7 +363,10 @@ async fn a_hook_s_clock_never_holds_a_session_back() {
         .unwrap();
     assert!(taken);
     assert_eq!(
-        db.presence("claude-code", "s-1").unwrap().unwrap().state,
+        db.presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+            .unwrap()
+            .unwrap()
+            .state,
         "idle"
     );
 }
@@ -327,7 +390,7 @@ async fn finished_is_a_turn_that_ended_done_or_failed() {
     let app = app();
     let finished = |app: &App| {
         db(app)
-            .presence("claude-code", "s-1")
+            .presence("claude-code", &common::sid(app, "claude-code", "s-1"))
             .unwrap()
             .unwrap()
             .finished_at
@@ -349,7 +412,9 @@ async fn finished_is_a_turn_that_ended_done_or_failed() {
     .await;
     let failed = finished(&app);
     assert!(failed.is_some());
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     assert_eq!(turns[2].reply.as_deref(), Some("rate_limit"));
     // work that went on after the turn ended still finishes, and its
     // reply is the turn's
@@ -362,7 +427,11 @@ async fn finished_is_a_turn_that_ended_done_or_failed() {
     )
     .await;
     assert!(finished(&app) > failed);
-    let last = db(&app).turns("claude-code", "s-1").unwrap().pop().unwrap();
+    let last = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .pop()
+        .unwrap();
     assert_eq!(
         (last.end_kind.as_deref(), last.reply.as_deref()),
         (Some("done"), Some("Done after all"))
@@ -392,7 +461,10 @@ async fn a_turn_runs_from_the_prompt_to_the_end_with_its_texts() {
     .await;
     // Claude Code's notification of the same wait carries no tool
     report(&app, "s-1", "needs_input", 4, json!({"wait": "permission"})).await;
-    let waiting = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let waiting = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(waiting.state, "needs_input");
     assert_eq!(waiting.wait_kind.as_deref(), Some("permission"));
     assert_eq!(waiting.wait_tool.as_deref(), Some("Bash"));
@@ -400,14 +472,20 @@ async fn a_turn_runs_from_the_prompt_to_the_end_with_its_texts() {
     assert_eq!(waiting.turn, 1);
 
     report(&app, "s-1", "working", 5, json!({})).await;
-    let working = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let working = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(
         (working.state.as_str(), working.wait_kind),
         ("working", None)
     );
     report(&app, "s-1", "working", 6, json!({})).await;
     // the same state keeps its start
-    let still = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let still = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(still.state_since, working.state_since);
 
     report(
@@ -446,7 +524,9 @@ async fn a_turn_runs_from_the_prompt_to_the_end_with_its_texts() {
     )
     .await;
 
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     let summary: Vec<_> = turns
         .iter()
         .map(|t| {
@@ -471,7 +551,10 @@ async fn a_turn_runs_from_the_prompt_to_the_end_with_its_texts() {
             (3, Some("ended"), Some("Stop, the README"), None),
         ]
     );
-    let ended = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let ended = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(ended.state, "stopped");
     assert_eq!(ended.stop_reason.as_deref(), Some("ended"));
     assert_eq!(ended.turn, 3);
@@ -503,7 +586,9 @@ async fn texts_are_left_out_when_the_person_turns_them_off() {
         json!({"end": "done", "detail": {"reply": "Done"}}),
     )
     .await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     assert_eq!(turns.len(), 1);
     assert_eq!(
         (turns[0].prompt.as_deref(), turns[0].reply.as_deref()),
@@ -525,12 +610,24 @@ async fn only_a_new_turn_counts_as_the_session_s_activity() {
     call(
         &app,
         "PUT",
-        "/api/v1/sessions/claude-code/s-1/archive",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/archive",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         None,
     )
     .await;
     let last_at = || async {
-        let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+        let (_, thread) = call(
+            &app,
+            "GET",
+            &format!(
+                "/api/v1/sessions/claude-code/{}",
+                common::sid(&app, "claude-code", "s-1")
+            ),
+            None,
+        )
+        .await;
         (
             thread["session"]["last_at"].clone(),
             thread["session"]["archived_at"].clone(),
@@ -583,7 +680,12 @@ async fn a_report_that_is_not_one_is_refused() {
         .await;
         assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     }
-    assert!(db(&app).presence("claude-code", "s-1").unwrap().is_none());
+    assert!(
+        db(&app)
+            .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -607,8 +709,11 @@ async fn a_session_s_presence_and_turns_go_with_it() {
     .await;
     let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
     conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
-    conn.execute("DELETE FROM sessions WHERE id = 's-1'", [])
-        .unwrap();
+    conn.execute(
+        "DELETE FROM sessions WHERE id = ?1",
+        [common::sid(&app, "claude-code", "s-1")],
+    )
+    .unwrap();
     for table in ["session_presence", "session_turns", "session_turn_texts"] {
         let rows: i64 = conn
             .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
@@ -631,7 +736,11 @@ async fn an_interrupt_after_a_turn_finished_leaves_that_turn_as_it_was() {
     .await;
     // Claude Code's idle prompt, a minute later
     report(&app, "s-1", "turn_ended", 62, json!({"end": "interrupted"})).await;
-    let turn = db(&app).turns("claude-code", "s-1").unwrap().pop().unwrap();
+    let turn = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .pop()
+        .unwrap();
     assert_eq!(
         (
             turn.end_kind.as_deref(),
@@ -694,7 +803,10 @@ async fn reports_that_keep_arriving_out_of_order_never_freeze_the_state() {
         .unwrap();
     }
     assert_eq!(
-        db.presence("claude-code", "s-1").unwrap().unwrap().state,
+        db.presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+            .unwrap()
+            .unwrap()
+            .state,
         "working"
     );
 }
@@ -735,7 +847,9 @@ async fn an_end_that_arrives_before_its_prompt_ends_its_own_turn() {
         json!({"detail": {"prompt": "Second"}}),
     )
     .await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     let second = &turns[1];
     assert_eq!(
         (
@@ -767,7 +881,10 @@ async fn a_late_permission_request_still_names_the_call_its_notification_did_not
         json!({"wait": "permission", "detail": {"tool": "Bash", "summary": "npm test"}}),
     )
     .await;
-    let waiting = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let waiting = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(
         (
             waiting.wait_tool.as_deref(),
@@ -784,7 +901,10 @@ async fn a_late_permission_request_still_names_the_call_its_notification_did_not
         json!({"wait": "permission", "detail": {"tool": "Edit"}}),
     )
     .await;
-    let waiting = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let waiting = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(
         (waiting.wait_tool.as_deref(), waiting.wait_summary),
         (Some("Edit"), None)
@@ -819,7 +939,7 @@ async fn a_late_prompt_takes_its_place_among_the_turns() {
     )
     .await;
     let turns: Vec<_> = db(&app)
-        .turns("claude-code", "s-1")
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap()
         .into_iter()
         .map(|t| (t.turn, t.prompt.unwrap(), t.end_kind))
@@ -832,11 +952,18 @@ async fn a_late_prompt_takes_its_place_among_the_turns() {
             (3, "Third".to_string(), None),
         ]
     );
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(presence.turn, 3);
     // an end at the very moment a turn starts is not that turn's
     report(&app, "s-1", "turn_ended", 20, json!({"end": "done"})).await;
-    let last = db(&app).turns("claude-code", "s-1").unwrap().pop().unwrap();
+    let last = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .pop()
+        .unwrap();
     assert_eq!(last.end_kind, None);
 }
 
@@ -868,11 +995,16 @@ async fn a_prompt_whose_clock_stepped_back_moves_no_turn_s_end() {
     // 20 seconds later, from a clock that stepped back 30 seconds
     db.record("claude-code", "s-1", &report(prompt(), at(40)), true, late)
         .unwrap();
-    let turns = db.turns("claude-code", "s-1").unwrap();
+    let turns = db
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     assert_eq!(turns[0].reply.as_deref(), Some("Done"));
     assert_eq!(turns[1].end_kind, None);
     assert_eq!(
-        db.presence("claude-code", "s-1").unwrap().unwrap().state,
+        db.presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+            .unwrap()
+            .unwrap()
+            .state,
         "working"
     );
 }
@@ -891,7 +1023,9 @@ async fn an_early_end_without_a_reply_takes_no_other_turn_s_reply() {
     .await;
     report(&app, "s-1", "turn_ended", 11, json!({"end": "failed"})).await;
     report(&app, "s-1", "prompt", 10, json!({})).await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     assert_eq!(
         (turns[1].end_kind.as_deref(), turns[1].reply.as_deref()),
         (Some("failed"), None)
@@ -905,7 +1039,7 @@ async fn turns_do_not_overlap_after_a_late_prompt() {
     report(&app, "s-1", "prompt", 30, json!({})).await;
     report(&app, "s-1", "prompt", 20, json!({})).await;
     let spans: Vec<_> = db(&app)
-        .turns("claude-code", "s-1")
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap()
         .iter()
         .map(|t| {
@@ -955,7 +1089,9 @@ async fn a_turn_keeps_the_agent_s_id_its_transcript_and_whether_its_texts_were_c
         json!({"end": "done", "detail": {"reply": long, "turn_id": "p-1"}}),
     )
     .await;
-    let turns = db(&app).turns("claude-code", "s-1").unwrap();
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
     let first = &turns[0];
     assert_eq!(first.agent_turn.as_deref(), Some("p-1"));
     assert_eq!(
@@ -971,7 +1107,7 @@ async fn a_turn_keeps_the_agent_s_id_its_transcript_and_whether_its_texts_were_c
     let stored: Option<String> = rusqlite::Connection::open(app.state.config().db_path())
         .unwrap()
         .query_row(
-            "SELECT transcript_path FROM sessions WHERE id = 's-1'",
+            "SELECT transcript_path FROM sessions WHERE agent_session = 's-1'",
             [],
             |r| r.get(0),
         )
@@ -1002,7 +1138,10 @@ async fn after(steps: Vec<Step>) -> (String, i64, bool, String) {
         Some(json!({"text": "Working"})),
     )
     .await;
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
     let attention = listing["sessions"][0]["attention"]
         .as_str()
@@ -1111,7 +1250,16 @@ async fn a_session_seen_while_it_works_is_finished_when_the_turn_ends() {
     )
     .await;
     report(&app, "s-1", "prompt", 1, json!({})).await;
-    let (code, _) = call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    let (code, _) = call(
+        &app,
+        "PUT",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/seen",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::NO_CONTENT);
     report(&app, "s-1", "turn_ended", 2, json!({"end": "done"})).await;
     let listed = |listing: &Value| {
@@ -1123,13 +1271,25 @@ async fn a_session_seen_while_it_works_is_finished_when_the_turn_ends() {
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
     assert_eq!(listed(&listing), "finished");
     // seen now: idle; marked unread: finished again
-    call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    call(
+        &app,
+        "PUT",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/seen",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
     assert_eq!(listed(&listing), "idle");
     call(
         &app,
         "DELETE",
-        "/api/v1/sessions/claude-code/s-1/seen",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/seen",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         None,
     )
     .await;
@@ -1137,7 +1297,16 @@ async fn a_session_seen_while_it_works_is_finished_when_the_turn_ends() {
     assert_eq!(listed(&listing), "finished");
     assert_eq!(listing["sessions"][0]["presence"]["seen_at"], Value::Null);
     // a session no hook reported has nothing to be seen
-    let (code, _) = call(&app, "PUT", "/api/v1/sessions/claude-code/other/seen", None).await;
+    let (code, _) = call(
+        &app,
+        "PUT",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/seen",
+            common::sid(&app, "claude-code", "other")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::NOT_FOUND);
 }
 
@@ -1165,7 +1334,7 @@ async fn the_list_filters_and_sorts_sessions_by_the_attention_they_ask() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|s| s["id"].as_str().unwrap().to_string())
+            .map(|s| s["agent_session"].as_str().unwrap().to_string())
             .collect()
     };
     let (_, listing) = call(&app, "GET", "/api/v1/sessions?sort=priority", None).await;
@@ -1198,7 +1367,16 @@ async fn presence_and_turns_are_announced_only_when_they_change() {
         report(&app, "s-1", "working", s, json!({})).await;
     }
     report(&app, "s-1", "turn_ended", 6, json!({"end": "done"})).await;
-    call(&app, "PUT", "/api/v1/sessions/claude-code/s-1/seen", None).await;
+    call(
+        &app,
+        "PUT",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/seen",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
     let kinds: Vec<String> = conn
         .prepare("SELECT kind FROM events WHERE kind LIKE 'session_%' ORDER BY id")
@@ -1241,7 +1419,10 @@ async fn a_session_that_works_and_reports_nothing_for_half_an_hour_is_not_known(
     let (_, listing) = call(&app, "GET", "/api/v1/sessions", None).await;
     assert_eq!(listing["sessions"][0]["attention"], "unknown");
     assert_eq!(listing["sessions"][0]["presence"]["updated_at"], old);
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     let derived = pinrail_core::presence::attention(Some(&presence), false, chrono::Utc::now());
     assert_eq!(derived.as_str(), "unknown");
 }
@@ -1275,7 +1456,10 @@ async fn a_question_waiting_on_the_person_needs_them_whatever_the_agent_does() {
     let attrs: Value = serde_json::from_str(&attrs).unwrap();
     assert_eq!(
         (attrs["agent"].as_str(), attrs["id"].as_str()),
-        (Some("claude-code"), Some("s-1"))
+        (
+            Some("claude-code"),
+            Some(common::sid(&app, "claude-code", "s-1").as_str())
+        )
     );
     assert_eq!(attrs["presence"]["state"], "idle");
     assert_eq!(attrs["presence"]["attention"], "needs_you");
@@ -1292,7 +1476,16 @@ async fn a_session_whose_hooks_never_reported_has_nothing_to_see() {
     )
     .await;
     for method in ["PUT", "DELETE"] {
-        let (code, _) = call(&app, method, "/api/v1/sessions/claude-code/s-1/seen", None).await;
+        let (code, _) = call(
+            &app,
+            method,
+            &format!(
+                "/api/v1/sessions/claude-code/{}/seen",
+                common::sid(&app, "claude-code", "s-1")
+            ),
+            None,
+        )
+        .await;
         assert_eq!(code, StatusCode::NO_CONTENT, "{method}");
     }
 }
@@ -1345,7 +1538,7 @@ async fn a_hidden_session_shows_once_it_needs_the_person_is_messaged_or_works_on
         let hidden: i64 = rusqlite::Connection::open(app.state.config().db_path())
             .unwrap()
             .query_row(
-                "SELECT hidden FROM sessions WHERE agent = 'claude-code' AND id = ?1",
+                "SELECT hidden FROM sessions WHERE agent = 'claude-code' AND agent_session = ?1",
                 [id],
                 |r| r.get(0),
             )
@@ -1370,7 +1563,10 @@ async fn a_hidden_session_shows_once_it_needs_the_person_is_messaged_or_works_on
     let (code, _) = call(
         &app,
         "POST",
-        "/api/v1/sessions/claude-code/messaged/messages",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages",
+            common::sid(&app, "claude-code", "messaged")
+        ),
         Some(json!({"text": "Use the staging database"})),
     )
     .await;
@@ -1427,10 +1623,17 @@ async fn an_interrupted_claude_code_turn_ends_when_its_status_file_says_idle() {
     let later = chrono::Utc::now() + chrono::Duration::seconds(1);
     let home = home_saying("idle", "s-1", "idle", later.timestamp_millis());
     app.state.reviews().check_presence(&home, later).unwrap();
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(presence.state, "idle");
     assert_eq!(presence.finished_at, None);
-    let turn = db(&app).turns("claude-code", "s-1").unwrap().pop().unwrap();
+    let turn = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .pop()
+        .unwrap();
     assert_eq!(turn.end_kind.as_deref(), Some("interrupted"));
     let _ = std::fs::remove_dir_all(home);
 }
@@ -1467,7 +1670,11 @@ async fn a_session_that_still_works_or_whose_file_is_older_is_left_working() {
     app.state.reviews().check_presence(&stale, now).unwrap();
     for id in ["busy", "stale"] {
         assert_eq!(
-            db(&app).presence("claude-code", id).unwrap().unwrap().state,
+            db(&app)
+                .presence("claude-code", &common::sid(&app, "claude-code", id))
+                .unwrap()
+                .unwrap()
+                .state,
             "working",
             "{id}"
         );
@@ -1494,7 +1701,10 @@ async fn a_session_whose_agent_process_is_gone_has_stopped() {
         .reviews()
         .check_presence(&nowhere, chrono::Utc::now())
         .unwrap();
-    let presence = db(&app).presence("claude-code", "s-1").unwrap().unwrap();
+    let presence = db(&app)
+        .presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap()
+        .unwrap();
     assert_eq!(
         (presence.state.as_str(), presence.stop_reason.as_deref()),
         ("stopped", Some("exited"))
@@ -1528,7 +1738,7 @@ async fn a_turn_keeps_its_reply_whichever_of_the_hook_and_the_terminal_ends_it_l
         reply: None,
     };
     let ends = |session: &str| {
-        db.turns("claude-code", session)
+        db.turns("claude-code", &common::sid(&app, "claude-code", session))
             .unwrap()
             .into_iter()
             .map(|t| (t.end_kind, t.reply))

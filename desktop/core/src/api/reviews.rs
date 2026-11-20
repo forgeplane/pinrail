@@ -113,6 +113,12 @@ async fn list(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
     let mut filters = filters(&params)?;
+    // an agent names its session by its own id, and the app by Pinrail's
+    if let (Some(agent), Some(session)) = (&filters.agent, &filters.session)
+        && let Some(found) = state.reviews().find_session(agent, session)?
+    {
+        filters.session = Some(found);
+    }
     // the reviews of a work item, by its key, or its number in `repo`
     if let Some(item) = params.get("item").filter(|i| !i.is_empty()) {
         let item = crate::items::ItemRef::parse(item).map_err(|e| Error::invalid("/item", e))?;
@@ -298,9 +304,13 @@ async fn decide(
     let note = body.get("agent_note").and_then(Value::as_str);
     // the bundle the person's view showed, when the app sends it
     let shown = body.get("bundle").and_then(Value::as_str);
-    let review = state
-        .reviews()
-        .decide(&id, data, note, shown, &source(&headers, &body))?;
+    let review = state.reviews().decide(
+        &id,
+        data,
+        note,
+        shown,
+        &resolved_source(&state, &headers, &body)?,
+    )?;
     review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 
@@ -315,7 +325,7 @@ async fn withdraw(
     Ok(Json(
         state
             .reviews()
-            .withdraw(&id, reason, &source(&headers, &body))?
+            .withdraw(&id, reason, &resolved_source(&state, &headers, &body)?)?
             .to_json(true),
     ))
 }
@@ -335,7 +345,7 @@ async fn discard(
     Ok(Json(
         state
             .reviews()
-            .discard(&id, reason, &source(&headers, &body))?
+            .discard(&id, reason, &resolved_source(&state, &headers, &body)?)?
             .to_json(true),
     ))
 }
@@ -392,6 +402,21 @@ pub(super) fn source(headers: &HeaderMap, body: &Value) -> Source {
         session,
         by,
     }
+}
+
+/// As [`source`], with the session, which the client names by the agent's
+/// own id, by Pinrail's id: the session of the agent `by` names, created
+/// if it is new.
+pub(super) fn resolved_source(
+    state: &Pinrail,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<Source, Error> {
+    let mut source = source(headers, body);
+    source.session = state
+        .reviews()
+        .session_of(source.by.as_deref(), source.session.as_deref())?;
+    Ok(source)
 }
 
 /// Stars a round of a review: 204, and 422 for a question.
@@ -583,12 +608,14 @@ fn turn_json(turn: &crate::db::TurnRow) -> Value {
     })
 }
 
-/// Whether Pinrail can resume a session of `agent`, and whether also while
-/// it still runs in another terminal, as the agent's adapter says.
-fn resume_abilities(agent: &str) -> Value {
-    let adapter = pinrail_runtime::adapter(agent);
+/// Whether Pinrail can resume the session, which takes the agent's own id
+/// for it, and whether also while it still runs in another terminal, as
+/// the agent's adapter says.
+fn resume_abilities(session: &SessionRow) -> Value {
+    let adapter = pinrail_runtime::adapter(&session.agent);
     json!({
-        "resume": adapter.is_some_and(|a| a.resume("session").is_some()),
+        "resume": session.agent_session.is_some()
+            && adapter.is_some_and(|a| a.resume("session").is_some()),
         "while_running": adapter.is_some_and(|a| a.resumes_while_running()),
     })
 }
@@ -598,6 +625,7 @@ fn session_json(session: &SessionRow) -> Value {
     json!({
         "agent": session.agent,
         "id": session.id,
+        "agent_session": session.agent_session,
         "repo": session.repo,
         "ref": session.reference,
         "folder": session.folder,
@@ -613,7 +641,7 @@ fn session_json(session: &SessionRow) -> Value {
         "total": { "questions": session.questions, "reviews": session.reviews },
         "waiting": { "questions": session.waiting_questions, "reviews": session.waiting_reviews },
         "attention": session.attention,
-        "resume": resume_abilities(&session.agent),
+        "resume": resume_abilities(session),
         // whether Pinrail can type a message into its agent's terminal
         "types": pinrail_runtime::adapter(&session.agent).is_some_and(|a| a.submit().is_some()),
         "presence": session.presence.as_ref().map(|p| {
@@ -843,7 +871,8 @@ async fn session(
     })))
 }
 
-/// What the agent says it is doing in the session, with `pinrail status`:
+/// What the agent says it is doing in the session, which the path names by
+/// the agent's own id, with `pinrail status`:
 /// `text`, one line, and its `kind`: `step`, the default, `start` for the
 /// start of a task, which names it, `done` once it has finished, or `note`
 /// for a Markdown message, whose text may span lines; with the `origin` it
@@ -861,7 +890,7 @@ async fn status(
         Some(kind) => StatusKind::parse(kind)
             .ok_or_else(|| Error::invalid("kind", "must be step, start, done or note"))?,
     };
-    let (messages, stage) = state.reviews().status(
+    let (id, messages, stage) = state.reviews().status(
         &agent,
         &id,
         text,
@@ -876,7 +905,8 @@ async fn status(
     })))
 }
 
-/// What the session's hooks report, from `pinrail hook`: the `event`
+/// What the session's hooks report, from `pinrail hook`, naming the
+/// session by the agent's own id: the `event`
 /// (`started`, `prompt`, `working`, `needs_input`, `turn_ended` or
 /// `ended`), `at`, when the hook fired, and what the event carries:
 /// `source` with `started`, `wait` (`permission` or `question`) with
@@ -905,34 +935,38 @@ async fn report(
         .as_bool()
         .unwrap_or(true);
     let now = chrono::Utc::now();
-    if let Some(token) = run_token(&headers) {
-        let admitted = match state.runtime().admit_report(token, &agent, &id, &report) {
-            Ok(admitted) => admitted,
-            Err(mismatch) => {
-                return Ok(super::guard::refuse(
-                    StatusCode::FORBIDDEN,
-                    "run_mismatch",
-                    mismatch.0,
-                ));
-            }
-        };
-        // the agent left the session it cleared or forked
-        if let Some((agent, cleared)) = admitted.cleared {
-            let ended = Report {
-                event: ReportEvent::Ended {
-                    reason: Some("clear".to_string()),
-                },
-                transcript_path: None,
-                agent_turn: None,
-                cut: false,
-                origin: Default::default(),
-                ..report.clone()
-            };
-            state
-                .reviews()
-                .report(&agent, &cleared, &ended, false, now)?;
-        }
+    if agent.trim().is_empty() || id.trim().is_empty() {
+        return Err(Error::invalid("session", "name the agent and the session").into());
     }
+    // the path names the session by the agent's own id
+    let admitted = match state
+        .runtime()
+        .admit_report(run_token(&headers), &agent, &id, &report)?
+    {
+        Ok(admitted) => admitted,
+        Err(mismatch) => {
+            return Ok(super::guard::refuse(
+                StatusCode::FORBIDDEN,
+                "run_mismatch",
+                mismatch.0,
+            ));
+        }
+    };
+    // the agent left the session it cleared or forked
+    if let Some((agent, cleared)) = &admitted.cleared {
+        let ended = Report {
+            event: ReportEvent::Ended {
+                reason: Some("clear".to_string()),
+            },
+            transcript_path: None,
+            agent_turn: None,
+            cut: false,
+            origin: Default::default(),
+            ..report.clone()
+        };
+        state.reviews().report(agent, cleared, &ended, false, now)?;
+    }
+    let id = admitted.session;
     state
         .reviews()
         .report(&agent, &id, &report, keep_texts, now)?;
@@ -1117,7 +1151,7 @@ async fn type_message(
 }
 
 /// What `pinrail status` sends once it has printed the messages a status
-/// handed over: their `ids`. They are delivered then; until then, a claim
+/// handed over, naming the session by the agent's own id: their `ids`. They are delivered then; until then, a claim
 /// that lapses hands them over again. Answers 204.
 async fn acknowledge_messages(
     State(state): State<Arc<Pinrail>>,

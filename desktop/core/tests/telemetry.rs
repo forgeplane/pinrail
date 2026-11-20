@@ -362,7 +362,10 @@ async fn the_core_counts_the_features_it_sees() {
     let (status, body) = call(
         &app,
         "POST",
-        "/api/v1/sessions/claude-code/s-1/messages",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages",
+            common::sid(&app, "claude-code", "s-1")
+        ),
         Some(json!({"text": "Use the v2 endpoint"})),
     )
     .await;

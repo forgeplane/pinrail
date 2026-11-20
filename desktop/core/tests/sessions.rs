@@ -59,7 +59,16 @@ async fn a_session_is_read_as_a_thread_of_its_questions_and_reviews() {
     send(&app, question("claude-code", Some("s-2"), "Other?")).await;
     answer(&app, &first).await;
 
-    let (status, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (status, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{thread}");
     let ids: Vec<&str> = thread["items"]
         .as_array()
@@ -83,7 +92,7 @@ async fn a_session_is_read_as_a_thread_of_its_questions_and_reviews() {
 
     let session = &thread["session"];
     assert_eq!(session["agent"], "claude-code");
-    assert_eq!(session["id"], "s-1");
+    assert_eq!(session["agent_session"], "s-1");
     // where the session worked last
     assert_eq!(session["repo"], "acme");
     assert_eq!(session["ref"], "main");
@@ -125,7 +134,7 @@ async fn sessions_are_listed_with_those_waiting_first() {
         .map(|s| {
             (
                 s["agent"].as_str().unwrap().into(),
-                s["id"].as_str().unwrap().into(),
+                s["agent_session"].as_str().unwrap().into(),
             )
         })
         .collect();
@@ -142,9 +151,9 @@ async fn sessions_are_listed_with_those_waiting_first() {
     let (_, waiting) = call(&app, "GET", "/api/v1/sessions?waiting=true", None).await;
     assert_eq!(waiting["total"], 1);
     let (_, by_agent) = call(&app, "GET", "/api/v1/sessions?agent=gemini", None).await;
-    assert_eq!(by_agent["sessions"][0]["id"], "s-later");
+    assert_eq!(by_agent["sessions"][0]["agent_session"], "s-later");
     let (_, paged) = call(&app, "GET", "/api/v1/sessions?limit=1&offset=1", None).await;
-    assert_eq!(paged["sessions"][0]["id"], "s-later");
+    assert_eq!(paged["sessions"][0]["agent_session"], "s-later");
     assert_eq!(paged["total"], 3);
 }
 
@@ -204,7 +213,16 @@ async fn the_listing_searches_titles_and_reports_the_newest_status() {
     assert_eq!(session["total"]["questions"], 2);
     assert_eq!(session["waiting"]["questions"], 2);
     assert_eq!(session["status"]["text"], "Running the tests");
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-search", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-search")
+        ),
+        None,
+    )
+    .await;
     let newest = thread["statuses"]
         .as_array()
         .unwrap()
@@ -217,7 +235,16 @@ async fn the_listing_searches_titles_and_reports_the_newest_status() {
 #[tokio::test]
 async fn a_session_nobody_sent_from_is_404() {
     let app = app();
-    let (status, _) = call(&app, "GET", "/api/v1/sessions/claude-code/nothing", None).await;
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "nothing")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -275,7 +302,16 @@ async fn statuses_are_kept_in_order_and_the_newest_is_listed() {
     let (code, _) = status(&app, "claude-code", "s-1", json!({"kind": "done"})).await;
     assert_eq!(code, StatusCode::OK);
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let statuses: Vec<(String, String)> = thread["statuses"]
         .as_array()
         .unwrap()
@@ -350,7 +386,16 @@ async fn a_session_with_only_statuses_is_listed_with_nothing_in_it() {
     );
     let (_, waiting) = call(&app, "GET", "/api/v1/sessions?waiting=true", None).await;
     assert_eq!(waiting["total"], 0);
-    let (code, thread) = call(&app, "GET", "/api/v1/sessions/codex/s-quiet", None).await;
+    let (code, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/codex/{}",
+            common::sid(&app, "codex", "s-quiet")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(code, StatusCode::OK, "{thread}");
     assert_eq!(thread["items"], json!([]));
 }
@@ -382,7 +427,7 @@ async fn a_status_is_announced_with_its_session() {
     assert_eq!(notice.kind, "session_status");
     let session = notice.session.unwrap();
     assert_eq!(session["agent"], "claude-code");
-    assert_eq!(session["id"], "s-1");
+    assert_eq!(session["id"], common::sid(&app, "claude-code", "s-1"));
     assert_eq!(session["status"]["text"], "Building");
     // and the same to a client catching up
     let caught = app.state.events().after(notice.event_id - 1, 10).unwrap();
@@ -404,7 +449,7 @@ async fn the_history_sweep_deletes_idle_sessions_with_nothing_left() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     // the pending question keeps its session
     assert_eq!(ids, ["s-kept"]);
@@ -425,7 +470,16 @@ async fn statuses_and_reviews_sent_within_one_second_have_times_in_their_order()
     let review = send(&app, review("claude-code", Some("s-1"), "The schema")).await;
     status(&app, "claude-code", "s-1", json!({"text": "Sent a review"})).await;
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let status_at = |i: usize| thread["statuses"][i]["at"].as_str().unwrap().to_string();
     let review_at = |id: &str| {
         thread["items"]
@@ -465,7 +519,7 @@ async fn sessions_are_filtered_by_project_and_list_their_projects() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|s| s["id"].as_str().unwrap().to_string())
+            .map(|s| s["agent_session"].as_str().unwrap().to_string())
             .collect();
         ids.sort();
         ids
@@ -503,7 +557,10 @@ async fn stages_are_searched_by_name_across_sessions() {
     let names: Vec<&str> = stages.iter().map(|s| s["text"].as_str().unwrap()).collect();
     assert_eq!(names, ["Fix the rate of retries", "Add rate limiting"]);
     assert_eq!(stages[1]["agent"], "claude-code");
-    assert_eq!(stages[1]["session"], "s-a");
+    assert_eq!(
+        stages[1]["session"],
+        common::sid(&app, "claude-code", "s-a")
+    );
     assert_eq!(stages[1]["repo"], "acme");
     assert!(stages[1]["id"].is_i64());
 
@@ -517,7 +574,10 @@ async fn archive(app: &App, method: &str, agent: &str, session: &str) -> StatusC
     call(
         app,
         method,
-        &format!("/api/v1/sessions/{agent}/{session}/archive"),
+        &format!(
+            "/api/v1/sessions/{agent}/{}/archive",
+            common::sid(app, agent, session)
+        ),
         None,
     )
     .await
@@ -530,7 +590,7 @@ async fn listed_ids(app: &App, query: &str) -> Vec<String> {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap().to_string())
+        .map(|s| s["agent_session"].as_str().unwrap().to_string())
         .collect();
     ids.sort();
     ids
@@ -541,9 +601,17 @@ async fn an_archived_session_leaves_the_listing_until_asked_for() {
     let app = app();
     send(&app, question("claude-code", Some("s-keep"), "Keep?")).await;
     send(&app, question("claude-code", Some("s-old"), "Old?")).await;
-    let before = call(&app, "GET", "/api/v1/sessions/claude-code/s-old", None)
-        .await
-        .1["session"]["last_at"]
+    let before = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-old")
+        ),
+        None,
+    )
+    .await
+    .1["session"]["last_at"]
         .clone();
 
     assert_eq!(
@@ -560,7 +628,16 @@ async fn an_archived_session_leaves_the_listing_until_asked_for() {
         ["s-keep", "s-old"]
     );
     // its thread still opens, and says when it was archived
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-old", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-old")
+        ),
+        None,
+    )
+    .await;
     assert!(thread["session"]["archived_at"].is_string(), "{thread}");
     // archiving is not activity
     assert_eq!(thread["session"]["last_at"], before);
@@ -615,7 +692,10 @@ async fn archiving_is_announced_with_its_session() {
     );
     let notice = notices.recv().await.unwrap();
     assert_eq!(notice.kind, "session_archived");
-    assert_eq!(notice.session.unwrap()["id"], "s-1");
+    assert_eq!(
+        notice.session.unwrap()["id"],
+        common::sid(&app, "claude-code", "s-1")
+    );
     assert_eq!(
         archive(&app, "DELETE", "claude-code", "s-1").await,
         StatusCode::NO_CONTENT
@@ -650,7 +730,16 @@ async fn a_note_is_kept_with_its_markdown_and_is_not_the_latest_status() {
     .await;
     assert_eq!(code, StatusCode::OK);
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let last = thread["statuses"]
         .as_array()
         .unwrap()
@@ -724,7 +813,16 @@ async fn a_session_is_read_with_every_round_of_its_reviews() {
     next["revises"] = json!(first);
     let second = send(&app, next).await;
 
-    let (status, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (status, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{thread}");
     let ids: Vec<&str> = thread["items"]
         .as_array()
@@ -745,7 +843,10 @@ async fn message(app: &App, session: &str, text: &str) -> (StatusCode, Value) {
     call(
         app,
         "POST",
-        &format!("/api/v1/sessions/claude-code/{session}/messages"),
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages",
+            common::sid(app, "claude-code", session)
+        ),
         Some(json!({ "text": text })),
     )
     .await
@@ -755,7 +856,10 @@ async fn delete_message(app: &App, session: &str, id: &Value) -> StatusCode {
     call(
         app,
         "DELETE",
-        &format!("/api/v1/sessions/claude-code/{session}/messages/{id}"),
+        &format!(
+            "/api/v1/sessions/claude-code/{}/messages/{id}",
+            common::sid(app, "claude-code", session)
+        ),
         None,
     )
     .await
@@ -795,7 +899,16 @@ async fn a_status_hands_the_queued_messages_over_until_they_are_acknowledged() {
     status(&app, "claude-code", "s-2", json!({"text": "Elsewhere"})).await;
     message(&app, "s-2", "Not for s-1.").await;
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let texts: Vec<&str> = thread["messages"]
         .as_array()
         .unwrap()
@@ -824,17 +937,44 @@ async fn a_status_hands_the_queued_messages_over_until_they_are_acknowledged() {
         acknowledge(&app, "s-1", &handed["messages"]).await,
         StatusCode::NO_CONTENT
     );
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(thread["messages"][1]["state"], "delivered");
     assert!(thread["messages"][1]["delivered_at"].is_string());
-    let (_, other) = call(&app, "GET", "/api/v1/sessions/claude-code/s-2", None).await;
+    let (_, other) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-2")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(other["messages"][0]["state"], "queued");
     // acknowledging again, or another session's message, changes nothing
     assert_eq!(
         acknowledge(&app, "s-2", &handed["messages"]).await,
         StatusCode::NO_CONTENT
     );
-    let (_, other) = call(&app, "GET", "/api/v1/sessions/claude-code/s-2", None).await;
+    let (_, other) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-2")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(other["messages"][0]["state"], "queued");
 }
 
@@ -870,11 +1010,15 @@ fn crate_iso(at: chrono::DateTime<chrono::Utc>) -> String {
 async fn a_message_sent_twice_with_its_local_id_is_one_message() {
     let app = app();
     status(&app, "claude-code", "s-1", json!({"text": "Building"})).await;
+    let path = format!(
+        "/api/v1/sessions/claude-code/{}/messages",
+        common::sid(&app, "claude-code", "s-1")
+    );
     let send = || {
         call(
             &app,
             "POST",
-            "/api/v1/sessions/claude-code/s-1/messages",
+            &path,
             Some(json!({ "text": "Use the v2 endpoint.", "local_id": "l-1" })),
         )
     };
@@ -883,7 +1027,16 @@ async fn a_message_sent_twice_with_its_local_id_is_one_message() {
     let (code, again) = send().await;
     assert_eq!(code, StatusCode::CREATED);
     assert_eq!(again["id"], first["id"]);
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
 }
 
@@ -920,7 +1073,16 @@ async fn a_queued_message_can_be_deleted_and_a_delivered_one_cannot() {
         StatusCode::CONFLICT
     );
 
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
 }
 
@@ -992,7 +1154,7 @@ async fn a_queued_message_keeps_its_session_from_the_sweep() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     assert_eq!(ids, ["s-queued"]);
 }
@@ -1003,7 +1165,16 @@ async fn a_message_sent_between_two_statuses_has_a_time_between_theirs() {
     status(&app, "claude-code", "s-1", json!({"text": "Reading"})).await;
     let (_, sent) = message(&app, "s-1", "Use the v2 endpoint.").await;
     status(&app, "claude-code", "s-1", json!({"text": "Switching"})).await;
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-1")
+        ),
+        None,
+    )
+    .await;
     let reading = thread["statuses"][0]["at"].as_str().unwrap();
     let switching = thread["statuses"][1]["at"].as_str().unwrap();
     let sent = sent["sent_at"].as_str().unwrap();
@@ -1090,7 +1261,16 @@ async fn a_session_says_how_its_agent_can_be_resumed_and_typed_into() {
         ("gemini", false, false),
     ] {
         status(&app, agent, "s-1", json!({"text": "Working"})).await;
-        let (_, thread) = call(&app, "GET", &format!("/api/v1/sessions/{agent}/s-1"), None).await;
+        let (_, thread) = call(
+            &app,
+            "GET",
+            &format!(
+                "/api/v1/sessions/{agent}/{}",
+                common::sid(&app, agent, "s-1")
+            ),
+            None,
+        )
+        .await;
         assert_eq!(
             thread["session"]["resume"],
             json!({"resume": resume, "while_running": while_running}),
@@ -1112,9 +1292,19 @@ async fn a_session_is_named_after_an_element_by_its_id() {
     )
     .await;
     assert_eq!(code, StatusCode::OK);
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-name", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-name")
+        ),
+        None,
+    )
+    .await;
     let session = &thread["session"];
-    let (number, name) = pinrail_core::elements::name_of("claude-code", "s-name");
+    let id = common::sid(&app, "claude-code", "s-name");
+    let (number, name) = pinrail_core::elements::name_of("claude-code", &id);
     assert_eq!(session["element"], number);
     assert_eq!(session["generated_name"], name.as_str());
     let element = pinrail_core::elements::by_number(number).expect("a known element");
@@ -1126,15 +1316,18 @@ async fn a_session_is_named_after_an_element_by_its_id() {
 #[tokio::test]
 async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     let app = app();
-    let path = "/api/v1/sessions/claude-code/s-rename";
     let (code, _) = call(
         &app,
         "POST",
-        &format!("{path}/status"),
+        "/api/v1/sessions/claude-code/s-rename/status",
         Some(json!({"text": "Working"})),
     )
     .await;
     assert_eq!(code, StatusCode::OK);
+    let path = &format!(
+        "/api/v1/sessions/claude-code/{}",
+        common::sid(&app, "claude-code", "s-rename")
+    );
     let name = |thread: &Value| thread["session"]["name"].clone();
     let (_, thread) = call(&app, "GET", path, None).await;
     let generated = thread["session"]["generated_name"].clone();
@@ -1175,7 +1368,10 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
     let (code, _) = call(
         &app,
         "PATCH",
-        "/api/v1/sessions/claude-code/s-none",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-none")
+        ),
         Some(json!({"name": "X"})),
     )
     .await;
@@ -1191,14 +1387,17 @@ async fn the_person_renames_a_session_and_can_give_it_back_its_own_name() {
 #[tokio::test]
 async fn a_session_is_found_by_its_name() {
     let app = app();
-    let path = "/api/v1/sessions/claude-code/s-found";
     call(
         &app,
         "POST",
-        &format!("{path}/status"),
+        "/api/v1/sessions/claude-code/s-found/status",
         Some(json!({"text": "Working"})),
     )
     .await;
+    let path = &format!(
+        "/api/v1/sessions/claude-code/{}",
+        common::sid(&app, "claude-code", "s-found")
+    );
     call(
         &app,
         "POST",
@@ -1212,11 +1411,12 @@ async fn a_session_is_found_by_its_name() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     assert_eq!(ids, ["s-found"]);
     // and by the name Pinrail derives
-    let (_, generated) = pinrail_core::elements::name_of("claude-code", "s-other");
+    let other = common::sid(&app, "claude-code", "s-other");
+    let (_, generated) = pinrail_core::elements::name_of("claude-code", &other);
     let (_, found) = call(
         &app,
         "GET",
@@ -1228,7 +1428,7 @@ async fn a_session_is_found_by_its_name() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["id"].as_str().unwrap())
+        .map(|s| s["agent_session"].as_str().unwrap())
         .collect();
     assert!(ids.contains(&"s-other"), "{generated}: {ids:?}");
 }
@@ -1254,12 +1454,24 @@ async fn the_elements_are_served_with_their_place_and_description() {
         Some(json!({"text": "Working"})),
     )
     .await;
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-counted", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-counted")
+        ),
+        None,
+    )
+    .await;
     let number = thread["session"]["element"].as_u64().unwrap() as usize;
     call(
         &app,
         "PUT",
-        "/api/v1/sessions/claude-code/s-counted/archive",
+        &format!(
+            "/api/v1/sessions/claude-code/{}/archive",
+            common::sid(&app, "claude-code", "s-counted")
+        ),
         None,
     )
     .await;
@@ -1285,7 +1497,16 @@ async fn the_sessions_of_an_element_are_listed_by_its_number() {
         )
         .await;
     }
-    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-el-2", None).await;
+    let (_, thread) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/sessions/claude-code/{}",
+            common::sid(&app, "claude-code", "s-el-2")
+        ),
+        None,
+    )
+    .await;
     let element = thread["session"]["element"].as_u64().unwrap();
     let (code, found) = call(
         &app,
@@ -1303,7 +1524,7 @@ async fn the_sessions_of_an_element_are_listed_by_its_number() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|s| s["id"] == "s-el-2")
+            .any(|s| s["agent_session"] == "s-el-2")
     );
     let (code, _) = call(&app, "GET", "/api/v1/sessions?element=hydrogen", None).await;
     assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);

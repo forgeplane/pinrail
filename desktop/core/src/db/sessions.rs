@@ -1,6 +1,7 @@
-//! An agent's sessions: a row for each agent and session id that sent a
-//! review or a status, kept in step with the reviews that name it, and the
-//! statuses the agent reported, oldest first.
+//! An agent's sessions: a row for each session Pinrail knows, by an id of
+//! Pinrail's own, `ses_` and a ULID, with the agent's own id for it once
+//! the agent reported it; kept in step with the reviews that name it, and
+//! the statuses the agent reported, oldest first.
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
@@ -16,7 +17,10 @@ use crate::reviews::parse_datetime;
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionRow {
     pub agent: String,
+    /// Pinrail's id for the session, `ses_` and a ULID
     pub id: String,
+    /// the agent's own id for the session, once the agent reported it
+    pub agent_session: Option<String>,
     /// the project, the branch and the folder the agent last reported
     pub repo: Option<String>,
     pub reference: Option<String>,
@@ -275,6 +279,47 @@ pub(super) fn touch(
     Ok(())
 }
 
+/// The session the agent names by its own id, by Pinrail's id, if Pinrail
+/// knows it.
+pub(super) fn find(
+    conn: &Connection,
+    agent: &str,
+    agent_session: &str,
+) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT id FROM sessions WHERE agent = ?1 AND agent_session = ?2",
+        params![agent, agent_session],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
+/// The session the agent names by its own id, by Pinrail's id, created
+/// hidden when it is new; and whether it was.
+pub(super) fn find_or_create(
+    conn: &Connection,
+    agent: &str,
+    agent_session: &str,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<(String, bool)> {
+    if let Some(id) = find(conn, agent, agent_session)? {
+        return Ok((id, false));
+    }
+    let id = crate::id::next_session();
+    conn.execute(
+        "INSERT INTO sessions (agent, id, agent_session, first_at, last_at, hidden)
+         VALUES (?1, ?2, ?3, ?4, ?5, 1)",
+        params![
+            agent,
+            id,
+            agent_session,
+            crate::reviews::iso(at),
+            activity(at)
+        ],
+    )?;
+    Ok((id, true))
+}
+
 /// Shows a session known only from its agent's hooks, from now on: it
 /// needs the person, the person messaged it, or it worked on an item.
 pub(super) fn reveal(conn: &Connection, agent: &str, id: &str) -> rusqlite::Result<()> {
@@ -296,6 +341,46 @@ pub(super) fn touch_review(conn: &Connection, review_id: &str) -> rusqlite::Resu
 }
 
 impl Db {
+    /// The session an agent names by its own id, by Pinrail's id: created,
+    /// hidden, when Pinrail does not know it yet; and whether it was. A
+    /// report sent with a run token resolves through
+    /// [`Db::resolve_run_session`] instead.
+    pub fn resolve_session(
+        &self,
+        agent: &str,
+        agent_session: &str,
+        now: DateTime<Utc>,
+    ) -> rusqlite::Result<(String, bool)> {
+        find_or_create(&self.conn(), agent, agent_session, now)
+    }
+
+    /// The session an agent names by its own id, by Pinrail's id, if Pinrail
+    /// knows it.
+    pub fn find_session(
+        &self,
+        agent: &str,
+        agent_session: &str,
+    ) -> rusqlite::Result<Option<String>> {
+        find(&self.read(), agent, agent_session)
+    }
+
+    /// The session an agent names by its own id, among those of any agent,
+    /// for a request that does not name its agent: the most recently
+    /// active one.
+    pub fn find_session_of_any_agent(
+        &self,
+        agent_session: &str,
+    ) -> rusqlite::Result<Option<(String, String)>> {
+        self.read()
+            .query_row(
+                "SELECT agent, id FROM sessions WHERE agent_session = ?1
+                 ORDER BY last_at DESC LIMIT 1",
+                params![agent_session],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+    }
+
     /// Archives the session at `at`, keeping an earlier time, or brings it
     /// back with `None`, and records the event: its id, or `None` for a
     /// session that does not exist.
@@ -461,6 +546,7 @@ impl Db {
                     "(EXISTS (SELECT 1 FROM reviews r WHERE r.requested_by = s.agent \
                        AND r.session = s.id AND r.title LIKE ?{n} ESCAPE '\\') \
                      OR s.agent LIKE ?{n} ESCAPE '\\' OR s.id LIKE ?{n} ESCAPE '\\' \
+                     OR s.agent_session LIKE ?{n} ESCAPE '\\' \
                      OR s.name LIKE ?{n} ESCAPE '\\' \
                      OR session_generated_name(s.agent, s.id) LIKE ?{n} ESCAPE '\\' \
                      OR {title} LIKE ?{n} ESCAPE '\\')",
@@ -843,7 +929,7 @@ fn select() -> String {
     p.pid AS p_pid, p.event_at AS p_event_at, p.state_since AS p_state_since,
     p.turn AS p_turn, p.turn_started AS p_turn_started, p.finished_at AS p_finished_at,
     p.seen_at AS p_seen_at, p.updated_at AS p_updated_at,
-    s.name AS name
+    s.name AS name, s.agent_session AS agent_session
   FROM sessions s
   LEFT JOIN c ON c.agent = s.agent AND c.id = s.id
   LEFT JOIN session_presence p ON p.agent = s.agent AND p.session = s.id",
@@ -889,6 +975,7 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
     Ok(SessionRow {
         agent,
         id,
+        agent_session: row.get("agent_session")?,
         repo: row.get(2)?,
         reference: row.get(3)?,
         folder: row.get(4)?,

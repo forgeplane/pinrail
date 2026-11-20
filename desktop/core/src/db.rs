@@ -37,7 +37,9 @@ pub use presence::{
 };
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
-pub use runs::{Bound, NewRun, RunFilters, RunLaunch, RunRow, RunSession, TOKEN_GRACE};
+pub use runs::{
+    Bound, NewRun, RunFilters, RunLaunch, RunResolved, RunRow, RunSession, TOKEN_GRACE,
+};
 pub use schema::LATEST_MIGRATION;
 pub use search::{Found, ItemSearch};
 pub use sessions::{

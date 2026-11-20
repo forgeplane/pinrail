@@ -186,7 +186,11 @@ impl Reviews {
                 match (revised, agent, session) {
                     (Some(revised), _, _) => self.db.items_of_review(revised)?,
                     (None, Some(agent), Some(session)) => {
-                        let held = self.db.session_claims(agent, session)?;
+                        // the agent names its session by its own id
+                        let held = match self.db.find_session(agent, session)? {
+                            Some(session) => self.db.session_claims(agent, &session)?,
+                            None => Vec::new(),
+                        };
                         // with several, only the agent knows which it is about
                         if held.len() > 1 {
                             return Err(Error::invalid("/items", self.name_the_items(&held)?));
@@ -262,10 +266,10 @@ impl Reviews {
                 .get("requested_by")
                 .and_then(Value::as_str)
                 .map(str::to_string),
-            session: attrs
-                .get("session")
-                .and_then(Value::as_str)
-                .map(str::to_string),
+            session: self.session_of(
+                attrs.get("requested_by").and_then(Value::as_str),
+                attrs.get("session").and_then(Value::as_str),
+            )?,
             created_at: Utc::now(),
             expires_at: attrs
                 .get("expires_at")
@@ -346,6 +350,32 @@ impl Reviews {
             }
         }
         Ok((review, true))
+    }
+
+    /// The session an agent names by its own id, `session`, by Pinrail's
+    /// id: created, hidden, when it is new. Without the agent, the session
+    /// of any agent with that id, if there is one.
+    pub fn session_of(
+        &self,
+        agent: Option<&str>,
+        session: Option<&str>,
+    ) -> Result<Option<String>, Error> {
+        let Some(session) = session.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Ok(None);
+        };
+        Ok(match agent.map(str::trim).filter(|a| !a.is_empty()) {
+            Some(agent) => Some(self.db.resolve_session(agent, session, Utc::now())?.0),
+            None => self
+                .db
+                .find_session_of_any_agent(session)?
+                .map(|(_, id)| id),
+        })
+    }
+
+    /// The session an agent names by its own id, by Pinrail's id, if Pinrail
+    /// knows it.
+    pub fn find_session(&self, agent: &str, agent_session: &str) -> Result<Option<String>, Error> {
+        Ok(self.db.find_session(agent, agent_session)?)
     }
 
     /// Runs every check a submission gets and stores nothing: the plugin
@@ -508,6 +538,7 @@ impl Reviews {
         for crate::db::ActiveSession {
             agent,
             id,
+            agent_session,
             state,
             pid,
             started,
@@ -519,8 +550,14 @@ impl Reviews {
                     reason: Some("exited".to_string()),
                 }
             } else {
+                // the agent's own files name the session by the agent's id
                 let hint = pinrail_runtime::adapter(&agent).and_then(|adapter| {
-                    adapter.presence_hint(home, &env, u32::try_from(pid).ok()?, &id)
+                    adapter.presence_hint(
+                        home,
+                        &env,
+                        u32::try_from(pid).ok()?,
+                        agent_session.as_deref()?,
+                    )
                 });
                 match hint {
                     Some(hint)
@@ -559,20 +596,22 @@ impl Reviews {
             .delete_hidden_sessions(Utc::now() - chrono::Duration::days(HIDDEN_DAYS))?)
     }
 
-    /// Records what the agent says it is doing in its session: one line of
-    /// text, which may be empty only when the agent says it has finished,
-    /// or a note, Markdown of several lines. The start of a task names it,
-    /// and so the session. Returns the status and the person's queued
-    /// messages, which it hands to the agent.
+    /// Records what the agent says it is doing in its session, which it
+    /// names by its own id, `agent_session`: one line of text, which may be
+    /// empty only when the agent says it has finished, or a note, Markdown
+    /// of several lines. The start of a task names it, and so the session.
+    /// Returns the session by Pinrail's id, the person's queued messages,
+    /// which the status hands to the agent, and the stage now open.
     pub fn status(
         &self,
         agent: &str,
-        session: &str,
+        agent_session: &str,
         text: &str,
         kind: StatusKind,
         origin: Option<&Value>,
         attachments: Option<&Value>,
-    ) -> Result<(Vec<MessageRow>, Option<OpenStage>), Error> {
+    ) -> Result<(String, Vec<MessageRow>, Option<OpenStage>), Error> {
+        let session = agent_session;
         let text = text.trim();
         if agent.trim().is_empty() || session.trim().is_empty() {
             return Err(Error::invalid("session", "name the agent and the session"));
@@ -610,7 +649,8 @@ impl Reviews {
             Vec::new()
         };
         let origin = Review::normalize_origin(origin);
-        let first = self.db.session(agent, session, Utc::now())?.is_none();
+        let (session, first) = self.db.resolve_session(agent, session, Utc::now())?;
+        let session = session.as_str();
         let added = match self
             .db
             .add_status(agent, session, text, kind, &origin, &attachments)?
@@ -633,17 +673,22 @@ impl Reviews {
                 agent: Name::of(agent),
             });
         }
-        Ok((added.messages, added.stage))
+        Ok((session.to_string(), added.messages, added.stage))
     }
 
     /// Delivers the messages among `ids` that a status handed to the
-    /// agent, once the CLI acknowledges that it printed them.
+    /// agent, once the CLI acknowledges that it printed them. The agent
+    /// names its session by its own id, `agent_session`.
     pub fn acknowledge_messages(
         &self,
         agent: &str,
-        session: &str,
+        agent_session: &str,
         ids: &[i64],
     ) -> Result<(), Error> {
+        let Some(session) = self.db.find_session(agent, agent_session)? else {
+            return Ok(());
+        };
+        let session = session.as_str();
         if let Some((messages, event_id)) =
             self.db
                 .acknowledge_messages(agent, session, ids, chrono::Utc::now())?

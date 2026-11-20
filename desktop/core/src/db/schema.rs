@@ -33,6 +33,7 @@ pub(super) fn migrate(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Result<()> {
+    register(conn)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
   version     INTEGER PRIMARY KEY,
@@ -70,6 +71,17 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
         }
     }
     Ok(())
+}
+
+/// Adds `new_session_id()`, which a migration that gives sessions Pinrail's
+/// ids calls once per row.
+fn register(conn: &Connection) -> rusqlite::Result<()> {
+    conn.create_scalar_function(
+        "new_session_id",
+        0,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8,
+        |_| Ok(crate::id::next_session()),
+    )
 }
 
 fn refused(message: String) -> rusqlite::Error {
@@ -286,7 +298,7 @@ mod tests {
 
         let rows: Vec<String> = conn
             .prepare(
-                "SELECT agent || ' ' || s.id || ' ' || IFNULL(p.name, '-') || ' ' || IFNULL(ref, '-') \
+                "SELECT agent || ' ' || s.agent_session || ' ' || IFNULL(p.name, '-') || ' ' || IFNULL(ref, '-') \
                  || ' ' || IFNULL(folder, '-') || ' ' || first_at || ' ' || last_at \
                  FROM sessions s LEFT JOIN repos p ON p.id = s.repo_id ORDER BY agent",
             )
@@ -359,8 +371,8 @@ mod tests {
         );
         assert_eq!(
             rows(
-                "SELECT s.id || ' ' || IFNULL(p.name, '-') FROM sessions s \
-                  LEFT JOIN repos p ON p.id = s.repo_id ORDER BY s.id"
+                "SELECT s.agent_session || ' ' || IFNULL(p.name, '-') FROM sessions s \
+                  LEFT JOIN repos p ON p.id = s.repo_id ORDER BY s.agent_session"
             ),
             ["s1 acme/api", "s2 acme/docs", "s3 -"]
         );
@@ -375,7 +387,10 @@ mod tests {
             rows("SELECT id FROM reviews ORDER BY id"),
             ["r3", "r4", "r5"]
         );
-        assert_eq!(rows("SELECT id FROM sessions ORDER BY id"), ["s2", "s3"]);
+        assert_eq!(
+            rows("SELECT agent_session FROM sessions ORDER BY agent_session"),
+            ["s2", "s3"]
+        );
     }
 
     /// A status of the first sessions table keeps its id and text, and
@@ -449,6 +464,142 @@ mod tests {
             conn.execute(
                 "INSERT INTO session_presence (agent, session, state, source, event_at, state_at, state_since, updated_at) \
                  VALUES ('codex', 'gone', 'idle', 'hook', 'x', 'x', 'x', 'x')",
+                [],
+            )
+            .is_err()
+        );
+    }
+
+    /// Each session gets an id of Pinrail's own and keeps the agent's as
+    /// `agent_session`, and everything that named it by the agent's id
+    /// names it by Pinrail's, including what stored events carry. A
+    /// session named without a row of its own gets one, hidden.
+    #[test]
+    fn sessions_get_pinrails_ids_and_keep_the_agents() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.0 < 20261120120000)
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        let t = "'2026-11-01T10:00:00.000000Z'";
+        conn.execute_batch(&format!(
+            r#"INSERT INTO repos (id, name, prefix, created_at) VALUES (1, 'acme/api', 'API', {t});
+             INSERT INTO sessions (agent, id, first_at, last_at) VALUES
+               ('claude-code', 's1', {t}, {t}), ('codex', 's1', {t}, {t});
+             INSERT INTO session_statuses (agent, session, text, kind, created_at)
+               VALUES ('claude-code', 's1', 'Testing', 'step', {t});
+             INSERT INTO session_messages (agent, session, text, sent_by, sent_at)
+               VALUES ('codex', 's1', 'Rebase first', 'you', {t});
+             INSERT INTO session_presence (agent, session, state, source, event_at, state_at,
+               state_since, updated_at) VALUES ('claude-code', 's1', 'idle', 'hook', {t}, {t}, {t}, {t});
+             INSERT INTO session_turns (agent, session, turn, started_at)
+               VALUES ('claude-code', 's1', 1, {t});
+             INSERT INTO runs (id, host_id, agent, kind, folder, state, created_by, started_at)
+               VALUES ('run_1', 'local', 'codex', 'start', '/w', 'ended', 'app', {t});
+             INSERT INTO run_sessions (run_id, agent, session, bound_at)
+               VALUES ('run_1', 'codex', 's1', {t});
+             INSERT INTO reviews (id, plugin, title, origin, requested_by, session, created_at)
+               VALUES ('r1', 'list', 't', '{{}}', 'claude-code', 's1', {t}),
+                      ('r2', 'list', 't', '{{}}', 'claude-code', 'gone', {t});
+             INSERT INTO outcomes (review_id, kind, at, by, via, session)
+               VALUES ('r1', 'withdrawn', {t}, 'claude-code', 'cli', 's1');
+             INSERT INTO work_items (id, repo_id, number, title, status, claim_agent, claim_session,
+               created_by, created_session, created_at, updated_at)
+               VALUES ('a', 1, 1, 'Fix', 'in_progress', 'codex', 's1', 'claude-code', 's1', {t}, {t});
+             INSERT INTO work_item_events (item_id, kind, actor, session, at, attrs)
+               VALUES ('a', 'claimed', 'codex', 's1', {t},
+                       '{{"from":{{"agent":"claude-code","session":"s1"}}}}');
+             INSERT INTO work_item_comments (id, item_id, body, author, session, created_at)
+               VALUES ('c1', 'a', 'Done', 'codex', 's1', {t});
+             INSERT INTO events (kind, at, attrs) VALUES
+               ('session_status', {t}, '{{"agent":"claude-code","id":"s1","status":{{}}}}'),
+               ('item_changed', {t}, '{{"id":"a","key":"API-1","agent":"codex","session":"s1"}}'),
+               ('run_bound', {t}, '{{"run":"run_1","session":{{"agent":"codex","id":"s1"}},"previous":null}}'),
+               ('run_ended', {t}, '{{"run":{{"id":"run_1","session":{{"agent":"codex","id":"s1"}}}}}}');"#
+        ))
+        .unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+
+        let one = |sql: &str| -> String { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        let id = |agent: &str, own: &str| -> String {
+            conn.query_row(
+                "SELECT id FROM sessions WHERE agent = ?1 AND agent_session = ?2",
+                params![agent, own],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        let (claude, codex, gone) = (
+            id("claude-code", "s1"),
+            id("codex", "s1"),
+            id("claude-code", "gone"),
+        );
+        for id in [&claude, &codex, &gone] {
+            assert!(id.starts_with("ses_") && id.len() == 30, "{id}");
+        }
+        assert_ne!(claude, codex);
+        // a session named only by a review is hidden
+        assert_eq!(
+            one(&format!(
+                "SELECT hidden || '' FROM sessions WHERE id = '{gone}'"
+            )),
+            "1"
+        );
+        for (sql, expected) in [
+            ("SELECT session FROM session_statuses", &claude),
+            ("SELECT session FROM session_messages", &codex),
+            ("SELECT session FROM session_presence", &claude),
+            ("SELECT session FROM session_turns", &claude),
+            ("SELECT session FROM run_sessions", &codex),
+            ("SELECT session FROM reviews WHERE id = 'r1'", &claude),
+            ("SELECT session FROM reviews WHERE id = 'r2'", &gone),
+            ("SELECT session FROM outcomes", &claude),
+            ("SELECT claim_session FROM work_items", &codex),
+            ("SELECT created_session FROM work_items", &claude),
+            ("SELECT session FROM work_item_events", &codex),
+            ("SELECT session FROM work_item_comments", &codex),
+            (
+                "SELECT json_extract(attrs, '$.from.session') FROM work_item_events",
+                &claude,
+            ),
+            (
+                "SELECT json_extract(attrs, '$.id') FROM events WHERE kind = 'session_status'",
+                &claude,
+            ),
+            (
+                "SELECT json_extract(attrs, '$.session') FROM events WHERE kind = 'item_changed'",
+                &codex,
+            ),
+            (
+                "SELECT json_extract(attrs, '$.session.id') FROM events WHERE kind = 'run_bound'",
+                &codex,
+            ),
+            (
+                "SELECT json_extract(attrs, '$.run.session.id') FROM events WHERE kind = 'run_ended'",
+                &codex,
+            ),
+        ] {
+            assert_eq!(&one(sql), expected, "{sql}");
+        }
+        // the item an event is about keeps its own id
+        assert_eq!(
+            one("SELECT json_extract(attrs, '$.id') FROM events WHERE kind = 'item_changed'"),
+            "a"
+        );
+        // every reference holds, and an agent's id is one session per agent
+        let broken: i64 = conn
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(broken, 0);
+        assert!(
+            conn.execute(
+                "INSERT INTO sessions (agent, id, agent_session, first_at, last_at) \
+                 VALUES ('codex', 'ses_x', 's1', 'x', 'x')",
                 [],
             )
             .is_err()
