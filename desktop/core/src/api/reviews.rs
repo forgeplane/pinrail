@@ -961,7 +961,9 @@ async fn report(
             ));
         }
     };
-    // the agent left the session it cleared or forked
+    // the agent left the session it was in: Pinrail ends it, as the host
+    // does when an agent exits, which a session whose state comes from its
+    // terminal takes too
     if let Some((agent, cleared)) = &admitted.cleared {
         let ended = Report {
             event: ReportEvent::Ended {
@@ -971,6 +973,7 @@ async fn report(
             agent_turn: None,
             cut: false,
             origin: Default::default(),
+            source: crate::db::Source::Host,
             ..report.clone()
         };
         state.reviews().report(agent, cleared, &ended, false, now)?;

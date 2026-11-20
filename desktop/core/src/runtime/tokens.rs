@@ -92,9 +92,10 @@ impl super::Runtime {
             let (event, attrs) = &bound.event;
             self.bus
                 .publish(Notice::new(*event, crate::events::RUN_BOUND, attrs));
-            if matches!(source, Some(Some("clear" | "fork"))) {
-                cleared = bound.previous;
-            }
+            // the agent left the session it was in: on /clear or a fork,
+            // and on any new conversation, as agy starts after /clear
+            // without saying why
+            cleared = bound.previous;
         }
         Ok(Ok(Admitted { session, cleared }))
     }

@@ -1056,3 +1056,51 @@ async fn the_agents_a_restart_stopped_are_listed_until_dismissed() {
     let (_, listed) = call(&app, "GET", "/api/v1/runtime/restarted", None).await;
     assert_eq!(listed["runs"], json!([]));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_run_that_moves_to_a_new_session_stops_the_one_it_left() {
+    use pinrail_core::db::{Report, ReportEvent, Source};
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (_, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let first = started["session"]["id"].as_str().unwrap().to_string();
+    let token = token(&folder).await;
+    let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
+    // its state comes from its terminal, as agy's does, and it works
+    let now = chrono::Utc::now();
+    let working = Report {
+        event: ReportEvent::Working,
+        at: now,
+        process: Some(own.clone()),
+        origin: Default::default(),
+        transcript_path: None,
+        agent_turn: None,
+        cut: false,
+        source: Source::Terminal,
+    };
+    app.state
+        .reviews()
+        .report("claude-code", &first, &working, false, now)
+        .unwrap();
+
+    // a session start without a source, as agy's after /clear, moves the run
+    let (status, _) = report(&app, "s-next", json!({"event": "started"}), &own, &token).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    run_becomes(&app, &id, |r| r["session"]["agent_session"] == "s-next").await;
+    // and the session it left no longer works
+    let presence = common::db(&app)
+        .presence("claude-code", &first)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (presence.state.as_str(), presence.stop_reason.as_deref()),
+        ("stopped", Some("cleared"))
+    );
+}
