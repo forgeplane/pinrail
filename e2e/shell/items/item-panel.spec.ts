@@ -94,6 +94,9 @@ test("with the panel open, J and K open the item they move to", async ({ page, r
   // an item opened from its address is where they move from
   await page.goto("/#/");
   await openItem(page, repo, third.key);
+  // the panel loads its item itself, and K has nowhere to move from until
+  // the list has loaded too
+  await expect(row(page, third.key)).toHaveClass(/is-open/);
   await page.locator("body").press("k");
   await expect(panel(page).getByRole("heading", { name: "Second" })).toBeVisible();
 });
