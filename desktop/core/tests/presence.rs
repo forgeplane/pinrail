@@ -1839,3 +1839,40 @@ async fn a_turn_keeps_its_reply_whichever_of_the_hook_and_the_terminal_ends_it_l
     .unwrap();
     assert_eq!(ends("s-terminal"), vec![(Some("done".to_string()), None)]);
 }
+
+#[tokio::test]
+async fn an_interrupt_and_a_failure_of_one_turn_end_it_as_interrupted() {
+    // Cursor reports Ctrl+C as two ends of the turn, in either order
+    let app = app();
+    let ends = |app: &App, session: &str| {
+        db(app)
+            .turns("claude-code", &common::sid(app, "claude-code", session))
+            .unwrap()
+            .into_iter()
+            .map(|t| t.end_kind)
+            .collect::<Vec<_>>()
+    };
+    let turn = json!({"detail": {"turn_id": "g-1"}});
+    for (session, first, second) in [
+        ("s-1", "interrupted", "failed"),
+        ("s-2", "failed", "interrupted"),
+    ] {
+        report(&app, session, "prompt", 1, turn.clone()).await;
+        let mut end = turn.clone();
+        end["end"] = json!(first);
+        report(&app, session, "turn_ended", 2, end.clone()).await;
+        end["end"] = json!(second);
+        report(&app, session, "turn_ended", 2, end).await;
+        assert_eq!(
+            ends(&app, session),
+            vec![Some("interrupted".to_string())],
+            "{session}"
+        );
+    }
+    // a failure alone stays one
+    report(&app, "s-3", "prompt", 1, turn.clone()).await;
+    let mut failed = turn.clone();
+    failed["end"] = json!("failed");
+    report(&app, "s-3", "turn_ended", 2, failed).await;
+    assert_eq!(ends(&app, "s-3"), vec![Some("failed".to_string())]);
+}

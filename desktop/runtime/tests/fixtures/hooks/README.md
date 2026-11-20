@@ -59,3 +59,10 @@ paths rewritten. The others are built from the same fields, for the events
 Pi's extension API documents and the research saw: `prompt-steer`, `tool`,
 `waiting-confirm`, `waiting-select`, `answered`, `stop`, `stop-aborted` and
 `stop-error`.
+
+**Cursor's CLI 2026.11.19, captured** from interactive sessions with a
+project `.cursor/hooks.json` whose hooks saved their input, with the paths,
+the conversation's id and the email rewritten: `session-start`, `prompt`
+(`beforeSubmitPrompt`), `pre-tool-use`, `post-tool-use`,
+`after-agent-response`, `stop` (completed), `stop-aborted` and `stop-error`
+(Ctrl+C sends both) and `session-end`.

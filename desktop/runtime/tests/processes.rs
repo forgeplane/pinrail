@@ -66,3 +66,30 @@ fn pi_s_process_is_named_pi_or_runs_pi_under_node() {
     assert!(!pi.is_own_process(&gone));
     assert!(!pi.is_own_process(&named("claude")));
 }
+
+#[test]
+fn cursor_s_process_runs_cursor_agent_under_node() {
+    let cursor = adapter("cursor").unwrap();
+    assert!(cursor.is_own_process(&named("cursor-agent")));
+    // a node process whose arguments cannot be read is not Cursor's
+    let mut gone = named("node");
+    gone.pid = u32::MAX - 1;
+    assert!(!cursor.is_own_process(&gone));
+    assert!(!cursor.is_own_process(&named("claude")));
+}
+
+#[test]
+fn cursor_s_command_is_told_from_its_workers() {
+    use pinrail_runtime::is_cursor_command;
+    let args = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert!(is_cursor_command(&args(&[
+        "/Users/you/.local/bin/cursor-agent"
+    ])));
+    assert!(is_cursor_command(&args(&["agent", "--resume", "x"])));
+    assert!(!is_cursor_command(&args(&[
+        "/Users/you/.local/share/cursor-agent/versions/1/node",
+        "index.js",
+        "worker-server"
+    ])));
+    assert!(!is_cursor_command(&args(&["node", "server.js"])));
+}

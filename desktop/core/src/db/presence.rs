@@ -735,18 +735,30 @@ fn record_turns(
             let continued = end != "interrupted";
             // the agent's own turn id finds its turn exactly; without one,
             // the turn that ran when the end fired
-            let named = match &report.agent_turn {
+            // an interrupt and a failure of one turn, as Cursor reports
+            // Ctrl+C in either order, end it as interrupted
+            let interrupt = end == "interrupted";
+            let named: Option<(i64, Option<String>)> = match &report.agent_turn {
                 Some(turn) => conn
                     .query_row(
-                        "SELECT id FROM session_turns
+                        "SELECT id, end_kind FROM session_turns
                          WHERE agent = ?1 AND session = ?2 AND agent_turn = ?3
-                           AND (?4 OR ended_at IS NULL OR end_kind = 'interrupted')",
-                        params![agent, id, turn, continued],
-                        |r| r.get(0),
+                           AND (?4 OR ended_at IS NULL OR end_kind = 'interrupted'
+                                OR (?5 AND end_kind = 'failed'))",
+                        params![agent, id, turn, continued, interrupt],
+                        |r| Ok((r.get(0)?, r.get(1)?)),
                     )
                     .optional()?,
                 None => None,
             };
+            if end == "failed"
+                && named
+                    .as_ref()
+                    .is_some_and(|(_, kind)| kind.as_deref() == Some("interrupted"))
+            {
+                return Ok(None);
+            }
+            let named = named.map(|(turn, _)| turn);
             let turn = match named {
                 Some(turn) => Some(turn),
                 // the terminal's end carries no reply: it closes only a turn

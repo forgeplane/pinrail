@@ -447,3 +447,43 @@ fn an_extension_file_is_written_whole_and_removed_whole() {
         "export default function () {}\n"
     );
 }
+
+#[test]
+fn cursor_s_hooks_go_beside_the_person_s_in_its_hooks_file() {
+    let plan = adapter("cursor")
+        .unwrap()
+        .integration(Path::new("/Users/you"), &|_| None)
+        .unwrap();
+    assert_eq!(plan.file, Path::new("/Users/you/.cursor/hooks.json"));
+    // the file as herdr leaves it
+    let original = json!({
+        "version": 1,
+        "hooks": {"sessionStart": [{"command": "bash '/Users/you/.cursor/herdr-agent-state.sh' session"}]}
+    });
+    let mut hooks = original.clone();
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    assert_eq!(hooks["hooks"]["sessionStart"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        hooks["hooks"]["afterAgentResponse"][0]["command"],
+        "\"${PINRAIL_CLI:-pinrail}\" hook cursor response"
+    );
+    remove(&mut hooks, &plan);
+    assert_eq!(hooks, original);
+    for entry in plan.entries {
+        let hook = entry.command.rsplit(' ').next().unwrap();
+        assert!(
+            [
+                "session-start",
+                "prompt",
+                "tool",
+                "response",
+                "stop",
+                "session-end"
+            ]
+            .contains(&hook),
+            "{}",
+            entry.command
+        );
+    }
+}

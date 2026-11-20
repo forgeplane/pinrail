@@ -1,0 +1,23 @@
+{
+  "conversation_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "generation_id": "2371233c-6269-4b77-8bf1-f48edddec910",
+  "model": "default",
+  "tool_name": "Shell",
+  "tool_input": {
+    "command": "env | grep -E 'CURSOR|AGENT'",
+    "cwd": "",
+    "timeout": 30000
+  },
+  "tool_output": "{\"output\":\"CURSOR_INVOKED_AS=cursor-agent\\nGLOBAL_AGENT_ENVIRONMENT_VARIABLE_NAMESPACE=\\nCURSOR_AGENT=1\\nAGENT_TRANSCRIPTS=/Users/you/.cursor/projects/private-tmp-claude-501-Users-you-code-app/agent-transcripts\\n__CURSOR_SANDBOX_ENV_RESTORE=builtin unset CURSOR_CONVERSATION_ID CURSOR_REQUEST_ID CURSOR_AGENT_STORE_FILES_DIR CURSOR_AGENT_STORE_SHARED_PATHS 2>/dev/null || true; builtin export CURSOR_CONVERSATION_ID='6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13'; builtin export CURSOR_REQUEST_ID='2371233c-6269-4b77-8bf1-f48edddec910'\\nCURSOR_ASKPASS_SOCKET=/tmp/cursor-askpass-cd1b165d-0.sock\\nCURSOR_ASKPASS_SECRET=7ffc5979730956419b94cbf728c8fab76b33619d42d1d64bf15394767a5d8b31\\nCURSOR_RIPGREP_PATH=/Users/you/.local/share/cursor-agent/versions/2026.11.19-f005e9d/rg\\nCURSOR_CONVERSATION_ID=6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13\\nCURSOR_REQUEST_ID=2371233c-6269-4b77-8bf1-f48edddec910\\n\",\"exitCode\":0}",
+  "duration": 1810.87,
+  "tool_use_id": "88c6565b-a183-4082-936d-7c087219c434",
+  "cwd": "",
+  "session_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "hook_event_name": "postToolUse",
+  "cursor_version": "2026.11.19-f005e9d",
+  "workspace_roots": [
+    "/Users/you/code/app"
+  ],
+  "user_email": "you@example.com",
+  "transcript_path": "/Users/you/.cursor/projects/private-tmp-claude-501-Users-you-code-app/agent-transcripts/6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13/6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13.jsonl"
+}

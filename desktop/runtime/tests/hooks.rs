@@ -730,3 +730,69 @@ fn pi_reports_each_event_of_its_session_through_pinrail_s_extension() {
     // the session /new leaves ends with the move to the next one
     assert_eq!(event("pi", "session-end", "session-end-new"), None);
 }
+
+const CURSOR_SESSION: &str = "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13";
+
+#[test]
+fn cursor_reports_each_event_of_its_session() {
+    let started = parse("cursor", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, CURSOR_SESSION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    assert_eq!(started.detail.cwd.as_deref(), Some("/Users/you/code/app"));
+    let prompt = parse("cursor", "prompt", "prompt").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Run the shell command date and tell me its output.")
+    );
+    // the turn's own id, which its ends name too
+    assert_eq!(
+        prompt.detail.turn_id.as_deref(),
+        Some("135e14e6-3583-4687-9084-c755be2796be")
+    );
+    assert_eq!(
+        event("cursor", "tool", "pre-tool-use"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(
+        event("cursor", "tool", "post-tool-use"),
+        Some(HookEvent::Working)
+    );
+    // the reply ends the turn; the stop beside it says nothing more
+    let done = parse("cursor", "response", "after-agent-response").unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("pong"));
+    assert_eq!(event("cursor", "stop", "stop"), None);
+    assert_eq!(
+        event("cursor", "stop", "stop-aborted"),
+        Some(HookEvent::TurnEnded {
+            end: TurnEnd::Interrupted
+        })
+    );
+    assert_eq!(
+        event("cursor", "stop", "stop-error"),
+        Some(HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        })
+    );
+    let ended = parse("cursor", "session-end", "session-end").unwrap();
+    assert_eq!(ended.event, HookEvent::Ended);
+    assert_eq!(ended.detail.reason.as_deref(), Some("completed"));
+}
+
+#[test]
+fn cursor_reports_nothing_for_a_background_agent() {
+    let mut background = input("cursor", "session-start");
+    background["is_background_agent"] = Value::from(true);
+    assert!(
+        adapter("cursor")
+            .unwrap()
+            .parse_hook("session-start", &background, &|_| None)
+            .is_none()
+    );
+}

@@ -1,0 +1,14 @@
+{
+  "conversation_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "generation_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "model": "default",
+  "is_background_agent": false,
+  "session_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "hook_event_name": "sessionStart",
+  "cursor_version": "2026.11.19-f005e9d",
+  "workspace_roots": [
+    "/Users/you/code/app"
+  ],
+  "user_email": "you@example.com",
+  "transcript_path": null
+}

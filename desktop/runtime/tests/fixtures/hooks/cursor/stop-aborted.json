@@ -1,0 +1,15 @@
+{
+  "conversation_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "generation_id": "2371233c-6269-4b77-8bf1-f48edddec910",
+  "model": "default",
+  "status": "aborted",
+  "loop_count": 0,
+  "session_id": "6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13",
+  "hook_event_name": "stop",
+  "cursor_version": "2026.11.19-f005e9d",
+  "workspace_roots": [
+    "/Users/you/code/app"
+  ],
+  "user_email": "you@example.com",
+  "transcript_path": "/Users/you/.cursor/projects/private-tmp-claude-501-Users-you-code-app/agent-transcripts/6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13/6f2c8a41-3b9d-4e57-a1c0-8d2e5f7b9a13.jsonl"
+}
