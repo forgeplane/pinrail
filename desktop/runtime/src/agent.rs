@@ -64,6 +64,25 @@ pub trait Agent: Send + Sync {
         false
     }
 
+    /// Variables set in the environment of the agent's runs, over the
+    /// terminal's own: Cursor sends its notifications only to a terminal it
+    /// recognises by `TERM_PROGRAM`.
+    fn run_env(&self) -> &'static [(&'static str, &'static str)] {
+        &[]
+    }
+
+    /// What the agent waits for, when a desktop notification of its
+    /// terminal (OSC 9 or 777) says it and no hook does, with what it waits
+    /// on: Cursor asks a permission only this way. `None` for any other
+    /// notification.
+    fn notification(
+        &self,
+        _title: Option<&str>,
+        _body: &str,
+    ) -> Option<(crate::hooks::WaitKind, Option<String>)> {
+        None
+    }
+
     /// Whether the agent can start a new session in the same process without
     /// a session start, so that a prompt under a new id is the first sign
     /// of it, as Cursor's /clear is. The run then moves to that session.

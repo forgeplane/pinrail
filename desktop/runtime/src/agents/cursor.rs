@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
 };
-use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, text};
+use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::process::Process;
 use crate::registry::AgentSpec;
@@ -140,6 +140,29 @@ impl Agent for Cursor {
 
     fn deny_flags(&self) -> &'static [&'static str] {
         &["--force", "-f"]
+    }
+
+    /// Cursor sends its notifications only to the terminals it recognises
+    /// by `TERM_PROGRAM`, which Pinrail is not. Pinrail's terminal is built
+    /// on Ghostty's terminal library, so what Cursor expects of Ghostty
+    /// holds, its OSC 777 notifications among it.
+    fn run_env(&self) -> &'static [(&'static str, &'static str)] {
+        &[("TERM_PROGRAM", "ghostty")]
+    }
+
+    /// Cursor has no hook for a permission it asks: it says so in a
+    /// notification, "Approve command: <command>", while its terminal is
+    /// not focused. Its other notification, that it waits for the next
+    /// prompt, the end of the turn's hooks say already.
+    fn notification(&self, title: Option<&str>, body: &str) -> Option<(WaitKind, Option<String>)> {
+        if title != Some("Cursor") {
+            return None;
+        }
+        let command = body.strip_prefix("Approve command: ")?;
+        Some((
+            WaitKind::Permission,
+            Some(command.chars().take(200).collect()),
+        ))
     }
 
     /// /clear starts a new conversation with no session start: its first

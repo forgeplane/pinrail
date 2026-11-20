@@ -195,6 +195,7 @@ if [ "$1" = "--version" ]; then echo "1.0.0 (stand-in)"; exit 0; fi
 echo "stand-in agent starting"
 # each written whole, then renamed, so a test never reads half of one
 printf '%s\n' "$@" > argv.part && mv argv.part argv
+printf '%s' "$TERM_PROGRAM" > term_program.part && mv term_program.part term_program
 printf '%s' "$PINRAIL_RUN_TOKEN" > token.part && mv token.part token
 if [ -f exit ]; then exit "$(cat exit)"; fi
 # with a file named listen, it writes each line it is sent to heard
@@ -207,6 +208,7 @@ if [ -f records ]; then
   (while IFS= read -r line; do printf '%s\n' "$line" >> heard; done) <&3 &
   while :; do
     if [ -f record ]; then printf '\033]7501;%s\033\\' "$(cat record)"; rm record; fi
+    if [ -f notify ]; then printf '\033]777;notify;%s\033\\' "$(cat notify)"; rm notify; fi
     sleep 0.05
   done
 fi
@@ -275,6 +277,21 @@ pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
 #[cfg(unix)]
 /// Has the stand-in agent in `folder` write `record` as an OSC 7501 record,
 /// and waits until it has.
+/// Has the stand-in agent in `folder` write `notify` (a title, `;`, a body)
+/// as an OSC 777 notification, and waits until it has.
+pub async fn notify(folder: &std::path::Path, notify: &str) {
+    std::fs::write(folder.join("notify.part"), notify).unwrap();
+    std::fs::rename(folder.join("notify.part"), folder.join("notify")).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while folder.join("notify").exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the notification was not written"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
+
 pub async fn record(folder: &std::path::Path, record: &str) {
     std::fs::write(folder.join("record.part"), record).unwrap();
     std::fs::rename(folder.join("record.part"), folder.join("record")).unwrap();

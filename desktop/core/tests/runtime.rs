@@ -85,7 +85,7 @@ impl Setup {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config.run_env.insert(
             "PATH".into(),
-            common::stand_in_path_as(dir.path(), &["claude", "grok"]),
+            common::stand_in_path_as(dir.path(), &["claude", "grok", "cursor-agent"]),
         );
         let app = Arc::new(Pinrail::open(config).unwrap());
         Setup {
@@ -611,6 +611,59 @@ async fn grok_waiting_on_its_folder_trust_question_shows_as_needing_the_person()
     // answered, it waits for the first prompt
     common::record(&folder, "state=idle:app=grok").await;
     presence_becomes(&db, &session, |p| p.state == "idle").await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cursor_asking_a_permission_in_its_notification_shows_as_waiting() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("cursor", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+
+    // Cursor has no hook for it, and says it in a notification while its
+    // terminal is not focused
+    common::notify(&folder, "Cursor;Approve command: rm -rf build").await;
+    let waiting = presence_becomes(&db, &session, |p| p.state == "needs_input").await;
+    assert_eq!(waiting.wait_kind.as_deref(), Some("permission"));
+    assert_eq!(waiting.wait_summary.as_deref(), Some("rm -rf build"));
+    // its hooks still set the state: the command it runs is work
+    hook(&setup.app, &session, pinrail_core::db::ReportEvent::Working);
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "working"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cursor_runs_in_a_terminal_it_knows_how_to_notify_in() {
+    // Cursor sends its notifications only to terminals it recognises; Pinrail's
+    // is built on Ghostty's terminal library
+    let setup = Setup::new();
+    setup.turn_on().await;
+    for (agent, expected) in [("cursor", "ghostty"), ("claude-code", "Pinrail")] {
+        let folder = setup.folder(agent);
+        setup
+            .app
+            .runtime()
+            .start(&start(agent, &folder))
+            .await
+            .unwrap();
+        file(folder.join("token")).await;
+        assert_eq!(
+            std::fs::read_to_string(folder.join("term_program")).unwrap(),
+            expected,
+            "{agent}"
+        );
+    }
 }
 
 /// Runs git in `folder`, which must succeed.

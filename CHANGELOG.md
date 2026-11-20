@@ -38,7 +38,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   are typed into the agent's terminal.
 - Cursor's CLI reports its status to Pinrail. Turn on **Report status** for
   it in Settings › Agents, and its sessions show their turns, prompts and
-  replies, and whether the agent is working or finished.
+  replies, and whether the agent is working, waits for a permission, or is
+  finished. A permission shows while you are not looking at its terminal.
 - Start and resume Cursor's CLI sessions from Pinrail, and send them
   messages, which are typed into the agent's terminal.
 - A session that Pinrail runs has a **Split view** beside Summary and

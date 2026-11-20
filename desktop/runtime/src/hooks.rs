@@ -46,6 +46,15 @@ pub enum WaitKind {
     Question,
 }
 
+impl WaitKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            WaitKind::Permission => "permission",
+            WaitKind::Question => "question",
+        }
+    }
+}
+
 /// How a turn ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnEnd {
@@ -161,11 +170,7 @@ impl HookReport {
             HookEvent::Prompt => "prompt",
             HookEvent::Working => "working",
             HookEvent::NeedsInput { kind } => {
-                let wait = match kind {
-                    WaitKind::Permission => "permission",
-                    WaitKind::Question => "question",
-                };
-                body.insert("wait".into(), json!(wait));
+                body.insert("wait".into(), json!(kind.as_str()));
                 "needs_input"
             }
             HookEvent::TurnEnded { end } => {

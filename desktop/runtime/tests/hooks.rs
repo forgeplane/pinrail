@@ -796,3 +796,25 @@ fn cursor_reports_nothing_for_a_background_agent() {
             .is_none()
     );
 }
+
+#[test]
+fn cursor_s_notification_that_it_asks_a_permission_is_a_wait() {
+    let cursor = adapter("cursor").unwrap();
+    assert_eq!(
+        cursor.notification(Some("Cursor"), "Approve command: rm -rf build"),
+        Some((WaitKind::Permission, Some("rm -rf build".to_string())))
+    );
+    // the end of a turn, which its hooks report
+    assert_eq!(
+        cursor.notification(Some("Cursor"), "Cursor is waiting for you"),
+        None
+    );
+    assert_eq!(cursor.notification(None, "Approve command: ls"), None);
+    // other agents read nothing from notifications
+    assert_eq!(
+        adapter("claude-code")
+            .unwrap()
+            .notification(Some("Cursor"), "Approve command: ls"),
+        None
+    );
+}

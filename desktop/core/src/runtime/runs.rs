@@ -436,6 +436,12 @@ impl super::Runtime {
         let id = run.id.clone();
         let folder = run.folder.clone();
         let mut env: BTreeMap<String, String> = self.run_env.clone();
+        // what the agent needs of its terminal, as Cursor its TERM_PROGRAM
+        if let Some(agent) = pinrail_runtime::adapter(&run.agent) {
+            for (name, value) in agent.run_env() {
+                env.insert((*name).to_string(), (*value).to_string());
+            }
+        }
         env.insert(TOKEN_VARIABLE.to_string(), token);
         self.spawns().running.insert(id.clone());
         let reply = link
@@ -620,6 +626,53 @@ impl super::Runtime {
             agent_turn: None,
             cut: false,
             source: crate::db::Source::Terminal,
+        };
+        Ok(Some((agent, session, report)))
+    }
+
+    /// The report a desktop notification of a run's terminal makes for the
+    /// session the run is bound to, when the run's agent says what it waits
+    /// for in it, as Cursor asks a permission. It is the host's observation,
+    /// not the terminal's state: the agent's hooks set the state after it.
+    pub fn notification(
+        &self,
+        params: &Value,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<(String, String, crate::db::Report)>, RunError> {
+        let Some(terminal) = params["terminal"].as_str() else {
+            return Ok(None);
+        };
+        let Some(run) = self
+            .live_runs()?
+            .into_iter()
+            .find(|r| r.terminal.as_deref() == Some(terminal))
+        else {
+            return Ok(None);
+        };
+        let Some((kind, summary)) = pinrail_runtime::adapter(&run.agent).and_then(|a| {
+            a.notification(
+                params["title"].as_str(),
+                params["body"].as_str().unwrap_or(""),
+            )
+        }) else {
+            return Ok(None);
+        };
+        let Some((agent, session)) = run.session else {
+            return Ok(None);
+        };
+        let report = crate::db::Report {
+            event: crate::db::ReportEvent::NeedsInput {
+                kind: kind.as_str().to_string(),
+                tool: None,
+                summary,
+            },
+            at: now,
+            process: run.process,
+            origin: Default::default(),
+            transcript_path: None,
+            agent_turn: None,
+            cut: false,
+            source: crate::db::Source::Host,
         };
         Ok(Some((agent, session, report)))
     }

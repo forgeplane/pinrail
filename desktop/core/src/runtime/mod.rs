@@ -278,6 +278,20 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                         Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),
                     }
                 }
+                Ok(HostEvent::Event { method, params }) if method == "notify" => {
+                    let now = chrono::Utc::now();
+                    match app.runtime().notification(&params, now) {
+                        Ok(Some((agent, session, report))) => {
+                            if let Err(error) =
+                                app.reviews().report(&agent, &session, &report, false, now)
+                            {
+                                eprintln!("pinrail: recording a notification failed: {error:?}");
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => eprintln!("pinrail: reading a notification failed: {error}"),
+                    }
+                }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
                     match app.runtime().exited(&params) {
                         Ok(Some(run)) => {
