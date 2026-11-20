@@ -62,7 +62,7 @@ fn report(args: &HookArgs, input: &[u8], at: &str) -> Option<(&'static str, Stri
     let spec = adapter.spec();
     let mut body = report.to_body();
     body["at"] = json!(at);
-    if let Some(found) = agent_process(adapter) {
+    if let Some(found) = named_process(&input).or_else(|| agent_process(adapter)) {
         body["process"] = json!({"pid": found.pid, "started": found.started});
     }
     // where the session works: the first report creates the session, and a
@@ -74,6 +74,24 @@ fn report(args: &HookArgs, input: &[u8], at: &str) -> Option<(&'static str, Stri
         crate::origin::fill_quietly(&mut body);
     }
     Some((spec.id, report.session, body))
+}
+
+/// The agent's process its hook names, as Pinrail's extension for Pi does
+/// with `pid`, when that process is the one that ran this hook: an input
+/// cannot speak for another process.
+fn named_process(input: &Value) -> Option<process::Process> {
+    let pid = u32::try_from(input.get("pid")?.as_u64()?).ok()?;
+    #[cfg(unix)]
+    {
+        (std::os::unix::process::parent_id() == pid)
+            .then(|| process::process(pid))
+            .flatten()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        None
+    }
 }
 
 /// The agent's own process: from `CLAUDE_PID`, which Claude Code sets for its

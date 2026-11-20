@@ -650,3 +650,83 @@ fn copilot_reports_nothing_for_a_subagent_or_its_own_notices() {
         Some(HookEvent::Working)
     );
 }
+
+const PI_SESSION: &str = "01a1f907-71f2-712b-8625-7fbab4f01dd8";
+
+#[test]
+fn pi_reports_each_event_of_its_session_through_pinrail_s_extension() {
+    let started = parse("pi", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, PI_SESSION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    assert!(started.detail.transcript_path.is_some());
+    // /new starts another session in the same process
+    let new = parse("pi", "session-start", "session-start-new").unwrap();
+    assert_ne!(new.session, PI_SESSION);
+    assert_eq!(
+        new.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    let prompt = parse("pi", "prompt", "prompt").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Say hello in one word.\nThen say bye.")
+    );
+    // a message sent while it works joins the running turn
+    assert_eq!(
+        event("pi", "prompt", "prompt-steer"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(event("pi", "tool", "tool"), Some(HookEvent::Working));
+    // an extension's dialog: a confirmation asks a permission, the others a
+    // question, each with its title
+    let confirm = parse("pi", "waiting", "waiting-confirm").unwrap();
+    assert_eq!(
+        confirm.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Permission
+        }
+    );
+    assert_eq!(confirm.detail.summary.as_deref(), Some("Run rm -rf build?"));
+    assert_eq!(
+        event("pi", "waiting", "waiting-select"),
+        Some(HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        })
+    );
+    assert_eq!(
+        event("pi", "answered", "answered"),
+        Some(HookEvent::Working)
+    );
+
+    let done = parse("pi", "stop", "stop").unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("Hello.\n\nBye."));
+    assert_eq!(
+        event("pi", "stop", "stop-aborted"),
+        Some(HookEvent::TurnEnded {
+            end: TurnEnd::Interrupted
+        })
+    );
+    let failed = parse("pi", "stop", "stop-error").unwrap();
+    assert_eq!(
+        failed.event,
+        HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        }
+    );
+    assert!(failed.detail.error.unwrap().starts_with("401"));
+
+    let ended = parse("pi", "session-end", "session-end").unwrap();
+    assert_eq!(ended.event, HookEvent::Ended);
+    assert_eq!(ended.detail.reason.as_deref(), Some("quit"));
+    // the session /new leaves ends with the move to the next one
+    assert_eq!(event("pi", "session-end", "session-end-new"), None);
+}

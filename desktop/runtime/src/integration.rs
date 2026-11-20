@@ -41,6 +41,14 @@ pub enum Layout {
     /// list their handlers directly, without matcher groups, as Copilot's
     /// and Cursor's do. Pinrail's handlers go beside the person's.
     Flat,
+    /// A file of Pinrail's own written whole, such as Pi's extension:
+    /// `text` is its content, and a file whose first line starts with
+    /// `marker` is Pinrail's, of this version or another. Any other file at
+    /// that path is the person's, and is never written or removed.
+    File {
+        text: &'static str,
+        marker: &'static str,
+    },
 }
 
 /// One hook: the agent's event, its matcher if it takes one, and the
@@ -324,6 +332,9 @@ pub fn install(settings: &mut Value, plan: &HookPlan) {
 /// The state of Pinrail's hooks in the file `plan` names. A file that is
 /// not there holds none.
 pub fn file_state(plan: &HookPlan) -> HookState {
+    if let Layout::File { text, marker } = plan.layout {
+        return own_file_state(&plan.file, text, marker);
+    }
     match read(&plan.file) {
         Ok(settings) => state(Some(&settings), plan),
         Err(_) => HookState::Unreadable,
@@ -336,6 +347,9 @@ pub fn file_state(plan: &HookPlan) -> HookState {
 /// the original beside it as `<file>.pinrail-backup`.
 pub fn apply(plan: &HookPlan, installed: bool) -> Result<HookState, String> {
     let shown = plan.file.display();
+    if let Layout::File { text, marker } = plan.layout {
+        return apply_own_file(&plan.file, text, marker, installed);
+    }
     let mut settings = read(&plan.file)?;
     if state(Some(&settings), plan) == HookState::Unreadable {
         return Err(format!(
@@ -352,6 +366,52 @@ pub fn apply(plan: &HookPlan, installed: bool) -> Result<HookState, String> {
         write(&plan.file, &settings)?;
     }
     Ok(state(Some(&settings), plan))
+}
+
+/// The state of a file Pinrail writes whole.
+fn own_file_state(file: &std::path::Path, text: &str, marker: &str) -> HookState {
+    match std::fs::read_to_string(file) {
+        Ok(found) if found == text => HookState::Current,
+        Ok(found) if found.lines().next().is_some_and(|l| l.starts_with(marker)) => {
+            HookState::Outdated
+        }
+        Ok(_) => HookState::Unreadable,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => HookState::Absent,
+        Err(_) => HookState::Unreadable,
+    }
+}
+
+/// Writes a file Pinrail owns whole, or removes it, unless a file of the
+/// person's is at its path.
+fn apply_own_file(
+    file: &std::path::Path,
+    text: &str,
+    marker: &str,
+    installed: bool,
+) -> Result<HookState, String> {
+    let shown = file.display();
+    if own_file_state(file, text, marker) == HookState::Unreadable {
+        return Err(format!(
+            "{shown} is not a file Pinrail wrote, so it was left as it is"
+        ));
+    }
+    let fail = |e: std::io::Error| format!("writing {shown}: {e}");
+    if installed {
+        if let Some(folder) = file.parent() {
+            std::fs::create_dir_all(folder).map_err(fail)?;
+        }
+        let mut partial = file.as_os_str().to_owned();
+        partial.push(".pinrail-partial");
+        let partial = PathBuf::from(partial);
+        std::fs::write(&partial, text).map_err(fail)?;
+        std::fs::rename(&partial, file).map_err(fail)?;
+    } else {
+        match std::fs::remove_file(file) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(fail(e)),
+            _ => {}
+        }
+    }
+    Ok(own_file_state(file, text, marker))
 }
 
 /// A settings file, parsed; `{}` when it is not there.

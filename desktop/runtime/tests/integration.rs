@@ -396,3 +396,54 @@ fn every_copilot_hook_installed_is_one_pinrail_hook_reads() {
         assert!(known.contains(&hook), "{}", entry.command);
     }
 }
+
+fn pi_plan() -> HookPlan {
+    adapter("pi")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .unwrap()
+}
+
+#[test]
+fn pi_s_hooks_are_an_extension_file_of_pinrail_s_own() {
+    let plan = pi_plan();
+    assert_eq!(
+        plan.file,
+        Path::new("/Users/you/.pi/agent/extensions/pinrail.ts")
+    );
+    let moved = adapter("pi")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|k| {
+            (k == "PI_CODING_AGENT_DIR").then(|| "/work/pi".to_string())
+        })
+        .unwrap();
+    assert_eq!(moved.file, Path::new("/work/pi/extensions/pinrail.ts"));
+}
+
+#[test]
+fn an_extension_file_is_written_whole_and_removed_whole() {
+    let home = tempfile::tempdir().unwrap();
+    let plan = adapter("pi")
+        .unwrap()
+        .hook_plan(home.path(), &|_| None)
+        .unwrap();
+    assert_eq!(file_state(&plan), HookState::Absent);
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    let text = std::fs::read_to_string(&plan.file).unwrap();
+    assert!(text.contains("pinrail hook pi") || text.contains("\"hook\", \"pi\""));
+    // another version of it
+    std::fs::write(&plan.file, "// Pinrail's extension for Pi, an older one\n").unwrap();
+    assert_eq!(file_state(&plan), HookState::Outdated);
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
+    assert!(!plan.file.exists());
+    // a file of the person's at that path is never overwritten or removed
+    std::fs::write(&plan.file, "export default function () {}\n").unwrap();
+    assert_eq!(file_state(&plan), HookState::Unreadable);
+    assert!(apply(&plan, true).is_err());
+    assert!(apply(&plan, false).is_err());
+    assert_eq!(
+        std::fs::read_to_string(&plan.file).unwrap(),
+        "export default function () {}\n"
+    );
+}

@@ -51,3 +51,11 @@ the paths and the session's id rewritten: `session-start`,
 `events.jsonl` has the shape of the transcript Copilot keeps, with made-up
 content; `events-pending.jsonl` ends with a prompt whose reply is not
 written yet.
+
+**Pi 1.5.2, from Pinrail's extension** (`src/agents/pi-extension.ts`), whose
+reports were captured from interactive sessions for `session-start`,
+`session-start-new`, `prompt`, `session-end` and `session-end-new`, with the
+paths rewritten. The others are built from the same fields, for the events
+Pi's extension API documents and the research saw: `prompt-steer`, `tool`,
+`waiting-confirm`, `waiting-select`, `answered`, `stop`, `stop-aborted` and
+`stop-error`.

@@ -5186,3 +5186,35 @@ fn a_grok_hook_reports_its_session_s_prompt() {
         "Run the shell command `ls` and tell me how many files there are."
     );
 }
+
+#[test]
+fn a_hook_takes_the_agent_process_its_input_names_only_from_its_parent() {
+    let posted = Arc::new(Mutex::new(Vec::new()));
+    let kept = posted.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        kept.lock().unwrap().push(body.to_string());
+        (204, String::new())
+    }));
+    let mut input: serde_json::Value = serde_json::from_str(&hook_input("pi", "prompt")).unwrap();
+    // this test runs the hook: it is the hook's parent, as Pi is
+    let me = std::process::id();
+    for (pid, taken) in [(me, true), (1, false)] {
+        input["pid"] = serde_json::json!(pid);
+        let (code, _, _) = hook(
+            &["pi", "prompt"],
+            &input.to_string(),
+            &[("PINRAIL_URL", server.url.as_str())],
+        );
+        assert_eq!(code, 0);
+        let body: serde_json::Value =
+            serde_json::from_str(posted.lock().unwrap().last().unwrap()).unwrap();
+        assert_eq!(
+            body["process"]["pid"] == serde_json::json!(me),
+            taken,
+            "{pid}"
+        );
+        if !taken {
+            assert!(body.get("process").is_none(), "{body}");
+        }
+    }
+}

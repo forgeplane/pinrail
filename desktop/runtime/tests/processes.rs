@@ -55,3 +55,14 @@ fn a_process_s_arguments_are_read_as_it_was_started() {
     let own: Vec<String> = std::env::args().collect();
     assert_eq!(args, own);
 }
+
+#[test]
+fn pi_s_process_is_named_pi_or_runs_pi_under_node() {
+    let pi = adapter("pi").unwrap();
+    assert!(pi.is_own_process(&named("pi")));
+    // a node process whose arguments cannot be read is not Pi's
+    let mut gone = named("node");
+    gone.pid = u32::MAX - 1;
+    assert!(!pi.is_own_process(&gone));
+    assert!(!pi.is_own_process(&named("claude")));
+}
