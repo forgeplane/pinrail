@@ -86,6 +86,33 @@ fn grok_starts_with_the_session_id_pinrail_chose() {
 }
 
 #[test]
+fn copilot_starts_with_the_session_id_pinrail_chose() {
+    let extra = args(&["--model", "gpt-5"]);
+    let plan = adapter("copilot")
+        .unwrap()
+        .start(&request(Some("-fix the login"), &extra))
+        .unwrap();
+    // the task as one argument, never read as a flag
+    assert_eq!(
+        plan.argv,
+        args(&[
+            "copilot",
+            "--session-id",
+            ID,
+            "--model",
+            "gpt-5",
+            "--interactive=-fix the login"
+        ])
+    );
+    assert_eq!(plan.session.as_deref(), Some(ID));
+    let bare = adapter("copilot")
+        .unwrap()
+        .start(&request(None, &[]))
+        .unwrap();
+    assert_eq!(bare.argv, args(&["copilot", "--session-id", ID]));
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -135,6 +162,22 @@ fn flags_that_turn_permission_checks_off_are_refused() {
             &["--always-approve"],
             "--always-approve",
         ),
+        (
+            adapter("copilot").unwrap(),
+            &["--allow-all-tools"],
+            "--allow-all-tools",
+        ),
+        (adapter("copilot").unwrap(), &["--allow-all"], "--allow-all"),
+        (
+            adapter("copilot").unwrap(),
+            &["--allow-all-paths"],
+            "--allow-all-paths",
+        ),
+        (
+            adapter("copilot").unwrap(),
+            &["--allow-all-urls"],
+            "--allow-all-urls",
+        ),
     ] {
         assert_eq!(denied_arg(agent, &args(given)), Some(refused), "{given:?}");
     }
@@ -177,6 +220,10 @@ fn each_agent_resumes_a_session_by_its_id() {
         adapter("grok").unwrap().resume(ID),
         Some(args(&["grok", "-r", ID]))
     );
+    assert_eq!(
+        adapter("copilot").unwrap().resume(ID),
+        Some(args(&["copilot", &format!("--resume={ID}")]))
+    );
 }
 
 #[test]
@@ -192,6 +239,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("codex").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("antigravity").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("grok").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("copilot").unwrap().resume(id), None, "{id:?}");
     }
 }
 
@@ -202,8 +250,8 @@ fn only_claude_code_resumes_a_session_still_running_elsewhere() {
 }
 
 #[test]
-fn claude_code_codex_and_grok_take_a_message_as_a_bracketed_paste_and_enter() {
-    for id in ["claude-code", "codex", "grok"] {
+fn claude_code_codex_grok_and_copilot_take_a_message_as_a_bracketed_paste_and_enter() {
+    for id in ["claude-code", "codex", "grok", "copilot"] {
         let plan = adapter(id).unwrap().submit().unwrap();
         assert!(plan.bracketed, "{id}");
         assert_eq!((plan.settle_ms, plan.max_ms), (150, 1_000), "{id}");

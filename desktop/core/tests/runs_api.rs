@@ -498,11 +498,12 @@ async fn a_session_whose_agent_never_gave_its_id_is_not_resumed() {
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    // Claude Code, agy and Grok are installed, and Codex is not
+    // Claude Code, agy, Grok and Copilot are installed, and Codex is not
     let bin = hosts.path().join("versions");
     common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
     common::program(&bin, "agy", "echo '1.5.12'");
     common::program(&bin, "grok", "echo 'grok 1.0.89 (28be5bb1bf65) [stable]'");
+    common::program(&bin, "copilot", "echo 'GitHub Copilot CLI 1.0.114.'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -533,6 +534,9 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("antigravity")["name"], "Antigravity CLI");
     assert_eq!(agent("grok")["version"], "1.0.89");
     assert_eq!(agent("grok")["name"], "Grok CLI");
+    assert_eq!(agent("copilot")["version"], "1.0.114");
+    assert_eq!(agent("copilot")["name"], "Copilot CLI");
+    assert_eq!(agent("copilot")["names_session"], true);
     // Pinrail chooses Claude Code's session id; agy tells it with a hook
     assert_eq!(agent("claude-code")["names_session"], true);
     assert_eq!(agent("antigravity")["names_session"], false);
@@ -540,7 +544,10 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     // only agents Pinrail starts are listed
     let mut ids: Vec<_> = agents.iter().map(|a| a["id"].as_str().unwrap()).collect();
     ids.sort();
-    assert_eq!(ids, ["antigravity", "claude-code", "codex", "grok"]);
+    assert_eq!(
+        ids,
+        ["antigravity", "claude-code", "codex", "copilot", "grok"]
+    );
     assert!(agents.iter().all(|a| a["last_used"] == false));
 
     // the agent started last is marked

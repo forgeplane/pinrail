@@ -10,7 +10,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{HookEntry, HookPlan, Layout};
 use crate::registry::AgentSpec;
@@ -135,6 +137,47 @@ impl Agent for Copilot {
                 entry("sessionEnd", "session-end"),
             ],
         })
+    }
+
+    /// `copilot --session-id <uuid> [extra args] [--interactive=<task>]`:
+    /// Pinrail chooses the id, so the session exists from the start. The
+    /// task as one `=` argument is never read as a flag.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec![
+            "copilot".to_string(),
+            "--session-id".to_string(),
+            request.session_id.to_string(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        if let Some(task) = request.task.filter(|t| !t.trim().is_empty()) {
+            argv.push(format!("--interactive={task}"));
+        }
+        Some(StartPlan {
+            argv,
+            session: Some(request.session_id.to_string()),
+        })
+    }
+
+    /// `copilot --resume=<id>`. An id Copilot does not know exits at once.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| vec!["copilot".to_string(), format!("--resume={session}")])
+    }
+
+    /// A bracketed paste and Enter, which Copilot takes as one prompt with
+    /// its line breaks, confirmed by `userPromptSubmitted`. Pinrail types a
+    /// message once the agent is idle; Enter while it works would join the
+    /// running turn instead.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &[
+            "--allow-all",
+            "--allow-all-tools",
+            "--allow-all-paths",
+            "--allow-all-urls",
+        ]
     }
 }
 

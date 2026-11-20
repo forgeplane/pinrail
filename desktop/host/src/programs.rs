@@ -69,7 +69,7 @@ fn version_in(text: &str) -> Option<String> {
     text.lines().next()?.split_whitespace().find_map(|word| {
         let word = word.trim_start_matches('v');
         word.starts_with(|c: char| c.is_ascii_digit())
-            .then(|| word.trim_end_matches([',', ')']).to_string())
+            .then(|| word.trim_end_matches([',', ')', '.']).to_string())
     })
 }
 
@@ -178,6 +178,11 @@ mod tests {
             Some("0.98.0")
         );
         assert_eq!(version_in("gemini v0.12.1").as_deref(), Some("0.12.1"));
+        // the end of a sentence is not part of it
+        assert_eq!(
+            version_in("GitHub Copilot CLI 1.0.114.").as_deref(),
+            Some("1.0.114")
+        );
         assert_eq!(version_in("no version here"), None);
     }
 }
