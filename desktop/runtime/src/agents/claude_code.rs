@@ -9,7 +9,7 @@ use crate::agent::{
     resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
-use crate::integration::{HookEntry, HookPlan, Layout};
+use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::registry::AgentSpec;
 
 pub struct ClaudeCode;
@@ -98,9 +98,10 @@ impl Agent for ClaudeCode {
     /// says what the session does: its start, each prompt, a permission it
     /// asks or that is refused, a notification that it waits on the person,
     /// each tool call that ends, and the end of each turn and of the session.
-    fn hook_plan(&self, home: &Path, env: Env) -> Option<HookPlan> {
+    fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
         let entry = |event, matcher, hook| HookEntry::new("claude-code", event, matcher, hook);
-        Some(HookPlan {
+        Some(Integration {
+            kind: Kind::Hooks,
             file: config_folder(home, env).join("settings.json"),
             layout: Layout::Settings,
             entries: vec![

@@ -21,9 +21,13 @@ export type AgentStatus = {
   state: "absent" | "connected" | "outdated" | "theirs";
   /** the other agents whose skill folders this one also reads */
   also_reads?: string[];
-  /** Pinrail's status hooks, for an agent whose hooks Pinrail installs */
-  hooks?: { file: string; state: HookState } | null;
+  /** What Report status installs, for an agent Pinrail can report the status of */
+  integration?: Integration | null;
 };
+
+/** What Report status installs for an agent: hooks or an extension, the
+ *  file it goes in, and what the file holds of it. */
+export type Integration = { kind: "hooks" | "extension"; file: string; state: HookState };
 
 export type HookState = "absent" | "current" | "outdated" | "modified" | "unreadable";
 
@@ -93,7 +97,39 @@ export function useAgents(open: boolean) {
   return { agents, busy, error, act, setHooks };
 }
 
-/** The Report status switch of an agent, and what its settings file holds. */
+/** What the Report status switch says for an agent's integration: what it
+ *  installs and where, or what is wrong with the file. */
+export function integrationNote(integration: Integration, agent: string): { note: string; update: boolean } {
+  const file = where(integration.file);
+  const extension = integration.kind === "extension";
+  switch (integration.state) {
+    case "outdated":
+      return {
+        note: extension
+          ? "Pinrail's extension was installed by another version of Pinrail."
+          : "The hooks were installed by another version of Pinrail.",
+        update: true,
+      };
+    case "modified":
+      return { note: `One of Pinrail's hooks in ${file} was changed by hand.`, update: true };
+    case "unreadable":
+      return {
+        note: extension
+          ? `${file} is not Pinrail's extension, so Pinrail leaves it as it is. Move it to turn this on.`
+          : `Pinrail cannot read ${file}, so it leaves the file as it is. Fix the file to turn this on.`,
+        update: false,
+      };
+    default:
+      return {
+        note: extension
+          ? `Installs Pinrail's extension in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`
+          : `Installs Pinrail's hooks in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`,
+        update: false,
+      };
+  }
+}
+
+/** The Report status switch of an agent, and what its file holds. */
 function ReportStatus({
   agent,
   busy,
@@ -103,38 +139,35 @@ function ReportStatus({
   busy: boolean;
   setHooks: (id: string, on: boolean) => void;
 }) {
-  const hooks = agent.hooks;
-  if (!hooks) return null;
-  const file = where(hooks.file);
-  const on = hooks.state !== "absent" && hooks.state !== "unreadable";
-  let note: ReactNode = null;
-  if (hooks.state === "outdated" || hooks.state === "modified")
-    note = (
-      <>
-        {hooks.state === "outdated"
-          ? "The hooks were installed by another version of Pinrail."
-          : `One of Pinrail's hooks in ${file} was changed by hand.`}{" "}
-        <button type="button" className="agent-inline-action" onClick={() => setHooks(agent.id, true)} disabled={busy}>
-          Update
-        </button>
-      </>
-    );
-  else if (hooks.state === "unreadable")
-    note = <>Pinrail cannot read {file}, so it leaves the file as it is. Fix the file to turn this on.</>;
+  const integration = agent.integration;
+  if (!integration) return null;
+  const on = integration.state !== "absent" && integration.state !== "unreadable";
+  const { note, update } = integrationNote(integration, agent.name);
   return (
     <div className="agent-status" data-testid={`agent-status-${agent.id}`}>
       <Toggle
         label={`Report ${agent.name}'s status`}
         checked={on}
         onChange={(value) => setHooks(agent.id, value)}
-        disabled={busy || hooks.state === "unreadable"}
+        disabled={busy || integration.state === "unreadable"}
       />
       <div className="agent-status-text">
         <div className="agent-status-label">Report status</div>
         <div className="agent-note">
-          {note ?? (
-            <>Installs hooks in {agent.name}'s settings so Pinrail can show when it works, waits for you or finishes.</>
-          )}
+          {note}
+          {update ? (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="agent-inline-action"
+                onClick={() => setHooks(agent.id, true)}
+                disabled={busy}
+              >
+                Update
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

@@ -12,7 +12,7 @@ use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
 };
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
-use crate::integration::{HookPlan, Layout};
+use crate::integration::{Integration, Kind, Layout};
 use crate::process::Process;
 use crate::registry::AgentSpec;
 
@@ -94,12 +94,13 @@ impl Agent for Pi {
     /// Pinrail's extension, `pinrail.ts` in Pi's extensions folder,
     /// `~/.pi/agent/extensions/` (or `$PI_CODING_AGENT_DIR/extensions/`),
     /// which Pi loads at start beside the person's extensions.
-    fn hook_plan(&self, home: &Path, env: Env) -> Option<HookPlan> {
+    fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
         let folder = env("PI_CODING_AGENT_DIR")
             .filter(|h| !h.trim().is_empty())
             .map(Into::into)
             .unwrap_or_else(|| home.join(".pi").join("agent"));
-        Some(HookPlan {
+        Some(Integration {
+            kind: Kind::Extension,
             file: folder.join("extensions").join("pinrail.ts"),
             layout: Layout::File {
                 text: EXTENSION,

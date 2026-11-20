@@ -163,15 +163,16 @@ pub struct AgentStatus {
     pub state: State,
     /// the other agents whose skill folders this one also reads
     pub also_reads: Vec<&'static str>,
-    /// Pinrail's status hooks in the agent's settings, for an agent whose
-    /// hooks Pinrail installs
-    pub hooks: Option<Hooks>,
+    /// What Report status installs, for an agent Pinrail can report the
+    /// status of
+    pub integration: Option<Integration>,
 }
 
-/// Pinrail's status hooks for one agent: the file they go in, and what it
-/// holds of them.
+/// What Report status installs for one agent: hooks or an extension, the
+/// file it goes in, and what the file holds of it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Hooks {
+pub struct Integration {
+    pub kind: &'static str,
     pub file: String,
     pub state: &'static str,
 }
@@ -280,7 +281,8 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
                 .filter_map(|id| pinrail_runtime::find(id))
                 .map(|a| a.label)
                 .collect(),
-            hooks: hook_plan(home, agent.id).map(|plan| Hooks {
+            integration: integration(home, agent.id).map(|plan| Integration {
+                kind: plan.kind.as_str(),
                 file: plan.file.display().to_string(),
                 state: pinrail_runtime::integration::file_state(&plan).as_str(),
             }),
@@ -290,15 +292,15 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
 
 /// Where an agent keeps its hooks and the hooks Pinrail installs there, as
 /// this computer's environment places them.
-fn hook_plan(home: &Path, id: &str) -> Option<pinrail_runtime::integration::HookPlan> {
-    pinrail_runtime::adapter(id)?.hook_plan(home, &|key| std::env::var(key).ok())
+fn integration(home: &Path, id: &str) -> Option<pinrail_runtime::integration::Integration> {
+    pinrail_runtime::adapter(id)?.integration(home, &|key| std::env::var(key).ok())
 }
 
 /// Installs Pinrail's status hooks in an installed agent's settings, or
 /// removes them. Only Pinrail's entries change.
 pub fn set_hooks(home: &Path, id: &str, on: bool) -> Result<(), String> {
     let (agent, folders) = find(id)?;
-    let plan = hook_plan(home, id)
+    let plan = integration(home, id)
         .ok_or_else(|| format!("Pinrail cannot report the status of {} yet", agent.label))?;
     if on && !home.join(folders.config).is_dir() {
         return Err(format!(

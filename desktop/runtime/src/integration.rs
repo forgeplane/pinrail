@@ -1,8 +1,8 @@
-//! Pinrail's hooks in an agent's own settings: what to add so that each
-//! hook runs `pinrail hook`, how to take them out again, and whether the
-//! file holds them as this version would write them. Everything else in the
-//! file is left as it is. These are edits of the parsed file; reading and
-//! writing it is the caller's.
+//! What Report status installs for an agent so that its events run
+//! `pinrail hook`: hooks in its settings or a hooks file, or an extension
+//! file of Pinrail's own. How to add it, how to take it out again, and
+//! whether the file holds it as this version would write it. Everything
+//! else in a file is left as it is.
 
 use std::path::PathBuf;
 
@@ -16,13 +16,32 @@ pub const COMMAND_PREFIX: &str = "\"${PINRAIL_CLI:-pinrail}\" hook";
 /// one.
 pub const TIMEOUT_SECONDS: u64 = 2;
 
-/// Where an agent keeps its hooks, how the file lays them out, and the
-/// entries Pinrail adds there.
+/// What Report status installs for an agent: its kind, the file it goes
+/// in, how the file lays it out, and the hooks Pinrail adds there.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HookPlan {
+pub struct Integration {
+    pub kind: Kind,
     pub file: PathBuf,
     pub layout: Layout,
     pub entries: Vec<HookEntry>,
+}
+
+/// What Report status installs, as the person reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// Hooks in the agent's settings or hooks file.
+    Hooks,
+    /// An extension file the agent loads, such as Pi's.
+    Extension,
+}
+
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Kind::Hooks => "hooks",
+            Kind::Extension => "extension",
+        }
+    }
 }
 
 /// How a file holds its hooks.
@@ -147,7 +166,7 @@ fn installed(settings: &Value) -> Vec<(String, Option<String>, Value)> {
 }
 
 /// The named hook Pinrail writes for `plan`.
-fn named_hook(plan: &HookPlan) -> Value {
+fn named_hook(plan: &Integration) -> Value {
     let mut events = Map::new();
     for entry in &plan.entries {
         let item = match entry.matcher {
@@ -165,7 +184,7 @@ fn named_hook(plan: &HookPlan) -> Value {
 }
 
 /// The state of the named hook `name` in `file` against `plan`.
-fn named_state(file: &Value, name: &str, plan: &HookPlan) -> HookState {
+fn named_state(file: &Value, name: &str, plan: &Integration) -> HookState {
     let Some(hooks) = file.as_object() else {
         return HookState::Unreadable;
     };
@@ -201,7 +220,7 @@ fn named_state(file: &Value, name: &str, plan: &HookPlan) -> HookState {
 
 /// The state of Pinrail's hooks in `settings` (a file's parsed contents, or
 /// `None` when the file does not parse) against `plan`.
-pub fn state(settings: Option<&Value>, plan: &HookPlan) -> HookState {
+pub fn state(settings: Option<&Value>, plan: &Integration) -> HookState {
     let Some(settings) = settings else {
         return HookState::Unreadable;
     };
@@ -254,7 +273,7 @@ pub fn state(settings: Option<&Value>, plan: &HookPlan) -> HookState {
 
 /// `settings` without Pinrail's hooks: groups and events left empty go,
 /// and every other entry stays as it was.
-pub fn remove(settings: &mut Value, plan: &HookPlan) {
+pub fn remove(settings: &mut Value, plan: &Integration) {
     if let Layout::Named(name) = plan.layout {
         settings.as_object_mut().map(|s| s.remove(name));
         return;
@@ -286,7 +305,7 @@ pub fn remove(settings: &mut Value, plan: &HookPlan) {
 /// `settings` with Pinrail's hooks as `plan` lists them, in place of any it
 /// held before. Each goes in a group of its own, so the person's groups are
 /// never changed.
-pub fn install(settings: &mut Value, plan: &HookPlan) {
+pub fn install(settings: &mut Value, plan: &Integration) {
     remove(settings, plan);
     if !settings.is_object() {
         *settings = Value::Object(Map::new());
@@ -331,7 +350,7 @@ pub fn install(settings: &mut Value, plan: &HookPlan) {
 
 /// The state of Pinrail's hooks in the file `plan` names. A file that is
 /// not there holds none.
-pub fn file_state(plan: &HookPlan) -> HookState {
+pub fn file_state(plan: &Integration) -> HookState {
     if let Layout::File { text, marker } = plan.layout {
         return own_file_state(&plan.file, text, marker);
     }
@@ -345,7 +364,7 @@ pub fn file_state(plan: &HookPlan) -> HookState {
 /// returns the state the file is left in. A file Pinrail cannot edit
 /// safely is left alone. The first time Pinrail changes a file, it keeps
 /// the original beside it as `<file>.pinrail-backup`.
-pub fn apply(plan: &HookPlan, installed: bool) -> Result<HookState, String> {
+pub fn apply(plan: &Integration, installed: bool) -> Result<HookState, String> {
     let shown = plan.file.display();
     if let Layout::File { text, marker } = plan.layout {
         return apply_own_file(&plan.file, text, marker, installed);

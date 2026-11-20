@@ -12,7 +12,7 @@ use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
 };
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, text};
-use crate::integration::{HookEntry, HookPlan, Layout};
+use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::registry::AgentSpec;
 
 pub struct Antigravity;
@@ -90,9 +90,10 @@ impl Agent for Antigravity {
     /// start of a conversation, each model call, each tool call that ends,
     /// and the end of each turn. agy has no hook for a permission or a
     /// question: its terminal's OSC 7501 records say when it waits.
-    fn hook_plan(&self, home: &Path, _env: Env) -> Option<HookPlan> {
+    fn integration(&self, home: &Path, _env: Env) -> Option<Integration> {
         let entry = |event, matcher, hook| HookEntry::new("antigravity", event, matcher, hook);
-        Some(HookPlan {
+        Some(Integration {
+            kind: Kind::Hooks,
             file: home.join(".gemini").join("config").join("hooks.json"),
             layout: Layout::Named("pinrail"),
             entries: vec![

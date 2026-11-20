@@ -5,14 +5,14 @@ use std::path::Path;
 
 use pinrail_runtime::adapter;
 use pinrail_runtime::integration::{
-    HookPlan, HookState, apply, file_state, install, remove, state,
+    HookState, Integration, apply, file_state, install, remove, state,
 };
 use serde_json::{Value, json};
 
-fn plan() -> HookPlan {
+fn plan() -> Integration {
     adapter("claude-code")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .integration(Path::new("/Users/you"), &|_| None)
         .unwrap()
 }
 
@@ -30,7 +30,7 @@ fn claude_code_s_hooks_go_in_its_settings_file() {
     assert_eq!(plan.file, Path::new("/Users/you/.claude/settings.json"));
     let moved = adapter("claude-code")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|k| {
+        .integration(Path::new("/Users/you"), &|k| {
             (k == "CLAUDE_CONFIG_DIR").then(|| "/work/claude".to_string())
         })
         .unwrap();
@@ -81,7 +81,7 @@ fn an_empty_file_gets_one_hook_for_each_event_and_loses_them_again() {
 fn hooks_from_another_version_or_edited_by_hand_are_told_apart() {
     let plan = plan();
     let mut older = json!({});
-    let fewer = HookPlan {
+    let fewer = Integration {
         entries: plan.entries[..3].to_vec(),
         ..plan.clone()
     };
@@ -136,7 +136,7 @@ fn installing_writes_the_file_in_its_own_order_and_keeps_a_backup_once() {
     let file = dir.path().join("settings.json");
     let original = "{\n  \"permissions\": {},\n  \"model\": \"opus\"\n}\n";
     std::fs::write(&file, original).unwrap();
-    let plan = HookPlan {
+    let plan = Integration {
         file: file.clone(),
         ..plan()
     };
@@ -162,7 +162,7 @@ fn a_file_that_does_not_parse_is_never_written() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("settings.json");
     std::fs::write(&file, "{ \"model\": \"opus\", }").unwrap();
-    let plan = HookPlan {
+    let plan = Integration {
         file: file.clone(),
         ..plan()
     };
@@ -178,7 +178,7 @@ fn a_file_that_does_not_parse_is_never_written() {
 #[test]
 fn a_missing_file_is_created_with_the_hooks() {
     let dir = tempfile::tempdir().unwrap();
-    let plan = HookPlan {
+    let plan = Integration {
         file: dir.path().join("claude").join("settings.json"),
         ..plan()
     };
@@ -187,10 +187,10 @@ fn a_missing_file_is_created_with_the_hooks() {
     assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
 }
 
-fn agy_plan() -> HookPlan {
+fn agy_plan() -> Integration {
     adapter("antigravity")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .integration(Path::new("/Users/you"), &|_| None)
         .unwrap()
 }
 
@@ -238,7 +238,7 @@ fn antigravity_s_hooks_go_in_its_global_hooks_file_as_a_named_hook() {
 fn antigravity_s_hooks_from_another_version_or_edited_by_hand_are_told_apart() {
     let plan = agy_plan();
     let mut older = json!({});
-    let fewer = HookPlan {
+    let fewer = Integration {
         entries: plan.entries[..2].to_vec(),
         ..plan.clone()
     };
@@ -269,10 +269,10 @@ fn every_antigravity_hook_installed_is_one_pinrail_hook_reads() {
     }
 }
 
-fn grok_plan() -> HookPlan {
+fn grok_plan() -> Integration {
     adapter("grok")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .integration(Path::new("/Users/you"), &|_| None)
         .unwrap()
 }
 
@@ -282,7 +282,7 @@ fn grok_s_hooks_go_in_a_file_of_pinrail_s_own_in_its_hooks_folder() {
     assert_eq!(plan.file, Path::new("/Users/you/.grok/hooks/pinrail.json"));
     let moved = adapter("grok")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|k| {
+        .integration(Path::new("/Users/you"), &|k| {
             (k == "GROK_HOME").then(|| "/work/grok".to_string())
         })
         .unwrap();
@@ -319,10 +319,10 @@ fn every_grok_hook_installed_is_one_pinrail_hook_reads() {
     }
 }
 
-fn copilot_plan() -> HookPlan {
+fn copilot_plan() -> Integration {
     adapter("copilot")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .integration(Path::new("/Users/you"), &|_| None)
         .unwrap()
 }
 
@@ -335,7 +335,7 @@ fn copilot_s_hooks_go_in_a_file_of_pinrail_s_own_listed_by_event() {
     );
     let moved = adapter("copilot")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|k| {
+        .integration(Path::new("/Users/you"), &|k| {
             (k == "COPILOT_HOME").then(|| "/work/copilot".to_string())
         })
         .unwrap();
@@ -397,10 +397,10 @@ fn every_copilot_hook_installed_is_one_pinrail_hook_reads() {
     }
 }
 
-fn pi_plan() -> HookPlan {
+fn pi_plan() -> Integration {
     adapter("pi")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .integration(Path::new("/Users/you"), &|_| None)
         .unwrap()
 }
 
@@ -413,7 +413,7 @@ fn pi_s_hooks_are_an_extension_file_of_pinrail_s_own() {
     );
     let moved = adapter("pi")
         .unwrap()
-        .hook_plan(Path::new("/Users/you"), &|k| {
+        .integration(Path::new("/Users/you"), &|k| {
             (k == "PI_CODING_AGENT_DIR").then(|| "/work/pi".to_string())
         })
         .unwrap();
@@ -425,7 +425,7 @@ fn an_extension_file_is_written_whole_and_removed_whole() {
     let home = tempfile::tempdir().unwrap();
     let plan = adapter("pi")
         .unwrap()
-        .hook_plan(home.path(), &|_| None)
+        .integration(home.path(), &|_| None)
         .unwrap();
     assert_eq!(file_state(&plan), HookState::Absent);
     assert_eq!(apply(&plan, true).unwrap(), HookState::Current);

@@ -34,7 +34,7 @@ pub trait Agent: Send + Sync {
     /// its configuration), and the hooks Pinrail installs there so that it
     /// can show the agent's status; `None` for an agent whose hooks Pinrail
     /// does not install.
-    fn hook_plan(&self, _home: &Path, _env: Env) -> Option<crate::integration::HookPlan> {
+    fn integration(&self, _home: &Path, _env: Env) -> Option<crate::integration::Integration> {
         None
     }
 

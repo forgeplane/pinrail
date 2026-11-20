@@ -14,7 +14,7 @@ use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
 };
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
-use crate::integration::{HookEntry, HookPlan, Layout};
+use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::registry::AgentSpec;
 
 pub struct Copilot;
@@ -117,13 +117,14 @@ impl Agent for Copilot {
     /// each tool call, a notification that it waits on the person, the end
     /// of each turn, an error, and the end of the session. Copilot's own
     /// event names: its tool events do not fire under Claude Code's.
-    fn hook_plan(&self, home: &Path, env: Env) -> Option<HookPlan> {
+    fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
         let entry = |event, hook| HookEntry::new("copilot", event, None, hook);
         let folder = env("COPILOT_HOME")
             .filter(|h| !h.trim().is_empty())
             .map(Into::into)
             .unwrap_or_else(|| home.join(".copilot"));
-        Some(HookPlan {
+        Some(Integration {
+            kind: Kind::Hooks,
             file: folder.join("hooks").join("pinrail.json"),
             layout: Layout::Flat,
             entries: vec![

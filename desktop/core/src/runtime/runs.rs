@@ -1058,7 +1058,7 @@ fn startable_agents() -> Vec<StartableAgent> {
 /// whose hooks Pinrail does not install, or with no home folder.
 fn reports(home: Option<&std::path::Path>, id: &str) -> Option<bool> {
     use pinrail_runtime::integration::{HookState, file_state};
-    let plan = pinrail_runtime::adapter(id)?.hook_plan(home?, &|key| std::env::var(key).ok())?;
+    let plan = pinrail_runtime::adapter(id)?.integration(home?, &|key| std::env::var(key).ok())?;
     Some(matches!(
         file_state(&plan),
         HookState::Current | HookState::Outdated | HookState::Modified

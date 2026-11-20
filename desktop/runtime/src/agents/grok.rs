@@ -11,7 +11,7 @@ use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task, resumable_id, spec,
 };
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
-use crate::integration::{HookEntry, HookPlan, Layout};
+use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::process::Process;
 use crate::registry::AgentSpec;
 
@@ -117,13 +117,14 @@ impl Agent for Grok {
     /// notification that it waits on the person, a refused permission, and
     /// the end of each turn and of the session. Grok runs no hook in a
     /// folder the person has not trusted.
-    fn hook_plan(&self, home: &Path, env: Env) -> Option<HookPlan> {
+    fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
         let entry = |event, hook| HookEntry::new("grok", event, None, hook);
         let folder = env("GROK_HOME")
             .filter(|h| !h.trim().is_empty())
             .map(Into::into)
             .unwrap_or_else(|| home.join(".grok"));
-        Some(HookPlan {
+        Some(Integration {
+            kind: Kind::Hooks,
             file: folder.join("hooks").join("pinrail.json"),
             layout: Layout::Settings,
             entries: vec![
