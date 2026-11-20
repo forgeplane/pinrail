@@ -4,6 +4,14 @@ The package's version is the SDK's, and its major is the protocol's:
 `1.x` speaks protocol 1, served by the app at `/sdk/v1`. A breaking
 change to the protocol is a new major and a new path.
 
+## [Unreleased]
+
+### Fixed
+
+- A host no longer sends `init` again, read-only, to a view whose decision
+  is on its way when the review's status changes. The view is told
+  `submitted`, or the violations and then `init` if the hand-over fails.
+
 ## [1.5.1]
 
 ### Changed

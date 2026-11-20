@@ -117,9 +117,10 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   const collected = await answer(page, frame, handover, { ok: true });
   expect(conformance.collectProblems(collected)).toEqual([]);
   // the view that handed the review over is told submitted, and not init
-  // again, before the app returns to the inbox
+  // again, before the app returns to the inbox; what the view logged
+  // arrives on its own, after the app's page has moved
   await expect(page).toHaveURL(/#\/$/);
-  expect(told.find((m) => m.type === "submitted")?.decision?.data).toEqual({ ok: true });
+  await expect.poll(() => told.find((m) => m.type === "submitted")?.decision?.data).toEqual({ ok: true });
   expect(told.filter((m) => m.type === "init")).toEqual([]);
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("decided");

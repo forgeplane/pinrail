@@ -319,6 +319,31 @@ test("a review that becomes read-only from elsewhere is sent init again, but not
   assert.equal(decided.posted.filter((p) => p.msg.type === "init").length, 1);
 });
 
+test("a review that becomes read-only while its view hands it over is sent init again only if the hand-over fails", async () => {
+  /** A host whose hand-over answers when the test says, after the review became read-only. */
+  const handingOver = async (result) => {
+    let answer;
+    const it = host({ options: { handOver: () => new Promise((resolve) => (answer = resolve)) } });
+    it.from({ type: "ready" });
+    it.from({ type: "submit", req: it.ask(), data: 1 });
+    await tick();
+    it.state.readonly = true;
+    it.h.changed();
+    answer(result);
+    await tick();
+    return it;
+  };
+
+  // the decision's event came before the answer to it: the view is told submitted, and nothing else
+  const decided = await handingOver({ ok: true, decision: { data: 1 } });
+  assert.deepEqual(decided.types().slice(-2), ["collect", "submitted"]);
+
+  // the review ended elsewhere, and the hand-over was refused
+  const withdrawn = await handingOver({ ok: false, violations: [{ path: "", message: "the review is withdrawn" }] });
+  assert.deepEqual(withdrawn.types().slice(-3), ["violations", "appearance", "init"]);
+  assert.equal(withdrawn.last("init").readonly, true);
+});
+
 test("a file the review lists is fetched and transferred; any other is refused", async () => {
   const listed = { name: "note.txt", size: 5, media_type: "text/plain", sha256: "x" };
   const asked = [];

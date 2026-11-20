@@ -114,6 +114,9 @@ export function createHost(options) {
   // moment finds it
   let handingOver = false;
   let handedOver = false;
+  // the review became read-only while the view's decision was on its way:
+  // the hand-over's outcome says what the view is told
+  let endedMeanwhile = false;
   let wasReadonly = readonly();
   // the latest search of the find bar: only its answers count
   let finding = 0;
@@ -314,13 +317,16 @@ export function createHost(options) {
     } finally {
       handingOver = false;
     }
-    if (!result) return;
-    if (result.ok) {
+    const ended = endedMeanwhile;
+    endedMeanwhile = false;
+    if (result && result.ok) {
       handedOver = true;
       send({ type: "submitted", decision: viewDecision(result.decision) });
-    } else {
-      send({ type: "violations", errors: result.violations || [] });
+      return;
     }
+    if (result) send({ type: "violations", errors: result.violations || [] });
+    // the review ended elsewhere, not with this decision
+    if (ended && readonly()) init();
   }
 
   /* A change to the plugin's own settings, by request number: the answer
@@ -444,7 +450,10 @@ export function createHost(options) {
         close();
         endDictation();
       }
-      if (now && !wasReadonly && !handedOver) init();
+      // a decision on its way may be what ended the review: the event of
+      // a decision can come before the answer to it
+      if (now && !wasReadonly && handingOver) endedMeanwhile = true;
+      else if (now && !wasReadonly && !handedOver) init();
       wasReadonly = now;
     },
     /** The frame finished loading a page: the first is the view's own. */

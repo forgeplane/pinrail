@@ -222,6 +222,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The search fields of the inbox and of the Sessions, Work items and
   Projects pages keep text entered while the page updates. The text was
   sometimes dropped.
+- A plugin view that hands over a decision is told only that it was
+  submitted. It was sometimes sent the review again as read-only first.
 
 ## [0.6.0]
 
