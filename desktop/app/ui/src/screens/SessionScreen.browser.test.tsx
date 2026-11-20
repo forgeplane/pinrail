@@ -118,3 +118,35 @@ test("the page follows the session's run to the new session it goes on in, witho
   await expect.element(heading).toHaveTextContent("Fix the logout");
   expect(page.getByTestId("thread").element()).toBe(before);
 });
+
+test("a name given while the thread loads again stays when that load answers without it", async () => {
+  await open("/sessions/claude-code/ses_01ABC");
+  const heading = page.getByTestId("thread").getByRole("heading", { level: 1 });
+  await expect.element(heading).toHaveTextContent("Fix the login");
+  // the loads the page makes as it opens are over
+  const opened = core.calls("session").length;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(core.calls("session").length).toBe(opened);
+
+  // the thread loads again, and the core reads the session before the rename
+  let answer!: (thread: unknown) => void;
+  core.answer("session", () => new Promise((resolve) => (answer = resolve)));
+  const about = { agent: "claude-code", id: "ses_01ABC" };
+  core.notice({ event_id: 8, kind: "session_seen", review_id: null, review: null, session: about } as never);
+  await expect.poll(() => core.calls("session").length).toBe(opened + 1);
+
+  core.notice({
+    event_id: 9,
+    kind: "session_renamed",
+    review_id: null,
+    review: null,
+    session: { ...about, name: "Deploy work" },
+  } as never);
+  await expect.element(heading).toHaveTextContent("Deploy work");
+
+  // the load's answer arrives after the notice, on a later stage and unnamed
+  const unnamed = session({ id: "ses_01ABC", agent_session: "3f2a9c1e-5b7d", title: "Fix the logout" });
+  answer({ session: unnamed, items: [], statuses: [], messages: [] });
+  await expect.element(page.getByTestId("thread").getByTitle("Fix the logout")).toBeInTheDocument();
+  await expect.element(heading).toHaveTextContent("Deploy work");
+});

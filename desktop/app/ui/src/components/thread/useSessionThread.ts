@@ -127,8 +127,15 @@ export function useSessionThread(
   }, []);
 
   // one load at a time: notices that come while one runs are answered by
-  // one more load after it, however many they are
-  const loading = useRef<{ key: string; running: boolean; again: boolean } | null>(null);
+  // one more load after it, however many they are. A name the session was
+  // given while a load runs is `renamed`: the core may have read the
+  // session before the rename, so the load's answer takes that name
+  const loading = useRef<{
+    key: string;
+    running: boolean;
+    again: boolean;
+    renamed?: { name: string | null };
+  } | null>(null);
   const load = useCallback(async (): Promise<void> => {
     const key = named ? `${named.agent}/${named.id}` : (focus?.id ?? "");
     const current = loading.current;
@@ -136,7 +143,7 @@ export function useSessionThread(
       current.again = true;
       return;
     }
-    const mine = { key, running: true, again: false };
+    const mine: NonNullable<typeof loading.current> = { key, running: true, again: false };
     loading.current = mine;
     try {
       if (named) {
@@ -144,8 +151,9 @@ export function useSessionThread(
         // the thread was closed, or shows another session, meanwhile, as
         // when an old address took Pinrail's id for the session
         if (!open.current || shownKey.current !== `${named.agent}/${named.id}`) return;
-        setSession(thread.session);
-        onSession?.(thread.session);
+        const loaded = mine.renamed ? { ...thread.session, name: mine.renamed.name } : thread.session;
+        setSession(loaded);
+        onSession?.(loaded);
         // what did not change stays the same objects, which the thread's
         // entries do not draw again
         setItems((prev) => reuse(prev, thread.items, (r) => r.id));
@@ -189,10 +197,15 @@ export function useSessionThread(
     ]),
   );
   useNotice((notice) => {
-    // a rename, here or elsewhere, carries the session's new name
+    // a rename, here or elsewhere, carries the session's new name. The
+    // notice names the session by Pinrail's id, which the thread has from
+    // its session while its address still has the agent's own id
     const renamed = notice.kind === "session_renamed" ? notice.session : undefined;
-    if (renamed && named && renamed.agent === named.agent && renamed.id === named.id)
-      setSession((s) => (s ? { ...s, name: renamed.name ?? null } : s));
+    if (renamed && named && renamed.agent === named.agent && (renamed.id === named.id || renamed.id === session?.id)) {
+      const name = renamed.name ?? null;
+      setSession((s) => (s ? { ...s, name } : s));
+      if (loading.current?.running) loading.current.renamed = { name };
+    }
     const { thread, item } = aboutThread(notice, named, ids.current, keys.current);
     if (item) setItemsChanged((n) => n + 1);
     if (thread) load();
