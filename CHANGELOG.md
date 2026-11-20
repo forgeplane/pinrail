@@ -104,12 +104,16 @@ The `pinrail` command ships inside the app and carries the app's version.
   message the next time it reports a status.
 - After the computer restarts, the Sessions page says which agents the
   restart stopped, with **Resume all** to resume them one by one.
+- A session's summary shows a question the agent asks in its terminal, as
+  it shows a permission, with **Open the terminal** to answer it.
+- Clicking an image attached to a note or a question opens it in a pop-up.
+  The arrow keys move between the images.
 
 ### Changed
 
 - When an agent Pinrail runs goes on in a new session, as after
   `/clear`, its open session page follows the terminal there, and the
-  session it left links to the new one.
+  session it left links to the new one, also from its **Terminal** view.
 - Starting an agent from Pinrail opens its session at once, also for
   Codex and Antigravity CLI, which report their own session id later.
   The session's details show that id as **Agent session**, and **Copy
