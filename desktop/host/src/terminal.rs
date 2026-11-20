@@ -222,6 +222,8 @@ pub struct Submit {
     /// In the program's first 10 seconds, how long its output must be
     /// quiet before the paste; zero turns the rule off.
     pub startup_quiet: Duration,
+    /// Keys typed with the paste, before it, that clear the program's input.
+    pub clear: String,
     /// The keys that submit, such as a carriage return.
     pub submit: String,
     /// The process that must hold the terminal.
@@ -803,10 +805,12 @@ async fn actor(mut actor: Actor) {
 /// asked, with every end-of-paste marker removed from it, so that the text
 /// cannot end the paste early and have its rest read as typed keys.
 fn paste(submit: &Submit) -> Vec<u8> {
+    let mut bytes = submit.clear.clone().into_bytes();
     if !submit.bracketed {
-        return submit.text.clone().into_bytes();
+        bytes.extend(submit.text.clone().into_bytes());
+        return bytes;
     }
-    let mut bytes = b"\x1b[200~".to_vec();
+    bytes.extend(b"\x1b[200~");
     bytes.extend(submit.text.replace("\x1b[201~", "").into_bytes());
     bytes.extend(b"\x1b[201~");
     bytes
@@ -1603,6 +1607,7 @@ mod tests {
             settle: Duration::ZERO,
             max: Duration::ZERO,
             startup_quiet: Duration::ZERO,
+            clear: String::new(),
             submit: "\r".to_string(),
             expect_pid: None,
             idle_since: None,
@@ -1617,6 +1622,14 @@ mod tests {
             b"\x1b[200~abc\x1b[201~"
         );
         assert_eq!(paste(&submit("plain", false)), b"plain");
+    }
+
+    #[test]
+    fn the_keys_that_clear_the_input_come_before_the_paste() {
+        // Cursor puts an interrupted prompt back in its input
+        let mut cleared = submit("pong", true);
+        cleared.clear = "\x15".to_string();
+        assert_eq!(paste(&cleared), b"\x15\x1b[200~pong\x1b[201~");
     }
 
     #[test]

@@ -401,6 +401,7 @@ impl super::Runtime {
                     "settle_ms": plan.settle_ms,
                     "max_ms": plan.max_ms,
                     "submit": plan.submit,
+                    "clear": plan.clear,
                     "expect_pid": row.process.as_ref().map(|(pid, _)| pid),
                     "idle_since": idle_since.map(crate::reviews::iso),
                     "anyway": anyway,

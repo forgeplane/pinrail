@@ -498,13 +498,14 @@ async fn a_session_whose_agent_never_gave_its_id_is_not_resumed() {
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    // Claude Code, agy, Grok, Copilot and Pi are installed, and Codex is not
+    // Claude Code, agy, Grok, Copilot, Pi and Cursor are installed, and Codex is not
     let bin = hosts.path().join("versions");
     common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
     common::program(&bin, "agy", "echo '1.5.12'");
     common::program(&bin, "grok", "echo 'grok 1.0.89 (28be5bb1bf65) [stable]'");
     common::program(&bin, "copilot", "echo 'GitHub Copilot CLI 1.0.114.'");
     common::program(&bin, "pi", "echo '1.5.2'");
+    common::program(&bin, "cursor-agent", "echo '2026.11.19-f005e9d'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -540,6 +541,8 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("copilot")["names_session"], true);
     assert_eq!(agent("pi")["version"], "1.5.2");
     assert_eq!(agent("pi")["names_session"], true);
+    assert_eq!(agent("cursor")["version"], "2026.11.19-f005e9d");
+    assert_eq!(agent("cursor")["names_session"], true);
     // what Report status installs for each, which the start names
     assert_eq!(agent("pi")["installs"], "extension");
     assert_eq!(agent("copilot")["installs"], "hooks");
@@ -557,6 +560,7 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
             "claude-code",
             "codex",
             "copilot",
+            "cursor",
             "grok",
             "pi"
         ]
@@ -1136,5 +1140,75 @@ async fn a_run_that_moves_to_a_new_session_stops_the_one_it_left() {
     assert_eq!(
         (presence.state.as_str(), presence.stop_reason.as_deref()),
         ("stopped", Some("cleared"))
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_prompt_with_a_new_id_moves_a_cursor_run_to_its_new_conversation() {
+    // Cursor starts a new conversation on /clear without a session start:
+    // the first sign is a prompt under the new id
+    let app = linked_as(&["cursor-agent"]).await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "cursor", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let first = started["session"]["id"].as_str().unwrap().to_string();
+    let token = token(&folder).await;
+    let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
+    let authorization = format!("Run {token}");
+    let (status, _) = call_as(
+        &app,
+        "POST",
+        "/api/v1/sessions/cursor/c-next/reports",
+        Some(json!({
+            "event": "prompt",
+            "detail": {"prompt": "what next?"},
+            "process": {"pid": own.0, "started": own.1},
+        })),
+        &[("authorization", &authorization)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    run_becomes(&app, &id, |r| r["session"]["agent_session"] == "c-next").await;
+    let left = common::db(&app)
+        .presence("cursor", &first)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (left.state.as_str(), left.stop_reason.as_deref()),
+        ("stopped", Some("cleared"))
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_prompt_with_another_id_does_not_move_a_claude_code_run() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (_, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    let id = started["run"]["id"].as_str().unwrap().to_string();
+    let token = token(&folder).await;
+    let own = common::db(&app).run(&id).unwrap().unwrap().process.unwrap();
+    let (status, _) = report(&app, "s-other", json!({"event": "prompt"}), &own, &token).await;
+    assert_eq!(status.as_u16() / 100, 4, "{status}");
+    assert_eq!(
+        common::db(&app)
+            .run(&id)
+            .unwrap()
+            .unwrap()
+            .agent_session
+            .as_deref(),
+        started["session"]["agent_session"].as_str()
     );
 }

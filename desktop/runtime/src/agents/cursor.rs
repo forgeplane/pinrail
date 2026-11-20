@@ -8,7 +8,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, text};
 use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::process::Process;
@@ -97,6 +99,55 @@ impl Agent for Cursor {
     /// Cursor's CLI runs as `node`, with the command it was invoked as,
     /// `cursor-agent` or `agent`, as its first argument; its worker
     /// processes are `node` too.
+    /// `cursor-agent --resume <uuid> [extra args] [agent -- <task>]`: a new
+    /// id to `--resume` creates the chat with it, so Pinrail chooses it.
+    /// The task goes after Cursor's `agent` command: after `--` alone, a
+    /// task such as `help` would still run that command.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec![
+            "cursor-agent".to_string(),
+            "--resume".to_string(),
+            request.session_id.to_string(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        if let Some(task) = request.task.filter(|t| !t.trim().is_empty()) {
+            argv.extend(["agent".to_string(), "--".to_string(), task.to_string()]);
+        }
+        Some(StartPlan {
+            argv,
+            session: Some(request.session_id.to_string()),
+        })
+    }
+
+    /// `cursor-agent --resume <id>`.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| {
+            ["cursor-agent", "--resume", session]
+                .map(str::to_string)
+                .to_vec()
+        })
+    }
+
+    /// Ctrl+U, then a bracketed paste and Enter: after an interrupt, Cursor
+    /// puts the interrupted prompt back in its input, which Ctrl+U clears.
+    /// The prompt's hook confirms it.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(SubmitPlan {
+            clear: "\x15",
+            ..PASTE_AND_ENTER
+        })
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &["--force", "-f"]
+    }
+
+    /// /clear starts a new conversation with no session start: its first
+    /// prompt is the first sign.
+    fn prompt_may_start_session(&self) -> bool {
+        true
+    }
+
     fn is_own_process(&self, process: &Process) -> bool {
         if process.name == "cursor-agent" {
             return true;

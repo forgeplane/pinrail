@@ -1042,6 +1042,11 @@ async fn submit(params: &Value, shared: &Shared) -> Result<Value, Failure> {
         settle: millis("settle_ms", 300),
         max: millis("max_ms", 2_000),
         startup_quiet: millis("startup_quiet_ms", 800),
+        clear: params
+            .get("clear")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
         submit: params
             .get("submit")
             .and_then(Value::as_str)

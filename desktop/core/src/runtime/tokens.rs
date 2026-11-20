@@ -67,8 +67,16 @@ impl super::Runtime {
                 cleared: None,
             }));
         };
+        // a session start, or a prompt of an agent whose new session shows
+        // first with its prompt, can move the run to a new session
         let source = match &report.event {
             ReportEvent::Started { source } => Some(source.as_deref()),
+            ReportEvent::Prompt { .. }
+                if pinrail_runtime::adapter(&run.agent)
+                    .is_some_and(|a| a.prompt_may_start_session()) =>
+            {
+                Some(None)
+            }
             _ => None,
         };
         let resolved = self.db.resolve_run_session(

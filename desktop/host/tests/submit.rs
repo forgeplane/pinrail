@@ -229,6 +229,7 @@ fn message(text: &str, settle: Duration) -> Submit {
         settle,
         max: Duration::from_secs(2),
         startup_quiet: Duration::ZERO,
+        clear: String::new(),
         submit: "\r".to_string(),
         expect_pid: None,
         idle_since: None,

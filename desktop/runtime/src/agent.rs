@@ -64,6 +64,13 @@ pub trait Agent: Send + Sync {
         false
     }
 
+    /// Whether the agent can start a new session in the same process without
+    /// a session start, so that a prompt under a new id is the first sign
+    /// of it, as Cursor's /clear is. The run then moves to that session.
+    fn prompt_may_start_session(&self) -> bool {
+        false
+    }
+
     /// Whether `process` is the agent's own: the one a hook or a command
     /// runs under, and the one Pinrail spawned for a run. By default, a
     /// process named after one of the agent's binaries. An agent that runs
@@ -113,6 +120,10 @@ pub struct SubmitPlan {
     pub max_ms: u64,
     /// The keys that submit the prompt.
     pub submit: &'static str,
+    /// Keys typed before the paste that clear the agent's input, for an
+    /// agent that leaves text there, such as Cursor after an interrupt;
+    /// empty for the others.
+    pub clear: &'static str,
     /// The hook event, as Pinrail names it, that reports the prompt.
     pub confirms: Option<&'static str>,
 }
@@ -125,6 +136,7 @@ pub(crate) const PASTE_AND_ENTER: SubmitPlan = SubmitPlan {
     settle_ms: 150,
     max_ms: 1_000,
     submit: "\r",
+    clear: "",
     confirms: Some("prompt"),
 };
 

@@ -144,6 +144,48 @@ fn pi_starts_with_the_session_id_pinrail_chose() {
 }
 
 #[test]
+fn cursor_starts_with_the_session_id_pinrail_chose() {
+    let extra = args(&["--model", "gpt-5"]);
+    let plan = adapter("cursor")
+        .unwrap()
+        .start(&request(Some("help"), &extra))
+        .unwrap();
+    // a task after Cursor's agent command, which `--` alone does not keep
+    // from being read as a command
+    assert_eq!(
+        plan.argv,
+        args(&[
+            "cursor-agent",
+            "--resume",
+            ID,
+            "--model",
+            "gpt-5",
+            "agent",
+            "--",
+            "help"
+        ])
+    );
+    assert_eq!(plan.session.as_deref(), Some(ID));
+    let bare = adapter("cursor")
+        .unwrap()
+        .start(&request(None, &[]))
+        .unwrap();
+    assert_eq!(bare.argv, args(&["cursor-agent", "--resume", ID]));
+}
+
+#[test]
+fn cursor_clears_its_input_before_a_message() {
+    // Cursor puts an interrupted prompt back in its input
+    let plan = adapter("cursor").unwrap().submit().unwrap();
+    assert_eq!(plan.clear, "\x15");
+    assert!(plan.bracketed);
+    assert_eq!(plan.submit, "\r");
+    assert_eq!(plan.confirms, Some("prompt"));
+    // the others clear nothing
+    assert_eq!(adapter("claude-code").unwrap().submit().unwrap().clear, "");
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -200,6 +242,8 @@ fn flags_that_turn_permission_checks_off_are_refused() {
         ),
         (adapter("copilot").unwrap(), &["--allow-all"], "--allow-all"),
         (adapter("pi").unwrap(), &["--approve"], "--approve"),
+        (adapter("cursor").unwrap(), &["--force"], "--force"),
+        (adapter("cursor").unwrap(), &["-f"], "-f"),
         (adapter("pi").unwrap(), &["-a"], "-a"),
         (
             adapter("copilot").unwrap(),
@@ -262,6 +306,10 @@ fn each_agent_resumes_a_session_by_its_id() {
         adapter("pi").unwrap().resume(ID),
         Some(args(&["pi", "--session", ID]))
     );
+    assert_eq!(
+        adapter("cursor").unwrap().resume(ID),
+        Some(args(&["cursor-agent", "--resume", ID]))
+    );
 }
 
 #[test]
@@ -279,6 +327,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("grok").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("copilot").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("pi").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("cursor").unwrap().resume(id), None, "{id:?}");
     }
 }
 
