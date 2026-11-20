@@ -40,3 +40,14 @@ the session's id rewritten: `session-start`, `prompt`, `pre-tool-use`
 `pre-tool-use-question` (`ask_user_question`), `notification-question`,
 `stop-cancelled-interrupt` (Ctrl+C), `stop-shutdown` and `session-end`.
 Built from the same fields: `stop`, a turn that ended with its reply.
+
+**Copilot CLI 1.0.114, captured** from interactive sessions with
+`COPILOT_HOME` in a scratch folder and hooks that saved their input, with
+the paths and the session's id rewritten: `session-start`,
+`session-start-resume`, `prompt`, `pre-tool-use` (`bash`),
+`pre-tool-use-ask-user`, `post-tool-use`, `permission-request`,
+`notification-permission`, `notification-question`,
+`notification-shell-completed`, `agent-stop` and `session-end`.
+`events.jsonl` has the shape of the transcript Copilot keeps, with made-up
+content; `events-pending.jsonl` ends with a prompt whose reply is not
+written yet.

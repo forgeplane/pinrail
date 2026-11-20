@@ -318,3 +318,81 @@ fn every_grok_hook_installed_is_one_pinrail_hook_reads() {
         assert!(entry.command.contains(" hook grok "));
     }
 }
+
+fn copilot_plan() -> HookPlan {
+    adapter("copilot")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .unwrap()
+}
+
+#[test]
+fn copilot_s_hooks_go_in_a_file_of_pinrail_s_own_listed_by_event() {
+    let plan = copilot_plan();
+    assert_eq!(
+        plan.file,
+        Path::new("/Users/you/.copilot/hooks/pinrail.json")
+    );
+    let moved = adapter("copilot")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|k| {
+            (k == "COPILOT_HOME").then(|| "/work/copilot".to_string())
+        })
+        .unwrap();
+    assert_eq!(moved.file, Path::new("/work/copilot/hooks/pinrail.json"));
+    let mut hooks = json!({});
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    // a version, and each event's handlers in a list, without groups
+    assert_eq!(hooks["version"], 1);
+    assert_eq!(
+        hooks["hooks"]["agentStop"][0],
+        json!({"type": "command", "command": "\"${PINRAIL_CLI:-pinrail}\" hook copilot stop", "timeout": 2})
+    );
+    remove(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Absent);
+}
+
+#[test]
+fn a_flat_hooks_file_keeps_the_person_s_handlers() {
+    let plan = copilot_plan();
+    let original = json!({
+        "version": 1,
+        "hooks": {"sessionStart": [{"command": "sh herdr.sh session"}]}
+    });
+    let mut hooks = original.clone();
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    assert_eq!(
+        hooks["hooks"]["sessionStart"][0],
+        original["hooks"]["sessionStart"][0]
+    );
+    assert_eq!(hooks["hooks"]["sessionStart"].as_array().unwrap().len(), 2);
+    let mut again = hooks.clone();
+    install(&mut again, &plan);
+    assert_eq!(again, hooks);
+    remove(&mut hooks, &plan);
+    assert_eq!(hooks, original);
+    // a handler edited by hand
+    install(&mut hooks, &plan);
+    hooks["hooks"]["agentStop"][0]["timeout"] = json!(30);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Modified);
+}
+
+#[test]
+fn every_copilot_hook_installed_is_one_pinrail_hook_reads() {
+    let known = [
+        "session-start",
+        "prompt",
+        "tool",
+        "tool-done",
+        "notification",
+        "stop",
+        "error",
+        "session-end",
+    ];
+    for entry in copilot_plan().entries {
+        let hook = entry.command.rsplit(' ').next().unwrap();
+        assert!(known.contains(&hook), "{}", entry.command);
+    }
+}

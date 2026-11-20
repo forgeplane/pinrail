@@ -6,7 +6,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agents::{Antigravity, ClaudeCode, Codex, Grok};
+use crate::agents::{Antigravity, ClaudeCode, Codex, Copilot, Grok};
 use crate::hooks::HookReport;
 use crate::registry::AgentSpec;
 
@@ -197,6 +197,7 @@ pub fn adapter(name: &str) -> Option<&'static dyn Agent> {
         "codex" => &Codex,
         "antigravity" => &Antigravity,
         "grok" => &Grok,
+        "copilot" => &Copilot,
         _ => return None,
     };
     Some(agent)

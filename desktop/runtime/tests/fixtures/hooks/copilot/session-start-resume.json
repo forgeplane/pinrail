@@ -1,0 +1,7 @@
+{
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179093498,
+  "cwd": "/Users/you/code/app",
+  "source": "resume",
+  "initialPrompt": "Use the ask_user tool to ask me whether I prefer red or blue, then reply with my answer."
+}

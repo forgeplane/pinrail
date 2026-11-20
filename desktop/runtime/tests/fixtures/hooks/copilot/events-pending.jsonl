@@ -1,0 +1,8 @@
+{"type":"user.message","data":{"content":"How many files are there?","messageId":"m-1","turnId":"0"},"id":"e-1","timestamp":"2026-11-20T14:00:00.000Z","parentId":null}
+{"type":"assistant.turn_start","data":{"turnId":"0"},"id":"e-2","timestamp":"2026-11-20T14:00:00.100Z","parentId":"e-1"}
+{"type":"assistant.message","data":{"messageId":"m-2","content":"","turnId":"0"},"id":"e-3","timestamp":"2026-11-20T14:00:01.000Z","parentId":"e-2"}
+{"type":"assistant.turn_end","data":{"turnId":"0"},"id":"e-4","timestamp":"2026-11-20T14:00:01.100Z","parentId":"e-3"}
+{"type":"assistant.turn_start","data":{"turnId":"1"},"id":"e-5","timestamp":"2026-11-20T14:00:01.200Z","parentId":"e-4"}
+{"type":"assistant.message","data":{"messageId":"m-3","content":"There are 3 files.","turnId":"1","phase":"final_answer"},"id":"e-6","timestamp":"2026-11-20T14:00:02.000Z","parentId":"e-5"}
+{"type":"assistant.turn_end","data":{"turnId":"1"},"id":"e-7","timestamp":"2026-11-20T14:00:02.100Z","parentId":"e-6"}
+{"type":"user.message","data":{"content":"And the folders?","messageId":"m-4","turnId":"2"},"id":"e-8","timestamp":"2026-11-20T14:01:00.000Z","parentId":"e-7"}

@@ -1,0 +1,15 @@
+{
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179427340,
+  "cwd": "/Users/you/code/app",
+  "toolCallId": "call_A0elTDtt7vz1MfzuqHG0mEJX",
+  "toolName": "bash",
+  "toolArgs": {
+    "command": "env | grep -E 'COPILOT|AI_AGENT|CLAUDE|PINRAIL' | sort",
+    "description": "Display matching environment variables"
+  },
+  "toolResult": {
+    "resultType": "success",
+    "textResultForLlm": "AI_AGENT=claude-code_2-1-328_agent\nCLAUDE_CODE_CHILD_NOTES_DIR=/Users/you/.copilot\nPINRAIL_CLI=/private/tmp/claude-501/-Users-pnezis-code-pinrail/c942bfdf-3b0f-4bd1-8d17-6d2f72dd722b/scratchpad/copilot-research/hook.sh\n<shellId: 0 completed with exit code 0>"
+  }
+}

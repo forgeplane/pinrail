@@ -37,6 +37,10 @@ pub enum Layout {
     /// with a matcher takes groups of `{matcher, hooks}`, any other a list
     /// of handlers.
     Named(&'static str),
+    /// A hooks file with a `version` and a `hooks` object whose events each
+    /// list their handlers directly, without matcher groups, as Copilot's
+    /// and Cursor's do. Pinrail's handlers go beside the person's.
+    Flat,
 }
 
 /// One hook: the agent's event, its matcher if it takes one, and the
@@ -113,16 +117,18 @@ fn installed(settings: &Value) -> Vec<(String, Option<String>, Value)> {
     };
     for (event, groups) in hooks {
         for group in groups.as_array().into_iter().flatten() {
+            // a flat file lists the handlers themselves
+            let Some(handlers) = group.get("hooks").and_then(Value::as_array) else {
+                if is_pinrail(group) {
+                    found.push((event.clone(), None, group.clone()));
+                }
+                continue;
+            };
             let matcher = group
                 .get("matcher")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            for h in group
-                .get("hooks")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-            {
+            for h in handlers {
                 if is_pinrail(h) {
                     found.push((event.clone(), matcher.clone(), h.clone()));
                 }
@@ -257,10 +263,10 @@ pub fn remove(settings: &mut Value, plan: &HookPlan) {
                 handlers.retain(|h| !is_pinrail(h));
             }
         }
-        list.retain(|g| {
-            g.get("hooks")
-                .and_then(Value::as_array)
-                .is_none_or(|h| !h.is_empty())
+        // a group left empty goes, and in a flat file Pinrail's handlers
+        list.retain(|g| match g.get("hooks").and_then(Value::as_array) {
+            Some(handlers) => !handlers.is_empty(),
+            None => !is_pinrail(g),
         });
     }
     hooks.retain(|_, groups| groups.as_array().is_none_or(|g| !g.is_empty()));
@@ -282,12 +288,25 @@ pub fn install(settings: &mut Value, plan: &HookPlan) {
         root.insert(name.to_string(), named_hook(plan));
         return;
     }
+    let flat = matches!(plan.layout, Layout::Flat);
+    if flat {
+        root.entry("version").or_insert(json!(1));
+    }
     let hooks = root
         .entry("hooks")
         .or_insert_with(|| Value::Object(Map::new()))
         .as_object_mut()
         .expect("hooks is an object, as state() checks first");
     for entry in &plan.entries {
+        if flat {
+            hooks
+                .entry(entry.event)
+                .or_insert_with(|| json!([]))
+                .as_array_mut()
+                .expect("an event's hooks are a list")
+                .push(handler(&entry.command));
+            continue;
+        }
         let mut group = Map::new();
         if let Some(matcher) = entry.matcher {
             group.insert("matcher".into(), json!(matcher));

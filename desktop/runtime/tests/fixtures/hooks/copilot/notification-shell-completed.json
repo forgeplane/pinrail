@@ -1,0 +1,9 @@
+{
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179004572,
+  "cwd": "/Users/you/code/app",
+  "message": "Shell command \"Wait twelve seconds and print one\" (shellId: 0) has completed successfully.",
+  "title": "Wait twelve seconds and print one",
+  "hook_event_name": "Notification",
+  "notification_type": "shell_completed"
+}

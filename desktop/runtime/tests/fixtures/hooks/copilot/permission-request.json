@@ -1,0 +1,11 @@
+{
+  "hookName": "permissionRequest",
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179427173,
+  "cwd": "/Users/you/code/app",
+  "toolName": "bash",
+  "toolInput": {
+    "command": "env | grep -E 'COPILOT|AI_AGENT|CLAUDE|PINRAIL' | sort"
+  },
+  "permissionSuggestions": []
+}

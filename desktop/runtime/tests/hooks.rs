@@ -520,3 +520,133 @@ fn grok_reports_nothing_for_another_session_a_subagent_or_its_shutdown() {
     idle["notificationType"] = Value::from("idle_prompt");
     assert!(grok_hook("notification", &idle).is_none());
 }
+
+const COPILOT_SESSION: &str = "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c";
+
+/// The report of Copilot's hook `event` on `input`.
+fn copilot_hook(event: &str, input: &Value) -> Option<HookReport> {
+    adapter("copilot")
+        .unwrap()
+        .parse_hook(event, input, &|_| None)
+}
+
+#[test]
+fn copilot_reports_each_event_of_its_session() {
+    let started = parse("copilot", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, COPILOT_SESSION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    assert_eq!(started.detail.cwd.as_deref(), Some("/Users/you/code/app"));
+    assert_eq!(
+        event("copilot", "session-start", "session-start-resume"),
+        Some(HookEvent::Started {
+            source: StartSource::Resume
+        })
+    );
+    let prompt = parse("copilot", "prompt", "prompt").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Reply with the word PONG only")
+    );
+    // a tool call is work in the turn, and a permission it asks for waits
+    assert_eq!(
+        event("copilot", "tool", "pre-tool-use"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(
+        event("copilot", "tool-done", "post-tool-use"),
+        Some(HookEvent::Working)
+    );
+    let permission = parse("copilot", "notification", "notification-permission").unwrap();
+    assert_eq!(
+        permission.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Permission
+        }
+    );
+    assert_eq!(
+        permission.detail.summary.as_deref(),
+        Some("Run command: echo hello > a.txt")
+    );
+    // the question tool waits for an answer, and says the question
+    let asked = parse("copilot", "tool", "pre-tool-use-ask-user").unwrap();
+    assert_eq!(
+        asked.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        }
+    );
+    assert_eq!(
+        asked.detail.summary.as_deref(),
+        Some("Do you prefer red or blue?")
+    );
+    assert_eq!(
+        event("copilot", "notification", "notification-question"),
+        Some(HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        })
+    );
+    // a background command that finished says nothing of the session
+    assert_eq!(
+        event("copilot", "notification", "notification-shell-completed"),
+        None
+    );
+    let ended = parse("copilot", "session-end", "session-end").unwrap();
+    assert_eq!(ended.event, HookEvent::Ended);
+    assert_eq!(ended.detail.reason.as_deref(), Some("user_exit"));
+    // an error ends the turn as failed
+    let mut error = input("copilot", "prompt");
+    error["error"] = serde_json::json!({"message": "rate limited", "recoverable": false});
+    let failed = copilot_hook("error", &error).unwrap();
+    assert_eq!(
+        failed.event,
+        HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        }
+    );
+    assert_eq!(failed.detail.error.as_deref(), Some("rate limited"));
+}
+
+#[test]
+fn copilot_s_reply_is_the_final_answer_in_its_transcript() {
+    let mut stop = input("copilot", "agent-stop");
+    stop["transcriptPath"] = Value::from(format!(
+        "{}/tests/fixtures/hooks/copilot/events.jsonl",
+        env!("CARGO_MANIFEST_DIR")
+    ));
+    let done = copilot_hook("stop", &stop).unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("There are 3 files."));
+    // the turn's reply not written yet: no reply, never the one before
+    stop["transcriptPath"] = Value::from(format!(
+        "{}/tests/fixtures/hooks/copilot/events-pending.jsonl",
+        env!("CARGO_MANIFEST_DIR")
+    ));
+    let pending = copilot_hook("stop", &stop).unwrap();
+    assert_eq!(pending.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(pending.detail.reply, None);
+    // a transcript it cannot read ends the turn all the same
+    stop["transcriptPath"] = Value::from("/nowhere/events.jsonl");
+    let done = copilot_hook("stop", &stop).unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply, None);
+}
+
+#[test]
+fn copilot_reports_nothing_for_a_subagent_or_its_own_notices() {
+    let mut subagent = input("copilot", "pre-tool-use");
+    subagent["agentId"] = Value::from("agent-1");
+    assert!(copilot_hook("tool", &subagent).is_none());
+    // a finished background command starts a turn Copilot gives itself
+    let mut notice = input("copilot", "prompt");
+    notice["prompt"] = Value::from("<system_notification>Shell 1 completed</system_notification>");
+    assert_eq!(
+        copilot_hook("prompt", &notice).map(|r| r.event),
+        Some(HookEvent::Working)
+    );
+}

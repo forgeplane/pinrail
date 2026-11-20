@@ -1,0 +1,23 @@
+{
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179098002,
+  "cwd": "/Users/you/code/app",
+  "toolCallId": "call_W0NSG3g6fhiajqAGzSIcex79",
+  "toolName": "ask_user",
+  "toolArgs": {
+    "message": "Do you prefer red or blue?",
+    "requestedSchema": {
+      "properties": {
+        "color": {
+          "type": "string",
+          "title": "Color",
+          "enum": [
+            "Red",
+            "Blue"
+          ],
+          "default": "Red"
+        }
+      }
+    }
+  }
+}

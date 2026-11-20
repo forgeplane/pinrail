@@ -1,0 +1,11 @@
+{
+  "sessionId": "4f2a9c1e-5b7d-4e8a-9c3b-1d2e3f4a5b6c",
+  "timestamp": 1795179426985,
+  "cwd": "/Users/you/code/app",
+  "toolCallId": "call_A0elTDtt7vz1MfzuqHG0mEJX",
+  "toolName": "bash",
+  "toolArgs": {
+    "command": "env | grep -E 'COPILOT|AI_AGENT|CLAUDE|PINRAIL' | sort",
+    "description": "Display matching environment variables"
+  }
+}
