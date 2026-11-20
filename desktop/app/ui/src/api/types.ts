@@ -433,6 +433,13 @@ export type Notice = {
    *  that changed it when an agent did; for prefix_changed: the repository
    *  and its new prefix */
   item?: NoticeItem | { repo: string; prefix: string };
+  /** for run_started, run_bound and run_ended: the run; for run_bound
+   *  also the session it is in now and the one it left */
+  run?: {
+    run: string;
+    session?: { agent: string; id: string; agent_session: string | null } | null;
+    previous?: { agent: string; id: string } | null;
+  };
 };
 
 /** The item an item_changed or item_deleted notice is about. */

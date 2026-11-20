@@ -107,6 +107,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- When an agent Pinrail runs goes on in a new session, as after
+  `/clear`, its open session page follows the terminal there, and the
+  session it left links to the new one.
 - Starting an agent from Pinrail opens its session at once, also for
   Codex and Antigravity CLI, which report their own session id later.
   The session's details show that id as **Agent session**, and **Copy

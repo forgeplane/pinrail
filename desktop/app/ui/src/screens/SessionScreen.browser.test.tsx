@@ -59,3 +59,62 @@ test("an address with Pinrail's id stays as it is", async () => {
   expect(new Set(core.calls("session").map((call) => call.join("/")))).toEqual(new Set(["claude-code/ses_01ABC"]));
   await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/claude-code/ses_01ABC");
 });
+
+test("the page follows the session's run to the new session it goes on in, without drawing it again", async () => {
+  const sessions = {
+    ses_01ABC: session({ id: "ses_01ABC", agent_session: "3f2a9c1e-5b7d", title: "Fix the login" }),
+    ses_02DEF: session({ id: "ses_02DEF", agent_session: "8d1c0b7a-2e4f", title: "Fix the logout" }),
+  };
+  core.answer("session", (_agent: unknown, id: unknown) => ({
+    session: sessions[id as keyof typeof sessions],
+    items: [],
+    statuses: [],
+    messages: [],
+  }));
+  core.answer("items", { items: [] });
+  await render(
+    <Routes>
+      <Route
+        path="/sessions/:agent/:id"
+        element={
+          <>
+            <SessionScreen />
+            <Where />
+          </>
+        }
+      />
+    </Routes>,
+    { route: "/sessions/claude-code/ses_01ABC?view=terminal" },
+  );
+  const heading = page.getByTestId("thread").getByRole("heading", { level: 1 });
+  await expect.element(heading).toHaveTextContent("Fix the login");
+  const before = page.getByTestId("thread").element();
+
+  // another session's run moving changes nothing here
+  core.notice({
+    event_id: 8,
+    kind: "run_bound",
+    review_id: null,
+    review: null,
+    run: {
+      run: "run_2",
+      session: { agent: "claude-code", id: "ses_09XYZ", agent_session: "x" },
+      previous: { agent: "claude-code", id: "ses_08UVW" },
+    },
+  });
+  // /clear moves this one's run
+  core.notice({
+    event_id: 9,
+    kind: "run_bound",
+    review_id: null,
+    review: null,
+    run: {
+      run: "run_1",
+      session: { agent: "claude-code", id: "ses_02DEF", agent_session: "8d1c0b7a-2e4f" },
+      previous: { agent: "claude-code", id: "ses_01ABC" },
+    },
+  });
+  await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/claude-code/ses_02DEF?view=summary");
+  await expect.element(heading).toHaveTextContent("Fix the logout");
+  expect(page.getByTestId("thread").element()).toBe(before);
+});

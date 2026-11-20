@@ -9211,3 +9211,9 @@ body.is-resizing-rows {
 .new-session-reports .chrome-button {
   flex: none;
 }
+
+/* a session whose agent went on in a new session says so above its
+   timeline, with the timeline's margins */
+.thread-moved {
+  margin: 12px 32px 0;
+}

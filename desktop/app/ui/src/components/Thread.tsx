@@ -6,13 +6,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Link, useLocation, useNavigate, type To } from "react-router";
 import { api, errorMessage } from "../api/client";
 import { useToast } from "../state/toasts";
+import { useNotice } from "../state/live";
 import { elementOf, useElements } from "../lib/elements";
 import { ElementTile } from "./ElementTile";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, SHIFT, hasMod, isMac, modalOpen, isTyping } from "../lib/keys";
 import { isViewToggle } from "../lib/terminalKeys";
-import { useSessionRun } from "./session/useSessionRun";
+import { carryRun, useSessionRun } from "./session/useSessionRun";
 import { useSessionView } from "./session/useSessionView";
 import { ViewSwitch } from "./session/ViewSwitch";
 import { useSplit } from "./session/useSplit";
@@ -88,6 +89,9 @@ type ThreadProps = {
   onClose?: () => void;
   /** called with the session each time it is loaded */
   onSession?: (session: Session) => void;
+  /** called when the session's run goes on in another session, as after
+   *  /clear, with that session and the view shown, for the page to follow */
+  onMoved?: (session: { agent: string; id: string }, view: string) => void;
   /** the start of a stage to open the thread at, by its status's id */
   stage?: number;
   /** the review shown in the side panel beside the thread, when reviews
@@ -135,6 +139,7 @@ export function Thread({
   inPanel = false,
   onClose,
   onSession,
+  onMoved,
   stage,
   reviewPanel,
 }: ThreadProps) {
@@ -232,6 +237,7 @@ export function Thread({
     failed,
     ended,
     runs,
+    movedTo,
     reload: reloadRuns,
     loaded: runsLoaded,
   } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
@@ -251,6 +257,16 @@ export function Thread({
   // a run that ended shows how in the terminal's place
   const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || outside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
+  // the run goes on in another session, as after /clear: the page follows
+  // its terminal there
+  useNotice((notice) => {
+    const to = notice.kind === "run_bound" ? notice.run?.session : null;
+    const from = notice.run?.previous;
+    if (!onPage || !named || !to || !from || !onMoved) return;
+    if (from.agent !== named.agent || from.id !== named.id || to.id === named.id) return;
+    carryRun(named, to);
+    onMoved(to, view);
+  });
   const [resuming, setResuming] = useState(false);
   // why the last resume did not happen, for the session it was of
   const sessionKey = named ? `${named.agent}/${named.id}` : null;
@@ -761,6 +777,12 @@ export function Thread({
                 ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
                 : {})}
             >
+              {movedTo?.session && !live ? (
+                <p className="notice thread-moved" role="status" data-testid="run-moved">
+                  The agent went on in a new session, as it does after /clear.{" "}
+                  <Link to={sessionPath(movedTo.session)}>Open the new session</Link>
+                </p>
+              ) : null}
               {finding ? (
                 <FindBar
                   label="Find in the thread"

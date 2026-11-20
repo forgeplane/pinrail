@@ -419,7 +419,7 @@ function useFollowedKey(key: string | null) {
   const shown = key && moved?.to === key ? moved.from : key;
   /** Whether the session loaded for `key` has another id, and if so
    *  replaces the address with `replace`. */
-  const follow = (session: Session, replace: (key: string) => void) => {
+  const follow = (session: { agent: string; id: string }, replace: (key: string) => void) => {
     const to = `${session.agent}/${session.id}`;
     if (!key || to === key || !key.startsWith(`${session.agent}/`)) return false;
     setMoved({ from: shown ?? key, to });
@@ -467,6 +467,14 @@ export function SessionScreen() {
           // with the view the person may have chosen meanwhile
           const { search, state } = here.current;
           follow(s, () => navigate(`${sessionPath(s)}${search}`, { replace: true, state }));
+        }}
+        onMoved={(to, view) => {
+          // the terminal goes on there: the page follows it, in the same
+          // view, without being drawn again
+          const { search, state } = here.current;
+          const params = new URLSearchParams(search);
+          params.set("view", view);
+          follow(to, () => navigate(`${sessionPath(to)}?${params}`, { state }));
         }}
         reviewPanel={({ id: review, linkTo, onEnded, onClose }) => (
           <ReviewView

@@ -511,3 +511,35 @@ test("a session's menu in the sidebar stops its agent", async ({ page }) => {
   await page.getByRole("menu").getByRole("menuitem", { name: "Stop Claude Code" }).click();
   await expect.poll(() => asked).toEqual(["POST"]);
 });
+
+test("a session whose agent went on in a new session links to it", async ({ page }) => {
+  const left = fresh();
+  const next = fresh();
+  for (const session of [left, next]) {
+    const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+      data: { kind: "start", text: `Work in ${session}`, origin: { repo: "acme/api" } },
+    });
+    expect(response.status(), await response.text()).toBeLessThan(300);
+  }
+  const nextId = await sessionId(page.request, "claude-code", next);
+  // the run was in the session left, and goes on in the next one, as after /clear
+  const run = {
+    id: "run_1",
+    host: "local",
+    agent: "claude-code",
+    state: "running",
+    terminal: "local:t_1",
+    folder: "/work",
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    end_reason: null,
+    exit_code: null,
+    session: { agent: "claude-code", id: nextId, agent_session: next },
+  };
+  await page.route(/\/api\/v1\/runs\?/, (route) => route.fulfill({ json: { runs: [run] } }));
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", left)}`);
+  const moved = page.getByTestId("run-moved");
+  await expect(moved).toContainText("The agent went on in a new session");
+  await moved.getByRole("link", { name: "Open the new session" }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${nextId}`));
+});

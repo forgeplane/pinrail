@@ -3,7 +3,7 @@
 // kept up to date as runs start, move between sessions and end.
 
 import { useCallback, useEffect, useState } from "react";
-import { runtime, type Run } from "../../api/runtime";
+import { runtime, type Run, type RunSession } from "../../api/runtime";
 import { failedAtStart } from "../../lib/failedStart";
 import { useNoticeCount } from "../../state/live";
 
@@ -16,9 +16,11 @@ export type SessionRun = {
   ended: Run | null;
   /** every run the session has been in, latest first */
   runs: Run[];
+  /** a run that was in the session and goes on in another, as after /clear */
+  movedTo: Run | null;
 };
 
-const NONE: SessionRun = { live: null, failed: null, ended: null, runs: [] };
+const NONE: SessionRun = { live: null, failed: null, ended: null, runs: [], movedTo: null };
 
 const RUN_EVENTS = new Set(["run_started", "run_bound", "run_ended"]);
 
@@ -60,7 +62,9 @@ export function useSessionRun(
         const latest = !live && here[0]?.state === "ended" ? here[0] : null;
         const failed = latest && failedAtStart(latest) ? latest : null;
         const ended = latest && !failed ? latest : null;
-        const run = { live, failed, ended, runs: here };
+        const movedTo =
+          runs.find((r) => r.state !== "ended" && r.session && `${r.session.agent}/${r.session.id}` !== key) ?? null;
+        const run = { live, failed, ended, runs: here, movedTo };
         kept.delete(key);
         kept.set(key, run);
         while (kept.size > KEPT) kept.delete(kept.keys().next().value!);
@@ -75,6 +79,18 @@ export function useSessionRun(
     };
   }, [key, enabled, changes]);
 
-  const here = enabled && found?.key === key;
-  return { ...(here ? found.run : NONE), reload, loaded: !enabled || !key || here };
+  // a session opened again, or one a run just moved to, shows the run
+  // known for it while its runs load again
+  const known = found?.key === key ? found.run : key ? kept.get(key) : undefined;
+  const here = enabled && !!known;
+  return { ...(here ? known : NONE), reload, loaded: !enabled || !key || here };
+}
+
+/** Keeps the live run of session `from` as the live run of `to`, which it
+ *  moved to, so that a page following it shows its terminal at once. */
+export function carryRun(from: { agent: string; id: string }, to: RunSession) {
+  const run = kept.get(`${from.agent}/${from.id}`)?.live;
+  if (!run) return;
+  const moved: Run = { ...run, session: to };
+  kept.set(`${to.agent}/${to.id}`, { live: moved, failed: null, ended: null, runs: [moved], movedTo: null });
 }
