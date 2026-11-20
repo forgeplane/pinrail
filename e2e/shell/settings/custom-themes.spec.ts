@@ -188,19 +188,16 @@ test("a plugin view takes a custom theme's colours and follows a change to them"
   const review = await createReview(page.request, { title: `themed ${id}` });
 
   await page.goto(`/#/reviews/${review.id}`);
-  const token = () =>
-    page
-      .frameLocator("iframe")
-      .first()
-      .locator("html")
-      .evaluate((root) => getComputedStyle(root).getPropertyValue("--pinrail-bg").trim());
-  await expect.poll(token).toBe("#445566");
+  // the frame is empty until the view's page loads in it: the assertion
+  // reads the colour again in whichever page the frame shows
+  const view = page.frameLocator("#plugin-frame").locator("html");
+  await expect(view).toHaveCSS("--pinrail-bg", "#445566");
 
   write(path, "View", { bg: "#556677" });
-  await expect.poll(token).toBe("#556677");
+  await expect(view).toHaveCSS("--pinrail-bg", "#556677");
 
   await settings(page.request, { dark_theme: "dark" });
-  await expect.poll(token).toBe("#18191b");
+  await expect(view).toHaveCSS("--pinrail-bg", "#18191b");
   fs.rmSync(path);
 });
 
