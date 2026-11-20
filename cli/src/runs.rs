@@ -170,11 +170,7 @@ fn text(v: &Value) -> &str {
 fn run_line(run: &Value) -> String {
     let session = match &run["session"] {
         Value::Null => String::new(),
-        session => format!(
-            " · session {}/{}",
-            text(&session["agent"]),
-            text(&session["id"])
-        ),
+        session => format!(" · session {}", text(&session["id"])),
     };
     let ended = match &run["end_reason"] {
         Value::Null => String::new(),
@@ -200,11 +196,7 @@ fn started_md(started: &Value) -> String {
         text(&run["id"])
     );
     if let Value::Object(session) = &started["session"] {
-        md.push_str(&format!(
-            "Session: {}/{}\n",
-            text(&session["agent"]),
-            text(&session["id"])
-        ));
+        md.push_str(&format!("Session: {}\n", text(&session["id"])));
     }
     md.push_str(&format!(
         "Attach to it with: pinrail attach {}\n",

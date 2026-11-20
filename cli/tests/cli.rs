@@ -4011,7 +4011,7 @@ fn items_next_claims_and_prints_the_item_with_what_its_session_now_holds() {
             let item = work_item(
                 "PIN-42",
                 "Load themes",
-                serde_json::json!({"status": "in_progress", "claim": {"agent": "claude-code", "session": "c-1"},
+                serde_json::json!({"status": "in_progress", "claim": {"agent": "claude-code", "session": "ses_01JQ", "agent_session": "c-1"},
                                    "body": "Read the theme files.", "ready": false}),
             );
             (200, format!(r#"{{"item": {item}}}"#))
@@ -5079,7 +5079,7 @@ fn start_runs_an_agent_as_the_person_and_says_how_to_attach() {
             (
                     201,
                     r#"{"run":{"id":"run_1","agent":"claude-code","state":"running","folder":"/w/work"},
-                        "session":{"agent":"claude-code","id":"s-1"}}"#
+                        "session":{"agent":"claude-code","id":"ses_01JQ","agent_session":"s-1"}}"#
                         .into(),
                 )
         }
@@ -5110,7 +5110,7 @@ fn start_runs_an_agent_as_the_person_and_says_how_to_attach() {
         "{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert!(stdout.contains("Session: claude-code/s-1"), "{stdout}");
+    assert!(stdout.contains("Session: ses_01JQ"), "{stdout}");
     assert!(stdout.contains("pinrail attach run_1"), "{stdout}");
     assert_eq!(server.authorizations(), ["Bearer tok"]);
 }

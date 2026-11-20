@@ -45,7 +45,7 @@ The panel at the right of a session's thread sums up the session, so that you ca
 - **Starred:** the session's starred reviews, newest first. A starred review shows a star wherever it is listed.
 - **Stages:** each stage the agent started, oldest first, with how long it took. Point at a stage to see when it started and the reviews sent during it, and click it to go to its start in the thread.
 - **Reviews:** the reviews of the session that have ended, with their outcomes, folded until you open it. Click one to open it.
-- **Session:** the agent, the session id, the project, the branch, the folder the agent works in and the last activity.
+- **Session:** the agent, the agent's own id for the session (*Agent session*, which you can copy from the session's menu, as `claude --resume` takes it), the project, the branch, the folder the agent works in and the last activity.
 
 Hide or show the panel with the button at the right of the header, or press <kbd>⌘⇧B</kbd>. Drag its left edge to resize it. Pinrail remembers both.
 

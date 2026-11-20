@@ -605,8 +605,8 @@ impl Db {
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM runs r {CURRENT}
              WHERE (?1 IS NULL OR (?1 = 1) = (r.state != 'ended'))
-               AND (?2 IS NULL OR EXISTS (SELECT 1 FROM run_sessions b
-                     WHERE b.run_id = r.id AND b.agent = ?2 AND b.session = ?3))
+               AND (?3 IS NULL OR EXISTS (SELECT 1 FROM run_sessions b
+                     WHERE b.run_id = r.id AND b.session = ?3 AND (?2 = '' OR b.agent = ?2)))
                AND (?4 IS NULL OR r.host_id = ?4)
              ORDER BY r.started_at DESC, r.id DESC"
         ))?;

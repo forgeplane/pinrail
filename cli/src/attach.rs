@@ -23,7 +23,7 @@ use crate::api::{Client, segment};
 
 #[derive(Args, Debug)]
 pub struct AttachArgs {
-    /// The run, such as run_01J…, or the session, as <agent>/<session id>
+    /// The run, such as run_01J…, or the session, such as ses_01J…
     target: String,
     /// Lines of the agent's history to draw above its screen
     #[arg(long, default_value_t = 5_000)]
@@ -270,11 +270,11 @@ fn parse_rgb(body: &[u8]) -> Option<String> {
 }
 
 /// The host's terminal of a run, as the core names it, `local:t_…`: of the
-/// run, or of the live run in the session `<agent>/<id>`.
+/// run, or of the live run in the session `ses_…` or `<agent>/<id>`.
 fn terminal_of(client: &Client, target: &str) -> Result<String> {
     let run = if target.starts_with("run_") {
         client.get(&format!("/api/v1/runs/{}", segment(target)), &[])?
-    } else if target.contains('/') {
+    } else if target.starts_with("ses_") || target.contains('/') {
         let runs = client.get(
             "/api/v1/runs",
             &[
@@ -287,7 +287,7 @@ fn terminal_of(client: &Client, target: &str) -> Result<String> {
             None => bail!("no agent Pinrail started runs in session {target}"),
         }
     } else {
-        bail!("name a run, such as run_01J…, or a session, as <agent>/<session id>");
+        bail!("name a run, such as run_01J…, or a session, such as ses_01J…");
     };
     if run["state"] == "ended" {
         bail!(

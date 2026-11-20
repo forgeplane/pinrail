@@ -228,8 +228,8 @@ fn started(run: &RunRow) -> Value {
 }
 
 /// The runs, latest first: `state` is `live` or `ended`, `session` is
-/// `<agent>/<id>` and names the runs that have been in it, and `host`
-/// names a host.
+/// Pinrail's id of a session, or `<agent>/<id>`, and names the runs that
+/// have been in it, and `host` names a host.
 async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(query): Query<std::collections::HashMap<String, String>>,
@@ -240,15 +240,16 @@ async fn list(
         Some("ended") => Some(false),
         Some(_) => return Err(Error::invalid("state", "must be live or ended").into()),
     };
-    let session = match query.get("session").filter(|s| !s.is_empty()) {
-        None => None,
-        Some(session) => Some(
+    let session = query
+        .get("session")
+        .filter(|s| !s.is_empty())
+        .map(|session| {
             session
                 .split_once('/')
                 .map(|(agent, id)| (agent.to_string(), id.to_string()))
-                .ok_or_else(|| Error::invalid("session", "must be <agent>/<id>"))?,
-        ),
-    };
+                // Pinrail's id names one session whatever its agent
+                .unwrap_or_else(|| (String::new(), session.clone()))
+        });
     let filters = RunFilters {
         live,
         session,

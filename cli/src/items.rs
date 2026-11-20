@@ -1083,7 +1083,12 @@ pub fn show(client: &Client, item: &Value, brief: bool) -> String {
     let mut out = format!("{} {}\n", s(&item["key"]), s(&item["title"]));
     let mut line = vec![status_words(&item["status"])];
     if let Some(agent) = item["claim"]["agent"].as_str() {
-        line[0] = match item["claim"]["session"].as_str() {
+        // the session as its agent knows it, else Pinrail's id
+        let claim = &item["claim"];
+        line[0] = match claim["agent_session"]
+            .as_str()
+            .or(claim["session"].as_str())
+        {
             Some(session) => format!("{} · claimed by {agent} (session {session})", line[0]),
             None => format!("{} · claimed by {agent}", line[0]),
         };
@@ -1263,7 +1268,9 @@ pub fn show(client: &Client, item: &Value, brief: bool) -> String {
     if !sessions.is_empty() {
         out.push_str("\n## Sessions\n");
         for x in sessions {
-            let mut line = format!("- {} {}", s(&x["agent"]), s(&x["session"]));
+            // the session as its agent knows it, else Pinrail's id
+            let id = x["agent_session"].as_str().unwrap_or(s(&x["session"]));
+            let mut line = format!("- {} {}", s(&x["agent"]), id);
             if let Some(status) = x["status"].as_str() {
                 line.push_str(&format!(": \"{status}\""));
             }

@@ -111,6 +111,17 @@ async fn the_person_starts_lists_and_stops_a_run() {
     )
     .await;
     assert_eq!(of_session["runs"][0]["id"], id.as_str());
+    // Pinrail's id alone names the session too
+    let (_, by_id) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/runs?session={session}"),
+        None,
+    )
+    .await;
+    assert_eq!(by_id["runs"][0]["id"], id.as_str());
+    let (_, none) = call(&app, "GET", "/api/v1/runs?session=ses_none", None).await;
+    assert_eq!(none["runs"].as_array().unwrap().len(), 0);
     let (_, shown) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
     assert_eq!(shown["sessions"][0]["id"], session.as_str());
 
