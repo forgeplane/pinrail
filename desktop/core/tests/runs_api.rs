@@ -1101,8 +1101,18 @@ async fn a_run_that_moves_to_a_new_session_stops_the_one_it_left() {
         .report("claude-code", &first, &working, false, now)
         .unwrap();
 
-    // a session start without a source, as agy's after /clear, moves the run
-    let (status, _) = report(&app, "s-next", json!({"event": "started"}), &own, &token).await;
+    // a session start without a source, as agy's after /clear, moves the
+    // run; it fired before the terminal's last record, and arrives after
+    // it, as Copilot's start at the first prompt after /clear does
+    let fired = (now - chrono::Duration::seconds(1)).to_rfc3339();
+    let (status, _) = report(
+        &app,
+        "s-next",
+        json!({"event": "started", "at": fired}),
+        &own,
+        &token,
+    )
+    .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     run_becomes(&app, &id, |r| r["session"]["agent_session"] == "s-next").await;
     // and the session it left no longer works

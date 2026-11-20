@@ -974,6 +974,9 @@ async fn report(
             cut: false,
             origin: Default::default(),
             source: crate::db::Source::Host,
+            // Pinrail's own conclusion, as the run moves: the report that
+            // moved it may have fired before the session's last record
+            at: now,
             ..report.clone()
         };
         state.reviews().report(agent, cleared, &ended, false, now)?;
