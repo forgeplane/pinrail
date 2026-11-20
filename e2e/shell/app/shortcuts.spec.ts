@@ -29,6 +29,8 @@ test("? shows the keys of the page in sections, and every section on request", a
 
 test("a search looks through every section", async ({ page }) => {
   await page.goto("/#/projects");
+  // a key pressed before the window has drawn reaches no handler
+  await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
   await page.keyboard.press("?");
   await expect(sections(page)).toHaveText(["General"]);
   await dialog(page).getByRole("searchbox", { name: "Search shortcuts" }).fill("queue");

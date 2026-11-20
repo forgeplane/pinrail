@@ -704,6 +704,8 @@ test("a new project whose image cannot be saved is still created, and says so", 
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByLabel("Image").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: png });
+  // the image is cropped before the dialog has it
+  await expect(dialog.getByRole("button", { name: "Remove image" })).toBeVisible();
   await dialog.getByRole("button", { name: "Create project" }).click();
   await expect(dialog).toBeHidden();
   await expect(card(page, name)).toBeVisible();

@@ -117,6 +117,9 @@ test("a saved theme file changes the app without a reload", async ({ page }) => 
     await settings(page.request, { theme: "dark", dark_theme: id });
     await page.goto("/#/history");
     await expect.poll(() => bg(page)).toBe("#102030");
+    // the core looks at the themes folder once a second: until it has seen
+    // the new file, a change that removes it again looks like no change
+    await page.waitForTimeout(1500);
 
     write(path, "Live", { bg: "#203040" });
     await expect.poll(() => bg(page)).toBe("#203040");
