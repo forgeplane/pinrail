@@ -47,7 +47,7 @@ export type StartableAgent = {
   reports?: boolean | null;
   /** What Report status installs for it: hooks, or an extension; null for
    *  an agent it installs nothing for */
-  installs?: "hooks" | "extension" | null;
+  installs?: "hooks" | "extension" | "plugin" | null;
 };
 
 /** A folder agents worked in lately. */

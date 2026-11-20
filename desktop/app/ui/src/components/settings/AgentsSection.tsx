@@ -27,7 +27,7 @@ export type AgentStatus = {
 
 /** What Report status installs for an agent: hooks or an extension, the
  *  file it goes in, and what the file holds of it. */
-export type Integration = { kind: "hooks" | "extension"; file: string; state: HookState };
+export type Integration = { kind: "hooks" | "extension" | "plugin"; file: string; state: HookState };
 
 export type HookState = "absent" | "current" | "outdated" | "modified" | "unreadable";
 
@@ -102,12 +102,15 @@ export function useAgents(open: boolean) {
 export function integrationNote(integration: Integration, agent: string): { note: string; update: boolean } {
   const file = where(integration.file);
   const extension = integration.kind === "extension";
+  const plugin = integration.kind === "plugin";
   switch (integration.state) {
     case "outdated":
       return {
         note: extension
           ? "Pinrail's extension was installed by another version of Pinrail."
-          : "The hooks were installed by another version of Pinrail.",
+          : plugin
+            ? "Pinrail's plugin was installed by another version of Pinrail."
+            : "The hooks were installed by another version of Pinrail.",
         update: true,
       };
     case "modified":
@@ -123,7 +126,9 @@ export function integrationNote(integration: Integration, agent: string): { note
       return {
         note: extension
           ? `Installs Pinrail's extension in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`
-          : `Installs Pinrail's hooks in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`,
+          : plugin
+            ? `Adds Pinrail's plugin to ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`
+            : `Installs Pinrail's hooks in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`,
         update: false,
       };
   }

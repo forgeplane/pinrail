@@ -487,3 +487,64 @@ fn cursor_s_hooks_go_beside_the_person_s_in_its_hooks_file() {
         );
     }
 }
+
+fn opencode_plan(home: &Path) -> Integration {
+    adapter("opencode")
+        .unwrap()
+        .integration(home, &|_| None)
+        .unwrap()
+}
+
+#[test]
+fn opencode_s_plugin_is_a_file_and_an_entry_in_its_plugin_list() {
+    let plan = opencode_plan(Path::new("/Users/you"));
+    assert_eq!(plan.file, Path::new("/Users/you/.config/opencode/cli.json"));
+    let moved = adapter("opencode")
+        .unwrap()
+        .integration(Path::new("/Users/you"), &|k| {
+            (k == "XDG_CONFIG_HOME").then(|| "/work/config".to_string())
+        })
+        .unwrap();
+    assert_eq!(moved.file, Path::new("/work/config/opencode/cli.json"));
+}
+
+#[test]
+fn opencode_s_plugin_goes_beside_the_person_s_and_comes_out_whole() {
+    let home = tempfile::tempdir().unwrap();
+    let plan = opencode_plan(home.path());
+    let folder = plan.file.parent().unwrap().to_path_buf();
+    std::fs::create_dir_all(&folder).unwrap();
+    // the list as herdr leaves it
+    let original = "{\n  \"plugins\": [\"./herdr-opencode\"]\n}\n";
+    std::fs::write(&plan.file, original).unwrap();
+    assert_eq!(file_state(&plan), HookState::Absent);
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    let list: Value = serde_json::from_str(&std::fs::read_to_string(&plan.file).unwrap()).unwrap();
+    assert_eq!(
+        list["plugins"],
+        json!(["./herdr-opencode", "./pinrail-opencode"])
+    );
+    let plugin = folder.join("pinrail-opencode").join("tui.js");
+    assert!(
+        std::fs::read_to_string(&plugin)
+            .unwrap()
+            .contains("\"hook\", \"opencode\"")
+    );
+    // installed again, nothing changes
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    let again: Value = serde_json::from_str(&std::fs::read_to_string(&plan.file).unwrap()).unwrap();
+    assert_eq!(again, list);
+    // the plugin file gone or of another version: on again repairs it
+    std::fs::remove_file(&plugin).unwrap();
+    assert_eq!(file_state(&plan), HookState::Outdated);
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    // off takes out the entry and the file, and leaves the person's
+    assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
+    let after: Value = serde_json::from_str(&std::fs::read_to_string(&plan.file).unwrap()).unwrap();
+    assert_eq!(after["plugins"], json!(["./herdr-opencode"]));
+    assert!(!plugin.exists());
+    // a list Pinrail cannot edit safely is left alone
+    std::fs::write(&plan.file, "{\"plugins\": \"./mine\"}").unwrap();
+    assert_eq!(file_state(&plan), HookState::Unreadable);
+    assert!(apply(&plan, true).is_err());
+}

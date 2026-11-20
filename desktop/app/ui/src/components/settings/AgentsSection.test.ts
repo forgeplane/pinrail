@@ -23,6 +23,21 @@ describe("Report status", () => {
     );
   });
 
+  test("says that it adds a plugin to the agent's plugin list", () => {
+    const plugin = (state: Integration["state"]): Integration => ({
+      kind: "plugin",
+      file: "/Users/you/.config/opencode/cli.json",
+      state,
+    });
+    expect(integrationNote(plugin("absent"), "OpenCode").note).toBe(
+      "Adds Pinrail's plugin to ~/.config/opencode/cli.json so Pinrail can show when OpenCode works, waits for you or finishes.",
+    );
+    expect(integrationNote(plugin("outdated"), "OpenCode")).toEqual({
+      note: "Pinrail's plugin was installed by another version of Pinrail.",
+      update: true,
+    });
+  });
+
   test("says what is wrong with the file, in the words of what it installs", () => {
     expect(integrationNote(hooks("outdated"), "Copilot CLI")).toEqual({
       note: "The hooks were installed by another version of Pinrail.",

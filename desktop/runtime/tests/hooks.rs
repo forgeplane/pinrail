@@ -818,3 +818,80 @@ fn cursor_s_notification_that_it_asks_a_permission_is_a_wait() {
         None
     );
 }
+
+const OPENCODE_SESSION: &str = "ses_1280dc05c0b34730a8b4e6672e80a12e";
+
+#[test]
+fn opencode_reports_each_event_of_its_session_through_pinrail_s_plugin() {
+    let started = parse("opencode", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, OPENCODE_SESSION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    assert_eq!(started.detail.cwd.as_deref(), Some("/Users/you/code/app"));
+    assert_eq!(
+        event("opencode", "session-start", "session-start-resume"),
+        Some(HookEvent::Started {
+            source: StartSource::Resume
+        })
+    );
+    let prompt = parse("opencode", "prompt", "prompt").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Run the tests and tell me what fails.")
+    );
+    // a message sent while it works joins the running execution
+    assert_eq!(
+        event("opencode", "prompt", "prompt-while-working"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(event("opencode", "tool", "tool"), Some(HookEvent::Working));
+    let permission = parse("opencode", "waiting", "waiting-permission").unwrap();
+    assert_eq!(
+        permission.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Permission
+        }
+    );
+    assert_eq!(permission.detail.summary.as_deref(), Some("npm test"));
+    let question = parse("opencode", "waiting", "waiting-question").unwrap();
+    assert_eq!(
+        question.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        }
+    );
+    assert_eq!(
+        question.detail.summary.as_deref(),
+        Some("Which branch should I use?")
+    );
+    assert_eq!(
+        event("opencode", "answered", "answered"),
+        Some(HookEvent::Working)
+    );
+    let done = parse("opencode", "stop", "stop").unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("All tests pass."));
+    let failed = parse("opencode", "stop", "stop-failed").unwrap();
+    assert_eq!(
+        failed.event,
+        HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        }
+    );
+    assert_eq!(failed.detail.error.as_deref(), Some("bad request boom"));
+    assert_eq!(
+        event("opencode", "stop", "stop-interrupted"),
+        Some(HookEvent::TurnEnded {
+            end: TurnEnd::Interrupted
+        })
+    );
+    assert_eq!(
+        event("opencode", "session-end", "session-end"),
+        Some(HookEvent::Ended)
+    );
+}

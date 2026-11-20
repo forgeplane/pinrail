@@ -66,3 +66,11 @@ the conversation's id and the email rewritten: `session-start`, `prompt`
 (`beforeSubmitPrompt`), `pre-tool-use`, `post-tool-use`,
 `after-agent-response`, `stop` (completed), `stop-aborted` and `stop-error`
 (Ctrl+C sends both) and `session-end`.
+
+**OpenCode 2.0.20, from Pinrail's plugin** (`src/agents/opencode-plugin.js`),
+which turns the events of OpenCode's TUI plugin API into reports; the
+fields are those of the events captured from interactive sessions with a
+scripted model (`session.created`, `session.inbox.enqueued`,
+`session.tool.called`, `permission.asked`, `form.created`,
+`session.text.ended`, `session.execution.succeeded`, `…failed` and
+`…interrupted`), with the paths rewritten.

@@ -33,6 +33,9 @@ pub enum Kind {
     Hooks,
     /// An extension file the agent loads, such as Pi's.
     Extension,
+    /// A plugin the agent loads from a list in its settings, such as
+    /// OpenCode's.
+    Plugin,
 }
 
 impl Kind {
@@ -40,6 +43,7 @@ impl Kind {
         match self {
             Kind::Hooks => "hooks",
             Kind::Extension => "extension",
+            Kind::Plugin => "plugin",
         }
     }
 }
@@ -65,6 +69,17 @@ pub enum Layout {
     /// `marker` is Pinrail's, of this version or another. Any other file at
     /// that path is the person's, and is never written or removed.
     File {
+        text: &'static str,
+        marker: &'static str,
+    },
+    /// A file of Pinrail's own, at `path` beside the settings file, which
+    /// the agent loads because `entry` is in the list `key` of that file,
+    /// as OpenCode loads its plugins from `cli.json`. The entry goes beside
+    /// the person's, and the file is told from theirs as `File`'s is.
+    Listed {
+        key: &'static str,
+        entry: &'static str,
+        path: &'static str,
         text: &'static str,
         marker: &'static str,
     },
@@ -354,6 +369,9 @@ pub fn file_state(plan: &Integration) -> HookState {
     if let Layout::File { text, marker } = plan.layout {
         return own_file_state(&plan.file, text, marker);
     }
+    if let Layout::Listed { .. } = plan.layout {
+        return listed_state(plan);
+    }
     match read(&plan.file) {
         Ok(settings) => state(Some(&settings), plan),
         Err(_) => HookState::Unreadable,
@@ -368,6 +386,9 @@ pub fn apply(plan: &Integration, installed: bool) -> Result<HookState, String> {
     let shown = plan.file.display();
     if let Layout::File { text, marker } = plan.layout {
         return apply_own_file(&plan.file, text, marker, installed);
+    }
+    if let Layout::Listed { .. } = plan.layout {
+        return apply_listed(plan, installed);
     }
     let mut settings = read(&plan.file)?;
     if state(Some(&settings), plan) == HookState::Unreadable {
@@ -431,6 +452,100 @@ fn apply_own_file(
         }
     }
     Ok(own_file_state(file, text, marker))
+}
+
+/// The parts of a `Listed` integration: the list's key, the entry, and the
+/// file's path, text and marker.
+fn listed(
+    plan: &Integration,
+) -> (
+    &'static str,
+    &'static str,
+    PathBuf,
+    &'static str,
+    &'static str,
+) {
+    let Layout::Listed {
+        key,
+        entry,
+        path,
+        text,
+        marker,
+    } = plan.layout
+    else {
+        unreachable!("a listed integration");
+    };
+    let folder = plan.file.parent().unwrap_or(std::path::Path::new(""));
+    (key, entry, folder.join(path), text, marker)
+}
+
+/// Whether the settings file's list holds the entry, or `None` when the
+/// file or its list is not one Pinrail can edit.
+fn listed_entry(settings: &Value, key: &str, entry: &str) -> Option<bool> {
+    let object = settings.as_object()?;
+    match object.get(key) {
+        None => Some(false),
+        Some(Value::Array(list)) => Some(list.iter().any(|e| e.as_str() == Some(entry))),
+        Some(_) => None,
+    }
+}
+
+/// The state of a `Listed` integration: current with both the entry and
+/// the file as this version writes them, absent with neither, and outdated
+/// with one of them, or the file of another version.
+fn listed_state(plan: &Integration) -> HookState {
+    let (key, entry, file, text, marker) = listed(plan);
+    let Ok(settings) = read(&plan.file) else {
+        return HookState::Unreadable;
+    };
+    let Some(listed) = listed_entry(&settings, key, entry) else {
+        return HookState::Unreadable;
+    };
+    match (listed, own_file_state(&file, text, marker)) {
+        (_, HookState::Unreadable) => HookState::Unreadable,
+        (true, HookState::Current) => HookState::Current,
+        (false, HookState::Absent) => HookState::Absent,
+        _ => HookState::Outdated,
+    }
+}
+
+/// Writes a `Listed` integration's file and adds its entry, or takes both
+/// out, leaving the person's entries and files as they are.
+fn apply_listed(plan: &Integration, installed: bool) -> Result<HookState, String> {
+    let (key, entry, file, text, marker) = listed(plan);
+    if listed_state(plan) == HookState::Unreadable {
+        return Err(format!(
+            "{} is not a settings file Pinrail can edit, or {} is not Pinrail's, so they were left as they are",
+            plan.file.display(),
+            file.display()
+        ));
+    }
+    let mut settings = read(&plan.file)?;
+    let before = settings.clone();
+    let object = settings
+        .as_object_mut()
+        .expect("an object, as listed_state checks");
+    let list = object
+        .entry(key)
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+        .expect("a list, as listed_state checks");
+    list.retain(|e| e.as_str() != Some(entry));
+    if installed {
+        apply_own_file(&file, text, marker, true)?;
+        list.push(Value::from(entry));
+    }
+    if settings != before {
+        write(&plan.file, &settings)?;
+    }
+    if !installed {
+        apply_own_file(&file, text, marker, false)?;
+        // the plugin's folder, left empty
+        if let Some(folder) = file.parent() {
+            let _ = std::fs::remove_dir(folder);
+        }
+    }
+    Ok(listed_state(plan))
 }
 
 /// A settings file, parsed; `{}` when it is not there.

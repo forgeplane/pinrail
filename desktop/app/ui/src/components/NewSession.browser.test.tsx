@@ -118,6 +118,16 @@ test("an agent Pinrail reports through an extension is offered the extension", a
   await expect.element(offer.getByRole("button", { name: "Install extension" })).toBeVisible();
 });
 
+test("an agent Pinrail reports through a plugin is offered the plugin", async () => {
+  app.agents = [agent("opencode", "OpenCode", true, false, "plugin")];
+  await render(<NewSession />);
+  const offer = page.getByTestId("new-session-reports-offer");
+  await expect
+    .element(offer.getByText("Pinrail's plugin shows OpenCode's turns, prompts and replies in its session."))
+    .toBeVisible();
+  await expect.element(offer.getByRole("button", { name: "Install plugin" })).toBeVisible();
+});
+
 test("an agent whose hooks are on is offered nothing", async () => {
   app.agents = [agent("grok", "Grok CLI", true, true)];
   await render(<NewSession />);
