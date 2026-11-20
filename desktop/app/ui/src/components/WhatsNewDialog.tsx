@@ -5,9 +5,10 @@
 // the last card closes the dialog.
 
 import { Sparkles, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { pictureOf, type CardAction, type Release } from "../lib/whatsNew";
 import { useTheme } from "../lib/theme";
+import { useWindowKey } from "../lib/useWindowKey";
 import { Tooltip } from "./Tooltip";
 import { Dialog } from "./Dialog";
 
@@ -35,31 +36,28 @@ export function WhatsNewDialog({
     next.current?.focus();
   }, []);
 
-  // added before the dialog is painted, so a key pressed as soon as it
-  // shows is not lost
-  useLayoutEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setAt((n) => Math.min(n + 1, cards.length - 1));
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setAt((n) => Math.max(n - 1, 0));
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cards.length, onClose]);
+  // The listener is in place before the dialog is painted and stays the
+  // same one while the dialog is open, so a key is lost neither as the
+  // dialog shows nor when the app draws again during the key press.
+  useWindowKey((event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setAt((n) => Math.min(n + 1, cards.length - 1));
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setAt((n) => Math.max(n - 1, 0));
+    }
+  });
 
   if (!card) return null;
   const picture = card.image ? pictureOf(card.version, card.image, theme) : null;
 
   return (
-    // its keys are its own, added before it paints
+    // its keys are its own
     <Dialog
       labelledBy="whats-new-title"
       plain

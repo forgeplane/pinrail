@@ -224,6 +224,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   sometimes dropped.
 - A plugin view that hands over a decision is told only that it was
   submitted. It was sometimes sent the review again as read-only first.
+- Esc and the arrow keys now always work in the What's new dialog. A key
+  pressed while the app was updating was sometimes ignored.
 
 ## [0.6.0]
 
