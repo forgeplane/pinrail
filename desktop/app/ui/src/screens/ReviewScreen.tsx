@@ -1,5 +1,5 @@
 import { Clock, Mic, Minimize2, RefreshCw, Send, TriangleAlert } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Review, Violation } from "../api/types";
@@ -239,79 +239,84 @@ function ReviewBody({
     frame.current?.focus();
   }, [findInView, hideFind]);
 
-  // attached before the browser paints the review, since the loading
-  // panel's own Escape stops as the review shows: a key pressed then
-  // would reach neither
-  useLayoutEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // a dialog in front of the review has the keys
-      if (modalOpen()) return;
-      if (event.key === "Escape" && maximized) {
-        setMaximized(false);
+  // The listener is in place before the browser paints the review, since
+  // the loading panel's own Escape stops as the review shows, and stays the
+  // same one while the review is on screen, so no key is lost when the app
+  // draws again during the key press.
+  useWindowKey((event) => {
+    // a dialog in front of the review has the keys
+    if (modalOpen()) return;
+    if (event.key === "Escape" && maximized) {
+      setMaximized(false);
+      return;
+    }
+    // Escape closes the side panel. A view that handles the key keeps it,
+    // and forwards only an Escape it did not handle
+    if (event.key === "Escape" && onClose && !finding && !modalOpen()) {
+      const target = event.target as HTMLElement | null;
+      if (!target || (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA")) {
+        onClose();
         return;
       }
-      // Escape closes the side panel. A view that handles the key keeps it,
-      // and forwards only an Escape it did not handle
-      if (event.key === "Escape" && onClose && !finding && !modalOpen()) {
-        const target = event.target as HTMLElement | null;
-        if (!target || (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA")) {
-          onClose();
-          return;
-        }
+    }
+    if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "s" || event.key === "S")) {
+      event.preventDefault();
+      if (review.kind !== "question") toggleStar(review);
+      return;
+    }
+    if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "m" || event.key === "M")) {
+      event.preventDefault();
+      if (plugin) setMaximized((m) => !m);
+      return;
+    }
+    if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "d" || event.key === "D")) {
+      // the key must not land in the reason field that opens
+      event.preventDefault();
+      if (pending) setDiscarding(true);
+      return;
+    }
+    if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "f" || event.key === "F")) {
+      // beside a session's thread, ⌘F finds in the review only with the
+      // focus in its panel; anywhere else it is the thread's
+      const panel = frame.current?.closest(".review-panel");
+      if (besideThread && !panel?.contains(document.activeElement)) return;
+      event.preventDefault();
+      if (plugin) {
+        showFind();
       }
-      if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "s" || event.key === "S")) {
-        event.preventDefault();
-        if (review.kind !== "question") toggleStar(review);
-        return;
-      }
-      if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "m" || event.key === "M")) {
-        event.preventDefault();
-        if (plugin) setMaximized((m) => !m);
-        return;
-      }
-      if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "d" || event.key === "D")) {
-        // the key must not land in the reason field that opens
-        event.preventDefault();
-        if (pending) setDiscarding(true);
-        return;
-      }
-      if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "f" || event.key === "F")) {
-        event.preventDefault();
-        if (plugin) {
-          showFind();
-        }
-        return;
-      }
-      const el = event.target as HTMLElement | null;
-      if (isTyping(el)) return;
-      // [ and ] alone move between rounds; with ⌘ or Ctrl they are Back and
-      // Forward, which the layout handles
-      const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
-      if (plain && event.key === "[" && previous) navigate(linkTo(previous.id));
-      if (plain && event.key === "]" && revisedBy) navigate(linkTo(revisedBy.id));
-      // one of the plugin's declared keys, pressed with the shell in focus:
-      // it goes to the view as if typed there
-      const combo = comboFromEvent(event);
-      if (combo && !isShadowed(combo) && plugin?.shortcuts?.some((s) => s.keys === combo)) {
-        event.preventDefault();
-        // focus the frame before forwarding the shortcut, so a field the
-        // shortcut opens, such as a code review's note on c, accepts typing at once
-        frame.current?.focus();
-        frame.current?.contentWindow?.postMessage(
-          {
-            pinrail: 1,
-            type: "key",
-            key: event.key,
-            code: event.code,
-            metaKey: event.metaKey,
-            ctrlKey: event.ctrlKey,
-            altKey: event.altKey,
-            shiftKey: event.shiftKey,
-          },
-          "*",
-        );
-      }
-    };
+      return;
+    }
+    const el = event.target as HTMLElement | null;
+    if (isTyping(el)) return;
+    // [ and ] alone move between rounds; with ⌘ or Ctrl they are Back and
+    // Forward, which the layout handles
+    const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
+    if (plain && event.key === "[" && previous) navigate(linkTo(previous.id));
+    if (plain && event.key === "]" && revisedBy) navigate(linkTo(revisedBy.id));
+    // one of the plugin's declared keys, pressed with the shell in focus:
+    // it goes to the view as if typed there
+    const combo = comboFromEvent(event);
+    if (combo && !isShadowed(combo) && plugin?.shortcuts?.some((s) => s.keys === combo)) {
+      event.preventDefault();
+      // focus the frame before forwarding the shortcut, so a field the
+      // shortcut opens, such as a code review's note on c, accepts typing at once
+      frame.current?.focus();
+      frame.current?.contentWindow?.postMessage(
+        {
+          pinrail: 1,
+          type: "key",
+          key: event.key,
+          code: event.code,
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+        },
+        "*",
+      );
+    }
+  });
+  useEffect(() => {
     const onCommand = (event: Event) => {
       if ((event as CustomEvent<string>).detail === "maximize-view" && plugin) setMaximized((m) => !m);
     };
@@ -319,30 +324,15 @@ function ReviewBody({
     const onDiscard = () => setDiscarding(true);
     // and its "Delete this review…"
     const onDelete = () => setDeleting(true);
-    window.addEventListener("keydown", onKey);
     window.addEventListener("pinrail:command", onCommand);
     window.addEventListener("pinrail:discard", onDiscard);
     window.addEventListener("pinrail:delete-review", onDelete);
     return () => {
-      window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:discard", onDiscard);
       window.removeEventListener("pinrail:delete-review", onDelete);
     };
-  }, [
-    review,
-    previous,
-    revisedBy,
-    navigate,
-    maximized,
-    plugin,
-    pending,
-    onClose,
-    finding,
-    linkTo,
-    toggleStar,
-    showFind,
-  ]);
+  }, [plugin]);
 
   // the bar: where this came from, the title, its origin link. The review's
   // outcome leads the page's own strip, and what can be done with it ends it.
@@ -414,18 +404,16 @@ function ReviewBody({
   const viewDictating = bridge.dictating;
   const stopViewDictation = bridge.stopDictation;
   const stopNoteDictation = dictation.stop;
-  useEffect(() => {
-    if (!listening && !viewDictating) return;
-    const onKey = (event: KeyboardEvent) => {
+  useWindowKey(
+    (event) => {
       if (event.key !== "Escape" || event.isComposing || modalOpen()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (listening) stopNoteDictation();
       if (viewDictating) stopViewDictation();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [listening, viewDictating, stopViewDictation, stopNoteDictation]);
+    },
+    { capture: true, enabled: listening || viewDictating },
+  );
   useEffect(() => {
     const el = noteBox.current;
     if (!el || !dictation.listening) return;

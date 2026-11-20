@@ -228,6 +228,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   submitted. It was sometimes sent the review again as read-only first.
 - Esc and the arrow keys now always work in the What's new dialog. A key
   pressed while the app was updating was sometimes ignored.
+- A key pressed while the app is updating is no longer ignored in a
+  review, a menu, a session's questions or the shortcut field in Settings.
+  Esc sometimes left the review panel or a menu open.
 
 ## [0.6.0]
 

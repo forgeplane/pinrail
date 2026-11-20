@@ -4,6 +4,7 @@
 
 import { Check, type LucideIcon } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useWindowKey } from "../lib/useWindowKey";
 import { createPortal } from "react-dom";
 import { viewportRect } from "../lib/viewport";
 
@@ -70,7 +71,13 @@ export function PopoverMenu({
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !anchor.contains(target)) onClose();
     };
-    const onKey = (event: KeyboardEvent) => {
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [anchor, onClose]);
+  // one listener while the menu is open, so no key is lost when the app
+  // draws again during the key press
+  useWindowKey(
+    (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -84,14 +91,9 @@ export function PopoverMenu({
       const at = items.indexOf(document.activeElement as HTMLButtonElement);
       const next = event.key === "ArrowDown" ? (at + 1) % items.length : (at - 1 + items.length) % items.length;
       items[next]?.focus();
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey, true);
-    };
-  }, [anchor, onClose]);
+    },
+    { capture: true },
+  );
 
   return createPortal(
     <div

@@ -1,5 +1,5 @@
 // The Filter and Display menus of a list page, at component level.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "../testing/render";
@@ -29,6 +29,19 @@ function Menus({ onProject = () => {} }: { onProject?: (value: string) => void }
     },
   ];
   return <ListMenuButtons label="work items" filters={filters} toggles={[]} onReset={() => setProject("all")} />;
+}
+
+/** The menus on a page that draws again on every key press, from a key
+ *  listener added before the menu's: React then draws between the listeners
+ *  of one key press. */
+function Redrawn() {
+  const [, setPressed] = useState(0);
+  useEffect(() => {
+    const onKey = () => setPressed((n) => n + 1);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+  return <Menus />;
 }
 
 const row = () => page.getByRole("menuitem", { name: /^Project or repository/ });
@@ -71,5 +84,13 @@ describe("the Filter menu", () => {
     await userEvent.keyboard("{Escape}");
     await expect.element(row()).not.toBeInTheDocument();
     await expect.element(button).toHaveFocus();
+  });
+
+  test("Escape closes the menu when the page draws again during the key press", async () => {
+    await render(<Redrawn />, { bare: true });
+    await userEvent.click(page.getByRole("button", { name: "Filter" }));
+    await expect.element(row()).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(row()).not.toBeInTheDocument();
   });
 });

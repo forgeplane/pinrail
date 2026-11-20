@@ -11,6 +11,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { headsFor, type Point } from "../lib/menuAim";
 import { viewportRect } from "../lib/viewport";
 import { useLatest } from "../lib/useLatest";
+import { useWindowKey } from "../lib/useWindowKey";
 
 /** How long a row the pointer crossed on its way to a submenu waits before
  *  it opens its own, if the pointer stays on it. */
@@ -123,20 +124,21 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !anchor.contains(target)) onClose();
     };
-    const onKey = (event: KeyboardEvent) => {
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [anchor, onClose]);
+  // one listener while the menu is open, so no key is lost when the app
+  // draws again during the key press
+  useWindowKey(
+    (event) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
       anchor.focus();
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey, true);
-    };
-  }, [anchor, onClose]);
+    },
+    { capture: true },
+  );
 
   const submenu = (key: string, text: string, value: string, all: MenuOption[], searchable = false) => {
     const words = query.trim().toLowerCase();

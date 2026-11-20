@@ -2,6 +2,7 @@
 // a shortcut recorder.
 
 import { useEffect, useState, type ReactNode } from "react";
+import { useWindowKey } from "../../lib/useWindowKey";
 import { shortcutFromEvent, shortcutGlyphs } from "../../lib/shortcuts";
 
 export function Toggle({
@@ -84,9 +85,10 @@ export function ShortcutRecorder({
 }) {
   const [recording, setRecording] = useState(false);
 
-  useEffect(() => {
-    if (!recording) return;
-    const onKey = (event: KeyboardEvent) => {
+  // one listener while it records, so the keys of a shortcut are not lost
+  // when the app draws again during the key press
+  useWindowKey(
+    (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "Escape") {
@@ -97,15 +99,15 @@ export function ShortcutRecorder({
       if (!next) return;
       setRecording(false);
       if (next !== value) onChange(next);
-    };
+    },
+    { capture: true, enabled: recording },
+  );
+  useEffect(() => {
+    if (!recording) return;
     const stop = () => setRecording(false);
-    window.addEventListener("keydown", onKey, true);
     window.addEventListener("blur", stop);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("blur", stop);
-    };
-  }, [recording, value, onChange]);
+    return () => window.removeEventListener("blur", stop);
+  }, [recording]);
 
   return (
     <button

@@ -9,6 +9,7 @@ import { api } from "../../api/client";
 import type { Answer, Question, Review } from "../../api/types";
 import { age, stamp } from "../../lib/format";
 import { MOD, hasMod, modalOpen, isTyping } from "../../lib/keys";
+import { useWindowKey } from "../../lib/useWindowKey";
 import { plainInline } from "../../lib/markdown";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../../lib/questions";
 import { useConnected } from "../../state/live";
@@ -191,9 +192,10 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
     [questions, review.id, replyBox],
   );
 
-  useEffect(() => {
-    if (!active || !pending) return;
-    const onKey = (event: KeyboardEvent) => {
+  // one listener while the set is the active one, so no key is lost when
+  // the app draws again during the key press
+  useWindowKey(
+    (event) => {
       if (modalOpen()) return;
       // with a review open beside the thread, the keys are the review's,
       // unless the focus is in the thread. The thread may itself be in the
@@ -234,16 +236,16 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
         event.preventDefault();
         picked(current, choice, true);
       }
-    };
+    },
+    { enabled: active && pending },
+  );
+  useEffect(() => {
+    if (!active || !pending) return;
     // the palette's "Discard this review"
     const onDiscard = () => setDeclining(true);
-    window.addEventListener("keydown", onKey);
     window.addEventListener("pinrail:discard", onDiscard);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pinrail:discard", onDiscard);
-    };
-  }, [active, pending, current, questions, picked, sendAll, goTo, replyBox, review.id]);
+    return () => window.removeEventListener("pinrail:discard", onDiscard);
+  }, [active, pending]);
 
   const several = questions.length > 1;
   return (
