@@ -1,0 +1,52 @@
+{
+  "hookEventName": "pre_tool_use",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:21.920826+00:00",
+  "transcriptPath": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permissionMode": "auto",
+  "toolName": "ask_user_question",
+  "toolUseId": "call-837998dd-b336-4dc2-88a1-8956a67dab3c-0",
+  "toolInput": {
+    "questions": [
+      {
+        "question": "Do you prefer tea or coffee?",
+        "options": [
+          {
+            "label": "Tea",
+            "description": "You prefer tea."
+          },
+          {
+            "label": "Coffee",
+            "description": "You prefer coffee."
+          }
+        ]
+      }
+    ]
+  },
+  "toolInputTruncated": false,
+  "hook_event_name": "PreToolUse",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "transcript_path": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permission_mode": "auto",
+  "tool_name": "ask_user_question",
+  "tool_input": {
+    "questions": [
+      {
+        "question": "Do you prefer tea or coffee?",
+        "options": [
+          {
+            "label": "Tea",
+            "description": "You prefer tea."
+          },
+          {
+            "label": "Coffee",
+            "description": "You prefer coffee."
+          }
+        ]
+      }
+    ]
+  },
+  "tool_use_id": "call-837998dd-b336-4dc2-88a1-8956a67dab3c-0"
+}

@@ -1,0 +1,16 @@
+{
+  "hookEventName": "stop",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:16.837385+00:00",
+  "transcriptPath": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permissionMode": "auto",
+  "reason": "shutdown",
+  "stopHookActive": false,
+  "hook_event_name": "Stop",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "transcript_path": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permission_mode": "auto",
+  "stop_hook_active": false
+}

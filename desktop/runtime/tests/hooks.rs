@@ -34,6 +34,10 @@ fn parse(agent: &str, event: &str, name: &str) -> Option<HookReport> {
     let conversation = input(agent, name)["conversationId"]
         .as_str()
         .map(str::to_string);
+    let grok = input(agent, name)["sessionId"].as_str().map(str::to_string);
+    if let ("grok", Some(id)) = (agent, grok) {
+        return parse_in(agent, event, name, &[("GROK_SESSION_ID", &id)]);
+    }
     match (agent, session, conversation) {
         ("claude-code", Some(id), _) => {
             parse_in(agent, event, name, &[("CLAUDE_CODE_SESSION_ID", &id)])
@@ -380,4 +384,139 @@ fn only_the_conversation_s_own_hooks_report() {
         )
         .is_none()
     );
+}
+
+const GROK_SESSION: &str = "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e";
+
+#[test]
+fn grok_reports_each_event_of_its_session() {
+    let started = parse("grok", "session-start", "session-start").unwrap();
+    assert_eq!(started.session, GROK_SESSION);
+    assert_eq!(
+        started.event,
+        HookEvent::Started {
+            source: StartSource::Startup
+        }
+    );
+    assert_eq!(started.detail.cwd.as_deref(), Some("/Users/you/code/app"));
+    // a resumed session starts as loaded
+    let mut load = input("grok", "session-start");
+    load["source"] = Value::from("load");
+    assert_eq!(
+        grok_hook("session-start", &load).map(|r| r.event),
+        Some(HookEvent::Started {
+            source: StartSource::Resume
+        })
+    );
+
+    let prompt = parse("grok", "prompt", "prompt").unwrap();
+    assert_eq!(prompt.event, HookEvent::Prompt);
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Run the shell command `ls` and tell me how many files there are.")
+    );
+    // the turn's own id, which a late cancel of it is matched by
+    assert_eq!(
+        prompt.detail.turn_id.as_deref(),
+        Some("10334815-a6af-4b09-8ace-cd9a431e0d19")
+    );
+
+    // a tool call is work in the turn, and a permission it asks for waits
+    assert_eq!(
+        event("grok", "tool", "pre-tool-use"),
+        Some(HookEvent::Working)
+    );
+    assert_eq!(
+        event("grok", "notification", "notification-permission"),
+        Some(HookEvent::NeedsInput {
+            kind: WaitKind::Permission
+        })
+    );
+    // the question tool waits for an answer, and says the question
+    let asked = parse("grok", "tool", "pre-tool-use-question").unwrap();
+    assert_eq!(
+        asked.event,
+        HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        }
+    );
+    assert_eq!(
+        asked.detail.summary.as_deref(),
+        Some("Do you prefer tea or coffee?")
+    );
+    assert_eq!(
+        event("grok", "notification", "notification-question"),
+        Some(HookEvent::NeedsInput {
+            kind: WaitKind::Question
+        })
+    );
+    assert_eq!(
+        event("grok", "permission-denied", "permission-denied"),
+        Some(HookEvent::Working)
+    );
+
+    let done = parse("grok", "stop", "stop").unwrap();
+    assert_eq!(done.event, HookEvent::TurnEnded { end: TurnEnd::Done });
+    assert_eq!(done.detail.reply.as_deref(), Some("There are 3 files."));
+    for cancel in ["stop-cancelled-interrupt", "stop-cancelled-rejected"] {
+        assert_eq!(
+            event("grok", "stop-cancelled", cancel),
+            Some(HookEvent::TurnEnded {
+                end: TurnEnd::Interrupted
+            }),
+            "{cancel}"
+        );
+    }
+    let mut failure = input("grok", "stop");
+    failure["error"] = Value::from("rate_limit");
+    let failed = grok_hook("stop-failure", &failure).unwrap();
+    assert_eq!(
+        failed.event,
+        HookEvent::TurnEnded {
+            end: TurnEnd::Failed
+        }
+    );
+    assert_eq!(failed.detail.error.as_deref(), Some("rate_limit"));
+
+    let ended = parse("grok", "session-end", "session-end").unwrap();
+    assert_eq!(ended.event, HookEvent::Ended);
+    assert_eq!(ended.detail.reason.as_deref(), Some("shutdown"));
+}
+
+/// The report of Grok's hook `event` on `input`, run by the session it
+/// names.
+fn grok_hook(event: &str, input: &Value) -> Option<HookReport> {
+    adapter("grok").unwrap().parse_hook(event, input, &|k| {
+        (k == "GROK_SESSION_ID").then(|| GROK_SESSION.to_string())
+    })
+}
+
+#[test]
+fn grok_reports_nothing_for_another_session_a_subagent_or_its_shutdown() {
+    // the Stop Grok fires as it shuts down ends no turn
+    assert_eq!(event("grok", "stop", "stop-shutdown"), None);
+    // a hook of another session, or of none, as Claude Code's hooks that
+    // Grok also runs
+    let prompt = input("grok", "prompt");
+    let other = |k: &str| (k == "GROK_SESSION_ID").then(|| "another".to_string());
+    assert!(
+        adapter("grok")
+            .unwrap()
+            .parse_hook("prompt", &prompt, &other)
+            .is_none()
+    );
+    assert!(
+        adapter("grok")
+            .unwrap()
+            .parse_hook("prompt", &prompt, &|_| None)
+            .is_none()
+    );
+    // a subagent's hook
+    let mut subagent = prompt.clone();
+    subagent["subagentType"] = Value::from("explore");
+    assert!(grok_hook("prompt", &subagent).is_none());
+    // the reminder that it waits for the next prompt says nothing new
+    let mut idle = input("grok", "notification-permission");
+    idle["notificationType"] = Value::from("idle_prompt");
+    assert!(grok_hook("notification", &idle).is_none());
 }

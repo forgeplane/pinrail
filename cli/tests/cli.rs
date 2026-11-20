@@ -5151,3 +5151,38 @@ fn runs_and_stop_go_to_the_runs_routes() {
     assert!(String::from_utf8_lossy(&stopped.stdout).starts_with("Stopping run_1."));
     assert_eq!(server.authorizations(), ["Bearer tok", "Bearer tok"]);
 }
+
+#[test]
+fn a_grok_hook_reports_its_session_s_prompt() {
+    let input: serde_json::Value = serde_json::from_str(&hook_input("grok", "prompt")).unwrap();
+    let session = input["sessionId"].as_str().unwrap();
+    let posted = Arc::new(Mutex::new(Vec::new()));
+    let kept = posted.clone();
+    let server = MockServer::start(Box::new(move |_, path, body| {
+        kept.lock()
+            .unwrap()
+            .push((path.to_string(), body.to_string()));
+        (204, String::new())
+    }));
+    let (code, _, _) = hook(
+        &["grok", "prompt"],
+        &input.to_string(),
+        &[
+            ("PINRAIL_URL", server.url.as_str()),
+            ("GROK_SESSION_ID", session),
+        ],
+    );
+    assert_eq!(code, 0);
+    let posted = posted.lock().unwrap();
+    let (path, body) = &posted[0];
+    assert!(
+        path.contains(&format!("/sessions/grok/{session}/reports")),
+        "{path}"
+    );
+    let body: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["event"], "prompt");
+    assert_eq!(
+        body["detail"]["prompt"],
+        "Run the shell command `ls` and tell me how many files there are."
+    );
+}

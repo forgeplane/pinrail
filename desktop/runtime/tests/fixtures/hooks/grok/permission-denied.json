@@ -1,0 +1,26 @@
+{
+  "hookEventName": "permission_denied",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:06.682275+00:00",
+  "transcriptPath": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permissionMode": "auto",
+  "toolName": "run_terminal_command",
+  "toolUseId": "call-3f62fec7-8d66-4a5b-b2be-f45a75fd5dbb-0",
+  "toolInput": {
+    "command": "ls -la && echo \"---\" && ls -A | wc -l",
+    "description": "List directory contents and count entries"
+  },
+  "toolInputTruncated": false,
+  "hook_event_name": "PermissionDenied",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "transcript_path": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permission_mode": "auto",
+  "tool_name": "run_terminal_command",
+  "tool_input": {
+    "command": "ls -la && echo \"---\" && ls -A | wc -l",
+    "description": "List directory contents and count entries"
+  },
+  "tool_use_id": "call-3f62fec7-8d66-4a5b-b2be-f45a75fd5dbb-0"
+}

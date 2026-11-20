@@ -1,0 +1,12 @@
+{
+  "hookEventName": "session_start",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:03.054429+00:00",
+  "permissionMode": "auto",
+  "source": "new",
+  "hook_event_name": "SessionStart",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "permission_mode": "auto"
+}

@@ -1,0 +1,19 @@
+{
+  "hookEventName": "stop_cancelled",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:06.798728+00:00",
+  "transcriptPath": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "promptId": "10334815-a6af-4b09-8ace-cd9a431e0d19",
+  "permissionMode": "auto",
+  "reason": "permission_rejected",
+  "cancelledBy": "user",
+  "reasonDetails": "run_terminal_command: User rejected the execution",
+  "lastAssistantMessage": "I'll list the files in the current directory and count them.",
+  "hook_event_name": "StopCancelled",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "transcript_path": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permission_mode": "auto",
+  "last_assistant_message": "I'll list the files in the current directory and count them."
+}

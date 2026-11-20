@@ -1,0 +1,17 @@
+{
+  "hookEventName": "stop_cancelled",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:27:01.725849+00:00",
+  "transcriptPath": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "promptId": "38a3ac04-d836-4c8d-9b29-2a112a2d37be",
+  "permissionMode": "auto",
+  "reason": "user_interrupt",
+  "cancelledBy": "user",
+  "cancelTrigger": "ctrl_c",
+  "hook_event_name": "StopCancelled",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "transcript_path": "/Users/you/.grok/sessions/%2FUsers%2Fyou%2Fcode%2Fapp/019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e/updates.jsonl",
+  "permission_mode": "auto"
+}

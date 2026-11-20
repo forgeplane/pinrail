@@ -31,3 +31,12 @@ workspace `.agents/hooks.json` whose hooks saved their input:
 `next-invocation`, `tool-done` (`PostToolUse`) and `stop`. Built from the
 same fields: `stop-canceled` and `stop-error`. `transcript_full.jsonl` has
 the shape of the transcript agy keeps, with made-up content.
+
+**Grok CLI 1.0.89, captured** from interactive sessions with a project
+`.grok/hooks/pinrail.json` whose hooks saved their input, with the paths and
+the session's id rewritten: `session-start`, `prompt`, `pre-tool-use`
+(`PreToolUse` of `run_terminal_command`), `notification-permission`,
+`permission-denied`, `stop-cancelled-rejected` (a declined permission),
+`pre-tool-use-question` (`ask_user_question`), `notification-question`,
+`stop-cancelled-interrupt` (Ctrl+C), `stop-shutdown` and `session-end`.
+Built from the same fields: `stop`, a turn that ended with its reply.

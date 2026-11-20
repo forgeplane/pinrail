@@ -1,0 +1,13 @@
+{
+  "hookEventName": "user_prompt_submit",
+  "sessionId": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "cwd": "/Users/you/code/app",
+  "workspaceRoot": "/Users/you/code/app",
+  "timestamp": "2026-11-20T11:26:03.089588+00:00",
+  "promptId": "10334815-a6af-4b09-8ace-cd9a431e0d19",
+  "permissionMode": "auto",
+  "prompt": "Run the shell command `ls` and tell me how many files there are.",
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e",
+  "permission_mode": "auto"
+}

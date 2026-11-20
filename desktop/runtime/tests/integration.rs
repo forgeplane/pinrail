@@ -268,3 +268,53 @@ fn every_antigravity_hook_installed_is_one_pinrail_hook_reads() {
         );
     }
 }
+
+fn grok_plan() -> HookPlan {
+    adapter("grok")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|_| None)
+        .unwrap()
+}
+
+#[test]
+fn grok_s_hooks_go_in_a_file_of_pinrail_s_own_in_its_hooks_folder() {
+    let plan = grok_plan();
+    assert_eq!(plan.file, Path::new("/Users/you/.grok/hooks/pinrail.json"));
+    let moved = adapter("grok")
+        .unwrap()
+        .hook_plan(Path::new("/Users/you"), &|k| {
+            (k == "GROK_HOME").then(|| "/work/grok".to_string())
+        })
+        .unwrap();
+    assert_eq!(moved.file, Path::new("/work/grok/hooks/pinrail.json"));
+    // Claude Code's format, a group of handlers for each event
+    let mut hooks = json!({});
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    assert_eq!(
+        hooks["hooks"]["StopCancelled"][0]["hooks"][0]["command"],
+        "\"${PINRAIL_CLI:-pinrail}\" hook grok stop-cancelled"
+    );
+    remove(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Absent);
+}
+
+#[test]
+fn every_grok_hook_installed_is_one_pinrail_hook_reads() {
+    let known = [
+        "session-start",
+        "prompt",
+        "tool",
+        "notification",
+        "permission-denied",
+        "stop",
+        "stop-failure",
+        "stop-cancelled",
+        "session-end",
+    ];
+    for entry in grok_plan().entries {
+        let hook = entry.command.rsplit(' ').next().unwrap();
+        assert!(known.contains(&hook), "{}", entry.command);
+        assert!(entry.command.contains(" hook grok "));
+    }
+}
