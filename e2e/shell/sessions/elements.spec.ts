@@ -3,6 +3,9 @@
 import { expect, test } from "../fixtures";
 import { core, sessionId } from "../helpers";
 
+// a test may end while the page waits for an answer a route gives it
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
 test("a session's header shows its element with the agent on its corner, and its card on hover", async ({ page }) => {
   const session = `s-element-${Date.now()}`;
   const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
@@ -66,11 +69,10 @@ test("a session opened from the sidebar shows its element before its thread has 
 
 test("a session with a rare element no session had announces its discovery", async ({ page }) => {
   const session = `s-rare-${Date.now()}`;
-  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
-    data: { kind: "start", text: "Find a rare one" },
-  });
+  const status = `${core}/api/v1/sessions/claude-code/${session}/status`;
+  await page.request.post(status, { data: { kind: "start", text: "Find a rare one" } });
   const { session: s } = (await (await page.request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json()) as {
-    session: { element: number; generated_name: string };
+    session: { id: string; element: number; generated_name: string };
   };
   // the list says its element is rare, and that no session had it before
   const response = await page.request.get(`${core}/api/v1/elements`);
@@ -81,8 +83,23 @@ test("a session with a rare element no session had announces its discovery", asy
   element.rarity = "rare";
   element.sessions = 0;
   await page.route(/\/api\/v1\/elements$/, (route) => route.fulfill({ json: { elements } }));
+  // and so do the lists of sessions: none has the element, until this
+  // session starts while the app is open
+  let started = false;
+  await page.route(/\/api\/v1\/sessions\?/, async (route) => {
+    const answer = await route.fetch();
+    const body = (await answer.json()) as { sessions: { id: string; element: number }[] };
+    body.sessions = body.sessions.filter((other) => other.element !== s.element || (started && other.id === s.id));
+    await route.fulfill({ response: answer, json: body });
+  });
 
-  await page.goto("/#/");
+  // its thread shows the element once the app has the list of elements
+  await page.goto(`/#/sessions/claude-code/${s.id}`);
+  await expect(
+    page.getByTestId("thread").getByRole("img", { name: `${element.name}, element ${s.element}` }),
+  ).toBeVisible();
+  started = true;
+  await page.request.post(status, { data: { text: "Looking" } });
   await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.generated_name}.`)).toBeVisible();
 });
 
