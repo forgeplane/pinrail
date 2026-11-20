@@ -543,3 +543,43 @@ test("a session whose agent went on in a new session links to it", async ({ page
   await moved.getByRole("link", { name: "Open the new session" }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${nextId}`));
 });
+
+test("the terminal view of a session whose agent went on in a new session links to it", async ({ page }) => {
+  // the session left was working when the agent went on, as Claude Code's
+  // was before /clear
+  const left = fresh();
+  for (const event of ["started", "prompt"]) {
+    const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${left}/reports`, {
+      data: { event, at: new Date().toISOString(), origin: { folder: "/work" } },
+    });
+    expect(response.status(), await response.text()).toBeLessThan(300);
+  }
+  const next = fresh();
+  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${next}/status`, {
+    data: { kind: "start", text: `Work in ${next}`, origin: { repo: "acme/api" } },
+  });
+  expect(response.status(), await response.text()).toBeLessThan(300);
+  const nextId = await sessionId(page.request, "claude-code", next);
+  const run = {
+    id: "run_1",
+    host: "local",
+    agent: "claude-code",
+    state: "running",
+    terminal: "local:t_1",
+    folder: "/work",
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    end_reason: null,
+    exit_code: null,
+    session: { agent: "claude-code", id: nextId, agent_session: next },
+  };
+  await page.route(/\/api\/v1\/runs\?/, (route) => route.fulfill({ json: { runs: [run] } }));
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", left)}?view=terminal`);
+
+  const moved = page.getByTestId("moved-run");
+  await expect(moved).toContainText("Claude Code went on in a new session");
+  await expect(page.getByTestId("outside-run")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open Claude Code in Pinrail" })).toHaveCount(0);
+  await moved.getByRole("link", { name: "Open the new session" }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${nextId}`));
+});

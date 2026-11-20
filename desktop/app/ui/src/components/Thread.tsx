@@ -20,6 +20,7 @@ import { useSplit } from "./session/useSplit";
 import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
 import { OpenInPinrail, ResumeButton, StopButton } from "./session/RunControls";
+import { MovedRun } from "./session/MovedRun";
 import { OutsideRun } from "./session/OutsideRun";
 import { WaitMark } from "./WaitMark";
 import { runtime } from "../api/runtime";
@@ -248,14 +249,18 @@ export function Thread({
   const runsLoading = onPage && prefs.labs.runtime && !!named && !runsLoaded;
   // a stopped session can be resumed in Pinrail, also one that ran outside it
   const resumable = !runsLoading && onPage && prefs.labs.runtime && canResume(session, runs);
-  // one still running in another terminal can be opened here, after a warning
-  const openable = !runsLoading && onPage && prefs.labs.runtime && canOpenWhileRunning(session, runs);
+  // the run went on in another session, as after /clear, and the terminal
+  // with it
+  const movedOn = !live && movedTo?.session ? movedTo.session : null;
+  // one still running in another terminal can be opened here, after a
+  // warning, unless what runs is Pinrail's run, which went on elsewhere
+  const openable = !runsLoading && onPage && prefs.labs.runtime && !movedOn && canOpenWhileRunning(session, runs);
   // without hooks, nothing tells whether it still runs there
   const unsure = openable && !session?.presence;
   const [askingOpen, setAskingOpen] = useState(false);
   const outside = openable || (resumable && runs.length === 0);
   // a run that ended shows how in the terminal's place
-  const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || outside;
+  const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || !!movedOn || outside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   // the run goes on in another session, as after /clear: the page follows
   // its terminal there
@@ -750,6 +755,8 @@ export function Thread({
                   <TerminalPane terminal={terminal} autoFocus />
                 ) : failed ? (
                   <FailedStart run={failed} />
+                ) : movedOn ? (
+                  <MovedRun agent={named!.agent} to={movedOn} />
                 ) : openable ? (
                   <OutsideRun
                     agent={named!.agent}
@@ -777,10 +784,10 @@ export function Thread({
                 ? { id: "session-view", role: "tabpanel", "aria-labelledby": "view-tab-summary" }
                 : {})}
             >
-              {movedTo?.session && !live ? (
+              {movedOn && !split ? (
                 <p className="notice thread-moved" role="status" data-testid="run-moved">
                   The agent went on in a new session, as it does after /clear.{" "}
-                  <Link to={sessionPath(movedTo.session)}>Open the new session</Link>
+                  <Link to={sessionPath(movedOn)}>Open the new session</Link>
                 </p>
               ) : null}
               {finding ? (
