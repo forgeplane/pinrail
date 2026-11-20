@@ -56,15 +56,11 @@ impl super::Runtime {
             Some(token) => self.db.run_for_token(&digest(token), now)?,
             None => None,
         };
-        let binaries = run
-            .as_ref()
-            .and_then(|run| pinrail_runtime::adapter(&run.agent))
-            .map(|a| a.spec().binaries)
-            .unwrap_or_default();
         let lookup = |pid: u32| pinrail_runtime::process::process(pid);
-        let Some(run) =
-            run.filter(|run| own_process(run, report.process.as_ref(), binaries, &lookup))
-        else {
+        let Some(run) = run.filter(|run| {
+            let agent = |p: &Process| pinrail_runtime::runs_as(&run.agent, p);
+            own_process(run, report.process.as_ref(), &agent, &lookup)
+        }) else {
             let (session, _) = self.db.resolve_session(agent, agent_session, now)?;
             return Ok(Ok(Admitted {
                 session,
@@ -116,12 +112,12 @@ fn mismatch(run: &RunRow, agent: &str, agent_session: &str) -> Mismatch {
 /// Whether `reported` is the run's own agent process: the process the
 /// host spawned for it, by pid and start time. When the spawned process is
 /// a launcher rather than the agent, as the npm `codex` is, its direct
-/// child counts too. `binaries` are the agent's executable names, and
-/// `lookup` reads a running process.
+/// child counts too. `agent` tells whether a process is the agent's own,
+/// as its adapter recognises it, and `lookup` reads a running process.
 pub(crate) fn own_process(
     run: &RunRow,
     reported: Option<&(i64, String)>,
-    binaries: &[&str],
+    agent: &dyn Fn(&Process) -> bool,
     lookup: &dyn Fn(u32) -> Option<Process>,
 ) -> bool {
     let (Some((pid, started)), Some((reported_pid, reported_started))) = (&run.process, reported)
@@ -134,12 +130,7 @@ pub(crate) fn own_process(
     let (Ok(spawned), Ok(child)) = (u32::try_from(*pid), u32::try_from(*reported_pid)) else {
         return false;
     };
-    let launcher = lookup(spawned).is_some_and(|p| {
-        &p.started == started
-            && !binaries
-                .iter()
-                .any(|b| pinrail_runtime::process::named(&p.name, b))
-    });
+    let launcher = lookup(spawned).is_some_and(|p| &p.started == started && !agent(&p));
     launcher && lookup(child).is_some_and(|p| &p.started == reported_started && p.parent == spawned)
 }
 
@@ -189,31 +180,43 @@ mod tests {
         }
     }
 
-    const CODEX: &[&str] = &["codex"];
+    fn codex(p: &Process) -> bool {
+        p.name == "codex"
+    }
 
     #[test]
     fn the_spawned_process_is_the_runs_own() {
         let run = run(Some((11, "s11")));
-        assert!(own_process(&run, Some(&(11, "s11".into())), CODEX, &lookup));
+        assert!(own_process(
+            &run,
+            Some(&(11, "s11".into())),
+            &codex,
+            &lookup
+        ));
         // the same pid, reused by another process
         assert!(!own_process(
             &run,
             Some(&(11, "other".into())),
-            CODEX,
+            &codex,
             &lookup
         ));
-        assert!(!own_process(&run, None, CODEX, &lookup));
+        assert!(!own_process(&run, None, &codex, &lookup));
     }
 
     #[test]
     fn a_launchers_direct_child_is_the_runs_own() {
         let run = run(Some((10, "s10")));
-        assert!(own_process(&run, Some(&(11, "s11".into())), CODEX, &lookup));
+        assert!(own_process(
+            &run,
+            Some(&(11, "s11".into())),
+            &codex,
+            &lookup
+        ));
         // a grandchild is a nested agent
         assert!(!own_process(
             &run,
             Some(&(13, "s13".into())),
-            CODEX,
+            &codex,
             &lookup
         ));
     }
@@ -226,7 +229,7 @@ mod tests {
         assert!(!own_process(
             &run,
             Some(&(12, "s12".into())),
-            CODEX,
+            &codex,
             &lookup
         ));
     }

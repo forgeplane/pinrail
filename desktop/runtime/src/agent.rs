@@ -64,6 +64,14 @@ pub trait Agent: Send + Sync {
         false
     }
 
+    /// Whether `process` is the agent's own: the one a hook or a command
+    /// runs under, and the one Pinrail spawned for a run. By default, a
+    /// process named after one of the agent's binaries. An agent that runs
+    /// under an interpreter, or from a file of another name, says so.
+    fn is_own_process(&self, process: &crate::process::Process) -> bool {
+        self.spec().binaries.contains(&process.name.as_str())
+    }
+
     /// Flags that turn the agent's permission checks off, which Pinrail
     /// refuses in a person's extra arguments, beside the shared list.
     fn deny_flags(&self) -> &'static [&'static str] {
@@ -192,6 +200,16 @@ pub fn adapter(name: &str) -> Option<&'static dyn Agent> {
         _ => return None,
     };
     Some(agent)
+}
+
+/// Whether `process` is the agent `id`'s own: as its adapter recognises it,
+/// or, for an agent with none, by the names of its binaries.
+pub fn runs_as(id: &str, process: &crate::process::Process) -> bool {
+    match adapter(id) {
+        Some(agent) => agent.is_own_process(process),
+        None => crate::registry::find(id)
+            .is_some_and(|spec| spec.binaries.contains(&process.name.as_str())),
+    }
 }
 
 /// The registry entry of an adapter's agent.

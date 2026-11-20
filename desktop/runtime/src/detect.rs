@@ -78,20 +78,9 @@ pub fn detect_with(
 
 /// Of `agents`, the one whose process runs nearest above this one.
 fn running_nearest(agents: &[&str]) -> Option<String> {
-    let specs: Vec<&AgentSpec> = agents.iter().filter_map(|id| find(id)).collect();
-    let binaries: Vec<&str> = specs
-        .iter()
-        .flat_map(|a| a.binaries.iter().copied())
-        .collect();
-    let found = crate::process::ancestor(std::process::id(), &binaries)?;
-    specs
-        .iter()
-        .find(|a| {
-            a.binaries
-                .iter()
-                .any(|b| crate::process::named(&found.name, b))
-        })
-        .map(|a| a.id.to_string())
+    let runs = |p: &crate::process::Process| agents.iter().find(|id| crate::agent::runs_as(id, p));
+    let found = crate::process::ancestor(std::process::id(), &|p| runs(p).is_some())?;
+    runs(&found).map(|id| id.to_string())
 }
 
 /// The review's name for an agent a value names: `claude-code_2-1-281_agent`,

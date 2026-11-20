@@ -26,25 +26,14 @@ pub fn process(pid: u32) -> Option<Process> {
     read(pid)
 }
 
-/// Whether a process named `name` runs `binary`: by its own name, or by
-/// the name of a versioned file it links to, `<binary>-<version>…`, as
-/// Grok's installer links `grok` to `grok-1.0.89-macos-aarch64`. The
-/// system names a process after the file it runs.
-pub fn named(name: &str, binary: &str) -> bool {
-    name == binary
-        || name
-            .strip_prefix(binary)
-            .and_then(|rest| rest.strip_prefix('-'))
-            .is_some_and(|version| version.starts_with(|c: char| c.is_ascii_digit()))
-}
-
-/// The nearest process above `from` (itself included) that runs one of
-/// `names` (see [`named`]): the agent a hook or a command runs under.
-pub fn ancestor(from: u32, names: &[&str]) -> Option<Process> {
+/// The nearest process above `from` (itself included) that `accepts`
+/// takes: the agent a hook or a command runs under, as its adapter
+/// recognises it.
+pub fn ancestor(from: u32, accepts: &dyn Fn(&Process) -> bool) -> Option<Process> {
     let mut pid = from;
     for _ in 0..MAX_DEPTH {
         let process = read(pid)?;
-        if names.iter().any(|n| named(&process.name, n)) {
+        if accepts(&process) {
             return Some(process);
         }
         if process.parent == 0 || process.parent == pid {
@@ -52,6 +41,79 @@ pub fn ancestor(from: u32, names: &[&str]) -> Option<Process> {
         }
         pid = process.parent;
     }
+    None
+}
+
+/// The arguments the process `pid` was started with, its own name first as
+/// it was given: what tells an agent that runs under an interpreter, such
+/// as `node`, from another. `None` when the system does not say.
+pub fn arguments(pid: u32) -> Option<Vec<String>> {
+    read_arguments(pid)
+}
+
+// KERN_PROCARGS2 gives the argument count, the executable's path, padding,
+// then the arguments, each ending in a NUL
+#[cfg(target_os = "macos")]
+#[allow(unsafe_code)]
+fn read_arguments(pid: u32) -> Option<Vec<String>> {
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as libc::c_int];
+    let mut size: libc::size_t = 0;
+    // SAFETY: a null buffer asks for the size only
+    let asked = unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            3,
+            std::ptr::null_mut(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if asked != 0 || size < 4 {
+        return None;
+    }
+    let mut buffer = vec![0u8; size];
+    // SAFETY: the buffer holds `size` bytes, which the call does not exceed
+    let read = unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            3,
+            buffer.as_mut_ptr().cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if read != 0 {
+        return None;
+    }
+    buffer.truncate(size);
+    let count = i32::from_ne_bytes(buffer[..4].try_into().ok()?);
+    let rest = &buffer[4..];
+    // past the executable's path and the NULs after it
+    let path_end = rest.iter().position(|b| *b == 0)?;
+    let start = path_end + rest[path_end..].iter().position(|b| *b != 0)?;
+    let args = rest[start..]
+        .split(|b| *b == 0)
+        .take(usize::try_from(count).ok()?)
+        .map(|a| String::from_utf8_lossy(a).into_owned())
+        .collect();
+    Some(args)
+}
+
+#[cfg(target_os = "linux")]
+fn read_arguments(pid: u32) -> Option<Vec<String>> {
+    let line = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    let line = line.strip_suffix(&[0]).unwrap_or(&line);
+    Some(
+        line.split(|b| *b == 0)
+            .map(|a| String::from_utf8_lossy(a).into_owned())
+            .collect(),
+    )
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn read_arguments(_pid: u32) -> Option<Vec<String>> {
     None
 }
 
@@ -149,20 +211,7 @@ mod tests {
         assert_eq!(process(me).unwrap().started, first.started);
         // walking up from here reaches itself by its own name
         let name = first.name.clone();
-        assert_eq!(ancestor(me, &[name.as_str()]).unwrap().pid, me);
-        assert_eq!(ancestor(me, &["no-such-agent"]), None);
-    }
-
-    #[test]
-    fn a_process_named_after_a_versioned_binary_is_that_binary() {
-        // Grok's installer links grok to grok-<version>-<platform>, and the
-        // system names the process after the file it runs
-        assert!(named("grok-1.0.89-macos-aarch64", "grok"));
-        // cut to 15 bytes on Linux
-        assert!(named("grok-1.0.89-lin", "grok"));
-        assert!(named("grok", "grok"));
-        assert!(!named("grok-helper", "grok"));
-        assert!(!named("groker", "grok"));
-        assert!(!named("claude", "grok"));
+        assert_eq!(ancestor(me, &|p| p.name == name).unwrap().pid, me);
+        assert_eq!(ancestor(me, &|p| p.name == "no-such-agent"), None);
     }
 }

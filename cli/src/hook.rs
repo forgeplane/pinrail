@@ -62,7 +62,7 @@ fn report(args: &HookArgs, input: &[u8], at: &str) -> Option<(&'static str, Stri
     let spec = adapter.spec();
     let mut body = report.to_body();
     body["at"] = json!(at);
-    if let Some(found) = agent_process(spec.id, spec.binaries) {
+    if let Some(found) = agent_process(adapter) {
         body["process"] = json!({"pid": found.pid, "started": found.started});
     }
     // where the session works: the first report creates the session, and a
@@ -77,10 +77,10 @@ fn report(args: &HookArgs, input: &[u8], at: &str) -> Option<(&'static str, Stri
 }
 
 /// The agent's own process: from `CLAUDE_PID`, which Claude Code sets for its
-/// hooks, or the nearest process above this one with one of the agent's
-/// names.
-fn agent_process(agent: &str, binaries: &[&str]) -> Option<process::Process> {
-    if agent == "claude-code"
+/// hooks, or the nearest process above this one that the agent's adapter
+/// recognises as its own.
+fn agent_process(agent: &dyn pinrail_runtime::Agent) -> Option<process::Process> {
+    if agent.spec().id == "claude-code"
         && let Some(pid) = std::env::var("CLAUDE_PID")
             .ok()
             .and_then(|p| p.parse().ok())
@@ -89,11 +89,13 @@ fn agent_process(agent: &str, binaries: &[&str]) -> Option<process::Process> {
     }
     #[cfg(unix)]
     {
-        process::ancestor(std::os::unix::process::parent_id(), binaries)
+        process::ancestor(std::os::unix::process::parent_id(), &|p| {
+            agent.is_own_process(p)
+        })
     }
     #[cfg(not(unix))]
     {
-        let _ = binaries;
+        let _ = agent;
         None
     }
 }

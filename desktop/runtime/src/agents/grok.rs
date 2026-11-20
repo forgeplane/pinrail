@@ -12,6 +12,7 @@ use crate::agent::{
 };
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{HookEntry, HookPlan, Layout};
+use crate::process::Process;
 use crate::registry::AgentSpec;
 
 pub struct Grok;
@@ -173,5 +174,16 @@ impl Agent for Grok {
 
     fn deny_flags(&self) -> &'static [&'static str] {
         &["--always-approve"]
+    }
+
+    /// Grok's installer links `grok` to a versioned binary, and the system
+    /// names the process after it: `grok-1.0.89-macos-aarch64` (cut to 15
+    /// bytes on Linux).
+    fn is_own_process(&self, process: &Process) -> bool {
+        process.name == "grok"
+            || process
+                .name
+                .strip_prefix("grok-")
+                .is_some_and(|version| version.starts_with(|c: char| c.is_ascii_digit()))
     }
 }
