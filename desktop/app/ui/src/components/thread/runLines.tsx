@@ -1,10 +1,10 @@
 // A session's turns and the runs Pinrail started for it, in its thread.
 
-import { KeyRound, MessageCircleQuestion, ShieldAlert } from "lucide-react";
+import { CircleCheck, CircleSlash, CircleX, KeyRound, MessageCircleQuestion, Power, ShieldAlert } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Run } from "../../api/runtime";
 import type { Session, SessionTurn } from "../../api/types";
-import { stamp } from "../../lib/format";
+import { age, stamp } from "../../lib/format";
 import { AgentIcon, agentOf } from "../AgentIcon";
 import { MarkdownHtml } from "../MarkdownHtml";
 import { WaitMark } from "../WaitMark";
@@ -133,6 +133,25 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
   );
 }
 
+/** How a turn that ended without a reply ended, in a sentence, or null
+ *  while it goes on. */
+export function turnEndText(turn: SessionTurn, name: string): string | null {
+  if (!turn.ended_at) return null;
+  const took = lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at));
+  switch (turn.end_kind) {
+    case "interrupted":
+      return `You interrupted ${name} after ${took}`;
+    case "failed":
+      return `${name}'s turn failed after ${took}`;
+    case "ended":
+      return `The session ended during ${name}'s turn, after ${took}`;
+    default:
+      return `${name} finished the turn in ${took}`;
+  }
+}
+
+const TURN_END_ICONS = { interrupted: CircleSlash, failed: CircleX, ended: Power } as const;
+
 /** A turn: what the person asked and what the agent replied. */
 export const TurnEntry = memo(function TurnEntry({
   turn,
@@ -148,13 +167,7 @@ export const TurnEntry = memo(function TurnEntry({
   const took = turn.ended_at ? lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at)) : null;
   const interrupted = turn.end_kind === "interrupted";
   // how the turn ended, and how long it took
-  const ends = [
-    turn.prompt === null && turn.reply === null ? `Turn ${turn.turn}` : null,
-    interrupted ? "Interrupted" : turn.ended_at ? null : "Working",
-    took,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const ends = [interrupted ? "Interrupted" : turn.ended_at ? null : "Working", took].filter(Boolean).join(" · ");
   return (
     <div className="thread-turn" data-testid="turn">
       {part === "prompt" && turn.prompt !== null ? (
@@ -184,18 +197,11 @@ export const TurnEntry = memo(function TurnEntry({
           </div>
         </div>
       ) : null}
-      {part === "end" && turn.reply === null && turn.ended_at && ends ? (
-        // a turn with no reply kept says how it ended where the reply would be
-        <div className="thread-note thread-turn-reply msg" data-testid="turn-state">
-          <span className="msg-avatar">
-            <AgentIcon requestedBy={agent} size={14} />
-          </span>
-          <div className="msg-col">
-            <div className="msg-meta">
-              <span className="text">{name}</span> · {ends}
-            </div>
-          </div>
-        </div>
+      {part === "end" && turn.reply === null && turn.ended_at ? (
+        // a turn with no reply kept says how it ended where the reply
+        // would be, as a line across the thread, since the agent wrote
+        // nothing
+        <TurnEndLine turn={turn} name={name} />
       ) : null}
     </div>
   );
@@ -218,6 +224,26 @@ export function runLineText(run: Run, ended: boolean): string {
       if (run.exit_signal !== null) return `Ended by signal ${run.exit_signal}`;
       return "Ended";
   }
+}
+
+/** How a turn that ended without a reply ended, as a line across the
+ *  thread: an icon, a sentence, and the times it ran. */
+function TurnEndLine({ turn, name }: { turn: SessionTurn; name: string }) {
+  const Icon = TURN_END_ICONS[turn.end_kind as keyof typeof TURN_END_ICONS] ?? CircleCheck;
+  return (
+    <div className={`thread-divider thread-turn-end is-${turn.end_kind ?? "done"}`} data-testid="turn-state">
+      <span>
+        <Icon size={13} aria-hidden />
+        {turnEndText(turn, name)}
+        <span
+          className="thread-turn-end-time"
+          title={`Turn ${turn.turn}, from ${stamp(turn.started_at)} to ${stamp(turn.ended_at)}`}
+        >
+          {age(turn.ended_at)} ago
+        </span>
+      </span>
+    </div>
+  );
 }
 
 export const RunLine = memo(function RunLine({ run, ended }: { run: Run; ended: boolean }) {

@@ -433,8 +433,10 @@ test("the summary says how the run ended, and keeps turns without their texts wh
     const thread = page.getByTestId("thread");
     await expect(thread.getByTestId("run-line")).toHaveText(["Started in Pinrail", "Stopped by you"]);
     const turn = thread.getByTestId("turn");
-    await expect(turn).toContainText("Turn 1");
-    await expect(turn).toContainText("Interrupted");
+    // how it ended, as a line across the thread, not as Claude Code's message
+    const ended = turn.getByTestId("turn-state");
+    await expect(ended).toContainText("You interrupted Claude Code after");
+    await expect(ended.locator(".msg-avatar")).toHaveCount(0);
     await expect(thread).not.toContainText("a secret");
   } finally {
     await page.request.patch(`${core}/api/v1/settings`, { data: { runtime: { record_turns: true } } });

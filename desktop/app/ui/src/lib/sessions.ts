@@ -207,7 +207,14 @@ export function timeline(
     const shown = withoutTypedPrompt(turn, messages);
     if (shown.prompt !== null)
       all.push({ at: Date.parse(shown.started_at), happened: { kind: "turn", turn: shown, part: "prompt" } });
-    if (shown.ended_at || shown.reply !== null)
+    // a turn the next prompt closed, as a message sent while the agent
+    // works does, ended when that prompt came: the prompt shows that
+    // already, and nothing says the agent stopped
+    const closedByPrompt =
+      shown.end_kind === "interrupted" &&
+      shown.reply === null &&
+      turns.some((t) => t !== turn && Date.parse(t.started_at) === Date.parse(turn.ended_at!));
+    if ((shown.ended_at || shown.reply !== null) && !closedByPrompt)
       all.push({
         at: Date.parse(shown.ended_at ?? shown.started_at),
         happened: { kind: "turn", turn: shown, part: "end" },

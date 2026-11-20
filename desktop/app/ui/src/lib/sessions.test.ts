@@ -487,3 +487,50 @@ describe("an agent's turn", () => {
     expect(timeline([], [], [], [], [], [turn({ prompt: null })])).toEqual([]);
   });
 });
+
+describe("a turn that ended without a reply", () => {
+  const turn = (n: number, startedAt: string, endedAt: string | null, endKind: string | null) =>
+    ({
+      turn: n,
+      agent_turn: null,
+      started_at: startedAt,
+      ended_at: endedAt,
+      end_kind: endKind,
+      prompt: `Prompt ${n}`,
+      prompt_cut: false,
+      reply: null,
+      reply_cut: false,
+    }) as SessionTurn;
+  const ends = (entries: ReturnType<typeof timeline>) =>
+    entries.flatMap((e) => (e.kind === "turn" && e.part === "end" ? [e.turn.turn] : []));
+
+  test("shows no end when the next prompt closed it, as a message sent while the agent works does", () => {
+    const entries = timeline(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [
+        turn(1, "2026-11-20T09:44:00.000Z", "2026-11-20T09:44:03.000Z", "interrupted"),
+        turn(2, "2026-11-20T09:44:03.000Z", null, null),
+      ],
+    );
+    expect(ends(entries)).toEqual([]);
+  });
+
+  test("shows its end when the agent reported the interrupt", () => {
+    const entries = timeline(
+      [],
+      [],
+      [],
+      [],
+      [],
+      [
+        turn(1, "2026-11-20T09:22:00.000Z", "2026-11-20T09:31:50.000Z", "interrupted"),
+        turn(2, "2026-11-20T09:40:00.000Z", null, null),
+      ],
+    );
+    expect(ends(entries)).toEqual([1]);
+  });
+});

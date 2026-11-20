@@ -4044,6 +4044,32 @@ body.is-resizing iframe {
   height: 1px;
   background: var(--border);
 }
+/* how a turn that ended without a reply ended: an icon, a sentence and
+   the times it ran, with an interrupt or a failure in its colour */
+.thread-turn-end > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+}
+.thread-turn-end svg {
+  flex: none;
+  color: var(--faint);
+}
+.thread-turn-end.is-interrupted svg {
+  color: var(--attention-warn);
+}
+.thread-turn-end.is-failed svg {
+  color: var(--danger);
+}
+.thread-turn-end-time {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.thread-turn-end-time::before {
+  content: "·";
+  margin-right: 6px;
+}
 /* what the agent said it is doing: under the title, and in the timeline
    as a quiet line between the messages, past their avatar */
 .thread-status-text {
