@@ -4301,6 +4301,69 @@ body.is-resizing iframe {
   border-radius: var(--radius-sm);
   object-fit: cover;
 }
+/* an image's thumbnail and name, which open it in a pop-up */
+.note-file-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+.note-file-open:hover .note-file-name {
+  text-decoration: underline;
+}
+.note-file-open:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* an image at its full size, no larger than the window leaves room for */
+.image-popup {
+  display: flex;
+  flex-direction: column;
+  min-width: min(420px, calc(100vw - 64px));
+  max-width: calc(100vw - 64px);
+  max-height: calc(100vh - 64px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--bg-panel);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+  overflow: hidden;
+}
+.image-popup:focus {
+  outline: none;
+}
+.image-popup-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 6px 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+.image-popup-name {
+  flex: 1;
+  min-width: 120px;
+  margin-right: 8px;
+  font-weight: 600;
+}
+/* a small image sits in the middle of a box of some size */
+.image-popup-image {
+  display: block;
+  min-height: 160px;
+  max-width: 100%;
+  max-height: calc(100vh - 64px - 40px);
+  margin: auto;
+  object-fit: contain;
+  background: var(--bg);
+}
 .note-file-icon {
   flex: none;
   color: var(--dim);

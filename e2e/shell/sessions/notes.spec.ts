@@ -135,3 +135,63 @@ test("a note's image shows in place, and its files are chips that save", async (
   await note.getByRole("link", { name: "the log" }).click();
   expect((await linked).suggestedFilename()).toBe("run.log");
 });
+
+test("a note's image opens in a pop-up, where the arrow keys move between its images", async ({ page }) => {
+  const session = fresh();
+  const chart = await upload(page, PNG);
+  const log = Buffer.from("the test log\n");
+  const logHash = await upload(page, log);
+  await report(page, session, {
+    kind: "note",
+    text: "Latency fell. The charts and the log are attached.",
+    attachments: {
+      "chart-1.png": { sha256: chart, size: PNG.length, media_type: "image/png" },
+      "run.log": { sha256: logHash, size: log.length, media_type: "text/plain" },
+      "chart-2.png": { sha256: chart, size: PNG.length, media_type: "image/png" },
+    },
+  });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const note = page.getByTestId("note");
+  // a file that is not an image only saves
+  await expect(note.getByRole("button", { name: "Save run.log" })).toBeVisible();
+  await expect(note.getByRole("button", { name: "Open run.log" })).toHaveCount(0);
+
+  const opener = note.getByRole("button", { name: "Open chart-1.png" });
+  await opener.click();
+  let popup = page.getByRole("dialog", { name: "chart-1.png" });
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText("1 of 2");
+  const image = popup.getByRole("img", { name: "chart-1.png" });
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2);
+
+  // the arrow keys go to the next image and back, and stop at the ends
+  await page.keyboard.press("ArrowRight");
+  popup = page.getByRole("dialog", { name: "chart-2.png" });
+  await expect(popup).toContainText("2 of 2");
+  await page.keyboard.press("ArrowRight");
+  await expect(popup).toContainText("2 of 2");
+  await page.keyboard.press("ArrowLeft");
+  popup = page.getByRole("dialog", { name: "chart-1.png" });
+  await expect(popup).toContainText("1 of 2");
+  await popup.getByRole("button", { name: "Next image" }).click();
+  popup = page.getByRole("dialog", { name: "chart-2.png" });
+  await expect(popup.getByRole("button", { name: "Next image" })).toBeDisabled();
+
+  // Save saves the image shown
+  const saved = page.waitForEvent("download");
+  await popup.getByRole("button", { name: "Save chart-2.png" }).click();
+  expect((await saved).suggestedFilename()).toBe("chart-2.png");
+
+  // Esc closes it, and the focus goes back to the chip it opened from
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(opener).toBeFocused();
+
+  // so do the close button and a click outside the image
+  await note.getByRole("button", { name: "Open chart-2.png" }).click();
+  await page.getByRole("dialog", { name: "chart-2.png" }).getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await note.getByRole("button", { name: "Open chart-2.png" }).click();
+  await page.mouse.click(10, 10);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});

@@ -1,12 +1,14 @@
-// The files a note carries: where each is read from, saving one, and the
-// chips that list them at the bottom of the note.
+// The files a note carries: where each is read from, saving one, the
+// chips that list them at the bottom of the note, and the pop-up that
+// shows an image at its full size.
 
-import { Download, FileText } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Download, FileText, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { inTauri, serverUrl } from "../api/client";
 import type { NoteAttachment, SessionStatus } from "../api/types";
 import { size } from "../lib/format";
 import { useToast } from "../state/toasts";
+import { Dialog } from "./Dialog";
 
 /** The note a file belongs to: its session, and its status's id. */
 export type NoteOf = { agent: string; session: string; status: number };
@@ -102,7 +104,8 @@ export function useSaveNoteFile(note: NoteOf | null, url: (name: string) => stri
 }
 
 /** The note's files as chips: a thumbnail or an icon, the name and the
- *  size, and a button that saves the file. */
+ *  size, and a button that saves the file. An image's thumbnail and name
+ *  open it in a pop-up. */
 export function NoteFiles({
   files,
   url,
@@ -112,7 +115,10 @@ export function NoteFiles({
   url: (name: string) => string | null;
   onSave: (name: string) => void;
 }) {
+  // the name of the image the pop-up shows
+  const [shown, setShown] = useState<string | null>(null);
   if (!files.length) return null;
+  const images = files.filter((file) => file.media_type.startsWith("image/") && url(file.name));
   return (
     <ul className="note-files" aria-label="Files">
       {files.map((file) => {
@@ -120,11 +126,22 @@ export function NoteFiles({
         return (
           <li key={file.name} className="note-file" data-testid="note-file">
             {src ? (
-              <img className="note-file-thumb" src={src} alt="" />
+              <button
+                type="button"
+                className="note-file-open"
+                aria-label={`Open ${file.name}`}
+                title={`Open ${file.name}`}
+                onClick={() => setShown(file.name)}
+              >
+                <img className="note-file-thumb" src={src} alt="" />
+                <span className="note-file-name truncate">{file.name}</span>
+              </button>
             ) : (
-              <FileText size={14} className="note-file-icon" aria-hidden />
+              <>
+                <FileText size={14} className="note-file-icon" aria-hidden />
+                <span className="note-file-name truncate">{file.name}</span>
+              </>
             )}
-            <span className="note-file-name truncate">{file.name}</span>
             <span className="faint">{size(file.size)}</span>
             <button
               type="button"
@@ -138,7 +155,102 @@ export function NoteFiles({
           </li>
         );
       })}
+      {shown ? (
+        <ImagePopup
+          images={images.map((file) => file.name)}
+          shown={shown}
+          url={url}
+          onShow={setShown}
+          onSave={onSave}
+          onClose={() => setShown(null)}
+        />
+      ) : null}
     </ul>
+  );
+}
+
+/** An image of the note's at its full size, fitted to the window, with its
+ *  name, Save and Close. With several, the arrow keys and the buttons
+ *  beside the name go to the previous and the next. */
+function ImagePopup({
+  images,
+  shown,
+  url,
+  onShow,
+  onSave,
+  onClose,
+}: {
+  images: string[];
+  shown: string;
+  url: (name: string) => string | null;
+  onShow: (name: string) => void;
+  onSave: (name: string) => void;
+  onClose: () => void;
+}) {
+  const close = useRef<HTMLButtonElement>(null);
+  const at = Math.max(0, images.indexOf(shown));
+  const go = (by: number) => {
+    const next = images[at + by];
+    if (next) onShow(next);
+  };
+  const src = url(shown);
+  return (
+    <Dialog
+      plain
+      label={shown}
+      className="image-popup"
+      initialFocus={close}
+      onClose={onClose}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        go(event.key === "ArrowLeft" ? -1 : 1);
+      }}
+    >
+      <div className="image-popup-bar">
+        <span className="image-popup-name truncate">{shown}</span>
+        {images.length > 1 ? (
+          <>
+            <span className="faint">
+              {at + 1} of {images.length}
+            </span>
+            <button
+              type="button"
+              className="bar-button"
+              aria-label="Previous image"
+              title="Previous image"
+              disabled={at === 0}
+              onClick={() => go(-1)}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              className="bar-button"
+              aria-label="Next image"
+              title="Next image"
+              disabled={at === images.length - 1}
+              onClick={() => go(1)}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </>
+        ) : null}
+        <button
+          type="button"
+          className="bar-button"
+          aria-label={`Save ${shown}`}
+          title={`Save ${shown}`}
+          onClick={() => onSave(shown)}
+        >
+          <Download size={15} />
+        </button>
+        <button ref={close} type="button" className="bar-button" aria-label="Close" title="Close" onClick={onClose}>
+          <X size={16} />
+        </button>
+      </div>
+      {src ? <img className="image-popup-image" src={src} alt={shown} /> : null}
+    </Dialog>
   );
 }
 
