@@ -8,7 +8,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{HookPlan, Layout};
 use crate::process::Process;
@@ -123,5 +125,54 @@ impl Agent for Pi {
                     .file_name()
                     .is_some_and(|name| name == "pi")
             })
+    }
+
+    /// `pi --session-id <id> [extra args] -- [task]`: Pinrail chooses the
+    /// id, which Pi creates. Pi reads an argument that starts with `@` as a
+    /// file to attach, even after `--`, so such a task goes with a space in
+    /// front.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec![
+            "pi".to_string(),
+            "--session-id".to_string(),
+            request.session_id.to_string(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        if let Some(task) = request.task.filter(|t| !t.trim().is_empty()) {
+            argv.push("--".to_string());
+            argv.push(if task.starts_with('@') {
+                format!(" {task}")
+            } else {
+                task.to_string()
+            });
+        }
+        Some(StartPlan {
+            argv,
+            session: Some(request.session_id.to_string()),
+        })
+    }
+
+    /// `pi --session <id>`, in the session's folder. An id Pi does not know
+    /// exits at once; `--session-id` would create an empty session instead.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session).then(|| {
+            vec![
+                "pi".to_string(),
+                "--session".to_string(),
+                session.to_string(),
+            ]
+        })
+    }
+
+    /// A bracketed paste and Enter, which Pi takes as one prompt with its
+    /// line breaks, confirmed by the extension's prompt report.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
+    }
+
+    /// Pi has no permission checks to turn off; `--approve` trusts a
+    /// folder's own extensions, which then run unasked.
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &["--approve", "-a"]
     }
 }

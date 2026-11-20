@@ -34,6 +34,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   Settings › Agents, which installs a Pinrail extension in Pi's extensions
   folder, and its sessions show their turns, prompts and replies, and
   whether the agent is working, waits for an answer, or is finished.
+- Start and resume Pi sessions from Pinrail, and send them messages, which
+  are typed into the agent's terminal.
 - A session that Pinrail runs has a **Split view** beside Summary and
   Terminal, with the summary above the terminal. Drag the divider between
   them to resize the summary; the size is kept for every session. Settings ›

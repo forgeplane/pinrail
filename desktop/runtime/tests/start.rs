@@ -113,6 +113,37 @@ fn copilot_starts_with_the_session_id_pinrail_chose() {
 }
 
 #[test]
+fn pi_starts_with_the_session_id_pinrail_chose() {
+    let extra = args(&["--model", "haiku"]);
+    let plan = adapter("pi")
+        .unwrap()
+        .start(&request(Some("-fix the login"), &extra))
+        .unwrap();
+    assert_eq!(
+        plan.argv,
+        args(&[
+            "pi",
+            "--session-id",
+            ID,
+            "--model",
+            "haiku",
+            "--",
+            "-fix the login"
+        ])
+    );
+    assert_eq!(plan.session.as_deref(), Some(ID));
+    // Pi reads an argument that starts with @ as a file, even after --
+    let at = adapter("pi")
+        .unwrap()
+        .start(&request(Some("@src/app.ts fix it"), &[]))
+        .unwrap();
+    assert_eq!(
+        at.argv.last().map(String::as_str),
+        Some(" @src/app.ts fix it")
+    );
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -168,6 +199,8 @@ fn flags_that_turn_permission_checks_off_are_refused() {
             "--allow-all-tools",
         ),
         (adapter("copilot").unwrap(), &["--allow-all"], "--allow-all"),
+        (adapter("pi").unwrap(), &["--approve"], "--approve"),
+        (adapter("pi").unwrap(), &["-a"], "-a"),
         (
             adapter("copilot").unwrap(),
             &["--allow-all-paths"],
@@ -224,6 +257,11 @@ fn each_agent_resumes_a_session_by_its_id() {
         adapter("copilot").unwrap().resume(ID),
         Some(args(&["copilot", &format!("--resume={ID}")]))
     );
+    // --session-id would create a session that is not there
+    assert_eq!(
+        adapter("pi").unwrap().resume(ID),
+        Some(args(&["pi", "--session", ID]))
+    );
 }
 
 #[test]
@@ -240,6 +278,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("antigravity").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("grok").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("copilot").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("pi").unwrap().resume(id), None, "{id:?}");
     }
 }
 
@@ -250,8 +289,8 @@ fn only_claude_code_resumes_a_session_still_running_elsewhere() {
 }
 
 #[test]
-fn claude_code_codex_grok_and_copilot_take_a_message_as_a_bracketed_paste_and_enter() {
-    for id in ["claude-code", "codex", "grok", "copilot"] {
+fn each_agent_typed_into_takes_a_message_as_a_bracketed_paste_and_enter() {
+    for id in ["claude-code", "codex", "grok", "copilot", "pi"] {
         let plan = adapter(id).unwrap().submit().unwrap();
         assert!(plan.bracketed, "{id}");
         assert_eq!((plan.settle_ms, plan.max_ms), (150, 1_000), "{id}");
