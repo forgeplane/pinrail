@@ -296,9 +296,11 @@ export function Thread({
   const split = view === "split" && hasTerminalView;
   const splitRows = useSplit();
   const showTerminalRef = useLatest(showTerminal);
-  // what a live run's agent waits for the person to allow, if anything
+  // what a live run's agent waits for the person to do, if anything
   const wait = session?.presence?.state === "needs_input" ? session.presence.wait : null;
-  const waitingFor = live && wait?.kind === "permission" ? [wait.tool, wait.summary].filter(Boolean).join(" · ") : null;
+  // what a live run's agent waits for in its terminal: a permission, or
+  // an answer to a question it asks there
+  const waitingFor = !live || !wait ? null : waitLine(wait);
   // Stop asks first while the agent works, and always from its key
   const [askingStop, setAskingStop] = useState(false);
   const sessionNow = useLatest(session);
@@ -825,7 +827,7 @@ export function Thread({
                 <div className="thread-state">
                   {waitingFor ? (
                     <div className="thread-waiting" data-testid="waiting-line">
-                      <span className="truncate">Waiting for permission: {waitingFor}</span>
+                      <span className="truncate">{waitingFor}</span>
                       <button type="button" className="chrome-button" onClick={() => chooseView("terminal")}>
                         Open the terminal
                       </button>
@@ -1115,4 +1117,14 @@ function SessionMenuButton({
       ) : null}
     </>
   );
+}
+
+/** The line that says what an agent waits for in its terminal. */
+function waitLine(wait: NonNullable<NonNullable<Session["presence"]>["wait"]>): string {
+  if (wait.kind === "permission") {
+    const what = [wait.tool, wait.summary].filter(Boolean).join(" · ");
+    return what ? `Waiting for permission: ${what}` : "Waiting for permission";
+  }
+  if (wait.kind === "auth") return "Waiting for you to sign in";
+  return wait.summary ? `Waiting for your answer: ${wait.summary}` : "Waiting for your answer to a question";
 }

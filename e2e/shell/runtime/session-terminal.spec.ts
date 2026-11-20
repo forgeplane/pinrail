@@ -333,6 +333,22 @@ for (const system of ["macOS", "Linux"] as const) {
   });
 }
 
+test("the summary shows a question the agent asks in its terminal, and opens the terminal to answer it", async ({
+  page,
+}) => {
+  const { session } = await sessionWithRun(page);
+  const report = (data: unknown) =>
+    page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+  await report({ event: "prompt", detail: { prompt: "Ask me something" } });
+  await report({ event: "needs_input", wait: "question", detail: { summary: "What would you like to do today?" } });
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
+
+  const waiting = page.getByTestId("thread").getByTestId("waiting-line");
+  await expect(waiting).toContainText("Waiting for your answer: What would you like to do today?");
+  await waiting.getByRole("button", { name: "Open the terminal" }).click();
+  await expect(page.getByTestId("terminal-bar")).toBeVisible();
+});
+
 test("the summary shows turns, where the run started, and what it waits for", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   const report = (data: unknown) =>
