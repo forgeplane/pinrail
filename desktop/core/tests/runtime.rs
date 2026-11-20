@@ -83,9 +83,10 @@ impl Setup {
         let registration = host(dir.path());
         let mut config = Config::new(dir.path().join("data"), 0);
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
-        config
-            .run_env
-            .insert("PATH".into(), common::stand_in_path(dir.path()));
+        config.run_env.insert(
+            "PATH".into(),
+            common::stand_in_path_as(dir.path(), &["claude", "grok"]),
+        );
         let app = Arc::new(Pinrail::open(config).unwrap());
         Setup {
             app,
@@ -578,6 +579,38 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
         db.presence(&session.0, &session.1).unwrap().unwrap().state,
         "working"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grok_waiting_on_its_folder_trust_question_shows_as_needing_the_person() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("untrusted");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("grok", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+
+    // Grok asks before anything else, and runs no hook until it is
+    // answered: only its terminal says so
+    common::record(
+        &folder,
+        "state=blocked:kind=permission:app=grok:msg=VHJ1c3QgdGhpcyBmb2xkZXI/",
+    )
+    .await;
+    let waiting = presence_becomes(&db, &session, |p| p.state == "needs_input").await;
+    assert_eq!(waiting.wait_kind.as_deref(), Some("permission"));
+    assert_eq!(waiting.wait_summary.as_deref(), Some("Trust this folder?"));
+
+    // answered, it waits for the first prompt
+    common::record(&folder, "state=idle:app=grok").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
 }
 
 /// Runs git in `folder`, which must succeed.
