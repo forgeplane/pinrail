@@ -3,6 +3,11 @@
 //! defaults to it. First the shared conventions, `AI_AGENT` (any agent) and
 //! `AGENT` (known names only, since other tools use it too), then each
 //! agent's own markers. An agent none of these name asks as `pinrail-cli`.
+//!
+//! An agent that does not set `AI_AGENT`, such as Antigravity CLI, inherits
+//! the value of the agent it was started from. When `AI_AGENT` and another
+//! agent's markers name two agents, the one whose process runs nearest
+//! above the command is detected.
 
 use crate::registry::{AgentSpec, all, find};
 
@@ -21,27 +26,46 @@ fn by_markers() -> Vec<&'static AgentSpec> {
 }
 
 pub fn detect() -> Option<String> {
-    detect_with(|key| std::env::var(key).ok())
+    detect_with(|key| std::env::var(key).ok(), running_nearest)
 }
 
 /// The id of the session of the agent the CLI runs under, so a review can
 /// be traced back to it; only that agent's own variable counts.
 pub fn session() -> Option<String> {
-    session_with(|key| std::env::var(key).ok())
+    session_with(|key| std::env::var(key).ok(), running_nearest)
 }
 
-pub fn session_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
-    let agent = detect_with(&var)?;
+pub fn session_with(
+    var: impl Fn(&str) -> Option<String>,
+    nearest: impl Fn(&[&str]) -> Option<String>,
+) -> Option<String> {
+    let agent = detect_with(&var, nearest)?;
     let key = find(&agent)?.session_var?;
     var(key)
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
 }
 
-pub fn detect_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
+/// The agent the variables `var` name. `nearest` tells which of the
+/// agents it is given runs nearest above the command, when two are named.
+pub fn detect_with(
+    var: impl Fn(&str) -> Option<String>,
+    nearest: impl Fn(&[&str]) -> Option<String>,
+) -> Option<String> {
     let set = |key: &str| var(key).filter(|v| !v.trim().is_empty());
     if let Some(value) = set("AI_AGENT") {
-        return Some(known(&value).unwrap_or_else(|| first_word(&value)));
+        let named = known(&value).unwrap_or_else(|| first_word(&value));
+        // another agent's markers: one of the two was started from the other
+        let mut agents: Vec<&str> = by_markers()
+            .into_iter()
+            .filter(|agent| agent.id != named && agent.markers.iter().any(|k| set(k).is_some()))
+            .map(|agent| agent.id)
+            .collect();
+        if agents.is_empty() {
+            return Some(named);
+        }
+        agents.insert(0, &named);
+        return Some(nearest(&agents).unwrap_or(named));
     }
     if let Some(name) = set("AGENT").and_then(|v| known(&v)) {
         return Some(name);
@@ -50,6 +74,20 @@ pub fn detect_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
         .into_iter()
         .find(|agent| agent.markers.iter().any(|k| set(k).is_some()))
         .map(|agent| agent.id.to_string())
+}
+
+/// Of `agents`, the one whose process runs nearest above this one.
+fn running_nearest(agents: &[&str]) -> Option<String> {
+    let specs: Vec<&AgentSpec> = agents.iter().filter_map(|id| find(id)).collect();
+    let binaries: Vec<&str> = specs
+        .iter()
+        .flat_map(|a| a.binaries.iter().copied())
+        .collect();
+    let found = crate::process::ancestor(std::process::id(), &binaries)?;
+    specs
+        .iter()
+        .find(|a| a.binaries.contains(&found.name.as_str()))
+        .map(|a| a.id.to_string())
 }
 
 /// The review's name for an agent a value names: `claude-code_2-1-281_agent`,
@@ -75,8 +113,73 @@ mod tests {
     use std::collections::HashMap;
 
     fn detect(vars: &[(&str, &str)]) -> Option<String> {
+        detect_under(vars, None)
+    }
+
+    /// The agent detected with `vars`, where `running` is the agent the
+    /// process tree finds nearest, if any.
+    fn detect_under(vars: &[(&str, &str)], running: Option<&str>) -> Option<String> {
         let env: HashMap<&str, &str> = vars.iter().copied().collect();
-        detect_with(|k| env.get(k).map(|v| v.to_string()))
+        detect_with(
+            |k| env.get(k).map(|v| v.to_string()),
+            |agents: &[&str]| running.filter(|r| agents.contains(r)).map(str::to_string),
+        )
+    }
+
+    /// The environment of a shell inside agy that was started from a
+    /// Claude Code shell, or of Claude Code started inside agy: both carry
+    /// Claude Code's AI_AGENT and agy's conversation.
+    const NESTED: &[(&str, &str)] = &[
+        ("AI_AGENT", "claude-code_2-1-281_agent"),
+        ("CLAUDECODE", "1"),
+        ("CLAUDE_CODE_SESSION_ID", "claude-1"),
+        ("ANTIGRAVITY_CONVERSATION_ID", "agy-1"),
+    ];
+
+    #[test]
+    fn of_two_agents_the_environment_names_the_one_that_runs_nearest_is_detected() {
+        // agy does not set AI_AGENT: inside it, the value is the one of the
+        // Claude Code it was started from
+        assert_eq!(
+            detect_under(NESTED, Some("antigravity")).as_deref(),
+            Some("antigravity")
+        );
+        // Claude Code started inside agy sets AI_AGENT, and keeps agy's
+        // conversation from the shell
+        assert_eq!(
+            detect_under(NESTED, Some("claude-code")).as_deref(),
+            Some("claude-code")
+        );
+        // neither found among the processes above: AI_AGENT, as before
+        assert_eq!(detect_under(NESTED, None).as_deref(), Some("claude-code"));
+    }
+
+    #[test]
+    fn the_session_is_the_one_of_the_agent_detected() {
+        let env: HashMap<&str, &str> = NESTED.iter().copied().collect();
+        let session = |running: &'static str| {
+            super::session_with(
+                |k| env.get(k).map(|v| v.to_string()),
+                move |agents: &[&str]| agents.contains(&running).then(|| running.to_string()),
+            )
+        };
+        assert_eq!(session("antigravity").as_deref(), Some("agy-1"));
+        assert_eq!(session("claude-code").as_deref(), Some("claude-1"));
+    }
+
+    #[test]
+    fn the_processes_are_read_only_when_two_agents_are_named() {
+        let env: HashMap<&str, &str> = [
+            ("AI_AGENT", "claude-code_2-1-281_agent"),
+            ("CLAUDECODE", "1"),
+        ]
+        .into_iter()
+        .collect();
+        let detected = detect_with(
+            |k| env.get(k).map(|v| v.to_string()),
+            |_: &[&str]| -> Option<String> { panic!("read the processes") },
+        );
+        assert_eq!(detected.as_deref(), Some("claude-code"));
     }
 
     #[test]
@@ -182,7 +285,7 @@ mod tests {
 
     fn session(vars: &[(&str, &str)]) -> Option<String> {
         let env: HashMap<&str, &str> = vars.iter().copied().collect();
-        super::session_with(|k| env.get(k).map(|v| v.to_string()))
+        super::session_with(|k| env.get(k).map(|v| v.to_string()), |_: &[&str]| None)
     }
 
     #[test]
