@@ -4,7 +4,7 @@
 // receives and echoes it back.
 
 import { expect, test, type Page } from "../fixtures";
-import { core, settingsDialog, settingsSection } from "../helpers";
+import { core, sessionId, settingsDialog, settingsSection } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-term-${Date.now()}-${++n}`;
@@ -35,7 +35,11 @@ async function sessionWithRun(page: Page) {
     ended_at: null,
     end_reason: null,
     exit_code: null,
-    session: { agent: "claude-code", id: session },
+    session: {
+      agent: "claude-code",
+      id: await sessionId(page.request, "claude-code", session),
+      agent_session: session,
+    },
   };
   await page.route(/\/api\/v1\/runs\?/, (route) => route.fulfill({ json: { runs: [run] } }));
   await page.route(/\/api\/v1\/terminals\/[^/]+\/tickets/, (route) => route.fulfill({ json: { ticket: "t" } }));
@@ -77,7 +81,7 @@ async function terminalReady(page: Page) {
 
 test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always leave the terminal", async ({ page }) => {
   const { session, received } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   const views = page.getByRole("tablist", { name: "Session view" });
   await expect(views.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
 
@@ -108,7 +112,7 @@ test("Ctrl+` and MOD+Shift+T switch between Summary and Terminal, and always lea
 
 test("the terminal keeps room from the left edge of its view", async ({ page }) => {
   const { session } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   const surface = page.locator(".thread-terminal .terminal-surface");
   await expect(surface).toBeVisible();
   const [view, drawn] = [await page.locator(".thread-terminal").boundingBox(), await surface.boundingBox()];
@@ -117,7 +121,7 @@ test("the terminal keeps room from the left edge of its view", async ({ page }) 
 
 test("Settings › Terminal names the renderer the open terminal uses", async ({ page }) => {
   const { session } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await expect(page.locator(".thread-terminal .terminal-surface")).toBeVisible();
   await page.keyboard.press("ControlOrMeta+,");
   await settingsSection(page, "Terminal").click();
@@ -142,7 +146,7 @@ test("a session opened in the Terminal view shows its summary whole when switche
     payload: { questions: [{ id: "q1", question: "Commit it?", answer: "yes-no" }] },
   });
 
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await expect(terminalBar(page)).toBeVisible();
   await page.waitForTimeout(300);
   await page.getByRole("tab", { name: "Summary" }).click();
@@ -180,7 +184,7 @@ test("a question clicked in the session's details from the Terminal view opens i
     await post(`sessions/claude-code/${session}/status`, { kind: "note", text: lines });
   }
 
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await expect(terminalBar(page)).toBeVisible();
   await page.getByTestId("waiting-item").filter({ hasText: "Commit it?" }).click();
 
@@ -190,7 +194,7 @@ test("a question clicked in the session's details from the Terminal view opens i
 
 test("a session keeps its view across a reload, and opens in the last one used", async ({ page }) => {
   const { session } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   await page.getByRole("tab", { name: "Terminal" }).click();
   await expect(terminalBar(page)).toBeVisible();
 
@@ -198,14 +202,14 @@ test("a session keeps its view across a reload, and opens in the last one used",
   await expect(terminalBar(page)).toBeVisible();
   // without the view in the address, the session opens in the last one
   await page.goto("/#/");
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   await expect(terminalBar(page)).toBeVisible();
   await expect(page.getByRole("tab", { name: "Terminal" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("the split view shows the summary above the terminal, with a divider that keeps its place", async ({ page }) => {
   const { session, received } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   await page.getByRole("tab", { name: "Split view" }).click();
   await expect(page).toHaveURL(/view=split/);
 
@@ -244,7 +248,7 @@ for (const system of ["macOS", "Linux"] as const) {
     const platform = system === "macOS" ? "MacIntel" : "Linux x86_64";
     await page.addInitScript((p) => Object.defineProperty(navigator, "platform", { get: () => p }), platform);
     const { session, received } = await sessionWithRun(page);
-    await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
     await expect(terminalBar(page)).toBeVisible();
     await terminalReady(page);
     const palette = page.getByRole("dialog", { name: "Search" });
@@ -265,7 +269,7 @@ for (const system of ["macOS", "Linux"] as const) {
     await page.keyboard.press("Control+1");
     await page.waitForTimeout(300);
     await expect(terminalBar(page)).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(session));
+    await expect(page).toHaveURL(new RegExp(await sessionId(page.request, "claude-code", session)));
 
     // the app keeps Cmd on macOS, and Ctrl+Shift on Linux
     const before = received.join("");
@@ -293,7 +297,7 @@ test("Stop stops an idle agent at once, and asks first while it works", async ({
     page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
   await report({ event: "prompt", detail: { prompt: "Fix it" } });
   await report({ event: "turn_ended", end: "done", detail: { reply: "Fixed." } });
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   await expect(page.getByTestId("thread").getByTestId("presence-chip")).toContainText("Finished");
   await page.getByRole("button", { name: "Stop Claude Code" }).click();
   await expect.poll(() => asked.length).toBe(1);
@@ -318,7 +322,7 @@ for (const system of ["macOS", "Linux"] as const) {
     await page.addInitScript((p) => Object.defineProperty(navigator, "platform", { get: () => p }), platform);
     const { session, received } = await sessionWithRun(page);
     const asked = await stops(page);
-    await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
     await terminalReady(page);
     await page.keyboard.press(system === "macOS" ? "Meta+Shift+X" : "Control+Shift+X");
     const confirm = page.getByRole("dialog", { name: "Stop Claude Code?" });
@@ -337,7 +341,7 @@ test("the summary shows turns, where the run started, and what it waits for", as
   await report({ event: "turn_ended", end: "done", detail: { reply: "Fixed it in auth.ts." } });
   await report({ event: "prompt", detail: { prompt: "Now run the tests" } });
   await report({ event: "needs_input", wait: "permission", detail: { tool: "Bash", summary: "npm test" } });
-  await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
 
   const thread = page.getByTestId("thread");
   await expect(thread.getByTestId("run-line")).toHaveText("Started in Pinrail");
@@ -398,11 +402,15 @@ test("the summary says how the run ended, and keeps turns without their texts wh
       end_reason: "stopped",
       exit_code: null,
       exit_signal: "HUP",
-      session: { agent: "claude-code", id: session },
+      session: {
+        agent: "claude-code",
+        id: await sessionId(page.request, "claude-code", session),
+        agent_session: session,
+      },
     };
     await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [run] } }));
     await page.route(/\/api\/v1\/runs\/run_9\/output/, (route) => route.fulfill({ json: { text: "" } }));
-    await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
 
     const thread = page.getByTestId("thread");
     await expect(thread.getByTestId("run-line")).toHaveText(["Started in Pinrail", "Stopped by you"]);
@@ -417,7 +425,7 @@ test("the summary says how the run ended, and keeps turns without their texts wh
 
 test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboard again", async ({ page }) => {
   const { session, received } = await sessionWithRun(page);
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await expect(terminalBar(page)).toBeVisible();
   await terminalReady(page);
   await page.keyboard.type("echo ready");
@@ -448,7 +456,7 @@ test("a link Cmd-clicked in the terminal opens", async ({ page }) => {
     Object.assign(window, { opened_: opened });
     window.open = (url?: string | URL) => (opened.push(String(url)), null);
   });
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await terminalReady(page);
   await page.keyboard.type("see https://example.com/docs");
   await expect.poll(() => received.join("")).toBe("see https://example.com/docs");
@@ -483,7 +491,7 @@ test("while a session's runs load, the terminal's place shows that it loads, the
     await held;
     await route.fallback();
   });
-  await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   await expect(page.getByTestId("terminal-loading")).toBeVisible();
   await expect(page.getByTestId("outside-run")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Resume|Open in Pinrail/ })).toHaveCount(0);
@@ -497,7 +505,8 @@ test("a session's menu in the sidebar stops its agent", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   const asked = await stops(page);
   await page.goto("/#/");
-  const row = page.locator(`[data-testid="sidebar-session"][href$="/${session}"]`);
+  const id = await sessionId(page.request, "claude-code", session);
+  const row = page.locator(`[data-testid="sidebar-session"][href$="/${id}"]`);
   await row.click({ button: "right" });
   await page.getByRole("menu").getByRole("menuitem", { name: "Stop Claude Code" }).click();
   await expect.poll(() => asked).toEqual(["POST"]);

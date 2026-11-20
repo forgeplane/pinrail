@@ -249,6 +249,26 @@ async fn a_session_nobody_sent_from_is_404() {
 }
 
 #[tokio::test]
+async fn a_session_is_also_read_by_its_agent_id() {
+    let app = app();
+    let asked = send(&app, question("claude-code", Some("s-1"), "Use SQLite?")).await;
+    send(&app, question("codex", Some("s-1"), "Elsewhere?")).await;
+
+    // an old link names the session by the agent's own id
+    let (status, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(status, StatusCode::OK, "{thread}");
+    assert_eq!(
+        thread["session"]["id"],
+        common::sid(&app, "claude-code", "s-1")
+    );
+    assert_eq!(thread["session"]["agent_session"], "s-1");
+    assert_eq!(thread["items"][0]["id"], asked);
+
+    let (status, _) = call(&app, "GET", "/api/v1/sessions/gemini/s-1", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn reviews_are_listed_by_session() {
     let app = app();
     let mine = send(&app, question("claude-code", Some("s-1"), "Mine?")).await;

@@ -18,7 +18,6 @@ import { useLocation, useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
 import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
-import { exitText } from "../lib/failedStart";
 import { combo, hasMod, MOD } from "../lib/keys";
 import { TIPS, tipParts } from "../lib/tips";
 import { useWindowKey } from "../lib/useWindowKey";
@@ -85,8 +84,6 @@ export function NewSession() {
   const [showArgs, setShowArgs] = useState(!!initial.args?.length);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
-  // the last lines of an agent that exited as it started
-  const [output, setOutput] = useState<string | null>(null);
   const [agentMenu, setAgentMenu] = useState<HTMLElement | null>(null);
   // a tip picked when the page opens, and the next one on request
   const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
@@ -159,10 +156,9 @@ export function NewSession() {
   const start = async () => {
     if (!ready || !chosen) return;
     setError(null);
-    setOutput(null);
     setStarting(`Starting ${chosen.name}…`);
     try {
-      const started = await startRun({
+      const session = await startRun({
         agent: chosen.id,
         folder: folder.trim(),
         task: task.trim() || undefined,
@@ -171,21 +167,7 @@ export function NewSession() {
       });
       // the next press of Start is a new start
       localId.current = crypto.randomUUID();
-      if ("failed" in started) {
-        // the fields stay, to edit and start again
-        setStarting(null);
-        setError(exitText(chosen.name, started.failed));
-        setOutput(await runtime.output(started.failed.id).catch(() => ""));
-        return;
-      }
-      if ("unnamed" in started) {
-        setStarting(null);
-        setError(
-          `${chosen.name} started, but has not reported its session. Turn on Report status for ${chosen.name} in Settings › Agents, and its session appears in the sidebar.`,
-        );
-        return;
-      }
-      navigate(sessionPath(started.session), { replace: true, state: { newRun: true } });
+      navigate(sessionPath(session), { replace: true, state: { newRun: true } });
     } catch (e) {
       setStarting(null);
       // a new attempt is a new start
@@ -330,17 +312,12 @@ export function NewSession() {
             {error}
           </p>
         ) : null}
-        {output ? (
-          <pre className="new-session-output" aria-label="The agent's last output">
-            {output}
-          </pre>
-        ) : null}
         {starting ? (
           <p className="dim" role="status">
             {starting}
           </p>
         ) : null}
-        {error || output || starting ? null : (
+        {error || starting ? null : (
           <aside className="new-session-tip" aria-label="Tip" data-testid="new-session-tip">
             <Lightbulb size={13} className="new-session-tip-icon" aria-hidden="true" />
             <p className="new-session-tip-text">

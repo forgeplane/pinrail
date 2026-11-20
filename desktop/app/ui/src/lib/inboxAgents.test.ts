@@ -9,6 +9,7 @@ function session(id: string, attention: Attention, presence: Partial<Presence> |
   return {
     agent: "claude-code",
     id,
+    agent_session: null,
     repo: "acme/api",
     ref: "main",
     folder: null,

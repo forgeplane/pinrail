@@ -2,7 +2,7 @@
 // thread when reviews open in a panel, in place of the session's details.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core, onePayload, openReviewsIn } from "../helpers";
+import { core, onePayload, openReviewsIn, sessionId } from "../helpers";
 
 let n = 0;
 /** A session of its own for each test. */
@@ -50,7 +50,9 @@ test("a review opens beside the thread in place of the details, and closes with 
 
   const card = thread(page).getByTestId("thread-review");
   await card.click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?review=${id}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}\\?review=${id}$`),
+  );
   await expect(panel(page)).toContainText("Panel: open and close");
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
   await expect(details(page)).toHaveCount(0);
@@ -91,7 +93,9 @@ test("deciding in the panel closes it and keeps the thread where it was", async 
   await frame.locator('button[data-act="accept"]').first().click();
   await page.getByTestId("handover").click();
   await expect(panel(page)).toHaveCount(0);
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
   await expect(thread(page).getByTestId("thread-review")).toContainText(/decided/i);
   expect(Math.abs((await items.evaluate((el) => el.scrollTop)) - scrolled)).toBeLessThan(40);
 });

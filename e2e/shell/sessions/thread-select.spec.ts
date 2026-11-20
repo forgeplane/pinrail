@@ -3,7 +3,7 @@
 // in the app.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-select-${Date.now()}-${++n}`;
@@ -24,7 +24,9 @@ test("the text of a session's thread can be selected, and its buttons cannot", a
   const status = `/api/v1/sessions/claude-code/${session}/status`;
   await post(request, status, { text: "Running the quokka suite" });
   await post(request, status, { text: "The quokka loader reads each file.", kind: "note" });
-  await post(request, `/api/v1/sessions/claude-code/${session}/messages`, { text: "Keep the old quokka endpoint." });
+  // the person names the session by Pinrail's id
+  const id = await sessionId(request, "claude-code", session);
+  await post(request, `/api/v1/sessions/claude-code/${id}/messages`, { text: "Keep the old quokka endpoint." });
   // the agent's next status hands the message over, which joins the thread
   const handed = await request.post(`${core}${status}`, { data: { text: "Reading the quokka docs" } });
   const { messages } = (await handed.json()) as { messages: { id: number }[] };

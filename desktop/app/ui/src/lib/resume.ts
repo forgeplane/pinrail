@@ -6,7 +6,7 @@ import { ApiError, errorMessage } from "../api/client";
 import type { Run } from "../api/runtime";
 import type { Session } from "../api/types";
 
-type Resumable = Pick<Session, "presence" | "resume">;
+type Resumable = Pick<Session, "presence" | "resume" | "agent_session">;
 
 /** Whether the session can be resumed: no run of it lives, its agent can
  *  resume, and it stopped, as its hooks said or its last run did. */
@@ -19,11 +19,12 @@ export function canResume(session: Resumable | null | undefined, runs: Run[]): b
 }
 
 /** Whether the session may run in another terminal and can be opened in
- *  Pinrail anyway, as a second process of its agent: no run of Pinrail's
- *  lives, its agent allows it, and its hooks say it has not stopped, or
- *  it has neither hooks nor a run of Pinrail's to tell. */
+ *  Pinrail anyway, as a second process of its agent: Pinrail knows the
+ *  agent's own id for it, no run of Pinrail's lives, its agent allows it,
+ *  and its hooks say it has not stopped, or it has neither hooks nor a run
+ *  of Pinrail's to tell. */
 export function canOpenWhileRunning(session: Resumable | null | undefined, runs: Run[]): boolean {
-  if (!session?.resume?.while_running) return false;
+  if (!session?.resume?.while_running || !session.agent_session) return false;
   if (runs.some((r) => r.state !== "ended")) return false;
   if (!session.presence) return runs.length === 0;
   return session.presence.state !== "stopped";

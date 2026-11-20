@@ -2,7 +2,7 @@
 // or a right-click on the row.
 
 import { expect, test, type APIRequestContext } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-menu-${Date.now()}-${++n}`;
@@ -22,7 +22,8 @@ test("a session's menu marks it read and unread, and archives it", async ({ page
   await post(page.request, session, "reports", { event: "prompt", detail: { prompt: "Fix it" } });
   await post(page.request, session, "reports", { event: "turn_ended", end: "done", detail: { reply: "Fixed." } });
   await page.goto("/#/");
-  const row = page.locator(`[data-testid="sidebar-session"][href$="/${session}"]`);
+  const id = await sessionId(page.request, "claude-code", session);
+  const row = page.locator(`[data-testid="sidebar-session"][href$="/${id}"]`);
   await expect(row).toHaveAttribute("data-state", "finished");
   const button = page.locator(".sidebar-session-item", { has: row }).getByTestId("sidebar-session-menu");
 

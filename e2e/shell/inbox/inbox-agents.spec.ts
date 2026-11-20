@@ -2,7 +2,7 @@
 // in its terminal, or finished a turn the person has not seen.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { clearInbox, core } from "../helpers";
+import { clearInbox, core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-agents-${Date.now()}-${++n}`;
@@ -51,6 +51,8 @@ test("the Agents section lists what waits in a terminal and unseen finished turn
   await agentRow(page, `Agents: deploy ${run}`).hover();
   await expect(agentRow(page, `Agents: deploy ${run}`)).toHaveClass(/is-focused/);
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${waiting}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`#/sessions/claude-code/${await sessionId(page.request, "claude-code", waiting)}$`),
+  );
   await expect(page.getByTestId("thread").getByTestId("presence-chip")).toHaveText("Needs you · Bash permission");
 });

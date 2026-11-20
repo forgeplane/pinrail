@@ -15,6 +15,7 @@ function session(
   return {
     agent,
     id,
+    agent_session: null,
     repo,
     ref: "main",
     folder: null,

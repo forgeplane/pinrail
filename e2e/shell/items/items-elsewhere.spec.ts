@@ -3,7 +3,7 @@
 // repository's key prefix on the Projects page, and the command palette.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core, onReviewPages, openReviewsIn, settled, shellOrigin } from "../helpers";
+import { core, onReviewPages, openReviewsIn, settled, shellOrigin, sessionId } from "../helpers";
 
 // a review opens on a page of its own, where its header is
 onReviewPages();
@@ -99,7 +99,9 @@ test("an item's question opens in its session, and a review where reviews open",
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&open=${item.key}`);
   const reviews = page.getByTestId("item-panel").getByRole("region", { name: "Reviews" });
   await reviews.getByRole("link", { name: /Watch the folder/ }).click();
-  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${session}`));
+  await expect(page).toHaveURL(
+    new RegExp(`#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`),
+  );
 
   await page.goto(`/#/items?repo=${encodeURIComponent(repo)}&open=${item.key}`);
   await reviews.getByRole("link", { name: /Theme loader/ }).click();
@@ -216,7 +218,9 @@ test("a session's thread names the items it holds and worked on", async ({ page,
   // an item opens beside the thread, in place of its details, as a review does
   await items.getByTestId("thread-work-item").first().click();
   await expect(panelKey(page)).toHaveText(held.key);
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?item=${held.key}`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}\\?item=${held.key}`),
+  );
   await expect(items).toHaveCount(0);
   // and a key in the header, in place of the one shown
   await page.getByTestId("thread-held-item").getByRole("link", { name: held.key }).click();
@@ -376,15 +380,17 @@ test("a session's thread loads again only for changes to its own items", async (
     data: { text: "Load the themes", kind: "start" },
   });
   const own = await add(request, repo, "Its own", { session });
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  // the app names the session by Pinrail's id
+  const id = await sessionId(request, "claude-code", session);
+  await page.goto(`/#/sessions/claude-code/${id}`);
   await expect(page.getByTestId("thread-work-item")).toHaveCount(1);
   // the thread loads again once the event stream connects, and for the
   // notices it catches up on: the count starts after
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
-  await settled(page, (url) => url.pathname === `/api/v1/sessions/claude-code/${session}`);
+  await settled(page, (url) => url.pathname === `/api/v1/sessions/claude-code/${id}`);
   let loads = 0;
   page.on("request", (r) => {
-    if (r.url().endsWith(`/api/v1/sessions/claude-code/${session}`)) loads += 1;
+    if (r.url().endsWith(`/api/v1/sessions/claude-code/${id}`)) loads += 1;
   });
 
   // another session's items, changed
@@ -504,7 +510,7 @@ test("a line for several work items keeps its words and its time on one line eac
   for (const key of keys)
     await request.patch(`${core}/api/v1/items/${key}`, { data: { by: "claude-code", session, claim: "claim" } });
   await page.setViewportSize({ width: 1000, height: 700 });
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", session)}`);
   const line = page.getByTestId("item-event").filter({ hasText: "Started working on" });
   await expect(line.getByTestId("item-chip")).toHaveCount(3);
   // how many lines a piece of its text takes

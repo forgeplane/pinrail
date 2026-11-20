@@ -143,7 +143,7 @@ test("status, claim, parent, repository and link are changed from the panel", as
 
   await panel(page).getByRole("button", { name: "Claim" }).click();
   await expect(panel(page).locator(".item-claimant")).toHaveText("by you");
-  expect((await read(request, item.key)).claim).toEqual({ agent: "person", session: null });
+  expect((await read(request, item.key)).claim).toEqual({ agent: "person", session: null, agent_session: null });
   await panel(page).getByRole("button", { name: "Release" }).click();
   await expect(panel(page).getByRole("button", { name: "Claim" })).toBeVisible();
 

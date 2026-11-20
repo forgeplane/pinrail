@@ -488,7 +488,7 @@ export function ItemPanel({
               <li key={`${s.agent}/${s.session}`}>
                 <Link to={sessionPath({ agent: s.agent, id: s.session })}>
                   <AgentIcon requestedBy={s.agent} size={13} />
-                  <span className="mono dim">{s.session.slice(0, 8)}</span>
+                  {s.agent_session ? <span className="mono dim">{s.agent_session.slice(0, 8)}</span> : null}
                   <span className="item-related-title truncate">{s.status ?? s.agent}</span>
                 </Link>
               </li>

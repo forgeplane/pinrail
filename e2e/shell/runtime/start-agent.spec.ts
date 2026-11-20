@@ -4,7 +4,7 @@
 // refuses it before it needs a host.
 
 import { expect, test, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-start-${Date.now()}-${++n}`;
@@ -23,8 +23,8 @@ const AGENTS = [
 ];
 
 /** Stands in for the agents, the folders, the run and its terminal; the
- *  session `bindAfter` polls of the run, for an agent that names it late. */
-async function standIn(page: Page, session: string, bindAfter = 0) {
+ *  start answers with `session`, by Pinrail's id. */
+async function standIn(page: Page, session: string) {
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
   await page.route(/\/api\/v1\/folders\/recent/, (route) =>
     route.fulfill({
@@ -37,8 +37,8 @@ async function standIn(page: Page, session: string, bindAfter = 0) {
     }),
   );
   const started: Record<string, unknown>[] = [];
-  let polls = 0;
-  const run = (named: boolean) => ({
+  const bound = { agent: "claude-code", id: session, agent_session: null };
+  const run = {
     id: "run_1",
     host: "local",
     agent: "claude-code",
@@ -49,19 +49,16 @@ async function standIn(page: Page, session: string, bindAfter = 0) {
     ended_at: null,
     end_reason: null,
     exit_code: null,
-    session: named ? { agent: "claude-code", id: session } : null,
-  });
+    session: bound,
+  };
   await page.route(/\/api\/v1\/runs(\?|$)/, async (route) => {
     if (route.request().method() === "POST") {
       started.push(route.request().postDataJSON());
-      return route.fulfill({
-        status: 201,
-        json: { run: run(bindAfter === 0), session: bindAfter === 0 ? { agent: "claude-code", id: session } : null },
-      });
+      return route.fulfill({ status: 201, json: { run, session: bound } });
     }
-    return route.fulfill({ json: { runs: started.length ? [run(true)] : [] } });
+    return route.fulfill({ json: { runs: started.length ? [run] : [] } });
   });
-  await page.route(/\/api\/v1\/runs\/run_1$/, (route) => route.fulfill({ json: run(++polls >= bindAfter) }));
+  await page.route(/\/api\/v1\/runs\/run_1$/, (route) => route.fulfill({ json: run }));
   await page.route(/\/api\/v1\/terminals\/[^/]+\/tickets/, (route) => route.fulfill({ json: { ticket: "t" } }));
   const attached: URL[] = [];
   await page.routeWebSocket(/\/api\/v1\/terminals\/[^/]+\/attach/, (ws) => {
@@ -71,7 +68,7 @@ async function standIn(page: Page, session: string, bindAfter = 0) {
     ws.send(Buffer.concat([Buffer.from([0x02]), Buffer.from("agent ready\r\n")]));
     ws.send(JSON.stringify({ t: "snapshot_end" }));
   });
-  return { started, attached, polls: () => polls };
+  return { started, attached };
 }
 
 async function aSession(page: Page) {
@@ -80,7 +77,7 @@ async function aSession(page: Page) {
     data: { kind: "start", text: "Fix the login redirect", origin: { repo: "acme/api" } },
   });
   expect(response.status(), await response.text()).toBeLessThan(300);
-  return session;
+  return sessionId(page.request, "claude-code", session);
 }
 
 const folderPicker = (page: Page) => page.getByRole("button", { name: /^Folder:/ });
@@ -133,7 +130,7 @@ test("starting Claude Code opens its session in the terminal view at the size it
 
 test("a session starts without a first message, and the agent picked from its menu", async ({ page }) => {
   const session = await aSession(page);
-  const { started, polls } = await standIn(page, session, 3);
+  const { started } = await standIn(page, session);
   await page.goto("/#/");
   // the window knows the runtime is on once its settings are loaded
   await expect(page.getByRole("link", { name: /New session/ })).toBeVisible();
@@ -143,9 +140,8 @@ test("a session starts without a first message, and the agent picked from its me
   await page.getByRole("menuitem", { name: /Codex/ }).click();
   await expect(agentPicker(page)).toHaveAccessibleName("Agent: Codex");
   await page.getByRole("button", { name: "Start" }).click();
-  // an agent that names its session once it starts is waited for
+  // the session opens at once, before the agent names it
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
-  expect(polls()).toBeGreaterThanOrEqual(3);
   expect(started[0]).toMatchObject({ agent: "codex", folder: "/work/api" });
   expect(started[0].task).toBeUndefined();
 });
@@ -212,7 +208,7 @@ const failedRun = (session: string | null) => ({
   end_reason: "exited",
   exit_code: 1,
   exit_signal: null,
-  session: session ? { agent: "claude-code", id: session } : null,
+  session: session ? { agent: "claude-code", id: session, agent_session: null } : null,
   task: "Fix the login redirect",
   args: ["--model", "opus"],
 });
@@ -265,32 +261,6 @@ test("a session whose agent exited as it started shows why, and starts it again"
   await expect(message(page)).toHaveValue("Fix the login redirect");
   await expect(agentPicker(page)).toHaveAccessibleName("Agent: Claude Code");
   await expect(page.getByLabel("Extra arguments")).toHaveValue("--model opus");
-});
-
-test("an agent that exits before it names its session shows why on the page", async ({ page }) => {
-  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
-  await page.route(/\/api\/v1\/folders\/recent/, (route) => route.fulfill({ json: { folders: [] } }));
-  await page.route(/\/api\/v1\/runs$/, (route) =>
-    route.fulfill({
-      status: 201,
-      json: { run: { ...failedRun(null), state: "running", ended_at: null }, session: null },
-    }),
-  );
-  await page.route(/\/api\/v1\/runs\/run_failed$/, (route) => route.fulfill({ json: failedRun(null) }));
-  await page.route(/\/api\/v1\/runs\/run_failed\/output/, (route) =>
-    route.fulfill({ json: { text: "codex: unknown flag --nope" } }),
-  );
-  await page.goto("/#/sessions/new");
-  await folderPicker(page).click();
-  await page.getByRole("combobox", { name: "Folder" }).fill("/work/api");
-  await page.keyboard.press("Enter");
-  await agentPicker(page).click();
-  await page.getByRole("menuitem", { name: /Codex/ }).click();
-  await page.getByRole("button", { name: "Start" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Codex exited with code 1 as it started.");
-  await expect(page.getByLabel("The agent's last output")).toHaveText("codex: unknown flag --nope");
-  // the fields stay, to edit and start again
-  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /work/api");
 });
 
 /** A run of `session` that ended after a while, as `over` says. */

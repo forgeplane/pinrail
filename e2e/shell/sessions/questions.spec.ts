@@ -7,14 +7,14 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { clearInbox, core, onePayload, openReviewsIn, pickIn, sessionName, toggleFilter } from "../helpers";
+import { clearInbox, core, onePayload, openReviewsIn, pickIn, sessionName, toggleFilter, sessionId } from "../helpers";
 
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
 const thread = (page: Page) => page.getByTestId("thread");
 const question = (page: Page, text: string) => page.getByTestId("question").filter({ hasText: text });
 /** A session's row in the sidebar. */
-const inSidebar = (page: Page, session: string) =>
-  page.getByTestId("sidebar-session").and(page.locator(`[href="#/sessions/claude-code/${session}"]`));
+const inSidebar = (page: Page, id: string) =>
+  page.getByTestId("sidebar-session").and(page.locator(`[href="#/sessions/claude-code/${id}"]`));
 
 let n = 0;
 /** A session of its own for each test, so threads never share reviews. */
@@ -218,7 +218,9 @@ test("the Sessions page lists the sessions, those waiting first, and opens a ses
   await page.getByRole("searchbox", { name: "Search sessions" }).fill(answered);
   await expect(rows).toHaveCount(1);
   await rows.first().click();
-  await expect(page).toHaveURL(new RegExp(`/sessions\\?.*open=claude-code%2F${answered}`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions\\?.*open=claude-code%2F${await sessionId(page.request, "claude-code", answered)}`),
+  );
   await expect(page.getByTestId("session-panel").getByTestId("answer")).toHaveCount(3);
 });
 
@@ -292,7 +294,9 @@ test("a question's thread links to its session's page", async ({ page }) => {
   const { id } = await send(page.request, asked(session, "Link: deploy"));
   await page.goto(`/#/reviews/${id}`);
   await thread(page).getByRole("link", { name: "open the session" }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
   await expect(thread(page).getByTestId("question")).toHaveCount(3);
 });
 
@@ -315,11 +319,13 @@ test("questions stand apart from reviews in the inbox, and their session waits i
   await expect(row(page, "Apart: the schema")).toContainText("list");
 
   // no stage yet: the name Pinrail gave it
-  const waiting = inSidebar(page, session);
+  const waiting = inSidebar(page, await sessionId(page.request, "claude-code", session));
   await expect(waiting).toContainText(await sessionName(page.request, "claude-code", session));
   await expect(waiting.getByTestId("sidebar-session-waiting")).toHaveText("1");
   await waiting.click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
 
   // once nothing waits in it, the session stays without its count
   await clearInbox(page.request);
@@ -567,7 +573,9 @@ test("the statuses an agent reports show in its thread between the questions and
   const row = page.getByTestId("session-row").filter({ hasText: session });
   await expect(row.locator(".review-row-title")).toContainText("Add rate limiting");
   await expect(row.getByTestId("session-status")).toHaveText("Finished: Pushed the fix");
-  await expect(inSidebar(page, session)).toContainText("Add rate limiting");
+  await expect(inSidebar(page, await sessionId(page.request, "claude-code", session))).toContainText(
+    "Add rate limiting",
+  );
 });
 
 test("a status the agent reports shows in an open thread at once", async ({ page }) => {
@@ -592,7 +600,7 @@ test("a stage the agent starts renames its session in the sidebar at once", asyn
   const session = fresh();
   await send(page.request, asked(session, "Rename: deploy"));
   await page.goto("/#/");
-  const waiting = inSidebar(page, session);
+  const waiting = inSidebar(page, await sessionId(page.request, "claude-code", session));
   await expect(waiting).toHaveText(new RegExp(await sessionName(page.request, "claude-code", session)));
   // after the loads the page makes as it starts
   await page.waitForTimeout(1500);
@@ -613,14 +621,16 @@ test("a name the person gives a session heads it, with its stage and the generat
   await expect(heading).toHaveText("Ship the deploy script");
   await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
 
-  const renamed = await page.request.patch(`${core}/api/v1/sessions/claude-code/${session}`, {
+  // the person names the session by Pinrail's id
+  const id = await sessionId(page.request, "claude-code", session);
+  const renamed = await page.request.patch(`${core}/api/v1/sessions/claude-code/${id}`, {
     data: { name: "Deploy work" },
   });
   expect(renamed.status(), await renamed.text()).toBe(204);
   await expect(heading).toHaveText("Deploy work");
   await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
   await expect(thread(page).locator(".thread-meta-stage")).toHaveText("Ship the deploy script");
-  await expect(inSidebar(page, session)).toContainText("Deploy work");
+  await expect(inSidebar(page, id)).toContainText("Deploy work");
 });
 
 test("a session's details hide, show and resize, and stay so", async ({ page }) => {
@@ -677,7 +687,9 @@ test("a session's details list its ended reviews, folded until opened", async ({
   await page.reload();
   await expect(handled.getByTestId("handled-review")).toHaveCount(1);
   await handled.getByTestId("handled-review").click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}\\?review=${id}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}\\?review=${id}$`),
+  );
 });
 
 test("a session opens in the side panel beside the Sessions page", async ({ page }) => {
@@ -720,14 +732,18 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   // the panel's session opens as a page
   await sessionRow(second).click();
   await panel.getByRole("button", { name: "Open as a page" }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${second}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", second)}$`),
+  );
   await page.goBack();
 
   // with reviews opening on their own page, so do sessions
   await openReviewsIn(page.request, "page");
   await page.reload();
   await sessionRow(first).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${first}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", first)}$`),
+  );
 });
 
 test("the Sessions page filters the sessions by project", async ({ page }) => {
@@ -776,7 +792,9 @@ test("a review's header links to the thread of its session", async ({ page }) =>
   // on its page, the link in the bar opens the session's thread
   await page.goto(`/#/reviews/${id}`);
   await link.click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
   await expect(thread(page).getByTestId("thread-review")).toContainText("Header: in a session");
 
   // in the inbox's side panel, the panel's header has it too

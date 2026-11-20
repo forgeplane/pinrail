@@ -25,7 +25,7 @@ export function madeWith(review: Review, made: Made, command: Command) {
   const from = asker
     ? ", from the agent session that submitted the review"
     : made.session
-      ? `, from agent session ${made.session}`
+      ? ", from another agent session"
       : "";
   return { badge: made.via === "cli" ? "CLI" : "API", own, label: `${how}${from}` };
 }

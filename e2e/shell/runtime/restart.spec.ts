@@ -14,7 +14,7 @@ test.afterEach(async ({ page }) => {
   await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
 });
 
-function stopped(id: string, session: string, title: string | null) {
+function stopped(id: string, session: string, title: string | null, agentSession: string | null = `agent-${session}`) {
   return {
     id,
     host: "local",
@@ -28,7 +28,7 @@ function stopped(id: string, session: string, title: string | null) {
     end_reason: "restart",
     exit_code: null,
     exit_signal: null,
-    session: { agent: "claude-code", id: session },
+    session: { agent: "claude-code", id: session, agent_session: agentSession },
     title,
   };
 }
@@ -36,7 +36,12 @@ function stopped(id: string, session: string, title: string | null) {
 /** Stands in for the stopped runs and for resuming and dismissing them;
  *  `refuse` names sessions whose resume is refused. */
 async function standIn(page: Page, refuse: string[] = []) {
-  let runs = [stopped("run_a", "s-a", "Fix the login redirect"), stopped("run_b", "s-b", null)];
+  let runs = [
+    stopped("run_a", "s-a", "Fix the login redirect"),
+    stopped("run_b", "s-b", null),
+    // its agent never reported its own id, so it cannot be resumed
+    stopped("run_c", "s-c", "Never named", null),
+  ];
   const resumed: string[] = [];
   let dismissed = 0;
   await page.route(/\/api\/v1\/runtime\/restarted$/, (route) => {
@@ -66,7 +71,7 @@ async function standIn(page: Page, refuse: string[] = []) {
       status: 201,
       json: {
         run: { ...stopped("run_new", session, null), state: "running" },
-        session: { agent: "claude-code", id: session },
+        session: { agent: "claude-code", id: session, agent_session: `agent-${session}` },
       },
     });
   });
@@ -82,7 +87,7 @@ test("Resume all resumes each agent a restart stopped, one by one", async ({ pag
 
   await banner(page).getByRole("button", { name: "Review" }).click();
   const list = banner(page).getByRole("list");
-  await expect(list.getByRole("link")).toHaveText(["Fix the login redirect", "Claude Code session s-b"]);
+  await expect(list.getByRole("link")).toHaveText(["Fix the login redirect", "Claude Code session agent-s-b"]);
 
   await banner(page).getByRole("button", { name: "Resume all" }).click();
   await expect(banner(page)).toHaveCount(0);

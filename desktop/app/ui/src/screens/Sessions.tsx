@@ -32,6 +32,7 @@ import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useDebounced } from "../lib/useDebounced";
 import { useLoad } from "../lib/useLoad";
+import { useLatest } from "../lib/useLatest";
 import { sessionLabel, stageBeside } from "../lib/sessions";
 import { useElements } from "../lib/elements";
 import { ElementTile } from "../components/ElementTile";
@@ -157,6 +158,7 @@ export function Sessions() {
     const at = openKey?.indexOf("/") ?? -1;
     return openKey && at > 0 ? { agent: openKey.slice(0, at), id: openKey.slice(at + 1) } : null;
   }, [openKey]);
+  const followedKey = useFollowedKey(openKey);
 
   // J, K and Enter, and walking the side panel, as in the other lists
   const search = useRef<HTMLInputElement>(null);
@@ -219,9 +221,11 @@ export function Sessions() {
             {stageBeside(s) ? <span className="session-row-stage truncate">{stageBeside(s)}</span> : null}
             {s.name || s.title || s.generated_name ? <span>{s.agent}</span> : null}
             {s.repo && (!group || mixed.has(group)) ? <span className="review-row-project">{s.repo}</span> : null}
-            <span className="session-row-id mono" title={s.id}>
-              {s.id}
-            </span>
+            {s.agent_session ? (
+              <span className="session-row-id mono" title={s.agent_session}>
+                {s.agent_session}
+              </span>
+            ) : null}
             {status ? (
               <span
                 className={`session-status truncate ${status.kind === "done" ? "is-done" : ""}`}
@@ -390,7 +394,13 @@ export function Sessions() {
       {opened ? (
         <SidePanel split={split} label="Session">
           <div className="review-page thread-page in-panel">
-            <Thread key={openKey} session={opened} inPanel onClose={closePanel} />
+            <Thread
+              key={followedKey.shown}
+              session={opened}
+              inPanel
+              onClose={closePanel}
+              onSession={(s) => followedKey.follow(s, (key) => openInPanel(key, { replace: true }))}
+            />
           </div>
         </SidePanel>
       ) : null}
@@ -398,11 +408,34 @@ export function Sessions() {
   );
 }
 
+/**
+ * The key of the thread shown for `key`, `agent/id`, and `follow`, which
+ * replaces the address of a session named by its agent's own id, as links
+ * from before Pinrail's ids do, with Pinrail's id for it. The thread keeps
+ * its key across that change, so it is not drawn again.
+ */
+function useFollowedKey(key: string | null) {
+  const [moved, setMoved] = useState<{ from: string; to: string } | null>(null);
+  const shown = key && moved?.to === key ? moved.from : key;
+  /** Whether the session loaded for `key` has another id, and if so
+   *  replaces the address with `replace`. */
+  const follow = (session: Session, replace: (key: string) => void) => {
+    const to = `${session.agent}/${session.id}`;
+    if (!key || to === key || !key.startsWith(`${session.agent}/`)) return false;
+    setMoved({ from: shown ?? key, to });
+    replace(to);
+    return true;
+  };
+  return { shown, follow };
+}
+
 /** A session's thread, at /sessions/:agent/:id. */
 export function SessionScreen() {
   const { agent = "", id = "" } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   // the stage the command palette opened the thread at
-  const stage = (useLocation().state as { stage?: number } | null)?.stage;
+  const stage = (location.state as { stage?: number } | null)?.stage;
   // the task the agent works on names the session, once the thread has it;
   // kept with the session it names, so that a title loaded for the session
   // shown before is not this one's
@@ -421,13 +454,20 @@ export function SessionScreen() {
     [agent, title],
   );
   useTopBar(useMemo(() => ({ crumb }), [crumb]));
+  const { shown, follow } = useFollowedKey(`${agent}/${id}`);
+  const here = useLatest(location);
   return (
     <div className="review-page thread-page">
       <Thread
-        key={`${agent}/${id}/${stage ?? ""}`}
+        key={`${shown}/${stage ?? ""}`}
         session={{ agent, id }}
         stage={stage}
-        onSession={(s) => setTitled({ key: `${s.agent}/${s.id}`, title: sessionLabel(s) })}
+        onSession={(s) => {
+          setTitled({ key: `${s.agent}/${s.id}`, title: sessionLabel(s) });
+          // with the view the person may have chosen meanwhile
+          const { search, state } = here.current;
+          follow(s, () => navigate(`${sessionPath(s)}${search}`, { replace: true, state }));
+        }}
         reviewPanel={({ id: review, linkTo, onEnded, onClose }) => (
           <ReviewView
             key={review}

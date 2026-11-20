@@ -21,7 +21,7 @@ const RUN_EVENTS = new Set(["run_started", "run_bound", "run_ended"]);
 function nameOf(run: Stopped): string {
   if (run.title) return run.title;
   const agent = agentOf(run.agent)?.label ?? run.agent;
-  return `${agent} session ${run.session?.id ?? run.id}`;
+  return `${agent} session ${run.session?.agent_session ?? run.id}`;
 }
 
 export function RestartBanner() {
@@ -33,7 +33,8 @@ export function RestartBanner() {
 
   const load = useCallback(() => {
     runtime.restarted().then(
-      (runs) => setStopped(runs.filter((r) => r.session)),
+      // a session whose agent never reported its own id cannot be resumed
+      (runs) => setStopped(runs.filter((r) => r.session?.agent_session)),
       () => setStopped([]),
     );
   }, []);

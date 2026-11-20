@@ -54,6 +54,7 @@ export function itemDetail(fields: Partial<ItemDetail> & { title: string }, repo
 export function session(fields: Partial<Session> & { id: string }): Session {
   return {
     agent: "claude-code",
+    agent_session: "3f2a9c1e-5b7d-4e8a-9c0f-1a2b3c4d5e6f",
     repo: "acme/app",
     ref: "main",
     folder: "/work/app",

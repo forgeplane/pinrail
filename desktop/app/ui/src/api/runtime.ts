@@ -5,6 +5,10 @@ import { request, serverUrl } from "./client";
 
 const seg = encodeURIComponent;
 
+/** The session a run is in: by Pinrail's id, with the agent's own id,
+ *  which is null until an agent that chooses it reports it. */
+export type RunSession = { agent: string; id: string; agent_session: string | null };
+
 /** A run, as the core describes it. */
 export type Run = {
   id: string;
@@ -21,7 +25,7 @@ export type Run = {
   end_reason: string | null;
   exit_code: number | null;
   exit_signal: string | null;
-  session: { agent: string; id: string } | null;
+  session: RunSession | null;
   /** what the person started it with; only a single run has them */
   task?: string | null;
   args?: string[];
@@ -66,7 +70,7 @@ export const runtime = {
   startable: async () => (await request<{ agents: StartableAgent[] }>("GET", "/api/v1/agents/startable")).agents,
   recentFolders: async () => (await request<{ folders: RecentFolder[] }>("GET", "/api/v1/folders/recent")).folders,
   start: (body: StartRequest) =>
-    request<{ run: Run; session: { agent: string; id: string } | null }>("POST", "/api/v1/runs", {
+    request<{ run: Run; session: RunSession }>("POST", "/api/v1/runs", {
       host: "local",
       ...body,
     }),
@@ -97,7 +101,7 @@ export const runtime = {
     session: { agent: string; id: string },
     body: { cols: number; rows: number; local_id: string; anyway?: boolean },
   ) =>
-    request<{ run: Run; session: { agent: string; id: string } | null }>(
+    request<{ run: Run; session: RunSession | null }>(
       "POST",
       `/api/v1/sessions/${seg(session.agent)}/${seg(session.id)}/resume`,
       { host: "local", ...body },

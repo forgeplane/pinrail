@@ -2,7 +2,7 @@
 // at it, and Mark as unread brings Finished back.
 
 import { expect, test, type APIRequestContext } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-seen-${Date.now()}-${++n}`;
@@ -28,7 +28,8 @@ test("a finished session is seen once its thread was shown, and Mark as unread b
 }) => {
   const session = fresh();
   await finishedTurn(page.request, session);
-  const mark = page.locator(`[data-testid="sidebar-session"][href$="/${session}"]`);
+  const id = await sessionId(page.request, "claude-code", session);
+  const mark = page.locator(`[data-testid="sidebar-session"][href$="/${id}"]`);
 
   await page.goto("/#/");
   await expect(mark).toHaveAttribute("data-state", "finished");

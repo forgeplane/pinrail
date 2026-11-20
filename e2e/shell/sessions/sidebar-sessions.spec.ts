@@ -3,7 +3,7 @@
 // it, and the heading's menu, whose choices the settings keep.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { clearInbox, core, onePayload, settingSaved } from "../helpers";
+import { clearInbox, core, onePayload, settingSaved, sessionId } from "../helpers";
 
 // a route handler may still be reading a response when the test ends, and
 // closing the page disposes it: such a handler's error is not the test's
@@ -54,10 +54,10 @@ const group = (page: Page, name: string) =>
   region(page)
     .getByTestId("sidebar-group")
     .filter({ has: page.getByTestId("sidebar-group-name").getByText(name, { exact: true }) });
-const sessionRow = (page: Page, agent: string, session: string) =>
+const sessionRow = (page: Page, agent: string, id: string) =>
   region(page)
     .getByTestId("sidebar-session")
-    .and(page.locator(`[href="#/sessions/${agent}/${session}"]`));
+    .and(page.locator(`[href="#/sessions/${agent}/${id}"]`));
 const openMenu = async (page: Page) => {
   await region(page).getByRole("button", { name: "Sessions options" }).click();
   return page.getByTestId("sidebar-sessions-menu");
@@ -76,8 +76,8 @@ test("a session shows whether it works or is done, and what waits sits under it"
   await report(page.request, "codex", finished, { text: "Pushed", kind: "done" });
 
   await page.goto("/#/");
-  const working = sessionRow(page, "claude-code", busy);
-  const done = sessionRow(page, "codex", finished);
+  const working = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", busy));
+  const done = sessionRow(page, "codex", await sessionId(page.request, "codex", finished));
   await expect(working).toContainText("Build the sidebar");
   // its question waits on the person
   await expect(working).toHaveAttribute("data-state", "needs_you");
@@ -99,7 +99,9 @@ test("a session shows whether it works or is done, and what waits sits under it"
     .filter({ hasText: `may I push? ${run}` });
   await expect(question).toHaveClass(/is-question/);
   await question.click();
-  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${busy}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`#/sessions/claude-code/${await sessionId(page.request, "claude-code", busy)}$`),
+  );
   await expect(page.getByTestId("question").filter({ hasText: "Go ahead?" })).toBeVisible();
 
   // a review opens on its own page, whatever the inbox opens reviews in
@@ -126,7 +128,10 @@ test("a session shows whether it works or is done, and what waits sits under it"
   await expect(page.getByRole("tooltip")).toContainText("Running the tests");
 
   // archiving takes a session out of the sidebar
-  expect((await page.request.put(`${core}/api/v1/sessions/codex/${finished}/archive`)).status()).toBe(204);
+  const archived = await page.request.put(
+    `${core}/api/v1/sessions/codex/${await sessionId(page.request, "codex", finished)}/archive`,
+  );
+  expect(archived.status()).toBe(204);
   await expect(done).toHaveCount(0);
 });
 
@@ -173,12 +178,16 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
 
   // a second line of details
   await menu.getByRole("menuitemcheckbox", { name: "Show details" }).click();
-  await expect(sessionRow(page, "codex", theirs).locator(".sidebar-session-details")).toContainText("ago");
+  await expect(
+    sessionRow(page, "codex", await sessionId(page.request, "codex", theirs)).locator(".sidebar-session-details"),
+  ).toContainText("ago");
 
   // the branch, with its icon
   await menu.getByRole("menuitem", { name: /Details/ }).click();
   await menu.getByRole("menuitemcheckbox", { name: "Branch" }).click();
-  const branch = sessionRow(page, "codex", theirs).locator(".sidebar-session-branch");
+  const branch = sessionRow(page, "codex", await sessionId(page.request, "codex", theirs)).locator(
+    ".sidebar-session-branch",
+  );
   await expect(branch).toHaveText("tidy-up");
   await expect(branch.locator("svg")).toBeVisible();
 
@@ -187,10 +196,10 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   // each agent with its icon, as on its sessions
   await expect(menu.getByRole("menuitemcheckbox", { name: "codex" }).locator(".agent-icon")).toBeVisible();
   await menu.getByRole("menuitemcheckbox", { name: "codex" }).click();
-  await expect(sessionRow(page, "claude-code", mine)).toHaveCount(0);
-  await expect(sessionRow(page, "codex", theirs)).toBeVisible();
+  await expect(sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", mine))).toHaveCount(0);
+  await expect(sessionRow(page, "codex", await sessionId(page.request, "codex", theirs))).toBeVisible();
   await menu.getByRole("button", { name: "Reset" }).click();
-  await expect(sessionRow(page, "claude-code", mine)).toBeVisible();
+  await expect(sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", mine))).toBeVisible();
 
   // each state with the mark its sessions show
   await menu.getByRole("menuitem", { name: /^Status/ }).click();
@@ -234,9 +243,11 @@ test("grouped by project, a project's repositories share a group, and each sessi
     await expect(group(page, name).locator(".project-avatar text")).toHaveCSS("fill", "rgb(255, 255, 255)");
     // the repository in no project is a group of its own
     await expect(group(page, other)).toBeVisible();
-    await expect(sessionRow(page, "claude-code", `p-app-${run}`).locator(".sidebar-session-repo-label")).toHaveText(
-      run,
-    );
+    await expect(
+      sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", `p-app-${run}`)).locator(
+        ".sidebar-session-repo-label",
+      ),
+    ).toHaveText(run);
 
     // the filter takes the project, and keeps its repositories' sessions
     const menu = await openMenu(page);
@@ -248,8 +259,10 @@ test("grouped by project, a project's repositories share a group, and each sessi
     await expect(submenu.getByRole("menuitemcheckbox")).toHaveCount(1);
     await expect(submenu.getByRole("menuitemcheckbox", { name }).locator(".project-avatar")).toBeVisible();
     await menu.getByRole("menuitemcheckbox", { name }).click();
-    await expect(sessionRow(page, "claude-code", `p-infra-${run}`)).toBeVisible();
-    await expect(sessionRow(page, "codex", `p-other-${run}`)).toHaveCount(0);
+    await expect(
+      sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", `p-infra-${run}`)),
+    ).toBeVisible();
+    await expect(sessionRow(page, "codex", await sessionId(page.request, "codex", `p-other-${run}`))).toHaveCount(0);
     await settingSaved(page.request, (s) => s.sidebar.sessions.repos, [`project:${project.id}`]);
   } finally {
     await page.request.delete(`${core}/api/v1/projects/${project.id}`);
@@ -264,7 +277,7 @@ test("a group collapses and stays collapsed, and the menu collapses them all", a
   await report(page.request, "claude-code", session, { text: "Fold the groups", kind: "start", origin: { repo } });
 
   await page.goto("/#/");
-  const row = sessionRow(page, "claude-code", session);
+  const row = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session));
   await expect(row).toBeVisible();
   await group(page, repo)
     .getByRole("button", { name: `Collapse ${repo}` })
@@ -301,8 +314,10 @@ test("a question under its session opens its thread, and the session's row keeps
   const thread = page.getByTestId("thread");
   await expect(thread.getByTestId("question")).toBeVisible();
   await thread.evaluate((el) => ((window as unknown as { drawn: Element }).drawn = el));
-  await sessionRow(page, "claude-code", session).click();
-  await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${session}$`));
+  await sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session)).click();
+  await expect(page).toHaveURL(
+    new RegExp(`#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
   // after the session's page had its chance to draw: the same thread, not a new one
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => document.contains((window as unknown as { drawn: Element }).drawn))).toBe(true);
@@ -321,8 +336,10 @@ test("a long branch in a session's details shortens, and keeps its icon and its 
   await page.evaluate(() => localStorage.removeItem("pinrail.sidebar.width"));
   await page.reload();
   // other tests' sessions may push it below the fold
-  await sessionRow(page, "claude-code", session).scrollIntoViewIfNeeded();
-  const branch = sessionRow(page, "claude-code", session).locator(".sidebar-session-branch");
+  await sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session)).scrollIntoViewIfNeeded();
+  const branch = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session)).locator(
+    ".sidebar-session-branch",
+  );
   await expect(branch.locator("svg")).toBeInViewport();
   // the name keeps its first letters in view, shortened at its end
   const name = branch.locator(".sidebar-session-branch-name");
@@ -342,13 +359,17 @@ test("a session's details can show its repository, except when grouped by reposi
   });
   await setChoices(page.request, { grouping: "status", show_details: true, details: ["activity", "repo"] });
   await page.goto("/#/");
-  const shown = sessionRow(page, "claude-code", session).locator(".sidebar-session-repo");
+  const shown = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session)).locator(
+    ".sidebar-session-repo",
+  );
   await expect(shown).toHaveText(repo);
   await expect(shown.locator("svg")).toBeVisible();
   // the repository comes before the branch, whichever was chosen first
   await setChoices(page.request, { details: ["branch", "repo"] });
   await page.reload();
-  const parts = sessionRow(page, "claude-code", session).locator(".sidebar-session-details > :not([aria-hidden])");
+  const parts = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session)).locator(
+    ".sidebar-session-details > :not([aria-hidden])",
+  );
   await expect(parts).toHaveText([repo, "main"]);
 
   // grouped by repository, the group names it already
@@ -384,7 +405,7 @@ test("what waits under a session lines up with the session's title, grouped or n
   for (const grouping of ["repository", "none"]) {
     await setChoices(page.request, { grouping });
     await page.goto("/#/?tab=history");
-    const row = sessionRow(page, "claude-code", session);
+    const row = sessionRow(page, "claude-code", await sessionId(page.request, "claude-code", session));
     const child = page.getByTestId("waiting-review").filter({ hasText: "Lined up?" });
     await expect(child).toBeVisible();
     // read together, once the sidebar has settled

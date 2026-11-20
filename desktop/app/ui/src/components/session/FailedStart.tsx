@@ -44,16 +44,14 @@ export function FailedStart({ run }: { run: Run }) {
     setProblem(null);
     setStarting(true);
     try {
-      const started = await startRun({
+      const session = await startRun({
         agent: run.agent,
         folder: run.folder,
         task: fresh ? undefined : (launch!.task ?? undefined),
         args: fresh ? [] : launch!.args,
         local_id: crypto.randomUUID(),
       });
-      if ("session" in started) navigate(sessionPath(started.session), { state: { newRun: true } });
-      else if ("failed" in started) setProblem(exitText(name, started.failed));
-      else setProblem(`${name} started, but has not reported its session.`);
+      navigate(sessionPath(session), { state: { newRun: true } });
     } catch (e) {
       setProblem(errorMessage(e));
     } finally {

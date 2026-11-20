@@ -1,7 +1,7 @@
 // A link the agent writes in a session's thread opens in the browser.
 
 import { expect, test, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-links-${Date.now()}-${++n}`;
@@ -41,7 +41,7 @@ test("a link in a status opens in the browser", async ({ page }) => {
   }
   // the rest of a status stays as the agent wrote it
   await expect(thread.getByTestId("status")).toContainText("and *.md files");
-  await expect(page).toHaveURL(new RegExp(session));
+  await expect(page).toHaveURL(new RegExp(await sessionId(page.request, "claude-code", session)));
 });
 
 test("a status shows markup as text, and only a web link as a link", async ({ page }) => {

@@ -825,12 +825,21 @@ async fn stages(
 /// One session as a thread: the session, its questions and reviews oldest
 /// first, the questions with their payloads, its statuses, the comments its
 /// agent wrote on work items and what it did to them, and the person's
-/// messages to the agent.
+/// messages to the agent. A link from before Pinrail's ids names the
+/// session by the agent's own id, which finds it when no session has that
+/// id; the answer's `session.id` then differs from the path's.
 async fn session(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<Json<Value>, ApiError> {
-    let (session, items) = state.reviews().session(&agent, &id)?;
+    let (session, items) = match state.reviews().session(&agent, &id) {
+        Err(Error::NotFound(message)) => match state.reviews().find_session(&agent, &id)? {
+            Some(found) => state.reviews().session(&agent, &found)?,
+            None => return Err(Error::NotFound(message).into()),
+        },
+        found => found?,
+    };
+    let id = session.id.clone();
     let statuses = state.reviews().statuses(&agent, &id)?;
     let messages = state.reviews().messages(&agent, &id)?;
     let turns = state.reviews().turns(&agent, &id)?;

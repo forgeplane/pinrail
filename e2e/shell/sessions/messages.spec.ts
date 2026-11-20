@@ -5,7 +5,7 @@
 // go with it. A message joins the thread where the agent received it.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 /** A session of its own for each test. */
@@ -35,7 +35,7 @@ async function report(request: APIRequestContext, session: string, text: string)
 test("a message is queued, delivered with the agent's next status, and deleted only while queued", async ({ page }) => {
   const session = fresh();
   await report(page.request, session, "Reading the callers");
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   const box = page.getByRole("textbox", { name: "Message to the agent" });
   await expect(page.getByText("The agent receives your message the next time it reports a status.")).toBeVisible();
 
@@ -85,7 +85,7 @@ test("a message typed but not sent stays in the box when the person leaves the s
   const [first, other] = [fresh(), fresh()];
   await report(page.request, first, "Reading the callers");
   await report(page.request, other, "Running the tests");
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", first)}`);
   const box = page.getByRole("textbox", { name: "Message to the agent" });
   await box.fill("Also check the retry path.");
 
@@ -95,16 +95,16 @@ test("a message typed but not sent stays in the box when the person leaves the s
   await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
   await page.goBack();
   await expect(box).toHaveValue("Also check the retry path.");
-  await page.goto(`/#/sessions/claude-code/${other}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", other)}`);
   await expect(box).toHaveValue("");
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", first)}`);
   await expect(box).toHaveValue("Also check the retry path.");
 
   // sent, it is gone from the field, and waits at the top of the box
   await box.press("Enter");
   await expect(waiting(page)).toHaveCount(1);
-  await page.goto(`/#/sessions/claude-code/${other}`);
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", other)}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", first)}`);
   await expect(waiting(page)).toHaveCount(1);
   await expect(box).toHaveValue("");
 });
@@ -112,7 +112,7 @@ test("a message typed but not sent stays in the box when the person leaves the s
 test("a long message waits on one line that ends in an ellipsis, inside the box", async ({ page }) => {
   const session = fresh();
   await report(page.request, session, "Reading the callers");
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   const box = page.getByRole("textbox", { name: "Message to the agent" });
   await box.fill(`Before you merge:\n\n${"Keep the old route working for the mobile app. ".repeat(12)}`);
   await box.press("Enter");
@@ -141,7 +141,7 @@ test("while questions wait, the box holds the comment on the answers", async ({ 
     },
   });
   expect(asked.status()).toBe(201);
-  await page.goto(`/#/sessions/claude-code/${session}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
   await expect(page.getByRole("textbox", { name: "Comment to the agent" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Message to the agent" })).toHaveCount(0);
 });
@@ -156,7 +156,8 @@ for (const inPanel of [false, true])
     const session = fresh();
     for (let i = 0; i < 40; i++) await report(request, session, `Step ${i} of a long session`);
     await page.setViewportSize({ width: 1280, height: 700 });
-    await page.goto(inPanel ? `/#/sessions?open=claude-code/${session}` : `/#/sessions/claude-code/${session}`);
+    const id = await sessionId(page.request, "claude-code", session);
+    await page.goto(inPanel ? `/#/sessions?open=claude-code/${id}` : `/#/sessions/claude-code/${id}`);
     const items = page.locator(".thread-items");
     await expect(items.getByText("Step 39 of a long session")).toBeVisible();
     const scroller = (await items.boundingBox())!;
@@ -171,7 +172,9 @@ for (const inPanel of [false, true])
  *  Pinrail runs has them. */
 async function hosted(page: Page, session: string, messages: Record<string, unknown>[]) {
   await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
-  await page.route(new RegExp(`/api/v1/sessions/claude-code/${session}$`), async (route) => {
+  // the app names the session by Pinrail's id
+  const id = await sessionId(page.request, "claude-code", session);
+  await page.route(new RegExp(`/api/v1/sessions/claude-code/${id}$`), async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     body.messages = messages.map((m, i) => ({
@@ -198,7 +201,7 @@ async function hosted(page: Page, session: string, messages: Record<string, unkn
     end_reason: null,
     exit_code: null,
     exit_signal: null,
-    session: { agent: "claude-code", id: session },
+    session: { agent: "claude-code", id, agent_session: session },
   };
   await page.route(/\/api\/v1\/runs\?/, (route) => route.fulfill({ json: { runs: [run] } }));
   await page.route(/\/api\/v1\/terminals\/[^/]+\/tickets/, (route) => route.fulfill({ json: { ticket: "t" } }));
@@ -220,7 +223,7 @@ test.describe("an agent Pinrail runs", () => {
     const session = fresh();
     await report(page.request, session, "Reading the callers");
     await hosted(page, session, []);
-    await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
     await expect(page.getByRole("textbox", { name: "Message to the agent" })).toBeEnabled();
     await expect(page.getByText("Sends to the agent's terminal as your prompt.")).toBeVisible();
   });
@@ -235,7 +238,7 @@ test.describe("an agent Pinrail runs", () => {
       { text: "four", state: "typed" },
       { text: "five", state: "delivered", delivered_at: new Date(Date.now() - 60_000).toISOString() },
     ]);
-    await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
     // what the agent has not received waits at the top of the box
     await expect(waiting(page).getByTestId("message-state")).toHaveText([
       "Queued while the agent works. It is sent as your prompt when the agent finishes its turn.",
@@ -268,7 +271,7 @@ test.describe("an agent Pinrail runs", () => {
     const session = fresh();
     await report(page.request, session, "Reading the callers");
     const typed = await hosted(page, session, [{ text: "Use the v2 endpoint.", state: "unconfirmed" }]);
-    await page.goto(`/#/sessions/claude-code/${session}?view=summary`);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
     const message = waiting(page);
     await expect(message.getByTestId("message-state")).toHaveText(
       "Not confirmed. The agent may not have received this message.",

@@ -113,14 +113,23 @@ export async function clearInbox(request: APIRequestContext) {
   // and the inbox's Agents section: finished sessions are seen, and agents
   // waiting in their terminal end
   const sessions = (await (await request.get(`${core}/api/v1/sessions?attention=needs_you,finished&limit=500`)).json())
-    .sessions as { agent: string; id: string; attention: string; presence: { state: string } | null }[];
+    .sessions as {
+    agent: string;
+    id: string;
+    agent_session: string | null;
+    attention: string;
+    presence: { state: string } | null;
+  }[];
   for (const s of sessions) {
-    const at = `${core}/api/v1/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
+    const sessions = `${core}/api/v1/sessions/${encodeURIComponent(s.agent)}`;
     if (s.attention === "finished") {
-      const response = await request.put(`${at}/seen`);
+      const response = await request.put(`${sessions}/${encodeURIComponent(s.id)}/seen`);
       expect(response.status(), `marking ${s.id} seen`).toBe(204);
-    } else if (s.presence?.state === "needs_input") {
-      const response = await request.post(`${at}/reports`, { data: { event: "ended" } });
+    } else if (s.presence?.state === "needs_input" && s.agent_session) {
+      // the agent names its session by its own id
+      const response = await request.post(`${sessions}/${encodeURIComponent(s.agent_session)}/reports`, {
+        data: { event: "ended" },
+      });
       expect(response.status(), `ending ${s.id}`).toBe(204);
     }
   }
@@ -221,4 +230,12 @@ export async function sessionName(request: APIRequestContext, agent: string, id:
   const response = await request.get(`${core}/api/v1/sessions/${agent}/${id}`);
   const { session } = (await response.json()) as { session: { generated_name: string } };
   return session.generated_name;
+}
+
+/** Pinrail's id, `ses_…`, for the session an agent names by its own id. */
+export async function sessionId(request: APIRequestContext, agent: string, agentSession: string): Promise<string> {
+  const response = await request.get(`${core}/api/v1/sessions/${agent}/${agentSession}`);
+  expect(response.status(), await response.text()).toBe(200);
+  const { session } = (await response.json()) as { session: { id: string } };
+  return session.id;
 }

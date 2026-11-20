@@ -1,7 +1,7 @@
 // A session's name in its header, renamed in place.
 
 import { expect, test, type Page } from "../fixtures";
-import { core, sessionName } from "../helpers";
+import { core, sessionName, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-rename-${Date.now()}-${++n}`;
@@ -43,7 +43,8 @@ test("a click on the session's name renames it in place, Enter or a click elsewh
   // the new name shows at once, before the core has answered
   let answer = () => {};
   const answered = new Promise<void>((resolve) => (answer = resolve));
-  await page.route(new RegExp(`/api/v1/sessions/claude-code/${session}$`), async (route) => {
+  const id = await sessionId(page.request, "claude-code", session);
+  await page.route(new RegExp(`/api/v1/sessions/claude-code/${id}$`), async (route) => {
     if (route.request().method() === "PATCH") await answered;
     await route.continue();
   });
@@ -78,10 +79,11 @@ test("Rename in a session's menu in the sidebar opens it to rename", async ({ pa
   const session = fresh();
   await started(page, session, "Sort the menu");
   await page.goto("/#/");
-  const row = page.locator(`[data-testid="sidebar-session"][href="#/sessions/claude-code/${session}"]`);
+  const id = await sessionId(page.request, "claude-code", session);
+  const row = page.locator(`[data-testid="sidebar-session"][href="#/sessions/claude-code/${id}"]`);
   await row.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Rename" }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${id}$`));
   await expect(field(page)).toBeFocused();
   await page.keyboard.type("Menu work");
   await page.keyboard.press("Enter");

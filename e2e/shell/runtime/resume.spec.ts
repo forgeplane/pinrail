@@ -3,7 +3,7 @@
 // session and what its hooks reported are the real core's.
 
 import { expect, test, type Page } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-resume-${Date.now()}-${++n}`;
@@ -26,7 +26,7 @@ async function stoppedSession(page: Page, agent = "claude-code") {
     });
     expect(response.status(), await response.text()).toBeLessThan(300);
   }
-  return session;
+  return sessionId(page.request, agent, session);
 }
 
 /** A session of `agent` whose hooks report that it works, in a terminal
@@ -39,7 +39,7 @@ async function runningSession(page: Page, agent = "claude-code") {
     });
     expect(response.status(), await response.text()).toBeLessThan(300);
   }
-  return session;
+  return sessionId(page.request, agent, session);
 }
 
 function run(session: string, fields: Record<string, unknown>) {
@@ -56,7 +56,7 @@ function run(session: string, fields: Record<string, unknown>) {
     end_reason: "exited",
     exit_code: 0,
     exit_signal: null,
-    session: { agent: "claude-code", id: session },
+    session: { agent: "claude-code", id: session, agent_session: `agent-${session}` },
     ...fields,
   };
 }
@@ -258,11 +258,12 @@ test("a session whose hooks never reported opens in Pinrail after a warning that
 }) => {
   // only a status, from a session older than its hooks: nothing tells
   // whether it still runs
-  const session = fresh();
-  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+  const reported = fresh();
+  const response = await page.request.post(`${core}/api/v1/sessions/claude-code/${reported}/status`, {
     data: { kind: "start", text: "Make a thumbnail", origin: { folder: "/work/api" } },
   });
   expect(response.status(), await response.text()).toBeLessThan(300);
+  const session = await sessionId(page.request, "claude-code", reported);
   const posted = await standIn(page, session, []);
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
 

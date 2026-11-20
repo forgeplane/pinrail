@@ -18,7 +18,14 @@ async function hover(target: Locator) {
 /** A review submitted from an agent's session, as the CLI submits one. */
 async function submitFrom(request: APIRequestContext, title: string, session: string) {
   const response = await request.post(`${core}/api/v1/reviews`, {
-    data: { plugin: "list", title: `${title} ${run}`, origin: { repo: "acme/api" }, payload: onePayload, session },
+    data: {
+      plugin: "list",
+      title: `${title} ${run}`,
+      origin: { repo: "acme/api" },
+      payload: onePayload,
+      requested_by: "claude-code",
+      session,
+    },
   });
   expect(response.status(), await response.text()).toBe(201);
   return ((await response.json()) as { id: string }).id;

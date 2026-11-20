@@ -115,8 +115,10 @@ export function useSessionThread(
     if (key && session) keep(key, { session, items, statuses, messages, comments, itemEvents, turns });
   }, [key, session, items, statuses, messages, comments, itemEvents, turns]);
 
-  // whether the thread is still shown, for a load that ends after it
+  // whether the thread is still shown, and which session it shows, for a
+  // load that ends after it
   const open = useRef(true);
+  const shownKey = useLatest(key);
   useEffect(() => {
     open.current = true;
     return () => {
@@ -139,8 +141,9 @@ export function useSessionThread(
     try {
       if (named) {
         const thread = await api.session(named.agent, named.id);
-        // the thread was closed, or shows another session, meanwhile
-        if (!open.current) return;
+        // the thread was closed, or shows another session, meanwhile, as
+        // when an old address took Pinrail's id for the session
+        if (!open.current || shownKey.current !== `${named.agent}/${named.id}`) return;
         setSession(thread.session);
         onSession?.(thread.session);
         // what did not change stays the same objects, which the thread's

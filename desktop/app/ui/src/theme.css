@@ -8358,8 +8358,7 @@ a.item-ref {
   margin: 0;
   font: 500 var(--text-base) var(--font);
 }
-.failed-start-output,
-.new-session-output {
+.failed-start-output {
   margin: 0;
   padding: 10px 12px;
   max-height: 360px;

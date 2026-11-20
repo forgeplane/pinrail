@@ -107,6 +107,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Starting an agent from Pinrail opens its session at once, also for
+  Codex and Antigravity CLI, which report their own session id later.
+  The session's details show that id as **Agent session**, and **Copy
+  session id** copies it.
 - Starting Codex or Antigravity CLI from Pinrail needs **Report status**
   on, since the agent tells Pinrail its session only through its hooks.
   The **New session** page says so and turns it on with one click.

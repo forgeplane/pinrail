@@ -1,5 +1,7 @@
 // The Start an agent dialog for an agent that tells Pinrail its session
-// only through its hooks: it asks for Report status before it starts one.
+// only through its hooks: it asks for Report status before it starts one,
+// and opens the session as soon as the start answers.
+import { useLocation } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { StartableAgent } from "../api/runtime";
@@ -10,6 +12,7 @@ import { NewSession } from "./NewSession";
 const app = vi.hoisted(() => ({
   agents: [] as StartableAgent[],
   invoked: [] as [string, unknown][],
+  started: [] as unknown[],
 }));
 vi.mock("../api/client", async (real) => ({
   ...(await import("../testing/core")).fakeClient(await real()),
@@ -23,6 +26,11 @@ vi.mock("../api/runtime", async (real) => {
       ...actual.runtime,
       startable: async () => app.agents.map((a) => ({ ...a })),
       recentFolders: async () => [{ folder: "/work/api", repo: "acme/api", branch: "main", exists: true }],
+      // the session is Pinrail's at once; the agent names its own later
+      start: async (body: unknown) => {
+        app.started.push(body);
+        return { run: {}, session: { agent: "antigravity", id: "ses_01NEW", agent_session: null } };
+      },
     },
   };
 });
@@ -39,7 +47,12 @@ afterEach(() => {
   cleanup();
   core.reset();
   app.invoked = [];
+  app.started = [];
 });
+
+function Where() {
+  return <output data-testid="where">{useLocation().pathname}</output>;
+}
 
 const agent = (id: string, name: string, names_session: boolean, reports: boolean | null): StartableAgent => ({
   id,
@@ -73,4 +86,19 @@ test("an agent whose session Pinrail names starts with its hooks off", async () 
   await render(<NewSession />);
   await expect.element(startButton()).toBeEnabled();
   await expect.element(page.getByText(/needs Report status/)).not.toBeInTheDocument();
+});
+
+test("a start opens its session at once, before the agent names it", async () => {
+  app.agents = [agent("antigravity", "Antigravity CLI", false, true)];
+  await render(
+    <>
+      <NewSession />
+      <Where />
+    </>,
+    { route: "/new" },
+  );
+  await expect.element(startButton()).toBeEnabled();
+  await userEvent.click(startButton());
+  await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/antigravity/ses_01NEW");
+  expect(app.started).toEqual([expect.objectContaining({ agent: "antigravity", folder: "/work/api" })]);
 });

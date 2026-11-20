@@ -1,7 +1,7 @@
 // A session's menu in the sidebar, from the ⋯ button on its row or a
 // right-click, and in its header: rename or archive it, mark it read or
-// unread, copy its id, stop or resume its agent when it runs in Pinrail, and
-// delete it, after asking.
+// unread, copy its agent's id for it, stop or resume its agent when it runs
+// in Pinrail, and delete it, after asking.
 
 import { Archive, ArchiveRestore, Copy, Mail, MailOpen, Pencil, Play, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -121,14 +121,20 @@ export function SessionMenu({
       onPick: () =>
         !unread && markUnread ? markUnread() : void api.setSeen(session.agent, session.id, unread).catch(() => {}),
     });
+  // the agent's own id, which its resume takes, once the agent reported it
+  const agentSession = session.agent_session;
   entries.push({
     label: "Copy session id",
     icon: Copy,
-    onPick: () =>
-      void copyText(session.id).then(
+    hint: agentSession ? undefined : "Not known yet",
+    disabled: agentSession ? undefined : `${name} has not reported its id for this session yet.`,
+    onPick: () => {
+      if (!agentSession) return;
+      void copyText(agentSession).then(
         () => toast("Copied the session id"),
         () => toast("Could not copy the session id", "danger"),
-      ),
+      );
+    },
   });
   if (live)
     entries.push(

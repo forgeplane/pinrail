@@ -198,7 +198,11 @@ export type Element = {
 /** An agent's session, as the reviews and questions it sent make it. */
 export type Session = {
   agent: string;
+  /** Pinrail's id for the session, `ses_…` */
   id: string;
+  /** the agent's own id for the session, which its resume takes; null
+   *  until an agent that chooses it reports it */
+  agent_session: string | null;
   repo: string | null;
   ref: string | null;
   /** the folder the agent works in, as the CLI found it */
@@ -605,7 +609,7 @@ export type WorkItem = {
   parent: string | null;
   link: string | null;
   /** the agent and session holding it, while it is in progress */
-  claim: { agent: string; session: string | null } | null;
+  claim: { agent: string; session: string | null; agent_session?: string | null } | null;
   /** `person`, or the agent's name */
   created_by: string;
   created_session: string | null;
@@ -700,6 +704,13 @@ export type ItemDetail = WorkItem & {
     session: string | null;
     created_at: string;
   }[];
-  sessions: { agent: string; session: string; status: string | null; last_at: string | null }[];
+  /** the sessions that worked on it, by Pinrail's id, with the agent's own */
+  sessions: {
+    agent: string;
+    session: string;
+    agent_session: string | null;
+    status: string | null;
+    last_at: string | null;
+  }[];
   timeline: ItemEntry[];
 };

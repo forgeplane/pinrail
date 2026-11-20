@@ -3,7 +3,7 @@
 // session, and its decision leads back to the thread.
 
 import { expect, test, type Page } from "../fixtures";
-import { core, onePayload, onReviewPages } from "../helpers";
+import { core, onePayload, onReviewPages, sessionId } from "../helpers";
 
 // these tests open a review on a page of its own, which the breadcrumb heads
 onReviewPages();
@@ -31,7 +31,7 @@ async function sessionWithReview(page: Page, title: string, stage = "Tidy the si
   });
   expect(response.status(), await response.text()).toBe(201);
   const { id } = (await response.json()) as { id: string };
-  return { session, id };
+  return { session: await sessionId(page.request, "claude-code", session), id };
 }
 
 test("a review opened from a session's thread names the session, and its link leads back", async ({ page }) => {

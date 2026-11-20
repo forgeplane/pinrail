@@ -157,3 +157,20 @@ describe("scrolling", () => {
     await expect.poll(() => atEnd(timeline)).toBe(true);
   });
 });
+
+describe("the session's details", () => {
+  const details = () => page.getByTestId("thread").getByRole("definition");
+
+  test("show the agent's own id for the session as Agent session", async () => {
+    await open([], { id: "ses_01ABC", agent_session: "3f2a9c1e-5b7d" });
+    await expect.element(page.getByTestId("thread").getByText("Agent session")).toBeVisible();
+    await expect.element(details().filter({ hasText: "3f2a9c1e-5b7d" })).toBeVisible();
+    await expect.element(page.getByTestId("thread").getByText("ses_01ABC")).not.toBeInTheDocument();
+  });
+
+  test("say the agent's id is not known yet before the agent reports it", async () => {
+    await open([], { id: "ses_01ABC", agent_session: null });
+    await expect.element(page.getByTestId("thread").getByText("Agent session")).toBeVisible();
+    await expect.element(details().filter({ hasText: "Not known yet" })).toBeVisible();
+  });
+});

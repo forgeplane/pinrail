@@ -1,5 +1,6 @@
 // The view a session shows, Summary or Terminal, and the last one used for
-// each session, kept in the browser's storage for the last 500 sessions.
+// each session, kept in the browser's storage for the last 500 sessions by
+// `agent/id`, with Pinrail's id for the session.
 
 /** Summary, Terminal, or both, the summary above the terminal. */
 export type SessionView = "summary" | "terminal" | "split";
@@ -10,13 +11,20 @@ export const KEPT = 500;
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 
+/** Whether a stored key names a session by Pinrail's id, `ses_…`; keys
+ *  that name it by its agent's own id are no longer used. */
+const current = (key: string) => key.slice(key.lastIndexOf("/") + 1).startsWith("ses_");
+
 function read(store: Store): [string, SessionView][] {
   try {
     const saved = JSON.parse(store.getItem(KEY) ?? "[]") as unknown;
     if (!Array.isArray(saved)) return [];
     return saved.filter(
       (e): e is [string, SessionView] =>
-        Array.isArray(e) && typeof e[0] === "string" && (e[1] === "summary" || e[1] === "terminal" || e[1] === "split"),
+        Array.isArray(e) &&
+        typeof e[0] === "string" &&
+        current(e[0]) &&
+        (e[1] === "summary" || e[1] === "terminal" || e[1] === "split"),
     );
   } catch {
     return [];

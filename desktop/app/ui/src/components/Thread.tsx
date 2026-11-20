@@ -110,7 +110,6 @@ export type ReviewPanelProps = {
 export const sessionPath = (s: { agent: string; id: string }) =>
   `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
 
-/** The session of a review, when the agent that sent it said which. */
 /** The space a session page's terminal has in the main area `main`: less
  *  the header and the terminal bar, and the details when they are shown. */
 export function terminalArea(main: DOMRect): { width: number; height: number } {
@@ -125,6 +124,7 @@ export function terminalArea(main: DOMRect): { width: number; height: number } {
 const places = new Map<string, { key: string; offset: number }>();
 const PLACES_KEPT = 50;
 
+/** The session of a review, when the agent that sent it said which. */
 export function sessionOf(review: Review): { agent: string; id: string } | null {
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }
@@ -220,6 +220,9 @@ export function Thread({
   // where the person left this session's thread, when it opens as it was
   // shown then, at no question or stage
   const placeKey = named ? `${named.agent}/${named.id}` : null;
+  // a message goes to the session by Pinrail's id: an old address names it
+  // by its agent's own id until the session has loaded
+  const composeTo = session ? { agent: session.agent, id: session.id } : named?.id.startsWith("ses_") ? named : null;
   const [place] = useState(() => (kept && placeKey && !focus && !stage ? places.get(placeKey) : undefined));
   const { markUnread } = useMarkSeen(session);
   // a session's page shows its live run's terminal beside the summary
@@ -629,7 +632,11 @@ export function Thread({
               {held.length ? <HeldItems items={held} /> : null}
               {named && focus ? (
                 // from a question, the session's own page
-                <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
+                <Link
+                  to={sessionPath(named)}
+                  className="thread-session"
+                  title={session ? `Open ${sessionLabel(session)}` : "Open the session"}
+                >
                   open the session
                 </Link>
               ) : null}
@@ -812,9 +819,9 @@ export function Thread({
                   </button>
                 )}
                 {/* in the split, the terminal is where the person types */}
-                {active || split ? null : named ? (
+                {active || split ? null : composeTo ? (
                   <MessageComposer
-                    session={named}
+                    session={composeTo}
                     repo={session?.repo ?? null}
                     typed={!!live && !!session?.types}
                     waiting={waitingMessages}

@@ -13,32 +13,39 @@ const gemini = { resume: false, while_running: false };
 
 describe("whether a session can be resumed", () => {
   test("a stopped session of an agent that resumes", () => {
-    expect(canResume({ resume: claude, presence: presence("stopped") }, [ended])).toBe(true);
-    expect(canResume({ resume: codex, presence: presence("stopped") }, [])).toBe(true);
+    expect(canResume({ agent_session: "a1", resume: claude, presence: presence("stopped") }, [ended])).toBe(true);
+    expect(canResume({ agent_session: "a1", resume: codex, presence: presence("stopped") }, [])).toBe(true);
     // no hooks, but its last run ended
-    expect(canResume({ resume: claude, presence: null }, [ended])).toBe(true);
+    expect(canResume({ agent_session: "a1", resume: claude, presence: null }, [ended])).toBe(true);
   });
   test("not while it runs, before it stopped, or for another agent", () => {
-    expect(canResume({ resume: claude, presence: presence("stopped") }, [running])).toBe(false);
-    expect(canResume({ resume: claude, presence: presence("idle") }, [ended])).toBe(false);
-    expect(canResume({ resume: claude, presence: null }, [])).toBe(false);
-    expect(canResume({ resume: gemini, presence: presence("stopped") }, [ended])).toBe(false);
+    expect(canResume({ agent_session: "a1", resume: claude, presence: presence("stopped") }, [running])).toBe(false);
+    expect(canResume({ agent_session: "a1", resume: claude, presence: presence("idle") }, [ended])).toBe(false);
+    expect(canResume({ agent_session: "a1", resume: claude, presence: null }, [])).toBe(false);
+    expect(canResume({ agent_session: "a1", resume: gemini, presence: presence("stopped") }, [ended])).toBe(false);
     expect(canResume(null, [])).toBe(false);
   });
 });
 
 describe("whether a session running elsewhere can be opened in Pinrail", () => {
   test("one that has not stopped, of an agent that allows a second process", () => {
-    expect(canOpenWhileRunning({ resume: claude, presence: presence("working") }, [])).toBe(true);
-    expect(canOpenWhileRunning({ resume: claude, presence: presence("idle") }, [ended])).toBe(true);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: presence("working") }, [])).toBe(true);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: presence("idle") }, [ended])).toBe(
+      true,
+    );
     // no hooks and no run of Pinrail's tell whether it still runs
-    expect(canOpenWhileRunning({ resume: claude, presence: null }, [])).toBe(true);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: null }, [])).toBe(true);
   });
   test("not once stopped, while Pinrail runs it, after a run of Pinrail's ended, or for Codex", () => {
-    expect(canOpenWhileRunning({ resume: claude, presence: presence("stopped") }, [])).toBe(false);
-    expect(canOpenWhileRunning({ resume: claude, presence: presence("working") }, [running])).toBe(false);
-    expect(canOpenWhileRunning({ resume: claude, presence: null }, [ended])).toBe(false);
-    expect(canOpenWhileRunning({ resume: codex, presence: presence("working") }, [])).toBe(false);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: presence("stopped") }, [])).toBe(false);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: presence("working") }, [running])).toBe(
+      false,
+    );
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: claude, presence: null }, [ended])).toBe(false);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: codex, presence: presence("working") }, [])).toBe(false);
+  });
+  test("not before the agent reported its own id for the session", () => {
+    expect(canOpenWhileRunning({ agent_session: null, resume: claude, presence: presence("working") }, [])).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 // A session's element, in its header's avatar place, with its card.
 
 import { expect, test } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 test("a session's header shows its element with the agent on its corner, and its card on hover", async ({ page }) => {
   const session = `s-element-${Date.now()}`;
@@ -54,10 +54,11 @@ test("a session opened from the sidebar shows its element before its thread has 
     data: { kind: "start", text: "Show the header at once", origin: { repo: "acme/api" } },
   });
   await page.goto("/#/");
-  const row = page.locator(`[data-testid="sidebar-session"][href="#/sessions/claude-code/${session}"]`);
+  const id = await sessionId(page.request, "claude-code", session);
+  const row = page.locator(`[data-testid="sidebar-session"][href="#/sessions/claude-code/${id}"]`);
   await expect(row).toBeVisible();
   // the thread's own load does not answer
-  await page.route(new RegExp(`/api/v1/sessions/claude-code/${session}$`), () => {});
+  await page.route(new RegExp(`/api/v1/sessions/claude-code/${id}$`), () => {});
   await row.click();
   await expect(page.getByTestId("thread").getByRole("heading", { level: 1 })).toHaveText("Show the header at once");
   await expect(page.locator(".thread-head > .element-tile")).toBeVisible();
@@ -119,7 +120,9 @@ test("the periodic table lights a session's element, describes it, and a click k
   await page.getByText(/elements discovered/).hover();
   await expect(table).toContainText(element.description);
   await table.getByRole("link", { name: "Fill the table" }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`),
+  );
 });
 
 test("the periodic table opens from the command palette over the whole window, and returns to the page before", async ({

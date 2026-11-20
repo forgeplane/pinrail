@@ -2,7 +2,7 @@
 // loaded again.
 
 import { expect, test } from "../fixtures";
-import { core } from "../helpers";
+import { core, sessionId } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-switch-${Date.now()}-${++n}`;
@@ -15,20 +15,23 @@ test("a session opened again shows its thread before it loads again, then what c
   };
   await report(first, "The first session's step");
   await report(second, "The second session's step");
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", first)}`);
   await expect(page.getByText("The first session's step")).toBeVisible();
-  await page.goto(`/#/sessions/claude-code/${second}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", second)}`);
   await expect(page.getByText("The second session's step")).toBeVisible();
 
   // the first session's load waits until it is let go
   let release = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route(new RegExp(`/api/v1/sessions/claude-code/${first}$`), async (route) => {
-    await held;
-    await route.continue();
-  });
+  await page.route(
+    new RegExp(`/api/v1/sessions/claude-code/${await sessionId(request, "claude-code", first)}$`),
+    async (route) => {
+      await held;
+      await route.continue();
+    },
+  );
   await report(first, "A step while it was away");
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", first)}`);
   await expect(page.getByText("The first session's step")).toBeVisible();
   await expect(page.getByText("A step while it was away")).toHaveCount(0);
   release();
@@ -47,18 +50,21 @@ test("the breadcrumb names the session shown, whatever ends loading last", async
     expect(response.status(), await response.text()).toBe(200);
   }
   const crumb = page.locator(".crumb-title");
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", first)}`);
   await expect(crumb).toHaveText("First task");
 
   // the second session's load ends only after the first is shown again
   let release = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route(new RegExp(`/api/v1/sessions/claude-code/${second}$`), async (route) => {
-    await held;
-    await route.continue();
-  });
-  await page.goto(`/#/sessions/claude-code/${second}`);
-  await page.goto(`/#/sessions/claude-code/${first}`);
+  await page.route(
+    new RegExp(`/api/v1/sessions/claude-code/${await sessionId(request, "claude-code", second)}$`),
+    async (route) => {
+      await held;
+      await route.continue();
+    },
+  );
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", second)}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", first)}`);
   await expect(crumb).toHaveText("First task");
   release();
   await page.waitForTimeout(500);
@@ -82,22 +88,22 @@ test("a session opened again shows the entry it was left at, where it was", asyn
       const text = kid.textContent?.replace(/\d+[smhd] ago/, "").slice(0, 40);
       return { text, offset: Math.round(kid.getBoundingClientRect().top - view) };
     });
-  await page.goto(`/#/sessions/claude-code/${long}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", long)}`);
   await expect(page.getByText("Note 120 of the long session.")).toBeVisible();
   await page.locator(".thread-items").evaluate((el) => (el.scrollTop -= 2500));
   await page.waitForTimeout(300);
   const left = await top();
 
-  await page.goto(`/#/sessions/claude-code/${other}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", other)}`);
   await expect(page.getByText("Another session")).toBeVisible();
-  await page.goto(`/#/sessions/claude-code/${long}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", long)}`);
   await expect.poll(top).toEqual(left);
 
   // left at its end, it opens at its end
   await page.locator(".thread-items").evaluate((el) => (el.scrollTop = el.scrollHeight));
   await page.waitForTimeout(300);
-  await page.goto(`/#/sessions/claude-code/${other}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", other)}`);
   await expect(page.getByText("Another session")).toBeVisible();
-  await page.goto(`/#/sessions/claude-code/${long}`);
+  await page.goto(`/#/sessions/claude-code/${await sessionId(request, "claude-code", long)}`);
   await expect(page.getByText("Note 120 of the long session.")).toBeInViewport();
 });

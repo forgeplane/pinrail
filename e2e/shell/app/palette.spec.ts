@@ -1,5 +1,5 @@
 import { expect, test } from "../fixtures";
-import { clearInbox, core, createReview, sessionName } from "../helpers";
+import { clearInbox, core, createReview, sessionName, sessionId } from "../helpers";
 
 test("⌘K finds every review, discarded ones included", async ({ page }) => {
   await clearInbox(page.request);
@@ -100,7 +100,9 @@ test("⌘K finds the stages agents started, and opens the thread at one", async 
   await expect(palette.getByRole("option", { name: new RegExp(`${tag} document`) })).toHaveCount(0);
   await found.click();
 
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
   await expect(page.getByTestId("started").filter({ hasText: `${tag} add rate limiting` })).toBeInViewport();
 });
 
@@ -121,5 +123,7 @@ test("⌘K finds a session by its name, with the stage it is on", async ({ page 
     .filter({ hasText: `Tidy the palette ${session}` });
   await expect(found).toHaveCount(1);
   await found.click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}$`),
+  );
 });

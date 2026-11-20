@@ -328,8 +328,14 @@ export function ThreadDetails({
           <dl className="thread-facts">
             <dt>Agent</dt>
             <dd>{session.agent}</dd>
-            <dt>Id</dt>
-            <dd className="mono">{session.id}</dd>
+            <dt>Agent session</dt>
+            {session.agent_session ? (
+              <dd className="mono">{session.agent_session}</dd>
+            ) : (
+              <dd className="dim" title="The agent has not reported its own id for this session yet.">
+                Not known yet
+              </dd>
+            )}
             {session.repo ? (
               <>
                 <dt>Project</dt>
