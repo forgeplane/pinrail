@@ -7,7 +7,9 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::agent::{Agent, Env, spec};
+use crate::agent::{
+    Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task, resumable_id, spec,
+};
 use crate::hooks::{Detail, HookEvent, HookReport, StartSource, TurnEnd, WaitKind, text};
 use crate::integration::{HookEntry, HookPlan, Layout};
 use crate::registry::AgentSpec;
@@ -137,5 +139,39 @@ impl Agent for Grok {
                 entry("SessionEnd", "session-end"),
             ],
         })
+    }
+
+    /// `grok -s <uuid> [extra args] -- [task]`: Pinrail chooses the id, so
+    /// the session exists from the start. A task after `--` is the prompt
+    /// even when it is the name of one of Grok's commands.
+    fn start(&self, request: &StartRequest) -> Option<StartPlan> {
+        let mut argv = vec![
+            "grok".to_string(),
+            "-s".to_string(),
+            request.session_id.to_string(),
+        ];
+        argv.extend(request.extra_args.iter().cloned());
+        push_task(&mut argv, request.task);
+        Some(StartPlan {
+            argv,
+            session: Some(request.session_id.to_string()),
+        })
+    }
+
+    /// `grok -r <id>`. An id Grok does not know exits at once.
+    fn resume(&self, session: &str) -> Option<Vec<String>> {
+        resumable_id(session)
+            .then(|| vec!["grok".to_string(), "-r".to_string(), session.to_string()])
+    }
+
+    /// A bracketed paste and Enter, which Grok takes as one prompt with its
+    /// line breaks, confirmed by `UserPromptSubmit`. A message sent while it
+    /// works waits in Grok's queue.
+    fn submit(&self) -> Option<SubmitPlan> {
+        Some(PASTE_AND_ENTER)
+    }
+
+    fn deny_flags(&self) -> &'static [&'static str] {
+        &["--always-approve"]
     }
 }

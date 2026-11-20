@@ -498,10 +498,11 @@ async fn a_session_whose_agent_never_gave_its_id_is_not_resumed() {
 async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());
-    // Claude Code and agy are installed, and Codex is not
+    // Claude Code, agy and Grok are installed, and Codex is not
     let bin = hosts.path().join("versions");
     common::program(&bin, "claude", "echo '2.1.325 (Claude Code)'");
     common::program(&bin, "agy", "echo '1.5.12'");
+    common::program(&bin, "grok", "echo 'grok 1.0.89 (28be5bb1bf65) [stable]'");
     let app = common::app_with(|config| {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
@@ -530,13 +531,16 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
     assert_eq!(agent("codex")["version"], Value::Null);
     assert_eq!(agent("antigravity")["version"], "1.5.12");
     assert_eq!(agent("antigravity")["name"], "Antigravity CLI");
+    assert_eq!(agent("grok")["version"], "1.0.89");
+    assert_eq!(agent("grok")["name"], "Grok CLI");
     // Pinrail chooses Claude Code's session id; agy tells it with a hook
     assert_eq!(agent("claude-code")["names_session"], true);
     assert_eq!(agent("antigravity")["names_session"], false);
+    assert_eq!(agent("grok")["names_session"], true);
     // only agents Pinrail starts are listed
     let mut ids: Vec<_> = agents.iter().map(|a| a["id"].as_str().unwrap()).collect();
     ids.sort();
-    assert_eq!(ids, ["antigravity", "claude-code", "codex"]);
+    assert_eq!(ids, ["antigravity", "claude-code", "codex", "grok"]);
     assert!(agents.iter().all(|a| a["last_used"] == false));
 
     // the agent started last is marked

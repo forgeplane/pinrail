@@ -71,6 +71,21 @@ fn antigravity_starts_with_its_task_and_learns_its_conversation_later() {
 }
 
 #[test]
+fn grok_starts_with_the_session_id_pinrail_chose() {
+    let extra = args(&["--model", "grok-4.7"]);
+    let plan = adapter("grok")
+        .unwrap()
+        .start(&request(Some("help"), &extra))
+        .unwrap();
+    // a task named as one of Grok's commands is still the prompt
+    assert_eq!(
+        plan.argv,
+        args(&["grok", "-s", ID, "--model", "grok-4.7", "--", "help"])
+    );
+    assert_eq!(plan.session.as_deref(), Some(ID));
+}
+
+#[test]
 fn a_blank_task_is_left_out() {
     let plan = adapter("codex")
         .unwrap()
@@ -115,6 +130,11 @@ fn flags_that_turn_permission_checks_off_are_refused() {
             &["--dangerously-skip-permissions"],
             "--dangerously-skip-permissions",
         ),
+        (
+            adapter("grok").unwrap(),
+            &["--always-approve"],
+            "--always-approve",
+        ),
     ] {
         assert_eq!(denied_arg(agent, &args(given)), Some(refused), "{given:?}");
     }
@@ -153,6 +173,10 @@ fn each_agent_resumes_a_session_by_its_id() {
         adapter("antigravity").unwrap().resume(ID),
         Some(args(&["agy", &format!("--conversation={ID}")]))
     );
+    assert_eq!(
+        adapter("grok").unwrap().resume(ID),
+        Some(args(&["grok", "-r", ID]))
+    );
 }
 
 #[test]
@@ -167,6 +191,7 @@ fn a_session_id_that_could_be_read_as_a_flag_is_not_resumed() {
         assert_eq!(adapter("claude-code").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("codex").unwrap().resume(id), None, "{id:?}");
         assert_eq!(adapter("antigravity").unwrap().resume(id), None, "{id:?}");
+        assert_eq!(adapter("grok").unwrap().resume(id), None, "{id:?}");
     }
 }
 
@@ -177,8 +202,8 @@ fn only_claude_code_resumes_a_session_still_running_elsewhere() {
 }
 
 #[test]
-fn claude_code_and_codex_take_a_message_as_a_bracketed_paste_and_enter() {
-    for id in ["claude-code", "codex"] {
+fn claude_code_codex_and_grok_take_a_message_as_a_bracketed_paste_and_enter() {
+    for id in ["claude-code", "codex", "grok"] {
         let plan = adapter(id).unwrap().submit().unwrap();
         assert!(plan.bracketed, "{id}");
         assert_eq!((plan.settle_ms, plan.max_ms), (150, 1_000), "{id}");
