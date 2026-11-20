@@ -134,6 +134,9 @@ export function NewSession() {
   // an agent that chooses its own session's id tells Pinrail only through
   // its hooks: without them, its session would never show
   const needsReports = !!chosen?.installed && chosen.names_session === false && chosen.reports === false;
+  // one whose session Pinrail names starts without them, and shows its
+  // terminal, but its session shows no turns, prompts or replies
+  const offersReports = !!chosen?.installed && !needsReports && chosen.reports === false;
   const ready = !!folder.trim() && !!chosen?.installed && !folderGone && !starting && !needsReports;
   const [turningOn, setTurningOn] = useState(false);
   const turnOnReports = async () => {
@@ -302,6 +305,19 @@ export function NewSession() {
                 disabled={turningOn}
                 onClick={() => void turnOnReports()}
               >
+                Turn on Report status
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {offersReports ? (
+          <div className="notice new-session-reports" data-testid="new-session-reports-offer">
+            <p>
+              Report status shows {chosen.name}&apos;s turns, prompts and replies in its session.
+              {inTauri() ? null : " Turn it on in Settings › Agents."}
+            </p>
+            {inTauri() ? (
+              <button type="button" className="chrome-button" disabled={turningOn} onClick={() => void turnOnReports()}>
                 Turn on Report status
               </button>
             ) : null}

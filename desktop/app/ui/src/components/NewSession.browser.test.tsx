@@ -81,11 +81,29 @@ test("an agent that names its session only in its hooks starts once Report statu
   await expect.element(startButton()).toBeEnabled();
 });
 
-test("an agent whose session Pinrail names starts with its hooks off", async () => {
-  app.agents = [agent("claude-code", "Claude Code", true, false)];
+test("an agent whose session Pinrail names starts with its hooks off, and offers to turn them on", async () => {
+  app.agents = [agent("grok", "Grok CLI", true, false)];
   await render(<NewSession />);
   await expect.element(startButton()).toBeEnabled();
   await expect.element(page.getByText(/needs Report status/)).not.toBeInTheDocument();
+  // what the hooks add, and the switch, without holding the start back
+  const offer = page.getByTestId("new-session-reports-offer");
+  await expect
+    .element(offer.getByText("Report status shows Grok CLI's turns, prompts and replies in its session."))
+    .toBeVisible();
+  await userEvent.click(offer.getByRole("button", { name: "Turn on Report status" }));
+  expect(app.invoked.filter(([command]) => command === "set_agent_hooks")).toEqual([
+    ["set_agent_hooks", { id: "grok", on: true }],
+  ]);
+  await expect.element(offer).not.toBeInTheDocument();
+  await expect.element(startButton()).toBeEnabled();
+});
+
+test("an agent whose hooks are on is offered nothing", async () => {
+  app.agents = [agent("grok", "Grok CLI", true, true)];
+  await render(<NewSession />);
+  await expect.element(startButton()).toBeEnabled();
+  await expect.element(page.getByTestId("new-session-reports-offer")).not.toBeInTheDocument();
 });
 
 test("a start opens its session at once, before the agent names it", async () => {
