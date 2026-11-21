@@ -1646,24 +1646,22 @@ async fn each_change_is_announced_and_a_delete_too() {
         Some(json!({"body": "Noted"})),
     )
     .await;
-    call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
-    let kinds: Vec<String> = app
-        .state
-        .events()
-        .after(start, 100)
-        .unwrap()
-        .into_iter()
-        .map(|n| n.kind)
-        .collect();
+    let kinds = |app: &App| -> Vec<String> {
+        app.state
+            .events()
+            .after(start, 100)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.kind)
+            .collect()
+    };
     assert_eq!(
-        kinds,
-        [
-            "item_changed",
-            "item_changed",
-            "item_changed",
-            "item_deleted"
-        ]
+        kinds(&app),
+        ["item_changed", "item_changed", "item_changed"]
     );
+    // the item's events go with it
+    call(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
+    assert_eq!(kinds(&app), ["item_deleted"]);
 }
 
 #[tokio::test]

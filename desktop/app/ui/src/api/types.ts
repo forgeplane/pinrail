@@ -458,8 +458,42 @@ export type Notice = {
   };
 };
 
-/** The item an item_changed or item_deleted notice is about. */
-export type NoticeItem = { id: string; key: string; agent: string | null; session: string | null };
+/** What changed on a work item, on an item_changed notice. */
+export type ItemChange =
+  | "created"
+  | "edited"
+  | "commented"
+  | "comment_edited"
+  | "comment_deleted"
+  | "status"
+  | "held"
+  | "claimed"
+  | "released"
+  | "queued"
+  | "unqueued"
+  | "moved"
+  | "parent"
+  | "depends"
+  | "files"
+  | "reviews";
+
+/** The item an item_changed or item_deleted notice is about: its key, the
+ *  agent and session that changed it when an agent did, and on
+ *  item_changed what changed. A status change gives `from` and `to`, a
+ *  comment its id and the start of its text, and a new sub-item its
+ *  parent's key. */
+export type NoticeItem = {
+  id: string;
+  key: string;
+  agent: string | null;
+  session: string | null;
+  change?: ItemChange;
+  from?: string;
+  to?: string;
+  comment?: string;
+  excerpt?: string;
+  parent?: string;
+};
 
 /** What an agent said it is doing, with `pinrail status`. */
 /** A file a note carries. */

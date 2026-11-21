@@ -721,6 +721,25 @@ fn insert(
     Ok(id)
 }
 
+/// Records the `item_changed` event of a new item, with the key of its
+/// parent when it has one.
+fn created(conn: &Connection, id: &str, actor: &Actor) -> rusqlite::Result<i64> {
+    let parent: Option<String> = conn
+        .query_row(
+            "SELECT g.prefix || '-' || p.number FROM work_items i
+           JOIN work_items p ON p.id = i.parent JOIN repos g ON g.id = p.repo_id
+          WHERE i.id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let detail = match parent {
+        Some(parent) => json!({ "parent": parent }),
+        None => json!({}),
+    };
+    super::item_work::item_changed(conn, id, "created", actor, actor.into(), &detail)
+}
+
 /// Puts `item` under `parent`, or under none.
 pub(super) fn set_parent_in(conn: &Connection, item: &str, parent: Option<&str>) -> Outcome<()> {
     if let Some(parent) = parent {
@@ -1020,6 +1039,7 @@ impl Db {
                 return Ok(Err(refused));
             }
         }
+        created(&tx, &id, actor)?;
         let item = tx.query_row(
             &format!("{} WHERE i.id = ?1", select()),
             params![id],
@@ -1098,6 +1118,9 @@ impl Db {
                     return Ok(Err(refused));
                 }
             }
+        }
+        for item in &breakdown.items {
+            created(&tx, &ids[item.r#ref.as_str()], actor)?;
         }
         let mut added = Vec::new();
         for item in &breakdown.items {

@@ -3,6 +3,8 @@
 //! names what it is about, a review, a work item or a session, and who
 //! caused it.
 
+use std::cell::RefCell;
+
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
@@ -102,6 +104,42 @@ impl Event {
             json!({"kind": "session", "id": id, "agent": self.session_agent})
         } else {
             Value::Null
+        }
+    }
+}
+
+thread_local! {
+    /// The ids of the events written on this thread, for each `recording`
+    /// that is under way, innermost last.
+    static RECORDING: RefCell<Vec<Vec<i64>>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Runs `write`, and answers the ids of the events it wrote, in order, so
+/// that the caller can publish them once the write committed. An id whose
+/// transaction rolled back names no event.
+pub fn recording<T>(write: impl FnOnce() -> T) -> (T, Vec<i64>) {
+    struct Pop;
+    impl Drop for Pop {
+        fn drop(&mut self) {
+            RECORDING.with(|r| r.borrow_mut().pop());
+        }
+    }
+    RECORDING.with(|r| r.borrow_mut().push(Vec::new()));
+    let pop = Pop;
+    let answer = write();
+    let ids = RECORDING.with(|r| r.borrow_mut().last_mut().map(std::mem::take));
+    drop(pop);
+    (answer, ids.unwrap_or_default())
+}
+
+impl From<&crate::items::Actor> for EventActor {
+    fn from(actor: &crate::items::Actor) -> Self {
+        match actor {
+            crate::items::Actor::Person => EventActor::Person(actor.name().to_string()),
+            crate::items::Actor::Agent { name, session } => EventActor::Agent {
+                name: name.clone(),
+                session: session.clone(),
+            },
         }
     }
 }
@@ -231,7 +269,13 @@ fn insert(
             actor_session,
         ],
     )?;
-    Ok(conn.last_insert_rowid())
+    let id = conn.last_insert_rowid();
+    RECORDING.with(|r| {
+        if let Some(ids) = r.borrow_mut().last_mut() {
+            ids.push(id);
+        }
+    });
+    Ok(id)
 }
 
 fn row_to_event(row: &rusqlite::Row<'_>) -> rusqlite::Result<Event> {

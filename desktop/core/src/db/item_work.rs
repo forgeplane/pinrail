@@ -7,6 +7,7 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde_json::{Value, json};
 
 use super::Db;
+use super::events::{EventActor, EventSubject, NewEvent};
 use super::items::{
     OPEN, Outcome, Refused, Related, WorkItem, depend_in, key_of, move_in, resolve, row_to_item,
     select, set_parent_in, status_in, touch,
@@ -198,12 +199,28 @@ impl ItemSession {
     }
 }
 
-/// Records what happened to an item, for its timeline.
+/// Records what happened to an item, for its timeline, and as an
+/// `item_changed` event on the stream when it is worth one.
 pub(super) fn item_event(
     conn: &Connection,
     item: &str,
     kind: &str,
     actor: &Actor,
+    attrs: Value,
+    at: DateTime<Utc>,
+) -> rusqlite::Result<()> {
+    item_event_by(conn, item, kind, actor, actor.into(), attrs, at)
+}
+
+/// Records what happened to an item, as `item_event` does, with the actor
+/// of the event on the stream given apart: Pinrail itself, when it closes
+/// a parent with its last sub-item.
+fn item_event_by(
+    conn: &Connection,
+    item: &str,
+    kind: &str,
+    actor: &Actor,
+    by: EventActor,
     attrs: Value,
     at: DateTime<Utc>,
 ) -> rusqlite::Result<()> {
@@ -223,7 +240,62 @@ pub(super) fn item_event(
             attrs.to_string()
         ],
     )?;
+    // what the timeline's kinds are on the stream: the item's creation is
+    // recorded once its parent is set, and its place among a review's items
+    // is one change
+    let change = match kind {
+        "created" => return Ok(()),
+        "status" if attrs["to"] == "on_hold" => "held",
+        "review_added" | "review_removed" => "reviews",
+        kind => kind,
+    };
+    item_changed(conn, item, change, actor, by, &attrs)?;
     Ok(())
+}
+
+/// Records an `item_changed` event about `item`: its key, the agent and
+/// session that changed it when an agent did, what changed, and the
+/// change's own attributes.
+pub(super) fn item_changed(
+    conn: &Connection,
+    item: &str,
+    change: &str,
+    actor: &Actor,
+    by: EventActor,
+    detail: &Value,
+) -> rusqlite::Result<i64> {
+    let mut attrs = json!({
+        "id": item,
+        "key": key_of(conn, item)?,
+        "agent": matches!(actor, Actor::Agent { .. }).then(|| actor.name()),
+        "session": actor.session(),
+        "change": change,
+    });
+    if let (Some(attrs), Some(detail)) = (attrs.as_object_mut(), detail.as_object()) {
+        for (name, value) in detail {
+            attrs.entry(name.clone()).or_insert_with(|| value.clone());
+        }
+    }
+    super::events::insert_event_as(
+        conn,
+        &NewEvent {
+            kind: crate::events::ITEM_CHANGED,
+            subject: Some(EventSubject::Item(item.to_string())),
+            actor: by,
+            attrs: &attrs,
+        },
+    )
+}
+
+/// The first characters of a comment, for the notice of it.
+const EXCERPT_MAX: usize = 200;
+
+fn excerpt(body: &str) -> String {
+    let body = body.trim();
+    match body.char_indices().nth(EXCERPT_MAX) {
+        Some((end, _)) => format!("{}…", body[..end].trim_end()),
+        None => body.to_string(),
+    }
 }
 
 /// The id of the item `id` is part of, if any.
@@ -294,7 +366,7 @@ fn close_parents(
         status_in(tx, &id, Status::Done, at)?;
         let mut attrs = json!({"from": "open", "to": "done"});
         attrs[how] = json!(key_of(tx, &last)?);
-        item_event(tx, &id, "status", actor, attrs, at)?;
+        item_event_by(tx, &id, "status", actor, EventActor::System, attrs, at)?;
         closed.push(related(tx, &id)?);
         parent = parent_of(tx, &id)?;
         last = id;
@@ -1171,6 +1243,8 @@ impl Db {
             Err(refused) => return Ok(Err(refused)),
         };
         touch(&tx, &id, at)?;
+        let detail = json!({"comment": comment.id, "excerpt": excerpt(&comment.body)});
+        item_changed(&tx, &id, "commented", actor, actor.into(), &detail)?;
         let item = item_row(&tx, &id)?;
         tx.commit()?;
         Ok(Ok((item, comment)))
@@ -1211,6 +1285,8 @@ impl Db {
             params![comment, body, iso(at)],
         )?;
         let updated = comment_row(&tx, comment)?.expect("the comment was just found");
+        let detail = json!({"comment": comment, "excerpt": excerpt(body)});
+        item_changed(&tx, &id, "comment_edited", actor, actor.into(), &detail)?;
         tx.commit()?;
         Ok(Ok(updated))
     }
@@ -1248,6 +1324,8 @@ impl Db {
             "DELETE FROM work_item_comments WHERE id = ?1",
             params![comment],
         )?;
+        let detail = json!({ "comment": comment });
+        item_changed(&tx, &id, "comment_deleted", actor, actor.into(), &detail)?;
         tx.commit()?;
         Ok(Ok(()))
     }

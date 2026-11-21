@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 use super::{Actor, Breakdown, ItemRef, NewItem, Status};
 use crate::attachments::{Attachments, ReviewAttachment};
-use crate::db::{Claim, Db, Edited, ItemChange, ItemFilters, Refused, WorkItem};
+use crate::db::{self, Claim, Db, Edited, ItemChange, ItemFilters, Refused, WorkItem};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
 use crate::settings::SettingsReader;
@@ -166,10 +166,21 @@ impl Items {
         });
     }
 
-    /// Tells the app an item changed: its key, and the agent and session
-    /// that changed it when an agent did, so that a view can tell whether it
-    /// is about the items it shows.
-    fn announce(&self, kind: &str, item: &WorkItem, actor: &Actor) -> Result<(), Error> {
+    /// Publishes the events that a write recorded, in order. An event whose
+    /// write rolled back is not recorded, and is left out.
+    fn publish(&self, recorded: &[i64]) -> Result<(), Error> {
+        for id in recorded {
+            if let Some(event) = self.db.event(*id)? {
+                self.bus.publish(Notice::recorded(&event));
+            }
+        }
+        Ok(())
+    }
+
+    /// Tells the app an item was deleted: its key, and the agent and
+    /// session that deleted it when an agent did.
+    fn announce_deleted(&self, item: &WorkItem, actor: &Actor) -> Result<(), Error> {
+        let kind = events::ITEM_DELETED;
         let (agent, session) = match actor {
             Actor::Agent { .. } => (Some(actor.name()), actor.session()),
             _ => (None, None),
@@ -180,7 +191,12 @@ impl Items {
             "agent": agent,
             "session": session,
         });
-        let event_id = self.db.append_event(None, kind, None, &attrs)?;
+        let event_id = self.db.append_event_as(&db::NewEvent {
+            kind,
+            subject: None,
+            actor: actor.into(),
+            attrs: &attrs,
+        })?;
         self.bus.publish(Notice::new(event_id, kind, &attrs));
         Ok(())
     }
@@ -309,10 +325,9 @@ impl Items {
             .map(|l| check_link("/link", l))
             .transpose()?;
         let files = self.files(attachments, &new.body, "the description")?;
-        let item = self
-            .db
-            .add_item(&new, actor, Utc::now())?
-            .map_err(refused)?;
+        let (item, recorded) = db::recording(|| self.db.add_item(&new, actor, Utc::now()));
+        let item = item?.map_err(refused)?;
+        self.publish(&recorded)?;
         let item = if files.is_empty() {
             item
         } else {
@@ -327,7 +342,6 @@ impl Items {
             )?
             .item
         };
-        self.announce(events::ITEM_CHANGED, &item, actor)?;
         self.count("added", actor);
         Ok(item)
     }
@@ -361,13 +375,10 @@ impl Items {
                 .map(|l| check_link(&format!("/items/{i}/link"), l))
                 .transpose()?;
         }
-        let added = self
-            .db
-            .add_breakdown(&breakdown, actor, Utc::now())?
-            .map_err(refused)?;
-        if let Some((_, first)) = added.first() {
-            self.announce(events::ITEM_CHANGED, first, actor)?;
-        }
+        let (added, recorded) =
+            db::recording(|| self.db.add_breakdown(&breakdown, actor, Utc::now()));
+        let added = added?.map_err(refused)?;
+        self.publish(&recorded)?;
         for _ in &added {
             self.count("added", actor);
         }
@@ -378,9 +389,10 @@ impl Items {
     /// `claim`; `None` when nothing is ready.
     pub fn next(&self, repo: &str, claim: bool, actor: &Actor) -> Result<Option<WorkItem>, Error> {
         let repo = check_repo(repo)?;
-        let item = self.db.next_item(&repo, actor, claim, Utc::now())?;
-        if claim && let Some(item) = &item {
-            self.announce(events::ITEM_CHANGED, item, actor)?;
+        let (item, recorded) = db::recording(|| self.db.next_item(&repo, actor, claim, Utc::now()));
+        let item = item?;
+        self.publish(&recorded)?;
+        if claim && item.is_some() {
             self.count("claimed", actor);
         }
         Ok(item)
@@ -441,10 +453,9 @@ impl Items {
             }
             _ => None,
         };
-        let edited = self
-            .db
-            .edit_item(item, repo, &change, actor, Utc::now())?
-            .map_err(refused)?;
+        let (edited, recorded) =
+            db::recording(|| self.db.edit_item(item, repo, &change, actor, Utc::now()));
+        let edited = edited?.map_err(refused)?;
         if edited.item.status == Status::OnHold {
             let text = format!(
                 "{} {} is on hold now: stop working on it, and take another item.",
@@ -478,7 +489,7 @@ impl Items {
                 self.tell_holder(claim, &text)?;
             }
         }
-        self.announce(events::ITEM_CHANGED, &edited.item, actor)?;
+        self.publish(&recorded)?;
         if matches!(change.claim, Some(Claim::Take { .. })) {
             self.count("claimed", actor);
         }
@@ -543,10 +554,11 @@ impl Items {
     ) -> Result<crate::db::Comment, Error> {
         let body = check_comment("/body", body)?;
         let files = self.files(attachments, &body, "the comment")?;
-        let (item, comment) = self
-            .db
-            .add_item_comment(item, repo, &body, &files, actor, Utc::now())?
-            .map_err(refused)?;
+        let (added, recorded) = db::recording(|| {
+            self.db
+                .add_item_comment(item, repo, &body, &files, actor, Utc::now())
+        });
+        let (item, comment) = added?.map_err(refused)?;
         if *actor == Actor::Person {
             let text = format!(
                 "Comment on {} {}:\n\n{}",
@@ -554,7 +566,7 @@ impl Items {
             );
             self.tell_holder(&item.claim, &text)?;
         }
-        self.announce(events::ITEM_CHANGED, &item, actor)?;
+        self.publish(&recorded)?;
         Ok(comment)
     }
 
@@ -567,10 +579,9 @@ impl Items {
         actor: &Actor,
     ) -> Result<Vec<WorkItem>, Error> {
         only_the_person(actor)?;
-        self.db
-            .queue_item(item, place, Utc::now())?
-            .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, None)?, actor)?;
+        let (queued, recorded) = db::recording(|| self.db.queue_item(item, place, Utc::now()));
+        queued?.map_err(refused)?;
+        self.publish(&recorded)?;
         self.count("queued", actor);
         self.queued()
     }
@@ -578,8 +589,9 @@ impl Items {
     /// Takes an item out of the person's queue. Answers the queue.
     pub fn unqueue(&self, item: &ItemRef, actor: &Actor) -> Result<Vec<WorkItem>, Error> {
         only_the_person(actor)?;
-        self.db.unqueue_item(item, Utc::now())?.map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, None)?, actor)?;
+        let (unqueued, recorded) = db::recording(|| self.db.unqueue_item(item, Utc::now()));
+        unqueued?.map_err(refused)?;
+        self.publish(&recorded)?;
         self.queued()
     }
 
@@ -627,11 +639,12 @@ impl Items {
         actor: &Actor,
     ) -> Result<crate::db::Comment, Error> {
         let body = check_comment("/body", body)?;
-        let edited = self
-            .db
-            .edit_item_comment(item, repo, comment, &body, actor, Utc::now())?
-            .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?, actor)?;
+        let (edited, recorded) = db::recording(|| {
+            self.db
+                .edit_item_comment(item, repo, comment, &body, actor, Utc::now())
+        });
+        let edited = edited?.map_err(refused)?;
+        self.publish(&recorded)?;
         Ok(edited)
     }
 
@@ -643,10 +656,10 @@ impl Items {
         comment: &str,
         actor: &Actor,
     ) -> Result<(), Error> {
-        self.db
-            .delete_item_comment(item, repo, comment, actor)?
-            .map_err(refused)?;
-        self.announce(events::ITEM_CHANGED, &self.get(item, repo)?, actor)?;
+        let (deleted, recorded) =
+            db::recording(|| self.db.delete_item_comment(item, repo, comment, actor));
+        deleted?.map_err(refused)?;
+        self.publish(&recorded)?;
         Ok(())
     }
 
@@ -679,7 +692,7 @@ impl Items {
             };
             self.tell_holder(claim, &text)?;
         }
-        self.announce(events::ITEM_DELETED, &found, actor)?;
+        self.announce_deleted(&found, actor)?;
         Ok(count)
     }
 
@@ -695,17 +708,10 @@ impl Items {
         if rounds.is_empty() {
             return Err(Error::NotFound(format!("review {review}")));
         }
-        let changed = self
-            .db
-            .set_review_items(&rounds, items, actor, Utc::now())?
-            .map_err(refused)?;
-        for id in changed {
-            self.announce(
-                events::ITEM_CHANGED,
-                &self.get(&ItemRef::Id(id), None)?,
-                actor,
-            )?;
-        }
+        let (changed, recorded) =
+            db::recording(|| self.db.set_review_items(&rounds, items, actor, Utc::now()));
+        changed?.map_err(refused)?;
+        self.publish(&recorded)?;
         Ok(())
     }
 
