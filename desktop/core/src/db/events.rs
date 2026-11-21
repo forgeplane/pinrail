@@ -235,7 +235,7 @@ impl Db {
             e::PROJECTS_CHANGED,
             e::PREFIX_CHANGED,
             e::HISTORY_SWEPT,
-            "notification_changed",
+            e::NOTIFICATION_CHANGED,
         ]);
         let presence = list(&[e::SESSION_PRESENCE, e::SESSION_SEEN]);
         let deletions = list(&[

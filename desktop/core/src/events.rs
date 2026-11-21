@@ -71,6 +71,9 @@ pub const ITEM_CHANGED: &str = "item_changed";
 pub const PREFIX_CHANGED: &str = "prefix_changed";
 /// The person deleted a work item, with its sub-items.
 pub const ITEM_DELETED: &str = "item_deleted";
+/// The person marked a notification read, unread, done or not done, or
+/// marked a list read.
+pub const NOTIFICATION_CHANGED: &str = "notification_changed";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 
@@ -212,8 +215,19 @@ impl Bus {
             if notice.at.is_none() {
                 notice.record(&event);
             }
-            if let Ok(Some(notification)) = db.notification_of(event.id, event.subject().as_ref()) {
-                notice.notification = Some(notification.to_json());
+            // the notification the event changed: the person's own change
+            // names it, any other event reports on it
+            let notification = match event.kind.as_str() {
+                NOTIFICATION_CHANGED => match event.attrs["id"].as_i64() {
+                    Some(id) => db.notification(id),
+                    None => Ok(None),
+                },
+                _ => db.notification_of(event.id, event.subject().as_ref()),
+            };
+            if let Ok(Some(notification)) = notification {
+                notice.notification = crate::notifications::to_json(db, &notification).ok();
+            }
+            if notice.notification.is_some() || event.kind == NOTIFICATION_CHANGED {
                 notice.counts = db.notification_counts().ok().map(|c| c.to_json());
             }
         }

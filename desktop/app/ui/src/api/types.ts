@@ -456,7 +456,68 @@ export type Notice = {
     session?: { agent: string; id: string; agent_session: string | null } | null;
     previous?: { agent: string; id: string } | null;
   };
+  /** the person's notification the event changed, as the list gives it,
+   *  on a live notice alone */
+  notification?: Notification;
+  /** how many notifications wait and are unread, with a notification */
+  counts?: InboxCounts;
 };
+
+/** Why a notification was added: the reason of its latest event. */
+export type NotificationReason =
+  | "review_requested"
+  | "new_round"
+  | "question_asked"
+  | "permission_requested"
+  | "input_requested"
+  | "review_withdrawn"
+  | "review_expired"
+  | "item_added"
+  | "item_commented"
+  | "item_closed"
+  | "item_changed"
+  | "agent_finished"
+  | "agent_failed"
+  | "agent_stopped"
+  | "agent_note";
+
+/** One of the person's notifications: its subject as it is now, the reason
+ *  and actor of its latest event, and its read and done state. */
+export type Notification = {
+  id: number;
+  subject:
+    | { kind: "item"; item: { id: string; key: string; title: string; status: ItemStatus } }
+    | { kind: "review"; review: { id: string } }
+    | { kind: "session"; session: { id: string } };
+  repo: string | null;
+  project: ProjectRef | null;
+  reason: NotificationReason;
+  waiting: boolean;
+  actor: NoticeActor | null;
+  summary: string | null;
+  /** how many events came after the one the person saw */
+  unread: number;
+  read: boolean;
+  done: boolean;
+  muted: boolean;
+  last_event: number;
+  updated_at: string;
+};
+
+/** How many notifications wait for the person, and how many are unread. */
+export type InboxCounts = { waiting: number; unread: number };
+
+/** A page of notifications, with how many the list holds, the counts, and
+ *  the newest event the list reflects, which Mark all as read takes. */
+export type NotificationList = {
+  notifications: Notification[];
+  total: number;
+  counts: InboxCounts;
+  up_to: number;
+};
+
+/** The notifications a list shows. */
+export type NotificationTab = "waiting" | "unread" | "all";
 
 /** What changed on a work item, on an item_changed notice. */
 export type ItemChange =

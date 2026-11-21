@@ -59,6 +59,17 @@ pub enum Listed {
     Open,
 }
 
+impl Listed {
+    /// The condition on `n`, the notification, that keeps the list's rows.
+    fn filter(self) -> &'static str {
+        match self {
+            Listed::Waiting => "n.waiting = 1",
+            Listed::Unread => "n.unread > 0 AND n.done_at IS NULL",
+            Listed::Open => "n.done_at IS NULL",
+        }
+    }
+}
+
 /// How many notifications wait for the person, and how many are unread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Counts {
@@ -221,31 +232,6 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
     Ok(())
 }
 
-impl Notification {
-    pub fn to_json(&self) -> Value {
-        let (kind, id) = match &self.subject {
-            EventSubject::Review(id) => ("review", id),
-            EventSubject::Item(id) => ("item", id),
-            EventSubject::Session(id) => ("session", id),
-        };
-        json!({
-            "id": self.id,
-            "subject": {"kind": kind, "id": id},
-            "repo": self.repo,
-            "reason": self.reason,
-            "waiting": self.waiting,
-            "last_event": self.last_event,
-            "last_actor": self.last_actor,
-            "summary": self.summary,
-            "read_event": self.read_event,
-            "unread": self.unread,
-            "updated_at": iso(self.updated_at),
-            "done_at": self.done_at.map(iso),
-            "muted": self.muted,
-        })
-    }
-}
-
 impl Counts {
     pub fn to_json(&self) -> Value {
         json!({"waiting": self.waiting, "unread": self.unread})
@@ -330,18 +316,65 @@ impl Db {
         listed: Listed,
         limit: usize,
     ) -> rusqlite::Result<Vec<Notification>> {
-        let filter = match listed {
-            Listed::Waiting => "n.waiting = 1",
-            Listed::Unread => "n.unread > 0 AND n.done_at IS NULL",
-            Listed::Open => "n.done_at IS NULL",
-        };
+        Ok(self.notifications_page(listed, limit, 0)?.0)
+    }
+
+    /// A page of a list, newest first: at most `limit` from `offset`, and
+    /// how many the whole list holds.
+    pub fn notifications_page(
+        &self,
+        listed: Listed,
+        limit: usize,
+        offset: usize,
+    ) -> rusqlite::Result<(Vec<Notification>, i64)> {
+        let filter = listed.filter();
         let conn = self.read();
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
-              WHERE {filter} ORDER BY n.last_event DESC LIMIT ?1"
+              WHERE {filter} ORDER BY n.last_event DESC LIMIT ?1 OFFSET ?2"
         ))?;
-        let rows = stmt.query_map(params![limit as i64], row_to_notification)?;
-        rows.collect()
+        let rows = stmt
+            .query_map(params![limit as i64, offset as i64], row_to_notification)?
+            .collect::<rusqlite::Result<_>>()?;
+        let total = conn.query_row(
+            &format!("SELECT count(*) FROM notifications n WHERE {filter}"),
+            [],
+            |r| r.get(0),
+        )?;
+        Ok((rows, total))
+    }
+
+    /// Marks read every notification of a list whose latest event is
+    /// `up_to` or older: what the person saw listed. Returns how many.
+    pub fn read_notifications_up_to(&self, listed: Listed, up_to: i64) -> rusqlite::Result<usize> {
+        let conn = self.conn();
+        conn.execute(
+            &format!(
+                "UPDATE notifications AS n SET read_event = last_event, unread = 0
+                  WHERE {} AND n.unread > 0 AND n.last_event <= ?1",
+                listed.filter()
+            ),
+            params![up_to],
+        )
+    }
+
+    /// Takes a notification out of done. `false` when there is none.
+    pub fn mark_notification_undone(&self, id: i64) -> rusqlite::Result<bool> {
+        let conn = self.conn();
+        Ok(conn.execute(
+            "UPDATE notifications SET done_at = NULL WHERE id = ?1",
+            params![id],
+        )? > 0)
+    }
+
+    /// The id of the newest event recorded, or 0.
+    pub fn newest_event_id(&self) -> rusqlite::Result<i64> {
+        let conn = self.read();
+        conn.query_row(
+            "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'events'), 0)",
+            [],
+            |r| r.get(0),
+        )
     }
 
     /// How many notifications wait for the person, and how many are unread.

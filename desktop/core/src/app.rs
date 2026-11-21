@@ -36,6 +36,7 @@ pub struct Pinrail {
     reviews: Reviews,
     projects: Projects,
     items: Items,
+    notifications: crate::notifications::Notifications,
     attachments: Attachments,
     bundles: Bundles,
     telemetry: Arc<Telemetry>,
@@ -69,6 +70,12 @@ impl Pinrail {
     /// Work items: what the person and agents record and work through.
     pub fn items(&self) -> &Items {
         &self.items
+    }
+
+    /// The person's notifications: the lists, the counts, and their read
+    /// and done state.
+    pub fn notifications(&self) -> &crate::notifications::Notifications {
+        &self.notifications
     }
 
     /// The plugin bundles the app holds, by hash.
@@ -206,6 +213,7 @@ impl Pinrail {
             config.max_attachment_bytes,
         )?;
         let projects = Projects::new(db.clone(), events.bus(), attachments.clone());
+        let notifications = crate::notifications::Notifications::new(db.clone(), events.bus());
         let items = Items::new(
             db.clone(),
             events.bus(),
@@ -232,6 +240,7 @@ impl Pinrail {
             reviews,
             projects,
             items,
+            notifications,
             attachments,
             bundles,
             telemetry,

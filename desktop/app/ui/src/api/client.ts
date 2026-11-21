@@ -33,7 +33,10 @@ import type {
   Violation,
   WorkItem,
   FoundItem,
+  InboxCounts,
   ItemStatus,
+  NotificationList,
+  NotificationTab,
 } from "./types";
 
 export class ApiError extends Error {
@@ -325,6 +328,26 @@ export const api = {
   /** stars a round of a review, or removes its star */
   deleteReview: (id: string) => request<{ ids: string[] }>("DELETE", `/api/v1/reviews/${seg(id)}`),
   star: (id: string, starred: boolean) => request<void>(starred ? "PUT" : "DELETE", `/api/v1/reviews/${seg(id)}/star`),
+  /** a page of the person's notifications, newest first */
+  notifications: (params: { tab?: NotificationTab; limit?: number; offset?: number } = {}) =>
+    request<NotificationList>(
+      "GET",
+      `/api/v1/notifications${query({
+        tab: params.tab,
+        limit: params.limit?.toString(),
+        offset: params.offset?.toString(),
+      })}`,
+    ),
+  notificationCounts: () => request<InboxCounts>("GET", "/api/v1/notifications/counts"),
+  /** marks a notification read, or unread */
+  setNotificationRead: (id: number, read: boolean) =>
+    request<void>(read ? "PUT" : "DELETE", `/api/v1/notifications/${id}/read`),
+  /** marks a notification done, or takes it out of done */
+  setNotificationDone: (id: number, done: boolean) =>
+    request<void>(done ? "PUT" : "DELETE", `/api/v1/notifications/${id}/done`),
+  /** marks read what a list showed, up to the newest event it reflected */
+  readNotifications: (tab: NotificationTab, upTo: number) =>
+    request<{ read: number }>("POST", "/api/v1/notifications/read", { tab, up_to: upTo }),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   /** what installing a folder or a zip would do, installing nothing */
@@ -482,6 +505,7 @@ export function subscribe(handlers: {
       "prefix_changed",
       "item_deleted",
       "history_swept",
+      "notification_changed",
       // the stored notices no longer reach back to the last one seen
       "resync",
     ]) {

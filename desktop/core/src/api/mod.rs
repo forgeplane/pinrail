@@ -6,6 +6,7 @@ mod error;
 mod files;
 mod guard;
 mod items;
+mod notifications;
 mod plugins;
 mod projects;
 mod reviews;
@@ -90,6 +91,7 @@ fn router_with(state: ApiState) -> Router {
         .merge(reviews::routes())
         .merge(projects::routes())
         .merge(items::routes())
+        .merge(notifications::routes())
         .merge(attachments::routes())
         .merge(plugins::routes())
         .merge(sse::routes())
