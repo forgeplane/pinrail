@@ -224,6 +224,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A question opened from the inbox shows at once in the side panel, and
+  its session's thread scrolls to it, also in a long session.
 - A session's thread keeps an agent's earlier reply when the agent
   replies again in the same turn, as it does when a background job ends.
 - ⌘Enter in the quick add dialog on the new session page adds the work

@@ -136,6 +136,9 @@ export function useSessionThread(
     again: boolean;
     renamed?: { name: string | null };
   } | null>(null);
+  // whether the whole thread has loaded once, after which a question no
+  // longer loads ahead of it
+  const loadedOnce = useRef(false);
   const load = useCallback(async (): Promise<void> => {
     const key = named ? `${named.agent}/${named.id}` : (focus?.id ?? "");
     const current = loading.current;
@@ -147,7 +150,17 @@ export function useSessionThread(
     loading.current = mine;
     try {
       if (named) {
-        const thread = await api.session(named.agent, named.id);
+        const whole = api.session(named.agent, named.id);
+        // a question opened in its session shows at once: a long session
+        // takes a while to load, and the question alone is one small request
+        if (focus && !loadedOnce.current) {
+          const review = await api.getReview(focus.id).catch(() => null);
+          if (review && open.current && shownKey.current === `${named.agent}/${named.id}`) {
+            setItems((prev) => (prev.length ? prev : [review]));
+          }
+        }
+        const thread = await whole;
+        loadedOnce.current = true;
         // the thread was closed, or shows another session, meanwhile, as
         // when an old address took Pinrail's id for the session
         if (!open.current || shownKey.current !== `${named.agent}/${named.id}`) return;

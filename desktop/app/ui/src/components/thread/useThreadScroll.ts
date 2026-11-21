@@ -34,6 +34,9 @@ export function useThreadScroll(
   // what the thread was opened at, kept in place as entries above it lay
   // out, until the person scrolls; and where that left the timeline
   const opened = useRef<{ target: Element; offset: number; top: number } | null>(null);
+  // the watch for the question to be drawn, while it is not yet
+  const waiting = useRef<MutationObserver | null>(null);
+  useEffect(() => () => waiting.current?.disconnect(), []);
   useLayoutEffect(() => {
     const el = timelineRef.current;
     if (scrolled.current || !el) return;
@@ -48,8 +51,21 @@ export function useThreadScroll(
       // a question of a session waits for the session's thread
       if (focus.session && focus.requested_by ? !session : items.length === 0) return;
       scrolled.current = true;
-      const set = document.getElementById(`set-${focus.id}`);
+      const id = `set-${focus.id}`;
+      const set = document.getElementById(id);
       if (set) openAt(set, "start");
+      else {
+        // the thread draws its entries a frame after the session arrives:
+        // the question is scrolled to as soon as it is drawn
+        const drawn = new MutationObserver(() => {
+          const found = document.getElementById(id);
+          if (!found) return;
+          drawn.disconnect();
+          openAt(found, "start");
+        });
+        drawn.observe(el, { childList: true, subtree: true });
+        waiting.current = drawn;
+      }
     } else if (session) {
       // where it was left is restored by holdAt
       if (placed) return;

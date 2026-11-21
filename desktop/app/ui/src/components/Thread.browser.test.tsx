@@ -2,11 +2,12 @@
 // and renaming in place, its timeline, and what its notices change.
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { Notice, SessionStatus } from "../api/types";
+import type { Notice, Review, SessionStatus } from "../api/types";
 import { core } from "../testing/core";
 import { session } from "../testing/items";
 import { cleanup, render } from "../testing/render";
 import { Thread } from "./Thread";
+import "../theme.css";
 
 vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
 
@@ -172,5 +173,53 @@ describe("the session's details", () => {
     await open([], { id: "ses_01ABC", agent_session: null });
     await expect.element(page.getByTestId("thread").getByText("Agent session")).toBeVisible();
     await expect.element(details().filter({ hasText: "Not known yet" })).toBeVisible();
+  });
+});
+
+describe("a question opened in its session's thread", () => {
+  const question = {
+    id: "r_q1",
+    kind: "question",
+    title: "Commit this?",
+    plugin: "",
+    status: "pending",
+    requested_by: "claude-code",
+    session: "s-1",
+    origin: { repo: "acme/app" },
+    created_at: "2026-11-19T09:30:00Z",
+    payload: { questions: [{ id: "q1", question: "Commit this?", answer: "yes-no" }] },
+    summary: { counts: [] },
+    items: [],
+    attachments: [],
+  } as unknown as Review;
+  // a long session: an hour of work before the question, and as much after
+  const statuses = Array.from({ length: 120 }, (_, i) => ({
+    id: i + 1,
+    text: `Step ${i + 1}`,
+    kind: "note" as SessionStatus["kind"],
+    at: new Date(Date.parse("2026-11-19T09:00:00Z") + i * 30_000).toISOString(),
+  }));
+
+  test("shows the question at once, and in view once the session has loaded", async () => {
+    let arrive: (value: unknown) => void = () => {};
+    const thread = new Promise((resolve) => (arrive = resolve));
+    core.answer("session", () => thread);
+    core.answer("items", { items: [] });
+    core.answer("getReview", question);
+    await page.viewport(900, 600);
+    // as the inbox's side panel holds it: a fixed height, with the app's styles
+    await render(
+      <div style={{ height: 600, display: "flex", flexDirection: "column" }}>
+        <div className="review-page thread-page in-panel" style={{ flex: 1, minHeight: 0 }}>
+          <Thread focus={question} inPanel />
+        </div>
+      </div>,
+      { route: "/" },
+    );
+    // the question before the rest of the session
+    await expect.element(page.getByTestId("question-set")).toBeVisible();
+    arrive({ session: session({ id: "s-1" }), items: [question], statuses, messages: [] });
+    await expect.element(page.getByText("Step 120")).toBeInTheDocument();
+    await expect.element(page.getByTestId("question-set")).toBeInViewport();
   });
 });
