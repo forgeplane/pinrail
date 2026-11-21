@@ -41,6 +41,13 @@ impl Events {
         Ok(self.db.delete_old_events(now)?)
     }
 
+    /// The newest event's id when the stored events no longer reach back to
+    /// `after`, so that a client that saw up to it must read everything
+    /// again; `None` when they do.
+    pub fn missed_since(&self, after: i64) -> Result<Option<i64>, Error> {
+        Ok(self.db.events_missed_since(after)?)
+    }
+
     /// The bus the other services publish on.
     pub(crate) fn bus(&self) -> Bus {
         self.bus.clone()

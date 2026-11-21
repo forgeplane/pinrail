@@ -66,4 +66,13 @@ describe("the live state", () => {
     await expect.element(page.getByText("Connected: Second")).toBeVisible();
     expect(core.calls("listReviews").length).toBe(loads);
   });
+
+  test("a resync loads the pending reviews again", async () => {
+    const pending = await open([review("r_1", "First")]);
+    await expect.element(page.getByText("Connected: First")).toBeVisible();
+    // the notice of the second was swept before the app came back
+    pending.push(review("r_2", "Second"));
+    core.notice({ event_id: 90, kind: "resync" } as unknown as Notice);
+    await expect.element(page.getByText(/^Connected: (First, Second|Second, First)$/)).toBeVisible();
+  });
 });

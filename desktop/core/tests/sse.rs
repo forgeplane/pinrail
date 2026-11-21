@@ -263,3 +263,68 @@ async fn a_notice_carries_its_time_actor_and_subject_live_and_replayed() {
         assert_eq!(replayed[field], live[field], "{field}");
     }
 }
+
+#[tokio::test]
+async fn a_cursor_older_than_the_stored_events_gets_a_resync() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    app.settings().change(&json!({"autostart": true})).unwrap();
+    let cursor = app.events().after(0, 1).unwrap()[0].event_id;
+    app.settings()
+        .change(&json!({"appearance": {"theme": "dark"}}))
+        .unwrap();
+    app.settings()
+        .change(&json!({"notifications": {"sound": false}}))
+        .unwrap();
+    let newest = app.events().after(0, 100).unwrap().last().unwrap().event_id;
+    // the sweep, 15 days on, deletes what the cursor would catch up on
+    app.events()
+        .sweep(chrono::Utc::now() + chrono::Duration::days(15))
+        .unwrap();
+    assert!(app.events().after(0, 100).unwrap().is_empty());
+
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get(format!("/api/v1/events?after={cursor}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    let (id, data) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(id, newest);
+    assert_eq!(data, json!({"event_id": newest, "kind": "resync"}));
+
+    // the live notices follow it
+    app.settings()
+        .change(&json!({"appearance": {"theme": "light"}}))
+        .unwrap();
+    let (id, data) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(id, newest + 1);
+    assert_eq!(data["kind"], "settings_changed");
+}
+
+#[tokio::test]
+async fn a_cursor_the_stored_events_reach_gets_no_resync() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    app.settings().change(&json!({"autostart": true})).unwrap();
+    let cursor = app.events().after(0, 1).unwrap()[0].event_id;
+    app.settings()
+        .change(&json!({"appearance": {"theme": "dark"}}))
+        .unwrap();
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get(format!("/api/v1/events?after={cursor}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut body = response.into_body();
+    let (id, data) = next_event(&mut body, &mut String::new()).await;
+    assert_eq!(id, cursor + 1);
+    assert_eq!(data["kind"], "settings_changed");
+}

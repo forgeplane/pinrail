@@ -482,6 +482,8 @@ export function subscribe(handlers: {
       "prefix_changed",
       "item_deleted",
       "history_swept",
+      // the stored notices no longer reach back to the last one seen
+      "resync",
     ]) {
       source.addEventListener(kind, (event) => notice(event as MessageEvent));
     }

@@ -249,6 +249,24 @@ impl Db {
         )
     }
 
+    /// Whether the stored events still reach back to `after`: every event
+    /// after it is stored, unless something deleted it with its subject.
+    /// Otherwise, the id of the newest event ever recorded.
+    pub fn events_missed_since(&self, after: i64) -> rusqlite::Result<Option<i64>> {
+        let conn = self.read();
+        let (oldest, newest): (Option<i64>, i64) = conn.query_row(
+            "SELECT (SELECT MIN(id) FROM events),
+                    COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'events'), 0)",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let reaches = match oldest {
+            Some(oldest) => oldest <= after + 1,
+            None => newest <= after,
+        };
+        Ok((!reaches).then_some(newest))
+    }
+
     /// The event of this id, if it is still recorded.
     pub fn event(&self, id: i64) -> rusqlite::Result<Option<Event>> {
         let conn = self.read();

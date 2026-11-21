@@ -175,6 +175,15 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         for (const listener of listeners.current) listener(notice);
         for (const missed of fetching.current) missed.push(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
+        // the notices missed were swept: everything is read again
+        if (notice.kind === "resync") {
+          refresh();
+          loadPlugins();
+          setHistoryVersion((v) => v + 1);
+          setProjectsVersion((v) => v + 1);
+          setItemsVersion((v) => v + 1);
+          setPrefixesVersion((v) => v + 1);
+        }
         if (ENDINGS.has(notice.kind) || notice.kind === "history_swept") setHistoryVersion((v) => v + 1);
         // a deleted review leaves the inbox and the history
         if (notice.kind === "review_deleted") {
@@ -307,7 +316,8 @@ export function useNoticeCount(about: (notice: Notice) => boolean): number {
 /** Whether a notice can change what a list of work items shows: a change
  *  to an item, a review of items, a session archived or restored, which
  *  gives up or keeps its claims, a history sweep, which releases the
- *  claims of the sessions it deletes, or a change to the projects. */
+ *  claims of the sessions it deletes, a change to the projects, or a
+ *  resync, after which everything is read again. */
 export const aboutItems = (notice: Notice) =>
   !!notice.item ||
   !!notice.review?.items?.length ||
@@ -318,6 +328,7 @@ export const aboutItems = (notice: Notice) =>
     "history_swept",
     "projects_changed",
     "repository_deleted",
+    "resync",
   ].includes(notice.kind);
 
 /** The item a notice is about, if it is about one: a prefix change is about
@@ -329,8 +340,9 @@ export const noticeItem = (notice: Notice): NoticeItem | null =>
 export const anItem = (notice: Notice) => !!notice.item;
 
 /** Whether a notice can change what a list of sessions shows: a review, a
- *  session's status, message or archive, or a change to the projects. */
+ *  session's status, message or archive, a change to the projects, or a
+ *  resync. */
 export const aboutSessions = (notice: Notice) =>
   !!notice.review_id ||
   notice.kind.startsWith("session_") ||
-  ["projects_changed", "repository_deleted"].includes(notice.kind);
+  ["projects_changed", "repository_deleted", "resync"].includes(notice.kind);

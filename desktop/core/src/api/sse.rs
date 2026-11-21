@@ -5,7 +5,9 @@
 //! events a page at a time, up to the newest, before the live ones. A
 //! client that falls so far behind that notices are lost, or whose
 //! catch-up cannot be read, is disconnected, so that it reconnects and
-//! catches up rather than going on with a gap.
+//! catches up rather than going on with a gap. A client whose cursor the
+//! stored events no longer reach, because the sweep deleted them, gets
+//! `resync` with the newest id instead, and reads what it shows again.
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -44,6 +46,23 @@ async fn events(
         .map(String::as_str)
         .or_else(|| headers.get("last-event-id").and_then(|v| v.to_str().ok()))
         .and_then(|a| a.trim().parse::<i64>().ok());
+    // a cursor the stored events no longer reach: the client reads
+    // everything again, and the stream goes on from the newest event
+    let resync = match after {
+        Some(after) => state.events().missed_since(after).unwrap_or_else(|error| {
+            eprintln!("pinrail: the oldest event could not be read: {error}");
+            None
+        }),
+        None => None,
+    };
+    let after = resync.or(after);
+    let resync = stream::iter(resync.map(|newest| {
+        Ok(Event::default()
+            .id(newest.to_string())
+            .event("resync")
+            .json_data(json!({"event_id": newest, "kind": "resync"}))
+            .unwrap_or_else(|_| Event::default()))
+    }));
     // the last id sent from the backlog, and whether reading it failed:
     // the live notices start after the one, and do not start after the other
     let last_sent = Arc::new(AtomicI64::new(after.unwrap_or(0)));
@@ -108,5 +127,5 @@ async fn events(
             .json_data(data)
             .unwrap_or_else(|_| Event::default()))
     });
-    Sse::new(all).keep_alive(KeepAlive::default())
+    Sse::new(resync.chain(all)).keep_alive(KeepAlive::default())
 }
