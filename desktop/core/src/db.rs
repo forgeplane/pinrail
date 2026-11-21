@@ -31,7 +31,9 @@ pub use events::{Event, EventActor, EventSubject, NewEvent, recording};
 pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemSession, Place};
 pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageChange, MessageRow, message_notice};
-pub use notifications::{Counts, Listed, Notification, NotificationFilters, Notify, SUBJECT_KINDS};
+pub use notifications::{
+    Counts, Listed, New, Notification, NotificationFilters, Notify, SUBJECT_KINDS,
+};
 pub use plugins::InstallRecord;
 pub use presence::{
     ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,

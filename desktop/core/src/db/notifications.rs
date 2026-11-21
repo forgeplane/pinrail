@@ -166,6 +166,63 @@ impl Listed {
     }
 }
 
+/// What is new on a notification's subject since the person last looked,
+/// for its row's line.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct New {
+    /// sub-items added, and the latest one's key and title
+    pub sub_items: i64,
+    pub sub_item: Option<(String, String)>,
+    /// whether the work item itself is new, with its sub-items: a breakdown
+    pub breakdown: bool,
+    /// comments, their authors in the order they wrote, and the latest one's
+    /// start
+    pub comments: i64,
+    pub authors: Vec<String>,
+    pub comment: Option<String>,
+    /// any other changes, such as a status or a claim
+    pub changes: i64,
+    /// which of the three came last: `sub_item`, `comment` or `change`
+    pub latest: Option<&'static str>,
+    /// the work item's parent, by key
+    pub parent: Option<String>,
+    /// for a session: the turns finished since it was seen, and the first
+    /// line of the latest one's reply
+    pub turns: i64,
+    pub reply: Option<String>,
+}
+
+impl New {
+    pub fn to_json(&self) -> Value {
+        json!({
+            "sub_items": self.sub_items,
+            "sub_item": self.sub_item.as_ref().map(|(key, title)| json!({"key": key, "title": title})),
+            "breakdown": self.breakdown,
+            "comments": self.comments,
+            "authors": self.authors,
+            "comment": self.comment,
+            "changes": self.changes,
+            "latest": self.latest,
+            "parent": self.parent,
+            "turns": self.turns,
+            "reply": self.reply,
+        })
+    }
+}
+
+/// An event of a work item: its id, its actor, what changed, and a
+/// comment's start.
+type OwnEvent = (i64, Option<String>, Option<String>, Option<String>);
+
+/// The first line of a text that says something, at most 200 characters,
+/// without a Markdown heading's marks.
+fn first_line(text: &str) -> Option<String> {
+    text.lines()
+        .map(|l| l.trim().trim_start_matches('#').trim())
+        .find(|l| !l.is_empty())
+        .map(|l| l.chars().take(SUMMARY_MAX).collect())
+}
+
 /// How many notifications wait for the person, and how many are unread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Counts {
@@ -812,6 +869,104 @@ impl Db {
         )?;
         tx.commit()?;
         Ok(changed)
+    }
+
+    /// What is new on a notification's subject since the person last looked:
+    /// for a work item, the events after the last one read that the person
+    /// did not cause, and the sub-items added to it; for a session, the turns
+    /// finished since it was seen.
+    pub fn notification_new(&self, n: &Notification) -> rusqlite::Result<New> {
+        let conn = self.read();
+        let mut new = New::default();
+        match &n.subject {
+            EventSubject::Item(item) => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, actor, json_extract(attrs, '$.change'), json_extract(attrs, '$.excerpt')
+                       FROM events
+                      WHERE item_id = ?1 AND kind = ?2 AND id > ?3
+                        AND actor_kind IS NOT 'person'
+                      ORDER BY id",
+                )?;
+                let own: Vec<OwnEvent> = stmt
+                    .query_map(
+                        params![item, crate::events::ITEM_CHANGED, n.read_event],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                    )?
+                    .collect::<rusqlite::Result<_>>()?;
+                let mut stmt = conn.prepare(
+                    "SELECT e.id, g.prefix || '-' || w.number, w.title
+                       FROM events e JOIN work_items w ON w.id = e.item_id
+                       JOIN repos g ON g.id = w.repo_id
+                      WHERE w.parent = ?1 AND e.kind = ?2 AND e.id > ?3
+                        AND json_extract(e.attrs, '$.change') = 'created'
+                        AND e.actor_kind IS NOT 'person'
+                      ORDER BY e.id",
+                )?;
+                let subs: Vec<(i64, String, String)> = stmt
+                    .query_map(
+                        params![item, crate::events::ITEM_CHANGED, n.read_event],
+                        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                    )?
+                    .collect::<rusqlite::Result<_>>()?;
+                let mut last = (0, None);
+                for (id, key, title) in &subs {
+                    new.sub_items += 1;
+                    new.sub_item = Some((key.clone(), title.clone()));
+                    last = last.max((*id, Some("sub_item")));
+                }
+                let mut created = false;
+                for (id, actor, change, excerpt) in &own {
+                    match change.as_deref() {
+                        Some("created") => created = true,
+                        Some("commented") => {
+                            new.comments += 1;
+                            new.comment = excerpt.clone();
+                            if let Some(actor) = actor
+                                && !new.authors.contains(actor)
+                            {
+                                new.authors.push(actor.clone());
+                            }
+                            last = last.max((*id, Some("comment")));
+                        }
+                        _ => {
+                            new.changes += 1;
+                            last = last.max((*id, Some("change")));
+                        }
+                    }
+                }
+                new.breakdown = created && new.sub_items > 0;
+                new.latest = last.1;
+                new.parent = conn
+                    .query_row(
+                        "SELECT g.prefix || '-' || p.number FROM work_items i
+                           JOIN work_items p ON p.id = i.parent JOIN repos g ON g.id = p.repo_id
+                          WHERE i.id = ?1",
+                        params![item],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+            }
+            EventSubject::Session(session) => {
+                // the session's own read state: the turns since it was seen
+                let (turns, reply): (i64, Option<String>) = conn.query_row(
+                    "SELECT count(*),
+                            (SELECT x.reply FROM session_turns u
+                               LEFT JOIN session_turn_texts x ON x.turn_id = u.id
+                              WHERE u.session = ?1 AND u.end_kind = 'done'
+                              ORDER BY u.ended_at DESC LIMIT 1)
+                       FROM session_turns t
+                      WHERE t.session = ?1 AND t.end_kind = 'done'
+                        AND t.ended_at > COALESCE((SELECT p.seen_at FROM session_presence p
+                                                    WHERE p.session = ?1), '')",
+                    params![session],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )?;
+                new.turns = turns;
+                new.reply = reply.as_deref().and_then(first_line);
+            }
+            EventSubject::Review(_) => {}
+        }
+        Ok(new)
     }
 
     /// The agent of the session of this id, by Pinrail's id.

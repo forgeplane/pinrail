@@ -412,3 +412,167 @@ async fn a_notification_lists_the_events_of_its_subject() {
     let (code, _) = call(&app, "GET", "/api/v1/notifications/999/events", None).await;
     assert_eq!(code, StatusCode::NOT_FOUND);
 }
+
+/// What a list's first notification says is new.
+async fn new_of(app: &App, query: &str) -> Value {
+    list(app, query).await["notifications"][0]["new"].clone()
+}
+
+/// A request by codex, in its session s-2.
+async fn codex(app: &App, method: &str, path: &str, body: Value) {
+    let mut body = body;
+    body["by"] = json!("codex");
+    body["session"] = json!("s-2");
+    let (code, answer) = common::call_as(app, method, path, Some(body), &[]).await;
+    assert!(code.is_success(), "{method} {path}: {code} {answer}");
+}
+
+#[tokio::test]
+async fn a_breakdown_is_new_with_its_sub_items() {
+    let app = app();
+    let items: Vec<Value> =
+        std::iter::once(json!({"ref": "p", "title": "First series of shorts"}))
+            .chain((1..=10).map(
+                |i| json!({"ref": format!("s{i}"), "parent": "p", "title": format!("Short {i}")}),
+            ))
+            .collect();
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": REPO, "items": items}),
+    )
+    .await;
+    let new = new_of(&app, "?q=First").await;
+    assert_eq!(new["breakdown"], true);
+    assert_eq!(new["sub_items"], 10);
+    assert_eq!(
+        new["sub_item"],
+        json!({"key": "PIN-11", "title": "Short 10"})
+    );
+    assert_eq!(new["latest"], "sub_item");
+}
+
+#[tokio::test]
+async fn sub_items_added_later_are_counted_since_the_last_read() {
+    let app = app();
+    three(&app).await;
+    let id = list(&app, "?q=Themes").await["notifications"][0]["id"].clone();
+    call(
+        &app,
+        "PUT",
+        &format!("/api/v1/notifications/{id}/read"),
+        None,
+    )
+    .await;
+    for title in ["Read the files", "Apply the colours"] {
+        agent(
+            &app,
+            "POST",
+            "/api/v1/items",
+            json!({"repo": REPO, "title": title, "parent": "PIN-1"}),
+        )
+        .await;
+    }
+    let new = new_of(&app, "?q=Themes").await;
+    assert_eq!(
+        (&new["sub_items"], &new["breakdown"]),
+        (&json!(2), &json!(false))
+    );
+    assert_eq!(new["sub_item"]["title"], "Apply the colours");
+    // a sub-item's change after it was added is its own row, which names
+    // its parent
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-5/comments",
+        json!({"body": "Started."}),
+    )
+    .await;
+    let sub = new_of(&app, "?kind=item_commented").await;
+    assert_eq!(
+        list(&app, "?kind=item_commented").await["notifications"][0]["subject"]["item"]["key"],
+        "PIN-5"
+    );
+    assert_eq!(sub["parent"], "PIN-1");
+}
+
+#[tokio::test]
+async fn comments_are_counted_with_their_authors_and_a_change_after_them_is_latest() {
+    let app = app();
+    three(&app).await;
+    let comment = |text: &str| json!({"body": text});
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        comment("Claimed it."),
+    )
+    .await;
+    codex(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        comment("I can help."),
+    )
+    .await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        comment("The spec is ready."),
+    )
+    .await;
+    let new = new_of(&app, "?q=Themes").await;
+    assert_eq!(new["comments"], 3);
+    assert_eq!(new["authors"], json!(["claude-code", "codex"]));
+    assert_eq!(new["comment"], "The spec is ready.");
+    assert_eq!(new["latest"], "comment");
+
+    agent(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        json!({"claim": "claim"}),
+    )
+    .await;
+    let new = new_of(&app, "?q=Themes").await;
+    assert_eq!(
+        (&new["comments"], &new["changes"], &new["latest"]),
+        (&json!(3), &json!(1), &json!("change"))
+    );
+}
+
+#[tokio::test]
+async fn a_finished_agent_is_new_with_its_last_reply() {
+    let app = app();
+    let at = |ms: i64| (chrono::Utc::now() + chrono::Duration::milliseconds(ms)).to_rfc3339();
+    let report = |event: &str, ms: i64, extra: Value| {
+        let mut body = json!({"event": event, "at": at(ms)});
+        body.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        body
+    };
+    let path = "/api/v1/sessions/claude-code/s-1/reports";
+    for body in [
+        report("prompt", 0, json!({})),
+        report(
+            "turn_ended",
+            10,
+            json!({"end": "done", "detail": {"reply": "Did the first"}}),
+        ),
+        report("prompt", 20, json!({})),
+        report(
+            "turn_ended",
+            30,
+            json!({"end": "done", "detail": {"reply": "## Done\n\nPicked Rachel for the sidekick.\nMore."}}),
+        ),
+    ] {
+        let (code, answer) = call(&app, "POST", path, Some(body)).await;
+        assert!(code.is_success(), "{answer}");
+    }
+    let new = new_of(&app, "?kind=agent_finished").await;
+    assert_eq!(new["turns"], 2);
+    assert_eq!(new["reply"], "Done");
+}

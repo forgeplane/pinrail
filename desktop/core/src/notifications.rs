@@ -249,6 +249,8 @@ pub fn to_json(db: &Db, notification: &Notification) -> Result<Value, Error> {
             "actor": actor,
             "summary": notification.summary,
             "unread": notification.unread,
+            // what the row's line says changed since the person last looked
+            "new": db.notification_new(notification)?.to_json(),
             "read": notification.unread == 0,
             "done": notification.done_at.is_some(),
             "muted": notification.muted,
