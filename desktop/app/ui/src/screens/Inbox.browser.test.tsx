@@ -106,8 +106,8 @@ async function open(rows: Notification[], route = "/") {
 
 /** The address the inbox is at, for the test to read. */
 function Where() {
-  const { search } = useLocation();
-  return <output data-testid="where">{search}</output>;
+  const { pathname, search } = useLocation();
+  return <output data-testid="where">{pathname + decodeURIComponent(search)}</output>;
 }
 
 const row = (title: string) => page.getByTestId("update-row").filter({ hasText: title });
@@ -241,5 +241,16 @@ describe("the inbox", () => {
     await expect.element(row("Resume a stopped")).toMatchTextContent("codex commented·The flag differs.·Under PIN-301");
     await expect.element(row("Migrate the billing")).toMatchTextContent("The agent finished 3 turns·Pushed the fix.");
     await expect.element(page.getByRole("button", { name: /Show the new events/ })).not.toBeInTheDocument();
+  });
+
+  test("a work item's and a session's notification open beside the list", async () => {
+    await open([update(1, "Load themes"), waitingAgent(3)]);
+    await row("Load themes").click();
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=item:PIN-1");
+    await expect.element(page.getByRole("complementary", { name: "Work item" })).toBeInTheDocument();
+    expect(core.calls("setNotificationRead").at(-1)).toEqual([1, true]);
+    await row("Migrate the billing tables").click();
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=session:claude-code/ses_3");
+    await expect.element(page.getByRole("complementary", { name: "Session" })).toBeInTheDocument();
   });
 });

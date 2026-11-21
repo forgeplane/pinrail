@@ -92,7 +92,7 @@ export function lineOf(n: Notification): RowLine {
           : line(`${who} added ${fresh.sub_items} sub-items`, fresh.sub_items);
       case "comment":
         return fresh.comments === 1
-          ? line(`${fresh.authors[0] ?? who} commented`, 1, fresh.comment ?? undefined)
+          ? line(`${fresh.authors[0] ?? who} commented`, 1, plain(fresh.comment ?? undefined) || undefined)
           : line(`${fresh.comments} new comments`, fresh.comments, fresh.authors.join(", "));
       case "change":
         return line(reasonOf(n), 1, n.summary ?? undefined);

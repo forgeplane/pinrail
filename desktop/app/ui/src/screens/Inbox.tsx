@@ -16,7 +16,9 @@ import { History } from "./History";
 import { InboxHead, tabOf, type InboxTab } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
-import { NotificationRow, notificationPath, type NotificationActions } from "../components/NotificationRow";
+import { ItemPanel } from "../components/ItemPanel";
+import { NotificationRow, notificationPath, panelToken, type NotificationActions } from "../components/NotificationRow";
+import { Thread } from "../components/Thread";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
@@ -68,7 +70,14 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const { settings: prefs } = useSettings();
   // with the side panel, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
-  const openId = panelMode ? params.get("open") : null;
+  // what the side panel shows: a review by its id, `item:KEY`, or
+  // `session:AGENT/ID`
+  const opened = panelMode ? params.get("open") : null;
+  const openItem = opened?.startsWith("item:") ? opened.slice(5) : null;
+  const openSession = opened?.startsWith("session:")
+    ? (([agent, ...id]) => ({ agent, id: id.join("/") }))(opened.slice(8).split("/"))
+    : null;
+  const openId = opened && !openItem && !openSession ? opened : null;
   // The search box keeps its own text: a router navigation per keystroke is
   // deferred, and a controlled input bound to the URL would snap back.
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -176,28 +185,42 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const readAll = () => void api.readNotifications({ ...filters, tab }, upTo).catch(() => {});
   /** Opening a notification other than a review marks it read; a review is
    *  read when the person opens it, which the core records. */
-  const opened = (n: Notification) => {
+  const markOpened = (n: Notification) => {
     if (n.subject.kind !== "review" && !n.read) setRead(n, true);
+  };
+  /** A row's link: with the side panel, the inbox with the row's subject
+   *  open beside the list; otherwise the subject's page. */
+  const rowHref = (n: Notification): To => {
+    if (!panelMode) return notificationPath(n, hrefFor);
+    const next = new URLSearchParams(params);
+    next.set("open", panelToken(n));
+    return { pathname: "/", search: `?${next}` };
+  };
+  /** A plain click on a row in the panel mode opens its subject in the
+   *  side panel, replacing the history entry when the panel is open. */
+  const openRow = (event: MouseEvent, n: Notification) => {
+    markOpened(n);
+    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    openInPanel(panelToken(n), { replace: currentParams().has("open") });
   };
 
   // J, K and Enter over every row, what waits first; the side panel walks
   // the reviews alone
-  const walked = useMemo(() => rows.filter((n) => n.subject.kind === "review"), [rows]);
-  const openKey = openId
-    ? (rows.find((n) => n.subject.kind === "review" && n.subject.review.id === openId)?.id.toString() ?? null)
-    : null;
+  const openKey = opened ? (rows.find((n) => panelToken(n) === opened)?.id.toString() ?? null) : null;
   const { focused, setFocused, hover } = useListKeys<Notification>({
     items: rows,
-    walkItems: walked,
+    walkItems: rows,
     altWalk: true,
     keyOf: (n) => String(n.id),
     openKey,
     onOpen: (n) => {
-      opened(n);
-      navigate(notificationPath(n, hrefFor));
+      markOpened(n);
+      navigate(rowHref(n));
     },
     onWalk: (n) => {
-      if (n.subject.kind === "review") openInPanel(n.subject.review.id, { replace: true });
+      markOpened(n);
+      openInPanel(panelToken(n), { replace: true });
     },
     rowOf: (i) => document.querySelector<HTMLElement>(`.inbox-side [data-row="${i}"]`),
   });
@@ -210,7 +233,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     if (modalOpen()) return;
     // the open review handles the other keys: the panel handles discard,
     // and the view may use Enter
-    if (openId) return;
+    if (opened) return;
     if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
       // the key must not land in the reason field that opens
       event.preventDefault();
@@ -253,7 +276,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     hover: (here: number) => hover(here),
     open: (event: MouseEvent, id: string) => openFromLink(event, id),
     discard: (review: Review) => setDiscarding(review),
-    opened,
+    openRow,
     setRead,
     setDone,
   });
@@ -268,7 +291,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const notificationActions = useMemo<NotificationActions>(
     () => ({
       hover: (here) => latest.current.hover(here),
-      open: (n) => latest.current.opened(n),
+      open: (event, n) => latest.current.openRow(event, n),
       setRead: (n, read) => latest.current.setRead(n, read),
       setDone: (n) => latest.current.setDone(n),
     }),
@@ -295,7 +318,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
         notification={n}
         here={here}
         focused={here === focused}
-        href={notificationPath(n, hrefFor)}
+        href={rowHref(n)}
         actions={notificationActions}
       />
     );
@@ -307,6 +330,9 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     if (!listing) return [];
     return [...listing.projects.flatMap((p) => p.repos.map((r) => r.repo)), ...listing.loose.map((r) => r.repo)];
   }, [live.projectsListing]);
+  // the work items the item panel's pickers offer, read when one is open
+  const items =
+    useLoad(() => (openItem ? api.items().then((d) => d.items) : Promise.resolve([])), [!!openItem]).data ?? [];
   const clearFilters = () => {
     setQ("");
     updateParams(
@@ -320,7 +346,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   };
 
   return (
-    <div className={`inbox ${openId ? "has-panel" : ""}`} ref={split}>
+    <div className={`inbox ${opened ? "has-panel" : ""}`} ref={split}>
       <div className="inbox-side split-side">
         <InboxHead
           tab={tab}
@@ -402,7 +428,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
           />
         ) : null}
         <footer className="inbox-footer">
-          {openId ? (
+          {opened ? (
             <>
               <kbd>J</kbd> <kbd>K</kbd> next and previous · <kbd>Esc</kbd> close · <kbd>/</kbd> search
             </>
@@ -417,6 +443,25 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       {openId ? (
         <SidePanel split={split}>
           <ReviewView id={openId} inPanel linkTo={hrefFor} onEnded={openNext} onClose={closePanel} />
+        </SidePanel>
+      ) : openItem ? (
+        <SidePanel split={split} label="Work item" listMin={560}>
+          <ItemPanel
+            key={openItem}
+            itemKey={openItem}
+            items={items}
+            repos={repos}
+            onOpen={(key) => openInPanel(`item:${key}`)}
+            onClose={closePanel}
+            onChanged={() => {}}
+            onOpenPage={() => navigate(`/items?open=${encodeURIComponent(openItem)}`)}
+          />
+        </SidePanel>
+      ) : openSession ? (
+        <SidePanel split={split} label="Session">
+          <div className="review-page thread-page in-panel">
+            <Thread key={opened} session={openSession} inPanel onClose={closePanel} />
+          </div>
         </SidePanel>
       ) : null}
     </div>

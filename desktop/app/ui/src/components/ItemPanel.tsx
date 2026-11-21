@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   Unlink,
   Pencil,
+  SquareArrowOutUpRight,
   Trash2,
   X,
 } from "lucide-react";
@@ -58,6 +59,7 @@ export function ItemPanel({
   onOpen,
   onClose,
   onChanged,
+  onOpenPage,
 }: {
   itemKey: string;
   /** the items the pickers offer */
@@ -68,6 +70,8 @@ export function ItemPanel({
   onClose: () => void;
   /** the item changed here, for the list to show it */
   onChanged: () => void;
+  /** opens the item on the Work items page, from a panel outside it */
+  onOpenPage?: () => void;
 }) {
   const toast = useToast();
   const { settings } = useSettings();
@@ -203,6 +207,9 @@ export function ItemPanel({
           />
         ) : null}
         <PanelButton label="Delete…" onClick={() => setDeleting(true)} icon={<Trash2 size={14} />} />
+        {onOpenPage ? (
+          <PanelButton label="Open in Work items" onClick={onOpenPage} icon={<SquareArrowOutUpRight size={14} />} />
+        ) : null}
         <PanelButton label="Close" onClick={onClose} icon={<X size={15} />} />
       </div>
       {item.ancestors.length ? (

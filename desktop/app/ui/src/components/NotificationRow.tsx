@@ -4,7 +4,7 @@
 // read or unread and, when it does not wait, done.
 
 import { Check, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
-import { memo, type ReactNode } from "react";
+import { memo, type MouseEvent, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import type { Notification } from "../api/types";
 import { age, stamp } from "../lib/format";
@@ -21,10 +21,25 @@ import { Tooltip } from "./Tooltip";
  *  the next. */
 export type NotificationActions = {
   hover: (here: number) => void;
-  open: (n: Notification) => void;
+  /** a click on the row's link: opens the subject, or with the side panel
+   *  takes the click to open it there */
+  open: (event: MouseEvent, n: Notification) => void;
   setRead: (n: Notification, read: boolean) => void;
   setDone: (n: Notification) => void;
 };
+
+/** What the inbox's `open` names for a notification's subject in the side
+ *  panel: a review's id, `item:KEY` or `session:AGENT/ID`. */
+export function panelToken(n: Notification): string {
+  switch (n.subject.kind) {
+    case "item":
+      return `item:${n.subject.item.key}`;
+    case "session":
+      return `session:${n.subject.session.agent}/${n.subject.session.id}`;
+    case "review":
+      return n.subject.review.id;
+  }
+}
 
 /** Where a notification leads: its work item, its session, or its review
  *  as `reviewHref` opens it. */
@@ -114,7 +129,7 @@ export const NotificationRow = memo(function NotificationRow({
   return (
     <Link
       to={href}
-      onClick={() => actions.open(n)}
+      onClick={(event) => actions.open(event, n)}
       className={`review-row update-row ${n.read ? "is-read" : "is-unread"} ${n.waiting ? "is-waiting" : ""} ${focused ? "is-focused" : ""}`}
       onMouseEnter={() => actions.hover(here)}
       data-testid="update-row"
