@@ -4,6 +4,7 @@
 // comments with what happened around them, in one timeline.
 
 import {
+  ArrowUpRight,
   Copy,
   CornerDownRight,
   ExternalLink,
@@ -275,21 +276,35 @@ export function ItemPanel({
           onChange={(v) => void change({ repo: v })}
           options={[...new Set([item.repo, ...repos])].sort().map((r) => ({ value: r, label: r }))}
         />
-        <Select
-          id="item-parent"
-          searchable
-          label="Parent"
-          icon={<CornerDownRight size={13} />}
-          value={item.parent ?? ""}
-          onChange={(v) => void change({ parent: v || null })}
-          options={[
-            { value: "", label: "No parent" },
-            ...others.map((o) => ({ value: o.key, label: `${o.key} ${o.title}` })),
-            ...(item.parent && !others.some((o) => o.key === item.parent)
-              ? [{ value: item.parent, label: item.parent }]
-              : []),
-          ]}
-        />
+        <span className={item.parent ? "item-parent" : undefined}>
+          <Select
+            id="item-parent"
+            searchable
+            label="Parent"
+            icon={<CornerDownRight size={13} />}
+            value={item.parent ?? ""}
+            onChange={(v) => void change({ parent: v || null })}
+            options={[
+              { value: "", label: "No parent" },
+              ...others.map((o) => ({ value: o.key, label: `${o.key} ${o.title}` })),
+              ...(item.parent && !others.some((o) => o.key === item.parent)
+                ? [{ value: item.parent, label: item.parent }]
+                : []),
+            ]}
+          />
+          {item.parent ? (
+            <Tooltip label="Open the parent">
+              <button
+                type="button"
+                className="item-parent-open"
+                aria-label="Open the parent"
+                onClick={() => item.parent && onOpen(item.parent)}
+              >
+                <ArrowUpRight size={13} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          ) : null}
+        </span>
         <EditableLink link={item.link} onSave={(link) => change({ link })} />
         {item.status !== "done" && item.status !== "cancelled" ? (
           <button

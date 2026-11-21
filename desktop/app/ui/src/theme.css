@@ -7363,6 +7363,31 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   border-left: 1px solid var(--border);
   color: var(--dim);
 }
+/* the parent pill with a button beside it that opens the parent */
+.item-parent {
+  display: inline-flex;
+  min-width: 0;
+}
+.item-parent .select-trigger {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.item-parent-open {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--bg-hover);
+  color: var(--dim);
+  cursor: pointer;
+}
+.item-parent-open:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
 .item-pills .select-value,
 .item-pill-text {
   min-width: 0;

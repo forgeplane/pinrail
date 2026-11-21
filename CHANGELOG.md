@@ -13,6 +13,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- A button beside the **Parent** of a work item opens the parent item.
 - Antigravity CLI reports its status to Pinrail. Turn on **Report status**
   for it in Settings › Agents, and its sessions show their turns, prompts
   and replies, and whether the agent is working or finished.

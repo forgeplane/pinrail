@@ -70,6 +70,17 @@ describe("the item panel", () => {
     await expect.element(panel().getByRole("button", { name: "Queued · 2nd" })).toBeVisible();
   });
 
+  test("the button beside the parent opens the parent", async () => {
+    const { onOpen } = await open(itemDetail({ title: "A sub-item", number: 12, parent: "ACME-3" }));
+    await userEvent.click(panel().getByRole("button", { name: "Open the parent" }));
+    expect(onOpen).toHaveBeenCalledWith("ACME-3");
+  });
+
+  test("an item without a parent has no button to open one", async () => {
+    await open(itemDetail({ title: "On its own", number: 13 }));
+    await expect.element(panel().getByRole("button", { name: "Open the parent" })).not.toBeInTheDocument();
+  });
+
   test("a closed item has no queue pill", async () => {
     await open(itemDetail({ title: "Done already", number: 10, status: "done" }));
     await expect.element(panel().getByRole("button", { name: /^Queue/ })).not.toBeInTheDocument();
