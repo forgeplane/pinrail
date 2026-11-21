@@ -7,7 +7,9 @@ import { page, userEvent } from "vitest/browser";
 import type { StartableAgent } from "../api/runtime";
 import { core } from "../testing/core";
 import { cleanup, render } from "../testing/render";
+import { workItem } from "../testing/items";
 import { NewSession } from "./NewSession";
+import { QuickAddDialog } from "./QuickAddDialog";
 
 const app = vi.hoisted(() => ({
   agents: [] as StartableAgent[],
@@ -148,4 +150,27 @@ test("a start opens its session at once, before the agent names it", async () =>
   await userEvent.click(startButton());
   await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/antigravity/ses_01NEW");
   expect(app.started).toEqual([expect.objectContaining({ agent: "antigravity", folder: "/work/api" })]);
+});
+
+test("⌘Enter in the quick add dialog adds the item and starts no session", async () => {
+  app.agents = [agent("antigravity", "Antigravity CLI", false, true)];
+  core.answer("projects", { projects: [], loose: [{ repo: "acme/app" }] });
+  core.answer("items", { items: [] });
+  core.answer("addItem", (body: unknown) => workItem({ title: (body as { title: string }).title, number: 1 }));
+  await render(
+    <>
+      <NewSession />
+      <QuickAddDialog onClose={() => {}} />
+      <Where />
+    </>,
+    { route: "/new" },
+  );
+  await expect.element(startButton()).toBeEnabled();
+  const title = page.getByRole("dialog", { name: "Add a work item" }).getByRole("textbox").first();
+  await userEvent.click(title);
+  await userEvent.keyboard("Fix the login");
+  await userEvent.keyboard("{ControlOrMeta>}{Enter}{/ControlOrMeta}");
+  await expect.poll(() => core.calls("addItem")).toHaveLength(1);
+  expect(app.started).toEqual([]);
+  await expect.element(page.getByTestId("where")).toHaveTextContent("/new");
 });

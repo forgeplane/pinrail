@@ -18,7 +18,7 @@ import { useLocation, useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
 import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
-import { combo, hasMod, MOD } from "../lib/keys";
+import { combo, hasMod, MOD, modalOpen } from "../lib/keys";
 import { TIPS, tipParts } from "../lib/tips";
 import { useWindowKey } from "../lib/useWindowKey";
 import { AgentIcon } from "./AgentIcon";
@@ -182,6 +182,8 @@ export function NewSession() {
   };
 
   useWindowKey((event) => {
+    // a dialog over the page, such as the quick add, handles its own ⌘Enter
+    if (event.defaultPrevented || modalOpen()) return;
     if (hasMod(event) && event.key === "Enter" && !event.shiftKey && !event.altKey) {
       event.preventDefault();
       void start();

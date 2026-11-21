@@ -212,6 +212,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- ⌘Enter in the quick add dialog on the new session page adds the work
+  item without starting the session.
 - ⌘⇧C opens the quick add while a review has the focus. The Navigate
   menu also has **Add Work Item…**.
 - A table in a message or note no longer splits short words, such as an
