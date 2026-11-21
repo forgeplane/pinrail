@@ -758,3 +758,69 @@ async fn a_start_on_older_data_shows_what_waits_and_what_finished_unseen() {
         ("agent_finished", false, 1)
     );
 }
+
+#[tokio::test]
+async fn the_sweep_marks_old_read_notifications_done_and_deletes_old_done_ones() {
+    let app = app();
+    // a review that waits, and work items in each state and age
+    let review = submit_review(&app, None).await;
+    for title in [
+        "Fresh read",
+        "Old read",
+        "Old unread",
+        "Done long ago",
+        "Done lately",
+    ] {
+        add_item(&app, title).await;
+    }
+    let now = Utc::now();
+    let days = |d: i64| pinrail_core::reviews::iso(now - chrono::Duration::days(d));
+    let title_is =
+        |title: &str| format!("item_id = (SELECT id FROM work_items WHERE title = '{title}')");
+    corrupt(
+        &app,
+        &format!(
+            "UPDATE notifications SET unread = 0, updated_at = '{}' WHERE {};
+             UPDATE notifications SET unread = 0, updated_at = '{}' WHERE {};
+             UPDATE notifications SET unread = 1, updated_at = '{}' WHERE {};
+             UPDATE notifications SET unread = 0, done_at = '{}', updated_at = '{}' WHERE {};
+             UPDATE notifications SET unread = 0, done_at = '{}', updated_at = '{}' WHERE {};
+             UPDATE notifications SET unread = 0, updated_at = '{}' WHERE review_id IS NOT NULL;",
+            days(2),
+            title_is("Fresh read"),
+            days(8),
+            title_is("Old read"),
+            days(8),
+            title_is("Old unread"),
+            days(31),
+            days(40),
+            title_is("Done long ago"),
+            days(20),
+            days(25),
+            title_is("Done lately"),
+            days(60),
+        ),
+    );
+
+    app.state.notifications().sweep(now).unwrap();
+    let state = |title: &str| {
+        let db = common::db(&app);
+        let id: Option<String> = rusqlite::Connection::open(app.state.config().db_path())
+            .unwrap()
+            .query_row("SELECT id FROM work_items WHERE title = ?1", [title], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        db.notification_of(0, Some(&EventSubject::Item(id.unwrap())))
+            .unwrap()
+            .map(|n| if n.done_at.is_some() { "done" } else { "open" })
+    };
+    assert_eq!(state("Fresh read"), Some("open"));
+    assert_eq!(state("Old read"), Some("done"));
+    assert_eq!(state("Old unread"), Some("open"));
+    assert_eq!(state("Done long ago"), None);
+    assert_eq!(state("Done lately"), Some("done"));
+    // what waits is never touched, however old
+    let n = of_review(&app, &review).unwrap();
+    assert!(n.waiting && n.done_at.is_none());
+}

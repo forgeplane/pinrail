@@ -793,6 +793,27 @@ impl Db {
         Ok(changed)
     }
 
+    /// Keeps the lists short, as of `now`: a read notification that does not
+    /// wait is marked done 7 days after its last event, and a done one is
+    /// deleted 30 days after it was marked done, unless it is muted, which
+    /// it must stay. Returns how many it changed.
+    pub fn sweep_notifications(&self, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let mut changed = tx.execute(
+            "UPDATE notifications SET done_at = ?1
+             WHERE waiting = 0 AND unread = 0 AND done_at IS NULL AND updated_at < ?2",
+            params![iso(now), iso(now - chrono::Duration::days(7))],
+        )?;
+        changed += tx.execute(
+            "DELETE FROM notifications
+             WHERE waiting = 0 AND muted = 0 AND done_at IS NOT NULL AND done_at < ?1",
+            params![iso(now - chrono::Duration::days(30))],
+        )?;
+        tx.commit()?;
+        Ok(changed)
+    }
+
     /// The agent of the session of this id, by Pinrail's id.
     pub fn session_agent(&self, id: &str) -> rusqlite::Result<Option<String>> {
         let conn = self.read();

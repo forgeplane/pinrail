@@ -204,6 +204,9 @@ pub async fn serve(
                 if let Err(error) = app.reviews().sweep_hidden_sessions() {
                     eprintln!("pinrail: hidden sessions sweep failed: {error}");
                 }
+                if let Err(error) = app.notifications().sweep(chrono::Utc::now()) {
+                    eprintln!("pinrail: notifications sweep failed: {error}");
+                }
                 if let Err(error) = app.events().sweep(chrono::Utc::now()) {
                     eprintln!("pinrail: events sweep failed: {error}");
                 }

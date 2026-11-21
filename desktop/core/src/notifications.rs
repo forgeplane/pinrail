@@ -147,6 +147,17 @@ impl Notifications {
             .collect())
     }
 
+    /// Marks old read notifications done and deletes old done ones, as of
+    /// `now`, and tells the windows to read their list again when it
+    /// changed any.
+    pub fn sweep(&self, now: chrono::DateTime<Utc>) -> Result<usize, Error> {
+        let changed = self.db.sweep_notifications(now)?;
+        if changed > 0 {
+            self.announce(json!({"change": "swept"}))?;
+        }
+        Ok(changed)
+    }
+
     /// Repairs the notifications that disagree with what waits, and tells
     /// the windows to read their list again when it changed any. Returns
     /// how many it changed.
