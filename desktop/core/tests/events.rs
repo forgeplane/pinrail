@@ -136,3 +136,72 @@ async fn every_replayed_notice_matches_the_live_one() {
         assert_eq!(shape(again), shape(notice), "the replay of {}", notice.kind);
     }
 }
+
+#[tokio::test]
+async fn an_event_about_an_item_keeps_its_subject_and_actor_and_goes_with_the_item() {
+    use pinrail_core::db::{EventActor, EventSubject, NewEvent};
+    let app = app();
+    let item = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": REPO, "title": "Work"}),
+    )
+    .await;
+    let id = item["id"].as_str().unwrap().to_string();
+    let session = common::sid(&app, "claude-code", "s-1");
+    let db = common::db(&app);
+    let event = db
+        .append_event_as(&NewEvent {
+            kind: "item_changed",
+            subject: Some(EventSubject::Item(id.clone())),
+            actor: EventActor::Agent {
+                name: "claude-code".to_string(),
+                session: Some(session.clone()),
+            },
+            attrs: &json!({"key": "PIN-1"}),
+        })
+        .unwrap();
+    let stored = db
+        .events_after(event - 1, 1)
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap();
+    assert_eq!(stored.id, event);
+    assert_eq!(
+        stored.subject_json(),
+        json!({"kind": "item", "id": id, "key": "PIN-1"})
+    );
+    assert_eq!(
+        stored.actor_json(),
+        json!({"kind": "agent", "name": "claude-code", "session": session})
+    );
+    // an event written before the columns were there has neither
+    let old = db
+        .events_after(0, 1000)
+        .unwrap()
+        .into_iter()
+        .find(|e| e.id != event)
+        .unwrap();
+    assert_eq!(old.subject_json(), Value::Null);
+    assert_eq!(old.actor_json(), Value::Null);
+
+    person(&app, "DELETE", "/api/v1/items/PIN-1", None).await;
+    assert!(
+        db.events_after(0, 1000)
+            .unwrap()
+            .iter()
+            .all(|e| e.id != event),
+        "the item's event outlived it"
+    );
+    // the deletion's own event comes after it, and does not take its id,
+    // which a client may have seen already
+    let deleted = db
+        .events_after(0, 1000)
+        .unwrap()
+        .into_iter()
+        .find(|e| e.kind == "item_deleted")
+        .unwrap();
+    assert!(deleted.id > event, "{} reused {event}", deleted.id);
+}

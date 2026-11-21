@@ -414,9 +414,25 @@ export type ReviewEvent = {
   attrs: unknown;
 };
 
+/** Who caused an event. */
+export type NoticeActor =
+  { kind: "person"; name: string } | { kind: "agent"; name: string; session: string | null } | { kind: "system" };
+
+/** What an event is about. */
+export type NoticeSubject =
+  | { kind: "review"; id: string }
+  | { kind: "item"; id: string; key: string }
+  | { kind: "session"; id: string; agent: string };
+
 export type Notice = {
   event_id: number;
   kind: string;
+  /** when the event was recorded */
+  at: string | null;
+  /** who caused it; null when that was not recorded */
+  actor: NoticeActor | null;
+  /** what it is about; null for none */
+  subject: NoticeSubject | null;
   review_id: string | null;
   review: Review | null;
   /** for settings_changed: the settings that changed, as JSON pointers */

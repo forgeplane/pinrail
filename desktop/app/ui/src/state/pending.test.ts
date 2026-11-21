@@ -6,6 +6,9 @@ const review = (id: string, status = "pending", title = id) => ({ id, status, ti
 const notice = (kind: string, about: Review | null, id = about?.id ?? null): Notice => ({
   event_id: 1,
   kind,
+  at: null,
+  actor: null,
+  subject: null,
   review_id: id,
   review: about,
 });

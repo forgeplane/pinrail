@@ -74,6 +74,10 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
             json!({
                 "event_id": notice.event_id,
                 "kind": "settings_changed",
+                "at": notice.at,
+                // the person's settings name no actor or subject yet
+                "actor": null,
+                "subject": null,
                 "review_id": null,
                 "review": null,
             })
@@ -173,5 +177,89 @@ async fn a_catch_up_longer_than_a_page_sends_every_missed_event() {
     for expected in missed.iter().chain([&live]) {
         let (id, _) = next_event(&mut body, &mut buffered).await;
         assert_eq!(id, *expected);
+    }
+}
+
+#[tokio::test]
+async fn a_notice_carries_its_time_actor_and_subject_live_and_replayed() {
+    use pinrail_core::db::{Db, EventActor, EventSubject, NewEvent};
+    use pinrail_core::events::Notice;
+    use pinrail_core::items::{Actor, NewItem};
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path(), 0);
+    let app = Arc::new(Pinrail::open(config.clone()).unwrap());
+    let item = app
+        .items()
+        .add(
+            &NewItem {
+                repo: "forgeplane/pinrail".to_string(),
+                title: "Work".to_string(),
+                body: String::new(),
+                parent: None,
+                depends_on: Vec::new(),
+                link: None,
+            },
+            None,
+            &Actor::Person,
+        )
+        .unwrap();
+    let cursor = app
+        .events()
+        .after(0, 1000)
+        .unwrap()
+        .last()
+        .unwrap()
+        .event_id;
+
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get(format!("/api/v1/events?after={cursor}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    let db = Db::open(&config.db_path()).unwrap();
+    let key = item.key.to_string();
+    let attrs = json!({ "key": key });
+    let event = db
+        .append_event_as(&NewEvent {
+            kind: "item_changed",
+            subject: Some(EventSubject::Item(item.id.clone())),
+            actor: EventActor::Person("pnezis".to_string()),
+            attrs: &attrs,
+        })
+        .unwrap();
+    app.events()
+        .publish(Notice::new(event, "item_changed", &attrs));
+    let (id, live) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(id, event);
+    assert_eq!(
+        live["subject"],
+        json!({"kind": "item", "id": item.id, "key": key})
+    );
+    assert_eq!(live["actor"], json!({"kind": "person", "name": "pnezis"}));
+    assert!(
+        live["at"].as_str().is_some_and(|at| at.ends_with('Z')),
+        "{live}"
+    );
+
+    // a client that reconnects reads the same
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get(format!("/api/v1/events?after={cursor}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    let (id, replayed) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(id, event);
+    for field in ["at", "actor", "subject"] {
+        assert_eq!(replayed[field], live[field], "{field}");
     }
 }

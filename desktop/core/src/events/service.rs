@@ -20,7 +20,7 @@ pub struct Events {
 impl Events {
     pub(crate) fn new(db: Arc<Db>) -> Self {
         Events {
-            bus: Bus::new(),
+            bus: Bus::recording(db.clone()),
             db,
         }
     }
@@ -61,7 +61,8 @@ impl Events {
                     .as_deref()
                     .and_then(|id| reviews.get(id))
                     .map(|review| review.to_json(false));
-                Notice::new(event.id, &event.kind, &event.attrs).about(event.review_id, review)
+                let review_id = event.review_id.clone();
+                Notice::recorded(&event).about(review_id, review)
             })
             .collect())
     }

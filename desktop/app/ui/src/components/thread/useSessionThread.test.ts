@@ -8,6 +8,9 @@ const items = new Set(["PIN-7"]);
 const notice = (extra: Partial<Notice>): Notice => ({
   event_id: 1,
   kind: "review_updated",
+  at: null,
+  actor: null,
+  subject: null,
   review_id: null,
   review: null,
   ...extra,

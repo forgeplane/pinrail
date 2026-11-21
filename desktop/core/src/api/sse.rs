@@ -88,6 +88,9 @@ async fn events(
         let mut data = json!({
             "event_id": n.event_id,
             "kind": n.kind,
+            "at": n.at,
+            "actor": n.actor,
+            "subject": n.subject,
             "review_id": n.review_id,
             "review": n.review,
         });

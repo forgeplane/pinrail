@@ -6,9 +6,13 @@ mod service;
 
 pub use service::Events;
 
+use std::sync::Arc;
+
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::broadcast;
+
+use crate::db::Db;
 
 pub const CREATED: &str = "created";
 pub const VIEWED: &str = "viewed";
@@ -74,6 +78,14 @@ pub const HISTORY_SWEPT: &str = "history_swept";
 pub struct Notice {
     pub event_id: i64,
     pub kind: String,
+    /// When the event was recorded.
+    pub at: Option<String>,
+    /// Who caused it: the person, an agent and its session, or the
+    /// system; null when it was not recorded.
+    pub actor: Value,
+    /// What it is about: a review, a work item or a session; null for
+    /// none.
+    pub subject: Value,
     pub review_id: Option<String>,
     /// The review without its payload, when the notice is about one.
     pub review: Option<Value>,
@@ -103,6 +115,9 @@ impl Notice {
         Notice {
             event_id,
             kind: kind.to_string(),
+            at: None,
+            actor: Value::Null,
+            subject: Value::Null,
             review_id: None,
             review: None,
             keys: attrs.get("keys").and_then(Value::as_array).map(|keys| {
@@ -130,6 +145,21 @@ impl Notice {
         }
     }
 
+    /// The notice of a stored event, with when it was recorded, who
+    /// caused it and what it is about.
+    pub fn recorded(event: &crate::db::Event) -> Notice {
+        let mut notice = Notice::new(event.id, &event.kind, &event.attrs);
+        notice.record(event);
+        notice
+    }
+
+    /// Takes the time, the actor and the subject from the stored event.
+    fn record(&mut self, event: &crate::db::Event) {
+        self.at = Some(crate::reviews::iso(event.at));
+        self.actor = event.actor_json();
+        self.subject = event.subject_json();
+    }
+
     /// The notice with the review it is about, without its payload.
     pub fn about(mut self, review_id: Option<String>, review: Option<Value>) -> Notice {
         self.review_id = review_id;
@@ -141,6 +171,10 @@ impl Notice {
 #[derive(Debug, Clone)]
 pub struct Bus {
     tx: broadcast::Sender<Notice>,
+    /// The record each notice is read from, for when it was recorded, who
+    /// caused it and what it is about, so a live notice says what its
+    /// replay will.
+    db: Option<Arc<Db>>,
 }
 
 impl Default for Bus {
@@ -152,10 +186,24 @@ impl Default for Bus {
 impl Bus {
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
-        Bus { tx }
+        Bus { tx, db: None }
     }
 
-    pub fn publish(&self, notice: Notice) {
+    /// A bus whose notices take their time, actor and subject from `db`.
+    pub(crate) fn recording(db: Arc<Db>) -> Self {
+        Bus {
+            db: Some(db),
+            ..Bus::new()
+        }
+    }
+
+    pub fn publish(&self, mut notice: Notice) {
+        if notice.at.is_none()
+            && let Some(db) = &self.db
+            && let Ok(Some(event)) = db.event(notice.event_id)
+        {
+            notice.record(&event);
+        }
         let _ = self.tx.send(notice);
     }
 

@@ -94,6 +94,9 @@ test("the page follows the session's run to the new session it goes on in, witho
   core.notice({
     event_id: 8,
     kind: "run_bound",
+    at: null,
+    actor: null,
+    subject: null,
     review_id: null,
     review: null,
     run: {
@@ -106,6 +109,9 @@ test("the page follows the session's run to the new session it goes on in, witho
   core.notice({
     event_id: 9,
     kind: "run_bound",
+    at: null,
+    actor: null,
+    subject: null,
     review_id: null,
     review: null,
     run: {
