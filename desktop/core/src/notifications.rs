@@ -85,6 +85,20 @@ impl Notifications {
                 "a notification that waits for you ends when you decide or answer".into(),
             ));
         }
+        // a session's read state is the session's own: seeing it, as the
+        // sidebar and the Sessions page do, which its notification follows
+        if let (EventSubject::Session(session), Change::Read | Change::Unread) =
+            (&notification.subject, change)
+            && let Some(agent) = self.db.session_agent(session)?
+        {
+            let now = Utc::now();
+            let seen = (change == Change::Read).then_some(now);
+            if let Some(Some((event, attrs))) = self.db.set_seen(&agent, session, seen, now)? {
+                self.bus
+                    .publish(Notice::new(event, events::SESSION_SEEN, &attrs));
+                return Ok(());
+            }
+        }
         match change {
             Change::Read => self.db.mark_notification_read(id)?,
             Change::Unread => self.db.mark_notification_unread(id)?,

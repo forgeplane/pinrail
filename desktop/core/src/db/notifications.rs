@@ -175,6 +175,9 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
     if let Some(EventSubject::Review(review)) = event.subject {
         return project_review(conn, review, event);
     }
+    if let Some(EventSubject::Session(session)) = event.subject {
+        return project_session(conn, session, event);
+    }
     let Some(EventSubject::Item(item)) = event.subject else {
         return Ok(());
     };
@@ -334,6 +337,118 @@ fn project_review(conn: &Connection, review: &str, event: &Projected<'_>) -> rus
     Ok(())
 }
 
+/// Applies an event about a session to its notification. An agent that
+/// waits for a permission or an answer in its terminal waits on the
+/// person until it moves on; a finished or failed turn, an agent that
+/// stopped or whose run failed, and a note are reported. The person seeing
+/// the session marks it read, and marking it unread marks it unread. The
+/// presence reports of an agent at work change nothing else.
+fn project_session(
+    conn: &Connection,
+    session: &str,
+    event: &Projected<'_>,
+) -> rusqlite::Result<()> {
+    use crate::events as e;
+    let attrs = event.attrs;
+    let set = |set: &str| {
+        conn.execute(
+            &format!("UPDATE notifications SET {set} WHERE session_id = ?1"),
+            params![session],
+        )
+    };
+    if event.kind == e::SESSION_SEEN {
+        let seen = !attrs["presence"]["seen_at"].is_null();
+        set(if seen {
+            "read_event = last_event, unread = 0"
+        } else {
+            "unread = MAX(unread, 1)"
+        })?;
+        return Ok(());
+    }
+    if event.by_person {
+        set("read_event = last_event, unread = 0")?;
+        return Ok(());
+    }
+    let text = |value: &Value| value.as_str().map(str::to_string);
+    let (reason, waiting, summary) = match event.kind {
+        e::SESSION_PRESENCE => {
+            let presence = &attrs["presence"];
+            if presence["state"] == "needs_input" {
+                let wait = &presence["wait"];
+                let reason = if wait["kind"] == "permission" {
+                    "permission_requested"
+                } else {
+                    "input_requested"
+                };
+                (
+                    reason,
+                    true,
+                    text(&wait["summary"]).or_else(|| text(&wait["tool"])),
+                )
+            } else {
+                // the wait is over: what nothing else is unread about is done
+                conn.execute(
+                    "UPDATE notifications SET waiting = 0,
+                       done_at = CASE WHEN unread = 0 THEN ?2 ELSE done_at END
+                     WHERE session_id = ?1 AND waiting = 1",
+                    params![session, iso(event.at)],
+                )?;
+                if presence["state"] == "stopped" && presence["stop_reason"] == "exited" {
+                    ("agent_stopped", false, None)
+                } else {
+                    return Ok(());
+                }
+            }
+        }
+        e::SESSION_TURN => match attrs["end_kind"].as_str() {
+            Some("done") => ("agent_finished", false, None),
+            Some("failed") => ("agent_failed", false, None),
+            _ => return Ok(()),
+        },
+        e::RUN_ENDED => {
+            let failed = matches!(attrs["reason"].as_str(), Some("start_failed" | "host_lost"))
+                || attrs["exit_code"].as_i64().is_some_and(|code| code != 0);
+            if !failed {
+                return Ok(());
+            }
+            ("agent_stopped", false, None)
+        }
+        e::SESSION_STATUS if attrs["status"]["kind"] == "note" => {
+            // the notice leaves a note's text out: its first line, stored
+            let note: Option<String> = conn
+                .query_row(
+                    "SELECT text FROM session_statuses WHERE id = ?1",
+                    params![attrs["status"]["id"].as_i64()],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            let first = note.and_then(|t| {
+                t.lines()
+                    .find(|l| !l.trim().is_empty())
+                    .map(|l| l.trim().trim_start_matches('#').trim().to_string())
+            });
+            ("agent_note", false, first)
+        }
+        _ => return Ok(()),
+    };
+    if !waiting && hidden(conn, reason)? {
+        return Ok(());
+    }
+    report(
+        conn,
+        &Notify {
+            subject: &EventSubject::Session(session.to_string()),
+            reason,
+            waiting,
+            event: event.event,
+            actor: event.actor,
+            summary: summary.as_deref(),
+            at: event.at,
+        },
+    )?;
+    Ok(())
+}
+
 impl Counts {
     pub fn to_json(&self) -> Value {
         json!({"waiting": self.waiting, "unread": self.unread})
@@ -467,6 +582,17 @@ impl Db {
             "UPDATE notifications SET done_at = NULL WHERE id = ?1",
             params![id],
         )? > 0)
+    }
+
+    /// The agent of the session of this id, by Pinrail's id.
+    pub fn session_agent(&self, id: &str) -> rusqlite::Result<Option<String>> {
+        let conn = self.read();
+        conn.query_row(
+            "SELECT agent FROM sessions WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .optional()
     }
 
     /// The id of the newest event recorded, or 0.

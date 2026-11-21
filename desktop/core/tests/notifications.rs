@@ -526,3 +526,130 @@ async fn a_withdrawn_or_expired_review_stops_waiting_and_says_why() {
     assert_eq!((n.reason.as_str(), n.waiting), ("review_expired", false));
     assert_eq!(common::db(&app).notification_counts().unwrap().waiting, 0);
 }
+
+/// A report of claude-code's hooks in session s-1, `s` seconds from now.
+async fn hook(app: &App, event: &str, s: i64, extra: Value) {
+    let mut body = json!({
+        "event": event,
+        "at": (chrono::Utc::now() + chrono::Duration::milliseconds(s)).to_rfc3339(),
+    });
+    body.as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    let (code, answer) = call(
+        app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/reports",
+        Some(body),
+    )
+    .await;
+    assert!(code.is_success(), "{event}: {code} {answer}");
+}
+
+/// The notification of claude-code's session s-1.
+fn of_session(app: &App) -> Option<pinrail_core::db::Notification> {
+    let session = common::sid(app, "claude-code", "s-1");
+    common::db(app)
+        .notification_of(0, Some(&EventSubject::Session(session)))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn an_agent_that_asks_for_a_permission_waits_until_it_moves_on() {
+    let app = app();
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(
+        &app,
+        "needs_input",
+        10,
+        json!({"wait": "permission", "detail": {"tool": "Bash", "summary": "cargo test"}}),
+    )
+    .await;
+    let n = of_session(&app).unwrap();
+    assert_eq!(
+        (n.reason.as_str(), n.waiting),
+        ("permission_requested", true)
+    );
+    assert_eq!(n.summary.as_deref(), Some("cargo test"));
+
+    // answered in the terminal: the agent works again
+    hook(&app, "working", 20, json!({})).await;
+    let n = of_session(&app).unwrap();
+    assert!(!n.waiting);
+    assert_eq!(common::db(&app).notification_counts().unwrap().waiting, 0);
+}
+
+#[tokio::test]
+async fn a_working_agents_reports_add_no_notification() {
+    let app = app();
+    hook(&app, "prompt", 0, json!({"detail": {"prompt": "Go"}})).await;
+    for s in 1..5 {
+        hook(&app, "working", s * 10, json!({})).await;
+    }
+    assert!(of_session(&app).is_none());
+}
+
+#[tokio::test]
+async fn a_finished_turn_is_reported_until_the_person_sees_the_session() {
+    let app = app();
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    let n = of_session(&app).unwrap();
+    assert_eq!((n.reason.as_str(), n.unread), ("agent_finished", 1));
+
+    let session = common::sid(&app, "claude-code", "s-1");
+    call(
+        &app,
+        "PUT",
+        &format!("/api/v1/sessions/claude-code/{session}/seen"),
+        None,
+    )
+    .await;
+    assert_eq!(of_session(&app).unwrap().unread, 0);
+    call(
+        &app,
+        "DELETE",
+        &format!("/api/v1/sessions/claude-code/{session}/seen"),
+        None,
+    )
+    .await;
+    assert_eq!(of_session(&app).unwrap().unread, 1);
+}
+
+#[tokio::test]
+async fn marking_a_sessions_notification_read_sees_the_session() {
+    let app = app();
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    let n = of_session(&app).unwrap();
+    let (code, _) = call(
+        &app,
+        "PUT",
+        &format!("/api/v1/notifications/{}/read", n.id),
+        None,
+    )
+    .await;
+    assert!(code.is_success());
+    let session = common::sid(&app, "claude-code", "s-1");
+    let presence = common::db(&app)
+        .presence("claude-code", &session)
+        .unwrap()
+        .unwrap();
+    assert!(presence.seen_at.is_some());
+    assert_eq!(of_session(&app).unwrap().unread, 0);
+}
+
+#[tokio::test]
+async fn an_agents_note_is_reported_with_its_first_line() {
+    let app = app();
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        json!({"text": "# Summary of the first stage\n\nTwo screenshots.", "kind": "note"}),
+    )
+    .await;
+    let n = of_session(&app).unwrap();
+    assert_eq!(n.reason, "agent_note");
+    assert_eq!(n.summary.as_deref(), Some("Summary of the first stage"));
+}
