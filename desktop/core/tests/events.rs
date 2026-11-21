@@ -8,10 +8,13 @@ use common::{App, app, call};
 const REPO: &str = "forgeplane/pinrail";
 
 /// A notice as a client receives it, without its review and its subject's
-/// key: a replay gives them as they are now, which may have changed since.
+/// key, which a replay gives as they are now, and without the notification
+/// and the counts, which a live notice alone carries.
 fn shape(notice: &pinrail_core::events::Notice) -> Value {
     let mut value = serde_json::to_value(notice).unwrap();
-    value.as_object_mut().unwrap().remove("review");
+    for live_only in ["review", "notification", "counts"] {
+        value.as_object_mut().unwrap().remove(live_only);
+    }
     if let Some(subject) = value["subject"].as_object_mut() {
         subject.remove("key");
     }

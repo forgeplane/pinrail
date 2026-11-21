@@ -80,6 +80,17 @@ impl Event {
         })
     }
 
+    /// What the event is about: its review, item or session.
+    pub fn subject(&self) -> Option<EventSubject> {
+        if let Some(id) = &self.review_id {
+            Some(EventSubject::Review(id.clone()))
+        } else if let Some(id) = &self.item_id {
+            Some(EventSubject::Item(id.clone()))
+        } else {
+            self.session_id.clone().map(EventSubject::Session)
+        }
+    }
+
     /// Who caused the event, as notices give it: null when it was not
     /// recorded.
     pub fn actor_json(&self) -> Value {
@@ -371,6 +382,7 @@ fn insert(
     {
         super::sessions::touch_review(conn, review_id)?;
     }
+    let at = Utc::now();
     conn.execute(
         "INSERT INTO events (review_id, kind, actor, at, attrs, item_id, session_id, actor_kind,
            actor_session)
@@ -379,7 +391,7 @@ fn insert(
             review_id,
             kind,
             actor,
-            crate::reviews::iso(Utc::now()),
+            crate::reviews::iso(at),
             if attrs.is_null() {
                 None
             } else {
@@ -392,6 +404,19 @@ fn insert(
         ],
     )?;
     let id = conn.last_insert_rowid();
+    // what the event means for the person's notifications, in its transaction
+    super::notifications::project(
+        conn,
+        &super::notifications::Projected {
+            event: id,
+            kind,
+            subject,
+            by_person: actor_kind == Some("person"),
+            actor,
+            attrs,
+            at,
+        },
+    )?;
     RECORDING.with(|r| {
         if let Some(ids) = r.borrow_mut().last_mut() {
             ids.push(id);

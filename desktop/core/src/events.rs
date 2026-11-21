@@ -105,6 +105,12 @@ pub struct Notice {
     /// to or the reason it ended.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run: Option<Value>,
+    /// The person's notification the event changed, as it is now, and how
+    /// many notifications wait and are unread: on a live notice alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counts: Option<Value>,
 }
 
 impl Notice {
@@ -142,6 +148,8 @@ impl Notice {
             ]),
             item: about(&[ITEM_CHANGED, ITEM_DELETED, PREFIX_CHANGED]),
             run: about(&[RUN_STARTED, RUN_BOUND, RUN_ENDED]),
+            notification: None,
+            counts: None,
         }
     }
 
@@ -198,11 +206,16 @@ impl Bus {
     }
 
     pub fn publish(&self, mut notice: Notice) {
-        if notice.at.is_none()
-            && let Some(db) = &self.db
+        if let Some(db) = &self.db
             && let Ok(Some(event)) = db.event(notice.event_id)
         {
-            notice.record(&event);
+            if notice.at.is_none() {
+                notice.record(&event);
+            }
+            if let Ok(Some(notification)) = db.notification_of(event.id, event.subject().as_ref()) {
+                notice.notification = Some(notification.to_json());
+                notice.counts = db.notification_counts().ok().map(|c| c.to_json());
+            }
         }
         let _ = self.tx.send(notice);
     }

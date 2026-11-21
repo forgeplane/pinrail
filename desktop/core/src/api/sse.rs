@@ -121,6 +121,11 @@ async fn events(
         if let Some(item) = &n.item {
             data["item"] = item.clone();
         }
+        // the person's notification the event changed, and the counts
+        if let Some(notification) = &n.notification {
+            data["notification"] = notification.clone();
+            data["counts"] = n.counts.clone().unwrap_or_default();
+        }
         Ok(Event::default()
             .id(n.event_id.to_string())
             .event(n.kind.clone())

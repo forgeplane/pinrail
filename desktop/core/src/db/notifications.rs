@@ -5,6 +5,7 @@
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, Row, params};
+use serde_json::{Value, json};
 
 use super::Db;
 use super::events::EventSubject;
@@ -124,7 +125,150 @@ pub(super) fn report(conn: &Connection, report: &Notify<'_>) -> rusqlite::Result
     .optional()
 }
 
+/// An event as the projector reads it.
+#[derive(Debug, Clone)]
+pub(super) struct Projected<'a> {
+    pub event: i64,
+    pub kind: &'a str,
+    pub subject: Option<&'a EventSubject>,
+    /// Whether the person caused it, who needs no notice of it.
+    pub by_person: bool,
+    pub actor: Option<&'a str>,
+    pub attrs: &'a Value,
+    pub at: DateTime<Utc>,
+}
+
+/// Applies an event to the notification of its subject, in the event's
+/// transaction. An agent's or Pinrail's change to a work item reports on
+/// the item, or for a new sub-item on its parent, so that a breakdown makes
+/// one notification. The person's own change marks the item's
+/// notification read.
+pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Result<()> {
+    let Some(EventSubject::Item(item)) = event.subject else {
+        return Ok(());
+    };
+    if event.kind != crate::events::ITEM_CHANGED {
+        return Ok(());
+    }
+    if event.by_person {
+        conn.execute(
+            "UPDATE notifications SET read_event = last_event, unread = 0 WHERE item_id = ?1",
+            params![item],
+        )?;
+        return Ok(());
+    }
+    let attr = |name: &str| event.attrs[name].as_str();
+    let (reason, subject, summary) = match attr("change") {
+        Some("created") => {
+            let parent: Option<String> = conn.query_row(
+                "SELECT parent FROM work_items WHERE id = ?1",
+                params![item],
+                |r| r.get(0),
+            )?;
+            let title: String = conn.query_row(
+                "SELECT title FROM work_items WHERE id = ?1",
+                params![item],
+                |r| r.get(0),
+            )?;
+            let summary = format!("{} {title}", attr("key").unwrap_or_default());
+            match parent {
+                Some(parent) => ("item_added", EventSubject::Item(parent), Some(summary)),
+                None => ("item_added", EventSubject::Item(item.clone()), None),
+            }
+        }
+        Some("commented") => (
+            "item_commented",
+            EventSubject::Item(item.clone()),
+            attr("excerpt").map(str::to_string),
+        ),
+        Some("status") if matches!(attr("to"), Some("done" | "cancelled")) => {
+            ("item_closed", EventSubject::Item(item.clone()), None)
+        }
+        _ => ("item_changed", EventSubject::Item(item.clone()), None),
+    };
+    report(
+        conn,
+        &Notify {
+            subject: &subject,
+            reason,
+            waiting: false,
+            event: event.event,
+            actor: event.actor,
+            summary: summary.as_deref(),
+            at: event.at,
+        },
+    )?;
+    Ok(())
+}
+
+impl Notification {
+    pub fn to_json(&self) -> Value {
+        let (kind, id) = match &self.subject {
+            EventSubject::Review(id) => ("review", id),
+            EventSubject::Item(id) => ("item", id),
+            EventSubject::Session(id) => ("session", id),
+        };
+        json!({
+            "id": self.id,
+            "subject": {"kind": kind, "id": id},
+            "repo": self.repo,
+            "reason": self.reason,
+            "waiting": self.waiting,
+            "last_event": self.last_event,
+            "last_actor": self.last_actor,
+            "summary": self.summary,
+            "read_event": self.read_event,
+            "unread": self.unread,
+            "updated_at": iso(self.updated_at),
+            "done_at": self.done_at.map(iso),
+            "muted": self.muted,
+        })
+    }
+}
+
+impl Counts {
+    pub fn to_json(&self) -> Value {
+        json!({"waiting": self.waiting, "unread": self.unread})
+    }
+}
+
 impl Db {
+    /// The notification an event changed: the one it reported on, or the
+    /// notification of its subject.
+    pub fn notification_of(
+        &self,
+        event: i64,
+        subject: Option<&EventSubject>,
+    ) -> rusqlite::Result<Option<Notification>> {
+        let conn = self.read();
+        let by_event = conn
+            .query_row(
+                &format!(
+                    "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
+                      WHERE n.last_event = ?1"
+                ),
+                params![event],
+                row_to_notification,
+            )
+            .optional()?;
+        if by_event.is_some() {
+            return Ok(by_event);
+        }
+        let Some(subject) = subject else {
+            return Ok(None);
+        };
+        let (column, id) = subject_column(subject);
+        conn.query_row(
+            &format!(
+                "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
+                  WHERE n.{column} = ?1"
+            ),
+            params![id],
+            row_to_notification,
+        )
+        .optional()
+    }
+
     /// Records what an event reports on its subject's notification, as
     /// [`report`] does.
     pub fn report_notification(&self, report: &Notify<'_>) -> rusqlite::Result<Option<i64>> {
