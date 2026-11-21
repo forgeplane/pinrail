@@ -14,6 +14,7 @@ mod item_work;
 mod items;
 mod messages;
 mod names;
+mod notifications;
 mod outcomes;
 mod plugins;
 mod presence;
@@ -30,6 +31,7 @@ pub use events::{Event, EventActor, EventSubject, NewEvent, recording};
 pub use item_work::{Claim, Comment, Edited, Entry, ItemChange, ItemReview, ItemSession, Place};
 pub use items::{ItemFilters, ItemTag, Refused, Related, State, WorkItem};
 pub use messages::{Deleted, MessageChange, MessageRow, message_notice};
+pub use notifications::{Counts, Listed, Notification, Notify};
 pub use plugins::InstallRecord;
 pub use presence::{
     ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,
