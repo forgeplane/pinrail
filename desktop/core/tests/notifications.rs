@@ -60,6 +60,12 @@ async fn subjects(app: &App) -> [EventSubject; 3] {
                "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}}),
     )
     .await;
+    // the question's own notification is left out: each test reports
+    // what it checks
+    rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .execute("DELETE FROM notifications", [])
+        .unwrap();
     [
         EventSubject::Item(item["id"].as_str().unwrap().to_string()),
         EventSubject::Session(common::sid(app, "claude-code", "s-1")),
@@ -400,4 +406,123 @@ async fn a_kind_the_person_turned_off_adds_nothing_and_its_event_is_kept() {
     )
     .await;
     assert_eq!(listed(&app), [row("PIN-1", "item_added", 1)]);
+}
+
+/// A review of the list plugin an agent submits, revising `revises` when
+/// given, and its id.
+async fn submit_review(app: &App, revises: Option<&str>) -> String {
+    let mut body = json!({
+        "plugin": "list", "title": "Rate limiter",
+        "origin": {"repo": REPO, "ref": "main"},
+        "requested_by": "claude-code",
+        "payload": {"groups": [{"title": "a", "items": [{"id": 1, "title": "one"}]}]}
+    });
+    if let Some(revises) = revises {
+        body["revises"] = json!(revises);
+    }
+    let review = agent(app, "POST", "/api/v1/reviews", body).await;
+    review["id"].as_str().unwrap().to_string()
+}
+
+/// The review's notification, as stored.
+fn of_review(app: &App, review: &str) -> Option<pinrail_core::db::Notification> {
+    common::db(app)
+        .notification_of(0, Some(&EventSubject::Review(review.to_string())))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn a_review_waits_until_the_person_decides_it() {
+    let app = app();
+    let id = submit_review(&app, None).await;
+    let n = of_review(&app, &id).unwrap();
+    assert_eq!(
+        (n.reason.as_str(), n.waiting, n.unread),
+        ("review_requested", true, 1)
+    );
+    assert_eq!(common::db(&app).notification_counts().unwrap().waiting, 1);
+
+    call(&app, "POST", &format!("/api/v1/reviews/{id}/viewed"), None).await;
+    let n = of_review(&app, &id).unwrap();
+    assert_eq!((n.waiting, n.unread), (true, 0));
+
+    let (code, answer) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{id}/decision"),
+        Some(json!({"data": {"decisions": [{"id": 1, "action": "accept"}], "undecided": []}})),
+    )
+    .await;
+    assert!(code.is_success(), "{answer}");
+    let n = of_review(&app, &id).unwrap();
+    assert!(!n.waiting && n.done_at.is_some());
+    assert_eq!(common::db(&app).notification_counts().unwrap().waiting, 0);
+}
+
+#[tokio::test]
+async fn a_new_round_takes_over_the_notification_of_the_one_before() {
+    let app = app();
+    let first = submit_review(&app, None).await;
+    let before = of_review(&app, &first).unwrap();
+    let second = submit_review(&app, Some(&first)).await;
+    assert!(of_review(&app, &first).is_none());
+    let n = of_review(&app, &second).unwrap();
+    assert_eq!(n.id, before.id);
+    assert_eq!((n.reason.as_str(), n.waiting), ("new_round", true));
+}
+
+#[tokio::test]
+async fn a_question_waits_and_a_discarded_one_is_done() {
+    let app = app();
+    let question = agent(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        json!({"kind": "question", "title": "Deploy?",
+               "origin": {"repo": REPO, "ref": "main"},
+               "requested_by": "claude-code", "session": "s-1",
+               "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}}),
+    )
+    .await;
+    let id = question["id"].as_str().unwrap().to_string();
+    let n = of_review(&app, &id).unwrap();
+    assert_eq!((n.reason.as_str(), n.waiting), ("question_asked", true));
+    let (code, _) = call(&app, "POST", &format!("/api/v1/reviews/{id}/discard"), None).await;
+    assert!(code.is_success());
+    let n = of_review(&app, &id).unwrap();
+    assert!(!n.waiting && n.done_at.is_some());
+}
+
+#[tokio::test]
+async fn a_withdrawn_or_expired_review_stops_waiting_and_says_why() {
+    let app = app();
+    let withdrawn = submit_review(&app, None).await;
+    let (code, answer) = common::call_as(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{withdrawn}/withdraw"),
+        Some(json!({"reason": "superseded", "by": "claude-code"})),
+        &[],
+    )
+    .await;
+    assert!(code.is_success(), "{answer}");
+    let n = of_review(&app, &withdrawn).unwrap();
+    assert_eq!(
+        (n.reason.as_str(), n.waiting, n.unread),
+        ("review_withdrawn", false, 2)
+    );
+    assert_eq!(n.done_at, None);
+
+    let mut body = json!({
+        "plugin": "list", "title": "Late", "origin": {"repo": REPO},
+        "requested_by": "claude-code", "expires_at": "2020-01-01T00:00:00Z",
+        "payload": {"groups": []}
+    });
+    body["by"] = json!("claude-code");
+    let (_, late) = common::call_as(&app, "POST", "/api/v1/reviews", Some(body), &[]).await;
+    let late = late["id"].as_str().unwrap().to_string();
+    app.state.reviews().sweep_expired().unwrap();
+    let n = of_review(&app, &late).unwrap();
+    assert_eq!((n.reason.as_str(), n.waiting), ("review_expired", false));
+    assert_eq!(common::db(&app).notification_counts().unwrap().waiting, 0);
 }

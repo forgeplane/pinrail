@@ -172,6 +172,9 @@ pub(super) struct Projected<'a> {
 /// one notification. The person's own change marks the item's
 /// notification read.
 pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Result<()> {
+    if let Some(EventSubject::Review(review)) = event.subject {
+        return project_review(conn, review, event);
+    }
     let Some(EventSubject::Item(item)) = event.subject else {
         return Ok(());
     };
@@ -229,6 +232,105 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
             at: event.at,
         },
     )?;
+    Ok(())
+}
+
+/// Applies an event about a review or a question to its notification. A
+/// new one waits for the person, and a new round takes over its earlier
+/// round's notification. Opening it marks it read; deciding, answering or
+/// discarding it ends the wait and marks it done. A withdrawal or an expiry
+/// ends the wait and says so, unless the person turned that reason off.
+fn project_review(conn: &Connection, review: &str, event: &Projected<'_>) -> rusqlite::Result<()> {
+    use crate::events as e;
+    let read = "read_event = last_event, unread = 0";
+    let update = |set: &str| {
+        conn.execute(
+            &format!("UPDATE notifications SET {set} WHERE review_id = ?1"),
+            params![review],
+        )
+    };
+    match event.kind {
+        e::CREATED => {
+            let (kind, revises): (String, Option<String>) = conn.query_row(
+                "SELECT kind, revises FROM reviews WHERE id = ?1",
+                params![review],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            // the earlier round's notification moves to the new round
+            if let Some(revises) = &revises {
+                conn.execute(
+                    "UPDATE notifications SET review_id = ?1 WHERE review_id = ?2",
+                    params![review, revises],
+                )?;
+            }
+            let reason = match (kind.as_str(), &revises) {
+                ("question", _) => "question_asked",
+                (_, Some(_)) => "new_round",
+                _ => "review_requested",
+            };
+            report(
+                conn,
+                &Notify {
+                    subject: &EventSubject::Review(review.to_string()),
+                    reason,
+                    waiting: true,
+                    event: event.event,
+                    actor: event.actor,
+                    summary: None,
+                    at: event.at,
+                },
+            )?;
+        }
+        e::DECIDED | e::DISCARDED => {
+            conn.execute(
+                &format!(
+                    "UPDATE notifications SET waiting = 0, {read}, done_at = ?2 WHERE review_id = ?1"
+                ),
+                params![review, iso(event.at)],
+            )?;
+        }
+        e::WITHDRAWN | e::EXPIRED => {
+            // a round superseded by a newer one gave its notification to
+            // that round: nothing is left to tell
+            let notified: bool = conn.query_row(
+                "SELECT EXISTS (SELECT 1 FROM notifications WHERE review_id = ?1)",
+                params![review],
+                |r| r.get(0),
+            )?;
+            if !notified {
+                return Ok(());
+            }
+            let reason = if event.kind == e::WITHDRAWN {
+                "review_withdrawn"
+            } else {
+                "review_expired"
+            };
+            if hidden(conn, reason)? {
+                conn.execute(
+                    "UPDATE notifications SET waiting = 0, done_at = ?2 WHERE review_id = ?1",
+                    params![review, iso(event.at)],
+                )?;
+            } else {
+                report(
+                    conn,
+                    &Notify {
+                        subject: &EventSubject::Review(review.to_string()),
+                        reason,
+                        waiting: false,
+                        event: event.event,
+                        actor: event.actor,
+                        summary: None,
+                        at: event.at,
+                    },
+                )?;
+            }
+        }
+        // the person opening it, or anything else they do to it
+        _ if event.by_person || event.kind == e::VIEWED => {
+            update(read)?;
+        }
+        _ => {}
+    }
     Ok(())
 }
 

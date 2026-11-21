@@ -4,8 +4,10 @@
 
 import type { Notification } from "../api/types";
 
-/** Whether the Updates section lists a notification. */
-export const listed = (n: Notification) => !n.waiting && !n.done;
+/** Whether the Updates section lists a notification: one about a work
+ *  item that is not waiting or done. Reviews and sessions keep their own
+ *  rows above it. */
+export const listed = (n: Notification) => !n.waiting && !n.done && n.subject.kind === "item";
 
 /**
  * The updates after a notice that carries a notification as it now stands:

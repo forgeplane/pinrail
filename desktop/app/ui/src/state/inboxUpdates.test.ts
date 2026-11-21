@@ -37,6 +37,11 @@ describe("applyNotification", () => {
   });
 });
 
+test("leaves out a review's notification, which the reviews above show", () => {
+  const review = note(4, 50, { subject: { kind: "review", review: { id: "r_1" } }, reason: "review_withdrawn" });
+  expect(applyNotification([note(1, 20)], review).map((n) => n.id)).toEqual([1]);
+});
+
 describe("reasonOf", () => {
   test("says who did what", () => {
     expect(reasonOf(note(1, 1))).toBe("claude-code commented");
