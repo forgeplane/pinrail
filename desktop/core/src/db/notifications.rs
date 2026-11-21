@@ -952,9 +952,9 @@ impl Db {
                 let (turns, reply): (i64, Option<String>) = conn.query_row(
                     "SELECT count(*),
                             (SELECT x.reply FROM session_turns u
-                               LEFT JOIN session_turn_texts x ON x.turn_id = u.id
+                               JOIN session_turn_replies x ON x.turn_id = u.id
                               WHERE u.session = ?1 AND u.end_kind = 'done'
-                              ORDER BY u.ended_at DESC LIMIT 1)
+                              ORDER BY x.at DESC, x.id DESC LIMIT 1)
                        FROM session_turns t
                       WHERE t.session = ?1 AND t.end_kind = 'done'
                         AND t.ended_at > COALESCE((SELECT p.seen_at FROM session_presence p

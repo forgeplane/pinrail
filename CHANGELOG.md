@@ -224,6 +224,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A session's thread keeps an agent's earlier reply when the agent
+  replies again in the same turn, as it does when a background job ends.
 - ⌘Enter in the quick add dialog on the new session page adds the work
   item without starting the session.
 - ⌘⇧C opens the quick add while a review has the focus. The Navigate

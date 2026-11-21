@@ -483,6 +483,29 @@ describe("an agent's turn", () => {
     expect(kinds(entries)).toEqual(["turn prompt", "statuses", "turn end"]);
   });
 
+  test("that went on after it finished shows each reply where it came", () => {
+    const entries = timeline(
+      [],
+      [status(1, "Retrying the item", "2026-11-15T10:03:00.000Z")],
+      [],
+      [],
+      [],
+      [
+        turn({
+          ended_at: "2026-11-15T10:05:00.000Z",
+          end_kind: "done",
+          reply: "PM-2 is now marked done.",
+          replies: [
+            { at: "2026-11-15T10:02:00.000Z", text: "Marking PM-2 done has not gone through yet.", cut: false },
+            { at: "2026-11-15T10:05:00.000Z", text: "PM-2 is now marked done.", cut: false },
+          ],
+        }),
+      ],
+    );
+    // the first reply before what came after it, the second where the turn ended
+    expect(kinds(entries)).toEqual(["turn prompt", "turnReply", "statuses", "turn end"]);
+  });
+
   test("shows nothing while it runs with its prompt shown as a message", () => {
     expect(timeline([], [], [], [], [], [turn({ prompt: null })])).toEqual([]);
   });

@@ -603,8 +603,14 @@ fn turn_json(turn: &crate::db::TurnRow) -> Value {
         "end_kind": turn.end_kind,
         "prompt": turn.prompt,
         "prompt_cut": turn.prompt_cut,
-        "reply": turn.reply,
-        "reply_cut": turn.reply_cut,
+        // the latest reply, where the turn ended, and every one in order
+        "reply": turn.replies.last().map(|r| &r.text),
+        "reply_cut": turn.replies.last().is_some_and(|r| r.cut),
+        "replies": turn.replies.iter().map(|r| json!({
+            "at": crate::reviews::iso(r.at),
+            "text": r.text,
+            "cut": r.cut,
+        })).collect::<Vec<_>>(),
     })
 }
 

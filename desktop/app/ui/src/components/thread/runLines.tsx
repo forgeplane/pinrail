@@ -209,6 +209,41 @@ export const TurnEntry = memo(function TurnEntry({
   );
 });
 
+/** A reply the agent gave before its turn went on, as when Claude Code
+ *  replies again once a background job ends: shown where it came, as its
+ *  own message. */
+export const TurnReplyEntry = memo(function TurnReplyEntry({
+  turn,
+  reply,
+  agent,
+}: {
+  turn: SessionTurn;
+  /** which of the turn's replies */
+  reply: number;
+  agent: string | null;
+}) {
+  const shown = turn.replies?.[reply];
+  if (!shown) return null;
+  const name = agentOf(agent)?.label ?? agent ?? "The agent";
+  return (
+    <div className="thread-turn" data-testid="turn">
+      <div className="thread-note thread-turn-reply msg" data-testid="turn-reply" title={stamp(shown.at)}>
+        <span className="msg-avatar">
+          <AgentIcon requestedBy={agent} size={14} />
+        </span>
+        <div className="msg-col">
+          <div className="msg-meta">
+            <span className="text">{name}</span> replied
+          </div>
+          <Folded cut={shown.cut}>
+            <MarkdownHtml text={shown.text} mode="note" className="item-md thread-note-body" />
+          </Folded>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /** Where a run Pinrail started began or ended. */
 export function runLineText(run: Run, ended: boolean): string {
   if (!ended) return run.kind === "resume" ? "Resumed in Pinrail" : "Started in Pinrail";

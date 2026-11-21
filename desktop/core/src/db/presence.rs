@@ -134,8 +134,24 @@ pub struct TurnRow {
     pub end_kind: Option<String>,
     pub prompt: Option<String>,
     pub prompt_cut: bool,
-    pub reply: Option<String>,
-    pub reply_cut: bool,
+    /// The agent's replies, oldest first: more than one when the turn went
+    /// on after it finished.
+    pub replies: Vec<TurnReply>,
+}
+
+impl TurnRow {
+    /// The latest reply, where the turn ended.
+    pub fn reply(&self) -> Option<&str> {
+        self.replies.last().map(|r| r.text.as_str())
+    }
+}
+
+/// One reply of a turn: when it came, its text, and whether it was cut.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TurnReply {
+    pub at: DateTime<Utc>,
+    pub text: String,
+    pub cut: bool,
 }
 
 /// How long after the last report a new one is taken whatever its hook's
@@ -554,25 +570,45 @@ impl Db {
         let time = |s: String| crate::reviews::parse_datetime(&s).unwrap_or_default();
         let conn = self.read();
         let mut stmt = conn.prepare(
-            "SELECT t.turn, t.agent_turn, t.started_at, t.ended_at, t.end_kind, x.prompt,
-               COALESCE(x.prompt_cut, 0), x.reply, COALESCE(x.reply_cut, 0)
+            "SELECT t.id, t.turn, t.agent_turn, t.started_at, t.ended_at, t.end_kind, x.prompt,
+               COALESCE(x.prompt_cut, 0)
              FROM session_turns t LEFT JOIN session_turn_texts x ON x.turn_id = t.id
              WHERE t.agent = ?1 AND t.session = ?2 ORDER BY t.started_at, t.turn",
         )?;
-        stmt.query_map(params![agent, id], |r| {
-            Ok(TurnRow {
-                turn: r.get(0)?,
-                agent_turn: r.get(1)?,
-                started_at: time(r.get(2)?),
-                ended_at: r.get::<_, Option<String>>(3)?.map(time),
-                end_kind: r.get(4)?,
-                prompt: r.get(5)?,
-                prompt_cut: r.get(6)?,
-                reply: r.get(7)?,
-                reply_cut: r.get(8)?,
+        let mut replies = conn.prepare(
+            "SELECT at, reply, reply_cut FROM session_turn_replies WHERE turn_id = ?1 ORDER BY id",
+        )?;
+        let rows: Vec<(i64, TurnRow)> = stmt
+            .query_map(params![agent, id], |r| {
+                Ok((
+                    r.get(0)?,
+                    TurnRow {
+                        turn: r.get(1)?,
+                        agent_turn: r.get(2)?,
+                        started_at: time(r.get(3)?),
+                        ended_at: r.get::<_, Option<String>>(4)?.map(time),
+                        end_kind: r.get(5)?,
+                        prompt: r.get(6)?,
+                        prompt_cut: r.get(7)?,
+                        replies: Vec::new(),
+                    },
+                ))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        rows.into_iter()
+            .map(|(turn_id, mut row)| {
+                row.replies = replies
+                    .query_map(params![turn_id], |r| {
+                        Ok(TurnReply {
+                            at: time(r.get(0)?),
+                            text: r.get(1)?,
+                            cut: r.get(2)?,
+                        })
+                    })?
+                    .collect::<rusqlite::Result<_>>()?;
+                Ok(row)
             })
-        })?
-        .collect()
+            .collect()
     }
 
     /// Deletes the sessions known only from their hooks that reported
@@ -872,16 +908,8 @@ fn late_prompt(
         )?;
         // the reply goes with its end
         conn.execute(
-            "INSERT INTO session_turn_texts (turn_id, reply, reply_cut)
-               SELECT ?2, reply, reply_cut FROM session_turn_texts
-               WHERE turn_id = ?1 AND reply IS NOT NULL
-             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply,
-               reply_cut = excluded.reply_cut",
+            "UPDATE session_turn_replies SET turn_id = ?2 WHERE turn_id = ?1",
             params![previous, turn_id],
-        )?;
-        conn.execute(
-            "UPDATE session_turn_texts SET reply = NULL, reply_cut = 0 WHERE turn_id = ?1",
-            params![previous],
         )?;
     }
     renumber_after(conn, agent, id, turn_id, at)
@@ -960,22 +988,30 @@ fn close(
     reply: Excerpt,
     keep_texts: bool,
 ) -> rusqlite::Result<()> {
+    let went_on: bool = conn.query_row(
+        "SELECT COALESCE(end_kind = 'done', 0) FROM session_turns WHERE id = ?1",
+        params![turn_id],
+        |r| r.get(0),
+    )?;
     conn.execute(
         "UPDATE session_turns SET ended_at = ?2, end_kind = ?3 WHERE id = ?1",
         params![turn_id, at, end],
     )?;
-    // the reply is the one of the end that closed the turn, none included
-    if keep_texts && reply.text.is_some() {
+    // A turn that finished and finishes again went on, as when a background
+    // job ends: its new reply is another message, after the first. Any other
+    // end, such as a failed turn that then finished, takes the turn's reply
+    // over, none included.
+    if !(went_on && end == "done") {
         conn.execute(
-            "INSERT INTO session_turn_texts (turn_id, reply, reply_cut) VALUES (?1, ?2, ?3)
-             ON CONFLICT (turn_id) DO UPDATE SET reply = excluded.reply,
-               reply_cut = excluded.reply_cut",
-            params![turn_id, reply.text, reply.cut],
-        )?;
-    } else {
-        conn.execute(
-            "UPDATE session_turn_texts SET reply = NULL, reply_cut = 0 WHERE turn_id = ?1",
+            "DELETE FROM session_turn_replies WHERE turn_id = ?1",
             params![turn_id],
+        )?;
+    }
+    if keep_texts && let Some(text) = &reply.text {
+        conn.execute(
+            "INSERT INTO session_turn_replies (turn_id, at, reply, reply_cut)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![turn_id, at, text, reply.cut],
         )?;
     }
     Ok(())

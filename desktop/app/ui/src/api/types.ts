@@ -594,8 +594,12 @@ export type SessionTurn = {
   end_kind: string | null;
   prompt: string | null;
   prompt_cut: boolean;
+  /** the latest reply, where the turn ended */
   reply: string | null;
   reply_cut: boolean;
+  /** every reply, oldest first: more than one when the turn went on after
+   *  it finished, as when a background job ends */
+  replies?: { at: string; text: string; cut: boolean }[];
 };
 
 export type SessionStatus = {

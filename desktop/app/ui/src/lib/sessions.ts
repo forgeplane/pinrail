@@ -67,6 +67,9 @@ export type Entry =
   /** a turn's prompt, where it started, or its reply or how it ended, where
    *  it ended */
   | { kind: "turn"; turn: SessionTurn; part: "prompt" | "end" }
+  /** a reply of a turn that went on after it, where it came: every reply
+   *  but the latest, which shows where the turn ended */
+  | { kind: "turnReply"; turn: SessionTurn; reply: number }
   /** a run Pinrail started, where it started or where it ended */
   | { kind: "run"; run: Run; ended: boolean };
 
@@ -88,6 +91,8 @@ export function entryKey(entry: Entry): string {
       return `c-${entry.comment.id}`;
     case "turn":
       return `t-${entry.turn.turn}-${entry.part}`;
+    case "turnReply":
+      return `t-${entry.turn.turn}-reply-${entry.reply}`;
     case "run":
       return `r-${entry.run.id}-${entry.ended}`;
     case "revised":
@@ -177,10 +182,21 @@ export function timeline(
     | { kind: "comment"; comment: SessionComment }
     | { kind: "message"; message: SessionMessage }
     | { kind: "turn"; turn: SessionTurn; part: "prompt" | "end" }
+    | { kind: "turnReply"; turn: SessionTurn; reply: number }
     | { kind: "run"; run: Run; ended: boolean };
   // a run starts before the turns and the reports it brings, and ends
   // after them
-  const RANK = { run: -1, withdrawn: 0, review: 1, status: 2, itemEvent: 3, comment: 4, message: 5, turn: 6 } as const;
+  const RANK = {
+    run: -1,
+    withdrawn: 0,
+    review: 1,
+    status: 2,
+    itemEvent: 3,
+    comment: 4,
+    message: 5,
+    turnReply: 6,
+    turn: 6,
+  } as const;
   const all: { at: number; happened: Happened }[] = [];
   for (const review of items) {
     all.push({ at: Date.parse(review.created_at), happened: { kind: "review", review } });
@@ -214,6 +230,11 @@ export function timeline(
       shown.end_kind === "interrupted" &&
       shown.reply === null &&
       turns.some((t) => t !== turn && Date.parse(t.started_at) === Date.parse(turn.ended_at!));
+    // a turn that went on after it finished: each earlier reply where it came
+    const earlier = (shown.replies ?? []).slice(0, -1);
+    earlier.forEach((reply, i) =>
+      all.push({ at: Date.parse(reply.at), happened: { kind: "turnReply", turn: shown, reply: i } }),
+    );
     if ((shown.ended_at || shown.reply !== null) && !closedByPrompt)
       all.push({
         at: Date.parse(shown.ended_at ?? shown.started_at),
@@ -249,6 +270,8 @@ export function timeline(
     close();
     if (happened.kind === "comment") entries.push({ kind: "comment", comment: happened.comment });
     else if (happened.kind === "turn") entries.push({ kind: "turn", turn: happened.turn, part: happened.part });
+    else if (happened.kind === "turnReply")
+      entries.push({ kind: "turnReply", turn: happened.turn, reply: happened.reply });
     else if (happened.kind === "run") entries.push({ kind: "run", run: happened.run, ended: happened.ended });
     else if (happened.kind === "itemEvent") {
       // the same change to several items in a row is one line

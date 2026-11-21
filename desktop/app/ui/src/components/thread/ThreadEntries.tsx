@@ -20,7 +20,7 @@ import {
   WithdrawnLine,
 } from "./messages";
 import { QuestionSet } from "./QuestionSet";
-import { RunLine, TurnEntry } from "./runLines";
+import { RunLine, TurnEntry, TurnReplyEntry } from "./runLines";
 
 type Props = {
   entries: Entry[];
@@ -77,6 +77,8 @@ export const ThreadEntries = memo(function ThreadEntries({
         if (entry.kind === "comment") return <CommentMessage key={entryKey(entry)} comment={entry.comment} />;
         if (entry.kind === "turn")
           return <TurnEntry key={entryKey(entry)} turn={entry.turn} part={entry.part} agent={agent} />;
+        if (entry.kind === "turnReply")
+          return <TurnReplyEntry key={entryKey(entry)} turn={entry.turn} reply={entry.reply} agent={agent} />;
         if (entry.kind === "run") return <RunLine key={entryKey(entry)} run={entry.run} ended={entry.ended} />;
         if (entry.kind === "note")
           return <NoteMessage key={entryKey(entry)} status={entry.status} agent={agent} session={named?.id ?? null} />;

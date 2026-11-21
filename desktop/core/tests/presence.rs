@@ -277,7 +277,7 @@ async fn a_late_turn_end_closes_its_own_turn_with_its_reply() {
         .unwrap();
     let ends: Vec<_> = turns
         .iter()
-        .map(|t| (t.turn, t.end_kind.as_deref(), t.reply.as_deref()))
+        .map(|t| (t.turn, t.end_kind.as_deref(), t.reply()))
         .collect();
     assert_eq!(
         ends,
@@ -415,7 +415,7 @@ async fn finished_is_a_turn_that_ended_done_or_failed() {
     let turns = db(&app)
         .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap();
-    assert_eq!(turns[2].reply.as_deref(), Some("rate_limit"));
+    assert_eq!(turns[2].reply(), Some("rate_limit"));
     // work that went on after the turn ended still finishes, and its
     // reply is the turn's
     report(
@@ -433,7 +433,7 @@ async fn finished_is_a_turn_that_ended_done_or_failed() {
         .pop()
         .unwrap();
     assert_eq!(
-        (last.end_kind.as_deref(), last.reply.as_deref()),
+        (last.end_kind.as_deref(), last.reply()),
         (Some("done"), Some("Done after all"))
     );
 }
@@ -534,7 +534,7 @@ async fn a_turn_runs_from_the_prompt_to_the_end_with_its_texts() {
                 t.turn,
                 t.end_kind.as_deref(),
                 t.prompt.as_deref(),
-                t.reply.as_deref(),
+                t.reply(),
             )
         })
         .collect();
@@ -590,10 +590,7 @@ async fn texts_are_left_out_when_the_person_turns_them_off() {
         .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap();
     assert_eq!(turns.len(), 1);
-    assert_eq!(
-        (turns[0].prompt.as_deref(), turns[0].reply.as_deref()),
-        (None, None)
-    );
+    assert_eq!((turns[0].prompt.as_deref(), turns[0].reply()), (None, None));
     assert_eq!(turns[0].end_kind.as_deref(), Some("done"));
 }
 
@@ -745,7 +742,7 @@ async fn an_interrupt_after_a_turn_finished_leaves_that_turn_as_it_was() {
         (
             turn.end_kind.as_deref(),
             turn.ended_at.unwrap().to_rfc3339(),
-            turn.reply.as_deref()
+            turn.reply()
         ),
         (Some("done"), at(2), Some("Done"))
     );
@@ -856,7 +853,7 @@ async fn an_end_that_arrives_before_its_prompt_ends_its_own_turn() {
             second.turn,
             second.prompt.as_deref(),
             second.end_kind.as_deref(),
-            second.reply.as_deref()
+            second.reply()
         ),
         (2, Some("Second"), Some("failed"), Some("rate_limit"))
     );
@@ -864,7 +861,7 @@ async fn an_end_that_arrives_before_its_prompt_ends_its_own_turn() {
     // reply, which the early end replaced, are not known any more
     assert_eq!(turns[0].ended_at.unwrap().to_rfc3339(), at(10));
     assert_eq!(
-        (turns[0].end_kind.as_deref(), turns[0].reply.as_deref()),
+        (turns[0].end_kind.as_deref(), turns[0].reply()),
         (Some("interrupted"), None)
     );
 }
@@ -998,7 +995,7 @@ async fn a_prompt_whose_clock_stepped_back_moves_no_turn_s_end() {
     let turns = db
         .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap();
-    assert_eq!(turns[0].reply.as_deref(), Some("Done"));
+    assert_eq!(turns[0].reply(), Some("Done"));
     assert_eq!(turns[1].end_kind, None);
     assert_eq!(
         db.presence("claude-code", &common::sid(&app, "claude-code", "s-1"))
@@ -1027,7 +1024,7 @@ async fn an_early_end_without_a_reply_takes_no_other_turn_s_reply() {
         .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
         .unwrap();
     assert_eq!(
-        (turns[1].end_kind.as_deref(), turns[1].reply.as_deref()),
+        (turns[1].end_kind.as_deref(), turns[1].reply()),
         (Some("failed"), None)
     );
 }
@@ -1098,8 +1095,8 @@ async fn a_turn_keeps_the_agent_s_id_its_transcript_and_whether_its_texts_were_c
         (first.end_kind.as_deref(), first.prompt_cut),
         (Some("done"), true)
     );
-    assert_eq!(first.reply.as_deref().map(str::len), Some(32_000));
-    assert!(first.reply_cut);
+    assert_eq!(first.reply().map(str::len), Some(32_000));
+    assert!(first.replies[0].cut);
     assert_eq!(
         (turns[1].end_kind.as_deref(), turns[1].prompt_cut),
         (None, false)
@@ -1741,7 +1738,7 @@ async fn a_turn_keeps_its_reply_whichever_of_the_hook_and_the_terminal_ends_it_l
         db.turns("claude-code", &common::sid(&app, "claude-code", session))
             .unwrap()
             .into_iter()
-            .map(|t| (t.end_kind, t.reply))
+            .map(|t| (t.end_kind.clone(), t.reply().map(str::to_string)))
             .collect::<Vec<_>>()
     };
     let replied = vec![(
@@ -1875,4 +1872,48 @@ async fn an_interrupt_and_a_failure_of_one_turn_end_it_as_interrupted() {
     failed["end"] = json!("failed");
     report(&app, "s-3", "turn_ended", 2, failed).await;
     assert_eq!(ends(&app, "s-3"), vec![Some("failed".to_string())]);
+}
+
+#[tokio::test]
+async fn a_turn_that_goes_on_after_its_reply_keeps_both_replies() {
+    let app = app();
+    report(
+        &app,
+        "s-1",
+        "prompt",
+        1,
+        json!({"detail": {"prompt": "Commit it", "turn_id": "p-1"}}),
+    )
+    .await;
+    report(
+        &app,
+        "s-1",
+        "turn_ended",
+        2,
+        json!({"end": "done", "detail": {"reply": "Committed. Marking PM-2 done has not gone through yet.", "turn_id": "p-1"}}),
+    )
+    .await;
+    // a background job ends, and the agent replies again in the same turn
+    report(
+        &app,
+        "s-1",
+        "turn_ended",
+        3,
+        json!({"end": "done", "detail": {"reply": "PM-2 is now marked done.", "turn_id": "p-1"}}),
+    )
+    .await;
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
+    assert_eq!(turns.len(), 1);
+    // two messages, each with its own time
+    let replies: Vec<&str> = turns[0].replies.iter().map(|r| r.text.as_str()).collect();
+    assert_eq!(
+        replies,
+        [
+            "Committed. Marking PM-2 done has not gone through yet.",
+            "PM-2 is now marked done."
+        ]
+    );
+    assert!(turns[0].replies[0].at < turns[0].replies[1].at);
 }
