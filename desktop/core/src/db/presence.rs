@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value, json};
 
-use super::events::insert_event;
+use super::events::{EventActor, session_event};
 
 use super::Db;
 use super::sessions::activity;
@@ -445,12 +445,19 @@ impl Db {
         };
         if let Some(row) = row.filter(|_| changed) {
             let attrs = presence_attrs(&tx, agent, id, &row, now)?;
-            let event = insert_event(&tx, None, crate::events::SESSION_PRESENCE, None, &attrs)?;
+            // the agent reports through its hooks and its terminal; the host
+            // and the core's process check report for it when it is gone
+            let actor = match report.source {
+                Source::Hook | Source::Terminal => EventActor::agent(agent, id),
+                Source::Host | Source::Process => EventActor::System,
+            };
+            let event = session_event(&tx, id, crate::events::SESSION_PRESENCE, actor, &attrs)?;
             recorded.presence = Some((event, attrs));
         }
         if let Some((turn, end_kind)) = turned {
             let attrs = json!({"agent": agent, "id": id, "turn": turn, "end_kind": end_kind});
-            let event = insert_event(&tx, None, crate::events::SESSION_TURN, None, &attrs)?;
+            let actor = EventActor::agent(agent, id);
+            let event = session_event(&tx, id, crate::events::SESSION_TURN, actor, &attrs)?;
             recorded.turn = Some((event, attrs));
         }
         tx.commit()?;
@@ -488,7 +495,8 @@ impl Db {
             return Ok(Some(None));
         };
         let attrs = presence_attrs(&tx, agent, id, &row, now)?;
-        let event = insert_event(&tx, None, crate::events::SESSION_SEEN, None, &attrs)?;
+        let actor = EventActor::person(Some("person"));
+        let event = session_event(&tx, id, crate::events::SESSION_SEEN, actor, &attrs)?;
         tx.commit()?;
         Ok(Some(Some((event, attrs))))
     }

@@ -458,3 +458,124 @@ async fn an_item_change_whose_event_fails_is_not_made() {
     assert_eq!(timeline(&app), entries);
     assert_eq!(last_event(&app), before);
 }
+
+/// The stored events of `kind`, each as its subject and actor.
+fn about(app: &App, kind: &str) -> Vec<(Value, Value)> {
+    common::db(app)
+        .events_after(0, 1000)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == kind)
+        .map(|e| (e.subject_json(), e.actor_json()))
+        .collect()
+}
+
+fn question(expires_at: Option<&str>) -> Value {
+    json!({
+        "kind": "question",
+        "title": "Deploy?",
+        "origin": {"repo": REPO, "ref": "main"},
+        "requested_by": "claude-code",
+        "session": "s-1",
+        "expires_at": expires_at,
+        "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}
+    })
+}
+
+#[tokio::test]
+async fn session_and_review_events_name_their_subject_and_actor() {
+    let app = app();
+    let reports = "/api/v1/sessions/claude-code/s-1/reports";
+    let now = chrono::Utc::now().to_rfc3339();
+    agent(&app, "POST", reports, json!({"event": "prompt", "at": now})).await;
+    agent(
+        &app,
+        "POST",
+        reports,
+        json!({"event": "turn_ended", "end": "done", "at": now}),
+    )
+    .await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        json!({"text": "Working"}),
+    )
+    .await;
+    let asked = agent(&app, "POST", "/api/v1/reviews", question(None)).await;
+    let id = asked["id"].as_str().unwrap();
+    person(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{id}/decision"),
+        Some(json!({"data": {"answers": [{"id": "q1", "yes": true}]}})),
+    )
+    .await;
+    let late = agent(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        question(Some("2020-01-01T00:00:00Z")),
+    )
+    .await;
+    app.state.reviews().sweep_expired().unwrap();
+
+    let session = common::sid(&app, "claude-code", "s-1");
+    let in_session = json!({"kind": "session", "id": session, "agent": "claude-code"});
+    let by_agent = json!({"kind": "agent", "name": "claude-code", "session": session});
+    for kind in ["session_presence", "session_turn", "session_status"] {
+        let events = about(&app, kind);
+        assert!(!events.is_empty(), "no {kind}");
+        for (subject, actor) in events {
+            assert_eq!(subject, in_session, "{kind}");
+            assert_eq!(actor, by_agent, "{kind}");
+        }
+    }
+    let review = |id: &Value| json!({"kind": "review", "id": id});
+    assert_eq!(
+        about(&app, "created"),
+        [
+            (review(&asked["id"]), by_agent.clone()),
+            (review(&late["id"]), by_agent.clone())
+        ]
+    );
+    let (subject, actor) = about(&app, "decided").pop().unwrap();
+    assert_eq!(subject, review(&asked["id"]));
+    assert_eq!(actor["kind"], "person");
+    assert_eq!(
+        about(&app, "expired"),
+        [(review(&late["id"]), json!({"kind": "system"}))]
+    );
+}
+
+#[tokio::test]
+async fn deleting_a_session_deletes_its_events_and_records_the_deletion() {
+    let app = app();
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        json!({"text": "Working"}),
+    )
+    .await;
+    let session = common::sid(&app, "claude-code", "s-1");
+    assert_eq!(about(&app, "session_status").len(), 1);
+
+    person(
+        &app,
+        "DELETE",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert!(about(&app, "session_status").is_empty());
+    let deleted: Vec<_> = common::db(&app)
+        .events_after(0, 1000)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == "session_deleted")
+        .collect();
+    assert_eq!(deleted.len(), 1);
+    assert_eq!(deleted[0].subject_json(), Value::Null);
+    assert_eq!(deleted[0].attrs["id"], json!(session));
+}

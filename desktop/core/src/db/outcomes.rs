@@ -7,7 +7,7 @@ use rusqlite::params;
 use serde_json::Value;
 
 use super::Db;
-use super::events::insert_event;
+use super::events::{EventActor, review_event};
 use crate::reviews::{Decision, Source, Via};
 
 impl Db {
@@ -210,7 +210,22 @@ fn insert_outcome_in(
         if inserted == 0 {
             return Ok(None);
         }
-        let event_id = insert_event(tx, Some(id), event, actor, &attrs)?;
+        // an agent withdraws its own review; the person withdraws one when
+        // they delete its session, and decides and discards
+        let by = if outcome.kind == "withdrawn" && outcome.via != Some(Via::App) {
+            let session: Option<String> = tx.query_row(
+                "SELECT session FROM reviews WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )?;
+            actor.map_or(EventActor::Unknown, |name| EventActor::Agent {
+                name: name.to_string(),
+                session,
+            })
+        } else {
+            EventActor::person(actor)
+        };
+        let event_id = review_event(tx, id, event, by, &attrs)?;
         super::item_work::review_ended(
             tx,
             id,

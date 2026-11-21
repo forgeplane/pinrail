@@ -8,7 +8,7 @@ use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde_json::{Map, Value, json};
 
 use super::Db;
-use super::events::insert_event;
+use super::events::{EventActor, session_event};
 use super::messages::MessageRow;
 use crate::attachments::ReviewAttachment;
 use crate::reviews::parse_datetime;
@@ -409,7 +409,8 @@ impl Db {
         } else {
             crate::events::SESSION_UNARCHIVED
         };
-        let event_id = insert_event(&tx, None, kind, None, &json!({ "agent": agent, "id": id }))?;
+        let attrs = json!({ "agent": agent, "id": id });
+        let event_id = session_event(&tx, id, kind, EventActor::person(Some("person")), &attrs)?;
         tx.commit()?;
         Ok(Some(event_id))
     }
@@ -434,7 +435,8 @@ impl Db {
             return Ok(None);
         }
         let attrs = json!({ "agent": agent, "id": id, "name": name });
-        let event_id = insert_event(&tx, None, crate::events::SESSION_RENAMED, None, &attrs)?;
+        let actor = EventActor::person(Some("person"));
+        let event_id = session_event(&tx, id, crate::events::SESSION_RENAMED, actor, &attrs)?;
         tx.commit()?;
         Ok(Some((event_id, attrs)))
     }
@@ -665,11 +667,11 @@ impl Db {
             at: parse_datetime(&crate::reviews::iso(now)).unwrap_or(now),
             attachments: attachments.to_vec(),
         };
-        let event_id = insert_event(
+        let event_id = session_event(
             &tx,
-            None,
+            id,
             crate::events::SESSION_STATUS,
-            None,
+            EventActor::agent(agent, id),
             &status_notice(agent, id, &status),
         )?;
         // the person's queued messages go to the agent with the status, and
@@ -851,12 +853,15 @@ impl Db {
             "DELETE FROM sessions WHERE agent = ?1 AND id = ?2",
             params![agent, id],
         )?;
-        let event_id = insert_event(
+        // the session is gone, and with it its events: this one names none
+        let event_id = super::events::insert_event_as(
             &tx,
-            None,
-            crate::events::SESSION_DELETED,
-            by,
-            &json!({ "agent": agent, "id": id }),
+            &super::events::NewEvent {
+                kind: crate::events::SESSION_DELETED,
+                subject: None,
+                actor: EventActor::person(by),
+                attrs: &json!({ "agent": agent, "id": id }),
+            },
         )?;
         tx.commit()?;
         Ok(Some(DeletedSession {

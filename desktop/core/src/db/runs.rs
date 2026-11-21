@@ -9,7 +9,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use serde_json::{Map, Value, json};
 
 use super::Db;
-use super::events::insert_event;
+use super::events::{EventActor, EventSubject, NewEvent, insert_event_as};
 use super::sessions::activity;
 
 /// How long a run's token still counts after the run ended, so that the
@@ -252,7 +252,7 @@ fn bind_in(
             None => Value::Null,
         },
     });
-    let event = insert_event(tx, None, crate::events::RUN_BOUND, None, &attrs)?;
+    let event = run_event(tx, crate::events::RUN_BOUND, Some(session), &attrs)?;
     Ok(Some(Bound {
         previous,
         event: (event, attrs),
@@ -353,7 +353,8 @@ impl Db {
         }
         let row = get(&tx, id)?.expect("the run just changed");
         let attrs = json!({"run": row.to_json()});
-        let event = insert_event(&tx, None, crate::events::RUN_STARTED, None, &attrs)?;
+        let session = row.session.as_ref().map(|(_, id)| id.as_str());
+        let event = run_event(&tx, crate::events::RUN_STARTED, session, &attrs)?;
         tx.commit()?;
         Ok(Some((row, (event, attrs))))
     }
@@ -382,7 +383,8 @@ impl Db {
         }
         let row = get(&tx, id)?.expect("the run just ended");
         let attrs = json!({"run": row.to_json(), "reason": reason, "exit_code": exit_code});
-        let event = insert_event(&tx, None, crate::events::RUN_ENDED, None, &attrs)?;
+        let session = row.session.as_ref().map(|(_, id)| id.as_str());
+        let event = run_event(&tx, crate::events::RUN_ENDED, session, &attrs)?;
         tx.commit()?;
         Ok(Some((row, (event, attrs))))
     }
@@ -648,4 +650,23 @@ impl Db {
             params![activity(now - TOKEN_GRACE)],
         )
     }
+}
+
+/// Records an event about a run, which Pinrail starts and ends: about its
+/// session, when the run is in one.
+fn run_event(
+    conn: &Connection,
+    kind: &str,
+    session: Option<&str>,
+    attrs: &Value,
+) -> rusqlite::Result<i64> {
+    insert_event_as(
+        conn,
+        &NewEvent {
+            kind,
+            subject: session.map(|id| EventSubject::Session(id.to_string())),
+            actor: EventActor::System,
+            attrs,
+        },
+    )
 }

@@ -17,8 +17,9 @@ use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{
-    Db, Deleted, Event, Filters, MessageRow, NotStored, OpenStage, SessionFilters, SessionRow,
-    StageRow, StatusKind, StatusRow, delivered_notice, message_notice, status_notice,
+    Db, Deleted, Event, EventActor, EventSubject, Filters, MessageRow, NewEvent, NotStored,
+    OpenStage, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow, delivered_notice,
+    message_notice, status_notice,
 };
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -1261,9 +1262,12 @@ impl Reviews {
         } else {
             events::UNSTARRED
         };
-        let event_id = self
-            .db
-            .append_event(Some(id), kind, Some(&self.user), &Value::Null)?;
+        let event_id = self.db.append_event_as(&NewEvent {
+            kind,
+            subject: Some(EventSubject::Review(id.to_string())),
+            actor: EventActor::Person(self.user.clone()),
+            attrs: &Value::Null,
+        })?;
         self.publish(event_id, kind, &self.get(id)?);
         if starred {
             self.telemetry.record(TelemetryEvent::FeatureUsed {
@@ -1275,9 +1279,12 @@ impl Reviews {
 
     pub fn mark_viewed(&self, id: &str) -> Result<(), Error> {
         if self.db.exists(id)? {
-            let event_id =
-                self.db
-                    .append_event(Some(id), events::VIEWED, Some(&self.user), &Value::Null)?;
+            let event_id = self.db.append_event_as(&NewEvent {
+                kind: events::VIEWED,
+                subject: Some(EventSubject::Review(id.to_string())),
+                actor: EventActor::Person(self.user.clone()),
+                attrs: &Value::Null,
+            })?;
             self.publish(event_id, events::VIEWED, &self.get(id)?);
         }
         Ok(())
@@ -1289,9 +1296,12 @@ impl Reviews {
     pub fn sweep_expired(&self) -> Result<Vec<Review>, Error> {
         let expired = self.db.newly_expired(Utc::now())?;
         for review in &expired {
-            let event_id =
-                self.db
-                    .append_event(Some(&review.id), events::EXPIRED, None, &Value::Null)?;
+            let event_id = self.db.append_event_as(&NewEvent {
+                kind: events::EXPIRED,
+                subject: Some(EventSubject::Review(review.id.clone())),
+                actor: EventActor::System,
+                attrs: &Value::Null,
+            })?;
             self.db
                 .item_review_expired(&review.id, review.expires_at.unwrap_or_else(Utc::now))?;
             self.publish(event_id, events::EXPIRED, review);
@@ -1357,12 +1367,12 @@ impl Reviews {
         }
         let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         self.db.delete_reviews(&refs)?;
-        let event_id = self.db.append_event(
-            None,
-            events::REVIEW_DELETED,
-            None,
-            &serde_json::json!({ "ids": ids }),
-        )?;
+        let event_id = self.db.append_event_as(&NewEvent {
+            kind: events::REVIEW_DELETED,
+            subject: None,
+            actor: EventActor::Person(self.user.clone()),
+            attrs: &serde_json::json!({ "ids": ids }),
+        })?;
         self.publish_plain(event_id, events::REVIEW_DELETED);
         Ok(ids)
     }
@@ -1383,12 +1393,12 @@ impl Reviews {
             return Ok(0);
         }
         // the bundles only these reviews kept go with the bundles' sweep
-        let event_id = self.db.append_event(
-            None,
-            events::HISTORY_SWEPT,
-            None,
-            &serde_json::json!({ "count": count, "released": released }),
-        )?;
+        let event_id = self.db.append_event_as(&NewEvent {
+            kind: events::HISTORY_SWEPT,
+            subject: None,
+            actor: EventActor::System,
+            attrs: &serde_json::json!({ "count": count, "released": released }),
+        })?;
         self.publish_plain(event_id, events::HISTORY_SWEPT);
         Ok(count)
     }

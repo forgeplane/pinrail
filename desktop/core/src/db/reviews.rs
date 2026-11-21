@@ -6,7 +6,7 @@ use rusqlite::{OptionalExtension, params};
 use serde_json::{Map, Value};
 
 use super::Db;
-use super::events::insert_event;
+use super::events::{EventActor, review_event};
 use crate::reviews::{Decision, Kind, Review, Status, Via, parse_datetime};
 
 #[derive(Debug, Default, Clone)]
@@ -99,7 +99,13 @@ impl Db {
         if moved == 0 {
             return Ok(None);
         }
-        let event_id = insert_event(&tx, Some(id), crate::events::PLUGIN_CHANGED, None, attrs)?;
+        let event_id = review_event(
+            &tx,
+            id,
+            crate::events::PLUGIN_CHANGED,
+            EventActor::System,
+            attrs,
+        )?;
         tx.commit()?;
         Ok(Some(event_id))
     }
@@ -269,13 +275,14 @@ fn insert_in(
         if let (Some(agent), Some(session)) = (&review.requested_by, &review.session) {
             super::sessions::touch(tx, agent, session, &review.origin, review.created_at)?;
         }
-        let event_id = insert_event(
-            tx,
-            Some(&review.id),
-            crate::events::CREATED,
-            actor,
-            &Value::Null,
-        )?;
+        let by = match (review.requested_by.as_deref().or(actor), &review.session) {
+            (Some(name), session) => EventActor::Agent {
+                name: name.to_string(),
+                session: session.clone(),
+            },
+            (None, _) => EventActor::Unknown,
+        };
+        let event_id = review_event(tx, &review.id, crate::events::CREATED, by, &Value::Null)?;
         for attachment in &review.attachments {
             let inserted = tx.execute(
                 "INSERT INTO review_attachments (review_id, name, sha256, size, media_type) VALUES (?1, ?2, ?3, ?4, ?5)",

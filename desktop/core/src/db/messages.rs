@@ -9,7 +9,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 
 use super::Db;
-use super::events::insert_event;
+use super::events::{EventActor, session_event};
 use super::sessions::activity;
 use crate::reviews::parse_datetime;
 
@@ -194,11 +194,11 @@ impl Db {
             route: Some(route.to_string()),
             held: None,
         };
-        let event_id = insert_event(
+        let event_id = session_event(
             &tx,
-            None,
+            id,
             crate::events::SESSION_MESSAGE_SENT,
-            None,
+            EventActor::person(Some(sent_by)),
             &message_notice(agent, id, &message),
         )?;
         tx.commit()?;
@@ -237,11 +237,11 @@ impl Db {
             return Ok(None);
         }
         delivered.sort_by_key(|m| m.id);
-        let event_id = insert_event(
+        let event_id = session_event(
             &tx,
-            None,
+            id,
             crate::events::SESSION_MESSAGES_DELIVERED,
-            None,
+            EventActor::agent(agent, id),
             &super::sessions::delivered_notice(agent, id, &delivered),
         )?;
         tx.commit()?;
@@ -277,11 +277,11 @@ impl Db {
                 Deleted::Missing
             });
         };
-        let event_id = insert_event(
+        let event_id = session_event(
             &tx,
-            None,
+            id,
             crate::events::SESSION_MESSAGE_DELETED,
-            None,
+            EventActor::person(Some("person")),
             &message_notice(agent, id, &deleted),
         )?;
         tx.commit()?;
@@ -360,11 +360,11 @@ impl Db {
         let Some(moved) = moved else {
             return Ok(None);
         };
-        let event_id = insert_event(
+        let event_id = session_event(
             &tx,
-            None,
+            id,
             crate::events::SESSION_MESSAGE_STATE,
-            None,
+            EventActor::System,
             &message_notice(agent, id, &moved),
         )?;
         tx.commit()?;

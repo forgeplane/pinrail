@@ -132,6 +132,23 @@ pub fn recording<T>(write: impl FnOnce() -> T) -> (T, Vec<i64>) {
     (answer, ids.unwrap_or_default())
 }
 
+impl EventActor {
+    /// An agent, in its session by Pinrail's id.
+    pub fn agent(name: &str, session: &str) -> Self {
+        EventActor::Agent {
+            name: name.to_string(),
+            session: Some(session.to_string()),
+        }
+    }
+
+    /// The person, by name, or not recorded when the name is not known.
+    pub fn person(name: Option<&str>) -> Self {
+        name.map_or(EventActor::Unknown, |name| {
+            EventActor::Person(name.to_string())
+        })
+    }
+}
+
 impl From<&crate::items::Actor> for EventActor {
     fn from(actor: &crate::items::Actor) -> Self {
         match actor {
@@ -221,6 +238,46 @@ pub(super) fn insert_event_as(conn: &Connection, event: &NewEvent<'_>) -> rusqli
         EventActor::System => (Some("system"), None, None),
     };
     insert(conn, event.kind, event.attrs, event.subject.as_ref(), actor)
+}
+
+/// Records an event about a session, by Pinrail's id.
+pub(super) fn session_event(
+    conn: &Connection,
+    session: &str,
+    kind: &str,
+    actor: EventActor,
+    attrs: &Value,
+) -> rusqlite::Result<i64> {
+    let subject = Some(EventSubject::Session(session.to_string()));
+    insert_event_as(
+        conn,
+        &NewEvent {
+            kind,
+            subject,
+            actor,
+            attrs,
+        },
+    )
+}
+
+/// Records an event about a review.
+pub(super) fn review_event(
+    conn: &Connection,
+    review: &str,
+    kind: &str,
+    actor: EventActor,
+    attrs: &Value,
+) -> rusqlite::Result<i64> {
+    let subject = Some(EventSubject::Review(review.to_string()));
+    insert_event_as(
+        conn,
+        &NewEvent {
+            kind,
+            subject,
+            actor,
+            attrs,
+        },
+    )
 }
 
 /// Writes the row: the actor as its kind, its name and its session.
