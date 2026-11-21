@@ -653,3 +653,108 @@ async fn an_agents_note_is_reported_with_its_first_line() {
     assert_eq!(n.reason, "agent_note");
     assert_eq!(n.summary.as_deref(), Some("Summary of the first stage"));
 }
+
+/// Runs SQL on the app's database, as a crash or a bug might leave it.
+fn corrupt(app: &App, sql: &str) {
+    rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .execute_batch(sql)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_pending_review_whose_notification_was_lost_waits_again() {
+    let app = app();
+    let id = submit_review(&app, None).await;
+    corrupt(&app, "DELETE FROM notifications");
+    assert!(app.state.notifications().reconcile().unwrap() > 0);
+    let n = of_review(&app, &id).unwrap();
+    assert_eq!((n.reason.as_str(), n.waiting), ("review_requested", true));
+
+    corrupt(
+        &app,
+        "UPDATE notifications SET waiting = 0, done_at = '2026-01-01T00:00:00Z'",
+    );
+    app.state.notifications().reconcile().unwrap();
+    let n = of_review(&app, &id).unwrap();
+    assert!(n.waiting && n.done_at.is_none());
+    // nothing left to repair
+    assert_eq!(app.state.notifications().reconcile().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn an_expired_review_stops_waiting_without_the_expiry_sweep() {
+    let app = app();
+    let mut body = json!({
+        "plugin": "list", "title": "Late", "origin": {"repo": REPO},
+        "requested_by": "claude-code", "expires_at": "2020-01-01T00:00:00Z",
+        "payload": {"groups": []}
+    });
+    body["by"] = json!("claude-code");
+    let (_, late) = common::call_as(&app, "POST", "/api/v1/reviews", Some(body), &[]).await;
+    let late = late["id"].as_str().unwrap().to_string();
+    corrupt(&app, "UPDATE notifications SET waiting = 1");
+    app.state.notifications().reconcile().unwrap();
+    assert!(!of_review(&app, &late).unwrap().waiting);
+}
+
+#[tokio::test]
+async fn a_waiting_agent_whose_notification_was_lost_waits_again() {
+    let app = app();
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "needs_input", 10, json!({"wait": "question"})).await;
+    corrupt(&app, "DELETE FROM notifications");
+    app.state.notifications().reconcile().unwrap();
+    let n = of_session(&app).unwrap();
+    assert_eq!((n.reason.as_str(), n.waiting), ("input_requested", true));
+
+    // the agent moved on, and the notice of it was lost
+    hook(&app, "working", 20, json!({})).await;
+    corrupt(&app, "UPDATE notifications SET waiting = 1");
+    app.state.notifications().reconcile().unwrap();
+    assert!(!of_session(&app).unwrap().waiting);
+}
+
+#[tokio::test]
+async fn a_start_on_older_data_shows_what_waits_and_what_finished_unseen() {
+    let app = app();
+    let review = submit_review(&app, None).await;
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "needs_input", 10, json!({"wait": "permission"})).await;
+    // a second session, finished and never seen
+    let (code, _) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/s-2/reports",
+        Some(json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339()})),
+    )
+    .await;
+    assert!(code.is_success());
+    call(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/s-2/reports",
+        Some(json!({"event": "turn_ended", "end": "done",
+                    "at": (chrono::Utc::now() + chrono::Duration::milliseconds(10)).to_rfc3339()})),
+    )
+    .await;
+    // as the data was before the notifications existed
+    corrupt(&app, "DELETE FROM notifications");
+
+    let app = common::open_copy(&app);
+    let db = common::db(&app);
+    assert_eq!(db.notification_counts().unwrap().waiting, 2);
+    assert!(of_review(&app, &review).unwrap().waiting);
+    assert_eq!(of_session(&app).unwrap().reason, "permission_requested");
+    let finished = db
+        .notification_of(
+            0,
+            Some(&EventSubject::Session(common::sid(&app, "codex", "s-2"))),
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (finished.reason.as_str(), finished.waiting, finished.unread),
+        ("agent_finished", false, 1)
+    );
+}

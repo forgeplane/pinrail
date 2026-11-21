@@ -108,6 +108,17 @@ impl Notifications {
         self.announce(json!({"id": id, "change": change.as_str()}))
     }
 
+    /// Repairs the notifications that disagree with what waits, and tells
+    /// the windows to read their list again when it changed any. Returns
+    /// how many it changed.
+    pub fn reconcile(&self) -> Result<usize, Error> {
+        let changed = self.db.reconcile_notifications(Utc::now())?;
+        if changed > 0 {
+            self.announce(json!({"change": "reconciled"}))?;
+        }
+        Ok(changed)
+    }
+
     /// Marks read what a list showed: every notification of it whose
     /// latest event is `up_to` or older. A later event stays unread.
     pub fn read_all(&self, listed: Listed, up_to: i64) -> Result<usize, Error> {

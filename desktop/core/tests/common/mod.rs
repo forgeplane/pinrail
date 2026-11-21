@@ -79,6 +79,21 @@ fn open(adjust: impl FnOnce(&mut Config)) -> App {
     }
 }
 
+/// Another app opened on a copy of this one's database, as when the person
+/// starts the app on data an earlier version wrote.
+pub fn open_copy(app: &App) -> App {
+    let source = app.state.config().db_path();
+    rusqlite::Connection::open(&source)
+        .unwrap()
+        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+        .unwrap();
+    open(|config| {
+        let target = config.db_path();
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&source, &target).unwrap();
+    })
+}
+
 /// Inspects or seeds the database directly; the app does not expose its
 /// connection to callers.
 pub fn db(app: &App) -> pinrail_core::db::Db {

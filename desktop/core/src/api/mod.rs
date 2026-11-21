@@ -189,6 +189,10 @@ pub async fn serve(
                 if let Err(error) = app.reviews().sweep_expired() {
                     eprintln!("pinrail: expiry sweep failed: {error}");
                 }
+                // what waits is in the inbox, whatever the notifications missed
+                if let Err(error) = app.notifications().reconcile() {
+                    eprintln!("pinrail: the notifications could not be reconciled: {error}");
+                }
                 let keep_days = app
                     .settings()
                     .value("/history/keep_days")

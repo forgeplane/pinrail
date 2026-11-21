@@ -200,6 +200,11 @@ impl Pinrail {
         inbox_hidden(&db, &settings.reader());
         let (inbox_db, inbox_reader) = (db.clone(), settings.reader());
         settings.follow(move |_| inbox_hidden(&inbox_db, &inbox_reader));
+        // what waits is in the inbox, whatever the notifications missed
+        let notifications = crate::notifications::Notifications::new(db.clone(), events.bus());
+        if let Err(error) = notifications.reconcile() {
+            eprintln!("pinrail: the notifications could not be reconciled: {error}");
+        }
         let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
         let plugins = PluginService::new(
             db.clone(),
@@ -213,7 +218,6 @@ impl Pinrail {
             config.max_attachment_bytes,
         )?;
         let projects = Projects::new(db.clone(), events.bus(), attachments.clone());
-        let notifications = crate::notifications::Notifications::new(db.clone(), events.bus());
         let items = Items::new(
             db.clone(),
             events.bus(),

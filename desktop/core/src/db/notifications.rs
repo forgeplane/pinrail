@@ -584,6 +584,91 @@ impl Db {
         )? > 0)
     }
 
+    /// Brings the waiting notifications in line with what waits, as of
+    /// `now`: a review or a question without an outcome, and an agent whose
+    /// presence is `needs_input`. A notification that should wait and does
+    /// not is made to wait, one that waits for nothing any more stops, and
+    /// a session that finished unseen and has no notification gets an
+    /// unread one. Returns how many notifications it changed.
+    pub fn reconcile_notifications(&self, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let now = iso(now);
+        let mut changed = 0;
+        // a review or a question that waits
+        changed += tx.execute(
+            "INSERT INTO notifications (review_id, repo_id, reason, waiting, last_event,
+               last_actor, unread, updated_at)
+             SELECT r.id, r.repo_id,
+                    CASE WHEN r.kind = 'question' THEN 'question_asked'
+                         WHEN r.revises IS NOT NULL THEN 'new_round'
+                         ELSE 'review_requested' END,
+                    1, COALESCE((SELECT MAX(e.id) FROM events e WHERE e.review_id = r.id), 0),
+                    r.requested_by, 1, r.created_at
+               FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+              WHERE o.review_id IS NULL AND (r.expires_at IS NULL OR r.expires_at > ?1)
+             ON CONFLICT (review_id) WHERE review_id IS NOT NULL DO UPDATE SET
+               waiting = 1, done_at = NULL
+             WHERE waiting = 0 OR done_at IS NOT NULL",
+            params![now],
+        )?;
+        // a review that waits no more: decided, discarded, withdrawn or expired
+        changed += tx.execute(
+            "UPDATE notifications SET waiting = 0,
+               done_at = CASE WHEN EXISTS (SELECT 1 FROM outcomes o WHERE o.review_id = notifications.review_id
+                                             AND o.kind IN ('decided', 'discarded'))
+                              THEN ?1 ELSE done_at END
+             WHERE waiting = 1 AND review_id IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id
+                                WHERE r.id = notifications.review_id AND o.review_id IS NULL
+                                  AND (r.expires_at IS NULL OR r.expires_at > ?1))",
+            params![now],
+        )?;
+        // an agent that waits in its terminal
+        changed += tx.execute(
+            "INSERT INTO notifications (session_id, repo_id, reason, waiting, last_event,
+               last_actor, summary, unread, updated_at)
+             SELECT p.session, s.repo_id,
+                    CASE WHEN p.wait_kind = 'permission' THEN 'permission_requested'
+                         ELSE 'input_requested' END,
+                    1, COALESCE((SELECT MAX(e.id) FROM events e WHERE e.session_id = p.session), 0),
+                    p.agent, COALESCE(p.wait_summary, p.wait_tool), 1, ?1
+               FROM session_presence p JOIN sessions s ON s.agent = p.agent AND s.id = p.session
+              WHERE p.state = 'needs_input'
+             ON CONFLICT (session_id) WHERE session_id IS NOT NULL DO UPDATE SET
+               waiting = 1, reason = excluded.reason, done_at = NULL
+             WHERE waiting = 0 OR done_at IS NOT NULL",
+            params![now],
+        )?;
+        // an agent that waits no more
+        changed += tx.execute(
+            "UPDATE notifications SET waiting = 0
+             WHERE waiting = 1 AND session_id IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM session_presence p
+                                WHERE p.session = notifications.session_id
+                                  AND p.state = 'needs_input')",
+            [],
+        )?;
+        // a session that finished unseen, as the inbox's Agents section
+        // showed it, unless the person turned finished agents off
+        if !hidden(&tx, "agent_finished")? {
+            changed += tx.execute(
+                "INSERT INTO notifications (session_id, repo_id, reason, waiting, last_event,
+                   last_actor, unread, updated_at)
+                 SELECT p.session, s.repo_id, 'agent_finished', 0,
+                        COALESCE((SELECT MAX(e.id) FROM events e WHERE e.session_id = p.session), 0),
+                        p.agent, 1, ?1
+                   FROM session_presence p JOIN sessions s ON s.agent = p.agent AND s.id = p.session
+                  WHERE p.finished_at IS NOT NULL
+                    AND (p.seen_at IS NULL OR p.seen_at < p.finished_at)
+                    AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.session_id = p.session)",
+                params![now],
+            )?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
     /// The agent of the session of this id, by Pinrail's id.
     pub fn session_agent(&self, id: &str) -> rusqlite::Result<Option<String>> {
         let conn = self.read();
