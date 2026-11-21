@@ -13,6 +13,12 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The inbox is one list of notifications, with the tabs **All**, **Waiting
+  on you**, **Unread** and **History**. **All** shows what waits on you
+  first: reviews, questions and agents that wait for a permission or an
+  answer. Below it, **Updates** lists what agents did. The **Kind**,
+  **Project or repository** and **Plugin** filters each take several
+  values, and **Show done** lists the notifications marked done.
 - The inbox lists updates under the reviews that wait: a work item an
   agent added, commented on or closed. Mark an update read or unread with
   **U**, mark it done with **E**, and mark every update read with

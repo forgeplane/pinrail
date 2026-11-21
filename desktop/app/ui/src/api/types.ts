@@ -487,8 +487,8 @@ export type Notification = {
   id: number;
   subject:
     | { kind: "item"; item: { id: string; key: string; title: string; status: ItemStatus } }
-    | { kind: "review"; review: { id: string } }
-    | { kind: "session"; session: { id: string } };
+    | { kind: "review"; review: Review }
+    | { kind: "session"; session: Session };
   repo: string | null;
   project: ProjectRef | null;
   reason: NotificationReason;
@@ -517,7 +517,7 @@ export type NotificationList = {
 };
 
 /** The notifications a list shows. */
-export type NotificationTab = "waiting" | "unread" | "all";
+export type NotificationTab = "waiting" | "unread" | "updates" | "all";
 
 /** What changed on a work item, on an item_changed notice. */
 export type ItemChange =

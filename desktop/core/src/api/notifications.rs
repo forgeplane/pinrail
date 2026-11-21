@@ -39,10 +39,11 @@ fn tab(value: Option<&str>) -> Result<Listed, Error> {
     match value.unwrap_or("all") {
         "waiting" => Ok(Listed::Waiting),
         "unread" => Ok(Listed::Unread),
+        "updates" => Ok(Listed::Updates),
         "all" | "" => Ok(Listed::Open),
         _ => Err(Error::invalid(
             "tab",
-            "must be one of waiting, unread or all",
+            "must be one of waiting, unread, updates or all",
         )),
     }
 }

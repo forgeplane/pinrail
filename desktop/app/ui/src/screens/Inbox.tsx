@@ -1,92 +1,110 @@
 import { CheckCheck, SearchX } from "lucide-react";
 import { TelemetryNotice } from "../components/TelemetryNotice";
-import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { type MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
-import type { Notification, Review } from "../api/types";
+import { api, type NotificationQuery } from "../api/client";
+import type { InboxCounts, Notification, NotificationList, NotificationTab, Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
-import { clearAll, scopeOf, useUrlParams } from "../lib/url";
-import { waitingFilter } from "../lib/waiting";
-import { groupKey, grouped, mixedGroups } from "../lib/grouping";
-import { GroupHeading } from "../components/GroupHeading";
-import { useLive } from "../state/live";
+import { clearAll, useUrlParams } from "../lib/url";
+import { useLive, useNoticeCount } from "../state/live";
 import { hasMod, modalOpen, isTyping } from "../lib/keys";
 import { useSettings } from "../state/settings";
 import { SidePanel } from "../components/SidePanel";
 import { History } from "./History";
-import { InboxHead, tabOf, type Layout } from "./InboxHead";
+import { InboxHead, tabOf, type InboxTab } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
+import { NotificationRow, notificationPath, type NotificationActions } from "../components/NotificationRow";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
 import { useLatest } from "../lib/useLatest";
-import { InboxAgents, useInboxAgents } from "../components/InboxAgents";
-import { sessionPath } from "../components/Thread";
-import type { AgentRow } from "../lib/inboxAgents";
-import { api } from "../api/client";
-import { InboxUpdates, updatePath, useUpdates } from "../components/InboxUpdates";
+import { useDebounced } from "../lib/useDebounced";
+import { useLoad } from "../lib/useLoad";
 
-/** A row J and K walk: an agent's session in the Agents section, a review,
- *  or a notification in the Updates. */
-type Entry = { agent: AgentRow } | { review: Review } | { update: Notification };
-const entryKey = (e: Entry) =>
-  "agent" in e
-    ? `session:${e.agent.session.agent}/${e.agent.session.id}`
-    : "update" in e
-      ? `notification:${e.update.id}`
-      : e.review.id;
-
-/** Where an earlier version kept the layout on this machine; the settings
- *  keep it now, and the old choice is moved there once. */
-const OLD_LAYOUT = "pinrail.inbox.layout";
+/** How many waiting notifications the All tab shows above the updates: all
+ *  of them, up to the core's page. */
+const WAITING_SHOWN = 200;
+/** How long the search waits for typing to pause before it asks the core. */
+const SEARCH_DELAY_MS = 250;
 
 export function Inbox() {
-  const [params] = useUrlParams();
-  return tabOf(params) === "history" ? <History /> : <Waiting />;
+  const [params, updateParams] = useUrlParams();
+  // the New rounds tab of earlier versions is a choice of the Kind filter
+  const oldRounds = params.get("rounds") === "new";
+  useEffect(() => {
+    if (!oldRounds) return;
+    updateParams(
+      (next) => {
+        next.delete("rounds");
+        next.set("kind", "new_round");
+      },
+      { replace: true },
+    );
+  }, [oldRounds, updateParams]);
+  const tab = tabOf(params);
+  return tab === "history" ? <History /> : <Notifications tab={tab} />;
 }
 
-/** The Pending and New rounds tabs, from the live list of what waits. */
-function Waiting() {
+/** Whether a notice can change what the inbox lists. */
+const aboutNotifications = (notice: { notification?: unknown; kind: string }) =>
+  !!notice.notification || notice.kind === "notification_changed" || notice.kind === "resync";
+
+/** A list of notifications from the core, read again when one changes. */
+function useNotifications(query: NotificationQuery | null): NotificationList | null {
+  const changed = useNoticeCount(aboutNotifications);
+  const key = JSON.stringify(query);
+  return useLoad(() => (query ? api.notifications(query) : Promise.resolve(null)), [key, changed]).data;
+}
+
+/** The All, Waiting on you and Unread tabs: the notifications the core keeps
+ *  for each, with what waits on the person first on All. */
+function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const live = useLive();
   const navigate = useNavigate();
   const [params, updateParams, currentParams] = useUrlParams();
-  const { settings: prefs, update, loaded } = useSettings();
+  const { settings: prefs } = useSettings();
   // with the side panel, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
   const openId = panelMode ? params.get("open") : null;
   // The search box keeps its own text: a router navigation per keystroke is
   // deferred, and a controlled input bound to the URL would snap back.
   const [q, setQ] = useState(params.get("q") ?? "");
-  const scope = scopeOf(params);
-  const plugin = params.get("plugin") ?? "";
-  const rounds = params.get("rounds") ?? "";
+  const query = useDebounced(q, SEARCH_DELAY_MS);
+  const list = (key: string) => (params.get(key) ?? "").split(",").filter(Boolean);
   const starred = params.get("starred") === "1";
-  const layout: Layout = prefs.inbox.layout;
-  const setLayout = (next: Layout) => {
-    void update({ inbox: { layout: next } });
-    setFocused(0);
-  };
-  // "list" chosen in an earlier version, on this machine, is kept
-  useEffect(() => {
-    if (!loaded) return;
-    try {
-      const old = localStorage.getItem(OLD_LAYOUT);
-      if (old === null) return;
-      localStorage.removeItem(OLD_LAYOUT);
-      if (old === "list") void update({ inbox: { layout: "list" } });
-    } catch {
-      // no storage: nothing was kept
-    }
-  }, [loaded, update]);
   const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
 
   const page = pageOf(params.get("page"));
   const size = pageSizeOf(params.get("per"));
+  const filters: NotificationQuery = {
+    kind: list("kind"),
+    scope: list("scope"),
+    plugin: list("plugin"),
+    q: query.trim() || undefined,
+    done: params.get("done") === "1",
+  };
+  // All: what waits, whole, above a page of the updates; the other tabs: a
+  // page of their own list
+  const pagedTab: NotificationTab = tab === "all" ? "updates" : tab;
+  const waiting = useNotifications(tab === "all" ? { ...filters, tab: "waiting", limit: WAITING_SHOWN } : null);
+  const paged = useNotifications({ ...filters, tab: pagedTab, limit: size, offset: (page - 1) * size });
+  const counts: InboxCounts | undefined = paged?.counts;
 
-  /** A page number, or a step from the page the URL is on. */
+  // a starred review is the one filter the core does not apply
+  const keep = useCallback(
+    (n: Notification) => !starred || (n.subject.kind === "review" && !!n.subject.review.starred),
+    [starred],
+  );
+  const waitingRows = useMemo(() => (waiting?.notifications ?? []).filter(keep), [waiting, keep]);
+  const pagedRows = useMemo(() => (paged?.notifications ?? []).filter(keep), [paged, keep]);
+  const rows = useMemo(() => [...waitingRows, ...pagedRows], [waitingRows, pagedRows]);
+  const upTo = Math.max(waiting?.up_to ?? 0, paged?.up_to ?? 0);
+
+  const pages = Math.max(1, Math.ceil((paged?.total ?? 0) / size));
   const setPage = (n: number | ((current: number) => number)) => {
     updateParams((next) => {
       const now = Math.min(pageOf(next.get("page")), pages);
@@ -108,44 +126,6 @@ function Waiting() {
     );
   };
 
-  const reviews = useMemo(
-    () => live.pending.filter((r) => waitingFilter(params, q)(r) && (rounds !== "new" || !!r.revises)),
-    [live.pending, params, q, rounds],
-  );
-  const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
-
-  // In the order the rows are drawn. Grouped: the group with the newest
-  // review first, and newest first within one; the reviews come newest
-  // first, so a group's place is where its newest one falls. A project's
-  // group holds every repository in it, and a repository in no project is
-  // a group of its own. As a list: newest first, as they come. J, K and
-  // Enter walk this order, so the row they open is the row lit.
-  const groupOf = useCallback((r: Review) => groupKey(layout, r.origin.repo, r.project), [layout]);
-  const ordered = useMemo(
-    () => (layout === "list" ? reviews : grouped(reviews, groupOf).flatMap(([, items]) => items)),
-    [reviews, layout, groupOf],
-  );
-
-  // a page past the end, after reviews were decided: the last page there is
-  const pages = Math.max(1, Math.ceil(ordered.length / size));
-  const pageShown = Math.min(page, pages);
-  const shown = useMemo(() => ordered.slice((pageShown - 1) * size, pageShown * size), [ordered, pageShown, size]);
-
-  const groups = useMemo(() => grouped(shown, groupOf), [shown, groupOf]);
-  // where each group's rows start in the order J and K walk
-  const starts = useMemo(() => {
-    const out: number[] = [];
-    let at = 0;
-    for (const [, items] of groups) {
-      out.push(at);
-      at += items.length;
-    }
-    return out;
-  }, [groups]);
-  // a project's group whose reviews come from more than one repository
-  // names the repository on each row
-  const mixed = useMemo(() => mixedGroups(grouped(reviews, groupOf), (r) => r.origin.repo), [reviews, groupOf]);
-
   /** The link of a review's row: the side panel, keeping the filters, or its page. */
   const hrefFor = useCallback(
     (id: string): To => {
@@ -165,77 +145,64 @@ function Waiting() {
       }, options),
     [updateParams],
   );
-  // the rows in display order, which the side panel follows
-  const orderedRef = useLatest(ordered);
+  // the reviews in the order drawn, which the side panel walks
+  const reviews = useMemo(() => rows.flatMap((n) => (n.subject.kind === "review" ? [n.subject.review] : [])), [rows]);
+  const reviewsRef = useLatest(reviews);
   // where the open review was in the list when last seen there: once it has
   // ended, the list may have dropped it before the panel moves on
   const openAt = useRef(-1);
-  const seenAt = ordered.findIndex((r) => r.id === openId);
+  const seenAt = reviews.findIndex((r) => r.id === openId);
   useLayoutEffect(() => {
     if (seenAt >= 0) openAt.current = seenAt;
   }, [seenAt]);
   /** The review after the one that just ended, or before it at the end of the list. */
   const openNext = useCallback(() => {
-    const list = orderedRef.current;
+    const list = reviewsRef.current;
     const at = list.findIndex((r) => r.id === openId);
-    // still listed: the one after it; gone: the one now in its place
     const next = at >= 0 ? (list[at + 1] ?? list[at - 1]) : (list[openAt.current] ?? list[list.length - 1]);
     openInPanel(next && next.id !== openId ? next.id : null, { replace: true });
-  }, [openId, openInPanel, orderedRef]);
+  }, [openId, openInPanel, reviewsRef]);
   const closePanel = useCallback(() => openInPanel(null), [openInPanel]);
-  /**
-   * A plain click on a review's link in the panel mode: opens it in the side
-   * panel, replacing the history entry when the panel is open already. The
-   * address decides that, as a second click may come before the render that
-   * shows the first.
-   */
+  /** A plain click on a review's link in the panel mode opens it in the side panel. */
   const openFromLink = (event: MouseEvent, id: string) => {
     if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     openInPanel(id, { replace: currentParams().has("open") });
   };
 
-  // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
+  const setRead = (n: Notification, read: boolean) => void api.setNotificationRead(n.id, read).catch(() => {});
+  const setDone = (n: Notification) => void api.setNotificationDone(n.id, true).catch(() => {});
+  const readAll = () => void api.readNotifications({ ...filters, tab }, upTo).catch(() => {});
+  /** Opening a notification other than a review marks it read; a review is
+   *  read when the person opens it, which the core records. */
+  const opened = (n: Notification) => {
+    if (n.subject.kind !== "review" && !n.read) setRead(n, true);
+  };
 
-  // the Agents section's rows, walked before the reviews
-  const agents = useInboxAgents();
-  // the Updates, walked after the reviews
-  const updates = useUpdates();
-  const entries = useMemo<Entry[]>(
-    () => [
-      ...agents.rows.map((agent) => ({ agent })),
-      ...shown.map((review) => ({ review })),
-      ...updates.rows.map((update) => ({ update })),
-    ],
-    [agents.rows, shown, updates.rows],
-  );
-  const walked = useMemo<Entry[]>(() => ordered.map((review) => ({ review })), [ordered]);
-  const offset = agents.rows.length;
-
-  // J, K and Enter, and walking the side panel through every page of the
-  // list, as in the other lists; the panel walks the reviews alone
-  const { focused, setFocused, hover } = useListKeys<Entry>({
-    items: entries,
+  // J, K and Enter over every row, what waits first; the side panel walks
+  // the reviews alone
+  const walked = useMemo(() => rows.filter((n) => n.subject.kind === "review"), [rows]);
+  const openKey = openId
+    ? (rows.find((n) => n.subject.kind === "review" && n.subject.review.id === openId)?.id.toString() ?? null)
+    : null;
+  const { focused, setFocused, hover } = useListKeys<Notification>({
+    items: rows,
     walkItems: walked,
-    // the waiting reviews, which ⌥↓ and ⌥↑ go to everywhere
     altWalk: true,
-    keyOf: entryKey,
-    openKey: openId,
-    onOpen: (e) => {
-      if ("update" in e) {
-        if (!e.update.read) updates.setRead(e.update, true);
-        navigate(updatePath(e.update));
-      } else navigate("agent" in e ? sessionPath(e.agent.session) : hrefFor(e.review.id));
+    keyOf: (n) => String(n.id),
+    openKey,
+    onOpen: (n) => {
+      opened(n);
+      navigate(notificationPath(n, hrefFor));
     },
-    onWalk: (e) => {
-      if ("review" in e) openInPanel(e.review.id, { replace: true });
+    onWalk: (n) => {
+      if (n.subject.kind === "review") openInPanel(n.subject.review.id, { replace: true });
     },
     rowOf: (i) => document.querySelector<HTMLElement>(`.inbox-side [data-row="${i}"]`),
   });
-  const focusedEntry = entries[focused];
-  const focusedReview = focusedEntry && "review" in focusedEntry ? focusedEntry.review : null;
-  const focusedUpdate = focusedEntry && "update" in focusedEntry ? focusedEntry.update : null;
+  const focusedRow = rows[focused];
+  const focusedReview = focusedRow?.subject.kind === "review" ? focusedRow.subject.review : null;
   useSlashSearch(search);
 
   useWindowKey((event) => {
@@ -247,31 +214,26 @@ function Waiting() {
     if (hasMod(event) && !event.altKey && !event.shiftKey && (event.key === "d" || event.key === "D")) {
       // the key must not land in the reason field that opens
       event.preventDefault();
-      if (!discarding && focusedReview) setDiscarding(focusedReview);
+      if (!discarding && focusedReview && focusedRow?.waiting) setDiscarding(focusedReview);
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    // E marks the focused update done, or a finished session in the Agents
-    // section seen
+    // E marks the focused notification done, unless it waits
     if ((event.key === "e" || event.key === "E") && !event.shiftKey && !isTyping(event.target)) {
-      const row = focusedEntry && "agent" in focusedEntry ? focusedEntry.agent : null;
-      if (focusedUpdate) {
+      if (focusedRow && !focusedRow.waiting) {
         event.preventDefault();
-        updates.setDone(focusedUpdate);
-      } else if (row?.session.attention === "finished") {
-        event.preventDefault();
-        void api.setSeen(row.session.agent, row.session.id, true).catch(() => {});
+        setDone(focusedRow);
       }
       return;
     }
-    // U marks the focused update read or unread, and ⇧U every update read
+    // U marks the focused notification read or unread, and ⇧U the list read
     if ((event.key === "u" || event.key === "U") && !isTyping(event.target)) {
       if (event.shiftKey) {
         event.preventDefault();
-        updates.readAll();
-      } else if (focusedUpdate) {
+        readAll();
+      } else if (focusedRow) {
         event.preventDefault();
-        updates.setRead(focusedUpdate, !focusedUpdate.read);
+        setRead(focusedRow, !focusedRow.read);
       }
       return;
     }
@@ -280,90 +242,108 @@ function Waiting() {
       (el as HTMLElement).blur();
       return;
     }
-    // a panel the address asks for but the inbox has not drawn yet, such
-    // as one Escape follows at once: it closes, in place of the step that
-    // asked for it
     if (event.key === "Escape" && panelMode && new URLSearchParams(window.location.hash.split("?")[1]).has("open")) {
       openInPanel(null, { replace: true });
     }
   });
 
-  // What a row does, as the same functions from one render to the next, so
-  // that a memoized row draws again only when its own props change; each
-  // calls the page's latest state.
-  const rowHandlers: InboxRowActions = {
-    hover: (here) => hover(here),
-    open: (event, id) => openFromLink(event, id),
-    discard: (review) => setDiscarding(review),
-  };
-  const latestRow = useLatest(rowHandlers);
-  const rowActions = useMemo<InboxRowActions>(
+  // What a row does, the same functions from one render to the next, so a
+  // memoized row draws again only when its own props change
+  const latest = useLatest({
+    hover: (here: number) => hover(here),
+    open: (event: MouseEvent, id: string) => openFromLink(event, id),
+    discard: (review: Review) => setDiscarding(review),
+    opened,
+    setRead,
+    setDone,
+  });
+  const reviewActions = useMemo<InboxRowActions>(
     () => ({
-      hover: (here) => latestRow.current.hover(here),
-      open: (event, id) => latestRow.current.open(event, id),
-      discard: (review) => latestRow.current.discard(review),
+      hover: (here) => latest.current.hover(here),
+      open: (event, id) => latest.current.open(event, id),
+      discard: (review) => latest.current.discard(review),
     }),
-    [latestRow],
+    [latest],
   );
-  /** A review's row; `here` is its place in the order J and K walk. */
-  const row = (review: Review, here: number) => (
-    <InboxRow
-      key={review.id}
-      review={review}
-      here={here}
-      focused={here === focused}
-      open={review.id === openId}
-      showRepo={layout === "list" || mixed.has(groupOf(review))}
-      hrefFor={hrefFor}
-      actions={rowActions}
-    />
+  const notificationActions = useMemo<NotificationActions>(
+    () => ({
+      hover: (here) => latest.current.hover(here),
+      open: (n) => latest.current.opened(n),
+      setRead: (n, read) => latest.current.setRead(n, read),
+      setDone: (n) => latest.current.setDone(n),
+    }),
+    [latest],
   );
-  // how many reviews each group has, across the pages, for its heading
-  const groupCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of reviews) counts.set(groupOf(r), (counts.get(groupOf(r)) ?? 0) + 1);
-    return counts;
-  }, [reviews, groupOf]);
 
-  const filtered = !!(q || scope || plugin || rounds || starred);
+  /** A notification's row; `here` is its place in the order J and K walk. A
+   *  review that waits keeps the review's own row, with its star and Discard. */
+  const row = (n: Notification, here: number) =>
+    n.waiting && n.subject.kind === "review" ? (
+      <InboxRow
+        key={n.id}
+        review={n.subject.review}
+        here={here}
+        focused={here === focused}
+        open={n.subject.review.id === openId}
+        showRepo
+        hrefFor={hrefFor}
+        actions={reviewActions}
+      />
+    ) : (
+      <NotificationRow
+        key={n.id}
+        notification={n}
+        here={here}
+        focused={here === focused}
+        href={notificationPath(n, hrefFor)}
+        actions={notificationActions}
+      />
+    );
+
+  const filtered = !!(q || list("kind").length || list("scope").length || list("plugin").length || starred);
+  const loaded = !!paged && (tab !== "all" || !!waiting);
+  const repos = useMemo(() => {
+    const listing = live.projectsListing;
+    if (!listing) return [];
+    return [...listing.projects.flatMap((p) => p.repos.map((r) => r.repo)), ...listing.loose.map((r) => r.repo)];
+  }, [live.projectsListing]);
+  const clearFilters = () => {
+    setQ("");
+    updateParams(
+      (next) => {
+        const kept = next.get("tab");
+        clearAll(next);
+        if (kept) next.set("tab", kept);
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <div className={`inbox ${openId ? "has-panel" : ""}`} ref={split}>
       <div className="inbox-side split-side">
         <InboxHead
-          tab={rounds === "new" ? "new" : "pending"}
+          tab={tab}
           search={search}
           q={q}
           onSearch={setQ}
-          projects={live.projects}
-          unassigned={live.unassigned > 0}
-          plugins={plugins}
+          projects={repos}
+          unassigned
+          plugins={[...live.plugins.keys()].sort()}
           onClear={() => setQ("")}
-          layout={{ value: layout, set: setLayout }}
-          onReadAll={updates.unread > 0 ? updates.readAll : undefined}
+          counts={counts}
+          onReadAll={(counts?.unread ?? 0) > 0 ? readAll : undefined}
         />
         <TelemetryNotice />
-        {live.pendingUnloaded > 0 ? (
-          <p className="notice" data-testid="inbox-capped">
-            The inbox shows the newest {live.pending.length} of {live.pendingCount} pending reviews. Decide or withdraw
-            some to see the rest.
-          </p>
-        ) : null}
-        <InboxAgents rows={agents.rows} more={agents.more} now={agents.now} focused={focused} hover={hover} />
-        {groups.length === 0 && (agents.rows.length > 0 || updates.rows.length > 0) ? null : groups.length === 0 ? (
+        {!loaded ? null : rows.length === 0 ? (
           <EmptyState
-            title={filtered ? "No matching reviews" : "All caught up"}
+            title={
+              filtered ? "No matching notifications" : tab === "waiting" ? "Nothing waits on you" : "All caught up"
+            }
             icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <CheckCheck size={28} strokeWidth={1.5} />}
             actions={
               filtered ? (
-                <button
-                  type="button"
-                  className="chrome-button"
-                  onClick={() => {
-                    setQ("");
-                    updateParams(clearAll, { replace: true });
-                  }}
-                >
+                <button type="button" className="chrome-button" onClick={clearFilters}>
                   Clear filters
                 </button>
               ) : (
@@ -375,24 +355,41 @@ function Waiting() {
           >
             {filtered
               ? "Try a different search or clear the filters."
-              : "New reviews appear here when an agent needs you."}
+              : "Reviews, questions and what your agents do appear here."}
           </EmptyState>
-        ) : layout === "list" ? (
-          <div className="inbox-list">{shown.map((review, i) => row(review, offset + i))}</div>
+        ) : tab === "all" ? (
+          <>
+            {waitingRows.length ? (
+              <section className="inbox-section" aria-label="Waiting on you">
+                <h2 className="inbox-section-title">
+                  Waiting on you <span>{waitingRows.length}</span>
+                </h2>
+                {waitingRows.map((n, i) => row(n, i))}
+              </section>
+            ) : null}
+            {pagedRows.length ? (
+              <section className="inbox-section" aria-label="Updates">
+                <h2 className="inbox-section-title">
+                  Updates <span>{paged?.total ?? pagedRows.length}</span>
+                  {counts && counts.unread > 0 ? (
+                    <span className="inbox-section-unread">{counts.unread} unread</span>
+                  ) : null}
+                </h2>
+                {pagedRows.map((n, i) => row(n, waitingRows.length + i))}
+              </section>
+            ) : null}
+          </>
         ) : (
-          <div className="inbox-groups">
-            {groups.map(([key, items], g) => (
-              <details key={key || "none"} className="inbox-repo" open data-testid="inbox-group">
-                <summary data-testid="inbox-group-heading">
-                  <GroupHeading groupKey={key} project={items[0].project} count={groupCounts.get(key) ?? 0} />
-                </summary>
-                {items.map((review, i) => row(review, offset + starts[g] + i))}
-              </details>
-            ))}
-          </div>
+          <div className="inbox-list">{pagedRows.map((n, i) => row(n, i))}</div>
         )}
-        <Pager label="Inbox" page={pageShown} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
-        <InboxUpdates updates={updates} first={offset + shown.length} focused={focused} hover={hover} />
+        <Pager
+          label="Inbox"
+          page={Math.min(page, pages)}
+          size={size}
+          total={paged?.total ?? 0}
+          onPage={setPage}
+          onSize={setSize}
+        />
         {discarding ? (
           <DiscardDialog
             review={discarding}

@@ -58,6 +58,8 @@ pub enum Listed {
     /// Everything not done.
     #[default]
     Open,
+    /// What does not wait and is not done: the inbox's Updates.
+    Updates,
 }
 
 /// What a list of notifications keeps: a tab, and filters whose values
@@ -91,6 +93,7 @@ impl NotificationFilters {
         };
         let mut wheres = vec![match (self.listed, self.done) {
             (Listed::Open, true) => "1 = 1".to_string(),
+            (Listed::Updates, true) => "n.waiting = 0".to_string(),
             (listed, _) => listed.filter().to_string(),
         }];
         if !self.kinds.is_empty() {
@@ -158,6 +161,7 @@ impl Listed {
             Listed::Waiting => "n.waiting = 1",
             Listed::Unread => "n.unread > 0 AND n.done_at IS NULL",
             Listed::Open => "n.done_at IS NULL",
+            Listed::Updates => "n.waiting = 0 AND n.done_at IS NULL",
         }
     }
 }
@@ -810,12 +814,14 @@ impl Db {
         )
     }
 
-    /// How many notifications wait for the person, and how many are unread.
+    /// How many notifications wait for the person, and how many of the
+    /// others are unread.
     pub fn notification_counts(&self) -> rusqlite::Result<Counts> {
         let conn = self.read();
         conn.query_row(
             "SELECT (SELECT count(*) FROM notifications WHERE waiting = 1),
-                    (SELECT count(*) FROM notifications WHERE unread > 0 AND done_at IS NULL)",
+                    (SELECT count(*) FROM notifications
+                      WHERE unread > 0 AND done_at IS NULL AND waiting = 0)",
             [],
             |r| {
                 Ok(Counts {

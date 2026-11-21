@@ -1,9 +1,11 @@
-// The inbox's Updates at component level, against the fake core: a new
-// notification arrives unread, and the person marks it read, unread and
-// done, with the buttons and the keys, and marks every update read.
+// The inbox at component level, against the fake core: the notifications in
+// their tabs and sections, the person marking them read, unread and done
+// with the buttons and the keys, Mark all as read, and the filters.
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { Notice, Notification } from "../api/types";
+import { useLocation } from "react-router";
+import type { Notification, NotificationList, Review } from "../api/types";
+import type { NotificationQuery } from "../api/client";
 import { core } from "../testing/core";
 import { cleanup, render } from "../testing/render";
 import { Inbox } from "./Inbox";
@@ -15,95 +17,139 @@ afterEach(() => {
   core.reset();
 });
 
-const update = (id: number, title: string, extra: Partial<Notification> = {}): Notification => ({
+const now = () => new Date().toISOString();
+
+const base = (id: number, extra: Partial<Notification>): Notification => ({
   id,
-  subject: { kind: "item", item: { id: `w_${id}`, key: `PIN-${id}`, title, status: "open" } },
+  subject: { kind: "item", item: { id: `w_${id}`, key: `PIN-${id}`, title: `Item ${id}`, status: "open" } },
   repo: "acme/web",
   project: null,
   reason: "item_commented",
   waiting: false,
   actor: { kind: "agent", name: "claude-code", session: null },
-  summary: "The spec is ready.",
+  summary: null,
   unread: 1,
   read: false,
   done: false,
   muted: false,
   last_event: 10 + id,
-  updated_at: new Date().toISOString(),
+  updated_at: now(),
   ...extra,
 });
 
-/** The inbox, with no review waiting and the updates given. */
-async function open(updates: Notification[]) {
+const update = (id: number, title: string, extra: Partial<Notification> = {}) =>
+  base(id, {
+    subject: { kind: "item", item: { id: `w_${id}`, key: `PIN-${id}`, title, status: "open" } },
+    ...extra,
+  });
+
+const waitingReview = (id: number, title: string) =>
+  base(id, {
+    reason: "review_requested",
+    waiting: true,
+    subject: {
+      kind: "review",
+      review: {
+        id: `r_${id}`,
+        title,
+        kind: "review",
+        plugin: "list",
+        status: "pending",
+        origin: { repo: "acme/web" },
+        created_at: now(),
+      } as unknown as Review,
+    },
+  });
+
+const waitingAgent = (id: number) =>
+  base(id, {
+    reason: "permission_requested",
+    waiting: true,
+    summary: "cargo test",
+    subject: {
+      kind: "session",
+      session: { agent: "claude-code", id: `ses_${id}`, title: "Migrate the billing tables" },
+    } as unknown as Notification["subject"],
+  });
+
+const listOf = (rows: Notification[], up_to = 40): NotificationList => ({
+  notifications: rows,
+  total: rows.length,
+  counts: { waiting: rows.filter((n) => n.waiting).length, unread: rows.filter((n) => !n.waiting && !n.read).length },
+  up_to,
+});
+
+/** The inbox at `route`, the core answering each tab from `rows`. */
+async function open(rows: Notification[], route = "/") {
   core.answer("listReviews", { reviews: [], total: 0 });
   core.answer("plugins", { plugins: [] });
-  core.answer("sessions", { sessions: [], total: 0 });
-  core.answer("notifications", {
-    notifications: updates,
-    total: updates.length,
-    counts: { waiting: 0, unread: updates.filter((u) => !u.read).length },
-    up_to: 40,
+  core.answer("notificationCounts", listOf(rows).counts);
+  core.answer("notifications", (query: unknown) => {
+    const tab = (query as NotificationQuery).tab;
+    const kept = rows.filter((n) =>
+      tab === "waiting" ? n.waiting : tab === "updates" ? !n.waiting : tab === "unread" ? !n.read : true,
+    );
+    return { ...listOf(kept), counts: listOf(rows).counts };
   });
-  core.answer("notificationCounts", { waiting: 0, unread: updates.filter((u) => !u.read).length });
   for (const write of ["setNotificationRead", "setNotificationDone", "readNotifications"] as const) {
     core.answer(write, undefined);
   }
-  await render(<Inbox />);
-  if (updates.length) await expect.element(page.getByTestId("update-row").first()).toBeVisible();
+  await render(
+    <>
+      <Inbox />
+      <Where />
+    </>,
+    { route },
+  );
+}
+
+/** The address the inbox is at, for the test to read. */
+function Where() {
+  const { search } = useLocation();
+  return <output data-testid="where">{search}</output>;
 }
 
 const row = (title: string) => page.getByTestId("update-row").filter({ hasText: title });
-/** A notice that carries a notification, as the core sends it. */
-const changed = (notification: Notification, unread: number) =>
-  core.notice({
-    event_id: notification.last_event,
-    kind: "notification_changed",
-    notification,
-    counts: { waiting: 0, unread },
-  } as unknown as Notice);
+const lastQuery = () => core.calls("notifications").at(-1)?.[0] as NotificationQuery;
 
-describe("the inbox's updates", () => {
-  test("an agent's new comment appears first, unread, with who commented", async () => {
-    await open([update(1, "Load themes", { read: true, unread: 0 })]);
-    await expect.element(row("Load themes")).toHaveClass(/is-read/);
-    core.notice({
-      event_id: 50,
-      kind: "item_changed",
-      notification: update(2, "Fix the login redirect", { last_event: 50 }),
-      counts: { waiting: 0, unread: 1 },
-    } as unknown as Notice);
-    // first, as the newest
-    await vi.waitFor(() =>
-      expect(page.getByTestId("update-row").elements()[0]?.textContent).toMatch(/^Fix the login redirect/),
-    );
-    await expect.element(row("Fix the login redirect")).toHaveClass(/is-unread/);
-    await expect.element(row("Fix the login redirect")).toMatchTextContent("claude-code commented");
-    await expect.element(page.getByText("1 unread")).toBeVisible();
+describe("the inbox", () => {
+  test("All shows what waits on the person first, and the updates below", async () => {
+    await open([update(1, "Load themes"), waitingReview(2, "Rate limiter"), waitingAgent(3)]);
+    const waiting = page.getByRole("region", { name: "Waiting on you" });
+    await expect.element(waiting.getByTestId("review-row")).toMatchTextContent("Rate limiter");
+    await expect.element(waiting.getByTestId("update-row")).toMatchTextContent("An agent waits for permission");
+    await expect
+      .element(page.getByRole("region", { name: "Updates" }).getByTestId("update-row"))
+      .toMatchTextContent("claude-code commented");
+    await expect.element(page.getByRole("tab", { name: /Waiting on you/ })).toMatchTextContent("2");
+  });
+
+  test("a notification that waits offers no Mark as done", async () => {
+    await open([waitingAgent(3)]);
+    await expect.element(row("Migrate the billing tables")).toBeVisible();
+    await expect.element(page.getByRole("button", { name: /Mark as read: / })).toBeInTheDocument();
+    await expect.element(page.getByRole("button", { name: /Mark as done/ })).not.toBeInTheDocument();
   });
 
   test("the buttons mark an update read, unread and done", async () => {
-    await open([update(1, "Load themes")]);
+    await open([update(1, "Load themes"), update(4, "Docs", { read: true, unread: 0 })]);
     await page.getByRole("button", { name: "Mark as read: Load themes" }).click();
     expect(core.calls("setNotificationRead").at(-1)).toEqual([1, true]);
-    changed(update(1, "Load themes", { read: true, unread: 0 }), 0);
-    await expect.element(row("Load themes")).toHaveClass(/is-read/);
-
-    await page.getByRole("button", { name: "Mark as unread: Load themes" }).click();
-    expect(core.calls("setNotificationRead").at(-1)).toEqual([1, false]);
-
+    await page.getByRole("button", { name: "Mark as unread: Docs" }).click();
+    expect(core.calls("setNotificationRead").at(-1)).toEqual([4, false]);
     await page.getByRole("button", { name: "Mark as done: Load themes" }).click();
     expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
-    changed(update(1, "Load themes", { done: true }), 0);
-    await expect.element(row("Load themes")).not.toBeInTheDocument();
   });
 
-  test("Mark all as read covers what the list showed", async () => {
-    await open([update(1, "Load themes"), update(2, "Fix the login redirect")]);
+  test("Mark all as read covers what the tab and the filters list", async () => {
+    await open([update(1, "Load themes"), update(2, "Docs")], "/?kind=item_commented,item_added");
     await page.getByRole("button", { name: "Mark all as read" }).click();
-    expect(core.calls("readNotifications").at(-1)).toEqual([{ tab: "all", kind: ["item"] }, 40]);
+    const [filters, upTo] = core.calls("readNotifications").at(-1)!;
+    expect(filters).toMatchObject({ tab: "all", kind: ["item_commented", "item_added"] });
+    expect(upTo).toBe(40);
   });
 
-  test("U, E and Shift-U act on the focused update", async () => {
+  test("U, E and Shift-U act on the focused notification", async () => {
     await open([update(1, "Load themes")]);
     await row("Load themes").hover();
     await expect.element(row("Load themes")).toHaveClass(/is-focused/);
@@ -112,6 +158,31 @@ describe("the inbox's updates", () => {
     await userEvent.keyboard("e");
     expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
     await userEvent.keyboard("{Shift>}U{/Shift}");
-    expect(core.calls("readNotifications").at(-1)).toEqual([{ tab: "all", kind: ["item"] }, 40]);
+    expect(core.calls("readNotifications").at(-1)?.[1]).toBe(40);
+  });
+
+  test("the tabs ask the core for their own list", async () => {
+    await open([update(1, "Load themes"), waitingReview(2, "Rate limiter")]);
+    await page.getByRole("tab", { name: /Unread/ }).click();
+    await vi.waitFor(() => expect(lastQuery().tab).toBe("unread"));
+    await page.getByRole("tab", { name: /Waiting on you/ }).click();
+    await vi.waitFor(() => expect(lastQuery().tab).toBe("waiting"));
+  });
+
+  test("the Kind filter takes several values, and shows one chip that names them", async () => {
+    await open([update(1, "Load themes")]);
+    await page.getByRole("button", { name: "Filter" }).click();
+    await page.getByRole("menuitem", { name: /Kind/ }).hover();
+    await page.getByRole("menuitemcheckbox", { name: "Comments" }).click();
+    // the menu stays open for the next choice
+    await page.getByRole("menuitemcheckbox", { name: "New work items" }).click();
+    await vi.waitFor(() => expect(lastQuery().kind).toEqual(["item_commented", "item_added"]));
+    await userEvent.keyboard("{Escape}");
+    await expect.element(page.getByTestId("filter-chip")).toMatchTextContent("Comments, New work items");
+  });
+
+  test("the address of the old New rounds tab opens the Kind filter on new rounds", async () => {
+    await open([], "/?rounds=new");
+    await expect.element(page.getByTestId("where")).toMatchTextContent("kind=new_round");
   });
 });

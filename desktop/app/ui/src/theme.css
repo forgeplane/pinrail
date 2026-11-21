@@ -3641,13 +3641,16 @@ body.is-resizing iframe {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the inbox's Agents section, above the reviews */
-.inbox-agents {
+/* the inbox's sections: Waiting on you, then the Updates */
+.inbox-section {
   display: flex;
   flex-direction: column;
   margin-bottom: 14px;
 }
-.inbox-agents-title {
+.inbox-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   margin: 4px 10px 6px;
   font-size: var(--text-xs);
   font-weight: 600;
@@ -3655,34 +3658,18 @@ body.is-resizing iframe {
   text-transform: uppercase;
   color: var(--faint);
 }
-.agent-row {
-  --mark-ring: var(--bg);
-}
-.agent-row.is-focused {
-  --mark-ring: var(--bg-hover);
-}
-/* the Updates: the person's notifications under what waits, each with the
-   work item's status beside the unread dot; a read row is quieter */
-.inbox-updates {
-  display: flex;
-  flex-direction: column;
-  margin-top: 14px;
-}
-.inbox-updates-title {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-.inbox-updates-title > span {
+.inbox-section-title > span {
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
-.inbox-updates-unread {
+.inbox-section-unread {
   margin-left: auto;
   color: var(--accent);
   text-transform: none;
   letter-spacing: 0;
 }
+/* a notification's row: the unread dot, then the subject's mark; a read
+   row is quieter */
 .update-row {
   grid-template-columns: 8px 14px 1fr auto auto;
 }
@@ -3711,11 +3698,6 @@ body.is-resizing iframe {
   .update-row {
     grid-template-columns: 8px 14px 1fr auto;
   }
-}
-.inbox-agents-more {
-  align-self: flex-start;
-  margin: 4px 10px 0;
-  font-size: var(--text-sm);
 }
 /* what the session asks of the person, beside its title: the same mark as
    the sidebar's, and its name with what explains it */

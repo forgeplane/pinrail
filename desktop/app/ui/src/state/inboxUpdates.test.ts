@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Notification } from "../api/types";
-import { applyNotification, reasonOf } from "./inboxUpdates";
+import { reasonOf } from "./inboxUpdates";
 
 const note = (id: number, last_event: number, extra: Partial<Notification> = {}) =>
   ({
@@ -20,27 +20,6 @@ const note = (id: number, last_event: number, extra: Partial<Notification> = {})
     updated_at: "2026-11-21T10:00:00Z",
     ...extra,
   }) as Notification;
-
-describe("applyNotification", () => {
-  test("puts a changed notification first, in place of its old row", () => {
-    const list = [note(1, 20), note(2, 10)];
-    const next = applyNotification(list, note(2, 30, { unread: 2 }));
-    expect(next.map((n) => [n.id, n.unread])).toEqual([
-      [2, 2],
-      [1, 1],
-    ]);
-  });
-  test("adds a new one, and takes out one that is done", () => {
-    const list = applyNotification([note(1, 20)], note(3, 40));
-    expect(list.map((n) => n.id)).toEqual([3, 1]);
-    expect(applyNotification(list, note(3, 40, { done: true })).map((n) => n.id)).toEqual([1]);
-  });
-});
-
-test("leaves out a review's notification, which the reviews above show", () => {
-  const review = note(4, 50, { subject: { kind: "review", review: { id: "r_1" } }, reason: "review_withdrawn" });
-  expect(applyNotification([note(1, 20)], review).map((n) => n.id)).toEqual([1]);
-});
 
 describe("reasonOf", () => {
   test("says who did what", () => {

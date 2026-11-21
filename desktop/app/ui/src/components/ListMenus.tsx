@@ -23,8 +23,21 @@ export type Filter = {
   /** the value that filters nothing */
   off: string;
   searchable?: boolean;
+  /** several values at once, as a comma-separated `value`: a pick adds or
+   *  removes one and leaves the menu open, and the `off` choice clears them */
+  multi?: boolean;
   onChange: (value: string) => void;
 };
+
+/** A filter's values: one, or with `multi` each of its list. */
+export const valuesOf = (f: Pick<Filter, "value" | "off" | "multi">): string[] =>
+  f.value === f.off ? [] : f.multi ? f.value.split(",").filter(Boolean) : [f.value];
+
+/** The label of a filter's values, as its submenu and its chip show them. */
+const labelOf = (f: Filter) =>
+  valuesOf(f)
+    .map((v) => f.choices.find((c) => c.value === v)?.label ?? v)
+    .join(", ");
 
 /** A filter that is on or off, such as Waiting on you: in the Filter menu,
  *  or, with `under`, in that filter's submenu, in a section headed `section`
@@ -156,21 +169,43 @@ function FilterMenu({
         submenu(
           f.key,
           f.label,
-          f.choices.find((c) => c.value === f.value)?.label ?? "",
+          f.multi ? labelOf(f) : (f.choices.find((c) => c.value === f.value)?.label ?? ""),
           [
-            ...f.choices.map<MenuOption>((c) => ({
-              value: c.value,
-              label: c.label,
-              checked: c.value === f.value,
-              radio: true,
-              mark: c.mark,
-              // a pick is the whole point of opening the menu: it closes
-              onPick: () => {
-                f.onChange(c.value);
-                if (c.value !== f.off) countFeature("list_filter");
-                onClose();
-              },
-            })),
+            ...f.choices.map<MenuOption>((c) =>
+              f.multi
+                ? {
+                    value: c.value,
+                    label: c.label,
+                    // the off choice, such as All kinds, is checked with none
+                    checked: c.value === f.off ? valuesOf(f).length === 0 : valuesOf(f).includes(c.value),
+                    mark: c.mark,
+                    // several are picked in a row: the menu stays open
+                    onPick: () => {
+                      const now = valuesOf(f);
+                      const next =
+                        c.value === f.off
+                          ? []
+                          : now.includes(c.value)
+                            ? now.filter((v) => v !== c.value)
+                            : [...now, c.value];
+                      f.onChange(next.length ? next.join(",") : f.off);
+                      if (c.value !== f.off) countFeature("list_filter");
+                    },
+                  }
+                : {
+                    value: c.value,
+                    label: c.label,
+                    checked: c.value === f.value,
+                    radio: true,
+                    mark: c.mark,
+                    // a pick is the whole point of opening the menu: it closes
+                    onPick: () => {
+                      f.onChange(c.value);
+                      if (c.value !== f.off) countFeature("list_filter");
+                      onClose();
+                    },
+                  },
+            ),
             ...toggles
               .filter((t) => t.under === f.key)
               .map<MenuOption>((t, i) => ({
@@ -272,11 +307,13 @@ export function FilterChips({
     ...filters
       .filter((f) => f.value !== f.off)
       .map((f) => {
-        const choice = f.choices.find((c) => c.value === f.value);
+        const values = valuesOf(f);
+        // one chip for a filter, naming each of its values
+        const choice = values.length === 1 ? f.choices.find((c) => c.value === values[0]) : undefined;
         return {
           key: f.key,
           label: f.label,
-          value: choice?.label ?? f.value,
+          value: f.multi ? labelOf(f) : (choice?.label ?? f.value),
           mark: choice?.mark,
           remove: () => f.onChange(f.off),
         };

@@ -9,7 +9,7 @@ mod items;
 mod notifications;
 mod plugins;
 mod projects;
-mod reviews;
+pub(crate) mod reviews;
 #[cfg(unix)]
 mod runs;
 mod settings;

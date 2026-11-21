@@ -621,7 +621,7 @@ fn resume_abilities(session: &SessionRow) -> Value {
 }
 
 /// A session as the API gives it: who, where, when, and what it holds.
-fn session_json(session: &SessionRow) -> Value {
+pub(crate) fn session_json(session: &SessionRow) -> Value {
     json!({
         "agent": session.agent,
         "id": session.id,

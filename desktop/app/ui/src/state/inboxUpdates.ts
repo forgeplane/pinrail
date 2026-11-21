@@ -1,30 +1,26 @@
-// How a notice changes the inbox's Updates: the person's notifications that
-// do not wait for them, newest first. Kept apart from the inbox so it can be
-// tested on its own.
+// What a notification's row says: why it is there, and who caused it.
 
 import type { Notification } from "../api/types";
-
-/** Whether the Updates section lists a notification: one about a work
- *  item that is not waiting or done. Reviews and sessions keep their own
- *  rows above it. */
-export const listed = (n: Notification) => !n.waiting && !n.done && n.subject.kind === "item";
-
-/**
- * The updates after a notice that carries a notification as it now stands:
- * a listed one takes its place by its latest event, newest first, and one
- * that is done or waits leaves the section.
- */
-export function applyNotification(updates: Notification[], notification: Notification): Notification[] {
-  const others = updates.filter((n) => n.id !== notification.id);
-  if (!listed(notification)) return others;
-  return [...others, notification].sort((a, b) => b.last_event - a.last_event);
-}
 
 /** The sentence that says why a notification is there, with who caused it. */
 export function reasonOf(n: Notification): string {
   const who = n.actor?.kind === "agent" ? n.actor.name : n.actor?.kind === "system" ? "Pinrail" : "An agent";
   const status = n.subject.kind === "item" ? n.subject.item.status : null;
   switch (n.reason) {
+    case "review_requested":
+      return "A review waits for you";
+    case "new_round":
+      return "A new round waits for you";
+    case "question_asked":
+      return "An agent asked you";
+    case "permission_requested":
+      return "An agent waits for permission";
+    case "input_requested":
+      return "An agent waits for your answer";
+    case "review_withdrawn":
+      return "The agent withdrew this review";
+    case "review_expired":
+      return "This review expired before you decided";
     case "item_added":
       // a new sub-item is reported on its parent, with its key and title
       return n.summary ? `${who} added a sub-item` : `${who} added this work item`;
@@ -32,7 +28,15 @@ export function reasonOf(n: Notification): string {
       return `${who} commented`;
     case "item_closed":
       return status === "cancelled" ? `${who} cancelled this` : `${who} marked this done`;
-    default:
+    case "item_changed":
       return `${who} changed this work item`;
+    case "agent_finished":
+      return "The agent finished";
+    case "agent_failed":
+      return "The agent's turn failed";
+    case "agent_stopped":
+      return "The agent stopped";
+    case "agent_note":
+      return `${who} sent you a note`;
   }
 }

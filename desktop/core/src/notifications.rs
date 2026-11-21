@@ -200,9 +200,26 @@ pub fn to_json(db: &Db, notification: &Notification) -> Result<Value, Error> {
                 }}),
                 Err(_) => json!({"kind": "item", "item": {"id": id}}),
             },
-            // the reviews and the sessions are reported from a later step
-            EventSubject::Review(id) => json!({"kind": "review", "review": {"id": id}}),
-            EventSubject::Session(id) => json!({"kind": "session", "session": {"id": id}}),
+            // the review as a listing gives it, without its payload
+            EventSubject::Review(id) => {
+                let review = db
+                    .reviews_by_id(&[id.as_str()])?
+                    .remove(id)
+                    .map_or_else(|| json!({ "id": id }), |r| r.to_json(false));
+                json!({"kind": "review", "review": review})
+            }
+            // the session as the sessions list gives it
+            EventSubject::Session(id) => {
+                let session = match db.session_agent(id)? {
+                    Some(agent) => db.session(&agent, id, Utc::now())?,
+                    None => None,
+                };
+                let session = session.map_or_else(
+                    || json!({ "id": id }),
+                    |s| crate::api::reviews::session_json(&s),
+                );
+                json!({"kind": "session", "session": session})
+            }
         };
         let project = match &notification.repo {
             Some(repo) => db.project_of_repo(repo)?.map(|p| p.to_json()),
