@@ -7872,12 +7872,18 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 
 /* a work item named where something belongs to it */
+/* the key and the title are in different fonts, so they line up on their
+   baseline rather than by their boxes */
 .item-chip {
+  align-items: baseline;
   min-width: 0;
   max-width: 260px;
   font-size: var(--text-xs);
   text-decoration: none;
   cursor: pointer;
+}
+.item-chip > svg {
+  align-self: center;
 }
 .item-chip:hover {
   text-decoration: none;
