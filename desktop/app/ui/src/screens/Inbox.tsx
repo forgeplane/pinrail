@@ -2,7 +2,7 @@ import { CheckCheck, SearchX } from "lucide-react";
 import { TelemetryNotice } from "../components/TelemetryNotice";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Link, useNavigate, type To } from "react-router";
-import type { Review } from "../api/types";
+import type { Notification, Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
@@ -26,10 +26,17 @@ import { InboxAgents, useInboxAgents } from "../components/InboxAgents";
 import { sessionPath } from "../components/Thread";
 import type { AgentRow } from "../lib/inboxAgents";
 import { api } from "../api/client";
+import { InboxUpdates, updatePath, useUpdates } from "../components/InboxUpdates";
 
-/** A row J and K walk: an agent's session in the Agents section, or a review. */
-type Entry = { agent: AgentRow } | { review: Review };
-const entryKey = (e: Entry) => ("agent" in e ? `session:${e.agent.session.agent}/${e.agent.session.id}` : e.review.id);
+/** A row J and K walk: an agent's session in the Agents section, a review,
+ *  or a notification in the Updates. */
+type Entry = { agent: AgentRow } | { review: Review } | { update: Notification };
+const entryKey = (e: Entry) =>
+  "agent" in e
+    ? `session:${e.agent.session.agent}/${e.agent.session.id}`
+    : "update" in e
+      ? `notification:${e.update.id}`
+      : e.review.id;
 
 /** Where an earlier version kept the layout on this machine; the settings
  *  keep it now, and the old choice is moved there once. */
@@ -193,9 +200,15 @@ function Waiting() {
 
   // the Agents section's rows, walked before the reviews
   const agents = useInboxAgents();
+  // the Updates, walked after the reviews
+  const updates = useUpdates();
   const entries = useMemo<Entry[]>(
-    () => [...agents.rows.map((agent) => ({ agent })), ...shown.map((review) => ({ review }))],
-    [agents.rows, shown],
+    () => [
+      ...agents.rows.map((agent) => ({ agent })),
+      ...shown.map((review) => ({ review })),
+      ...updates.rows.map((update) => ({ update })),
+    ],
+    [agents.rows, shown, updates.rows],
   );
   const walked = useMemo<Entry[]>(() => ordered.map((review) => ({ review })), [ordered]);
   const offset = agents.rows.length;
@@ -209,7 +222,12 @@ function Waiting() {
     altWalk: true,
     keyOf: entryKey,
     openKey: openId,
-    onOpen: (e) => navigate("agent" in e ? sessionPath(e.agent.session) : hrefFor(e.review.id)),
+    onOpen: (e) => {
+      if ("update" in e) {
+        if (!e.update.read) updates.setRead(e.update, true);
+        navigate(updatePath(e.update));
+      } else navigate("agent" in e ? sessionPath(e.agent.session) : hrefFor(e.review.id));
+    },
     onWalk: (e) => {
       if ("review" in e) openInPanel(e.review.id, { replace: true });
     },
@@ -217,6 +235,7 @@ function Waiting() {
   });
   const focusedEntry = entries[focused];
   const focusedReview = focusedEntry && "review" in focusedEntry ? focusedEntry.review : null;
+  const focusedUpdate = focusedEntry && "update" in focusedEntry ? focusedEntry.update : null;
   useSlashSearch(search);
 
   useWindowKey((event) => {
@@ -232,12 +251,27 @@ function Waiting() {
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    // E marks a finished session in the Agents section seen
+    // E marks the focused update done, or a finished session in the Agents
+    // section seen
     if ((event.key === "e" || event.key === "E") && !event.shiftKey && !isTyping(event.target)) {
       const row = focusedEntry && "agent" in focusedEntry ? focusedEntry.agent : null;
-      if (row?.session.attention === "finished") {
+      if (focusedUpdate) {
+        event.preventDefault();
+        updates.setDone(focusedUpdate);
+      } else if (row?.session.attention === "finished") {
         event.preventDefault();
         void api.setSeen(row.session.agent, row.session.id, true).catch(() => {});
+      }
+      return;
+    }
+    // U marks the focused update read or unread, and ⇧U every update read
+    if ((event.key === "u" || event.key === "U") && !isTyping(event.target)) {
+      if (event.shiftKey) {
+        event.preventDefault();
+        updates.readAll();
+      } else if (focusedUpdate) {
+        event.preventDefault();
+        updates.setRead(focusedUpdate, !focusedUpdate.read);
       }
       return;
     }
@@ -306,6 +340,7 @@ function Waiting() {
           plugins={plugins}
           onClear={() => setQ("")}
           layout={{ value: layout, set: setLayout }}
+          onReadAll={updates.unread > 0 ? updates.readAll : undefined}
         />
         <TelemetryNotice />
         {live.pendingUnloaded > 0 ? (
@@ -315,7 +350,7 @@ function Waiting() {
           </p>
         ) : null}
         <InboxAgents rows={agents.rows} more={agents.more} now={agents.now} focused={focused} hover={hover} />
-        {groups.length === 0 && agents.rows.length > 0 ? null : groups.length === 0 ? (
+        {groups.length === 0 && (agents.rows.length > 0 || updates.rows.length > 0) ? null : groups.length === 0 ? (
           <EmptyState
             title={filtered ? "No matching reviews" : "All caught up"}
             icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <CheckCheck size={28} strokeWidth={1.5} />}
@@ -357,6 +392,7 @@ function Waiting() {
           </div>
         )}
         <Pager label="Inbox" page={pageShown} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
+        <InboxUpdates updates={updates} first={offset + shown.length} focused={focused} hover={hover} />
         {discarding ? (
           <DiscardDialog
             review={discarding}
@@ -375,7 +411,8 @@ function Waiting() {
             </>
           ) : (
             <>
-              <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>/</kbd> search
+              <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>U</kbd> read · <kbd>E</kbd> done · <kbd>/</kbd>{" "}
+              search
             </>
           )}
         </footer>

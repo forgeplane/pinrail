@@ -3661,6 +3661,57 @@ body.is-resizing iframe {
 .agent-row.is-focused {
   --mark-ring: var(--bg-hover);
 }
+/* the Updates: the person's notifications under what waits, each with the
+   work item's status beside the unread dot; a read row is quieter */
+.inbox-updates {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+.inbox-updates-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.inbox-updates-title > span {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.inbox-updates-unread {
+  margin-left: auto;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.update-row {
+  grid-template-columns: 8px 14px 1fr auto auto;
+}
+/* the times line up down the section, whatever their length */
+.update-row .review-row-time {
+  min-width: 30px;
+}
+.update-row.is-unread .review-row-title {
+  font-weight: 600;
+}
+.update-row.is-read .review-row-title {
+  font-weight: 400;
+  color: var(--dim);
+}
+.update-row.is-unread .update-row-reason {
+  color: var(--text);
+}
+.update-row-new {
+  margin-left: 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+@container (max-width: 560px) {
+  .update-row {
+    grid-template-columns: 8px 14px 1fr auto;
+  }
+}
 .inbox-agents-more {
   align-self: flex-start;
   margin: 4px 10px 0;

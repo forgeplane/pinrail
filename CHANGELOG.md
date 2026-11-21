@@ -13,6 +13,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- The inbox lists updates under the reviews that wait: a work item an
+  agent added, commented on or closed. Mark an update read or unread with
+  **U**, mark it done with **E**, and mark every update read with
+  **Shift+U** or **Mark all as read**.
 - Choose in Settings › Work items › Inbox which work item notifications
   the inbox adds: an agent's new work items, its comments, the items it
   closes, and its other changes.

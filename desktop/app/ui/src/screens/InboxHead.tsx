@@ -4,13 +4,14 @@
 // Outcome applies to the History tab only, and the layout to the waiting
 // tabs.
 
-import { FolderGit2, Search } from "lucide-react";
+import { CheckCheck, FolderGit2, Search } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { FilterChips, ListMenuButtons, groupingDisplay, type Filter, type Toggle } from "../components/ListMenus";
 import { PluginIcon } from "../components/PluginIcon";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { Tooltip } from "../components/Tooltip";
+import { SHIFT } from "../lib/keys";
 import { clearAll, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
 import { filtering, waitingFilter } from "../lib/waiting";
 import { useLive } from "../state/live";
@@ -39,6 +40,7 @@ export function InboxHead({
   plugins,
   onClear,
   layout,
+  onReadAll,
 }: {
   tab: InboxTab;
   search: RefObject<HTMLInputElement | null>;
@@ -52,6 +54,8 @@ export function InboxHead({
   plugins: string[];
   onClear: () => void;
   layout?: LayoutChoice;
+  /** marks every update read, when some are unread */
+  onReadAll?: () => void;
 }) {
   const live = useLive();
   const [params, updateParams] = useUrlParams();
@@ -198,6 +202,13 @@ export function InboxHead({
               />
             </label>
           </Tooltip>
+          {onReadAll && !history ? (
+            <Tooltip label="Mark every update read" keys={[SHIFT, "U"]} side="bottom">
+              <button type="button" className="chrome-button" onClick={onReadAll}>
+                <CheckCheck size={14} aria-hidden="true" /> Mark all as read
+              </button>
+            </Tooltip>
+          ) : null}
           <ListMenuButtons
             label="reviews"
             filters={filters}
