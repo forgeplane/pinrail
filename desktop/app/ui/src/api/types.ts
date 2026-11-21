@@ -475,6 +475,7 @@ export type NotificationReason =
   | "item_added"
   | "item_commented"
   | "item_closed"
+  | "item_claimed"
   | "item_changed"
   | "agent_finished"
   | "agent_failed"
@@ -664,7 +665,13 @@ export type ServerSettings = {
   inbox?: {
     open_in: "panel" | "page";
     layout?: "project" | "repository" | "list";
-    show?: { item_added?: boolean; item_commented?: boolean; item_closed?: boolean; item_changed?: boolean };
+    show?: {
+      item_added?: boolean;
+      item_commented?: boolean;
+      item_closed?: boolean;
+      item_claimed?: boolean;
+      item_changed?: boolean;
+    };
   };
   sessions?: { layout?: "project" | "repository" | "list" };
   items?: {

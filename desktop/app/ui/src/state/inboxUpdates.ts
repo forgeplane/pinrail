@@ -28,6 +28,8 @@ export function reasonOf(n: Notification): string {
       return `${who} commented`;
     case "item_closed":
       return status === "cancelled" ? `${who} cancelled this` : `${who} marked this done`;
+    case "item_claimed":
+      return `${who} claimed this`;
     case "item_changed":
       return `${who} changed this work item`;
     case "agent_finished":

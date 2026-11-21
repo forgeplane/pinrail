@@ -824,3 +824,35 @@ async fn the_sweep_marks_old_read_notifications_done_and_deletes_old_done_ones()
     let n = of_review(&app, &review).unwrap();
     assert!(n.waiting && n.done_at.is_none());
 }
+
+#[tokio::test]
+async fn an_agents_claim_is_reported_on_its_own_and_can_be_turned_off() {
+    let app = app();
+    add_item(&app, "Themes").await;
+    agent(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        json!({"claim": "claim"}),
+    )
+    .await;
+    assert_eq!(listed(&app), [row("PIN-1", "item_claimed", 2)]);
+
+    settings(&app, json!({"inbox": {"show": {"item_claimed": false}}})).await;
+    agent(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        json!({"claim": "release"}),
+    )
+    .await;
+    agent(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        json!({"claim": "claim"}),
+    )
+    .await;
+    // the release is another change, off by default, and the claim is off
+    assert_eq!(listed(&app), [row("PIN-1", "item_claimed", 2)]);
+}

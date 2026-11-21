@@ -382,6 +382,7 @@ const INBOX_REASONS: &[&str] = &[
     "item_added",
     "item_commented",
     "item_closed",
+    "item_claimed",
     "item_changed",
 ];
 

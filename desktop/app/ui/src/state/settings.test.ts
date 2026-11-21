@@ -25,7 +25,7 @@ describe("fromServer", () => {
     expect(served.inbox).toEqual({
       open_in: "panel",
       layout: "repository",
-      show: { item_added: true, item_commented: true, item_closed: true, item_changed: false },
+      show: { item_added: true, item_commented: true, item_closed: true, item_claimed: true, item_changed: false },
     });
     expect(served.items).toEqual({
       layout: "project",

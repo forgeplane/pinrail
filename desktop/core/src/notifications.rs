@@ -15,7 +15,7 @@ use crate::items::ItemRef;
 
 /// Why a notification is there: the reasons a `kind` filter takes, beside
 /// the subject kinds.
-pub const REASONS: [&str; 15] = [
+pub const REASONS: [&str; 16] = [
     "review_requested",
     "new_round",
     "question_asked",
@@ -26,6 +26,7 @@ pub const REASONS: [&str; 15] = [
     "item_added",
     "item_commented",
     "item_closed",
+    "item_claimed",
     "item_changed",
     "agent_finished",
     "agent_failed",

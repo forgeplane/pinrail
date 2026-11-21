@@ -56,6 +56,11 @@ const INBOX_KINDS: { key: keyof InboxShow; label: string; description: string }[
     description: "Add a notification when an agent marks a work item done or cancels it.",
   },
   {
+    key: "item_claimed",
+    label: "Claimed work items",
+    description: "Add a notification when an agent claims a work item.",
+  },
+  {
     key: "item_changed",
     label: "Other changes",
     description: "Add a notification when an agent makes any other change to a work item.",

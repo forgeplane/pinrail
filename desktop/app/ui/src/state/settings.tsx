@@ -23,10 +23,17 @@ export type InboxShow = {
   item_added: boolean;
   item_commented: boolean;
   item_closed: boolean;
+  item_claimed: boolean;
   item_changed: boolean;
 };
 
-const INBOX_SHOW: InboxShow = { item_added: true, item_commented: true, item_closed: true, item_changed: false };
+const INBOX_SHOW: InboxShow = {
+  item_added: true,
+  item_commented: true,
+  item_closed: true,
+  item_claimed: true,
+  item_changed: false,
+};
 
 export type Settings = {
   appearance: {

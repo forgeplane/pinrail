@@ -371,6 +371,7 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
         Some("status") if matches!(attr("to"), Some("done" | "cancelled")) => {
             ("item_closed", EventSubject::Item(item.clone()), None)
         }
+        Some("claimed") => ("item_claimed", EventSubject::Item(item.clone()), None),
         _ => ("item_changed", EventSubject::Item(item.clone()), None),
     };
     if hidden(conn, reason)? {

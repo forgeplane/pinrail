@@ -172,6 +172,12 @@ const LEAVES: &[Leaf] = &[
         "Add a notification to the inbox when an agent marks a work item done or cancels it.",
     ),
     (
+        "/inbox/show/item_claimed",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent claims a work item.",
+    ),
+    (
         "/inbox/show/item_changed",
         Kind::Bool,
         || json!(false),
