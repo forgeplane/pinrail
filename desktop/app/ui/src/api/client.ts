@@ -150,6 +150,29 @@ const query = (params: Record<string, string | undefined>) => {
   return s ? `?${s}` : "";
 };
 
+/** A list of notifications: its tab, its filters, each with its
+ *  alternatives, and its page. */
+export type NotificationQuery = {
+  tab?: NotificationTab;
+  kind?: string[];
+  scope?: string[];
+  plugin?: string[];
+  q?: string;
+  done?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+/** The filters as the core takes them: each list joined with commas. */
+const notificationFilters = (f: NotificationQuery): Record<string, string | undefined> => ({
+  tab: f.tab,
+  kind: f.kind?.length ? f.kind.join(",") : undefined,
+  scope: f.scope?.length ? f.scope.join(",") : undefined,
+  plugin: f.plugin?.length ? f.plugin.join(",") : undefined,
+  q: f.q || undefined,
+  done: f.done ? "true" : undefined,
+});
+
 export const api = {
   info: () => request<Info>("GET", "/api/v1/info"),
   listReviews: (params: Record<string, string | undefined> = {}) =>
@@ -328,16 +351,20 @@ export const api = {
   /** stars a round of a review, or removes its star */
   deleteReview: (id: string) => request<{ ids: string[] }>("DELETE", `/api/v1/reviews/${seg(id)}`),
   star: (id: string, starred: boolean) => request<void>(starred ? "PUT" : "DELETE", `/api/v1/reviews/${seg(id)}/star`),
-  /** a page of the person's notifications, newest first */
-  notifications: (params: { tab?: NotificationTab; limit?: number; offset?: number } = {}) =>
+  /** a page of the person's notifications, newest first, that the tab and
+   *  the filters keep */
+  notifications: (filters: NotificationQuery = {}) =>
     request<NotificationList>(
       "GET",
       `/api/v1/notifications${query({
-        tab: params.tab,
-        limit: params.limit?.toString(),
-        offset: params.offset?.toString(),
+        ...notificationFilters(filters),
+        limit: filters.limit?.toString(),
+        offset: filters.offset?.toString(),
       })}`,
     ),
+  /** the events of a notification's subject after `after`, oldest first */
+  notificationEvents: (id: number, after = 0) =>
+    request<{ events: Notice[] }>("GET", `/api/v1/notifications/${id}/events${query({ after: String(after) })}`),
   notificationCounts: () => request<InboxCounts>("GET", "/api/v1/notifications/counts"),
   /** marks a notification read, or unread */
   setNotificationRead: (id: number, read: boolean) =>
@@ -346,8 +373,11 @@ export const api = {
   setNotificationDone: (id: number, done: boolean) =>
     request<void>(done ? "PUT" : "DELETE", `/api/v1/notifications/${id}/done`),
   /** marks read what a list showed, up to the newest event it reflected */
-  readNotifications: (tab: NotificationTab, upTo: number) =>
-    request<{ read: number }>("POST", "/api/v1/notifications/read", { tab, up_to: upTo }),
+  readNotifications: (filters: NotificationQuery, upTo: number) =>
+    request<{ read: number }>("POST", "/api/v1/notifications/read", {
+      ...notificationFilters(filters),
+      up_to: upTo,
+    }),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   /** what installing a folder or a zip would do, installing nothing */

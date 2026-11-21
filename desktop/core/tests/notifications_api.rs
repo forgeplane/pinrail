@@ -193,3 +193,222 @@ async fn a_waiting_notification_is_not_marked_done() {
     .await;
     assert_eq!(code, StatusCode::CONFLICT);
 }
+
+/// What a list query keeps, each notification as its subject's kind, its
+/// reason and its repository, sorted.
+async fn kept(app: &App, query: &str) -> Vec<String> {
+    let mut kept: Vec<String> = list(app, query).await["notifications"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| {
+            format!(
+                "{} {} {}",
+                n["subject"]["kind"].as_str().unwrap(),
+                n["reason"].as_str().unwrap(),
+                n["repo"].as_str().unwrap_or("-")
+            )
+        })
+        .collect();
+    kept.sort();
+    kept
+}
+
+/// Work items and reviews in three repositories, two of them in the
+/// project Web, and forgeplane/pinrail in the project Pinrail.
+async fn mixed(app: &App) -> (String, String) {
+    agent(
+        app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": REPO, "title": "Load themes"}),
+    )
+    .await;
+    agent(
+        app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "The loader is ready."}),
+    )
+    .await;
+    agent(
+        app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": "acme/web", "title": "Dark theme"}),
+    )
+    .await;
+    let review = |repo: &str, plugin: &str, payload: Value| {
+        json!({"plugin": plugin, "title": format!("Review of {repo}"),
+               "origin": {"repo": repo}, "requested_by": "claude-code", "payload": payload})
+    };
+    agent(
+        app,
+        "POST",
+        "/api/v1/reviews",
+        review(
+            REPO,
+            "list",
+            json!({"groups": [{"title": "a", "items": [{"id": 1, "title": "one"}]}]}),
+        ),
+    )
+    .await;
+    agent(
+        app,
+        "POST",
+        "/api/v1/reviews",
+        review(
+            "acme/api",
+            "feedback",
+            json!({"groups": [{"id": "g", "title": "G", "questions": [{"id": "q", "type": "text", "prompt": "Why?"}]}]}),
+        ),
+    )
+    .await;
+    let project = |name: &str, repos: Value| {
+        let body = json!({"name": name, "repos": repos});
+        async move {
+            let (code, project) = call(app, "POST", "/api/v1/projects", Some(body)).await;
+            assert_eq!(code, StatusCode::CREATED, "{project}");
+            project["id"].as_str().unwrap().to_string()
+        }
+    };
+    let web = project("Web", json!(["acme/web", "acme/api"])).await;
+    let pinrail = project("Pinrail", json!([REPO])).await;
+    (web, pinrail)
+}
+
+#[tokio::test]
+async fn each_tab_and_filter_keeps_its_notifications() {
+    let app = app();
+    let (web, pinrail) = mixed(&app).await;
+    assert_eq!(list(&app, "").await["total"], 4);
+    assert_eq!(
+        kept(&app, "?tab=waiting").await,
+        [
+            "review review_requested acme/api",
+            "review review_requested forgeplane/pinrail"
+        ]
+    );
+    // two kinds, and a subject kind
+    assert_eq!(
+        kept(&app, "?kind=item_commented,item_added").await,
+        [
+            "item item_added acme/web",
+            "item item_commented forgeplane/pinrail"
+        ]
+    );
+    assert_eq!(kept(&app, "?kind=review").await.len(), 2);
+    // a project and a repository of another project
+    assert_eq!(
+        kept(&app, &format!("?scope=project:{web}")).await,
+        [
+            "item item_added acme/web",
+            "review review_requested acme/api"
+        ]
+    );
+    assert_eq!(
+        kept(&app, &format!("?scope=project:{web},{REPO}"))
+            .await
+            .len(),
+        4
+    );
+    assert_eq!(
+        kept(&app, &format!("?scope=project:{pinrail}")).await.len(),
+        2
+    );
+    // two plugins, and an empty filter
+    assert_eq!(kept(&app, "?plugin=list,feedback").await.len(), 2);
+    assert_eq!(
+        kept(&app, "?plugin=feedback").await,
+        ["review review_requested acme/api"]
+    );
+    assert_eq!(kept(&app, "?kind=&scope=&plugin=").await.len(), 4);
+    // filters combine
+    assert_eq!(
+        kept(&app, &format!("?kind=review&scope=project:{pinrail}")).await,
+        ["review review_requested forgeplane/pinrail"]
+    );
+    // the search: a title, a key, a summary
+    assert_eq!(kept(&app, "?q=dark").await, ["item item_added acme/web"]);
+    assert_eq!(
+        kept(&app, "?q=PIN-1").await,
+        ["item item_commented forgeplane/pinrail"]
+    );
+    assert_eq!(kept(&app, "?q=loader").await.len(), 1);
+    assert!(kept(&app, "?q=100%25").await.is_empty());
+
+    let (code, answer) = call(&app, "GET", "/api/v1/notifications?kind=later", None).await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(answer.to_string().contains("item_commented"), "{answer}");
+}
+
+#[tokio::test]
+async fn done_notifications_are_listed_on_request() {
+    let app = app();
+    three(&app).await;
+    let id = list(&app, "?limit=1").await["notifications"][0]["id"].clone();
+    call(
+        &app,
+        "PUT",
+        &format!("/api/v1/notifications/{id}/done"),
+        None,
+    )
+    .await;
+    assert_eq!(list(&app, "").await["total"], 2);
+    let with_done = list(&app, "?done=true").await;
+    assert_eq!(with_done["total"], 3);
+    assert_eq!(with_done["notifications"][0]["done"], true);
+}
+
+#[tokio::test]
+async fn reading_all_of_two_kinds_leaves_the_other_kinds_unread() {
+    let app = app();
+    mixed(&app).await;
+    let shown = list(&app, "?kind=item_added,item_commented").await;
+    let (code, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/notifications/read",
+        Some(json!({"kind": "item_added,item_commented", "up_to": shown["up_to"]})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    assert_eq!(answer["read"], 2);
+    assert_eq!(
+        kept(&app, "?tab=unread").await,
+        [
+            "review review_requested acme/api",
+            "review review_requested forgeplane/pinrail"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_notification_lists_the_events_of_its_subject() {
+    let app = app();
+    three(&app).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "Started."}),
+    )
+    .await;
+    let row = list(&app, "?kind=item_commented").await["notifications"][0].clone();
+    let path = format!("/api/v1/notifications/{}/events", row["id"]);
+    let (code, answer) = call(&app, "GET", &path, None).await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    let changes: Vec<&str> = answer["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["item"]["change"].as_str().unwrap())
+        .collect();
+    assert_eq!(changes, ["created", "commented"]);
+    // after the first, the second alone
+    let first = answer["events"][0]["event_id"].as_i64().unwrap();
+    let (_, later) = call(&app, "GET", &format!("{path}?after={first}"), None).await;
+    assert_eq!(later["events"].as_array().unwrap().len(), 1);
+    let (code, _) = call(&app, "GET", "/api/v1/notifications/999/events", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+}

@@ -8,10 +8,30 @@ use std::sync::Arc;
 use chrono::Utc;
 use serde_json::{Value, json};
 
-use crate::db::{Db, EventActor, EventSubject, Listed, NewEvent, Notification};
+use crate::db::{Db, EventActor, EventSubject, NewEvent, Notification, NotificationFilters};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
 use crate::items::ItemRef;
+
+/// Why a notification is there: the reasons a `kind` filter takes, beside
+/// the subject kinds.
+pub const REASONS: [&str; 15] = [
+    "review_requested",
+    "new_round",
+    "question_asked",
+    "permission_requested",
+    "input_requested",
+    "review_withdrawn",
+    "review_expired",
+    "item_added",
+    "item_commented",
+    "item_closed",
+    "item_changed",
+    "agent_finished",
+    "agent_failed",
+    "agent_stopped",
+    "agent_note",
+];
 
 /// The most notifications a page holds.
 pub const PAGE_MAX: usize = 200;
@@ -50,12 +70,17 @@ impl Notifications {
     /// A page of a list, newest first, with how many the list holds, the
     /// counts, and the newest event the list reflects, for *Mark all as
     /// read*.
-    pub fn list(&self, listed: Listed, limit: usize, offset: usize) -> Result<Value, Error> {
+    pub fn list(
+        &self,
+        filters: &NotificationFilters,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Value, Error> {
         // read first, so that an event between the two is left unread
         let up_to = self.db.newest_event_id()?;
         let (rows, total) = self
             .db
-            .notifications_page(listed, limit.min(PAGE_MAX), offset)?;
+            .notifications_page(filters, limit.min(PAGE_MAX), offset)?;
         let notifications = rows
             .iter()
             .map(|n| self.to_json(n))
@@ -108,6 +133,20 @@ impl Notifications {
         self.announce(json!({"id": id, "change": change.as_str()}))
     }
 
+    /// The events of a notification's subject after `after`, oldest first,
+    /// as notices.
+    pub fn events(&self, id: i64, after: i64, limit: usize) -> Result<Vec<Notice>, Error> {
+        let Some(notification) = self.db.notification(id)? else {
+            return Err(Error::NotFound(format!("notification {id}")));
+        };
+        Ok(self
+            .db
+            .notification_events(&notification.subject, after, limit.min(PAGE_MAX))?
+            .iter()
+            .map(Notice::recorded)
+            .collect())
+    }
+
     /// Repairs the notifications that disagree with what waits, and tells
     /// the windows to read their list again when it changed any. Returns
     /// how many it changed.
@@ -121,8 +160,8 @@ impl Notifications {
 
     /// Marks read what a list showed: every notification of it whose
     /// latest event is `up_to` or older. A later event stays unread.
-    pub fn read_all(&self, listed: Listed, up_to: i64) -> Result<usize, Error> {
-        let read = self.db.read_notifications_up_to(listed, up_to)?;
+    pub fn read_all(&self, filters: &NotificationFilters, up_to: i64) -> Result<usize, Error> {
+        let read = self.db.read_notifications_up_to(filters, up_to)?;
         self.announce(json!({"change": "read_all", "up_to": up_to}))?;
         Ok(read)
     }

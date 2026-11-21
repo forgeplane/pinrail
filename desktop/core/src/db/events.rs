@@ -213,6 +213,23 @@ impl Db {
         rows.collect()
     }
 
+    /// The events after `after` that `condition` keeps, with `value` as its
+    /// `?1`, oldest first, at most `limit`.
+    pub(super) fn events_where(
+        &self,
+        condition: &str,
+        value: &str,
+        after: i64,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<Event>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(&format!(
+            "{SELECT} WHERE {condition} AND e.id > ?2 ORDER BY e.id LIMIT ?3"
+        ))?;
+        let rows = stmt.query_map(params![value, after, limit as i64], row_to_event)?;
+        rows.collect()
+    }
+
     /// Deletes the events that are no longer worth replaying, as of `now`,
     /// and returns how many went. An event about a review, an item or a
     /// session stays as long as its subject, except the session's presence

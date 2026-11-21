@@ -60,7 +60,7 @@ export function useUpdates(): Updates {
     upTo,
     setRead: (n, read) => void api.setNotificationRead(n.id, read).catch(() => {}),
     setDone: (n) => void api.setNotificationDone(n.id, true).catch(() => {}),
-    readAll: () => void api.readNotifications("all", upTo).catch(() => {}),
+    readAll: () => void api.readNotifications({ tab: "all", kind: ["item"] }, upTo).catch(() => {}),
   };
 }
 

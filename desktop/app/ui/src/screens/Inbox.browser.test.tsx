@@ -100,7 +100,7 @@ describe("the inbox's updates", () => {
   test("Mark all as read covers what the list showed", async () => {
     await open([update(1, "Load themes"), update(2, "Fix the login redirect")]);
     await page.getByRole("button", { name: "Mark all as read" }).click();
-    expect(core.calls("readNotifications").at(-1)).toEqual(["all", 40]);
+    expect(core.calls("readNotifications").at(-1)).toEqual([{ tab: "all", kind: ["item"] }, 40]);
   });
 
   test("U, E and Shift-U act on the focused update", async () => {
@@ -112,6 +112,6 @@ describe("the inbox's updates", () => {
     await userEvent.keyboard("e");
     expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
     await userEvent.keyboard("{Shift>}U{/Shift}");
-    expect(core.calls("readNotifications").at(-1)).toEqual(["all", 40]);
+    expect(core.calls("readNotifications").at(-1)).toEqual([{ tab: "all", kind: ["item"] }, 40]);
   });
 });

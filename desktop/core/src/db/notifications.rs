@@ -49,14 +49,106 @@ pub struct Notify<'a> {
 }
 
 /// The notifications a list shows, newest first.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Listed {
     /// What the person must act on.
     Waiting,
     /// What has events the person has not seen, and is not done.
     Unread,
     /// Everything not done.
+    #[default]
     Open,
+}
+
+/// What a list of notifications keeps: a tab, and filters whose values
+/// are alternatives, combined with each other. An empty filter keeps all.
+#[derive(Debug, Clone, Default)]
+pub struct NotificationFilters {
+    pub listed: Listed,
+    /// reasons, such as `item_commented`, or subject kinds: `review`,
+    /// `item`, `session`
+    pub kinds: Vec<String>,
+    /// repositories by name, `-` for none, or `project:<id>`
+    pub scopes: Vec<String>,
+    /// the plugins of reviews, by name
+    pub plugins: Vec<String>,
+    /// words in the subject's title, key or name, or in the summary
+    pub q: Option<String>,
+    /// the notifications marked done too
+    pub done: bool,
+}
+
+/// The subject kinds a `kind` filter takes beside the reasons.
+pub const SUBJECT_KINDS: [&str; 3] = ["review", "item", "session"];
+
+impl NotificationFilters {
+    /// The condition on `n`, the notification, and its values in order.
+    fn sql(&self) -> (String, Vec<String>) {
+        let mut args: Vec<String> = Vec::new();
+        let arg = |value: &str, args: &mut Vec<String>| {
+            args.push(value.to_string());
+            format!("?{}", args.len())
+        };
+        let mut wheres = vec![match (self.listed, self.done) {
+            (Listed::Open, true) => "1 = 1".to_string(),
+            (listed, _) => listed.filter().to_string(),
+        }];
+        if !self.kinds.is_empty() {
+            let mut any = Vec::new();
+            for kind in &self.kinds {
+                match kind.as_str() {
+                    "review" => any.push("n.review_id IS NOT NULL".to_string()),
+                    "item" => any.push("n.item_id IS NOT NULL".to_string()),
+                    "session" => any.push("n.session_id IS NOT NULL".to_string()),
+                    reason => any.push(format!("n.reason = {}", arg(reason, &mut args))),
+                }
+            }
+            wheres.push(format!("({})", any.join(" OR ")));
+        }
+        if !self.scopes.is_empty() {
+            let mut any = Vec::new();
+            for scope in &self.scopes {
+                any.push(match scope.strip_prefix("project:") {
+                    _ if scope == "-" => "n.repo_id IS NULL".to_string(),
+                    Some(project) => super::projects::in_project("n.repo_id", {
+                        arg(project, &mut args);
+                        args.len()
+                    }),
+                    None => super::repos::named("n.repo_id", {
+                        arg(scope, &mut args);
+                        args.len()
+                    }),
+                });
+            }
+            wheres.push(format!("({})", any.join(" OR ")));
+        }
+        if !self.plugins.is_empty() {
+            let list: Vec<String> = self.plugins.iter().map(|p| arg(p, &mut args)).collect();
+            wheres.push(format!(
+                "n.review_id IN (SELECT id FROM reviews WHERE plugin IN ({}))",
+                list.join(", ")
+            ));
+        }
+        if let Some(q) = self.q.as_deref().map(str::trim).filter(|q| !q.is_empty()) {
+            let escaped = q
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            let like = arg(&format!("%{escaped}%"), &mut args);
+            wheres.push(format!(
+                "(n.summary LIKE {like} ESCAPE '\\'
+                  OR EXISTS (SELECT 1 FROM reviews r WHERE r.id = n.review_id
+                               AND r.title LIKE {like} ESCAPE '\\')
+                  OR EXISTS (SELECT 1 FROM work_items w JOIN repos k ON k.id = w.repo_id
+                              WHERE w.id = n.item_id
+                                AND (w.title LIKE {like} ESCAPE '\\'
+                                     OR k.prefix || '-' || w.number LIKE {like} ESCAPE '\\'))
+                  OR EXISTS (SELECT 1 FROM sessions s WHERE s.id = n.session_id
+                               AND s.name LIKE {like} ESCAPE '\\'))"
+            ));
+        }
+        (wheres.join(" AND "), args)
+    }
 }
 
 impl Listed {
@@ -533,46 +625,74 @@ impl Db {
         listed: Listed,
         limit: usize,
     ) -> rusqlite::Result<Vec<Notification>> {
-        Ok(self.notifications_page(listed, limit, 0)?.0)
+        let filters = NotificationFilters {
+            listed,
+            ..Default::default()
+        };
+        Ok(self.notifications_page(&filters, limit, 0)?.0)
     }
 
-    /// A page of a list, newest first: at most `limit` from `offset`, and
-    /// how many the whole list holds.
+    /// A page of what the filters keep, newest first: at most `limit` from
+    /// `offset`, and how many they keep in all.
     pub fn notifications_page(
         &self,
-        listed: Listed,
+        filters: &NotificationFilters,
         limit: usize,
         offset: usize,
     ) -> rusqlite::Result<(Vec<Notification>, i64)> {
-        let filter = listed.filter();
+        let (filter, mut args) = filters.sql();
         let conn = self.read();
-        let mut stmt = conn.prepare(&format!(
-            "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
-              WHERE {filter} ORDER BY n.last_event DESC LIMIT ?1 OFFSET ?2"
-        ))?;
-        let rows = stmt
-            .query_map(params![limit as i64, offset as i64], row_to_notification)?
-            .collect::<rusqlite::Result<_>>()?;
         let total = conn.query_row(
             &format!("SELECT count(*) FROM notifications n WHERE {filter}"),
-            [],
+            rusqlite::params_from_iter(&args),
             |r| r.get(0),
         )?;
+        let n = args.len();
+        args.push(limit.to_string());
+        args.push(offset.to_string());
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
+              WHERE {filter} ORDER BY n.last_event DESC
+              LIMIT CAST(?{} AS INTEGER) OFFSET CAST(?{} AS INTEGER)",
+            n + 1,
+            n + 2
+        ))?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(&args), row_to_notification)?
+            .collect::<rusqlite::Result<_>>()?;
         Ok((rows, total))
     }
 
-    /// Marks read every notification of a list whose latest event is
+    /// Marks read every notification the filters keep whose latest event is
     /// `up_to` or older: what the person saw listed. Returns how many.
-    pub fn read_notifications_up_to(&self, listed: Listed, up_to: i64) -> rusqlite::Result<usize> {
+    pub fn read_notifications_up_to(
+        &self,
+        filters: &NotificationFilters,
+        up_to: i64,
+    ) -> rusqlite::Result<usize> {
+        let (filter, mut args) = filters.sql();
+        args.push(up_to.to_string());
         let conn = self.conn();
         conn.execute(
             &format!(
                 "UPDATE notifications AS n SET read_event = last_event, unread = 0
-                  WHERE {} AND n.unread > 0 AND n.last_event <= ?1",
-                listed.filter()
+                  WHERE {filter} AND n.unread > 0 AND n.last_event <= CAST(?{} AS INTEGER)",
+                args.len()
             ),
-            params![up_to],
+            rusqlite::params_from_iter(&args),
         )
+    }
+
+    /// The events of a notification's subject after `after`, oldest first,
+    /// at most `limit`.
+    pub fn notification_events(
+        &self,
+        subject: &EventSubject,
+        after: i64,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<super::Event>> {
+        let (column, id) = subject_column(subject);
+        self.events_where(&format!("e.{column} = ?1"), id, after, limit)
     }
 
     /// Takes a notification out of done. `false` when there is none.

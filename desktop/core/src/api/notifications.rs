@@ -17,7 +17,7 @@ use super::error::ApiError;
 use super::guard::Person;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::Listed;
+use crate::db::{Listed, NotificationFilters, SUBJECT_KINDS};
 use crate::error::Error;
 use crate::notifications::Change;
 
@@ -29,6 +29,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/notifications", get(list))
         .route("/api/v1/notifications/counts", get(counts))
         .route("/api/v1/notifications/read", post(read_all))
+        .route("/api/v1/notifications/{id}/events", get(events))
         .route("/api/v1/notifications/{id}/read", put(read).delete(unread))
         .route("/api/v1/notifications/{id}/done", put(done).delete(undone))
 }
@@ -61,10 +62,62 @@ async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let listed = tab(params.get("tab").map(String::as_str))?;
+    let filters = filters(|name| params.get(name).cloned())?;
     let limit = count(&params, "limit", PAGE_DEFAULT)?;
     let offset = count(&params, "offset", 0)?;
-    Ok(Json(state.notifications().list(listed, limit, offset)?))
+    Ok(Json(state.notifications().list(&filters, limit, offset)?))
+}
+
+/// The tab and the filters of a list, from the query or the body: `tab`,
+/// `kind`, `scope` and `plugin`, each of the last three a comma-separated
+/// list of alternatives, `q`, and `done`.
+fn filters(get: impl Fn(&str) -> Option<String>) -> Result<NotificationFilters, Error> {
+    let list = |name: &str| -> Vec<String> {
+        get(name)
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+            .collect()
+    };
+    let kinds = list("kind");
+    if let Some(unknown) = kinds.iter().find(|k| {
+        !crate::notifications::REASONS.contains(&k.as_str()) && !SUBJECT_KINDS.contains(&k.as_str())
+    }) {
+        return Err(Error::invalid(
+            "kind",
+            format!(
+                "{unknown} is no kind: give a reason, {}, or a subject, {}",
+                crate::notifications::REASONS.join(", "),
+                SUBJECT_KINDS.join(", ")
+            ),
+        ));
+    }
+    Ok(NotificationFilters {
+        listed: tab(get("tab").as_deref())?,
+        kinds,
+        scopes: list("scope"),
+        plugins: list("plugin"),
+        q: get("q").filter(|q| !q.trim().is_empty()),
+        done: get("done").is_some_and(|v| v == "true" || v == "1"),
+    })
+}
+
+/// The events of a notification's subject after `after`, oldest first, at
+/// most `limit`, as the event stream sends them.
+async fn events(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<i64>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, ApiError> {
+    let after = params
+        .get("after")
+        .map_or(Ok(0), |v| v.parse::<i64>())
+        .map_err(|_| Error::invalid("after", "must be an event id"))?;
+    let limit = count(&params, "limit", PAGE_DEFAULT)?;
+    let events = state.notifications().events(id, after, limit)?;
+    Ok(Json(json!({ "events": events })))
 }
 
 /// How many notifications wait for the person, and how many are unread.
@@ -80,12 +133,16 @@ async fn read_all(
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
-    let listed = tab(body.get("tab").and_then(Value::as_str))?;
+    let filters = filters(|name| match body.get(name) {
+        Some(Value::String(text)) => Some(text.clone()),
+        Some(Value::Bool(on)) => Some(on.to_string()),
+        _ => None,
+    })?;
     let up_to = body
         .get("up_to")
         .and_then(Value::as_i64)
         .ok_or_else(|| Error::invalid("/up_to", "give the newest event id the list showed"))?;
-    let read = state.notifications().read_all(listed, up_to)?;
+    let read = state.notifications().read_all(&filters, up_to)?;
     Ok(Json(json!({ "read": read })))
 }
 
