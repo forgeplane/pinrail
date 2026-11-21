@@ -35,6 +35,12 @@ impl Events {
         self.bus.publish(notice);
     }
 
+    /// Deletes the events that are no longer worth replaying, as of `now`.
+    /// Returns how many went.
+    pub fn sweep(&self, now: chrono::DateTime<chrono::Utc>) -> Result<usize, Error> {
+        Ok(self.db.delete_old_events(now)?)
+    }
+
     /// The bus the other services publish on.
     pub(crate) fn bus(&self) -> Bus {
         self.bus.clone()

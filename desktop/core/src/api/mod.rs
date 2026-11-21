@@ -157,8 +157,9 @@ pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
 /// Serves the API on a listener from `bind` until `shutdown` resolves. It
 /// advertises itself in `server.json` while it runs. Every 30 seconds it
 /// sweeps expired reviews, the reviews older than the days the history
-/// keeps (when it keeps a limited number), files that no review names, and
-/// plugin bundles that nothing refers to, each more than an hour old.
+/// keeps (when it keeps a limited number), the events no longer worth
+/// replaying, files that no review names, and plugin bundles that nothing
+/// refers to, each more than an hour old.
 /// Every second it notices an edit to settings.json made outside the app,
 /// and a change to a linked plugin's folder.
 pub async fn serve(
@@ -196,6 +197,9 @@ pub async fn serve(
                 }
                 if let Err(error) = app.reviews().sweep_hidden_sessions() {
                     eprintln!("pinrail: hidden sessions sweep failed: {error}");
+                }
+                if let Err(error) = app.events().sweep(chrono::Utc::now()) {
+                    eprintln!("pinrail: events sweep failed: {error}");
                 }
                 // what no hook reports: an agent gone, an interrupt
                 if let Some(home) = crate::config::home_dir()

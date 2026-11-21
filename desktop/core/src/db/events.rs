@@ -202,6 +202,53 @@ impl Db {
         rows.collect()
     }
 
+    /// Deletes the events that are no longer worth replaying, as of `now`,
+    /// and returns how many went. An event about a review, an item or a
+    /// session stays as long as its subject, except the session's presence
+    /// and the person seeing it, whose current state the session keeps. A
+    /// notice that only tells the app to read something again goes after
+    /// 14 days, and the notice of a deletion after 90.
+    pub fn delete_old_events(&self, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+        use crate::events as e;
+        let list = |kinds: &[&str]| {
+            kinds
+                .iter()
+                .map(|k| format!("'{k}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let refresh = list(&[
+            e::SETTINGS_CHANGED,
+            e::THEMES_CHANGED,
+            e::PLUGINS_RELOADED,
+            e::PROJECTS_CHANGED,
+            e::PREFIX_CHANGED,
+            e::HISTORY_SWEPT,
+            "notification_changed",
+        ]);
+        let presence = list(&[e::SESSION_PRESENCE, e::SESSION_SEEN]);
+        let deletions = list(&[
+            e::ITEM_DELETED,
+            e::SESSION_DELETED,
+            e::REVIEW_DELETED,
+            e::REPOSITORY_DELETED,
+        ]);
+        let conn = self.conn();
+        conn.execute(
+            &format!(
+                "DELETE FROM events
+                  WHERE (kind IN ({refresh}) AND at < ?1 AND review_id IS NULL
+                         AND item_id IS NULL AND session_id IS NULL)
+                     OR (kind IN ({presence}) AND at < ?1)
+                     OR (kind IN ({deletions}) AND at < ?2)"
+            ),
+            params![
+                crate::reviews::iso(now - chrono::Duration::days(14)),
+                crate::reviews::iso(now - chrono::Duration::days(90)),
+            ],
+        )
+    }
+
     /// The event of this id, if it is still recorded.
     pub fn event(&self, id: i64) -> rusqlite::Result<Option<Event>> {
         let conn = self.read();

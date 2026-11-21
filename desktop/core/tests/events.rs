@@ -579,3 +579,80 @@ async fn deleting_a_session_deletes_its_events_and_records_the_deletion() {
     assert_eq!(deleted[0].subject_json(), Value::Null);
     assert_eq!(deleted[0].attrs["id"], json!(session));
 }
+
+#[tokio::test]
+async fn the_sweep_deletes_old_events_by_class_and_keeps_those_with_a_subject() {
+    let app = app();
+    let item = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": REPO, "title": "Work"}),
+    )
+    .await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        json!({"text": "Working"}),
+    )
+    .await;
+    let review = agent(&app, "POST", "/api/v1/reviews", question(None)).await;
+    let session = common::sid(&app, "claude-code", "s-1");
+    let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
+    conn.execute("DELETE FROM events", []).unwrap();
+
+    let now = chrono::Utc::now();
+    // each class of event, with the subject column it names, written 13,
+    // 15 and 91 days ago
+    let classes = [
+        ("item", "item_changed", "item_id", item["id"].clone()),
+        ("review", "created", "review_id", review["id"].clone()),
+        ("status", "session_status", "session_id", json!(session)),
+        ("refresh", "settings_changed", "item_id", Value::Null),
+        ("presence", "session_presence", "session_id", json!(session)),
+        ("deletion", "item_deleted", "item_id", Value::Null),
+    ];
+    for (name, kind, column, subject) in classes {
+        for days in [13, 15, 91] {
+            let at = pinrail_core::reviews::iso(now - chrono::Duration::days(days));
+            conn.execute(
+                &format!("INSERT INTO events (kind, at, {column}, attrs) VALUES (?1, ?2, ?3, ?4)"),
+                rusqlite::params![
+                    kind,
+                    at,
+                    subject.as_str(),
+                    json!({"class": name, "days": days}).to_string()
+                ],
+            )
+            .unwrap();
+        }
+    }
+
+    app.state.events().sweep(now).unwrap();
+    let mut kept: Vec<String> = common::db(&app)
+        .events_after(0, 1000)
+        .unwrap()
+        .iter()
+        .map(|e| format!("{} {}", e.attrs["class"].as_str().unwrap(), e.attrs["days"]))
+        .collect();
+    kept.sort();
+    assert_eq!(
+        kept,
+        [
+            "deletion 13",
+            "deletion 15",
+            "item 13",
+            "item 15",
+            "item 91",
+            "presence 13",
+            "refresh 13",
+            "review 13",
+            "review 15",
+            "review 91",
+            "status 13",
+            "status 15",
+            "status 91",
+        ]
+    );
+}
