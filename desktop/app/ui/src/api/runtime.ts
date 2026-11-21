@@ -64,6 +64,8 @@ export type StartRequest = {
   folder: string;
   task?: string;
   args?: string[];
+  /** A work item, by its key, that the new session claims */
+  item?: string;
   cols: number;
   rows: number;
   local_id: string;
@@ -73,7 +75,8 @@ export const runtime = {
   startable: async () => (await request<{ agents: StartableAgent[] }>("GET", "/api/v1/agents/startable")).agents,
   recentFolders: async () => (await request<{ folders: RecentFolder[] }>("GET", "/api/v1/folders/recent")).folders,
   start: (body: StartRequest) =>
-    request<{ run: Run; session: RunSession }>("POST", "/api/v1/runs", {
+    // why the new session could not claim the item it was started on
+    request<{ run: Run; session: RunSession; claim_refused?: string }>("POST", "/api/v1/runs", {
       host: "local",
       ...body,
     }),

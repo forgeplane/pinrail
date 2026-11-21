@@ -1218,3 +1218,96 @@ async fn a_prompt_with_another_id_does_not_move_a_claude_code_run() {
         started["session"]["agent_session"].as_str()
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_start_on_a_work_item_claims_it_for_the_new_session() {
+    let app = linked_as(&["claude", "codex"]).await;
+    let folder = folder(&app, "app");
+    let (status, item) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": "forgeplane/app", "title": "Fix the login"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{item}");
+    let key = item["key"].as_str().unwrap().to_string();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "codex", "folder": folder, "task": "Fix the login", "item": key})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let session = started["session"]["id"].as_str().unwrap();
+    let (_, shown) = call(&app, "GET", &format!("/api/v1/items/{key}"), None).await;
+    assert_eq!(shown["status"], "in_progress", "{shown}");
+    assert_eq!(shown["claim"]["agent"], "codex", "{shown}");
+    assert_eq!(shown["claim"]["session"], session, "{shown}");
+
+    // another start on it takes the claim over
+    let (status, again) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "item": key})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{again}");
+    let (_, shown) = call(&app, "GET", &format!("/api/v1/items/{key}"), None).await;
+    assert_eq!(shown["claim"]["agent"], "claude-code", "{shown}");
+    assert_eq!(shown["claim"]["session"], again["session"]["id"], "{shown}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_start_on_an_unknown_work_item_starts_nothing() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (status, refused) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "item": "APP-99"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{refused}");
+    let (_, runs) = call(&app, "GET", "/api/v1/runs", None).await;
+    assert_eq!(runs["runs"].as_array().unwrap().len(), 0, "{runs}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_start_on_an_item_on_hold_starts_and_says_why_it_did_not_claim_it() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (_, item) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": "forgeplane/app", "title": "Fix the login"})),
+    )
+    .await;
+    let key = item["key"].as_str().unwrap().to_string();
+    let (status, held) = call(
+        &app,
+        "PATCH",
+        &format!("/api/v1/items/{key}"),
+        Some(json!({"status": "on_hold"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{held}");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "item": key})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    assert!(
+        started["claim_refused"]
+            .as_str()
+            .is_some_and(|r| r.contains("on hold")),
+        "{started}"
+    );
+}

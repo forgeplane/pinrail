@@ -15,8 +15,9 @@ use super::ApiState;
 use super::error::ApiError;
 use super::guard::{Person, refuse};
 use crate::Pinrail;
-use crate::db::{RunFilters, RunRow};
+use crate::db::{Claim, ItemChange, RunFilters, RunRow};
 use crate::error::Error;
+use crate::items::{Actor, ItemRef};
 use crate::runtime::{LOCAL, Resume, RunError, Start};
 
 pub fn routes() -> Router<ApiState> {
@@ -64,7 +65,9 @@ async fn host(
 /// so far. A `local_id` makes the call idempotent for 10 minutes. Answers
 /// 201 with the run and its session, by Pinrail's id, whose
 /// `agent_session` is null until an agent that names its session itself
-/// reports it.
+/// reports it. A work `item`, by its key, is claimed for the new session,
+/// which takes the claim over from another; an unknown item answers 404
+/// and starts nothing.
 async fn start(
     State(state): State<Arc<Pinrail>>,
     _person: Person,
@@ -82,11 +85,55 @@ async fn start(
     {
         request.created_by = "cli".to_string();
     }
+    let item = match body.get("item") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(key)) => match ItemRef::parse(key) {
+            Ok(item) => Some(item),
+            Err(e) => return ApiError::from(Error::invalid("/item", e)).into_response(),
+        },
+        Some(_) => {
+            return ApiError::from(Error::invalid("/item", "is not an item's key")).into_response();
+        }
+    };
+    // an item that is not there starts nothing
+    if let Some(item) = &item
+        && let Err(error) = state.items().get(item, None)
+    {
+        return ApiError::from(error).into_response();
+    }
     let local_id = body.get("local_id").and_then(Value::as_str);
     match state.runtime().start_once(local_id, &request).await {
-        Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),
+        Ok(run) => {
+            let mut answer = started(&run);
+            if let (Some(item), Some((agent, session))) = (&item, &run.session)
+                && let Err(refused) = claim_for(&state, item, agent, session)
+            {
+                answer["claim_refused"] = Value::from(refused);
+            }
+            (StatusCode::CREATED, Json(answer)).into_response()
+        }
         Err(error) => run_error(error),
     }
+}
+
+/// Claims `item` for a session a start made, taking the claim over from
+/// another. The run has started by then, so a claim the item's rules
+/// refuse, such as on an item on hold, is answered beside the run, as
+/// `claim_refused` with the reason.
+fn claim_for(state: &Pinrail, item: &ItemRef, agent: &str, session: &str) -> Result<(), String> {
+    let change = ItemChange {
+        claim: Some(Claim::Take { take: true }),
+        ..ItemChange::default()
+    };
+    let actor = Actor::Agent {
+        name: agent.to_string(),
+        session: Some(session.to_string()),
+    };
+    state
+        .items()
+        .edit(item, None, &change, &actor)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 /// Resumes a stopped session in a new terminal of `cols` by `rows`, in

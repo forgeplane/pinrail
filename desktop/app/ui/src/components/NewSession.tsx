@@ -38,7 +38,7 @@ let knownAgents: StartableAgent[] = [];
 let knownFolders: RecentFolder[] = [];
 
 /** What the person reads when a start is refused. */
-function refusal(error: unknown, agent: StartableAgent | undefined): string {
+export function refusal(error: unknown, agent: StartableAgent | undefined): string {
   if (!(error instanceof ApiError)) return "Pinrail could not be reached.";
   const name = agent?.name ?? "The agent";
   switch (error.kind) {
@@ -65,7 +65,7 @@ function grow(box: HTMLTextAreaElement) {
 }
 
 /** A folder's last part, which names it on its picker. */
-const baseName = (folder: string) => folder.replace(/\/+$/, "").split("/").pop() || folder;
+export const baseName = (folder: string) => folder.replace(/\/+$/, "").split("/").pop() || folder;
 
 export function NewSession() {
   const navigate = useNavigate();

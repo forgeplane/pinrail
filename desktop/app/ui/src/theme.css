@@ -7318,6 +7318,51 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-pill:hover {
   border-color: var(--border-strong);
 }
+/* the button that starts an agent on the item, with an arrow beside it
+   for the agent and the folder */
+.item-quick-start {
+  display: inline-flex;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+.item-quick-start:hover {
+  border-color: var(--border-strong);
+}
+.item-quick-start > button,
+.item-quick-start > span > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 9px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.item-quick-start > span > button svg {
+  flex: none;
+  color: var(--dim);
+}
+.item-quick-start button:hover:not(:disabled),
+.item-quick-start .item-quick-start-more[aria-expanded="true"] {
+  background: var(--bg-raised);
+}
+.item-quick-start button:disabled {
+  color: var(--dim);
+  cursor: default;
+}
+.item-quick-start .item-quick-start-more {
+  padding: 0 6px;
+  border-left: 1px solid var(--border);
+  color: var(--dim);
+}
 .item-pills .select-value,
 .item-pill-text {
   min-width: 0;

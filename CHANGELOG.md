@@ -49,6 +49,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   finished.
 - Start and resume OpenCode sessions from Pinrail, and send them messages,
   which are typed into the agent's terminal.
+- Start an agent on a work item from the item's panel. The new session
+  gets the item's title and description as its task, and claims the item.
 - A session that Pinrail runs has a **Split view** beside Summary and
   Terminal, with the summary above the terminal. Drag the divider between
   them to resize the summary; the size is kept for every session. Settings ›

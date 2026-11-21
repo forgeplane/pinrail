@@ -36,6 +36,7 @@ import { Activity } from "./ItemActivity";
 import { Markdown, useFileUrl } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { HoldItemDialog, stoppedByHold } from "./HoldItemDialog";
+import { ItemQuickStart } from "./ItemQuickStart";
 import { DeleteItemDialog } from "./DeleteItemDialog";
 import { DependencyGraph } from "./DependencyGraph";
 import { useItemPicker } from "./ItemPicker";
@@ -261,6 +262,9 @@ export function ItemPanel({
           <button type="button" className="item-pill pill" onClick={() => void change({ claim: "take" })}>
             Claim
           </button>
+        ) : null}
+        {settings.labs.runtime && item.status !== "done" && item.status !== "cancelled" ? (
+          <ItemQuickStart item={item} />
         ) : null}
         <Select
           id="item-repo"
