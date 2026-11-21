@@ -1,6 +1,6 @@
 // What a notification's row says: why it is there, and who caused it.
 
-import type { Notice, Notification } from "../api/types";
+import type { Notification } from "../api/types";
 
 /** The sentence that says why a notification is there, with who caused it. */
 export function reasonOf(n: Notification): string {
@@ -41,97 +41,62 @@ export function reasonOf(n: Notification): string {
   }
 }
 
-/** What an event says on a notification's unfolded row, after who did it:
- *  "commented", with the start of the comment as its detail. `null` for an
- *  event not worth a line, such as an agent at work. */
-export function eventLine(notice: Notice): { text: string; detail?: string } | null {
-  const item = notice.item && "change" in notice.item ? notice.item : null;
-  if (notice.kind === "item_changed" && item) {
-    switch (item.change) {
-      case "created":
-        return item.parent
-          ? { text: "added this work item under", detail: item.parent }
-          : { text: "added this work item" };
-      case "commented":
-        return { text: "commented", detail: item.excerpt };
-      case "status":
-        return { text: `moved it to ${STATUS_WORDS[item.to ?? ""] ?? item.to}` };
-      case "held":
-        return { text: "put it on hold" };
-      case "claimed":
-        return { text: "claimed this work item" };
-      case "released":
-        return { text: "released it" };
-      case "queued":
-        return { text: "queued it" };
-      case "unqueued":
-        return { text: "took it out of the queue" };
-      case "moved":
-        return { text: "moved it to another repository" };
-      case "parent":
-        return { text: "moved it under another work item" };
-      case "depends":
-        return { text: "changed what it depends on" };
-      case "files":
-        return { text: "changed its files" };
-      case "reviews":
-        return { text: "changed its reviews" };
-      case "comment_edited":
-        return { text: "edited a comment", detail: item.excerpt };
-      case "comment_deleted":
-        return { text: "deleted a comment" };
-      default:
-        return { text: "changed this work item" };
+/** A row's second line: what changed, the detail that says it, how many
+ *  other changes there are, and the parent of a sub-item. */
+export type RowLine = { text: string; detail?: string; more?: number; under?: string };
+
+/** A line of Markdown as plain text: without its emphasis, code and link
+ *  marks. */
+export const plain = (text: string | undefined) =>
+  text
+    ?.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|\*|_|`)(.+?)\1/g, "$2")
+    .trim();
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** What a row's second line says: the latest change since the person
+ *  looked, in words, with its detail and the count of the others. */
+export function lineOf(n: Notification): RowLine {
+  const who = n.actor?.kind === "agent" ? n.actor.name : n.actor?.kind === "system" ? "Pinrail" : "An agent";
+  const fresh = n.new;
+  const under = fresh?.parent ?? undefined;
+  if (n.subject.kind === "session" && fresh && n.reason === "agent_finished") {
+    return {
+      text: fresh.turns > 1 ? `The agent finished ${fresh.turns} turns` : "The agent finished",
+      detail: plain(fresh.reply ?? n.summary ?? undefined),
+    };
+  }
+  if (n.subject.kind === "item" && fresh?.latest) {
+    const total = fresh.sub_items + fresh.comments + fresh.changes;
+    const line = (text: string, count: number, detail?: string): RowLine => ({
+      text,
+      detail,
+      more: total - count || undefined,
+      under,
+    });
+    switch (fresh.latest) {
+      case "sub_item":
+        if (fresh.breakdown) {
+          return line(
+            `${who} added this work item with ${plural(fresh.sub_items, "sub-item", "sub-items")}`,
+            fresh.sub_items,
+          );
+        }
+        return fresh.sub_items === 1
+          ? line(
+              `${who} added a sub-item`,
+              1,
+              fresh.sub_item ? `${fresh.sub_item.key} ${fresh.sub_item.title}` : undefined,
+            )
+          : line(`${who} added ${fresh.sub_items} sub-items`, fresh.sub_items);
+      case "comment":
+        return fresh.comments === 1
+          ? line(`${fresh.authors[0] ?? who} commented`, 1, fresh.comment ?? undefined)
+          : line(`${fresh.comments} new comments`, fresh.comments, fresh.authors.join(", "));
+      case "change":
+        return line(reasonOf(n), 1, n.summary ?? undefined);
     }
   }
-  const session = notice.session as
-    | {
-        presence?: { state?: string; wait?: { kind?: string; summary?: string | null; tool?: string | null } };
-        end_kind?: string;
-        status?: { kind?: string; text?: string };
-      }
-    | undefined;
-  switch (notice.kind) {
-    case "session_presence": {
-      const presence = session?.presence;
-      if (presence?.state === "needs_input") {
-        const wait = presence.wait;
-        return {
-          text: wait?.kind === "permission" ? "asked for permission" : "waited for your answer",
-          detail: wait?.summary ?? wait?.tool ?? undefined,
-        };
-      }
-      return presence?.state === "stopped" ? { text: "stopped" } : null;
-    }
-    case "session_turn":
-      return session?.end_kind === "done"
-        ? { text: "finished a turn" }
-        : session?.end_kind === "failed"
-          ? { text: "failed a turn" }
-          : null;
-    case "session_status":
-      return session?.status?.kind === "note"
-        ? { text: "sent you a note" }
-        : { text: "said", detail: session?.status?.text };
-    case "run_ended":
-      return { text: "its run ended" };
-    default:
-      return null;
-  }
+  return { text: reasonOf(n), detail: n.summary ?? undefined, under };
 }
-
-const STATUS_WORDS: Record<string, string> = {
-  open: "Open",
-  in_progress: "In progress",
-  on_hold: "On hold",
-  done: "Done",
-  cancelled: "Cancelled",
-};
-
-/** Who caused an event, by name, as its group on the unfolded row says. */
-export const actorName = (notice: Notice) =>
-  notice.actor?.kind === "agent" || notice.actor?.kind === "person"
-    ? notice.actor.name
-    : notice.actor?.kind === "system"
-      ? "Pinrail"
-      : "Someone";

@@ -503,7 +503,27 @@ export type Notification = {
   last_event: number;
   /** the last event the person saw; the new ones come after it */
   read_event: number;
+  /** what changed since the person last looked, which the row's line says */
+  new?: NotificationNew;
   updated_at: string;
+};
+
+/** What changed on a notification's subject since the person last looked:
+ *  for a work item, the sub-items added, the comments and the other
+ *  changes, which came last, and its parent; for a session, the turns
+ *  finished since it was seen and the first line of the last reply. */
+export type NotificationNew = {
+  sub_items: number;
+  sub_item: { key: string; title: string } | null;
+  breakdown: boolean;
+  comments: number;
+  authors: string[];
+  comment: string | null;
+  changes: number;
+  latest: "sub_item" | "comment" | "change" | null;
+  parent: string | null;
+  turns: number;
+  reply: string | null;
 };
 
 /** How many notifications wait for the person, and how many are unread. */

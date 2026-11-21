@@ -3,13 +3,13 @@
 // ended. A row is bold with a dot while it is unread; its buttons mark it
 // read or unread and, when it does not wait, done.
 
-import { Check, ChevronDown, ChevronRight, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
+import { Check, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import type { Notification } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { sessionLabel } from "../lib/sessions";
-import { reasonOf } from "../state/inboxUpdates";
+import { lineOf } from "../state/inboxUpdates";
 import { AgentIcon } from "./AgentIcon";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
@@ -24,13 +24,7 @@ export type NotificationActions = {
   open: (n: Notification) => void;
   setRead: (n: Notification, read: boolean) => void;
   setDone: (n: Notification) => void;
-  /** unfolds the row to list its new events, or folds it */
-  toggle: (n: Notification) => void;
 };
-
-/** Whether a row unfolds: a work item's or a session's, with more than
- *  one new event. */
-export const unfolds = (n: Notification) => n.unread > 1 && n.subject.kind !== "review";
 
 /** Where a notification leads: its work item, its session, or its review
  *  as `reviewHref` opens it. */
@@ -89,7 +83,6 @@ export const NotificationRow = memo(function NotificationRow({
   notification: n,
   here,
   focused,
-  unfolded,
   href,
   actions,
 }: {
@@ -97,12 +90,11 @@ export const NotificationRow = memo(function NotificationRow({
   /** its place in the order J and K walk */
   here: number;
   focused: boolean;
-  /** whether it lists its new events below */
-  unfolded: boolean;
   href: To;
   actions: NotificationActions;
 }) {
   const subject = subjectOf(n);
+  const line = lineOf(n);
   const button = (label: string, keys: string[], icon: ReactNode, act: () => void) => (
     <Tooltip label={label} keys={keys} side="top">
       <button
@@ -132,31 +124,27 @@ export const NotificationRow = memo(function NotificationRow({
       {subject.mark}
       <span className="review-row-main">
         <span className="review-row-title truncate">
-          {unfolds(n) ? (
-            <button
-              type="button"
-              className="update-row-fold"
-              aria-expanded={unfolded}
-              aria-label={unfolded ? `Fold ${subject.title}` : `Show the new events of ${subject.title}`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                actions.toggle(n);
-              }}
-            >
-              {unfolded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            </button>
-          ) : null}
           {subject.title}
           {subject.tag ? <span className="review-row-ref">{subject.tag}</span> : null}
-          {n.unread > 1 ? <span className="update-row-new pill">{n.unread} new</span> : null}
         </span>
         <span className="review-row-meta">
-          <span className="update-row-reason">{reasonOf(n)}</span>
-          {n.summary ? (
+          <span className="update-row-reason">{line.text}</span>
+          {line.detail ? (
             <>
               <span>·</span>
-              <span className="review-row-project">{n.summary}</span>
+              <span className="review-row-project">{line.detail}</span>
+            </>
+          ) : null}
+          {line.more ? (
+            <>
+              <span>·</span>
+              <span>and {line.more === 1 ? "1 more change" : `${line.more} more changes`}</span>
+            </>
+          ) : null}
+          {line.under ? (
+            <>
+              <span>·</span>
+              <span>Under {line.under}</span>
             </>
           ) : null}
           {n.repo ? (

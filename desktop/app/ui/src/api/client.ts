@@ -362,9 +362,6 @@ export const api = {
         offset: filters.offset?.toString(),
       })}`,
     ),
-  /** the events of a notification's subject after `after`, oldest first */
-  notificationEvents: (id: number, after = 0) =>
-    request<{ events: Notice[] }>("GET", `/api/v1/notifications/${id}/events${query({ after: String(after) })}`),
   notificationCounts: () => request<InboxCounts>("GET", "/api/v1/notifications/counts"),
   /** marks a notification read, or unread */
   setNotificationRead: (id: number, read: boolean) =>

@@ -187,38 +187,59 @@ describe("the inbox", () => {
     await expect.element(page.getByTestId("where")).toMatchTextContent("kind=new_round");
   });
 
-  test("a row with several new events unfolds to list them in order", async () => {
-    const themes = update(1, "Load themes", { unread: 3, read_event: 20 });
-    await open([themes]);
-    const event = (id: number, change: string, extra: object, who = "claude-code") => ({
-      event_id: id,
-      kind: "item_changed",
-      at: now(),
-      actor: { kind: "agent", name: who, session: null },
-      item: { id: "w_1", key: "PIN-1", change, ...extra },
+  test("a row says what changed since the person looked, and has no arrow", async () => {
+    const fresh = (extra: object) => ({
+      sub_items: 0,
+      sub_item: null,
+      breakdown: false,
+      comments: 0,
+      authors: [],
+      comment: null,
+      changes: 0,
+      latest: null,
+      parent: null,
+      turns: 0,
+      reply: null,
+      ...extra,
     });
-    core.answer("notificationEvents", {
-      events: [
-        event(21, "claimed", {}),
-        event(22, "commented", { excerpt: "The loader is ready." }),
-        event(23, "commented", { excerpt: "I can take the settings." }, "codex"),
-      ],
-    });
-    await row("Load themes").hover();
-    await userEvent.keyboard("{ArrowRight}");
-    const lines = page.getByTestId("notification-event");
-    await expect.element(lines.nth(2)).toBeVisible();
-    expect(core.calls("notificationEvents").at(-1)).toEqual([1, 20]);
-    expect(lines.elements().map((l) => l.textContent?.replace(/\d+[smhd]$|now$/, "").trim())).toEqual([
-      "claimed this work item",
-      "commented · The loader is ready.",
-      "commented · I can take the settings.",
+    await open([
+      update(1, "First series of shorts", {
+        reason: "item_added",
+        new: fresh({ latest: "sub_item", breakdown: true, sub_items: 10 }),
+      }),
+      update(2, "Make the inbox a notification center", {
+        reason: "item_added",
+        new: fresh({ latest: "sub_item", sub_items: 1, sub_item: { key: "PIN-708", title: "Show a new sub-item" } }),
+      }),
+      update(3, "Turn the inbox into a notification center", {
+        new: fresh({ latest: "comment", comments: 3, authors: ["claude-code", "codex"], changes: 1 }),
+      }),
+      update(4, "Resume a stopped agent", {
+        new: fresh({
+          latest: "comment",
+          comments: 1,
+          authors: ["codex"],
+          comment: "The flag differs.",
+          parent: "PIN-301",
+        }),
+      }),
+      {
+        ...waitingAgent(5),
+        waiting: false,
+        reason: "agent_finished",
+        summary: null,
+        new: fresh({ turns: 3, reply: "Pushed the fix." }),
+      },
     ]);
-    // grouped by who caused them
-    await expect.element(page.getByTestId("notification-events")).toMatchTextContent("codex");
-    await page.getByRole("button", { name: "Mark as read" }).last().click();
-    expect(core.calls("setNotificationRead").at(-1)).toEqual([1, true]);
-    await userEvent.keyboard("{ArrowLeft}");
-    await expect.element(page.getByTestId("notification-events")).not.toBeInTheDocument();
+    await expect.element(row("First series")).toMatchTextContent("claude-code added this work item with 10 sub-items");
+    await expect
+      .element(row("Make the inbox"))
+      .toMatchTextContent("claude-code added a sub-item·PIN-708 Show a new sub-item");
+    await expect
+      .element(row("Turn the inbox"))
+      .toMatchTextContent("3 new comments·claude-code, codex·and 1 more change");
+    await expect.element(row("Resume a stopped")).toMatchTextContent("codex commented·The flag differs.·Under PIN-301");
+    await expect.element(row("Migrate the billing")).toMatchTextContent("The agent finished 3 turns·Pushed the fix.");
+    await expect.element(page.getByRole("button", { name: /Show the new events/ })).not.toBeInTheDocument();
   });
 });
