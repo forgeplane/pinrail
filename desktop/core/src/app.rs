@@ -189,6 +189,10 @@ impl Pinrail {
         let follows = telemetry.clone();
         let reader = settings.reader();
         settings.follow(move |keys| count_settings(&follows, &reader, keys));
+        // what the inbox shows, as the person sets it
+        inbox_hidden(&db, &settings.reader());
+        let (inbox_db, inbox_reader) = (db.clone(), settings.reader());
+        settings.follow(move |_| inbox_hidden(&inbox_db, &inbox_reader));
         let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
         let plugins = PluginService::new(
             db.clone(),
@@ -358,6 +362,26 @@ fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// The reasons the inbox shows when their setting is on.
+const INBOX_REASONS: &[&str] = &[
+    "item_added",
+    "item_commented",
+    "item_closed",
+    "item_changed",
+];
+
+/// Tells the database which reasons the person turned off.
+fn inbox_hidden(db: &Db, settings: &crate::settings::SettingsReader) {
+    let hidden: Vec<&str> = INBOX_REASONS
+        .iter()
+        .copied()
+        .filter(|reason| settings.value(&format!("/inbox/show/{reason}")) == Value::Bool(false))
+        .collect();
+    if let Err(error) = db.set_inbox_hidden(&hidden) {
+        eprintln!("pinrail: the inbox settings could not be applied: {error}");
+    }
 }
 
 #[cfg(test)]

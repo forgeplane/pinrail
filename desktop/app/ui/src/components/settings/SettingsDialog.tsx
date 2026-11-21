@@ -27,7 +27,7 @@ import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo, composing } from "../../lib/keys";
 import { reviewPath } from "../../lib/url";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS, SHORTCUT_SECTIONS } from "../../lib/shortcuts";
-import { useSettings } from "../../state/settings";
+import { type InboxShow, useSettings } from "../../state/settings";
 import { describeSystem, useNotificationStatus } from "../../state/notifications";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
@@ -41,6 +41,26 @@ import { PrivacySection } from "./PrivacySection";
 import { TerminalSection } from "./TerminalSection";
 import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
+
+/** The work item notifications the inbox can add, each with its switch. */
+const INBOX_KINDS: { key: keyof InboxShow; label: string; description: string }[] = [
+  { key: "item_added", label: "New work items", description: "Add a notification when an agent adds a work item." },
+  {
+    key: "item_commented",
+    label: "Comments",
+    description: "Add a notification when an agent comments on a work item.",
+  },
+  {
+    key: "item_closed",
+    label: "Closed work items",
+    description: "Add a notification when an agent marks a work item done or cancels it.",
+  },
+  {
+    key: "item_changed",
+    label: "Other changes",
+    description: "Add a notification when an agent makes any other change to a work item.",
+  },
+];
 
 export type SettingsSection =
   | "general"
@@ -415,6 +435,17 @@ export function SettingsDialog({
                   onChange={(v) => update({ items: { count_nested: v } })}
                 />
               </SettingsRow>
+            </SettingsGroup>
+            <SettingsGroup caption="Inbox">
+              {INBOX_KINDS.map(({ key, label, description }) => (
+                <SettingsRow key={key} label={label} description={description}>
+                  <Toggle
+                    label={label}
+                    checked={settings.inbox.show[key]}
+                    onChange={(v) => update({ inbox: { show: { [key]: v } } })}
+                  />
+                </SettingsRow>
+              ))}
             </SettingsGroup>
           </SettingsPage>
         ) : null}

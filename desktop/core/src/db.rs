@@ -130,6 +130,7 @@ impl Db {
     fn init(conn: Connection) -> rusqlite::Result<Db> {
         migrate(&conn)?;
         names::register(&conn)?;
+        notifications::prepare(&conn)?;
         Ok(Db {
             conn: Mutex::new(conn),
             readers: Vec::new(),

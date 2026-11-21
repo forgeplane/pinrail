@@ -22,7 +22,11 @@ const served = fromServer({
 
 describe("fromServer", () => {
   test("gives a missing section its default", () => {
-    expect(served.inbox).toEqual({ open_in: "panel", layout: "repository" });
+    expect(served.inbox).toEqual({
+      open_in: "panel",
+      layout: "repository",
+      show: { item_added: true, item_commented: true, item_closed: true, item_changed: false },
+    });
     expect(served.items).toEqual({
       layout: "project",
       nesting: "nested",

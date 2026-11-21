@@ -578,7 +578,11 @@ export type ServerSettings = {
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
-  inbox?: { open_in: "panel" | "page"; layout?: "project" | "repository" | "list" };
+  inbox?: {
+    open_in: "panel" | "page";
+    layout?: "project" | "repository" | "list";
+    show?: { item_added?: boolean; item_commented?: boolean; item_closed?: boolean; item_changed?: boolean };
+  };
   sessions?: { layout?: "project" | "repository" | "list" };
   items?: {
     layout?: "project" | "repository" | "list";

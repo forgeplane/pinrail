@@ -154,6 +154,30 @@ const LEAVES: &[Leaf] = &[
         "Close a work item when its last open sub-item is done or cancelled and at least one of them is done, unless someone works on it or something of it waits for you.",
     ),
     (
+        "/inbox/show/item_added",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent adds a work item.",
+    ),
+    (
+        "/inbox/show/item_commented",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent comments on a work item.",
+    ),
+    (
+        "/inbox/show/item_closed",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent marks a work item done or cancels it.",
+    ),
+    (
+        "/inbox/show/item_changed",
+        Kind::Bool,
+        || json!(false),
+        "Add a notification to the inbox when an agent makes any other change to a work item.",
+    ),
+    (
         "/items/ordering",
         Kind::Enum(&["oldest", "newest", "updated", "status", "title"]),
         || json!("oldest"),

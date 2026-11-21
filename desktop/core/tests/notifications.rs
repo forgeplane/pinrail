@@ -217,6 +217,8 @@ async fn add_item(app: &App, title: &str) {
 #[tokio::test]
 async fn an_agents_change_to_an_item_is_reported_with_its_reason() {
     let app = app();
+    // any other change is off until the person turns it on
+    settings(&app, json!({"inbox": {"show": {"item_changed": true}}})).await;
     add_item(&app, "Themes").await;
     assert_eq!(listed(&app), [row("PIN-1", "item_added", 1)]);
 
@@ -328,15 +330,21 @@ async fn a_change_whose_notification_fails_is_not_made() {
         .unwrap();
     let (code, _) = common::call_as(
         &app,
-        "PATCH",
-        "/api/v1/items/PIN-1",
-        Some(json!({"title": "Load themes", "by": "claude-code", "session": "s-1"})),
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        Some(json!({"body": "Started.", "by": "claude-code", "session": "s-1"})),
         &[],
     )
     .await;
     assert!(code.is_server_error(), "{code}");
     let (_, item) = call(&app, "GET", "/api/v1/items/PIN-1", None).await;
-    assert_eq!(item["title"], "Themes");
+    let comments = item["timeline"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["type"] == "comment")
+        .count();
+    assert_eq!(comments, 0, "{item}");
     assert_eq!(
         common::db(&app).events_after(0, 1000).unwrap().len(),
         events
@@ -355,4 +363,41 @@ async fn a_live_notice_carries_the_notification_and_the_counts() {
     assert_eq!(notification["reason"], "item_added");
     assert_eq!(notification["unread"], 1);
     assert_eq!(notice.counts.unwrap(), json!({"waiting": 0, "unread": 1}));
+}
+
+async fn settings(app: &App, change: Value) {
+    let (code, answer) = call(app, "PATCH", "/api/v1/settings", Some(change)).await;
+    assert!(code.is_success(), "{code} {answer}");
+}
+
+#[tokio::test]
+async fn a_kind_the_person_turned_off_adds_nothing_and_its_event_is_kept() {
+    let app = app();
+    settings(&app, json!({"inbox": {"show": {"item_commented": false}}})).await;
+    add_item(&app, "Themes").await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "The loader is ready."}),
+    )
+    .await;
+    assert_eq!(listed(&app), [row("PIN-1", "item_added", 1)]);
+    let commented = common::db(&app)
+        .events_after(0, 1000)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.attrs["change"] == "commented")
+        .count();
+    assert_eq!(commented, 1);
+
+    // any other change is off unless the person turns it on
+    agent(
+        &app,
+        "PATCH",
+        "/api/v1/items/PIN-1",
+        json!({"title": "Load themes"}),
+    )
+    .await;
+    assert_eq!(listed(&app), [row("PIN-1", "item_added", 1)]);
 }

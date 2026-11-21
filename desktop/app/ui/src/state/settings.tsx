@@ -17,6 +17,17 @@ import { useLatest } from "../lib/useLatest";
 
 export type TextSize = "small" | "default" | "large";
 
+/** Which work item notifications the inbox adds: an agent's new item, its
+ *  comment, its closing an item, and any other change. */
+export type InboxShow = {
+  item_added: boolean;
+  item_commented: boolean;
+  item_closed: boolean;
+  item_changed: boolean;
+};
+
+const INBOX_SHOW: InboxShow = { item_added: true, item_commented: true, item_closed: true, item_changed: false };
+
 export type Settings = {
   appearance: {
     theme: ThemePreference;
@@ -32,8 +43,9 @@ export type Settings = {
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
-  /** where the inbox opens a review: in the side panel, or on its own page */
-  inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list" };
+  /** where the inbox opens a review: in the side panel, or on its own page;
+   *  and which notifications about work items it adds */
+  inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list"; show: InboxShow };
   sessions: { layout: "project" | "repository" | "list" };
   /** how the Work items page lists the items, and shows sub-items */
   items: {
@@ -96,7 +108,7 @@ type Patch = {
   menu_bar_icon?: boolean;
   notifications?: Partial<Settings["notifications"]>;
   shortcut?: Partial<Settings["shortcut"]>;
-  inbox?: Partial<Settings["inbox"]>;
+  inbox?: Partial<Omit<Settings["inbox"], "show">> & { show?: Partial<InboxShow> };
   sessions?: Partial<Settings["sessions"]>;
   items?: Partial<Settings["items"]>;
   /** a change to one or more plugins' settings, merged key by key */
@@ -187,7 +199,11 @@ export const fromServer = (s: ServerSettings): Served => ({
     muted_plugins: s.notifications.muted_plugins,
   },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
-  inbox: { open_in: s.inbox?.open_in ?? "panel", layout: s.inbox?.layout ?? "repository" },
+  inbox: {
+    open_in: s.inbox?.open_in ?? "panel",
+    layout: s.inbox?.layout ?? "repository",
+    show: { ...INBOX_SHOW, ...s.inbox?.show },
+  },
   sessions: { layout: s.sessions?.layout ?? "list" },
   items: {
     layout: s.items?.layout ?? "project",
@@ -255,7 +271,7 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
     notifications: { ...base.notifications, ...patch.notifications },
     shortcut: { ...base.shortcut, ...patch.shortcut },
-    inbox: { ...base.inbox, ...patch.inbox },
+    inbox: { ...base.inbox, ...patch.inbox, show: { ...base.inbox.show, ...patch.inbox?.show } },
     sessions: { ...base.sessions, ...patch.sessions },
     items: { ...base.items, ...patch.items },
     plugins: mergePlugins(base.plugins, patch.plugins),
@@ -319,7 +335,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     menu_bar_icon: true,
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
-    inbox: { open_in: "panel", layout: "repository" },
+    inbox: { open_in: "panel", layout: "repository", show: INBOX_SHOW },
     sessions: { layout: "list" },
     items: {
       layout: "project",

@@ -125,6 +125,23 @@ pub(super) fn report(conn: &Connection, report: &Notify<'_>) -> rusqlite::Result
     .optional()
 }
 
+/// Makes the table of the reasons the inbox does not show, which the
+/// person's settings fill. It is the write connection's own, as the
+/// projector runs there alone.
+pub(super) fn prepare(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS inbox_hidden (reason TEXT PRIMARY KEY)")
+}
+
+/// Whether the person turned off the reason, so that it adds nothing to
+/// the inbox.
+fn hidden(conn: &Connection, reason: &str) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM temp.inbox_hidden WHERE reason = ?1)",
+        params![reason],
+        |r| r.get(0),
+    )
+}
+
 /// An event as the projector reads it.
 #[derive(Debug, Clone)]
 pub(super) struct Projected<'a> {
@@ -186,6 +203,9 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
         }
         _ => ("item_changed", EventSubject::Item(item.clone()), None),
     };
+    if hidden(conn, reason)? {
+        return Ok(());
+    }
     report(
         conn,
         &Notify {
@@ -233,6 +253,21 @@ impl Counts {
 }
 
 impl Db {
+    /// Sets the reasons the inbox does not show, from the person's
+    /// settings.
+    pub fn set_inbox_hidden(&self, reasons: &[&str]) -> rusqlite::Result<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM temp.inbox_hidden", [])?;
+        for reason in reasons {
+            tx.execute(
+                "INSERT INTO temp.inbox_hidden (reason) VALUES (?1)",
+                params![reason],
+            )?;
+        }
+        tx.commit()
+    }
+
     /// The notification an event changed: the one it reported on, or the
     /// notification of its subject.
     pub fn notification_of(
