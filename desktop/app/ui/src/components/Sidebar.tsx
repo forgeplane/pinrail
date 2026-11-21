@@ -62,6 +62,24 @@ export function useSidebarWidth() {
   return { width: width ?? SIDEBAR_DEFAULT, edgeProps, onKeyDown, reset: () => keep(SIDEBAR_DEFAULT) };
 }
 
+/** The Inbox entry's counts: what waits on the person, on the accent
+ *  colour, and the unread updates after it in the quiet tone. With no
+ *  update unread, the waiting count alone, as before. */
+function InboxCounts({ waiting, unread }: { waiting: number; unread: number }) {
+  if (!unread) return <CountBadge count={waiting} data-testid="inbox-count" />;
+  return (
+    <Tooltip
+      label={`${waiting ? `${waiting} waiting on you, ` : ""}${unread} ${unread === 1 ? "update" : "updates"} unread`}
+      side="bottom"
+    >
+      <span className="nav-counts">
+        {waiting ? <CountBadge count={waiting} data-testid="inbox-count" /> : null}
+        <CountBadge count={unread} tone="quiet" data-testid="inbox-unread" />
+      </span>
+    </Tooltip>
+  );
+}
+
 export function Sidebar({
   width,
   toggle,
@@ -118,7 +136,7 @@ export function Sidebar({
                     <Icon size={15} strokeWidth={1.75} />
                     {label}
                   </span>
-                  {key === "inbox" ? <CountBadge count={live.pendingCount} data-testid="inbox-count" /> : null}
+                  {key === "inbox" ? <InboxCounts waiting={live.pendingCount} unread={live.unreadUpdates} /> : null}
                   {key === "items" && openItems ? (
                     <Tooltip
                       label={`${openItems} open or in progress${itemsInProgress ? `, ${itemsInProgress} of them in progress` : ""}`}

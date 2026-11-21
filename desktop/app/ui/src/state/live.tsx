@@ -47,6 +47,8 @@ type Live = {
   openItems: number;
   /** how many of them are in progress */
   itemsInProgress: number;
+  /** how many of the person's notifications are unread */
+  unreadUpdates: number;
   /** the registered plugins, by name */
   plugins: Map<string, Plugin>;
   /** the icon a plugin declares, if any */
@@ -84,6 +86,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     return () => listeners.current.delete(listener);
   }, []);
   const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
+  // read once, then from the counts each notice of a notification carries
+  const [unreadUpdates, setUnreadUpdates] = useState(0);
+  const loadCounts = useCallback(() => {
+    api
+      .notificationCounts()
+      .then((counts) => setUnreadUpdates(counts.unread))
+      .catch(() => {});
+  }, []);
 
   const loadPlugins = useCallback(async () => {
     try {
@@ -164,21 +174,25 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads from the core
     refresh();
     loadPlugins();
+    loadCounts();
     return subscribe({
       onOpen: () => {
         setConnected(true);
         refresh();
         loadPlugins();
+        loadCounts();
       },
       onError: () => setConnected(false),
       onNotice: (notice) => {
         for (const listener of listeners.current) listener(notice);
         for (const missed of fetching.current) missed.push(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
+        if (notice.counts) setUnreadUpdates(notice.counts.unread);
         // the notices missed were swept: everything is read again
         if (notice.kind === "resync") {
           refresh();
           loadPlugins();
+          loadCounts();
           setHistoryVersion((v) => v + 1);
           setProjectsVersion((v) => v + 1);
           setItemsVersion((v) => v + 1);
@@ -216,7 +230,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         if (notice.kind === "plugins_reloaded" || notice.kind === "plugin_changed") loadPlugins();
       },
     });
-  }, [refresh, loadPlugins]);
+  }, [refresh, loadPlugins, loadCounts]);
 
   const projects = useMemo(
     () => [...new Set(pending.map((r) => r.origin.repo).filter((r): r is string => !!r))].sort(),
@@ -245,6 +259,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       projectsListing,
       openItems,
       itemsInProgress,
+      unreadUpdates,
       plugins,
       pluginIcon,
     }),
@@ -260,6 +275,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       projectsListing,
       openItems,
       itemsInProgress,
+      unreadUpdates,
       plugins,
       pluginIcon,
     ],

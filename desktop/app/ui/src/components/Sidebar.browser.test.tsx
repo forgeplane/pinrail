@@ -2,6 +2,7 @@
 // that shows.
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
+import type { Notice } from "../api/types";
 import { core } from "../testing/core";
 import { cleanup, render } from "../testing/render";
 import { Sidebar, useSidebarWidth } from "./Sidebar";
@@ -43,5 +44,26 @@ describe("the sidebar's links", () => {
     await render(<Shown />, { route: "/sessions/claude-code/s-1" });
     await expect.element(link("Sessions")).toBeVisible();
     await expect.element(link("Sessions")).not.toHaveClass(/is-active/);
+  });
+});
+
+describe("the inbox's counts", () => {
+  test("the unread updates count rises with a notice and falls when one is marked read", async () => {
+    core.answer("listReviews", { reviews: [], total: 0 });
+    core.answer("plugins", { plugins: [] });
+    core.answer("notificationCounts", { waiting: 0, unread: 2 });
+    await render(<Shown />, { route: "/sessions" });
+    const unread = page.getByTestId("inbox-unread");
+    await expect.element(unread).toHaveTextContent("2");
+    // nothing waits: the waiting count gives way to the unread one
+    await expect.element(page.getByTestId("inbox-count")).not.toBeInTheDocument();
+
+    core.notice({ event_id: 5, kind: "item_changed", counts: { waiting: 0, unread: 3 } } as unknown as Notice);
+    await expect.element(unread).toHaveTextContent("3");
+    // the core's notice after Mark as read
+    core.notice({ event_id: 6, kind: "notification_changed", counts: { waiting: 0, unread: 2 } } as unknown as Notice);
+    await expect.element(unread).toHaveTextContent("2");
+    core.notice({ event_id: 7, kind: "notification_changed", counts: { waiting: 0, unread: 0 } } as unknown as Notice);
+    await expect.element(unread).not.toBeInTheDocument();
   });
 });

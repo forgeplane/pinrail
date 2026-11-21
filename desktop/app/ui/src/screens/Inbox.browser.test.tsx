@@ -44,6 +44,7 @@ async function open(updates: Notification[]) {
     counts: { waiting: 0, unread: updates.filter((u) => !u.read).length },
     up_to: 40,
   });
+  core.answer("notificationCounts", { waiting: 0, unread: updates.filter((u) => !u.read).length });
   for (const write of ["setNotificationRead", "setNotificationDone", "readNotifications"] as const) {
     core.answer(write, undefined);
   }

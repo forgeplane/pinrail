@@ -17,6 +17,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   agent added, commented on or closed. Mark an update read or unread with
   **U**, mark it done with **E**, and mark every update read with
   **Shift+U** or **Mark all as read**.
+- The sidebar's **Inbox** entry shows how many updates are unread, after
+  the number of reviews that wait for you.
 - Choose in Settings › Work items › Inbox which work item notifications
   the inbox adds: an agent's new work items, its comments, the items it
   closes, and its other changes.

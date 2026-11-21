@@ -9,7 +9,7 @@ import { Link } from "react-router";
 import { api } from "../api/client";
 import type { Notification } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { useNotice } from "../state/live";
+import { useLive, useNotice } from "../state/live";
 import { applyNotification, listed, reasonOf } from "../state/inboxUpdates";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
@@ -33,14 +33,13 @@ export type Updates = {
  *  notification it changed, and a change that names none loads them again. */
 export function useUpdates(): Updates {
   const [rows, setRows] = useState<Notification[]>([]);
-  const [unread, setUnread] = useState(0);
+  const unread = useLive().unreadUpdates;
   const [upTo, setUpTo] = useState(0);
   const load = useCallback(() => {
     api
       .notifications({ tab: "all", limit: SHOWN })
       .then((list) => {
         setRows(list.notifications.filter(listed));
-        setUnread(list.counts.unread);
         setUpTo(list.up_to);
       })
       .catch(() => {});
@@ -54,7 +53,6 @@ export function useUpdates(): Updates {
     } else if (notice.kind === "notification_changed" || notice.kind === "resync") {
       load();
     }
-    if (notice.counts) setUnread(notice.counts.unread);
   });
   return {
     rows,
