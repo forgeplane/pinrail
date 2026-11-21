@@ -1,6 +1,6 @@
 import { CheckCheck, SearchX } from "lucide-react";
 import { TelemetryNotice } from "../components/TelemetryNotice";
-import { type MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import { api, type NotificationQuery } from "../api/client";
 import type { InboxCounts, Notification, NotificationList, NotificationTab, Review } from "../api/types";
@@ -16,7 +16,8 @@ import { History } from "./History";
 import { InboxHead, tabOf, type InboxTab } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
-import { NotificationRow, notificationPath, type NotificationActions } from "../components/NotificationRow";
+import { NotificationEvents } from "../components/NotificationEvents";
+import { NotificationRow, notificationPath, unfolds, type NotificationActions } from "../components/NotificationRow";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
 import { useSlashSearch } from "../lib/useSlashSearch";
@@ -76,6 +77,15 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const list = (key: string) => (params.get(key) ?? "").split(",").filter(Boolean);
   const starred = params.get("starred") === "1";
   const [discarding, setDiscarding] = useState<Review | null>(null);
+  // the rows unfolded to list their new events
+  const [unfolded, setUnfolded] = useState<ReadonlySet<number>>(new Set());
+  const fold = (n: Notification, open: boolean) =>
+    setUnfolded((now) => {
+      const next = new Set(now);
+      if (open) next.add(n.id);
+      else next.delete(n.id);
+      return next;
+    });
   const search = useRef<HTMLInputElement>(null);
 
   const page = pageOf(params.get("page"));
@@ -226,6 +236,14 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       }
       return;
     }
+    // → unfolds the focused row's new events, and ← folds them
+    if ((event.key === "ArrowRight" || event.key === "ArrowLeft") && !isTyping(event.target)) {
+      if (focusedRow && unfolds(focusedRow)) {
+        event.preventDefault();
+        fold(focusedRow, event.key === "ArrowRight");
+      }
+      return;
+    }
     // U marks the focused notification read or unread, and ⇧U the list read
     if ((event.key === "u" || event.key === "U") && !isTyping(event.target)) {
       if (event.shiftKey) {
@@ -256,6 +274,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     opened,
     setRead,
     setDone,
+    toggle: (n: Notification) => fold(n, !unfolded.has(n.id)),
   });
   const reviewActions = useMemo<InboxRowActions>(
     () => ({
@@ -271,6 +290,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       open: (n) => latest.current.opened(n),
       setRead: (n, read) => latest.current.setRead(n, read),
       setDone: (n) => latest.current.setDone(n),
+      toggle: (n) => latest.current.toggle(n),
     }),
     [latest],
   );
@@ -290,14 +310,19 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
         actions={reviewActions}
       />
     ) : (
-      <NotificationRow
-        key={n.id}
-        notification={n}
-        here={here}
-        focused={here === focused}
-        href={notificationPath(n, hrefFor)}
-        actions={notificationActions}
-      />
+      <Fragment key={n.id}>
+        <NotificationRow
+          notification={n}
+          here={here}
+          focused={here === focused}
+          unfolded={unfolded.has(n.id) && unfolds(n)}
+          href={notificationPath(n, hrefFor)}
+          actions={notificationActions}
+        />
+        {unfolded.has(n.id) && unfolds(n) ? (
+          <NotificationEvents notification={n} href={notificationPath(n, hrefFor)} onRead={() => setRead(n, true)} />
+        ) : null}
+      </Fragment>
     );
 
   const filtered = !!(q || list("kind").length || list("scope").length || list("plugin").length || starred);

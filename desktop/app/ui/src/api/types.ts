@@ -501,6 +501,8 @@ export type Notification = {
   done: boolean;
   muted: boolean;
   last_event: number;
+  /** the last event the person saw; the new ones come after it */
+  read_event: number;
   updated_at: string;
 };
 

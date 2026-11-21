@@ -63,6 +63,7 @@ export const SHORTCUTS: Shortcut[] = [
   { section: "Inbox", what: "Mark the focused update read or unread", keys: [["U"]] },
   { section: "Inbox", what: "Mark the focused update done", keys: [["E"]] },
   { section: "Inbox", what: "Mark every update read", keys: [[SHIFT, "U"]] },
+  { section: "Inbox", what: "Show or hide the focused row's new events", keys: [["→"], ["←"]] },
   // a review, on its page or in a side panel
   { section: "Review", what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
   { section: "Review", what: "Star or remove the star of the review", keys: [[MOD, SHIFT, "S"]] },

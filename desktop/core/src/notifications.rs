@@ -242,6 +242,8 @@ pub fn to_json(db: &Db, notification: &Notification) -> Result<Value, Error> {
             "done": notification.done_at.is_some(),
             "muted": notification.muted,
             "last_event": notification.last_event,
+            // the last event the person saw: the new ones come after it
+            "read_event": notification.read_event,
             "updated_at": crate::reviews::iso(notification.updated_at),
         }))
     }

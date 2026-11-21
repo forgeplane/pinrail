@@ -33,6 +33,7 @@ const base = (id: number, extra: Partial<Notification>): Notification => ({
   done: false,
   muted: false,
   last_event: 10 + id,
+  read_event: 0,
   updated_at: now(),
   ...extra,
 });
@@ -184,5 +185,40 @@ describe("the inbox", () => {
   test("the address of the old New rounds tab opens the Kind filter on new rounds", async () => {
     await open([], "/?rounds=new");
     await expect.element(page.getByTestId("where")).toMatchTextContent("kind=new_round");
+  });
+
+  test("a row with several new events unfolds to list them in order", async () => {
+    const themes = update(1, "Load themes", { unread: 3, read_event: 20 });
+    await open([themes]);
+    const event = (id: number, change: string, extra: object, who = "claude-code") => ({
+      event_id: id,
+      kind: "item_changed",
+      at: now(),
+      actor: { kind: "agent", name: who, session: null },
+      item: { id: "w_1", key: "PIN-1", change, ...extra },
+    });
+    core.answer("notificationEvents", {
+      events: [
+        event(21, "claimed", {}),
+        event(22, "commented", { excerpt: "The loader is ready." }),
+        event(23, "commented", { excerpt: "I can take the settings." }, "codex"),
+      ],
+    });
+    await row("Load themes").hover();
+    await userEvent.keyboard("{ArrowRight}");
+    const lines = page.getByTestId("notification-event");
+    await expect.element(lines.nth(2)).toBeVisible();
+    expect(core.calls("notificationEvents").at(-1)).toEqual([1, 20]);
+    expect(lines.elements().map((l) => l.textContent?.replace(/\d+[smhd]$|now$/, "").trim())).toEqual([
+      "claimed this work item",
+      "commented · The loader is ready.",
+      "commented · I can take the settings.",
+    ]);
+    // grouped by who caused them
+    await expect.element(page.getByTestId("notification-events")).toMatchTextContent("codex");
+    await page.getByRole("button", { name: "Mark as read" }).last().click();
+    expect(core.calls("setNotificationRead").at(-1)).toEqual([1, true]);
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect.element(page.getByTestId("notification-events")).not.toBeInTheDocument();
   });
 });
