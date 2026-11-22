@@ -179,6 +179,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Make the divider of a session's split view easier to find. Its handle
+  is larger, and a line across it shows on hover and while you drag it.
 - Keep an agent's text readable in a light theme. Colours that nearly
   vanish on the background, such as a white bullet, are darkened just
   enough to read.

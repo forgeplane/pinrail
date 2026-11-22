@@ -9665,20 +9665,42 @@ a.item-ref {
   grid-area: 3 / 1;
 }
 .thread-split-divider {
+  position: relative;
   display: grid;
   place-items: center;
   border-block: 1px solid var(--border);
-  background: var(--bg-raised);
+  background: var(--bg);
   cursor: row-resize;
 }
+/* the grabber, and on hover or while a drag lasts, a line across the whole
+   width through its middle */
 .thread-split-divider span {
-  width: 36px;
-  height: 3px;
+  position: relative;
+  width: 44px;
+  height: 4px;
   border-radius: 2px;
-  background: var(--border-strong);
+  background: var(--dim);
 }
+.thread-split-divider::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: transparent;
+}
+.thread-split-divider:hover,
+.thread-split-divider:focus-visible,
+body.is-resizing-rows .thread-split-divider {
+  border-block-color: transparent;
+}
+.thread-split-divider:hover::before,
+.thread-split-divider:focus-visible::before,
+body.is-resizing-rows .thread-split-divider::before,
 .thread-split-divider:hover span,
-.thread-split-divider:focus-visible span {
+.thread-split-divider:focus-visible span,
+body.is-resizing-rows .thread-split-divider span {
   background: var(--accent);
 }
 .thread-split-divider:focus-visible {
