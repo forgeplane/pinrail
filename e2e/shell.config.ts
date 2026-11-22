@@ -26,6 +26,7 @@ const webkit = {
     "plugins/hand-over.spec.ts",
     "sessions/thread-scroll.spec.ts",
     "items/projects.spec.ts",
+    "items/fold-place.spec.ts",
     "plugins/clipboard.spec.ts",
   ],
 };

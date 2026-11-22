@@ -3,7 +3,7 @@
 // each as a row of its own, a quick add at the top, and filters.
 
 import { ChevronDown, FolderGit2, Heading, ListChecks, Lock, Plus, SearchX, TextSearch } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorMessage } from "../api/client";
 import type { FoundItem, WorkItem } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
@@ -344,7 +344,30 @@ export function WorkItems() {
   );
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
-  const toggleFold = (key: string) => setFolds([key], !shownFolded.has(key));
+  // Folding keeps the parent where it was on the screen. Beside the side
+  // panel the list scrolls on its own, and WebKit puts it back at its top
+  // as the rows under the parent come or go, so the list is scrolled to
+  // keep the parent's row in place once the change is drawn, and again on
+  // the next frame.
+  const foldPlace = useRef<{ key: string; top: number } | null>(null);
+  const toggleFold = (key: string) => {
+    const row = document.querySelector<HTMLElement>(`[data-testid="item-row"][data-key="${CSS.escape(key)}"]`);
+    foldPlace.current = row ? { key, top: row.getBoundingClientRect().top } : null;
+    setFolds([key], !shownFolded.has(key));
+  };
+  useLayoutEffect(() => {
+    const place = foldPlace.current;
+    if (!place) return;
+    foldPlace.current = null;
+    const keep = () => {
+      const row = document.querySelector<HTMLElement>(`[data-testid="item-row"][data-key="${CSS.escape(place.key)}"]`);
+      const list = row?.closest<HTMLElement>(".split-side") ?? row?.closest<HTMLElement>(".app-main");
+      if (row && list) list.scrollTop += row.getBoundingClientRect().top - place.top;
+    };
+    keep();
+    const frame = requestAnimationFrame(keep);
+    return () => cancelAnimationFrame(frame);
+  }, [shownFolded]);
 
   /** A change the person makes to an item from the list. */
   const change = useCallback(

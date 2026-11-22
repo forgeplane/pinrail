@@ -268,6 +268,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Keep the Work items list in place when a parent folds or unfolds
+  beside an open item. It jumped back to the top.
 - Open the inbox filtered to a project or repository from the sidebar,
   the Projects page and the command palette. These links opened the whole
   inbox.
