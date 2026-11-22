@@ -179,6 +179,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Keep an agent's text readable in a light theme. Colours that nearly
+  vanish on the background, such as a white bullet, are darkened just
+  enough to read.
 - Move a session's generated name from its header to the details panel.
   In a narrow window, the header hides the start time and shows Stop and
   Resume as icons, so the title keeps its room.

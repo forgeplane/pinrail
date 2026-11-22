@@ -10,6 +10,7 @@
 import type { LinkSpan } from "./links";
 import { drawGlyph, isDrawn, lightWidth, type Box } from "./glyphs";
 import { ICON_FAMILY, iconFontReady, isIcon } from "./icons";
+import { legible } from "../../contrast";
 import type { GhosttyCell, GhosttyColor, GhosttySnapshot } from "./types";
 
 /** The size of a cell, and where text sits in it, in CSS pixels. */
@@ -175,6 +176,8 @@ export class CanvasRenderer {
   /** Find's matches in view, a mask of columns per row. */
   private matches = new Map<number, Uint8Array>();
   private findColour: GhosttyColor = { r: 120, g: 90, b: 0 };
+  /** the legible colour of each text colour on each background seen */
+  private legibleColours = new Map<number, GhosttyColor>();
   /** Whether each font, by its CSS, draws the batched characters at the
    *  cell's width, so that a string of them lands on the grid. */
   private even = new Map<string, boolean>();
@@ -407,7 +410,33 @@ export class CanvasRenderer {
     return `${a >>> 0}:${b >>> 0}`;
   }
 
-  private drawRow(cells: readonly GhosttyCell[], y: number, snapshot: GhosttySnapshot) {
+  /** The row's cells with every text colour kept legible on the
+   *  background it is drawn on; the same array when none changes. The
+   *  glyphs drawn as shapes keep their colour: a Powerline arrow or a
+   *  block takes the colour of the area it joins. */
+  private legibleRow(cells: readonly GhosttyCell[], backgroundOf: (x: number) => GhosttyColor) {
+    let out: GhosttyCell[] | null = null;
+    for (let x = 0; x < cells.length; x++) {
+      const cell = cells[x];
+      if (!cell.text || isDrawn(cell.text)) continue;
+      const bg = backgroundOf(x);
+      const key =
+        ((cell.foreground.r << 16) | (cell.foreground.g << 8) | cell.foreground.b) * 0x1000000 +
+        ((bg.r << 16) | (bg.g << 8) | bg.b);
+      let shown = this.legibleColours.get(key);
+      if (!shown) {
+        shown = legible(cell.foreground, bg);
+        if (this.legibleColours.size > 4096) this.legibleColours.clear();
+        this.legibleColours.set(key, shown);
+      }
+      if (shown === cell.foreground || same(shown, cell.foreground)) continue;
+      out ??= cells.slice();
+      out[x] = { ...cell, foreground: shown };
+    }
+    return out ?? cells;
+  }
+
+  private drawRow(given: readonly GhosttyCell[], y: number, snapshot: GhosttySnapshot) {
     const ctx = this.context;
     const { width: w, height: h, baseline } = this.metrics;
     const top = y * h;
@@ -416,11 +445,12 @@ export class CanvasRenderer {
     // to the canvas's last device pixel, so that a row drawn again is
     // drawn the same: a fill that ended inside a pixel would blend into it
     // once more each time
-    const row = this.box(0, cells.length, top);
+    const row = this.box(0, given.length, top);
     ctx.fillRect(0, row.y, this.canvas.width / this.ratio, row.h);
     const found = this.matches.get(y);
     const backgroundOf = (x: number) =>
-      cells[x].selected ? this.selection : found?.[x] ? this.findColour : cells[x].background;
+      given[x].selected ? this.selection : found?.[x] ? this.findColour : given[x].background;
+    const cells = this.legibleRow(given, backgroundOf);
     for (let x = 0; x < cells.length;) {
       const bg = backgroundOf(x);
       let end = x + 1;

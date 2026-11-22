@@ -11,6 +11,7 @@
 // Programs may copy to the clipboard with OSC 52, up to 1 MiB, when the
 // view allows it; they can never read the clipboard.
 
+import { MIN_CONTRAST } from "../../contrast";
 import "@xterm/xterm/css/xterm.css";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import { ClipboardAddon, type ClipboardSelectionType } from "@xterm/addon-clipboard";
@@ -116,6 +117,8 @@ class XtermView implements TerminalView, BenchHooks {
       // xterm.js has no setting for one Option key alone
       macOptionIsMeta: (options.optionAsMeta ?? "off") !== "off",
       screenReaderMode: options.screenReader ?? false,
+      // agents' colours, chosen for a dark background, stay legible on a light one
+      minimumContrastRatio: MIN_CONTRAST,
     });
     this.term = term;
     term.loadAddon(new Unicode11Addon());
