@@ -47,6 +47,24 @@ export function Inbox() {
     );
   }, [oldRounds, updateParams]);
   const tab = tabOf(params);
+  // the sidebar, the Projects page and the command palette open a project
+  // or a repository with `project` or `repo`, as the History tab reads them;
+  // the other tabs take it as the Project or repository filter
+  const repo = params.get("repo");
+  const project = params.get("project");
+  const oldScope = tab !== "history" && (repo !== null || project !== null);
+  useEffect(() => {
+    if (!oldScope) return;
+    updateParams(
+      (next) => {
+        const scope = project ? `project:${project}` : repo;
+        next.delete("repo");
+        next.delete("project");
+        if (scope) next.set("scope", scope);
+      },
+      { replace: true },
+    );
+  }, [oldScope, repo, project, updateParams]);
   return tab === "history" ? <History /> : <Notifications tab={tab} />;
 }
 

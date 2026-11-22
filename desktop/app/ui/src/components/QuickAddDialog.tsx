@@ -45,7 +45,10 @@ export function QuickAddDialog({ onClose }: { onClose: () => void }) {
       return null;
     }
   })();
-  const here = params.get("repo");
+  // the page's repository: a list's `repo`, or the inbox's filter when it
+  // names one repository alone
+  const scopes = (params.get("scope") ?? "").split(",").filter(Boolean);
+  const here = params.get("repo") ?? (scopes.length === 1 && scopes[0].includes("/") ? scopes[0] : null);
   const defaultRepo = [shown, here, last].find((r) => r && repos?.includes(r)) ?? null;
 
   return (

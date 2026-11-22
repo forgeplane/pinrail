@@ -268,6 +268,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Open the inbox filtered to a project or repository from the sidebar,
+  the Projects page and the command palette. These links opened the whole
+  inbox.
 - Fix ⌘D, which declines questions or discards a review, with a review
   open beside a session's thread. From the thread it now declines the
   thread's questions, and from the review's panel it discards the review.
