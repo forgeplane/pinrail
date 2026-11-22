@@ -128,6 +128,9 @@ async fn events(
         if let Some(counts) = &n.counts {
             data["counts"] = counts.clone();
         }
+        if let Some(announce) = &n.announce {
+            data["announce"] = announce.clone();
+        }
         Ok(Event::default()
             .id(n.event_id.to_string())
             .event(n.kind.clone())

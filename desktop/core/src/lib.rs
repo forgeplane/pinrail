@@ -7,6 +7,7 @@
 //! decision; a revised submission is a new round of the same review. Nothing
 //! is edited after it is written: status is derived from what exists.
 
+pub mod announce;
 pub mod api;
 pub mod app;
 pub mod attachments;

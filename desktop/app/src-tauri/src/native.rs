@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
 use pinrail_core::Pinrail;
-use pinrail_core::events::{self, Notice};
+use pinrail_core::events;
 use pinrail_core::reviews::{Filters, Review, Status};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
@@ -114,33 +114,12 @@ pub fn open_from_shortcut(app: &AppHandle) {
     }
 }
 
-/// How notifications stand, from the settings: off, paused until a moment
-/// still to come, or on; and whether they sound.
+/// How notifications stand, from the settings, for the tray: off, paused
+/// until a moment still to come, or on. Which notices are announced is the
+/// core's to decide.
 struct NotificationSettings {
     enabled: bool,
     paused_until: Option<DateTime<Utc>>,
-    sound: bool,
-    muted_plugins: Vec<String>,
-    /// from and to, local time; to may be earlier, across midnight
-    quiet_hours: Option<(chrono::NaiveTime, chrono::NaiveTime)>,
-}
-
-/// Whether a review of `plugin` arriving at `now` is announced. One that is
-/// not is still counted in the tray.
-fn announces(settings: &NotificationSettings, plugin: &str, now: DateTime<chrono::Local>) -> bool {
-    let quiet = settings.quiet_hours.is_some_and(|(from, to)| {
-        let t = now.time();
-        // a range across midnight, 22:00 to 07:30, is quiet on both sides of it
-        if from <= to {
-            from <= t && t < to
-        } else {
-            t >= from || t < to
-        }
-    });
-    settings.enabled
-        && settings.paused_until.is_none()
-        && !quiet
-        && !settings.muted_plugins.iter().any(|m| m == plugin)
 }
 
 fn notification_settings(state: &Pinrail) -> NotificationSettings {
@@ -154,23 +133,6 @@ fn notification_settings(state: &Pinrail) -> NotificationSettings {
     NotificationSettings {
         enabled: n["enabled"].as_bool().unwrap_or(true),
         paused_until,
-        sound: n["sound"].as_bool().unwrap_or(true),
-        muted_plugins: n["muted_plugins"]
-            .as_array()
-            .map(|list| {
-                list.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default(),
-        quiet_hours: {
-            let clock = |key: &str| {
-                n["quiet_hours"][key]
-                    .as_str()
-                    .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M").ok())
-            };
-            clock("from").zip(clock("to"))
-        },
     }
 }
 
@@ -718,8 +680,16 @@ pub fn watch(app: AppHandle) {
                     ) {
                         refresh_tray(&app);
                     }
-                    if notice.kind == events::CREATED {
-                        notify(&app, &notice);
+                    // what the core announces, as it decided from the settings
+                    if let Some(announce) = &notice.announce {
+                        notify(&app, announce);
+                    }
+                    // a notification read or done, here or on another window
+                    if notice.kind == events::NOTIFICATION_CHANGED
+                        && let Some(n) = &notice.notification
+                        && (n["read"] == true || n["done"] == true)
+                    {
+                        close_notification(&app, &pinrail_core::announce::tag(n));
                     }
                     // a plugin installed, updated, removed or edited in its
                     // linked folder: the agents' skills list it as it is now
@@ -775,53 +745,29 @@ pub fn watch(app: AppHandle) {
     });
 }
 
-fn notify(app: &AppHandle, notice: &Notice) {
-    let Some(native) = app.try_state::<Native>() else {
-        return;
-    };
-    let settings = notification_settings(&native.state);
-    let Some(review) = &notice.review else {
-        return;
-    };
-    let title = review["title"].as_str().unwrap_or("A review is waiting");
-    let plugin = review["plugin"].as_str().unwrap_or("");
-    if !announces(&settings, plugin, chrono::Local::now()) {
-        return;
-    }
-    let mut lines = Vec::new();
-    if let Some(counts) = summary_counts(review.get("summary")) {
-        lines.push(counts);
-    }
-    lines.push(
-        match (
-            review["requested_by"].as_str(),
-            review["session_name"].as_str(),
-        ) {
-            (Some(by), Some(session)) => format!("{plugin} · requested by {by} in {session}"),
-            (Some(by), None) => format!("{plugin} · requested by {by}"),
-            _ => plugin.to_string(),
-        },
-    );
-    let body = lines.join("\n");
+/// Shows a notification the core announced: its title and body, with the
+/// sound when the settings ask for it, under its tag, which closes it.
+fn notify(app: &AppHandle, announce: &serde_json::Value) {
+    let title = announce["title"].as_str().unwrap_or("Pinrail").to_string();
+    let body = announce["body"].as_str().unwrap_or_default().to_string();
+    let tag = announce["tag"].as_str().map(str::to_string);
+    let sound = announce["sound"].as_bool().unwrap_or(true);
     #[cfg(target_os = "macos")]
     if crate::notify_mac::available() {
-        let title = title.to_string();
-        let id = notice.review_id.clone();
-        let sound = settings.sound;
         let _ = app.run_on_main_thread(move || {
-            crate::notify_mac::notify(&title, &body, id.as_deref(), sound)
+            crate::notify_mac::notify(&title, &body, tag.as_deref(), sound)
         });
         return;
     }
     #[cfg(target_os = "linux")]
     {
-        crate::notify_linux::notify(app, title, &body, notice.review_id.clone(), settings.sound);
+        crate::notify_linux::notify(app, &title, &body, tag, sound);
         return;
     }
     #[allow(unreachable_code)]
     {
-        let mut builder = app.notification().builder().title(title).body(body);
-        if settings.sound {
+        let mut builder = app.notification().builder().title(&title).body(&body);
+        if sound {
             builder = builder.sound("default");
         }
         if let Err(error) = builder.show() {
@@ -916,67 +862,6 @@ mod tests {
                 .map(|n| format!("review {n}"))
                 .collect::<Vec<_>>()
         );
-    }
-
-    fn settings(quiet: Option<(&str, &str)>) -> NotificationSettings {
-        NotificationSettings {
-            enabled: true,
-            paused_until: None,
-            sound: true,
-            muted_plugins: vec!["logo".into()],
-            quiet_hours: quiet.map(|(from, to)| {
-                (
-                    chrono::NaiveTime::parse_from_str(from, "%H:%M").unwrap(),
-                    chrono::NaiveTime::parse_from_str(to, "%H:%M").unwrap(),
-                )
-            }),
-        }
-    }
-
-    fn at(time: &str) -> DateTime<chrono::Local> {
-        use chrono::TimeZone;
-        let t =
-            chrono::NaiveDateTime::parse_from_str(&format!("2026-09-27 {time}"), "%Y-%m-%d %H:%M")
-                .unwrap();
-        chrono::Local.from_local_datetime(&t).single().unwrap()
-    }
-
-    #[test]
-    fn a_review_is_announced_unless_off_paused_or_muted() {
-        let on = settings(None);
-        assert!(announces(&on, "list", at("12:00")));
-        assert!(!announces(&on, "logo", at("12:00")), "muted");
-        assert!(!announces(
-            &NotificationSettings {
-                enabled: false,
-                ..settings(None)
-            },
-            "list",
-            at("12:00")
-        ));
-        assert!(!announces(
-            &NotificationSettings {
-                paused_until: Some(Utc::now() + chrono::Duration::hours(1)),
-                ..settings(None)
-            },
-            "list",
-            at("12:00")
-        ));
-    }
-
-    #[test]
-    fn quiet_hours_hold_back_announcements_across_midnight_too() {
-        let night = settings(Some(("22:00", "07:30")));
-        assert!(!announces(&night, "list", at("23:15")));
-        assert!(!announces(&night, "list", at("03:00")));
-        assert!(
-            announces(&night, "list", at("07:30")),
-            "the end is not quiet"
-        );
-        assert!(announces(&night, "list", at("12:00")));
-        let lunch = settings(Some(("12:00", "13:00")));
-        assert!(!announces(&lunch, "list", at("12:30")));
-        assert!(announces(&lunch, "list", at("18:00")));
     }
 
     #[test]

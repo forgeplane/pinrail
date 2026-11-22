@@ -114,6 +114,10 @@ pub struct Notice {
     pub notification: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub counts: Option<Value>,
+    /// The system notification to show, with its title, body, sound and
+    /// tag, when the core announces the notice: on a live notice alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub announce: Option<Value>,
 }
 
 impl Notice {
@@ -153,6 +157,7 @@ impl Notice {
             run: about(&[RUN_STARTED, RUN_BOUND, RUN_ENDED]),
             notification: None,
             counts: None,
+            announce: None,
         }
     }
 
@@ -186,6 +191,9 @@ pub struct Bus {
     /// caused it and what it is about, so a live notice says what its
     /// replay will.
     db: Option<Arc<Db>>,
+    /// The person's settings, once they are open, for which notices are
+    /// announced: shared by every clone of the bus.
+    settings: Arc<std::sync::OnceLock<crate::settings::SettingsReader>>,
 }
 
 impl Default for Bus {
@@ -197,7 +205,11 @@ impl Default for Bus {
 impl Bus {
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(256);
-        Bus { tx, db: None }
+        Bus {
+            tx,
+            db: None,
+            settings: Arc::default(),
+        }
     }
 
     /// A bus whose notices take their time, actor and subject from `db`.
@@ -227,6 +239,15 @@ impl Bus {
             if let Ok(Some(notification)) = notification {
                 notice.notification = crate::notifications::to_json(db, &notification).ok();
             }
+            // whether it raises a system notification, by the person's settings
+            if let (Some(n), Some(settings)) = (&notice.notification, self.settings.get()) {
+                notice.announce = crate::announce::announce(
+                    &settings.value("/notifications"),
+                    n,
+                    event.id,
+                    chrono::Local::now(),
+                );
+            }
             if notice.notification.is_some() || event.kind == NOTIFICATION_CHANGED {
                 notice.counts = db.notification_counts().ok().map(|c| c.to_json());
             }
@@ -236,5 +257,10 @@ impl Bus {
 
     pub fn subscribe(&self) -> broadcast::Receiver<Notice> {
         self.tx.subscribe()
+    }
+
+    /// Gives the bus the person's settings, for which notices it announces.
+    pub(crate) fn follow_settings(&self, settings: crate::settings::SettingsReader) {
+        let _ = self.settings.set(settings);
     }
 }

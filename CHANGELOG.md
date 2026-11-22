@@ -168,6 +168,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- System notifications follow the inbox: a kind of notification turned off
+  in the inbox, a muted project or repository, or a muted work item or
+  session is never announced.
 - When an agent Pinrail runs goes on in a new session, as after
   `/clear`, its open session page follows the terminal there, and the
   session it left links to the new one, also from its **Terminal** view.

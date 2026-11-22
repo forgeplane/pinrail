@@ -322,6 +322,36 @@ const LEAVES: &[Leaf] = &[
         "Plugins whose reviews are not announced. They are still counted in the menu bar.",
     ),
     (
+        "/notifications/announce/review_requested",
+        Kind::Bool,
+        || json!(true),
+        "Raise a system notification for a new review or a new round.",
+    ),
+    (
+        "/notifications/announce/question_asked",
+        Kind::Bool,
+        || json!(true),
+        "Raise a system notification for a new question.",
+    ),
+    (
+        "/notifications/announce/agent_waits",
+        Kind::Bool,
+        || json!(false),
+        "Raise a system notification when an agent waits for a permission or an answer in its terminal.",
+    ),
+    (
+        "/notifications/announce/agent_finished",
+        Kind::Bool,
+        || json!(false),
+        "Raise a system notification when an agent finishes, fails or stops.",
+    ),
+    (
+        "/notifications/announce/item_commented",
+        Kind::Bool,
+        || json!(false),
+        "Raise a system notification when an agent comments on a work item.",
+    ),
+    (
         "/notifications/quiet_hours",
         Kind::NullableHours,
         || Value::Null,

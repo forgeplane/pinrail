@@ -196,6 +196,8 @@ impl Pinrail {
         let follows = telemetry.clone();
         let reader = settings.reader();
         settings.follow(move |keys| count_settings(&follows, &reader, keys));
+        // which notices raise a system notification, by the person's settings
+        events.bus().follow_settings(settings.reader());
         // what the inbox shows, as the person sets it
         inbox_hidden(&db, &settings.reader());
         let (inbox_db, inbox_reader) = (db.clone(), settings.reader());
