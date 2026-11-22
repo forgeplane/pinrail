@@ -103,38 +103,12 @@ async fn events(
     let live = stream::once(async move { (!failed.load(Ordering::SeqCst)).then_some(live) })
         .filter_map(futures_util::future::ready)
         .flatten();
+    // every field of the notice: what is absent is left out
     let all = backlog.chain(live).map(|n| {
-        let mut data = json!({
-            "event_id": n.event_id,
-            "kind": n.kind,
-            "at": n.at,
-            "actor": n.actor,
-            "subject": n.subject,
-            "review_id": n.review_id,
-            "review": n.review,
-        });
-        // a session's status, on the notice that brings one
-        if let Some(session) = &n.session {
-            data["session"] = session.clone();
-        }
-        // the item, and who changed it, on an item's notice
-        if let Some(item) = &n.item {
-            data["item"] = item.clone();
-        }
-        // the person's notification the event changed, and the counts
-        if let Some(notification) = &n.notification {
-            data["notification"] = notification.clone();
-        }
-        if let Some(counts) = &n.counts {
-            data["counts"] = counts.clone();
-        }
-        if let Some(announce) = &n.announce {
-            data["announce"] = announce.clone();
-        }
         Ok(Event::default()
             .id(n.event_id.to_string())
             .event(n.kind.clone())
-            .json_data(data)
+            .json_data(&n)
             .unwrap_or_else(|_| Event::default()))
     });
     Sse::new(resync.chain(all)).keep_alive(KeepAlive::default())

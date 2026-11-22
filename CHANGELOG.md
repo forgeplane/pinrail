@@ -232,6 +232,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- A session page follows its agent to the new session when the agent
+  starts a new conversation in Pinrail's terminal, such as after `/clear`.
 - A question opened from the inbox shows at once in the side panel, and
   its session's thread scrolls to it, also in a long session.
 - A session's thread keeps an agent's earlier reply when the agent

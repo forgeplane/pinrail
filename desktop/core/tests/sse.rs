@@ -63,6 +63,7 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
         .change(&json!({"notifications": {"sound": false}}))
         .unwrap();
     let live = app.events().after(replayed.event_id, 1).unwrap().remove(0);
+    let live_id = live.event_id;
 
     let mut body = response.into_body();
     let mut buffered = String::new();
@@ -80,6 +81,7 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
                 "subject": null,
                 "review_id": null,
                 "review": null,
+                "keys": [if notice.event_id == live_id { "/notifications/sound" } else { "/appearance/theme" }],
             })
         );
     }
@@ -327,4 +329,32 @@ async fn a_cursor_the_stored_events_reach_gets_no_resync() {
     let (id, data) = next_event(&mut body, &mut String::new()).await;
     assert_eq!(id, cursor + 1);
     assert_eq!(data["kind"], "settings_changed");
+}
+
+#[tokio::test]
+async fn a_notice_carries_the_changed_settings_and_its_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    let response = api::router(app.clone())
+        .oneshot(Request::get("/api/v1/events").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    app.settings()
+        .change(&json!({"notifications": {"sound": false}}))
+        .unwrap();
+    let run = json!({"run": {"id": "run_1"}, "session": "ses_1"});
+    app.events().publish(pinrail_core::events::Notice::new(
+        99_999,
+        pinrail_core::events::RUN_BOUND,
+        &run,
+    ));
+
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    let (_, settings) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(settings["kind"], "settings_changed");
+    assert_eq!(settings["keys"], json!(["/notifications/sound"]));
+    let (_, bound) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(bound["kind"], "run_bound");
+    assert_eq!(bound["run"], run);
 }
