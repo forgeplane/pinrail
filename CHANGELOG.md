@@ -181,6 +181,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Start the quick add on the open work item's repository, as it already
+  does for the open session or review.
 - Show a sidebar session's full title in its tooltip, with its state,
   what it is doing or waits for, its agent and branch, and what waits on
   you. The element tile is gone from it.

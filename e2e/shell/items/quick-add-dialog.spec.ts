@@ -87,6 +87,32 @@ test("the command palette offers to add a work item", async ({ page }) => {
   await expect(field(page)).toBeFocused();
 });
 
+test("from a work item, the quick add starts on its repository", async ({ page, request }) => {
+  const shown = fresh("item-repo");
+  const item = await add(request, shown, "Theme loader");
+  const other = fresh("other-repo");
+  await add(request, other, "Elsewhere");
+  // the quick add used another repository last
+  await page.addInitScript((repo) => localStorage.setItem("pinrail.quickAdd.repo", repo), other);
+  const repository = page
+    .getByRole("dialog", { name: "Add a work item" })
+    .or(page.getByTestId("item-quick-box"))
+    .getByRole("button", { name: "Repository" });
+
+  // the item open in the inbox's side panel
+  await page.goto(`/#/?open=item:${item.key}`);
+  await expect(page.getByTestId("item-panel")).toContainText("Theme loader");
+  await page.keyboard.press("ControlOrMeta+Shift+C");
+  await expect(repository).toHaveText(shown);
+  await page.keyboard.press("Escape");
+
+  // and beside the work items of all repositories
+  await page.goto(`/#/items?open=${item.key}`);
+  await expect(page.getByTestId("item-panel")).toContainText("Theme loader");
+  await page.keyboard.press("ControlOrMeta+Shift+C");
+  await expect(repository).toHaveText(shown);
+});
+
 test("from a session or a review, the dialog starts on its repository", async ({ page, request }) => {
   const repo = fresh("session-repo");
   const session = `s-qd-${Date.now()}`;

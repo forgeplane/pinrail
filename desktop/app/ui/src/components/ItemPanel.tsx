@@ -52,6 +52,7 @@ import { Tooltip } from "./Tooltip";
 import { useWindowKey } from "../lib/useWindowKey";
 import { ProgressRing } from "./ProgressRing";
 import { editKeys } from "../lib/editKeys";
+import { usePageRepo } from "../lib/pageRepo";
 
 export function ItemPanel({
   itemKey,
@@ -146,6 +147,9 @@ export function ItemPanel({
     },
     [item, onOpen, onChanged, toast],
   );
+
+  // the quick add starts on the item's repository while it shows
+  usePageRepo(item?.repo);
 
   // Esc closes, T edits the title, E the description
   useWindowKey((event) => {
