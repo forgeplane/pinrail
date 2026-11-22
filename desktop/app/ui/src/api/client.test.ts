@@ -78,6 +78,41 @@ describe("subscribe", () => {
   });
 });
 
+describe("a stream that goes silent", () => {
+  test("is opened again, from the last event seen, unless the core's heartbeat keeps coming", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeSource);
+    vi.stubGlobal("window", globalThis);
+    FakeSource.all = [];
+    const stop = subscribe({ onNotice: () => {} });
+    await vi.waitFor(() => expect(FakeSource.all).toHaveLength(1));
+    const first = FakeSource.all[0];
+    first.onopen!();
+    first.listeners.get("created")!({
+      data: JSON.stringify({ kind: "created", event_id: 7 }),
+      lastEventId: "7",
+    } as MessageEvent);
+
+    // the heartbeat keeps it open
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      first.listeners.get("ping")!({ data: "1" } as MessageEvent);
+    }
+    expect(first.closed).toBe(false);
+    expect(FakeSource.all).toHaveLength(1);
+
+    // nothing for long enough: closed, and opened again from 7
+    await vi.advanceTimersByTimeAsync(46_000);
+    expect(first.closed).toBe(true);
+    expect(FakeSource.all).toHaveLength(2);
+    expect(FakeSource.all[1].url).toMatch(/\/api\/v1\/events\?after=7$/);
+
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("errorMessage", () => {
   test("is what the core said, its first violation's when it refused a field", () => {
     expect(errorMessage(new ApiError(409, { error: "conflict", message: "PIN-1 is on hold" }))).toBe(

@@ -27,6 +27,9 @@ use tokio_stream::wrappers::BroadcastStream;
 use super::ApiState;
 use crate::Pinrail;
 
+/// How often an idle stream sends its heartbeat, a `ping` event.
+const HEARTBEAT: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// The stored events read at a time for a catch-up.
 const CATCH_UP_PAGE: usize = 1000;
 
@@ -111,5 +114,12 @@ async fn events(
             .json_data(&n)
             .unwrap_or_else(|_| Event::default()))
     });
-    Sse::new(resync.chain(all)).keep_alive(KeepAlive::default())
+    // a named heartbeat, which the browser hands to the page as it never
+    // does a comment: a window that hears nothing for a while knows the
+    // connection has stopped, and opens it again
+    Sse::new(resync.chain(all)).keep_alive(
+        KeepAlive::new()
+            .interval(HEARTBEAT)
+            .event(Event::default().event("ping").data("1")),
+    )
 }

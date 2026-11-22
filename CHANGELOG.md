@@ -268,6 +268,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Keep the window up to date after Pinrail's server restarts. Its updates
+  could stop without an error, so new reviews and questions did not show
+  until the window was reloaded.
 - Offer to open a Codex session in Pinrail when neither its hooks nor a
   run of Pinrail's tell whether it still runs, after a warning, as Claude
   Code's sessions are.

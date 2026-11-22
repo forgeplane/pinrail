@@ -482,6 +482,11 @@ export async function sendFeedback(form: FormData): Promise<void> {
  *  less often. The browser's own retry waits three seconds. */
 const RETRY_FIRST_MS = 250;
 const RETRY_MAX_MS = 3000;
+/** How long the stream may stay silent before the app opens it again. The
+ *  core sends a heartbeat every 15 seconds, but a connection can stop
+ *  without an error, as when the core restarts under it, and the browser
+ *  then waits forever. */
+const SILENT_MS = 45_000;
 
 export function subscribe(handlers: {
   onNotice: (notice: Notice) => void;
@@ -494,7 +499,15 @@ export function subscribe(handlers: {
   let delay = RETRY_FIRST_MS;
   // the last event seen, so that a new connection catches up from it
   let last: string | null = null;
+  // a stream that says nothing, not even the heartbeat, is opened again
+  let silence: ReturnType<typeof setTimeout> | undefined;
+  let reopen: (() => void) | undefined;
+  const heard = () => {
+    clearTimeout(silence);
+    silence = setTimeout(() => reopen?.(), SILENT_MS);
+  };
   const notice = (event: MessageEvent) => {
+    heard();
     if (event.lastEventId) last = event.lastEventId;
     try {
       handlers.onNotice(JSON.parse(event.data));
@@ -505,10 +518,19 @@ export function subscribe(handlers: {
   const connect = (url: string) => {
     if (closed) return;
     source = new EventSource(`${url}/api/v1/events${last ? `?after=${encodeURIComponent(last)}` : ""}`);
+    const opened = source;
+    reopen = () => {
+      if (closed || source !== opened) return;
+      opened.close();
+      connect(url);
+    };
+    heard();
     source.onopen = () => {
       delay = RETRY_FIRST_MS;
+      heard();
       handlers.onOpen?.();
     };
+    source.addEventListener("ping", heard);
     // the app retries itself, sooner than the browser would
     source.onerror = () => {
       handlers.onError?.();
@@ -564,6 +586,7 @@ export function subscribe(handlers: {
   return () => {
     closed = true;
     window.clearTimeout(timer);
+    clearTimeout(silence);
     source?.close();
   };
 }
