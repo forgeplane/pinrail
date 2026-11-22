@@ -39,10 +39,20 @@ async function open(statuses: SessionStatus[], fields: Parameters<typeof session
 const heading = () => page.getByTestId("thread").getByRole("heading", { level: 1 });
 
 describe("the thread's header", () => {
-  test("names the session by its stage, with its generated name beside it", async () => {
+  test("names the session by its stage, with its generated name in the details, not the header", async () => {
+    await page.viewport(1400, 800);
     await open([step(1, "Fix the login", "start")], { id: "s-1", title: "Fix the login" });
     await expect.element(heading()).toHaveTextContent("Fix the login");
-    await expect.element(page.getByTestId("thread").getByText("Happy Hydrogen")).toBeVisible();
+    const details = page.getByRole("complementary", { name: "Session details" });
+    await expect.element(details.getByText("Happy Hydrogen")).toBeVisible();
+    expect(document.querySelector(".thread-meta")?.textContent).not.toContain("Happy Hydrogen");
+  });
+
+  test("a narrow header leaves the start time out", async () => {
+    await page.viewport(700, 600);
+    await open([step(1, "Fix the login", "start")], { id: "s-1", title: "Fix the login" });
+    await expect.element(heading()).toHaveTextContent("Fix the login");
+    await expect.element(page.getByTestId("thread").getByText(/^started /)).not.toBeVisible();
   });
 
   test("without a stage, by its generated name", async () => {

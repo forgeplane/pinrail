@@ -1,5 +1,6 @@
 // The views of a session, as a segmented control of icons, each named by
-// its tooltip.
+// its tooltip. Ctrl+` switches between the summary and the terminal, so
+// only their tooltips show it.
 
 import { ListCollapse, Rows2, SquareTerminal, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
@@ -17,7 +18,7 @@ export function ViewSwitch({ view, onView }: { view: SessionView; onView: (view:
   return (
     <div className="view-switch" role="tablist" aria-label="Session view" data-testid="view-switch">
       {VIEWS.map(([id, label, Icon], i) => (
-        <Tooltip key={id} label={label} keys={["Ctrl", "`"]} side="bottom">
+        <Tooltip key={id} label={label} keys={id === "split" ? undefined : ["Ctrl", "`"]} side="bottom">
           <button
             ref={(el) => {
               tabs.current[i] = el;

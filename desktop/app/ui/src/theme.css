@@ -3735,6 +3735,26 @@ body.is-resizing iframe {
 .thread-title-row > .thread-menu {
   margin-left: -4px;
 }
+/* in a narrow header the status chip gives way faster than the title, and
+   keeps its state's word */
+.thread-title-row > .presence-chip {
+  flex: 0 20 auto;
+  min-width: 112px;
+}
+.presence-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* as the header narrows, the start time and the run button's label go
+   first; the button's tooltip still names it */
+@container (max-width: 680px) {
+  .thread-meta > .thread-meta-started,
+  .thread-head-end .run-stop > span,
+  .thread-head-end .run-resume > span {
+    display: none;
+  }
+}
 .thread-title-row h1 {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -7,7 +7,7 @@ import { useMemo, useState, type MouseEvent } from "react";
 import { Link, type To } from "react-router";
 import type { Review, Session, SessionMessage, WorkItem } from "../../api/types";
 import { age, stamp } from "../../lib/format";
-import { stageReviews, type Entry, type FromSession, type Stage } from "../../lib/sessions";
+import { generatedBeside, stageReviews, type Entry, type FromSession, type Stage } from "../../lib/sessions";
 import { outcomeOf } from "../Badges";
 import { itemPath } from "../ItemChip";
 import { ItemStatusIcon, STATUS_LABEL } from "../ItemStatusIcon";
@@ -326,6 +326,13 @@ export function ThreadDetails({
         <section>
           <h2>Session</h2>
           <dl className="thread-facts">
+            {/* the name Pinrail gave it, when another heads it */}
+            {generatedBeside(session) ? (
+              <>
+                <dt>Name</dt>
+                <dd>{generatedBeside(session)}</dd>
+              </>
+            ) : null}
             <dt>Agent</dt>
             <dd>{session.agent}</dd>
             <dt>Agent session</dt>

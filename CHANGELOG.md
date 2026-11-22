@@ -179,6 +179,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Move a session's generated name from its header to the details panel.
+  In a narrow window, the header hides the start time and shows Stop and
+  Resume as icons, so the title keeps its room.
 - Rearrange the quick add for narrow widths. **Add** and a new **Add more**
   button sit beside **Cancel** on the title line. The repository, the
   parent and **Add and start** share the row under the description, and

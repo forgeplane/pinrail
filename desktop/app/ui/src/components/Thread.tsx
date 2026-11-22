@@ -40,7 +40,6 @@ import {
   entryKey,
   fromSession,
   newestRounds,
-  generatedBeside,
   sessionLabel,
   stageBeside,
   stages,
@@ -637,10 +636,6 @@ export function Thread({
               keeps its height and the terminal under it its size: where it
               works, since when, and the items it holds */}
             <div className="thread-meta">
-              {/* the name Pinrail gave it, when another heads it */}
-              {session && generatedBeside(session) ? (
-                <span className="thread-meta-generated">{generatedBeside(session)}</span>
-              ) : null}
               {/* the stage it is on, when a name the person gave heads it */}
               {session && stageBeside(session) ? (
                 <span className="thread-meta-stage" title={stageBeside(session) ?? undefined}>
@@ -652,7 +647,11 @@ export function Thread({
                   <Where agent={agent} repo={repo} reference={ref} />
                 </span>
               ) : null}
-              {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
+              {session ? (
+                <span className="thread-meta-started" title={stamp(session.first_at)}>
+                  started {age(session.first_at)} ago
+                </span>
+              ) : null}
               {held.length ? <HeldItems items={held} /> : null}
               {named && focus ? (
                 // from a question, the session's own page

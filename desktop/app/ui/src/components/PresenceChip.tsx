@@ -22,9 +22,9 @@ export function PresenceChip({ session }: { session: Session }) {
   return (
     <>
       {chip ? (
-        <span className={`presence-chip is-${chip.state}`} data-testid="presence-chip">
+        <span className={`presence-chip is-${chip.state}`} data-testid="presence-chip" title={chip.text}>
           <span className={`state-mark is-${chip.state}`} aria-hidden />
-          {chip.text}
+          <span className="presence-chip-text">{chip.text}</span>
         </span>
       ) : null}
       <span className="presence-announce" aria-live="polite">
