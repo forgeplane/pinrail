@@ -459,7 +459,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
           <ReviewView id={openId} inPanel linkTo={hrefFor} onEnded={openNext} onClose={closePanel} />
         </SidePanel>
       ) : openItem ? (
-        <SidePanel split={split} label="Work item" listMin={560}>
+        <SidePanel split={split} label="Work item">
           <ItemPanel
             key={openItem}
             itemKey={openItem}

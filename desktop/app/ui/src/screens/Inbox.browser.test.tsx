@@ -356,6 +356,20 @@ describe("the inbox with the app's styles", () => {
     await open([update(1, "Load themes")], "/?open=item:PIN-1", 650);
     await expectPanel(650, "covers the list");
   });
+
+  test("the side panel keeps its width from a work item to a session", async () => {
+    await import("../theme.css");
+    await page.viewport(1400, 700);
+    await open([update(1, "Load themes"), waitingAgent(3)], "/", 1100);
+    await row("Load themes").click();
+    const item = page.getByRole("complementary", { name: "Work item" });
+    await expect.element(item).toBeVisible();
+    const width = item.element().getBoundingClientRect().width;
+    await row("Migrate the billing tables").click();
+    const session = page.getByRole("complementary", { name: "Session" });
+    await expect.element(session).toBeVisible();
+    expect(session.element().getBoundingClientRect().width).toBe(width);
+  });
 });
 
 async function expectPanel(width: number, how: string) {
@@ -367,7 +381,6 @@ async function expectPanel(width: number, how: string) {
     expect(box.left).toBe(list.left);
     expect(box.width).toBe(width);
   } else {
-    // a work item's panel leaves the list 560 px
-    expect(box.left).toBeGreaterThanOrEqual(list.left + 560);
+    expect(box.left).toBeGreaterThanOrEqual(list.left + 380);
   }
 }

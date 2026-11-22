@@ -235,6 +235,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- The inbox's side panel keeps the same width whether it shows a work
+  item, a session or a review.
 - The inbox's title, search box, **Mark all as read** and **Filter** stay
   on one line in a narrow inbox, where **Mark all as read** shows only its
   icon. The inbox's tabs no longer wrap.
