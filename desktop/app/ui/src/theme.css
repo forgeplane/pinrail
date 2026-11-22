@@ -8472,9 +8472,31 @@ a.item-ref {
   display: flex;
   gap: 12px;
 }
-.terminal-hint kbd {
-  font: inherit;
-  font-family: var(--mono);
+.terminal-bar-end {
+  align-items: center;
+}
+/* the state of the terminal, after a dot in its tone */
+.terminal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.terminal-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.terminal-dot.is-ok {
+  background: var(--ok);
+}
+.terminal-dot.is-waiting {
+  background: var(--attention-warn);
+}
+.terminal-dot.is-danger {
+  background: var(--danger);
 }
 /* The two views of a session. */
 .view-switch {

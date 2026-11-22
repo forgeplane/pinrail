@@ -2,6 +2,7 @@
 // once the pane has its size, the bar under it with the viewer's role and
 // the terminal's size, and find over it with Cmd+F (Ctrl+Shift+F on Linux).
 
+import { KeyHints } from "../KeyHints";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { runtime } from "../../api/runtime";
 import type { Found } from "../../lib/findText";
@@ -172,22 +173,33 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
   );
 }
 
-function TerminalBar({ state, failed }: { state: TerminalState | null; failed: string | null }) {
-  let status: string;
-  if (failed) status = `The terminal could not be shown: ${failed}`;
-  else if (!state || state.stream === "connecting") status = "Connecting…";
-  else if (state.exit) status = exitText(state.exit);
-  else if (state.stream === "reconnecting") status = "Reconnecting…";
-  else if (state.stream === "closed") status = "Disconnected from the terminal.";
-  else if (state.role === "controller") status = "You are typing";
-  else if (state.pty && state.fit && (state.pty.cols !== state.fit.cols || state.pty.rows !== state.fit.rows)) {
-    status = "Size set by another viewer. Click to take control.";
-  } else status = "Viewing. Click or type to take control.";
+/** What the bar says of the terminal, and the tone of the dot before it:
+ *  you type (ok), you view or it ended (idle), the link is coming
+ *  (waiting), or it failed (danger). */
+export function barStatus(
+  state: TerminalState | null,
+  failed: string | null,
+): { text: string; tone: "ok" | "idle" | "waiting" | "danger" } {
+  if (failed) return { text: `The terminal could not be shown: ${failed}`, tone: "danger" };
+  if (!state || state.stream === "connecting") return { text: "Connecting…", tone: "waiting" };
+  if (state.exit) return { text: exitText(state.exit), tone: "idle" };
+  if (state.stream === "reconnecting") return { text: "Reconnecting to the terminal…", tone: "waiting" };
+  if (state.stream === "closed") return { text: "Disconnected from the terminal.", tone: "danger" };
+  if (state.role === "controller") return { text: "You are typing", tone: "ok" };
+  if (state.pty && state.fit && (state.pty.cols !== state.fit.cols || state.pty.rows !== state.fit.rows)) {
+    return { text: "Size set by another viewer · click to take control", tone: "idle" };
+  }
+  return { text: "Viewing · click or type to take control", tone: "idle" };
+}
+
+export function TerminalBar({ state, failed }: { state: TerminalState | null; failed: string | null }) {
+  const status = barStatus(state, failed);
   const grid = state?.role === "controller" ? state.fit : (state?.pty ?? state?.fit);
   return (
     <div className="terminal-bar" data-testid="terminal-bar">
-      <span role="status" aria-live="polite">
-        {status}
+      <span className="terminal-status" role="status" aria-live="polite">
+        <span className={`terminal-dot is-${status.tone}`} aria-hidden />
+        {status.text}
       </span>
       <span className="terminal-bar-end">
         {grid ? (
@@ -195,9 +207,7 @@ function TerminalBar({ state, failed }: { state: TerminalState | null; failed: s
             {grid.cols} × {grid.rows}
           </span>
         ) : null}
-        <span className="terminal-hint">
-          <kbd>Ctrl+`</kbd> Summary
-        </span>
+        <KeyHints className="terminal-hint" hints={[{ keys: ["Ctrl", "`"], label: "Summary" }]} />
       </span>
     </div>
   );
