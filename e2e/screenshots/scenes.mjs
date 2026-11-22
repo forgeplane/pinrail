@@ -960,7 +960,7 @@ export const scenes = [
     name: "settings-agents",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await page.getByTestId("update-row").first().waitFor();
       await page.evaluate((agents) => {
         window.__TAURI_INTERNALS__ = {
           invoke: async (command) => {
@@ -1200,12 +1200,13 @@ export const scenes = [
   },
   ...[
     ["general", "General"],
+    ["notifications", "Notifications"],
     ["plugins", "Plugins"],
   ].map(([section, label]) => ({
     name: `settings-${section}`,
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await page.getByTestId("update-row").first().waitFor();
       await page.keyboard.press("Meta+,");
       await settingsSection(page, label).click();
       await settle(page, 500);

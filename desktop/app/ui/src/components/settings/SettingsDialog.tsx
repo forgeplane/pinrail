@@ -12,7 +12,6 @@ import {
   Keyboard,
   ListChecks,
   Palette,
-  Settings,
   Settings2,
   ShieldCheck,
   SquareTerminal,
@@ -27,12 +26,12 @@ import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo, composing } from "../../lib/keys";
 import { reviewPath } from "../../lib/url";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS, SHORTCUT_SECTIONS } from "../../lib/shortcuts";
-import { type InboxShow, useSettings } from "../../state/settings";
-import { describeSystem, useNotificationStatus } from "../../state/notifications";
+import { useSettings } from "../../state/settings";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 import { AgentsSection } from "./AgentsSection";
+import { NotificationsSection } from "./NotificationsSection";
 import { ThemeRows } from "./ThemeRows";
 import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
@@ -42,33 +41,9 @@ import { TerminalSection } from "./TerminalSection";
 import { useCopy } from "../../lib/useCopy";
 import { Dialog } from "../Dialog";
 
-/** The work item notifications the inbox can add, each with its switch. */
-const INBOX_KINDS: { key: keyof InboxShow; label: string; description: string }[] = [
-  { key: "item_added", label: "New work items", description: "Add a notification when an agent adds a work item." },
-  {
-    key: "item_commented",
-    label: "Comments",
-    description: "Add a notification when an agent comments on a work item.",
-  },
-  {
-    key: "item_closed",
-    label: "Closed work items",
-    description: "Add a notification when an agent marks a work item done or cancels it.",
-  },
-  {
-    key: "item_claimed",
-    label: "Claimed work items",
-    description: "Add a notification when an agent claims a work item.",
-  },
-  {
-    key: "item_changed",
-    label: "Other changes",
-    description: "Add a notification when an agent makes any other change to a work item.",
-  },
-];
-
 export type SettingsSection =
   | "general"
+  | "notifications"
   | "appearance"
   | "items"
   | "terminal"
@@ -82,6 +57,7 @@ export type SettingsSection =
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
+  { key: "notifications", label: "Notifications", icon: <Bell size={15} /> },
   { key: "appearance", label: "Appearance", icon: <Palette size={15} /> },
   { key: "items", label: "Work items", icon: <ListChecks size={15} /> },
   { key: "terminal", label: "Terminal", icon: <SquareTerminal size={15} /> },
@@ -126,25 +102,6 @@ function PortField({ value, onChange }: { value: number; onChange: (port: number
     />
   );
 }
-
-/** The pause as a moment still to come, or null. */
-const pausedUntil = (iso: string | null) => {
-  if (!iso) return null;
-  const t = new Date(iso);
-  return t.getTime() > Date.now() ? t : null;
-};
-
-const clock = (t: Date) => t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-
-/** What a choice in the pause menu means, as a timestamp or null. */
-const pauseUntil = (choice: string): string | null => {
-  const now = new Date();
-  if (choice === "15") return new Date(now.getTime() + 15 * 60_000).toISOString();
-  if (choice === "60") return new Date(now.getTime() + 60 * 60_000).toISOString();
-  if (choice === "tomorrow")
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
-  return null;
-};
 
 /** The shortcut as the app registered it; null in a browser. */
 type ShortcutState = { shortcut: string; error: string | null };
@@ -213,8 +170,6 @@ export function SettingsDialog({
   const { settings, update, native } = useSettings();
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const { state: copied, copy } = useCopy(1200);
-  const paused = pausedUntil(settings.notifications.paused_until);
-  const { system, request: requestNotifications, openSystemSettings } = useNotificationStatus(open);
   const [noticesError, setNoticesError] = useState<string | null>(null);
   const openNotices = () => {
     setNoticesError(null);
@@ -223,14 +178,6 @@ export function SettingsDialog({
       .catch((e) => setNoticesError(String(e)));
   };
   const shortcut = useShortcutState(open);
-
-  // a pause ends on its own: the row says so within the minute
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (!open || !paused) return;
-    const timer = window.setInterval(() => tick((n) => n + 1), 30_000);
-    return () => window.clearInterval(timer);
-  }, [open, paused]);
 
   useEffect(() => {
     if (!open) return;
@@ -252,10 +199,12 @@ export function SettingsDialog({
       plain
       className="settings"
       onClose={onClose}
-      // Esc while recording a shortcut is the recorder's, and in the
-      // install panel it clears the source or closes the menu first
+      // Esc while recording a shortcut is the recorder's, with a menu open
+      // it closes the menu, and in the install panel it clears the source
+      // or closes the menu first
       closeOnEscape={() =>
         !document.querySelector(".shortcut-recorder.is-recording") &&
+        !document.querySelector(".menu-popup") &&
         !document.activeElement?.matches("[data-install-source]:not(:placeholder-shown), .install-menu *")
       }
     >
@@ -346,66 +295,10 @@ export function SettingsDialog({
                 />
               </SettingsRow>
             </SettingsGroup>
-            <SettingsGroup caption="Notifications">
-              <SettingsRow
-                label="System notifications"
-                description="A notification when a review arrives; the tray keeps its count either way"
-              >
-                <Toggle
-                  label="System notifications"
-                  checked={settings.notifications.enabled}
-                  onChange={(v) => update({ notifications: { enabled: v } })}
-                />
-              </SettingsRow>
-              <SettingsRow
-                label="Pause"
-                description={
-                  paused
-                    ? `Nothing is announced until ${clock(paused)}; the tray's menu says so too`
-                    : "Nothing is announced while paused; the tray's menu offers the same"
-                }
-              >
-                <Select
-                  label="Pause notifications"
-                  icon={<Bell size={14} />}
-                  value={paused ? "paused" : ""}
-                  onChange={(v) => update({ notifications: { paused_until: pauseUntil(v) } })}
-                  options={
-                    paused
-                      ? [
-                          { value: "paused", label: `Paused until ${clock(paused)}` },
-                          { value: "", label: "Resume" },
-                        ]
-                      : [
-                          { value: "", label: "Not paused" },
-                          { value: "15", label: "For 15 minutes" },
-                          { value: "60", label: "For 1 hour" },
-                          { value: "tomorrow", label: "Until tomorrow" },
-                        ]
-                  }
-                />
-              </SettingsRow>
-              <SettingsRow label="Sound" description="The system's notification sound with each one">
-                <Toggle
-                  label="Sound"
-                  checked={settings.notifications.sound}
-                  onChange={(v) => update({ notifications: { sound: v } })}
-                />
-              </SettingsRow>
-              <SettingsRow label="System" description={describeSystem(system)}>
-                {system.status?.authorization === "not_determined" ? (
-                  <button type="button" className="chrome-button" onClick={requestNotifications}>
-                    Turn on
-                  </button>
-                ) : system.status && !system.status.shows ? (
-                  <button type="button" className="chrome-button" onClick={openSystemSettings}>
-                    <Settings size={14} /> Open System Settings
-                  </button>
-                ) : null}
-              </SettingsRow>
-            </SettingsGroup>
           </SettingsPage>
         ) : null}
+
+        {section === "notifications" ? <NotificationsSection open={open} /> : null}
 
         {section === "items" ? (
           <SettingsPage title="Work items">
@@ -440,17 +333,6 @@ export function SettingsDialog({
                   onChange={(v) => update({ items: { count_nested: v } })}
                 />
               </SettingsRow>
-            </SettingsGroup>
-            <SettingsGroup caption="Inbox">
-              {INBOX_KINDS.map(({ key, label, description }) => (
-                <SettingsRow key={key} label={label} description={description}>
-                  <Toggle
-                    label={label}
-                    checked={settings.inbox.show[key]}
-                    onChange={(v) => update({ inbox: { show: { [key]: v } } })}
-                  />
-                </SettingsRow>
-              ))}
             </SettingsGroup>
           </SettingsPage>
         ) : null}

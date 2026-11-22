@@ -25,6 +25,10 @@ export type InboxShow = {
   item_closed: boolean;
   item_claimed: boolean;
   item_changed: boolean;
+  agent_finished: boolean;
+  agent_stopped: boolean;
+  agent_note: boolean;
+  review_ended: boolean;
 };
 
 const INBOX_SHOW: InboxShow = {
@@ -33,6 +37,39 @@ const INBOX_SHOW: InboxShow = {
   item_closed: true,
   item_claimed: true,
   item_changed: false,
+  agent_finished: true,
+  agent_stopped: true,
+  agent_note: true,
+  review_ended: true,
+};
+
+/** Which kinds raise a system notification. */
+export type Announce = {
+  review_requested: boolean;
+  question_asked: boolean;
+  agent_waits: boolean;
+  agent_finished: boolean;
+  item_commented: boolean;
+};
+
+const ANNOUNCE: Announce = {
+  review_requested: true,
+  question_asked: true,
+  agent_waits: false,
+  agent_finished: false,
+  item_commented: false,
+};
+
+/** Quiet hours, as local times such as "22:00". */
+export type QuietHours = { from: string; to: string };
+
+type NotificationSettings = {
+  enabled: boolean;
+  paused_until: string | null;
+  sound: boolean;
+  muted_plugins: string[];
+  quiet_hours: QuietHours | null;
+  announce: Announce;
 };
 
 export type Settings = {
@@ -48,11 +85,17 @@ export type Settings = {
   sidebar: { open: boolean; sessions: Choices & { collapsed: string[] } };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
-  notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
+  notifications: NotificationSettings;
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** where the inbox opens a review: in the side panel, or on its own page;
    *  and which notifications about work items it adds */
-  inbox: { open_in: "panel" | "page"; layout: "project" | "repository" | "list"; show: InboxShow };
+  /** and the repositories and projects muted in it */
+  inbox: {
+    open_in: "panel" | "page";
+    layout: "project" | "repository" | "list";
+    show: InboxShow;
+    muted_repos: string[];
+  };
   sessions: { layout: "project" | "repository" | "list" };
   /** how the Work items page lists the items, and shows sub-items */
   items: {
@@ -113,7 +156,7 @@ type Patch = {
   sidebar?: { open?: boolean; sessions?: Partial<Settings["sidebar"]["sessions"]> };
   close_window?: Settings["close_window"];
   menu_bar_icon?: boolean;
-  notifications?: Partial<Settings["notifications"]>;
+  notifications?: Partial<Omit<Settings["notifications"], "announce">> & { announce?: Partial<Announce> };
   shortcut?: Partial<Settings["shortcut"]>;
   inbox?: Partial<Omit<Settings["inbox"], "show">> & { show?: Partial<InboxShow> };
   sessions?: Partial<Settings["sessions"]>;
@@ -204,12 +247,15 @@ export const fromServer = (s: ServerSettings): Served => ({
     paused_until: s.notifications.paused_until,
     sound: s.notifications.sound,
     muted_plugins: s.notifications.muted_plugins,
+    quiet_hours: s.notifications.quiet_hours ?? null,
+    announce: { ...ANNOUNCE, ...s.notifications.announce },
   },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   inbox: {
     open_in: s.inbox?.open_in ?? "panel",
     layout: s.inbox?.layout ?? "repository",
     show: { ...INBOX_SHOW, ...s.inbox?.show },
+    muted_repos: s.inbox?.muted_repos ?? [],
   },
   sessions: { layout: s.sessions?.layout ?? "list" },
   items: {
@@ -276,7 +322,11 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     },
     close_window: patch.close_window ?? base.close_window,
     menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
-    notifications: { ...base.notifications, ...patch.notifications },
+    notifications: {
+      ...base.notifications,
+      ...patch.notifications,
+      announce: { ...base.notifications.announce, ...patch.notifications?.announce },
+    },
     shortcut: { ...base.shortcut, ...patch.shortcut },
     inbox: { ...base.inbox, ...patch.inbox, show: { ...base.inbox.show, ...patch.inbox?.show } },
     sessions: { ...base.sessions, ...patch.sessions },
@@ -340,9 +390,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     sidebar: { open: true, sessions: SESSIONS },
     close_window: "hide",
     menu_bar_icon: true,
-    notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
+    notifications: {
+      enabled: true,
+      paused_until: null,
+      sound: true,
+      muted_plugins: [],
+      quiet_hours: null,
+      announce: ANNOUNCE,
+    },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
-    inbox: { open_in: "panel", layout: "repository", show: INBOX_SHOW },
+    inbox: { open_in: "panel", layout: "repository", show: INBOX_SHOW, muted_repos: [] },
     sessions: { layout: "list" },
     items: {
       layout: "project",

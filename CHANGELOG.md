@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Add a Notifications section to Settings. It holds the system notification
+  settings, an inbox switch and a system notification switch for each kind
+  of notification, quiet hours, and the muted projects and repositories.
 - The inbox is one list of notifications, with the tabs **All**, **Waiting
   on you**, **Unread** and **History**. **All** shows what waits on you
   first: reviews, questions and agents that wait for a permission or an

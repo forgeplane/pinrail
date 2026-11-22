@@ -664,9 +664,17 @@ export type ServerSettings = {
   sidebar: { open: boolean; sessions?: Partial<import("../lib/sidebarSessions").Choices & { collapsed: string[] }> };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
-  notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
+  notifications: {
+    enabled: boolean;
+    paused_until: string | null;
+    sound: boolean;
+    muted_plugins: string[];
+    quiet_hours?: { from: string; to: string } | null;
+    announce?: Partial<Record<string, boolean>>;
+  };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   inbox?: {
+    muted_repos?: string[];
     open_in: "panel" | "page";
     layout?: "project" | "repository" | "list";
     show?: {
@@ -675,6 +683,10 @@ export type ServerSettings = {
       item_closed?: boolean;
       item_claimed?: boolean;
       item_changed?: boolean;
+      agent_finished?: boolean;
+      agent_stopped?: boolean;
+      agent_note?: boolean;
+      review_ended?: boolean;
     };
   };
   sessions?: { layout?: "project" | "repository" | "list" };

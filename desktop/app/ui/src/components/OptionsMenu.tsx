@@ -124,8 +124,9 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !anchor.contains(target)) onClose();
     };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    // on the way down, since a dialog stops the press at its box
+    window.addEventListener("mousedown", onDown, true);
+    return () => window.removeEventListener("mousedown", onDown, true);
   }, [anchor, onClose]);
   // one listener while the menu is open, so no key is lost when the app
   // draws again during the key press
@@ -140,94 +141,100 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     { capture: true },
   );
 
-  const submenu = (key: string, text: string, value: string, all: MenuOption[], searchable = false) => {
+  /** The options of a list, under a search field when it is searchable. */
+  const list = (text: string, all: MenuOption[], searchable = false) => {
     const words = query.trim().toLowerCase();
     const options = searchable && words ? all.filter((o) => o.label.toLowerCase().includes(words)) : all;
     return (
-      <div className="menu-sub" onMouseEnter={() => hover(key)}>
-        <button
-          type="button"
-          role="menuitem"
-          aria-haspopup="menu"
-          aria-expanded={open === key}
-          className={`menu-item ${open === key ? "is-open" : ""}`}
-          // the pointer opened it already on its way to the click
-          onClick={() => {
-            if (waiting.current) window.clearTimeout(waiting.current.timer);
-            waiting.current = null;
-            setOpen(key);
-            // the click focused this row: a search the pointer opened
-            // before it takes the focus back
-            if (open === key) search.current?.focus();
-          }}
-        >
-          {text}
-          <span className="menu-value truncate">{value}</span>
-          <ChevronRight size={13} className="menu-chevron" />
-        </button>
-        {open === key ? (
-          <div
-            ref={fitInWindow}
-            className={`menu-popup menu-submenu ${searchable ? "is-searchable" : ""}`}
-            role="menu"
-            aria-label={text}
-          >
-            {searchable && all.length ? (
-              <input
-                ref={search}
-                autoFocus
-                className="select-search"
-                type="text"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder="Type to filter"
-                aria-label={`Filter ${text.toLowerCase()}`}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                    event.preventDefault();
-                    const step = event.key === "ArrowDown" ? 1 : -1;
-                    setActive((a) => Math.min(Math.max(a + step, 0), Math.max(options.length - 1, 0)));
-                  } else if (event.key === "Enter" && options[active]) {
-                    event.preventDefault();
-                    options[active].onPick();
-                  }
-                }}
-              />
-            ) : null}
-            {all.length === 0 ? <div className="menu-note">None yet</div> : null}
-            {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
-            {options.map((o, i) => [
-              o.section ? <hr key={`${o.value}-separator`} className="menu-separator" /> : null,
-              o.section ? (
-                <div key={`${o.value}-heading`} className="menu-heading">
-                  {o.section}
-                </div>
-              ) : null,
-              <button
-                key={o.value}
-                type="button"
-                role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
-                aria-checked={o.checked}
-                className={`menu-item ${searchable && i === active ? "is-active" : ""}`}
-                disabled={!!o.disabled}
-                title={o.disabled}
-                onClick={o.onPick}
-              >
-                {o.mark ? <span className="menu-icon menu-mark">{o.mark}</span> : null}
-                {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
-                <span className="menu-label truncate">{o.label}</span>
-                {o.checked ? <Check size={13} className="menu-check" /> : null}
-              </button>,
-            ])}
-          </div>
+      <>
+        {searchable && all.length ? (
+          <input
+            ref={search}
+            autoFocus
+            className="select-search"
+            type="text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="Type to filter"
+            aria-label={`Filter ${text.toLowerCase()}`}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const step = event.key === "ArrowDown" ? 1 : -1;
+                setActive((a) => Math.min(Math.max(a + step, 0), Math.max(options.length - 1, 0)));
+              } else if (event.key === "Enter" && options[active]) {
+                event.preventDefault();
+                options[active].onPick();
+              }
+            }}
+          />
         ) : null}
-      </div>
+        {all.length === 0 ? <div className="menu-note">None yet</div> : null}
+        {all.length > 0 && options.length === 0 ? <div className="menu-note">No matches</div> : null}
+        {options.map((o, i) => [
+          o.section ? <hr key={`${o.value}-separator`} className="menu-separator" /> : null,
+          o.section ? (
+            <div key={`${o.value}-heading`} className="menu-heading">
+              {o.section}
+            </div>
+          ) : null,
+          <button
+            key={o.value}
+            type="button"
+            role={o.radio ? "menuitemradio" : "menuitemcheckbox"}
+            aria-checked={o.checked}
+            className={`menu-item ${searchable && i === active ? "is-active" : ""}`}
+            disabled={!!o.disabled}
+            title={o.disabled}
+            onClick={o.onPick}
+          >
+            {o.mark ? <span className="menu-icon menu-mark">{o.mark}</span> : null}
+            {o.icon ? <o.icon size={14} className="menu-icon" aria-hidden /> : null}
+            <span className="menu-label truncate">{o.label}</span>
+            {o.checked ? <Check size={13} className="menu-check" /> : null}
+          </button>,
+        ])}
+      </>
     );
   };
+  const submenu = (key: string, text: string, value: string, all: MenuOption[], searchable = false) => (
+    <div className="menu-sub" onMouseEnter={() => hover(key)}>
+      <button
+        type="button"
+        role="menuitem"
+        aria-haspopup="menu"
+        aria-expanded={open === key}
+        className={`menu-item ${open === key ? "is-open" : ""}`}
+        // the pointer opened it already on its way to the click
+        onClick={() => {
+          if (waiting.current) window.clearTimeout(waiting.current.timer);
+          waiting.current = null;
+          setOpen(key);
+          // the click focused this row: a search the pointer opened
+          // before it takes the focus back
+          if (open === key) search.current?.focus();
+        }}
+      >
+        {text}
+        <span className="menu-value truncate">{value}</span>
+        <ChevronRight size={13} className="menu-chevron" />
+      </button>
+      {open === key ? (
+        <div
+          ref={fitInWindow}
+          className={`menu-popup menu-submenu ${searchable ? "is-searchable" : ""}`}
+          role="menu"
+          aria-label={text}
+        >
+          {list(text, all, searchable)}
+        </div>
+      ) : null}
+    </div>
+  );
   const toggle = (text: string, checked: boolean, onPick: () => void, extra?: ReactNode, Icon?: LucideIcon) => (
     <button
       type="button"
@@ -244,5 +251,5 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     </button>
   );
 
-  return { menu, pos, hover, submenu, toggle };
+  return { menu, pos, hover, submenu, toggle, list };
 }

@@ -7,7 +7,7 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 
 ## General
 
-![Settings, General: the inbox, startup and notifications.](screenshot:settings-general)
+![Settings, General: the inbox and startup.](screenshot:settings-general)
 
 ### Inbox
 
@@ -23,13 +23,44 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 | **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. On Linux, the option is *Hide to the tray*. |
 | **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. On Linux, the setting is *Show in the tray*. |
 
-### Notifications
+## Notifications
+
+![Settings, Notifications: system notifications, and each kind of notification with its inbox and system switches.](screenshot:settings-notifications)
+
+### System notifications
 
 | Setting | What it does |
 |---|---|
-| **System notifications** | Announce new reviews. |
-| **Pause** | Stop notifications for 15 minutes, an hour, or until tomorrow. Reviews still arrive and are counted. |
+| **System notifications** | Raise a system notification for the kinds turned on in the *System* column. |
+| **Pause** | Stop system notifications for 15 minutes, an hour, or until tomorrow. Everything still reaches the inbox. |
+| **Quiet hours** | Stop system notifications between two times each day, local time. The range may span midnight. |
 | **Sound** | Play the system sound with each notification. |
+| **System** | What your system allows, with a link to its settings when notifications are blocked. |
+
+### Kinds of notifications
+
+Each kind of notification has two switches. The *Inbox* switch adds it to the inbox, and the *System* switch also raises a system notification for it. Reviews, questions and an agent that waits for you are always added to the inbox. A kind that is off in the inbox never raises a system notification.
+
+| Kind | Inbox | System |
+|---|---|---|
+| **Reviews**, a new review or a new round | Always | On |
+| **Questions** | Always | On |
+| **Agent waits**, for a permission or an answer in its terminal | Always | Off |
+| **Agent finished**, or failed its turn | On | Off. It covers a stopped agent too. |
+| **Agent stopped** | On | No switch |
+| **Agent notes** | On | No switch |
+| **Ended reviews**, withdrawn or expired | On | No switch |
+| **New work items** | On | No switch |
+| **Comments** on a work item | On | Off |
+| **Closed work items** | On | No switch |
+| **Claimed work items** | On | No switch |
+| **Other changes** to a work item | Off | No switch |
+
+The table shows the defaults.
+
+### Muted projects and repositories
+
+**Mute** opens the list of projects and repositories. For a muted one, only what waits for you is added to the inbox. To mute a single work item or session instead, use the bell in its header.
 
 See [Notifications](/docs/using/notifications/) for more, including muting one plugin.
 

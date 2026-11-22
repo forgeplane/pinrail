@@ -981,12 +981,13 @@ h1 {
   width: 16px;
 }
 /* a submenu with a search field, which stays at its top as in a select */
-.menu-submenu.is-searchable {
+/* a searchable menu, or submenu, scrolls under its search field */
+.menu-popup.is-searchable {
   min-width: 240px;
   max-height: 320px;
   padding-top: 0;
 }
-.menu-submenu.is-searchable .select-search {
+.menu-popup.is-searchable .select-search {
   width: calc(100% + 10px);
   margin: 0 -5px 4px;
 }
@@ -5824,6 +5825,35 @@ body.is-resizing iframe {
 .settings-keys {
   display: inline-flex;
   gap: 8px;
+}
+/* the Notifications section's two columns, an inbox switch and a system
+   switch, under their captions */
+.settings-columns,
+.settings-column {
+  display: inline-flex;
+}
+.settings-columns {
+  padding-right: 14px;
+  font-size: var(--text-xs);
+  color: var(--dim);
+}
+.settings-columns > span,
+.settings-column {
+  width: 64px;
+  justify-content: center;
+  text-align: center;
+}
+.settings-always {
+  font-size: var(--text-sm);
+  color: var(--faint);
+}
+.settings-hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+  font-size: var(--text-sm);
+  color: var(--dim);
 }
 .shortcut-recorder {
   display: inline-flex;
