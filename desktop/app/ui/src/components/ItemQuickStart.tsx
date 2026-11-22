@@ -1,8 +1,8 @@
 // The button in a work item's panel that starts an agent on the item at
 // once: the agent used last, in the folder of the item's repository used
-// last, with the item's key, title and description as its task. The new
-// session claims the item. The arrow beside it changes the agent and the
-// folder.
+// last, with the item's description, comments and files as its task. The
+// new session claims the item. The arrow beside it changes the agent and
+// the folder.
 
 import { ChevronDown, Folder, FolderOpen, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -15,11 +15,7 @@ import { baseName, refusal } from "./NewSession";
 import { PopoverMenu, type MenuEntry } from "./PopoverMenu";
 import { sessionGrid } from "./session/startRun";
 import { Tooltip } from "./Tooltip";
-
-/** The item as the agent's first prompt: its key and title as a heading,
- *  then its description. */
-export const itemTask = (item: Pick<ItemDetail, "key" | "title" | "body">) =>
-  `# ${item.key} ${item.title}\n\n${item.body}`.trim();
+import { itemTask } from "../lib/itemTask";
 
 export function ItemQuickStart({ item }: { item: ItemDetail }) {
   const toast = useToast();

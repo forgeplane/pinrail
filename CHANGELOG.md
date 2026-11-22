@@ -235,6 +235,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- An agent started on a work item now gets the item's comments in its
+  first prompt. Each attached file is named in the prompt, with the
+  `pinrail items show` command that saves it.
 - The inbox's side panel keeps the same width whether it shows a work
   item, a session or a review.
 - The inbox's title, search box, **Mark all as read** and **Filter** stay
