@@ -4,125 +4,38 @@
 // new session claims the item. The arrow beside it changes the agent and
 // the folder.
 
-import { ChevronDown, Folder, FolderOpen, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Play } from "lucide-react";
+import { useRef, useState } from "react";
 import { inTauri } from "../api/client";
-import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import type { ItemDetail } from "../api/types";
-import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
-import { baseName, refusal } from "./NewSession";
-import { PopoverMenu, type MenuEntry } from "./PopoverMenu";
-import { sessionGrid } from "./session/startRun";
+import { baseName } from "./NewSession";
+import { PopoverMenu } from "./PopoverMenu";
 import { Tooltip } from "./Tooltip";
-import { itemTask } from "../lib/itemTask";
+import { useAgentStart } from "./useAgentStart";
 
 export function ItemQuickStart({ item }: { item: ItemDetail }) {
-  const toast = useToast();
-  const [agents, setAgents] = useState<StartableAgent[]>([]);
-  const [folders, setFolders] = useState<RecentFolder[]>([]);
-  const [agent, setAgent] = useState<string | null>(null);
-  const [folder, setFolder] = useState<string | null>(null);
+  const { chosen, where, entries, folderToUse, start: startOn } = useAgentStart(item.repo);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [starting, setStarting] = useState(false);
   const more = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    let current = true;
-    runtime.startable().then(
-      (found) => {
-        if (!current) return;
-        setAgents(found);
-        setAgent(
-          (chosen) =>
-            chosen ?? (found.find((a) => a.last_used && a.installed) ?? found.find((a) => a.installed))?.id ?? null,
-        );
-      },
-      () => {},
-    );
-    runtime.recentFolders().then(
-      (found) => current && setFolders(found),
-      () => {},
-    );
-    return () => {
-      current = false;
-    };
-  }, []);
-
-  const installed = agents.filter((a) => a.installed);
-  const chosen = installed.find((a) => a.id === agent);
-  // the folders of the item's repository, the one used last first
-  const ours = folders.filter((f) => f.exists && f.repo === item.repo);
-  const where = folder ?? ours[0]?.folder ?? null;
   if (!chosen) return null;
-
-  const chooseFolder = async (): Promise<string | null> => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ directory: true, multiple: false, title: "Choose a folder" });
-    return typeof picked === "string" ? picked : null;
-  };
 
   const start = async () => {
     if (starting) return;
-    // no folder of the repository is known: ask for one
-    if (!where && !inTauri()) return setMenu(more.current);
-    const folderToUse = where ?? (await chooseFolder());
-    if (!folderToUse) return;
-    if (!where) setFolder(folderToUse);
+    const folder = await folderToUse();
+    if (!folder) {
+      // no folder of the repository is known, and none can be asked for here
+      if (!inTauri()) setMenu(more.current);
+      return;
+    }
     setStarting(true);
     try {
-      const answer = await runtime.start({
-        agent: chosen.id,
-        folder: folderToUse,
-        task: itemTask(item),
-        item: item.key,
-        local_id: crypto.randomUUID(),
-        ...(await sessionGrid()),
-      });
-      if (answer.claim_refused)
-        toast(`${chosen.name} started, but it could not claim ${item.key}: ${answer.claim_refused}`, "danger");
-      else toast(`Started ${chosen.name} on ${item.key}`);
-    } catch (e) {
-      toast(refusal(e, chosen), "danger");
+      await startOn(item, folder);
     } finally {
       setStarting(false);
     }
   };
-
-  const entries: MenuEntry[] = [
-    { kind: "heading", label: "Agent" },
-    ...installed.map((a): MenuEntry => ({
-      label: a.name,
-      mark: <AgentIcon requestedBy={a.id} size={14} />,
-      hint: a.version ?? undefined,
-      checked: a.id === chosen.id,
-      onPick: () => setAgent(a.id),
-    })),
-    { kind: "separator" },
-    { kind: "heading", label: "Folder" },
-    ...ours.map((f): MenuEntry => ({
-      label: baseName(f.folder),
-      icon: Folder,
-      hint: f.branch ?? undefined,
-      checked: f.folder === where,
-      onPick: () => setFolder(f.folder),
-    })),
-    // a folder chosen outside the list stays offered
-    ...(where && !ours.some((f) => f.folder === where)
-      ? [{ label: baseName(where), icon: Folder, checked: true, onPick: () => {} } as MenuEntry]
-      : []),
-    ...(inTauri()
-      ? [
-          {
-            label: "Choose a folder…",
-            icon: FolderOpen,
-            onPick: () => {
-              void chooseFolder().then((picked) => picked && setFolder(picked));
-            },
-          } as MenuEntry,
-        ]
-      : []),
-  ];
 
   const label = `Start ${chosen.name}${where ? "" : "…"}`;
   return (

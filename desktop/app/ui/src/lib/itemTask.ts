@@ -5,7 +5,7 @@
 
 import type { ItemDetail } from "../api/types";
 
-type TaskItem = Pick<ItemDetail, "key" | "title" | "body" | "files" | "timeline">;
+export type TaskItem = Pick<ItemDetail, "key" | "title" | "body" | "files" | "timeline">;
 
 // an image or a link to one of the item's files, as the app writes it
 const ATTACHMENT_LINK = /!?\[[^\]]*\]\(attachment:([^)\s]+)\)/g;

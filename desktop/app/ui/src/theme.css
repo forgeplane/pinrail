@@ -7111,12 +7111,25 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 16px;
+  gap: 4px 8px;
   padding: 6px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-hover);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--faint);
+}
+.item-quick-keys .key-hints {
+  gap: 4px 8px;
+}
+.item-quick-keys .key-cap {
+  margin-right: 1px;
+  padding: 1px 2px;
+}
+/* the button that adds the item and starts an agent, at the right */
+.item-quick-keys .item-quick-start {
+  flex: none;
+  height: 22px;
+  margin-left: auto;
 }
 .item-row {
   display: grid;
@@ -8252,7 +8265,7 @@ a.item-ref {
 }
 .app-dialog.quick-add-dialog {
   display: block;
-  width: min(720px, calc(100vw - 32px));
+  width: min(820px, calc(100vw - 32px));
   padding: 0;
   border: 0;
   background: none;

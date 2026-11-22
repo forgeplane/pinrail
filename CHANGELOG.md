@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Add **Add and start** to the quick add. It adds the work item and starts
+  an agent on it, and ⌥Enter does the same.
 - Add a Notifications section to Settings. It holds the system notification
   settings, an inbox switch and a system notification switch for each kind
   of notification, quiet hours, and the muted projects and repositories.

@@ -66,13 +66,14 @@ export function QuickAddDialog({ onClose }: { onClose: () => void }) {
             defaultRepo={defaultRepo}
             defaultParent={null}
             enterHint="Add"
-            onAdded={(item, more) => {
+            onAdded={(item, more, started) => {
               try {
                 localStorage.setItem(LAST_REPO, item.repo);
               } catch {
                 // no storage
               }
-              toast(`${item.key} added`);
+              // a start names the item in its own toast
+              if (!started) toast(`${item.key} added`);
               if (!more) onClose();
             }}
           />
