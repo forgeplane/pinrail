@@ -27,6 +27,7 @@ const webkit = {
     "sessions/thread-scroll.spec.ts",
     "items/projects.spec.ts",
     "items/fold-place.spec.ts",
+    "sessions/question-in-view.spec.ts",
     "plugins/clipboard.spec.ts",
   ],
 };
