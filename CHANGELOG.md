@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Resume a session in another folder when its own was moved or deleted,
+  with **Choose another folder…**.
 - Ask what to do with the running agents when you quit Pinrail: leave them
   running, or stop them first. **Quitting with agents running** in Settings
   › General sets the answer once for all.

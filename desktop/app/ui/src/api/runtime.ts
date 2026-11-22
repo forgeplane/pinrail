@@ -102,10 +102,11 @@ export const runtime = {
     }),
   /** Resumes a stopped session in a new terminal of `cols` by `rows`. */
   /** With `anyway`, also a session still running in another terminal, for
-   *  an agent that allows it. */
+   *  an agent that allows it; in `folder` when its own is gone, which then
+   *  becomes the session's folder. */
   resume: (
     session: { agent: string; id: string },
-    body: { cols: number; rows: number; local_id: string; anyway?: boolean },
+    body: { cols: number; rows: number; local_id: string; anyway?: boolean; folder?: string },
   ) =>
     request<{ run: Run; session: RunSession | null }>(
       "POST",

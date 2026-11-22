@@ -1414,3 +1414,49 @@ async fn a_folder_outside_a_checkout_is_never_offered_as_a_repositorys_folder() 
     assert_eq!(repo_of(&api), Some(json!("acme/api")));
     assert_eq!(repo_of(&scratch), Some(Value::Null), "{body}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_session_whose_folder_moved_is_resumed_in_the_folder_the_person_chooses() {
+    let app = linked().await;
+    let old = folder(&app, "app");
+    let session = stopped_session(&app, &old).await;
+    let moved = app
+        .dir
+        .path()
+        .join("app-moved")
+        .to_string_lossy()
+        .into_owned();
+    std::fs::rename(&old, &moved).unwrap();
+    let path = format!("/api/v1/sessions/claude-code/{session}/resume");
+
+    let (status, refused) = call(&app, "POST", &path, Some(json!({}))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["error"], "folder_missing");
+
+    // a chosen folder must exist too
+    let nowhere = app
+        .dir
+        .path()
+        .join("nowhere")
+        .to_string_lossy()
+        .into_owned();
+    let (status, refused) = call(&app, "POST", &path, Some(json!({"folder": nowhere}))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["error"], "folder_missing");
+
+    let (status, resumed) = call(&app, "POST", &path, Some(json!({"folder": moved}))).await;
+    assert_eq!(status, StatusCode::CREATED, "{resumed}");
+    assert_eq!(resumed["run"]["folder"], moved.as_str());
+    let own = resumed["run"]["session"]["agent_session"].as_str().unwrap();
+    assert_eq!(argv(&moved).await, format!("--resume\n{own}\n"));
+
+    // the session is in its new folder from now on
+    let (_, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert_eq!(shown["session"]["folder"], moved.as_str(), "{shown}");
+}

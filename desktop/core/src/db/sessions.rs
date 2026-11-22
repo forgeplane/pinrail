@@ -447,6 +447,16 @@ impl Db {
         Ok(Some((event_id, attrs)))
     }
 
+    /// Moves the session to `folder`, the one the person chose to resume
+    /// it in when its own was gone.
+    pub fn set_session_folder(&self, agent: &str, id: &str, folder: &str) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE sessions SET folder = ?3 WHERE agent = ?1 AND id = ?2",
+            params![agent, id, folder],
+        )?;
+        Ok(())
+    }
+
     /// The session's name: the person's, else the one Pinrail derives;
     /// `None` when there is no such session.
     pub fn session_name(&self, agent: &str, id: &str) -> rusqlite::Result<Option<String>> {

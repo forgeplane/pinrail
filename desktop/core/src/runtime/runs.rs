@@ -51,6 +51,9 @@ pub struct Resume {
     /// Resume a session still running in another terminal, for an agent
     /// that allows it: the person was warned.
     pub anyway: bool,
+    /// The folder to resume in, chosen by the person when the session's
+    /// own is gone; the session's folder from then on.
+    pub folder: Option<String>,
 }
 
 /// How soon after it began a resumed agent that exits with an error is
@@ -313,7 +316,8 @@ impl super::Runtime {
                     anyway: agent.resumes_while_running(),
                 });
             }
-            let folder = match session.folder.filter(|f| !f.is_empty()) {
+            let chosen = resume.folder.clone().filter(|f| !f.is_empty());
+            let folder = match chosen.clone().or(session.folder.filter(|f| !f.is_empty())) {
                 Some(folder) => folder,
                 None => self
                     .db
@@ -330,6 +334,10 @@ impl super::Runtime {
             };
             if !std::path::Path::new(&folder).is_dir() {
                 return Err(RunError::FolderMissing(folder));
+            }
+            if let Some(chosen) = &chosen {
+                self.db
+                    .set_session_folder(&resume.agent, &resume.session, chosen)?;
             }
             let id = crate::id::next_run();
             // a session started before its folder was read, or outside

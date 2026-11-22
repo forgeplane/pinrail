@@ -137,7 +137,9 @@ fn claim_for(state: &Pinrail, item: &ItemRef, agent: &str, session: &str) -> Res
 }
 
 /// Resumes a stopped session in a new terminal of `cols` by `rows`, in
-/// the folder it worked in. Answers 201 with the run; 409
+/// the folder it worked in, or in `folder`, which the person chose when
+/// that one is gone and which becomes the session's. Answers 201 with the
+/// run; 409
 /// `already_running`, with the run when it runs in Pinrail, or the
 /// `process` that runs it in another terminal and whether it can be
 /// resumed `anyway`, which `anyway: true` then does; 422 `folder_missing`
@@ -177,6 +179,10 @@ async fn resume(
         rows,
         created_by: created_by.to_string(),
         anyway: body.get("anyway").and_then(Value::as_bool) == Some(true),
+        folder: body
+            .get("folder")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     };
     match state.runtime().resume(&request).await {
         Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),

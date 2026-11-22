@@ -4701,6 +4701,15 @@ body.is-resizing iframe {
   border-left: 1px solid var(--border);
   font-size: var(--text-md);
 }
+/* why a resume did not happen, with what to do instead beside it */
+.resume-problem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.resume-problem > span {
+  flex: 1;
+}
 /* in a narrow page, the details over the thread from its right edge */
 .thread-body {
   position: relative;

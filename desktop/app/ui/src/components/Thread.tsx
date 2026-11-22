@@ -4,7 +4,9 @@
 import { ArrowDown, Expand, GitBranch, MoreHorizontal, PanelRightClose, PanelRightOpen, Pencil, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, type To } from "react-router";
-import { api, errorMessage } from "../api/client";
+import { api, ApiError, errorMessage, inTauri } from "../api/client";
+import { chooseFolder } from "./useAgentStart";
+import { ResumeProblem } from "./session/ResumeProblem";
 import { useToast } from "../state/toasts";
 import { useNotice } from "../state/live";
 import { elementOf, useElements } from "../lib/elements";
@@ -281,21 +283,36 @@ export function Thread({
   const [resuming, setResuming] = useState(false);
   // why the last resume did not happen, for the session it was of
   const sessionKey = named ? `${named.agent}/${named.id}` : null;
-  const [resumeFailure, setResumeFailure] = useState<{ key: string | null; message: string } | null>(null);
-  const resumeError = resumeFailure?.key === sessionKey ? resumeFailure.message : null;
-  const resume = async (anyway = false) => {
+  const [resumeFailure, setResumeFailure] = useState<{
+    key: string | null;
+    message: string;
+    /** the session's folder is gone, so another can be chosen */
+    folderGone: boolean;
+  } | null>(null);
+  const shownFailure = resumeFailure?.key === sessionKey ? resumeFailure : null;
+  const resumeError = shownFailure?.message ?? null;
+  /** Resumes the session; in `folder` when the person chose another. */
+  const resume = async (anyway = false, folder?: string) => {
     if (!named) return;
     setResuming(true);
     setResumeFailure(null);
     try {
-      await runtime.resume(named, { ...(await sessionGrid()), local_id: crypto.randomUUID(), anyway });
+      await runtime.resume(named, { ...(await sessionGrid()), local_id: crypto.randomUUID(), anyway, folder });
       reloadRuns();
       chooseView("terminal");
     } catch (e) {
-      setResumeFailure({ key: sessionKey, message: resumeProblem(e, runs[0]?.folder ?? session?.folder ?? null) });
+      setResumeFailure({
+        key: sessionKey,
+        message: resumeProblem(e, folder ?? runs[0]?.folder ?? session?.folder ?? null),
+        folderGone: e instanceof ApiError && e.kind === "folder_missing",
+      });
     } finally {
       setResuming(false);
     }
+  };
+  const resumeElsewhere = async () => {
+    const folder = await chooseFolder();
+    if (folder) await resume(false, folder);
   };
   // the terminal over the summary, or under it in the split
   const showTerminal = view === "terminal" && hasTerminalView;
@@ -773,9 +790,11 @@ export function Thread({
         </header>
         {error ? <p className="notice notice-danger">{error}</p> : null}
         {resumeError ? (
-          <p className="notice notice-danger" role="alert">
-            {resumeError}
-          </p>
+          <ResumeProblem
+            message={resumeError}
+            busy={resuming}
+            onChooseFolder={shownFailure?.folderGone && inTauri() ? () => void resumeElsewhere() : undefined}
+          />
         ) : null}
         <div
           className="thread-body"

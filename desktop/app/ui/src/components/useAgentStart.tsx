@@ -16,7 +16,7 @@ import type { MenuEntry } from "./PopoverMenu";
 import { sessionGrid } from "./session/startRun";
 
 /** Asks for a folder in the system's dialog, in the app. */
-const chooseFolder = async (): Promise<string | null> => {
+export const chooseFolder = async (): Promise<string | null> => {
   const { open } = await import("@tauri-apps/plugin-dialog");
   const picked = await open({ directory: true, multiple: false, title: "Choose a folder" });
   return typeof picked === "string" ? picked : null;
