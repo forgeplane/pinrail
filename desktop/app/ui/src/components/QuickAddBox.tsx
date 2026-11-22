@@ -1,10 +1,10 @@
-// The quick add's open box: a title field, the repository and the parent
-// the item goes in, a description that takes pasted or dropped files, and
-// the keys that add it. While the agent runtime is on, a button adds the
+// The quick add's open box: a title field with the buttons that add the
+// item, a description that takes pasted or dropped files, the repository
+// and the parent the item goes in, and a line of the keys that add it. While the agent runtime is on, a button adds the
 // item and starts an agent on it at once. The Work items page shows it at
 // the top of its list, and the quick add dialog on any other page.
 
-import { ChevronDown, FolderGit2, Play, Plus, X } from "lucide-react";
+import { ChevronDown, FolderGit2, ListPlus, Play, Plus, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { api, errorMessage } from "../api/client";
 import { useAttach } from "../lib/attach";
@@ -169,83 +169,74 @@ export function QuickAddBox({
     }
   };
 
+  // the hint line keeps to one row: the narrower the box, the fewer hints,
+  // the keys that add the item last to go (see .item-quick-keys)
   const startHint = agent.chosen
-    ? [{ keys: inBody ? [MOD, ALT, "Enter"] : [ALT, "Enter"], label: "Add and start" }]
+    ? [{ keys: inBody ? [MOD, ALT, "Enter"] : [ALT, "Enter"], label: "Add and start", className: "is-start" }]
     : [];
   const hints = inBody
     ? [
         { keys: [MOD, "Enter"], label: enterHint },
         { keys: [MOD, SHIFT, "Enter"], label: "Add more" },
         ...startHint,
-        { keys: ["Tab"], label: "Title" },
-        { keys: ["Esc"], label: "Cancel" },
+        { keys: ["Tab"], label: "Title", className: "is-extra" },
+        { keys: ["Esc"], label: "Cancel", className: "is-extra" },
       ]
     : [
         { keys: ["Enter"], label: enterHint },
         { keys: [MOD, "Enter"], label: "Add more" },
         ...startHint,
-        { keys: ["Tab"], label: "Description" },
-        { keys: [SHIFT, "Tab"], label: "Repository" },
-        { keys: ["Esc"], label: "Cancel" },
+        { keys: ["Tab"], label: "Description", className: "is-extra" },
+        { keys: [SHIFT, "Tab"], label: "Repository", className: "is-wide" },
+        { keys: ["Esc"], label: "Cancel", className: "is-extra" },
       ];
+  const addKeys = inBody ? [MOD, "Enter"] : ["Enter"];
+  const moreKeys = inBody ? [MOD, SHIFT, "Enter"] : [MOD, "Enter"];
+  const cannotAdd = !title.trim() || !repo || busy || files.busy;
   // without a folder of the repository, it asks for one first
   const startLabel = agent.chosen ? `Add and start ${agent.chosen.name}${agent.where ? "" : "…"}` : "";
 
   return (
     <div className="item-quick-box" data-testid="item-quick-box">
       <div className="item-quick-line">
-        <div className="item-quick-main">
-          <ItemStatusIcon status="open" />
-          <input
-            ref={field}
-            className="item-quick-title"
-            aria-label="What needs to be done?"
-            placeholder="What needs to be done?"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onKey}
-          />
-        </div>
-        <div className="item-quick-controls">
-          <Select
-            id="item-quick-repo"
-            searchable
-            label="Repository"
-            icon={<FolderGit2 size={13} />}
-            value={repo}
-            onChange={(v) => {
-              setRepo(v);
-              setParent("");
-            }}
-            options={sorted.map((r) => ({ value: r, label: r }))}
-          />
-          <Select
-            id="item-quick-parent"
-            searchable
-            label="Parent"
-            value={parent}
-            onChange={setParent}
-            options={[
-              { value: "", label: "No parent" },
-              ...parents.map((p) => ({ value: p.key, label: `${p.key} ${p.title}` })),
-            ]}
-          />
-          <Tooltip label="Add it" side="bottom">
+        <ItemStatusIcon status="open" />
+        <input
+          ref={field}
+          className="item-quick-title"
+          aria-label="What needs to be done?"
+          placeholder="What needs to be done?"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={onKey}
+        />
+        <div className="item-quick-actions">
+          <Tooltip label="Add it" keys={addKeys} side="bottom">
             <button
               type="button"
               className="item-quick-action is-add"
               aria-label="Add it"
-              disabled={!title.trim() || !repo || busy || files.busy}
+              disabled={cannotAdd}
               onClick={() => void add(false)}
             >
               <Plus size={14} />
             </button>
           </Tooltip>
-          <Tooltip label="Cancel" side="bottom">
+          <Tooltip label="Add more" keys={moreKeys} side="bottom">
+            <button
+              type="button"
+              className="item-quick-action is-add"
+              aria-label="Add more"
+              disabled={cannotAdd}
+              onClick={() => void add(true)}
+            >
+              <ListPlus size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Cancel" keys={["Esc"]} side="bottom">
             <button type="button" className="item-quick-action" aria-label="Cancel" onClick={onClose}>
               <X size={14} />
             </button>
@@ -266,12 +257,30 @@ export function QuickAddBox({
         />
         {picker}
       </div>
-      <div className="item-quick-keys">
-        <KeyHints hints={hints} />
-        {files.busy ? <span className="item-quick-note">Uploading…</span> : null}
-        {repos.length === 0 ? (
-          <span className="item-quick-note">Name a repository: an item belongs to one.</span>
-        ) : null}
+      <div className="item-quick-controls">
+        <Select
+          id="item-quick-repo"
+          searchable
+          label="Repository"
+          icon={<FolderGit2 size={13} />}
+          value={repo}
+          onChange={(v) => {
+            setRepo(v);
+            setParent("");
+          }}
+          options={sorted.map((r) => ({ value: r, label: r }))}
+        />
+        <Select
+          id="item-quick-parent"
+          searchable
+          label="Parent"
+          value={parent}
+          onChange={setParent}
+          options={[
+            { value: "", label: "No parent" },
+            ...parents.map((p) => ({ value: p.key, label: `${p.key} ${p.title}` })),
+          ]}
+        />
         {agent.chosen ? (
           <span className="item-quick-start">
             <Tooltip
@@ -280,17 +289,13 @@ export function QuickAddBox({
                   ? `${startLabel} in ${baseName(agent.where)}`
                   : `Choose a folder for ${repo}, then add and start`
               }
+              keys={inBody ? [MOD, ALT, "Enter"] : [ALT, "Enter"]}
               side="bottom"
             >
-              <button
-                type="button"
-                aria-label={startLabel}
-                disabled={!title.trim() || !repo || busy || files.busy}
-                onClick={() => void add(false, true)}
-              >
+              <button type="button" aria-label={startLabel} disabled={cannotAdd} onClick={() => void add(false, true)}>
                 <Play size={13} aria-hidden="true" />
                 <AgentIcon requestedBy={agent.chosen.id} size={13} />
-                {startLabel}
+                <span className="item-quick-start-label">{startLabel}</span>
               </button>
             </Tooltip>
             <button
@@ -320,6 +325,13 @@ export function QuickAddBox({
               />
             ) : null}
           </span>
+        ) : null}
+      </div>
+      <div className="item-quick-keys">
+        <KeyHints hints={hints} />
+        {files.busy ? <span className="item-quick-note">Uploading…</span> : null}
+        {repos.length === 0 ? (
+          <span className="item-quick-note">Name a repository: an item belongs to one.</span>
         ) : null}
       </div>
     </div>

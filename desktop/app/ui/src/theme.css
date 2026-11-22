@@ -6996,10 +6996,11 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-quick-add kbd {
   margin-left: auto;
 }
-/* the open quick add: the box's accent border frames the title field, and
-   the controls go under the field when the box is narrow. The box's width
-   decides it, not the names the controls show, so a new repository chosen
-   does not move them between lines. */
+/* the open quick add: the title line with the buttons that add the item,
+   the description, a row with the repository, the parent and the start
+   button, and a line of key hints. The box's width decides what the rows
+   show, not the names the controls show, so a new repository chosen does
+   not change the layout. */
 .item-quick-box {
   container-type: inline-size;
   margin-bottom: 8px;
@@ -7010,17 +7011,9 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 }
 .item-quick-line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  padding: 7px 8px 7px 12px;
-}
-.item-quick-main {
-  display: flex;
-  flex: 1 1 240px;
   align-items: center;
   gap: 9px;
-  min-width: 200px;
+  padding: 7px 8px 7px 12px;
 }
 .item-quick-title,
 .item-quick-title:focus,
@@ -7035,20 +7028,28 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   font-size: var(--text-base);
   outline: none;
 }
+/* the parent keeps "No parent" whole, so the repository shrinks first */
+#item-quick-parent {
+  flex-shrink: 0;
+}
+/* Add, Add more and Cancel, close together at the end of the title line */
+.item-quick-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+}
+/* the repository and the parent at the left, the start button at the right */
 .item-quick-controls {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
   min-width: 0;
-}
-@container (max-width: 640px) {
-  .item-quick-main {
-    flex-basis: 100%;
-  }
+  padding: 0 8px 8px 12px;
 }
 .item-quick-controls .select-trigger {
   gap: 5px;
+  min-width: 0;
   max-width: 170px;
   padding: 2px 7px;
   border-color: var(--border);
@@ -7107,11 +7108,16 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
 .item-quick-body textarea::placeholder {
   color: var(--faint);
 }
+/* the key hints, on one line: below 640px the box leaves out ⇧Tab, below
+   460px it shows only the keys that add the item, and below 340px it
+   leaves the start's key to the start button's tooltip */
 .item-quick-keys {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   padding: 6px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-hover);
@@ -7119,17 +7125,42 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   color: var(--faint);
 }
 .item-quick-keys .key-hints {
-  gap: 4px 8px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+}
+.item-quick-keys .item-quick-note {
+  margin-left: auto;
+}
+@container (max-width: 640px) {
+  .item-quick-keys .key-hint.is-wide {
+    display: none;
+  }
+}
+@container (max-width: 460px) {
+  .item-quick-keys .key-hint.is-extra {
+    display: none;
+  }
+}
+@container (max-width: 340px) {
+  .item-quick-keys .key-hint.is-start {
+    display: none;
+  }
 }
 .item-quick-keys .key-cap {
   margin-right: 1px;
   padding: 1px 2px;
 }
-/* the button that adds the item and starts an agent, at the right */
-.item-quick-keys .item-quick-start {
+/* the button that adds the item and starts an agent, at the right: below
+   420px it shows the agent's icon without its name */
+.item-quick-controls .item-quick-start {
   flex: none;
-  height: 22px;
   margin-left: auto;
+}
+@container (max-width: 420px) {
+  .item-quick-start-label {
+    display: none;
+  }
 }
 .item-row {
   display: grid;

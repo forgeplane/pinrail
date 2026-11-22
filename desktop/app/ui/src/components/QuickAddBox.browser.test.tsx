@@ -113,6 +113,14 @@ test("Enter only adds the item", async () => {
   expect(app.started).toEqual([]);
 });
 
+test("the Add more button adds the item and keeps the box open for another", async () => {
+  const onAdded = await open();
+  await userEvent.keyboard("Fix the login");
+  await userEvent.click(page.getByRole("button", { name: "Add more" }));
+  await expect.poll(() => onAdded.mock.calls[0]).toEqual([added, true, false]);
+  expect(app.started).toEqual([]);
+});
+
 test("offers no start while the agent runtime is off", async () => {
   await open(false);
   await expect.element(page.getByRole("textbox", { name: "What needs to be done?" })).toBeVisible();
