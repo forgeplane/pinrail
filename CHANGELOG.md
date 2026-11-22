@@ -268,6 +268,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Offer to open a Codex session in Pinrail when neither its hooks nor a
+  run of Pinrail's tell whether it still runs, after a warning, as Claude
+  Code's sessions are.
 - Keep the Work items list in place when a parent folds or unfolds
   beside an open item. It jumped back to the top.
 - Open the inbox filtered to a project or repository from the sidebar,

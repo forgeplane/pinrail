@@ -19,15 +19,15 @@ export function canResume(session: Resumable | null | undefined, runs: Run[]): b
 }
 
 /** Whether the session may run in another terminal and can be opened in
- *  Pinrail anyway, as a second process of its agent: Pinrail knows the
- *  agent's own id for it, no run of Pinrail's lives, its agent allows it,
- *  and its hooks say it has not stopped, or it has neither hooks nor a run
- *  of Pinrail's to tell. */
+ *  Pinrail anyway, after a warning: Pinrail knows the agent's own id for
+ *  it and no run of Pinrail's lives, and either its hooks say it has not
+ *  stopped and its agent allows a second process, or it has neither hooks
+ *  nor a run of Pinrail's to tell and its agent resumes. */
 export function canOpenWhileRunning(session: Resumable | null | undefined, runs: Run[]): boolean {
-  if (!session?.resume?.while_running || !session.agent_session) return false;
+  if (!session?.resume?.resume || !session.agent_session) return false;
   if (runs.some((r) => r.state !== "ended")) return false;
   if (!session.presence) return runs.length === 0;
-  return session.presence.state !== "stopped";
+  return !!session.resume.while_running && session.presence.state !== "stopped";
 }
 
 /** Why a resume did not happen, for the person. */

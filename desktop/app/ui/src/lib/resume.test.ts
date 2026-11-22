@@ -47,6 +47,11 @@ describe("whether a session running elsewhere can be opened in Pinrail", () => {
   test("not before the agent reported its own id for the session", () => {
     expect(canOpenWhileRunning({ agent_session: null, resume: claude, presence: presence("working") }, [])).toBe(false);
   });
+  test("for any agent that resumes, when neither hooks nor a run of Pinrail's tell whether it runs", () => {
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: codex, presence: null }, [])).toBe(true);
+    expect(canOpenWhileRunning({ agent_session: "a1", resume: gemini, presence: null }, [])).toBe(false);
+    expect(canOpenWhileRunning({ agent_session: null, resume: codex, presence: null }, [])).toBe(false);
+  });
 });
 
 describe("why a resume did not happen", () => {
