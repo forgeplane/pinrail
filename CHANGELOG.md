@@ -235,6 +235,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- `pinrail items add --file` refuses a breakdown when one of its items has
+  a field it does not know, such as `description` instead of `body`. The
+  error names each field and the item's ref, and no item is added.
 - An agent started on a work item now gets the item's comments in its
   first prompt. Each attached file is named in the prompt, with the
   `pinrail items show` command that saves it.

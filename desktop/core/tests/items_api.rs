@@ -522,6 +522,35 @@ async fn a_breakdown_is_added_whole_through_the_api() {
 }
 
 #[tokio::test]
+async fn a_breakdown_with_an_unknown_field_is_refused_and_adds_nothing() {
+    let app = app();
+    let (code, refused) = agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        "s-1",
+        json!({"repo": REPO, "items": [
+            {"ref": "themes", "title": "Custom themes"},
+            {"ref": "format", "title": "Theme file format", "description": "The fields."},
+            {"ref": "load", "title": "Load themes", "dependsOn": ["format"]},
+        ]}),
+    )
+    .await;
+    assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let violations = refused["violations"].as_array().unwrap();
+    let paths: Vec<&str> = violations
+        .iter()
+        .map(|v| v["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(paths, ["/items/1/description", "/items/2/dependsOn"]);
+    let message = refused["message"].as_str().unwrap();
+    assert!(message.contains("\"format\""), "{message}");
+    assert!(message.contains("\"load\""), "{message}");
+    let (_, listed) = call(&app, "GET", "/api/v1/items", None).await;
+    assert_eq!(listed["items"], json!([]));
+}
+
+#[tokio::test]
 async fn a_parent_counts_its_sub_items_and_every_item_under_them() {
     let app = app();
     let (code, added) = agent(

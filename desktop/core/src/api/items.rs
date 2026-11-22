@@ -21,7 +21,7 @@ use crate::Pinrail;
 use crate::db::{
     Claim, Edited, ItemChange, ItemFilters, ItemSearch, Place, State as ItemState, WorkItem,
 };
-use crate::error::Error;
+use crate::error::{Error, Violation};
 use crate::items::{Actor, Breakdown, BreakdownItem, ItemRef, NewItem, Status};
 use crate::reviews::Via;
 
@@ -235,6 +235,42 @@ async fn search(
     Ok(Json(json!({ "items": items })))
 }
 
+/// The fields an item of a breakdown can have.
+const BREAKDOWN_FIELDS: [&str; 6] = ["ref", "title", "body", "parent", "depends_on", "link"];
+
+/// Refuses a breakdown whose items have fields it does not know, such as
+/// `description` for `body`, naming each by its path and its item's ref.
+fn unknown_fields(items: &[Value]) -> Result<(), Error> {
+    let violations: Vec<Violation> = items
+        .iter()
+        .enumerate()
+        .filter_map(|(i, item)| Some((i, item.as_object()?)))
+        .flat_map(|(i, item)| {
+            let named = match item.get("ref").and_then(Value::as_str) {
+                Some(r) => format!("item {r:?}"),
+                None => "the item".to_string(),
+            };
+            item.keys()
+                .filter(|k| !BREAKDOWN_FIELDS.contains(&k.as_str()))
+                .map(move |k| {
+                    Violation::new(
+                        format!("/items/{i}/{k}"),
+                        format!(
+                            "is not a field of {named}; the fields are {}",
+                            BREAKDOWN_FIELDS.join(", ")
+                        ),
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::Invalid(violations))
+    }
+}
+
 /// Adds an item from `repo`, `title` and, optionally, `body`, `parent`,
 /// `depends_on`, `link` and the `attachments` its body shows; or, with
 /// `items`, a breakdown of several, each with a `ref` the others name it
@@ -255,6 +291,7 @@ async fn add(
         let Value::Array(items) = items else {
             return Err(Error::invalid("/items", "is not a list").into());
         };
+        unknown_fields(items)?;
         let items = items
             .iter()
             .enumerate()

@@ -31,7 +31,9 @@ enum ItemsCommand {
     ///
     /// A breakdown is a JSON file of items, each with a ref of its own that
     /// the others name it by, as a parent or in depends_on, before it has a
-    /// key. Pinrail adds them all or none:
+    /// key. An item's fields are ref, title, body, parent, depends_on and
+    /// link, and a file with any other field is refused. Pinrail adds the
+    /// items all or none:
     ///
     ///     {"items": [
     ///       {"ref": "themes", "title": "Custom themes"},
