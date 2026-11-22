@@ -131,6 +131,35 @@ describe("the inbox", () => {
     await expect.element(page.getByRole("tab", { name: /Waiting on you/ })).toMatchTextContent("2");
   });
 
+  test("each row has its subject's icon, with what happened as a badge", async () => {
+    const done = update(4, "Ship it", { reason: "item_closed" });
+    (done.subject as { item: { status: string } }).item.status = "done";
+    const cancelled = update(5, "Drop it", { reason: "item_closed" });
+    (cancelled.subject as { item: { status: string } }).item.status = "cancelled";
+    await open([
+      update(1, "Load themes", { reason: "item_added" }),
+      update(2, "Read themes", { reason: "item_claimed" }),
+      update(3, "Save themes"),
+      done,
+      cancelled,
+      waitingReview(6, "Rate limiter"),
+      waitingAgent(7),
+    ]);
+    const shows = async (title: string, name: string) =>
+      expect.element(row(title).getByRole("img", { name, exact: true }).first()).toBeVisible();
+    await shows("Load themes", "Added");
+    await shows("Read themes", "Claimed");
+    await shows("Save themes", "Commented");
+    await shows("Drop it", "Cancelled");
+    await shows("Migrate the billing tables", "Waits for a permission");
+    // a work item's status follows its title: the badge and the ring both say Done
+    expect(row("Ship it").getByRole("img", { name: "Done", exact: true }).elements()).toHaveLength(2);
+    // a waiting review says what happened, as an update does
+    await expect
+      .element(page.getByTestId("review-row").filter({ hasText: "Rate limiter" }))
+      .toMatchTextContent(/requested a review|A review for you/);
+  });
+
   test("a notification that waits offers no Mark as done", async () => {
     await open([waitingAgent(3)]);
     await expect.element(row("Migrate the billing tables")).toBeVisible();

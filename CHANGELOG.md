@@ -22,6 +22,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   answer. Below it, **Updates** lists what agents did. The **Kind**,
   **Project or repository** and **Plugin** filters each take several
   values, and **Show done** lists the notifications marked done.
+- Every row of the inbox has the same layout. An icon shows what the row
+  is about, such as a work item, a session or a review. A badge on the icon
+  shows what happened, such as added, commented, done or failed.
 - Each row of the inbox says what changed since you last looked, such as
   "claude-code added this work item with 10 sub-items", "3 new comments",
   or the first line of an agent's last reply.

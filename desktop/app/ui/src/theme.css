@@ -2357,15 +2357,7 @@ body.is-resizing iframe {
 .review-row-marker.is-ended {
   background: currentColor;
 }
-/* questions an agent asked: a question mark in place of the dot, a tint in
-   the colour of what waits on the person, and "asks you" for the plugin */
-.review-row-asks {
-  color: var(--sev-major);
-  margin-left: -4px;
-}
-.review-row.is-question:not(.is-open):not(.is-focused) {
-  background: color-mix(in srgb, var(--sev-major) 6%, transparent);
-}
+/* what a session asks of the person, on the Sessions page */
 .asks-chip {
   background: color-mix(in srgb, var(--sev-major) 16%, transparent);
   color: var(--sev-major);
@@ -2470,6 +2462,9 @@ body.is-resizing iframe {
 @container (max-width: 560px) {
   .review-row {
     grid-template-columns: 8px 1fr auto;
+  }
+  .review-row.has-icon {
+    grid-template-columns: 8px 20px 1fr auto;
   }
   .review-row-plugin,
   .review-row-summary,
@@ -3672,7 +3667,69 @@ body.is-resizing iframe {
 /* a notification's row: the unread dot, then the subject's mark; a read
    row is quieter */
 .update-row {
-  grid-template-columns: 8px 14px 1fr auto auto;
+  grid-template-columns: 8px 20px 1fr auto auto;
+}
+.review-row.has-icon {
+  grid-template-columns: 8px 20px 1fr auto auto auto;
+}
+/* what waits on the person reads as an unread update does */
+.review-row.has-icon .review-row-title {
+  font-weight: 600;
+}
+.review-row.has-icon .update-row-reason {
+  color: var(--text);
+}
+/* what a row is about, with what happened as a badge on its top right */
+.subject-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--dim);
+}
+.subject-badge {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  color: var(--bg);
+  /* a ring of the row's own background sets it off the icon */
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.review-row.is-focused .subject-badge {
+  box-shadow: 0 0 0 2px var(--bg-hover);
+}
+.review-row.is-open .subject-badge {
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+.subject-badge.is-new {
+  background: var(--accent);
+}
+.subject-badge.is-ok {
+  background: var(--ok);
+}
+.subject-badge.is-fail {
+  background: var(--danger);
+}
+.subject-badge.is-wait {
+  background: var(--sev-major);
+}
+.subject-badge.is-end {
+  background: var(--faint);
+}
+.subject-badge.is-note {
+  background: var(--sev-nit);
+}
+/* a work item's status, after its title */
+.review-row-status {
+  display: inline-flex;
+  margin-left: 7px;
+  vertical-align: -1px;
 }
 /* the times line up down the section, whatever their length */
 .update-row .review-row-time {
@@ -3690,7 +3747,7 @@ body.is-resizing iframe {
 }
 @container (max-width: 560px) {
   .update-row {
-    grid-template-columns: 8px 14px 1fr auto;
+    grid-template-columns: 8px 20px 1fr auto;
   }
 }
 /* what the session asks of the person, beside its title: the same mark as

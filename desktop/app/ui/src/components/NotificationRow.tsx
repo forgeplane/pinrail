@@ -3,7 +3,7 @@
 // ended. A row is bold with a dot while it is unread; its buttons mark it
 // read or unread and, when it does not wait, done.
 
-import { BellOff, Check, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
+import { BellOff, Check, ListChecks, Mail, MailOpen, MessageCircleQuestion, MessagesSquare } from "lucide-react";
 import { memo, type MouseEvent, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import type { Notification } from "../api/types";
@@ -14,6 +14,7 @@ import { AgentIcon } from "./AgentIcon";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
+import { SubjectIcon, badgeOf } from "./SubjectIcon";
 import { sessionPath } from "./Thread";
 import { Tooltip } from "./Tooltip";
 
@@ -56,14 +57,26 @@ export function notificationPath(n: Notification, reviewHref: (id: string) => To
   }
 }
 
-/** The subject's title, its key or reference, its mark and its kind. */
-function subjectOf(n: Notification): { title: string; tag?: string; mark: ReactNode; kind: ReactNode } {
+/** The subject's title, a work item's status, its key or reference, its
+ *  icon and its kind. */
+function subjectOf(n: Notification): {
+  title: string;
+  status?: ReactNode;
+  tag?: string;
+  mark: ReactNode;
+  kind: ReactNode;
+} {
   switch (n.subject.kind) {
     case "item":
       return {
         title: n.subject.item.title ?? "A work item",
+        status: n.subject.item.status ? (
+          <span className="review-row-status">
+            <ItemStatusIcon status={n.subject.item.status} size={12} />
+          </span>
+        ) : undefined,
         tag: n.subject.item.key,
-        mark: n.subject.item.status ? <ItemStatusIcon status={n.subject.item.status} /> : <span />,
+        mark: <ListChecks size={16} aria-hidden="true" />,
         kind: (
           <>
             <ListChecks size={13} aria-hidden="true" />
@@ -75,7 +88,7 @@ function subjectOf(n: Notification): { title: string; tag?: string; mark: ReactN
       const session = n.subject.session;
       return {
         title: session.agent ? sessionLabel(session) : "A session",
-        mark: <AgentIcon requestedBy={session.agent} size={15} />,
+        mark: <AgentIcon requestedBy={session.agent} size={16} />,
         kind: (
           <>
             <MessagesSquare size={13} aria-hidden="true" />
@@ -89,7 +102,12 @@ function subjectOf(n: Notification): { title: string; tag?: string; mark: ReactN
       return {
         title: review.title ?? "A review",
         tag: review.origin?.ref ?? undefined,
-        mark: review.plugin !== undefined ? <ReviewIcon review={review} size={14} /> : <span />,
+        mark:
+          review.kind === "question" ? (
+            <MessageCircleQuestion size={16} aria-hidden="true" />
+          ) : (
+            <ReviewIcon review={review} size={16} />
+          ),
         kind: review.plugin !== undefined ? reviewLabel(review) : "review",
       };
     }
@@ -138,10 +156,11 @@ export const NotificationRow = memo(function NotificationRow({
       data-row={here}
     >
       {n.read ? <span /> : <span className="review-row-marker" aria-label="Unread" />}
-      {subject.mark}
+      <SubjectIcon badge={badgeOf(n)}>{subject.mark}</SubjectIcon>
       <span className="review-row-main">
         <span className="review-row-title truncate">
           {subject.title}
+          {subject.status}
           {subject.tag ? <span className="review-row-ref">{subject.tag}</span> : null}
         </span>
         <span className="review-row-meta">
