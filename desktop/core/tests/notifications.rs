@@ -856,3 +856,98 @@ async fn an_agents_claim_is_reported_on_its_own_and_can_be_turned_off() {
     // the release is another change, off by default, and the claim is off
     assert_eq!(listed(&app), [row("PIN-1", "item_claimed", 2)]);
 }
+
+/// The reasons of the notifications the inbox lists, done or not.
+fn reasons(app: &App) -> Vec<String> {
+    let db = common::db(app);
+    let mut all: Vec<String> = db
+        .notifications_page(
+            &pinrail_core::db::NotificationFilters {
+                done: true,
+                ..Default::default()
+            },
+            100,
+            0,
+        )
+        .unwrap()
+        .0
+        .into_iter()
+        .map(|n| n.reason)
+        .collect();
+    all.sort();
+    all
+}
+
+#[tokio::test]
+async fn each_kind_of_session_and_review_notification_can_be_turned_off() {
+    let app = app();
+    settings(
+        &app,
+        json!({"inbox": {"show": {"agent_finished": false, "agent_note": false, "review_ended": false}}}),
+    )
+    .await;
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        json!({"text": "A note", "kind": "note"}),
+    )
+    .await;
+    let review = submit_review(&app, None).await;
+    common::call_as(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{review}/withdraw"),
+        Some(json!({"reason": "superseded", "by": "claude-code"})),
+        &[],
+    )
+    .await;
+    // the review waited, and stops without saying so
+    let n = of_review(&app, &review).unwrap();
+    assert!(!n.waiting && n.done_at.is_some());
+    assert_eq!(n.reason, "review_requested");
+    assert!(of_session(&app).is_none());
+
+    settings(&app, json!({"inbox": {"show": {"agent_stopped": false}}})).await;
+    hook(&app, "ended", 20, json!({"reason": "exited"})).await;
+    assert!(of_session(&app).is_none());
+}
+
+#[tokio::test]
+async fn a_muted_repository_or_project_adds_nothing_but_what_waits() {
+    let app = app();
+    settings(&app, json!({"inbox": {"muted_repos": [REPO]}})).await;
+    add_item(&app, "Themes").await;
+    let review = submit_review(&app, None).await;
+    // what waits on the person is never muted
+    assert!(of_review(&app, &review).unwrap().waiting);
+    assert_eq!(reasons(&app), ["review_requested"]);
+
+    // a project, by its id
+    let (_, project) = call(
+        &app,
+        "POST",
+        "/api/v1/projects",
+        Some(json!({"name": "Web", "repos": ["acme/web"]})),
+    )
+    .await;
+    let muted = format!("project:{}", project["id"].as_str().unwrap());
+    settings(&app, json!({"inbox": {"muted_repos": [muted]}})).await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": "acme/web", "title": "Dark theme"}),
+    )
+    .await;
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items",
+        json!({"repo": REPO, "title": "Docs"}),
+    )
+    .await;
+    assert_eq!(reasons(&app), ["item_added", "review_requested"]);
+}

@@ -293,7 +293,10 @@ pub(super) fn report(conn: &Connection, report: &Notify<'_>) -> rusqlite::Result
 /// person's settings fill. It is the write connection's own, as the
 /// projector runs there alone.
 pub(super) fn prepare(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS inbox_hidden (reason TEXT PRIMARY KEY)")
+    conn.execute_batch(
+        "CREATE TEMP TABLE IF NOT EXISTS inbox_hidden (reason TEXT PRIMARY KEY);
+         CREATE TEMP TABLE IF NOT EXISTS inbox_muted (scope TEXT PRIMARY KEY);",
+    )
 }
 
 /// Whether the person turned off the reason, so that it adds nothing to
@@ -302,6 +305,31 @@ fn hidden(conn: &Connection, reason: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM temp.inbox_hidden WHERE reason = ?1)",
         params![reason],
+        |r| r.get(0),
+    )
+}
+
+/// Whether an informational notice about `subject` adds nothing: its reason
+/// is turned off, or its repository or the repository's project is muted.
+/// What waits on the person is never skipped.
+fn skipped(conn: &Connection, reason: &str, subject: &EventSubject) -> rusqlite::Result<bool> {
+    if hidden(conn, reason)? {
+        return Ok(true);
+    }
+    let (table, id) = match subject {
+        EventSubject::Review(id) => ("reviews", id),
+        EventSubject::Item(id) => ("work_items", id),
+        EventSubject::Session(id) => ("sessions", id),
+    };
+    conn.query_row(
+        &format!(
+            "SELECT EXISTS (SELECT 1 FROM temp.inbox_muted m, {table} s
+               LEFT JOIN repos g ON g.id = s.repo_id
+              WHERE s.id = ?1
+                AND (m.scope = g.name OR m.scope = 'project:' || g.project_id
+                     OR (m.scope = '-' AND s.repo_id IS NULL)))"
+        ),
+        params![id],
         |r| r.get(0),
     )
 }
@@ -374,7 +402,7 @@ pub(super) fn project(conn: &Connection, event: &Projected<'_>) -> rusqlite::Res
         Some("claimed") => ("item_claimed", EventSubject::Item(item.clone()), None),
         _ => ("item_changed", EventSubject::Item(item.clone()), None),
     };
-    if hidden(conn, reason)? {
+    if skipped(conn, reason, &subject)? {
         return Ok(());
     }
     report(
@@ -462,7 +490,7 @@ fn project_review(conn: &Connection, review: &str, event: &Projected<'_>) -> rus
             } else {
                 "review_expired"
             };
-            if hidden(conn, reason)? {
+            if skipped(conn, reason, &EventSubject::Review(review.to_string()))? {
                 conn.execute(
                     "UPDATE notifications SET waiting = 0, done_at = ?2 WHERE review_id = ?1",
                     params![review, iso(event.at)],
@@ -585,7 +613,7 @@ fn project_session(
         }
         _ => return Ok(()),
     };
-    if !waiting && hidden(conn, reason)? {
+    if !waiting && skipped(conn, reason, &EventSubject::Session(session.to_string()))? {
         return Ok(());
     }
     report(
@@ -610,9 +638,10 @@ impl Counts {
 }
 
 impl Db {
-    /// Sets the reasons the inbox does not show, from the person's
-    /// settings.
-    pub fn set_inbox_hidden(&self, reasons: &[&str]) -> rusqlite::Result<()> {
+    /// Sets what the inbox leaves out, from the person's settings: the
+    /// reasons turned off, and the repositories and projects muted, by
+    /// name, `-` for none, or `project:<id>`.
+    pub fn set_inbox_rules(&self, reasons: &[&str], muted: &[String]) -> rusqlite::Result<()> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         tx.execute("DELETE FROM temp.inbox_hidden", [])?;
@@ -620,6 +649,13 @@ impl Db {
             tx.execute(
                 "INSERT INTO temp.inbox_hidden (reason) VALUES (?1)",
                 params![reason],
+            )?;
+        }
+        tx.execute("DELETE FROM temp.inbox_muted", [])?;
+        for scope in muted {
+            tx.execute(
+                "INSERT OR IGNORE INTO temp.inbox_muted (scope) VALUES (?1)",
+                params![scope],
             )?;
         }
         tx.commit()
@@ -841,9 +877,14 @@ impl Db {
                         COALESCE((SELECT MAX(e.id) FROM events e WHERE e.session_id = p.session), 0),
                         p.agent, 1, ?1
                    FROM session_presence p JOIN sessions s ON s.agent = p.agent AND s.id = p.session
+                  LEFT JOIN repos g ON g.id = s.repo_id
                   WHERE p.finished_at IS NOT NULL
                     AND (p.seen_at IS NULL OR p.seen_at < p.finished_at)
-                    AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.session_id = p.session)",
+                    AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.session_id = p.session)
+                    -- nor for a repository or project the person muted
+                    AND NOT EXISTS (SELECT 1 FROM temp.inbox_muted m
+                                     WHERE m.scope = g.name OR m.scope = 'project:' || g.project_id
+                                        OR (m.scope = '-' AND s.repo_id IS NULL))",
                 params![now],
             )?;
         }

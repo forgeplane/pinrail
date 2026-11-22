@@ -178,6 +178,36 @@ const LEAVES: &[Leaf] = &[
         "Add a notification to the inbox when an agent claims a work item.",
     ),
     (
+        "/inbox/show/agent_finished",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent finishes a turn, or its turn fails.",
+    ),
+    (
+        "/inbox/show/agent_stopped",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent stops, or a run fails.",
+    ),
+    (
+        "/inbox/show/agent_note",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent sends a note.",
+    ),
+    (
+        "/inbox/show/review_ended",
+        Kind::Bool,
+        || json!(true),
+        "Add a notification to the inbox when an agent withdraws a review, or a review expires.",
+    ),
+    (
+        "/inbox/muted_repos",
+        Kind::TextList,
+        || json!([]),
+        "Add no informational notification for these repositories, with `-` for none and a project's as `project:<id>`. What waits on the person is always added.",
+    ),
+    (
         "/inbox/show/item_changed",
         Kind::Bool,
         || json!(false),

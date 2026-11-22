@@ -377,23 +377,37 @@ fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// The reasons the inbox shows when their setting is on.
-const INBOX_REASONS: &[&str] = &[
-    "item_added",
-    "item_commented",
-    "item_closed",
-    "item_claimed",
-    "item_changed",
+/// The inbox's settings, each with the reasons it turns on or off.
+const INBOX_SETTINGS: &[(&str, &[&str])] = &[
+    ("item_added", &["item_added"]),
+    ("item_commented", &["item_commented"]),
+    ("item_closed", &["item_closed"]),
+    ("item_claimed", &["item_claimed"]),
+    ("item_changed", &["item_changed"]),
+    ("agent_finished", &["agent_finished", "agent_failed"]),
+    ("agent_stopped", &["agent_stopped"]),
+    ("agent_note", &["agent_note"]),
+    ("review_ended", &["review_withdrawn", "review_expired"]),
 ];
 
-/// Tells the database which reasons the person turned off.
+/// Tells the database what the inbox leaves out: the reasons the person
+/// turned off, and the repositories and projects they muted.
 fn inbox_hidden(db: &Db, settings: &crate::settings::SettingsReader) {
-    let hidden: Vec<&str> = INBOX_REASONS
+    let hidden: Vec<&str> = INBOX_SETTINGS
         .iter()
-        .copied()
-        .filter(|reason| settings.value(&format!("/inbox/show/{reason}")) == Value::Bool(false))
+        .filter(|(key, _)| settings.value(&format!("/inbox/show/{key}")) == Value::Bool(false))
+        .flat_map(|(_, reasons)| reasons.iter().copied())
         .collect();
-    if let Err(error) = db.set_inbox_hidden(&hidden) {
+    let muted: Vec<String> = settings
+        .value("/inbox/muted_repos")
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Err(error) = db.set_inbox_rules(&hidden, &muted) {
         eprintln!("pinrail: the inbox settings could not be applied: {error}");
     }
 }
