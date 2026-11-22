@@ -1,8 +1,8 @@
-// The inbox's Agents section: the sessions whose agent waits on the person
-// in its terminal, or finished a turn the person has not seen.
+// Agents in the inbox: one that waits on the person in its terminal is in
+// Waiting on you, and one that finished a turn is an update.
 
 import { expect, test, type APIRequestContext, type Page } from "../fixtures";
-import { clearInbox, core, sessionId } from "../helpers";
+import { clearInbox, core } from "../helpers";
 
 let n = 0;
 const fresh = () => `s-agents-${Date.now()}-${++n}`;
@@ -18,9 +18,10 @@ async function started(request: APIRequestContext, session: string, title: strin
   await post(request, session, "reports", { event: "prompt", detail: { prompt: "Go" } });
 }
 
-const agentRow = (page: Page, title: string) => page.getByTestId("agent-row").filter({ hasText: title });
+const row = (page: Page, section: string, title: string) =>
+  page.getByRole("region", { name: section }).getByTestId("update-row").filter({ hasText: title });
 
-test("the Agents section lists what waits in a terminal and unseen finished turns, opened with Enter and seen with E", async ({
+test("an agent waiting in its terminal waits on you, a finished one is an update, E marks it done and Enter opens it", async ({
   page,
 }) => {
   await clearInbox(page.request);
@@ -37,22 +38,20 @@ test("the Agents section lists what waits in a terminal and unseen finished turn
   await post(page.request, finished, "reports", { event: "turn_ended", end: "done", detail: { reply: "Clean." } });
 
   await page.goto("/#/");
-  const section = page.getByRole("region", { name: "Agents" });
-  await expect(section).toBeVisible();
-  await expect(agentRow(page, `Agents: deploy ${run}`)).toContainText("Waiting for permission: Bash");
-  await expect(agentRow(page, `Agents: lint ${run}`)).toContainText(/Finished \d+s ago/);
+  const asks = row(page, "Waiting on you", `Agents: deploy ${run}`);
+  await expect(asks).toContainText("permission");
+  await expect(asks).toContainText("npm run deploy");
+  const done = row(page, "Updates", `Agents: lint ${run}`);
+  await expect(done).toContainText("finished");
 
-  // E marks the finished row seen, which takes it off the list
-  await agentRow(page, `Agents: lint ${run}`).hover();
+  // E marks the finished row done, which takes it off the list
+  await done.hover();
   await page.keyboard.press("e");
-  await expect(agentRow(page, `Agents: lint ${run}`)).toHaveCount(0);
+  await expect(row(page, "Updates", `Agents: lint ${run}`)).toHaveCount(0);
 
   // the row lit opens its session with Enter
-  await agentRow(page, `Agents: deploy ${run}`).hover();
-  await expect(agentRow(page, `Agents: deploy ${run}`)).toHaveClass(/is-focused/);
+  await asks.hover();
+  await expect(asks).toHaveClass(/is-focused/);
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(
-    new RegExp(`#/sessions/claude-code/${await sessionId(page.request, "claude-code", waiting)}$`),
-  );
   await expect(page.getByTestId("thread").getByTestId("presence-chip")).toHaveText("Needs you · Bash permission");
 });

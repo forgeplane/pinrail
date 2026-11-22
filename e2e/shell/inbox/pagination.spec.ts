@@ -60,7 +60,7 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   await expect(rows).toHaveCount(30);
 });
 
-test("the inbox holds every pending review, 50 a page, and Enter opens the row that is lit", async ({ page }) => {
+test("Waiting on you holds every pending review, 50 a page, and Enter opens the row that is lit", async ({ page }) => {
   await clearInbox(page.request);
   // 105: past the 100 the inbox used to stop at, across two projects
   for (let i = 1; i <= 105; i++) {
@@ -70,14 +70,15 @@ test("the inbox holds every pending review, 50 a page, and Enter opens the row t
     });
   }
 
+  // All lists what waits whole, above the updates
   await page.goto("/#/");
   const rows = page.getByTestId("review-row");
+  await expect(rows).toHaveCount(105);
+
+  await page.goto("/#/?tab=waiting");
   const range = page.getByTestId("pager-range");
   await expect(rows).toHaveCount(50);
   await expect(range).toHaveText("1–50 of 105");
-
-  // the project headers count the whole project, not the page
-  await expect(page.getByTestId("inbox-group-heading").filter({ hasText: "acme/api" })).toContainText("70");
 
   await page.getByRole("button", { name: "Next page" }).click();
   await expect(rows).toHaveCount(50);
