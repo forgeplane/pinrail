@@ -7,6 +7,7 @@ import { useLocation } from "react-router";
 import type { Notification, NotificationList, Review } from "../api/types";
 import type { NotificationQuery } from "../api/client";
 import { core } from "../testing/core";
+import { itemDetail } from "../testing/items";
 import { cleanup, render } from "../testing/render";
 import { Inbox } from "./Inbox";
 
@@ -92,7 +93,12 @@ async function open(rows: Notification[], route = "/") {
     );
     return { ...listOf(kept), counts: listOf(rows).counts };
   });
-  for (const write of ["setNotificationRead", "setNotificationDone", "readNotifications"] as const) {
+  for (const write of [
+    "setNotificationRead",
+    "setNotificationDone",
+    "setNotificationMuted",
+    "readNotifications",
+  ] as const) {
     core.answer(write, undefined);
   }
   await render(
@@ -252,5 +258,21 @@ describe("the inbox", () => {
     await row("Migrate the billing tables").click();
     await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=session:claude-code/ses_3");
     await expect.element(page.getByRole("complementary", { name: "Session" })).toBeInTheDocument();
+  });
+
+  test("a row is muted, with its button or M, and unmuted with the bell on the work item's panel", async () => {
+    await open([update(1, "Load themes")]);
+    await page.getByRole("button", { name: "Mute: Load themes" }).click();
+    expect(core.calls("setNotificationMuted").at(-1)).toEqual([1, true]);
+    await row("Load themes").hover();
+    await userEvent.keyboard("m");
+    expect(core.calls("setNotificationMuted").length).toBe(2);
+
+    // its panel offers Unmute while it is muted
+    core.answer("item", itemDetail({ title: "Load themes", number: 1 }));
+    core.answer("notificationOf", { ...update(1, "Load themes"), muted: true, done: true });
+    await row("Load themes").click();
+    await page.getByRole("button", { name: "Unmute notifications" }).click();
+    expect(core.calls("setSubjectMuted").at(-1)).toEqual([{ item: "ACME-1" }, false]);
   });
 });

@@ -25,6 +25,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Opening a work item or a session from the inbox shows it in the side
   panel beside the list, as a review already opens, so you stay in the
   inbox. **J** and **K** move the panel through every row.
+- Mute a work item's or a session's notifications with the bell in its
+  header, or from its row in the inbox with **M**. The bell unmutes them.
 - The inbox lists updates under the reviews that wait: a work item an
   agent added, commented on or closed. Mark an update read or unread with
   **U**, mark it done with **E**, and mark every update read with

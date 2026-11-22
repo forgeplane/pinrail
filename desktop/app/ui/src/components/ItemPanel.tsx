@@ -30,6 +30,7 @@ import { reviewPath } from "../lib/url";
 import { aboutItems, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
+import { MuteToggle } from "./MuteToggle";
 import { AgentIcon } from "./AgentIcon";
 import { ComposeField } from "./ComposeField";
 import { AttachButton } from "./AttachButton";
@@ -207,6 +208,7 @@ export function ItemPanel({
           />
         ) : null}
         <PanelButton label="Delete…" onClick={() => setDeleting(true)} icon={<Trash2 size={14} />} />
+        <MuteToggle subject={{ item: itemKey }} className="chrome-button item-panel-button" />
         {onOpenPage ? (
           <PanelButton label="Open in Work items" onClick={onOpenPage} icon={<SquareArrowOutUpRight size={14} />} />
         ) : null}

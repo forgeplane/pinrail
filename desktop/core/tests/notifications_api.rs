@@ -576,3 +576,116 @@ async fn a_finished_agent_is_new_with_its_last_reply() {
     assert_eq!(new["turns"], 2);
     assert_eq!(new["reply"], "Done");
 }
+
+#[tokio::test]
+async fn a_muted_notification_takes_no_later_event_until_it_is_unmuted() {
+    let app = app();
+    three(&app).await;
+    let row = list(&app, "?q=Themes").await["notifications"][0].clone();
+    let mute = format!("/api/v1/notifications/{}/mute", row["id"]);
+    assert_eq!(
+        call(&app, "PUT", &mute, None).await.0,
+        StatusCode::NO_CONTENT
+    );
+    // muted is done, and out of the list
+    assert!(keys(&list(&app, "").await).iter().all(|k| *k != "PIN-1"));
+    let (_, of) = call(&app, "GET", "/api/v1/notifications/of?item=PIN-1", None).await;
+    assert_eq!((&of["muted"], &of["done"]), (&json!(true), &json!(true)));
+
+    // a later comment brings nothing back
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "Started."}),
+    )
+    .await;
+    assert!(keys(&list(&app, "").await).iter().all(|k| *k != "PIN-1"));
+
+    // unmuted, the next event brings it back
+    assert_eq!(
+        call(&app, "DELETE", &mute, None).await.0,
+        StatusCode::NO_CONTENT
+    );
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "Halfway."}),
+    )
+    .await;
+    assert_eq!(keys(&list(&app, "?q=Themes").await), ["PIN-1"]);
+    // an item with no notification has none to unmute
+    let (code, _) = call(&app, "GET", "/api/v1/notifications/of?item=PIN-99", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_waiting_notification_is_not_muted() {
+    let app = app();
+    let review = agent(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        json!({"kind": "question", "title": "Deploy?",
+               "origin": {"repo": REPO, "ref": "main"},
+               "requested_by": "claude-code", "session": "s-1",
+               "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}}),
+    )
+    .await;
+    let row = list(&app, "?tab=waiting").await["notifications"][0].clone();
+    assert_eq!(row["subject"]["review"]["id"], review["id"]);
+    let (code, _) = call(
+        &app,
+        "PUT",
+        &format!("/api/v1/notifications/{}/mute", row["id"]),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn an_item_is_muted_from_its_page_before_it_has_a_notification() {
+    let app = app();
+    // the person's own item has no notification yet
+    call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": REPO, "title": "Themes"})),
+    )
+    .await;
+    let (code, _) = call(&app, "GET", "/api/v1/notifications/of?item=PIN-1", None).await;
+    assert_eq!(code, StatusCode::NOT_FOUND);
+
+    let mute = "/api/v1/notifications/of/mute?item=PIN-1";
+    assert_eq!(
+        call(&app, "PUT", mute, None).await.0,
+        StatusCode::NO_CONTENT
+    );
+    let (_, of) = call(&app, "GET", "/api/v1/notifications/of?item=PIN-1", None).await;
+    assert_eq!(of["muted"], true);
+    // an agent's comment adds nothing
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "Started."}),
+    )
+    .await;
+    assert_eq!(list(&app, "").await["total"], 0);
+
+    assert_eq!(
+        call(&app, "DELETE", mute, None).await.0,
+        StatusCode::NO_CONTENT
+    );
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-1/comments",
+        json!({"body": "Halfway."}),
+    )
+    .await;
+    assert_eq!(keys(&list(&app, "").await), ["PIN-1"]);
+}

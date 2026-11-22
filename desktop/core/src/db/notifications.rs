@@ -669,8 +669,10 @@ impl Db {
         subject: Option<&EventSubject>,
     ) -> rusqlite::Result<Option<Notification>> {
         let conn = self.read();
-        let by_event = conn
-            .query_row(
+        // an event the notification reported on; none for 0, which a
+        // notification the start-up repair made, with no event yet, holds
+        let by_event = if event > 0 {
+            conn.query_row(
                 &format!(
                     "SELECT {COLUMNS} FROM notifications n LEFT JOIN repos g ON g.id = n.repo_id
                       WHERE n.last_event = ?1"
@@ -678,7 +680,10 @@ impl Db {
                 params![event],
                 row_to_notification,
             )
-            .optional()?;
+            .optional()?
+        } else {
+            None
+        };
         if by_event.is_some() {
             return Ok(by_event);
         }
@@ -791,6 +796,64 @@ impl Db {
     ) -> rusqlite::Result<Vec<super::Event>> {
         let (column, id) = subject_column(subject);
         self.events_where(&format!("e.{column} = ?1"), id, after, limit)
+    }
+
+    /// Mutes a notification, which marks it done, and no later event
+    /// brings it back; or unmutes it. `false` when there is none.
+    pub fn mute_notification(
+        &self,
+        id: i64,
+        muted: bool,
+        at: DateTime<Utc>,
+    ) -> rusqlite::Result<bool> {
+        let conn = self.conn();
+        Ok(conn.execute(
+            "UPDATE notifications SET muted = ?2,
+               done_at = CASE WHEN ?2 THEN COALESCE(done_at, ?3) ELSE done_at END
+             WHERE id = ?1",
+            params![id, muted, iso(at)],
+        )? > 0)
+    }
+
+    /// Mutes or unmutes the notifications of a work item or a session,
+    /// whether or not it has one yet: a muted subject without one gets one,
+    /// done, which no later event brings back. Returns the notification's
+    /// id, or `None` when there is nothing to unmute.
+    pub fn mute_subject(
+        &self,
+        subject: &EventSubject,
+        muted: bool,
+        at: DateTime<Utc>,
+    ) -> rusqlite::Result<Option<i64>> {
+        let (column, id) = subject_column(subject);
+        let (table, reason) = match subject {
+            EventSubject::Item(_) => ("work_items", "item_changed"),
+            EventSubject::Session(_) => ("sessions", "agent_finished"),
+            EventSubject::Review(_) => ("reviews", "review_requested"),
+        };
+        let conn = self.conn();
+        if muted {
+            conn.query_row(
+                &format!(
+                    "INSERT INTO notifications ({column}, repo_id, reason, last_event, unread,
+                       updated_at, done_at, muted)
+                     VALUES (?1, (SELECT repo_id FROM {table} WHERE id = ?1), ?2, 0, 0, ?3, ?3, 1)
+                     ON CONFLICT ({column}) WHERE {column} IS NOT NULL DO UPDATE SET
+                       muted = 1, done_at = COALESCE(done_at, excluded.done_at)
+                     RETURNING id"
+                ),
+                params![id, reason, iso(at)],
+                |r| r.get(0),
+            )
+            .optional()
+        } else {
+            conn.query_row(
+                &format!("UPDATE notifications SET muted = 0 WHERE {column} = ?1 RETURNING id"),
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()
+        }
     }
 
     /// Takes a notification out of done. `false` when there is none.

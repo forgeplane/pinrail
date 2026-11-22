@@ -30,6 +30,12 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/notifications/counts", get(counts))
         .route("/api/v1/notifications/read", post(read_all))
         .route("/api/v1/notifications/{id}/events", get(events))
+        .route("/api/v1/notifications/of", get(of))
+        .route(
+            "/api/v1/notifications/of/mute",
+            put(mute_subject).delete(unmute_subject),
+        )
+        .route("/api/v1/notifications/{id}/mute", put(mute).delete(unmute))
         .route("/api/v1/notifications/{id}/read", put(read).delete(unread))
         .route("/api/v1/notifications/{id}/done", put(done).delete(undone))
 }
@@ -182,4 +188,75 @@ async fn undone(
     Path(id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
     change(&state, id, Change::Undone)
+}
+
+/// The subject a query names: `item` by its key, `session` as
+/// `agent/id`, or `review` by its id.
+fn subject_of(
+    state: &Pinrail,
+    params: &HashMap<String, String>,
+) -> Result<crate::db::EventSubject, Error> {
+    Ok(if let Some(key) = params.get("item") {
+        let item = crate::items::ItemRef::parse(key)
+            .map_err(|_| Error::invalid("item", "give a work item's key"))?;
+        let found = state.items().get(&item, None)?;
+        crate::db::EventSubject::Item(found.id)
+    } else if let Some(session) = params.get("session") {
+        let id = session
+            .split_once('/')
+            .map_or(session.as_str(), |(_, id)| id);
+        crate::db::EventSubject::Session(id.to_string())
+    } else if let Some(review) = params.get("review") {
+        crate::db::EventSubject::Review(review.clone())
+    } else {
+        return Err(Error::invalid("", "name an item, a session or a review"));
+    })
+}
+
+/// The notification of a subject. 404 when it has none.
+async fn of(
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, ApiError> {
+    let subject = subject_of(&state, &params)?;
+    Ok(Json(state.notifications().of(&subject)?))
+}
+
+/// Mutes a work item's or a session's notifications from its page: 204.
+async fn mute_subject(
+    _person: Person,
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .notifications()
+        .mute_subject(&subject_of(&state, &params)?, true)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn unmute_subject(
+    _person: Person,
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .notifications()
+        .mute_subject(&subject_of(&state, &params)?, false)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn mute(
+    _person: Person,
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, ApiError> {
+    change(&state, id, Change::Mute)
+}
+
+async fn unmute(
+    _person: Person,
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, ApiError> {
+    change(&state, id, Change::Unmute)
 }

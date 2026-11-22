@@ -3,7 +3,7 @@
 // ended. A row is bold with a dot while it is unread; its buttons mark it
 // read or unread and, when it does not wait, done.
 
-import { Check, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
+import { BellOff, Check, ListChecks, Mail, MailOpen, MessagesSquare } from "lucide-react";
 import { memo, type MouseEvent, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import type { Notification } from "../api/types";
@@ -26,6 +26,8 @@ export type NotificationActions = {
   open: (event: MouseEvent, n: Notification) => void;
   setRead: (n: Notification, read: boolean) => void;
   setDone: (n: Notification) => void;
+  /** mutes it: no later event brings it back */
+  mute: (n: Notification) => void;
 };
 
 /** What the inbox's `open` names for a notification's subject in the side
@@ -180,6 +182,9 @@ export const NotificationRow = memo(function NotificationRow({
           : button("Mark as read", ["U"], <MailOpen size={14} />, () => actions.setRead(n, true))}
         {/* what waits ends when the person acts on it, not when they file it */}
         {n.waiting ? null : button("Mark as done", ["E"], <Check size={14} />, () => actions.setDone(n))}
+        {n.waiting || n.subject.kind === "review"
+          ? null
+          : button("Mute", ["M"], <BellOff size={14} />, () => actions.mute(n))}
       </span>
     </Link>
   );

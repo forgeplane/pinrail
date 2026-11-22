@@ -182,6 +182,10 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const split = useRef<HTMLDivElement>(null);
   const setRead = (n: Notification, read: boolean) => void api.setNotificationRead(n.id, read).catch(() => {});
   const setDone = (n: Notification) => void api.setNotificationDone(n.id, true).catch(() => {});
+  /** a work item's or a session's notifications, muted: no later event
+   *  brings them back, until Unmute on the item's panel or the session's
+   *  menu */
+  const mute = (n: Notification) => void api.setNotificationMuted(n.id, true).catch(() => {});
   const readAll = () => void api.readNotifications({ ...filters, tab }, upTo).catch(() => {});
   /** Opening a notification other than a review marks it read; a review is
    *  read when the person opens it, which the core records. */
@@ -249,6 +253,14 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       }
       return;
     }
+    // M mutes the focused work item's or session's notifications
+    if ((event.key === "m" || event.key === "M") && !event.shiftKey && !isTyping(event.target)) {
+      if (focusedRow && !focusedRow.waiting && focusedRow.subject.kind !== "review") {
+        event.preventDefault();
+        mute(focusedRow);
+      }
+      return;
+    }
     // U marks the focused notification read or unread, and ⇧U the list read
     if ((event.key === "u" || event.key === "U") && !isTyping(event.target)) {
       if (event.shiftKey) {
@@ -279,6 +291,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     openRow,
     setRead,
     setDone,
+    mute,
   });
   const reviewActions = useMemo<InboxRowActions>(
     () => ({
@@ -294,6 +307,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       open: (event, n) => latest.current.openRow(event, n),
       setRead: (n, read) => latest.current.setRead(n, read),
       setDone: (n) => latest.current.setDone(n),
+      mute: (n) => latest.current.mute(n),
     }),
     [latest],
   );
@@ -434,8 +448,8 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
             </>
           ) : (
             <>
-              <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>U</kbd> read · <kbd>E</kbd> done · <kbd>/</kbd>{" "}
-              search
+              <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>U</kbd> read · <kbd>E</kbd> done · <kbd>M</kbd>{" "}
+              mute · <kbd>/</kbd> search
             </>
           )}
         </footer>

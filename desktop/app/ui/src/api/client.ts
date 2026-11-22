@@ -35,6 +35,7 @@ import type {
   FoundItem,
   InboxCounts,
   ItemStatus,
+  Notification,
   NotificationList,
   NotificationTab,
 } from "./types";
@@ -366,6 +367,26 @@ export const api = {
   /** marks a notification read, or unread */
   setNotificationRead: (id: number, read: boolean) =>
     request<void>(read ? "PUT" : "DELETE", `/api/v1/notifications/${id}/read`),
+  /** mutes a notification, which no later event brings back, or unmutes it */
+  setNotificationMuted: (id: number, muted: boolean) =>
+    request<void>(muted ? "PUT" : "DELETE", `/api/v1/notifications/${id}/mute`),
+  /** mutes or unmutes a work item's or a session's notifications from its
+   *  page, whether or not it has a notification yet */
+  setSubjectMuted: (subject: { item: string } | { session: { agent: string; id: string } }, muted: boolean) =>
+    request<void>(
+      muted ? "PUT" : "DELETE",
+      `/api/v1/notifications/of/mute${query(
+        "item" in subject ? { item: subject.item } : { session: `${subject.session.agent}/${subject.session.id}` },
+      )}`,
+    ),
+  /** the notification of a work item, by its key, or of a session */
+  notificationOf: (subject: { item: string } | { session: { agent: string; id: string } }) =>
+    request<Notification>(
+      "GET",
+      `/api/v1/notifications/of${query(
+        "item" in subject ? { item: subject.item } : { session: `${subject.session.agent}/${subject.session.id}` },
+      )}`,
+    ),
   /** marks a notification done, or takes it out of done */
   setNotificationDone: (id: number, done: boolean) =>
     request<void>(done ? "PUT" : "DELETE", `/api/v1/notifications/${id}/done`),

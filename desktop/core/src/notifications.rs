@@ -50,6 +50,8 @@ pub enum Change {
     Unread,
     Done,
     Undone,
+    Mute,
+    Unmute,
 }
 
 impl Change {
@@ -59,6 +61,8 @@ impl Change {
             Change::Unread => "unread",
             Change::Done => "done",
             Change::Undone => "undone",
+            Change::Mute => "muted",
+            Change::Unmute => "unmuted",
         }
     }
 }
@@ -106,7 +110,7 @@ impl Notifications {
         let Some(notification) = self.db.notification(id)? else {
             return Err(Error::NotFound(format!("notification {id}")));
         };
-        if change == Change::Done && notification.waiting {
+        if matches!(change, Change::Done | Change::Mute) && notification.waiting {
             return Err(Error::Conflict(
                 "a notification that waits for you ends when you decide or answer".into(),
             ));
@@ -130,8 +134,36 @@ impl Notifications {
             Change::Unread => self.db.mark_notification_unread(id)?,
             Change::Done => self.db.mark_notification_done(id, Utc::now())?,
             Change::Undone => self.db.mark_notification_undone(id)?,
+            Change::Mute => self.db.mute_notification(id, true, Utc::now())?,
+            Change::Unmute => self.db.mute_notification(id, false, Utc::now())?,
         };
         self.announce(json!({"id": id, "change": change.as_str()}))
+    }
+
+    /// The notification of a work item, a session or a review, as the list
+    /// gives it, for its page to offer Unmute.
+    pub fn of(&self, subject: &EventSubject) -> Result<Value, Error> {
+        match self.db.notification_of(0, Some(subject))? {
+            Some(notification) => self.to_json(&notification),
+            None => Err(Error::NotFound("notification".into())),
+        }
+    }
+
+    /// Mutes or unmutes a work item's or a session's notifications from its
+    /// page, whether or not it has a notification yet, and tells the
+    /// windows.
+    pub fn mute_subject(&self, subject: &EventSubject, muted: bool) -> Result<(), Error> {
+        if matches!(subject, EventSubject::Review(_)) {
+            return Err(Error::invalid(
+                "",
+                "a review's notification waits for you: it is not muted",
+            ));
+        }
+        if let Some(id) = self.db.mute_subject(subject, muted, Utc::now())? {
+            let change = if muted { Change::Mute } else { Change::Unmute };
+            self.announce(json!({"id": id, "change": change.as_str()}))?;
+        }
+        Ok(())
     }
 
     /// The events of a notification's subject after `after`, oldest first,

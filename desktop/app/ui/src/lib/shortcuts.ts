@@ -62,6 +62,7 @@ export const SHORTCUTS: Shortcut[] = [
   { section: "Inbox", what: "Discard the focused or open review", keys: [[MOD, "D"]] },
   { section: "Inbox", what: "Mark the focused update read or unread", keys: [["U"]] },
   { section: "Inbox", what: "Mark the focused update done", keys: [["E"]] },
+  { section: "Inbox", what: "Mute the focused work item's or session's notifications", keys: [["M"]] },
   { section: "Inbox", what: "Mark every update read", keys: [[SHIFT, "U"]] },
   // a review, on its page or in a side panel
   { section: "Review", what: "Hand over to the agent", keys: [[MOD, "Enter"]] },

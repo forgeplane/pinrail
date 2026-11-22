@@ -951,3 +951,15 @@ async fn a_muted_repository_or_project_adds_nothing_but_what_waits() {
     .await;
     assert_eq!(reasons(&app), ["item_added", "review_requested"]);
 }
+
+#[tokio::test]
+async fn a_subjects_notification_is_its_own_even_beside_one_with_no_events() {
+    let app = app();
+    let db = common::db(&app);
+    let [item, session, _] = subjects(&app).await;
+    // as the start-up repair makes it: no event of its own yet
+    report(&db, &session, "agent_finished", 0).unwrap();
+    let own = report(&db, &item, "item_added", 5).unwrap();
+    let found = db.notification_of(0, Some(&item)).unwrap().unwrap();
+    assert_eq!(found.id, own);
+}

@@ -24,6 +24,7 @@ import { MovedRun } from "./session/MovedRun";
 import { OutsideRun } from "./session/OutsideRun";
 import { WaitMark } from "./WaitMark";
 import { runtime } from "../api/runtime";
+import { MuteToggle } from "./MuteToggle";
 import { sessionGrid } from "./session/startRun";
 import { canOpenWhileRunning, canResume, resumeProblem } from "../lib/resume";
 import { stateOf } from "../lib/sidebarSessions";
@@ -700,6 +701,10 @@ export function Thread({
                   <Expand size={15} />
                 </button>
               </Tooltip>
+            ) : null}
+            {/* its notifications, muted or not, before the details' button */}
+            {session && !focus ? (
+              <MuteToggle subject={{ session: { agent: session.agent, id: session.id } }} className="bar-button" />
             ) : null}
             {hasDetails ? (
               <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
