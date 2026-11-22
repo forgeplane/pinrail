@@ -134,7 +134,9 @@ test("the ended run's screen offers Resume", async ({ page }) => {
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
 
   const ended = page.getByTestId("ended-run");
-  await expect(ended).toContainText("Claude Code exited with code 0.");
+  await expect(ended.getByRole("heading", { name: "Claude Code exited with code 0" })).toBeVisible();
+  // the header leaves Resume to the ended run
+  await expect(header(page).getByRole("button", { name: "Resume Claude Code" })).toHaveCount(0);
   await ended.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
   expect(posted).toHaveLength(1);

@@ -294,6 +294,9 @@ export function Thread({
   // the terminal over the summary, or under it in the split
   const showTerminal = view === "terminal" && hasTerminalView;
   const split = view === "split" && hasTerminalView;
+  // the ended run in the terminal's place offers Resume, so the header does not
+  const endedShown =
+    (showTerminal || split) && !runsLoading && !terminal && !failed && !movedOn && !openable && !!ended && resumable;
   const splitRows = useSplit();
   const showTerminalRef = useLatest(showTerminal);
   // what a live run's agent waits for the person to do, if anything
@@ -675,7 +678,7 @@ export function Thread({
                 onAsking={setAskingStop}
               />
             ) : null}
-            {resumable && named ? (
+            {resumable && named && !endedShown ? (
               <ResumeButton agent={named.agent} resuming={resuming} onResume={() => void resume()} />
             ) : null}
             {openable && named ? (

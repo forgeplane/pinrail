@@ -179,6 +179,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Show an ended run in a session's Terminal view as one message, with
+  how and when it ended and a **Resume** button, above its last screen
+  while Pinrail keeps it.
 - Make the divider of a session's split view easier to find. Its handle
   is larger, and a line across it shows on hover and while you drag it.
 - Keep an agent's text readable in a light theme. Colours that nearly

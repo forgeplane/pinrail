@@ -8866,19 +8866,12 @@ a.item-ref {
   display: flex;
   flex-direction: column;
 }
-.ended-run-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-raised);
-  font: 500 var(--text-sm) var(--font);
+/* without a screen, the empty state in the middle; with one, above it */
+.ended-run:not(.has-screen) {
+  justify-content: center;
 }
-.ended-run-banner p {
-  flex: 1;
-  margin: 0;
+.ended-run.has-screen > .empty-state {
+  padding: 28px 20px 20px;
 }
 .restart-banner {
   margin: 0 16px 8px;
@@ -8930,9 +8923,6 @@ a.item-ref {
   top: 0;
   left: 0;
   transform-origin: top left;
-}
-.ended-run-gone {
-  padding: 12px 16px;
 }
 /* A turn of the session's agent, and the runs Pinrail started. */
 .thread-turn {

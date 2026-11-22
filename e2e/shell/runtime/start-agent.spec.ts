@@ -296,8 +296,8 @@ const fits = (page: Page) =>
   });
 
 for (const [how, over, banner] of [
-  ["exited", { exit_code: 0 }, "Claude Code exited with code 0."],
-  ["was stopped", { end_reason: "stopped", exit_code: null, exit_signal: "TERM" }, "Claude Code was stopped by you."],
+  ["exited", { exit_code: 0 }, "Claude Code exited with code 0"],
+  ["was stopped", { end_reason: "stopped", exit_code: null, exit_signal: "TERM" }, "Claude Code was stopped by you"],
 ] as const) {
   test(`a session whose agent ${how} shows how over its last screen, fitted to the view`, async ({ page }) => {
     const session = await aSession(page);
@@ -305,7 +305,7 @@ for (const [how, over, banner] of [
     await page.route(/\/api\/v1\/runs\/run_ended\/screen/, (route) => route.fulfill({ json: WIDE }));
     await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
     const view = page.getByTestId("ended-run");
-    await expect(view.getByRole("status")).toHaveText(banner);
+    await expect(view.getByRole("heading", { name: banner })).toBeVisible();
     await expect(view.getByRole("img", { name: "Claude Code's last screen" })).toBeVisible();
     // wider than the view, it is scaled down to fit
     await expect.poll(() => fits(page)).toBe(true);
@@ -326,5 +326,5 @@ test("an ended run whose last screen is gone says so", async ({ page }) => {
     route.fulfill({ status: 404, json: { error: "not_found", message: "no terminal" } }),
   );
   await page.goto(`/#/sessions/claude-code/${session}?view=terminal`);
-  await expect(page.getByTestId("ended-run")).toContainText("Pinrail no longer keeps this run's last screen.");
+  await expect(page.getByTestId("ended-run")).toContainText("Pinrail no longer keeps its last screen.");
 });
