@@ -339,4 +339,35 @@ describe("the inbox with the app's styles", () => {
     expect(document.querySelector(".list-tabs")!.scrollWidth).toBeLessThanOrEqual(width - 48);
   });
 
+  test.each([
+    [650, "covers the list"],
+    [1000, "sits beside the list"],
+  ])("in a %i px main area, the side panel %s", async (width, how) => {
+    await import("../theme.css");
+    await page.viewport(1400, 700);
+    await open([update(1, "Load themes")], "/", width);
+    await row("Load themes").click();
+    await expectPanel(width, how);
+  });
+
+  test("a side panel open as the inbox loads covers a list too narrow to sit beside it", async () => {
+    await import("../theme.css");
+    await page.viewport(1400, 700);
+    await open([update(1, "Load themes")], "/?open=item:PIN-1", 650);
+    await expectPanel(650, "covers the list");
+  });
 });
+
+async function expectPanel(width: number, how: string) {
+  const panel = page.getByRole("complementary", { name: "Work item" });
+  await expect.element(panel).toBeVisible();
+  const list = document.querySelector(".inbox-side")!.getBoundingClientRect();
+  const box = panel.element().getBoundingClientRect();
+  if (how === "covers the list") {
+    expect(box.left).toBe(list.left);
+    expect(box.width).toBe(width);
+  } else {
+    // a work item's panel leaves the list 560 px
+    expect(box.left).toBeGreaterThanOrEqual(list.left + 560);
+  }
+}

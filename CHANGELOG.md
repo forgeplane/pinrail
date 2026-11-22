@@ -238,6 +238,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - The inbox's title, search box, **Mark all as read** and **Filter** stay
   on one line in a narrow inbox, where **Mark all as read** shows only its
   icon. The inbox's tabs no longer wrap.
+- The side panel covers the list when the two do not fit side by side,
+  also when a page opens with the panel already open.
 - A session page follows its agent to the new session when the agent
   starts a new conversation in Pinrail's terminal, such as after `/clear`.
 - A question opened from the inbox shows at once in the side panel, and

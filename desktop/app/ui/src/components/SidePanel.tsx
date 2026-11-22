@@ -1,18 +1,25 @@
 // The side panel a list opens an item in, beside the list: a review or a
 // session's thread, and an edge that resizes the panel by dragging or with
-// the arrow keys. The lists share one width, stored on this machine.
+// the arrow keys. The lists share one width, stored on this machine. When
+// the list and the panel do not both fit, the panel covers the list.
 
-import { useEffect, useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useResizableWidth } from "../lib/useResizableWidth";
 
 /** The side panel's width, stored on this machine. */
 const PANEL_WIDTH = "pinrail.inbox.panel";
 /** The narrowest the side panel gets. */
 const PANEL_MIN = 420;
-/** The narrowest the list beside the side panel gets, unless a page asks for more. */
-const LIST_MIN = 320;
+/** The narrowest the list beside the side panel gets, unless a page asks
+ *  for more: room for the inbox's tabs on one line. */
+const LIST_MIN = 380;
 /** The room the edge between them takes: 5px, less its negative margins. */
 const EDGE = 1;
+
+/** Whether the panel covers the list: when the room is narrower than the
+ *  list's minimum and the panel's together. */
+const coversList = (host: HTMLElement | null, listMin: number) =>
+  (host?.clientWidth ?? window.innerWidth) < listMin + EDGE + PANEL_MIN;
 
 export function SidePanel({
   split,
@@ -37,6 +44,19 @@ export function SidePanel({
     grows: "left",
     anchor: () => split.current?.getBoundingClientRect().right ?? window.innerWidth,
   });
+  // measured on the panel's parent, which holds the list and the panel:
+  // the page's ref to it is not set yet when the page opens with the panel
+  const own = useRef<HTMLElement>(null);
+  const [covers, setCovers] = useState(() => coversList(split.current, listMin));
+  useLayoutEffect(() => {
+    const host = own.current?.parentElement;
+    if (!host) return;
+    const check = () => setCovers(coversList(host, listMin));
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [listMin]);
   // What opened the panel, such as a row, and where it was on the screen,
   // read as the panel first renders, before the page changes. Without a
   // panel the page scrolls; with one the list scrolls on its own, from the
@@ -96,22 +116,28 @@ export function SidePanel({
 
   return (
     <>
-      <div
-        className="panel-resizer"
-        {...edgeProps}
-        aria-label={`Resize the ${label.toLowerCase()} panel`}
-        onKeyDown={resizeBy}
-      />
+      {covers ? null : (
+        <div
+          className="panel-resizer"
+          {...edgeProps}
+          aria-label={`Resize the ${label.toLowerCase()} panel`}
+          onKeyDown={resizeBy}
+        />
+      )}
       <aside
-        className="review-panel"
+        ref={own}
+        className={`review-panel ${covers ? "covers-list" : ""}`}
         aria-label={label}
         data-testid={`${label.toLowerCase()}-panel`}
-        // the list keeps its width, unless that would make the panel
-        // narrower than its own minimum
-        style={{
-          ...(width ? { width: clampWidth(width) } : {}),
-          maxWidth: `max(${PANEL_MIN}px, calc(100% - ${listMin + EDGE}px))`,
-        }}
+        // beside the list, the list keeps its minimum width
+        style={
+          covers
+            ? undefined
+            : {
+                ...(width ? { width: clampWidth(width) } : {}),
+                maxWidth: `calc(100% - ${listMin + EDGE}px)`,
+              }
+        }
       >
         {children}
       </aside>

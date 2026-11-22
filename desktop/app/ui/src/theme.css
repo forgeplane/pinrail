@@ -1336,20 +1336,13 @@ body.is-resizing iframe {
 .review-row.is-open.is-focused {
   background: var(--accent-bg);
 }
-/* in a narrow window, the side panel covers the list, over the width and
-   the room for the list that its style keeps beside a wider window */
-@media (max-width: 900px) {
-  .has-panel > .review-panel {
-    position: absolute;
-    inset: 0;
-    width: auto !important;
-    max-width: none !important;
-    min-width: 0;
-    z-index: 2;
-  }
-  .has-panel > .panel-resizer {
-    display: none;
-  }
+/* the side panel over the list, when the two do not fit side by side */
+.has-panel > .review-panel.covers-list {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  min-width: 0;
+  z-index: 2;
 }
 
 /* tooltips: a raised panel in the theme, the shortcut as keys */
