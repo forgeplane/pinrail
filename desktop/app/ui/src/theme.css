@@ -9315,10 +9315,63 @@ a.item-ref {
 }
 /* in a session's tooltip in the sidebar: its element and the name Pinrail
    gave it */
-.sidebar-session-tip-element {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* a session's tooltip: its full title, then its state in the state's
+   colour with what it does or waits for, cut at two lines, then the agent,
+   the branch and what waits on the person */
+.sidebar-session-tip {
+  gap: 3px;
+  max-width: 340px;
+  white-space: normal;
+}
+.sidebar-session-tip-title {
+  font-weight: 500;
+}
+.sidebar-session-tip-state {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--dim);
+}
+.sidebar-session-tip-state code {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--tip-text);
+}
+.sidebar-session-tip-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--faint);
+}
+.sidebar-session-tip-name {
+  font-weight: 500;
+  color: var(--faint);
+}
+.sidebar-session-tip-dot.is-working {
+  background: var(--accent);
+}
+.sidebar-session-tip-name.is-working {
+  color: var(--accent);
+}
+.sidebar-session-tip-dot.is-needs_you {
+  background: var(--attention-warn);
+}
+.sidebar-session-tip-name.is-needs_you {
+  color: var(--attention-warn);
+}
+.sidebar-session-tip-dot.is-finished {
+  background: var(--ok);
+}
+.sidebar-session-tip-name.is-finished {
+  color: var(--ok);
+}
+.sidebar-session-tip-meta {
+  color: var(--faint);
+  font-size: var(--text-xs);
 }
 
 /* the periodic table's page, which takes the whole window, and the link

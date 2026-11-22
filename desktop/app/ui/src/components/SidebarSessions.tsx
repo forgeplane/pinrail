@@ -19,9 +19,7 @@ import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { fromSession, sessionLabel, stageBeside } from "../lib/sessions";
-import { elementOf, useElements } from "../lib/elements";
-import { ElementTile } from "./ElementTile";
+import { fromSession, sessionLabel } from "../lib/sessions";
 import {
   type Choices,
   type Group,
@@ -111,8 +109,6 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   // a session's own menu, by the button on its row
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; anchor: HTMLElement } | null>(null);
-  // the elements the sessions are named after, for their tooltips
-  const elements = useElements();
 
   // a status may change a session's stage or mark it done, the person may
   // rename it, archiving one moves it in or out, and deleting one takes it out
@@ -250,21 +246,32 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
           return part ? [{ key: d, part }] : [];
         })
       : [];
-    const element = elementOf(elements, s.element);
+    // the tooltip: the full title, the state with what it is doing or waits
+    // for, and the agent, the branch and what waits on the person
+    const wait = s.presence?.state === "needs_input" ? s.presence.wait : null;
+    const doing = wait
+      ? wait.kind === "permission"
+        ? [`${wait.tool ?? "A"} permission`, wait.summary]
+        : [wait.kind === "auth" ? "Sign-in" : "A question", wait.summary]
+      : [s.status?.text && s.status.text !== s.title ? s.status.text : null, null];
+    const asks = s.waiting.reviews + s.waiting.questions;
     const tip = (
       <span className="sidebar-session-tip">
-        {element ? (
-          <span className="sidebar-session-tip-element">
-            <ElementTile element={element} />
-            {s.generated_name}
-          </span>
-        ) : null}
-        <span>
-          {STATE_LABEL[row.state]} · {age(s.status?.at ?? s.last_at, now)} ago
+        <span className="sidebar-session-tip-title">{sessionLabel(s)}</span>
+        <span className="sidebar-session-tip-state">
+          <span className={`sidebar-session-tip-dot is-${row.state}`} aria-hidden />
+          <span className={`sidebar-session-tip-name is-${row.state}`}>{STATE_LABEL[row.state]}</span>
+          {` · ${age(s.status?.at ?? s.last_at, now)} ago`}
+          {doing[0] ? ` · ${doing[0]}` : null}
+          {doing[1] ? (
+            <>
+              : <code>{doing[1]}</code>
+            </>
+          ) : null}
         </span>
-        {stageBeside(s) ? <span>{stageBeside(s)}</span> : null}
-        {s.status?.text && s.status.text !== s.title ? <span className="faint">{s.status.text}</span> : null}
-        <span className="faint">{[s.agent, s.ref].filter(Boolean).join(" · ")}</span>
+        <span className="sidebar-session-tip-meta">
+          {[s.agent, s.ref, asks ? `${asks} waiting on you` : null].filter(Boolean).join(" · ")}
+        </span>
       </span>
     );
     return (

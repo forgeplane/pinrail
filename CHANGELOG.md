@@ -181,6 +181,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Show a sidebar session's full title in its tooltip, with its state,
+  what it is doing or waits for, its agent and branch, and what waits on
+  you. The element tile is gone from it.
 - Mark questions that were withdrawn, declined or expired with a badge
   in a session's thread, and show the reason in full colour.
 - Hide a session's details at first in a narrow window, so the terminal
