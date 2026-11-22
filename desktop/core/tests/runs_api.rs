@@ -1311,3 +1311,36 @@ async fn a_start_on_an_item_on_hold_starts_and_says_why_it_did_not_claim_it() {
         "{started}"
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn archiving_a_session_stops_its_agent_and_keeps_it_archived() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let run = started["run"]["id"].as_str().unwrap().to_string();
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    token(&folder).await;
+
+    let path = format!("/api/v1/sessions/claude-code/{session}/archive");
+    let (status, _) = call(&app, "PUT", &path, None).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let run = run_becomes(&app, &run, |r| r["state"] == "ended").await;
+    assert_eq!(run["end_reason"], "stopped");
+
+    // the agent's exit does not bring the session back
+    let (_, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert!(shown["session"]["archived_at"].is_string(), "{shown}");
+}

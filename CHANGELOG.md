@@ -176,6 +176,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Archiving a session stops its agent when Pinrail runs it.
 - System notifications follow the inbox: a kind of notification turned off
   in the inbox, a muted project or repository, or a muted work item or
   session is never announced.

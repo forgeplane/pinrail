@@ -738,13 +738,18 @@ async fn unseen(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Archives a session: 204, and 404 for an unknown one.
+/// Archives a session, and stops its agent if Pinrail runs it: 204, and
+/// 404 for an unknown one.
 async fn archive(
     _person: super::guard::Person,
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
     state.reviews().archive_session(&agent, &id, true)?;
+    #[cfg(unix)]
+    if let Err(error) = state.runtime().stop_session(&agent, &id).await {
+        eprintln!("pinrail: stopping the run of session {id} failed: {error}");
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
