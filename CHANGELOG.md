@@ -270,6 +270,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show a work item's key on one line in a Markdown table's narrow column.
 - Keep the window up to date after Pinrail's server restarts. Its updates
   could stop without an error, so new reviews and questions did not show
   until the window was reloaded.

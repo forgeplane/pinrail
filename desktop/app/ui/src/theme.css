@@ -8283,7 +8283,10 @@ body:has(.menu-popup) .review-row:hover:not(.is-focused) .review-row-end .bar-bu
   gap: 5px;
 }
 /* a work item's key in Markdown, linking to it */
+/* a work item's key stays whole, also in a table's narrow column, which
+   would otherwise break it at the hyphen */
 a.item-ref {
+  white-space: nowrap;
   padding: 0 4px;
   border-radius: var(--radius-sm);
   background: var(--accent-bg);
