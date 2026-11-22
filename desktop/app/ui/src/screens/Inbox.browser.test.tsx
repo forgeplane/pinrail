@@ -82,7 +82,7 @@ const listOf = (rows: Notification[], up_to = 40): NotificationList => ({
 });
 
 /** The inbox at `route`, the core answering each tab from `rows`. */
-async function open(rows: Notification[], route = "/") {
+async function open(rows: Notification[], route = "/", width?: number) {
   core.answer("listReviews", { reviews: [], total: 0 });
   core.answer("plugins", { plugins: [] });
   core.answer("notificationCounts", listOf(rows).counts);
@@ -101,9 +101,16 @@ async function open(rows: Notification[], route = "/") {
   ] as const) {
     core.answer(write, undefined);
   }
+  // with a width, in the app's main area of that width
   await render(
     <>
-      <Inbox />
+      {width ? (
+        <div className="app-main" style={{ width, height: 600 }}>
+          <Inbox />
+        </div>
+      ) : (
+        <Inbox />
+      )}
       <Where />
     </>,
     { route },
@@ -304,4 +311,32 @@ describe("the inbox", () => {
     await page.getByRole("button", { name: "Unmute notifications" }).click();
     expect(core.calls("setSubjectMuted").at(-1)).toEqual([{ item: "ACME-1" }, false]);
   });
+});
+
+describe("the inbox with the app's styles", () => {
+  test.each([380, 640])("at %i px keeps the title, the controls and each tab on one line", async (width) => {
+    await import("../theme.css");
+    await page.viewport(900, 600);
+    await open([update(1, "Load themes")], "/", width);
+    const readAll = page.getByRole("button", { name: "Mark all as read" });
+    await expect.element(readAll).toBeVisible();
+    const controls = document.querySelector(".inbox-controls")!;
+    const middle = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      return box.top + box.height / 2;
+    };
+    const [search, ...buttons] = [controls.querySelector(".search-field")!, ...controls.querySelectorAll("button")];
+    for (const button of buttons) {
+      expect(Math.abs(middle(button) - middle(search))).toBeLessThanOrEqual(1);
+      // its label on one line
+      expect(button.getBoundingClientRect().height).toBeLessThanOrEqual(search.getBoundingClientRect().height);
+    }
+    expect(controls.getBoundingClientRect().right).toBeLessThanOrEqual(width);
+    // beside the title
+    expect(Math.abs(middle(document.querySelector(".page-head h1")!) - middle(search))).toBeLessThanOrEqual(4);
+    const tabs = [...document.querySelectorAll(".list-tabs button")];
+    for (const tab of tabs) expect(tab.getBoundingClientRect().height).toBe(tabs[0].getBoundingClientRect().height);
+    expect(document.querySelector(".list-tabs")!.scrollWidth).toBeLessThanOrEqual(width - 48);
+  });
+
 });

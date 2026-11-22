@@ -2183,6 +2183,43 @@ body.is-resizing iframe {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* the inbox's title, search, Mark all as read and Filter stay on one
+   line: the search narrows, and in a narrow inbox Mark all as read shows
+   only its icon */
+.inbox-side {
+  container-type: inline-size;
+}
+.inbox-side .page-head {
+  flex-wrap: nowrap;
+}
+.inbox-side .heading-inline {
+  flex: none;
+}
+.inbox-side .inbox-controls {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+}
+.inbox-side .inbox-controls > button {
+  flex: none;
+  white-space: nowrap;
+}
+.inbox-side .search-field {
+  flex: 0 1 220px;
+  min-width: 120px;
+}
+.inbox-side .search-field input {
+  width: 100%;
+  min-width: 0;
+}
+@container (max-width: 560px) {
+  .read-all {
+    padding-inline: 8px;
+  }
+  .read-all-label {
+    display: none;
+  }
+}
 .inbox-controls input {
   padding: 5px 9px;
   border: 1px solid var(--border);
@@ -2247,6 +2284,7 @@ body.is-resizing iframe {
   padding: 6px 10px;
   color: var(--dim);
   font-size: var(--text-md);
+  white-space: nowrap;
 }
 .list-tabs button span {
   color: var(--faint);

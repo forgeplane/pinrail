@@ -292,8 +292,14 @@ export function InboxHead({
           </Tooltip>
           {onReadAll && !history ? (
             <Tooltip label="Mark what the list shows read" keys={[SHIFT, "U"]} side="bottom">
-              <button type="button" className="chrome-button" onClick={onReadAll}>
-                <CheckCheck size={14} aria-hidden="true" /> Mark all as read
+              <button
+                type="button"
+                className="chrome-button read-all"
+                aria-label="Mark all as read"
+                onClick={onReadAll}
+              >
+                <CheckCheck size={14} aria-hidden="true" />
+                <span className="read-all-label">Mark all as read</span>
               </button>
             </Tooltip>
           ) : null}
