@@ -158,3 +158,32 @@ describe("a question set", () => {
     await expect.element(chips(keep)).not.toBeInTheDocument();
   });
 });
+
+describe("how unanswered questions ended", () => {
+  test.each([
+    [
+      "withdrawn",
+      {
+        status: "withdrawn",
+        withdrawn_by: "claude-code",
+        withdrawn_reason: "Reworking: each reply becomes its own row.",
+      },
+      "Withdrawn",
+      "Reworking: each reply becomes its own row.",
+    ],
+    ["declined", { status: "discarded", discarded_by: "Ada", discarded_reason: "Not now." }, "Declined", "Not now."],
+  ] as const)("a %s set says so in a badge, with the reason", async (_, fields, badge, reason) => {
+    await open(asked([deploy], fields as Partial<Review>), false);
+    const ended = page.getByText(badge, { exact: true });
+    await expect.element(ended).toHaveClass(/status-badge/);
+    // the reason, in the normal text colour
+    const said = page.getByText(reason, { exact: true });
+    await expect.element(said).toBeVisible();
+    expect(said.element().closest(".set-ended-reason")).not.toBeNull();
+  });
+
+  test("an expired set says so in a badge", async () => {
+    await open(asked([deploy], { status: "expired", expires_at: "2026-11-19T10:00:00Z" }), false);
+    await expect.element(page.getByText("Expired", { exact: true })).toHaveClass(/status-expired/);
+  });
+});

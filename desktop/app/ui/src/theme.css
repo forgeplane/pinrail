@@ -5437,8 +5437,17 @@ body.is-resizing iframe {
   fill: currentColor;
 }
 .set-ended {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin: 0;
   font-size: var(--text-md);
+}
+.set-ended > .status-badge {
+  flex: none;
+}
+.set-ended-reason {
+  color: var(--text);
 }
 /* the sessions, as rows like the inbox's: the agent's icon, the title with
    the branch, the agent, project, id and newest status under it, then what

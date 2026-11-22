@@ -181,6 +181,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Mark questions that were withdrawn, declined or expired with a badge
+  in a session's thread, and show the reason in full colour.
 - Hide a session's details at first in a narrow window, so the terminal
   keeps its width. The details button, or ⌘⇧B, shows them over the
   thread, and Esc hides them again.

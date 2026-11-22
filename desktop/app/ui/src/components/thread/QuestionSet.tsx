@@ -3,7 +3,7 @@
 // under the thread that sends them.
 
 import { Ban, Check, CornerDownRight, MessageSquarePlus, Pencil, Star, Trash2 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../api/client";
 import type { Answer, Question, Review } from "../../api/types";
@@ -340,31 +340,45 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
   );
 });
 
-/** How questions that were not answered ended. */
+/** How questions that were not answered ended: a badge in the colour the
+ *  review's status has elsewhere, then who ended them and when, and the
+ *  reason, which reads first. */
 function SetFooter({ review }: { review: Review }) {
+  const ended = (badge: string, tone: string, said: ReactNode, reason?: string | null) => (
+    <p className="set-ended">
+      <span className={`status-badge status-${tone}`}>{badge}</span>
+      <span className="dim">
+        {said}
+        {reason ? (
+          <>
+            :{" "}
+            <span className="set-ended-reason">
+              <Linked text={reason} />
+            </span>
+          </>
+        ) : (
+          "."
+        )}
+      </span>
+    </p>
+  );
   switch (review.status) {
     case "discarded":
-      return (
-        <p className="set-ended dim">
-          {review.discarded_by ?? "The person"} declined to answer {age(review.discarded_at)} ago
-          {review.discarded_reason ? `: ${review.discarded_reason}` : "."}
-        </p>
+      return ended(
+        "Declined",
+        "discarded",
+        `${review.discarded_by ?? "The person"} declined to answer ${age(review.discarded_at)} ago`,
+        review.discarded_reason,
       );
     case "withdrawn":
-      return (
-        <p className="set-ended dim">
-          {review.withdrawn_by ?? "The agent"} withdrew the questions {age(review.withdrawn_at)} ago
-          {review.withdrawn_reason ? (
-            <>
-              : <Linked text={review.withdrawn_reason} />
-            </>
-          ) : (
-            "."
-          )}
-        </p>
+      return ended(
+        "Withdrawn",
+        "withdrawn",
+        `${review.withdrawn_by ?? "The agent"} withdrew the questions ${age(review.withdrawn_at)} ago`,
+        review.withdrawn_reason,
       );
     case "expired":
-      return <p className="set-ended dim">The questions expired at {stamp(review.expires_at)} without an answer.</p>;
+      return ended("Expired", "expired", `The questions expired at ${stamp(review.expires_at)} without an answer`);
     default:
       return null;
   }
