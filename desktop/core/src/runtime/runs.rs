@@ -786,19 +786,7 @@ impl super::Runtime {
     /// resumed since, unless the person dismissed them, each with its
     /// session's title.
     pub fn restarted(&self) -> Result<Vec<(RunRow, Option<String>)>, RunError> {
-        let now = Utc::now();
-        Ok(self
-            .db
-            .restarted_runs(LOCAL)?
-            .into_iter()
-            .map(|run| {
-                let title = run
-                    .session
-                    .as_ref()
-                    .and_then(|(agent, id)| self.db.session(agent, id, now).ok().flatten()?.title);
-                (run, title)
-            })
-            .collect())
+        Ok(self.titled(self.db.restarted_runs(LOCAL)?))
     }
 
     /// Hides the runs [`Self::restarted`] lists until the next restart.
@@ -962,6 +950,40 @@ impl super::Runtime {
             }
         }
         Ok(())
+    }
+
+    /// The runs live on this computer, with the title of each one's
+    /// session, for the quit dialog.
+    pub fn live(&self) -> Result<Vec<(RunRow, Option<String>)>, RunError> {
+        Ok(self.titled(self.live_runs()?))
+    }
+
+    /// Each run with the title of its session, if it has one.
+    fn titled(&self, runs: Vec<RunRow>) -> Vec<(RunRow, Option<String>)> {
+        let now = Utc::now();
+        runs.into_iter()
+            .map(|run| {
+                let title = run
+                    .session
+                    .as_ref()
+                    .and_then(|(agent, id)| self.db.session(agent, id, now).ok().flatten()?.title);
+                (run, title)
+            })
+            .collect()
+    }
+
+    /// Stops every live run, as quitting with `/runtime/on_quit` at
+    /// `stop` does, without waiting for them to end. Every run is asked
+    /// to stop even when one of them fails, and the first error is
+    /// returned.
+    pub async fn stop_all(&self) -> Result<(), RunError> {
+        let mut failed = None;
+        for run in self.live_runs()? {
+            if let Err(error) = self.stop(&run.id, false).await {
+                failed.get_or_insert(error);
+            }
+        }
+        failed.map_or(Ok(()), Err)
     }
 
     fn live_runs(&self) -> Result<Vec<RunRow>, RunError> {

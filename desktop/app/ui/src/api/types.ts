@@ -728,6 +728,7 @@ export type ServerSettings = {
     };
     default_view?: "last" | "summary" | "terminal" | "split";
     new_run_view?: "summary" | "terminal" | "split";
+    on_quit?: "ask" | "keep" | "stop";
   };
   [key: string]: unknown;
 };

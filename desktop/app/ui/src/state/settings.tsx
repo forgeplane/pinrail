@@ -146,6 +146,8 @@ export type Settings = {
     /** the view a session opens in, and the session of a run just started */
     default_view: "last" | "summary" | "terminal" | "split";
     new_run_view: "summary" | "terminal" | "split";
+    /** what quitting does to the agents running in Pinrail */
+    on_quit: "ask" | "keep" | "stop";
   };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
@@ -177,6 +179,7 @@ type Patch = {
     terminal?: Partial<Settings["runtime"]["terminal"]>;
     default_view?: Settings["runtime"]["default_view"];
     new_run_view?: Settings["runtime"]["new_run_view"];
+    on_quit?: Settings["runtime"]["on_quit"];
   };
   autostart?: boolean;
 };
@@ -291,6 +294,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     },
     default_view: s.runtime?.default_view ?? "last",
     new_run_view: s.runtime?.new_run_view ?? "terminal",
+    on_quit: s.runtime?.on_quit ?? "ask",
   },
 });
 
@@ -425,6 +429,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       terminal: { renderer: ["auto"], option_as_meta: "off", screen_reader: false, clipboard_write: true },
       default_view: "last",
       new_run_view: "terminal",
+      on_quit: "ask",
     },
     autostart: null,
   }));

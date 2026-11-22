@@ -70,6 +70,13 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
 
+/** What each choice for quitting with agents running does. */
+const QUIT_CHOICES = {
+  ask: "Pinrail asks whether to stop the agents that run in it, or to leave them running.",
+  keep: "The agents keep running after Pinrail quits. You can open them again when you reopen Pinrail.",
+  stop: "Pinrail stops the agents that run in it, then quits.",
+} as const;
+
 /** The port, committed on Enter or blur when it is a port and it changed. */
 function PortField({ value, onChange }: { value: number; onChange: (port: number) => void }) {
   const [text, setText] = useState(String(value));
@@ -282,6 +289,20 @@ export function SettingsDialog({
                   ]}
                 />
               </SettingsRow>
+              {settings.labs.runtime ? (
+                <SettingsRow label="Quitting with agents running" description={QUIT_CHOICES[settings.runtime.on_quit]}>
+                  <Segmented
+                    label="Quitting with agents running"
+                    value={settings.runtime.on_quit}
+                    onChange={(v) => update({ runtime: { on_quit: v } })}
+                    options={[
+                      { value: "ask", label: "Ask" },
+                      { value: "keep", label: "Keep them running" },
+                      { value: "stop", label: "Stop them" },
+                    ]}
+                  />
+                </SettingsRow>
+              ) : null}
               <SettingsRow
                 label={`Show in ${TRAY}`}
                 description="An icon with the number of waiting reviews and a menu to open them. When it is off, Pinrail still opens with its shortcut and from notifications."

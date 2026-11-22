@@ -14,6 +14,7 @@ mod native;
 mod notify_linux;
 #[cfg(target_os = "macos")]
 mod notify_mac;
+mod quit;
 mod startup;
 mod updater;
 mod window_buttons;
@@ -625,6 +626,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(server)
         .manage(Updates::new())
+        .manage(quit::Quitting::default())
         .setup(move |app| {
             let mut config = config;
             if config.sdk_dir.is_none() {
@@ -673,7 +675,10 @@ pub fn run() {
             }
             // the menu and the tray are conveniences: without them the app
             // still does its work, so a failure is logged, not fatal
-            if let Err(error) = app_menu(app.handle()).and_then(|menu| app.set_menu(menu)) {
+            if let Err(error) = app_menu(app.handle())
+                .and_then(|menu| quit::replace_quit_item(app.handle(), &menu).map(|()| menu))
+                .and_then(|menu| app.set_menu(menu))
+            {
                 eprintln!("pinrail: the menu could not be set up: {error}");
             }
             if let Err(error) = native::build_tray(app.handle()) {
@@ -748,6 +753,11 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
+            // the app menu's Quit and the tray menu's
+            if id == "quit" {
+                app.exit(0);
+                return;
+            }
             if let Some(url) = help_link(id) {
                 use tauri_plugin_opener::OpenerExt;
                 if let Err(error) = app.opener().open_url(url, None::<&str>) {
@@ -818,13 +828,18 @@ pub fn run() {
             update_status,
             check_for_updates,
             restart_to_update,
-            window_buttons
+            window_buttons,
+            quit::quit
         ])
         .build(tauri::generate_context!())
         .expect("pinrail could not start its window");
 
     app.run(|app, event| {
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+            quit::on_exit_requested(app, *code, api);
+        }
         if let tauri::RunEvent::Exit = event {
+            quit::on_exit(app);
             // the server goes with the app: server.json must not advertise
             // it once it has. Shutting the server down gracefully would wait
             // on every open long poll, so the file is removed directly.

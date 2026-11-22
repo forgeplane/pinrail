@@ -430,6 +430,12 @@ const LEAVES: &[Leaf] = &[
         "The view the session of an agent you just started opens in.",
     ),
     (
+        "/runtime/on_quit",
+        Kind::Enum(&["ask", "keep", "stop"]),
+        || json!("ask"),
+        "When Pinrail quits while agents run in it: ask what to do (`ask`), leave them running (`keep`), or stop them (`stop`).",
+    ),
+    (
         "/runtime/after_restart",
         Kind::Enum(&["ask", "off"]),
         || json!("ask"),

@@ -1344,3 +1344,30 @@ async fn archiving_a_session_stops_its_agent_and_keeps_it_archived() {
     .await;
     assert!(shown["session"]["archived_at"].is_string(), "{shown}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn stopping_every_run_stops_each_running_agent() {
+    let app = linked().await;
+    let mut runs = Vec::new();
+    for name in ["api", "app"] {
+        let folder = folder(&app, name);
+        let (status, started) = call(
+            &app,
+            "POST",
+            "/api/v1/runs",
+            Some(json!({"agent": "claude-code", "folder": folder})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{started}");
+        runs.push(started["run"]["id"].as_str().unwrap().to_string());
+        token(&folder).await;
+    }
+    assert_eq!(app.state.runtime().live().unwrap().len(), 2);
+
+    app.state.runtime().stop_all().await.unwrap();
+    for run in &runs {
+        let run = run_becomes(&app, run, |r| r["state"] == "ended").await;
+        assert_eq!(run["end_reason"], "stopped");
+    }
+    assert_eq!(app.state.runtime().live().unwrap().len(), 0);
+}

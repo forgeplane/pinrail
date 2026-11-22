@@ -21,6 +21,7 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 |---|---|
 | **Launch at login** | Start Pinrail when you log in, so agents can always ask. |
 | **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. On Linux, the option is *Hide to the tray*. |
+| **Quitting with agents running** | What happens to the agents that run in Pinrail when you quit it. *Ask* opens a dialog that lists them, with **Quit**, which leaves them running, and **Stop agents and quit**. Check *Do not ask again* in the dialog to make your choice the setting. *Keep them running* quits without asking, and you can open the agents again when you reopen Pinrail. *Stop them* stops every agent, then quits. The setting shows while **Run agents in Pinrail** is on in Settings › Labs. |
 | **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. On Linux, the setting is *Show in the tray*. |
 
 ## Notifications

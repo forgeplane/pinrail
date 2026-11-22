@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Ask what to do with the running agents when you quit Pinrail: leave them
+  running, or stop them first. **Quitting with agents running** in Settings
+  › General sets the answer once for all.
 - Add **Add and start** to the quick add. It adds the work item and starts
   an agent on it, and ⌥Enter does the same.
 - Add a Notifications section to Settings. It holds the system notification

@@ -2514,6 +2514,77 @@ body.is-resizing iframe {
 .discard-what {
   font-weight: 500;
 }
+.app-dialog.quit-dialog {
+  width: min(540px, calc(100vw - 32px));
+}
+/* Do not ask again, at the start of the buttons' row */
+.quit-dialog-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.quit-dialog-remember:hover,
+.quit-dialog-remember[aria-checked="true"] {
+  color: var(--text);
+}
+.quit-dialog-remember .check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--bg-panel);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+.quit-dialog-remember:hover .check-box {
+  border-color: var(--dim);
+}
+.quit-dialog-remember[aria-checked="true"] .check-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.quit-dialog-remember:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* the agents that run while Pinrail quits; a long list scrolls */
+.quit-dialog-agents {
+  display: grid;
+  gap: 6px;
+  max-height: 168px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: var(--text-base);
+}
+.quit-dialog-agents li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.quit-dialog-agents li > .truncate {
+  flex: 1;
+  min-width: 0;
+}
+.quit-dialog-agents li > .dim {
+  flex: none;
+  font-size: var(--text-sm);
+}
 /* the work in progress a hold would stop */
 .hold-item-work {
   margin: 0;

@@ -52,6 +52,7 @@ import { chooseTheme, chosenTheme } from "../lib/themes";
 import { Tooltip } from "./Tooltip";
 import { WelcomeDialog } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
+import { QuitAsk } from "./QuitDialog";
 import { useLatest } from "../lib/useLatest";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
@@ -409,6 +410,7 @@ export function Layout({ children }: { children: ReactNode }) {
             : undefined
         }
       />
+      <QuitAsk />
       {help ? <ShortcutsDialog plugin={topbar?.plugin} onClose={() => setHelp(false)} /> : null}
       {whatsNew ? <WhatsNewDialog releases={whatsNew} onAction={openFromWhatsNew} onClose={closeWhatsNew} /> : null}
       {feedback ? (

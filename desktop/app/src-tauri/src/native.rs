@@ -362,7 +362,7 @@ fn on_menu(app: &AppHandle, id: &str) {
                 tauri::async_runtime::spawn_blocking(move || pause_notifications(&state, until));
             }
         }
-        "quit" => app.exit(0),
+        // "quit" is the app menu's too, and is handled with it in lib.rs
         // off the main thread, as the window's Restart to update is
         "update-restart" => {
             let app = app.clone();
