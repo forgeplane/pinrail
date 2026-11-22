@@ -119,10 +119,15 @@ export async function startApp({ build = true } = {}) {
   await waitFor(ui, "the shell");
 
   // `client` sets the client the request identifies as. The default, "app",
-  // sends the shell's origin, so the seed's decisions are recorded as made in
-  // the app. "cli" sends the pinrail command's header, and "api" sends neither
+  // sends the shell's origin and the person token, so the seed's decisions
+  // are recorded as made in the app. "cli" sends the pinrail command's
+  // header, and "api" sends neither
   const api = async (method, route, body, client = "app") => {
-    const sent = { app: { origin: ui }, cli: { "x-pinrail-client": "cli" }, api: {} }[client];
+    const sent = {
+      app: { origin: ui, authorization: `Bearer ${token}` },
+      cli: { "x-pinrail-client": "cli" },
+      api: {},
+    }[client];
     const res = await fetch(`${core}${route}`, {
       method,
       headers: method === "GET" ? {} : { "content-type": "application/json", ...sent },
