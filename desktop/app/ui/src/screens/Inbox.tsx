@@ -403,7 +403,13 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
             {waitingRows.length ? (
               <section className="inbox-section" aria-label="Waiting on you">
                 <h2 className="inbox-section-title">
-                  Waiting on you <span>{waitingRows.length}</span>
+                  Waiting on you <span>{waiting?.total ?? waitingRows.length}</span>
+                  {/* All shows the first of them: the tab has every one */}
+                  {(waiting?.total ?? 0) > (waiting?.notifications.length ?? 0) ? (
+                    <Link className="inbox-section-more" to="/?tab=waiting" data-testid="inbox-waiting-more">
+                      {waiting!.notifications.length} shown · see all
+                    </Link>
+                  ) : null}
                 </h2>
                 {waitingRows.map((n, i) => row(n, i))}
               </section>

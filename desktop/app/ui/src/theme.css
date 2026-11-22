@@ -3780,6 +3780,12 @@ body.is-resizing iframe {
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
+.inbox-section-more {
+  margin-left: auto;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
 .inbox-section-unread {
   margin-left: auto;
   color: var(--accent);

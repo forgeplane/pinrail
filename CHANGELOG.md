@@ -265,6 +265,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Count everything that waits on you in the inbox's **Waiting on you**
+  heading, with a link to the tab when the list shows only the first 200.
 - Count in the inbox's tabs what the filters and the search keep, and show
   in its title how much of the whole that is, such as "1 of 2".
 - Stop notifying about sessions the sidebar leaves out, those known only
