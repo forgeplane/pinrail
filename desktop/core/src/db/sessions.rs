@@ -246,7 +246,9 @@ pub(super) fn activity(at: DateTime<Utc>) -> String {
 
 /// Creates the session, or records what it reports now: the project, the
 /// branch and the folder it gives, and its activity at `at`. A session
-/// known only from its hooks is shown from then on.
+/// known only from its hooks is shown from then on. A folder outside any
+/// checkout, such as one a command ran from, is kept only while the
+/// session has no folder: it never replaces the session's checkout.
 pub(super) fn touch(
     conn: &Connection,
     agent: &str,
@@ -256,13 +258,16 @@ pub(super) fn touch(
 ) -> rusqlite::Result<()> {
     let field = |key: &str| origin.get(key).and_then(Value::as_str);
     let repo_id = super::repos::ensure(conn, field("repo"), at)?;
+    let folder = field("folder");
+    let checkout = folder.filter(|f| crate::folders::in_checkout(f));
+    let loose = folder.filter(|f| !crate::folders::in_checkout(f));
     conn.execute(
         "INSERT INTO sessions (agent, id, repo_id, ref, folder, first_at, last_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         VALUES (?1, ?2, ?3, ?4, COALESCE(?5, ?8), ?6, ?7)
          ON CONFLICT (agent, id) DO UPDATE SET
            repo_id = COALESCE(excluded.repo_id, repo_id),
            ref = COALESCE(excluded.ref, ref),
-           folder = COALESCE(excluded.folder, folder),
+           folder = COALESCE(?5, folder, ?8),
            last_at = MAX(last_at, excluded.last_at),
            archived_at = NULL,
            hidden = 0",
@@ -271,9 +276,10 @@ pub(super) fn touch(
             id,
             repo_id,
             field("ref"),
-            field("folder"),
+            checkout,
             crate::reviews::iso(at),
             activity(at),
+            loose,
         ],
     )?;
     Ok(())

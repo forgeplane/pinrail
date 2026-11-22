@@ -261,6 +261,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Offer only a repository's checkouts as its folders when starting an
+  agent. A folder that a `pinrail` command ran from outside a checkout no
+  longer becomes the repository's default folder.
 - `pinrail items add --file` refuses a breakdown when one of its items has
   a field it does not know, such as `description` instead of `body`. The
   error names each field and the item's ref, and no item is added.

@@ -20,6 +20,13 @@ pub fn recent(db: &Db) -> rusqlite::Result<Vec<Value>> {
         .map(|(folder, repo, used_at)| {
             let path = Path::new(&folder);
             let exists = path.is_dir();
+            // a folder outside any checkout is no repository's, whatever a
+            // session reported from it; one that is gone keeps its record
+            let repo = if exists && git_dir(path).is_none() {
+                None
+            } else {
+                repo
+            };
             json!({
                 "folder": folder,
                 "repo": repo,
@@ -40,6 +47,11 @@ pub fn branch(folder: &Path) -> Option<String> {
     head.trim()
         .strip_prefix("ref: refs/heads/")
         .map(str::to_string)
+}
+
+/// Whether `folder` is in a Git repository or worktree.
+pub fn in_checkout(folder: &str) -> bool {
+    git_dir(Path::new(folder)).is_some()
 }
 
 /// The Git folder of the repository holding `folder`: `.git` itself, or

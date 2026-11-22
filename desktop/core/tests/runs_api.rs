@@ -1371,3 +1371,46 @@ async fn stopping_every_run_stops_each_running_agent() {
     }
     assert_eq!(app.state.runtime().live().unwrap().len(), 0);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_folder_outside_a_checkout_is_never_offered_as_a_repositorys_folder() {
+    let app = linked().await;
+    let api = folder(&app, "api");
+    std::fs::create_dir_all(format!("{api}/.git")).unwrap();
+    std::fs::write(format!("{api}/.git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    let scratch = folder(&app, "scratch");
+    let report = |session: &str, folder: &str| {
+        let body = json!({"kind": "step", "text": "working",
+                          "origin": {"repo": "acme/api", "folder": folder}});
+        (
+            format!("/api/v1/sessions/claude-code/{session}/status"),
+            body,
+        )
+    };
+
+    // a session in its checkout, then a command it runs from a scratch folder
+    for folder in [&api, &scratch] {
+        let (path, body) = report("s-1", folder);
+        let (status, answer) = call(&app, "POST", &path, Some(body)).await;
+        assert!(status.is_success(), "{answer}");
+    }
+    // a session whose only folder is the scratch folder
+    let (path, body) = report("s-2", &scratch);
+    let (status, answer) = call(&app, "POST", &path, Some(body)).await;
+    assert!(status.is_success(), "{answer}");
+
+    let (status, shown) = call(&app, "GET", "/api/v1/sessions/claude-code/s-1", None).await;
+    assert_eq!(status, StatusCode::OK, "{shown}");
+    assert_eq!(shown["session"]["folder"], api.as_str(), "{shown}");
+
+    let (_, body) = call(&app, "GET", "/api/v1/folders/recent", None).await;
+    let folders = body["folders"].as_array().unwrap();
+    let repo_of = |name: &str| {
+        folders
+            .iter()
+            .find(|f| f["folder"] == name)
+            .map(|f| f["repo"].clone())
+    };
+    assert_eq!(repo_of(&api), Some(json!("acme/api")));
+    assert_eq!(repo_of(&scratch), Some(Value::Null), "{body}");
+}
