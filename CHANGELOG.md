@@ -269,6 +269,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   heading, with a link to the tab when the list shows only the first 200.
 - Count in the inbox's tabs what the filters and the search keep, and show
   in its title how much of the whole that is, such as "1 of 2".
+- Keep a notification's title readable in a narrow inbox beside an open
+  review.
 - Stop notifying about sessions the sidebar leaves out, those known only
   from an agent's hooks and archived ones. An agent that waits for you
   still notifies you, and its session shows in the sidebar again.

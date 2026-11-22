@@ -2493,6 +2493,7 @@ body.is-resizing iframe {
 @container (max-width: 560px) {
   .review-row {
     grid-template-columns: 8px 1fr auto;
+    gap: 8px;
   }
   .review-row.has-icon {
     grid-template-columns: 8px 20px 1fr auto;
