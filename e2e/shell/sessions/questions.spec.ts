@@ -608,7 +608,7 @@ test("a stage the agent starts renames its session in the sidebar at once", asyn
   await expect(waiting).toHaveText(/Ship the deploy script/);
 });
 
-test("a name the person gives a session heads it, with its stage and the generated name beside it", async ({
+test("a name the person gives a session heads it, with its stage beside it and the generated name in its details", async ({
   page,
 }) => {
   await clearInbox(page.request);
@@ -617,9 +617,10 @@ test("a name the person gives a session heads it, with its stage and the generat
   const generated = await sessionName(page.request, "claude-code", session);
   await page.goto(`/#/sessions/claude-code/${session}`);
   const heading = thread(page).getByRole("heading", { level: 1 });
-  // the stage heads it, and the name Pinrail gave it shows under it
+  // the stage heads it, and the name Pinrail gave it shows in the details
+  const details = thread(page).getByRole("complementary", { name: "Session details" });
   await expect(heading).toHaveText("Ship the deploy script");
-  await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
+  await expect(details).toContainText(generated);
 
   // the person names the session by Pinrail's id
   const id = await sessionId(page.request, "claude-code", session);
@@ -628,7 +629,7 @@ test("a name the person gives a session heads it, with its stage and the generat
   });
   expect(renamed.status(), await renamed.text()).toBe(204);
   await expect(heading).toHaveText("Deploy work");
-  await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
+  await expect(details).toContainText(generated);
   await expect(thread(page).locator(".thread-meta-stage")).toHaveText("Ship the deploy script");
   await expect(inSidebar(page, id)).toContainText("Deploy work");
 });

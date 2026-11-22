@@ -67,12 +67,12 @@ test("a click on the session's name renames it in place, Enter or a click elsewh
   await thread(page).locator(".thread-items").click();
   await expect(heading(page)).toHaveText("Auth fixes");
 
-  // an empty name gives back the stage, with the name Pinrail gave it beside it
+  // an empty name gives back the stage, with the name Pinrail gave it in the details
   await heading(page).getByRole("button").click();
   await page.keyboard.press("Backspace");
   await page.keyboard.press("Enter");
   await expect(heading(page)).toHaveText("Fix the login redirect");
-  await expect(thread(page).locator(".thread-meta-generated")).toHaveText(generated);
+  await expect(thread(page).getByRole("complementary", { name: "Session details" })).toContainText(generated);
 });
 
 test("Rename in a session's menu in the sidebar opens it to rename", async ({ page }) => {
