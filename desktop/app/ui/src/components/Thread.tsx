@@ -115,10 +115,16 @@ export type ReviewPanelProps = {
 export const sessionPath = (s: { agent: string; id: string }) =>
   `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
 
+/** Below this width, a session page hides its details at first, and
+ *  shows them over the thread when asked, so the terminal keeps its width. */
+export const NARROW_PAGE = 900;
+
 /** The space a session page's terminal has in the main area `main`: less
- *  the header and the terminal bar, and the details when they are shown. */
+ *  the header and the terminal bar, and the details when they are shown
+ *  beside it. */
 export function terminalArea(main: DOMRect): { width: number; height: number } {
-  const details = stored(DETAILS_SHOWN) !== "hidden" ? Number(readStored(DETAILS_WIDTH)) || 280 : 0;
+  const beside = main.width >= NARROW_PAGE && stored(DETAILS_SHOWN) !== "hidden";
+  const details = beside ? Number(readStored(DETAILS_WIDTH)) || 280 : 0;
   return {
     width: Math.max(0, main.width - details),
     height: Math.max(0, main.height - HEAD_HEIGHT - TERMINAL_BAR_HEIGHT),
@@ -554,12 +560,43 @@ export function Thread({
     preview: (width) => body.current?.style.setProperty("--details-width", `${width}px`),
   });
   const detailsWidth = storedDetailsWidth ?? 280;
+  // in a narrow page the details open over the thread, for the moment: the
+  // choice kept for wider pages stays as it was
+  const [narrow, setNarrow] = useState(false);
+  const [overDetails, setOverDetails] = useState(false);
+  // a side panel keeps its own choice, as narrow as it always is
+  useEffect(() => {
+    const el = body.current;
+    if (!el || inPanel) return;
+    // widened, the details over the thread close: beside it, they follow
+    // the choice kept for wide pages
+    const observer = new ResizeObserver(([entry]) => {
+      const isNarrow = entry.contentRect.width < NARROW_PAGE;
+      setNarrow(isNarrow);
+      if (!isNarrow) setOverDetails(false);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inPanel]);
+  const detailsShown = narrow ? overDetails : details;
   const toggleDetails = useCallback(() => {
+    if (narrow) {
+      setOverDetails((shown) => !shown);
+      return;
+    }
     setDetails((shown) => {
       store(shownKey, shown ? "hidden" : "shown");
       return !shown;
     });
-  }, [shownKey]);
+  }, [shownKey, narrow]);
+  useWindowKey(
+    (event) => {
+      if (event.key !== "Escape" || modalOpen()) return;
+      event.preventDefault();
+      setOverDetails(false);
+    },
+    { enabled: narrow && overDetails },
+  );
   useWindowKey(
     (event) => {
       if (modalOpen() || !hasMod(event) || !event.shiftKey || event.altKey) return;
@@ -709,15 +746,19 @@ export function Thread({
               <MuteToggle subject={{ session: { agent: session.agent, id: session.id } }} className="bar-button" />
             ) : null}
             {hasDetails ? (
-              <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
+              <Tooltip
+                label={detailsShown ? "Hide the details" : "Show the details"}
+                keys={[MOD, SHIFT, "B"]}
+                side="bottom"
+              >
                 <button
                   type="button"
                   className="bar-button"
-                  aria-label={details ? "Hide the session's details" : "Show the session's details"}
-                  aria-pressed={details}
+                  aria-label={detailsShown ? "Hide the session's details" : "Show the session's details"}
+                  aria-pressed={detailsShown}
                   onClick={toggleDetails}
                 >
-                  {details ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+                  {detailsShown ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
                 </button>
               </Tooltip>
             ) : null}
@@ -886,7 +927,7 @@ export function Thread({
               <SessionItemPanel key={openItem} itemKey={openItem} onOpen={showItem} onClose={() => showItem(null)} />
             </SidePanel>
           ) : null}
-          {!hasDetails || !details || openReview || openItem ? null : (
+          {!hasDetails || !detailsShown || narrow || openReview || openItem ? null : (
             <div
               className="panel-resizer thread-aside-resizer"
               {...detailsEdge}
@@ -894,8 +935,9 @@ export function Thread({
               onKeyDown={(event) => resizeDetailsBy(event)}
             />
           )}
-          {!hasDetails || !details || openReview || openItem ? null : (
+          {!hasDetails || !detailsShown || openReview || openItem ? null : (
             <ThreadDetails
+              over={narrow}
               session={session}
               waiting={waiting}
               newest={newest}

@@ -21,7 +21,10 @@ async function replied(request: APIRequestContext, session: string, reply: strin
 
 const SHORT =
   "That failure is expected. Round 2 was withdrawn when I sent round 3 to replace it. " +
-  "Round 3 of `PIN-400` is still waiting for your review in Pinrail.";
+  "Round 3 of `PIN-400` is still waiting for your review in Pinrail. " +
+  "It has the same frames as round 2, with the spacing of the header fixed, " +
+  "and the light theme checked again in the running app. " +
+  "Nothing else changed between the rounds.";
 
 test("a reply that fits once the window is wider has no Show more", async ({ page }) => {
   const session = fresh();

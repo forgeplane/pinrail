@@ -4701,6 +4701,20 @@ body.is-resizing iframe {
   border-left: 1px solid var(--border);
   font-size: var(--text-md);
 }
+/* in a narrow page, the details over the thread from its right edge */
+.thread-body {
+  position: relative;
+}
+.thread-aside.is-over {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: min(300px, 85%);
+  background: var(--bg);
+  box-shadow: -12px 0 28px rgb(0 0 0 / 0.3);
+}
 /* the edge that resizes the details draws their border */
 .thread-aside-resizer + .thread-aside {
   border-left: 0;

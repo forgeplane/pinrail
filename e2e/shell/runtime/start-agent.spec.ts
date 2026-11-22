@@ -311,7 +311,7 @@ for (const [how, over, banner] of [
     await expect.poll(() => fits(page)).toBe(true);
     await expect.poll(() => scale(page)).toBeLessThan(1);
     // and no further than it reads: a narrower view scrolls it sideways
-    await page.setViewportSize({ width: 700, height: 700 });
+    await page.setViewportSize({ width: 560, height: 700 });
     await expect.poll(() => scale(page)).toBe(0.7);
     await expect.poll(() => fits(page)).toBe(false);
     // and no terminal to attach to

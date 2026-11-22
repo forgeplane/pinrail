@@ -1,6 +1,6 @@
 // A session's thread at component level, against the fake core: its header
 // and renaming in place, its timeline, and what its notices change.
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { Notice, Review, SessionStatus } from "../api/types";
 import { core } from "../testing/core";
@@ -10,6 +10,12 @@ import { Thread } from "./Thread";
 import "../theme.css";
 
 vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
+
+// wide enough for the details beside the thread; a test of a narrow page
+// sets its own
+beforeEach(async () => {
+  await page.viewport(1400, 800);
+});
 
 afterEach(() => {
   cleanup();
@@ -40,7 +46,6 @@ const heading = () => page.getByTestId("thread").getByRole("heading", { level: 1
 
 describe("the thread's header", () => {
   test("names the session by its stage, with its generated name in the details, not the header", async () => {
-    await page.viewport(1400, 800);
     await open([step(1, "Fix the login", "start")], { id: "s-1", title: "Fix the login" });
     await expect.element(heading()).toHaveTextContent("Fix the login");
     const details = page.getByRole("complementary", { name: "Session details" });
@@ -53,6 +58,19 @@ describe("the thread's header", () => {
     await open([step(1, "Fix the login", "start")], { id: "s-1", title: "Fix the login" });
     await expect.element(heading()).toHaveTextContent("Fix the login");
     await expect.element(page.getByTestId("thread").getByText(/^started /)).not.toBeVisible();
+  });
+
+  test("a narrow page hides the details at first, and shows them over the thread when asked", async () => {
+    await page.viewport(760, 600);
+    await open([step(1, "Fix the login", "start")], { id: "s-1", title: "Fix the login" });
+    await expect.element(heading()).toHaveTextContent("Fix the login");
+    const details = page.getByRole("complementary", { name: "Session details" });
+    await expect.element(details).not.toBeInTheDocument();
+    await userEvent.click(page.getByRole("button", { name: "Show the session's details" }));
+    await expect.element(details).toBeVisible();
+    await expect.element(details).toHaveClass(/is-over/);
+    await userEvent.keyboard("{Escape}");
+    await expect.element(details).not.toBeInTheDocument();
   });
 
   test("without a stage, by its generated name", async () => {

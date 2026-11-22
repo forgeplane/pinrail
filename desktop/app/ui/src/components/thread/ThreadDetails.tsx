@@ -29,6 +29,8 @@ const STAGES_SHOWN = 8;
 const ITEMS_SHOWN = 5;
 
 type Props = {
+  /** shown over the thread, in a narrow page, rather than beside it */
+  over?: boolean;
   session: Session | null;
   /** its reviews and questions that wait on the person, by newest round */
   waiting: Review[];
@@ -51,6 +53,7 @@ type Props = {
 };
 
 export function ThreadDetails({
+  over = false,
   session,
   waiting,
   newest,
@@ -98,7 +101,7 @@ export function ThreadDetails({
     });
 
   return (
-    <aside className="thread-aside" aria-label="Session details">
+    <aside className={`thread-aside ${over ? "is-over" : ""}`} aria-label="Session details">
       <section>
         <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
         {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}
