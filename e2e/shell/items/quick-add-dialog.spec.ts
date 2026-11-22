@@ -95,7 +95,9 @@ test("from a session or a review, the dialog starts on its repository", async ({
   });
   expect(started.status(), await started.text()).toBe(200);
   await page.goto(`/#/sessions/claude-code/${session}`);
-  await expect(page.getByText("Load the themes").first()).toBeVisible();
+  // the thread's own, which names its repository: the sidebar lists the
+  // session's status before the thread has loaded
+  await expect(page.getByTestId("thread").getByText("Load the themes").first()).toBeVisible();
   await page.keyboard.press("ControlOrMeta+Shift+C");
   await expect(field(page)).toBeFocused();
   await expect(dialog(page).getByRole("button", { name: "Repository" })).toHaveText(repo);
