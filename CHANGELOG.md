@@ -268,6 +268,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Fix ⌘D, which declines questions or discards a review, with a review
+  open beside a session's thread. From the thread it now declines the
+  thread's questions, and from the review's panel it discards the review.
 - Count everything that waits on you in the inbox's **Waiting on you**
   heading, with a link to the tab when the list shows only the first 200.
 - Count in the inbox's tabs what the filters and the search keep, and show

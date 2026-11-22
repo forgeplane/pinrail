@@ -178,6 +178,52 @@ test("declining tells the agent to stop, with the reason", async ({ page }) => {
   expect((await decisionOf(page.request, id)).discarded_reason).toBe("ask in the PR");
 });
 
+test("⌘D with a review beside the thread declines the questions from the thread, and discards the review from its panel", async ({
+  page,
+}) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, asked(session, "Both: deploy"));
+  await send(page.request, {
+    plugin: "list",
+    title: "Both: the plan",
+    origin: { repo: "acme/api" },
+    requested_by: "claude-code",
+    session,
+    payload: onePayload,
+  });
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}`);
+  await thread(page).getByTestId("thread-review").click();
+  const panel = page.getByTestId("review-panel");
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
+  const decline = page.getByRole("dialog", { name: "Decline to answer?" });
+  const discard = page.getByRole("dialog", { name: "Discard this review?" });
+
+  // the focus in the thread: the questions' Decline, and not the review's Discard
+  await question(page, "Keep the old endpoint?").click();
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(decline).toBeVisible();
+  await expect(discard).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(decline).toHaveCount(0);
+
+  // the focus in the review's panel: its Discard alone
+  await panel.locator("#plugin-frame").focus();
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(discard).toBeVisible();
+  await expect(decline).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(discard).toHaveCount(0);
+
+  // the same once the page opens with the review already beside the thread
+  await page.reload();
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("One proposal.");
+  await question(page, "Keep the old endpoint?").click();
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(decline).toBeVisible();
+  await expect(discard).toHaveCount(0);
+});
+
 test("the Sessions page lists the sessions, those waiting first, and opens a session's thread", async ({ page }) => {
   await clearInbox(page.request);
   const answered = fresh();

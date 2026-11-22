@@ -270,6 +270,10 @@ function ReviewBody({
       return;
     }
     if (hasMod(event) && !event.shiftKey && !event.altKey && (event.key === "d" || event.key === "D")) {
+      // beside a session's thread, ⌘D discards the review only with the
+      // focus in its panel; anywhere else it declines the thread's questions
+      const panel = frame.current?.closest(".review-panel");
+      if (besideThread && !panel?.contains(document.activeElement)) return;
       // the key must not land in the reason field that opens
       event.preventDefault();
       if (pending) setDiscarding(true);
