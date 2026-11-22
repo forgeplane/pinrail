@@ -12,8 +12,9 @@ test("a screen that fails to render leaves the rest of the app usable", async ({
   await expect(page.getByRole("button", { name: "Reload" })).toBeVisible();
 
   const nav = page.getByRole("navigation", { name: "Main" });
-  await nav.getByRole("link", { name: "Inbox" }).click();
-  await expect(page.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  // another screen, which does not read the projects
+  await nav.getByRole("link", { name: "Sessions" }).click();
+  await expect(page.getByRole("heading", { name: "Sessions", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "This page could not be shown" })).toHaveCount(0);
 
   // back on the page that failed, the app tries to draw it again

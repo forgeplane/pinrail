@@ -110,8 +110,8 @@ export async function clearInbox(request: APIRequestContext) {
     const response = await request.post(`${core}/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
     expect(response.status(), `discarding ${r.id}: ${await response.text()}`).toBe(200);
   }
-  // and the inbox's Agents section: finished sessions are seen, and agents
-  // waiting in their terminal end
+  // and the agents: finished sessions are seen, and agents waiting in
+  // their terminal end
   const sessions = (await (await request.get(`${core}/api/v1/sessions?attention=needs_you,finished&limit=500`)).json())
     .sessions as {
     agent: string;
@@ -131,6 +131,17 @@ export async function clearInbox(request: APIRequestContext) {
         data: { event: "ended" },
       });
       expect(response.status(), `ending ${s.id}`).toBe(204);
+    }
+  }
+  // and the updates other specs left, such as a review they withdrew
+  for (;;) {
+    const { notifications } = (await (
+      await request.get(`${core}/api/v1/notifications?tab=updates&limit=200`)
+    ).json()) as { notifications: { id: number }[] };
+    if (!notifications.length) break;
+    for (const n of notifications) {
+      const response = await request.put(`${core}/api/v1/notifications/${n.id}/done`);
+      expect(response.status(), `marking notification ${n.id} done`).toBeLessThan(300);
     }
   }
 }
@@ -171,6 +182,16 @@ export async function pickIn(page: Page, menu: "Filter" | "Display options", sub
   await page.getByRole("menuitem", { name: new RegExp(`^${submenu}`) }).click();
   await page.getByRole("menuitemradio", { name: option, exact: true }).click();
   // the pick closes the menu
+  await page.getByRole("menu").first().waitFor({ state: "detached" });
+}
+
+/** Picks a choice of a filter that takes several, such as the inbox's
+ *  Project or repository, and closes the menu, which stays open for more. */
+export async function checkIn(page: Page, submenu: string, option: string) {
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await page.getByRole("menuitem", { name: new RegExp(`^${submenu}`) }).click();
+  await page.getByRole("menuitemcheckbox", { name: option, exact: true }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("menu").first().waitFor({ state: "detached" });
 }
 

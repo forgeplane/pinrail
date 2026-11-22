@@ -71,6 +71,7 @@ test("an older settings answer that arrives last does not undo a newer change", 
   await page.goto("/#/");
   await page.keyboard.press("ControlOrMeta+,");
   await expect(settingsDialog(page)).toBeVisible();
+  await settingsSection(page, "Notifications").click();
 
   const sound = page.getByRole("switch", { name: "Sound" });
   const notifications = page.getByRole("switch", { name: "System notifications" });

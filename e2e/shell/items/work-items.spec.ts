@@ -403,9 +403,9 @@ test("the quick add opens with C, adds with Enter, keeps going with ⌘Enter, an
   const hints = box.locator(".key-hint");
   await expect(hints).toHaveText([
     "EnterAdd and open",
-    /\+EnterAdd and add more$/,
+    /\+EnterAdd more$/,
     "TabDescription",
-    /\+TabChange repository$/,
+    /\+TabRepository$/,
     "EscCancel",
   ]);
   await expect(hints.locator(".key-cap")).toHaveCount(5);
@@ -948,30 +948,27 @@ test("beside the side panel, the quick add keeps its title field wide and its co
   await page.screenshot({ path: test.info().outputPath("quick-add-beside-panel.png") });
 });
 
-test("a narrow quick add keeps its controls on the second line whatever repository is chosen", async ({
-  page,
-  request,
-}) => {
+test("a narrow quick add keeps Cancel on the title line whatever repository is chosen", async ({ page, request }) => {
   const stamp = Date.now();
   const short = `s${stamp % 1000}/a`;
   const long = `q${stamp}/a-repository-with-a-much-longer-name`;
   await add(request, short, "Short");
   await add(request, long, "Long");
-  // a box wide enough for the field and the controls of a short name on
-  // one line, but not for those of a long one
+  // a box wide enough for a short name's controls beside the field, but
+  // not for a long one's
   await page.setViewportSize({ width: 820, height: 700 });
   await page.goto(`/#/items?repo=${encodeURIComponent(short)}`);
   await page.getByTestId("item-quick-add").click();
   const box = page.getByTestId("item-quick-box");
   const field = box.getByRole("textbox", { name: "What needs to be done?" });
   const cancel = box.getByRole("button", { name: "Cancel" });
-  const below = async () => (await cancel.boundingBox())!.y > (await field.boundingBox())!.y + 10;
-  // the controls stay under the field for a short name and a long one
+  const besideTitle = async () => Math.abs((await cancel.boundingBox())!.y - (await field.boundingBox())!.y) < 10;
+  // Cancel stays beside the title for a short name and a long one
   for (const repo of [short, long, short]) {
     await box.getByRole("button", { name: "Repository" }).click();
     await page.getByRole("option", { name: repo, exact: true }).click();
     await expect(box.getByRole("button", { name: "Repository" })).toContainText(repo.slice(0, 8));
-    expect(await below(), repo).toBe(true);
+    expect(await besideTitle(), repo).toBe(true);
   }
 });
 

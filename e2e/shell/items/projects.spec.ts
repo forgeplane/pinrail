@@ -2,7 +2,7 @@
 // each with its repositories, and the repositories in no project last.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from "../fixtures";
-import { clearInbox, core, createReview, pickIn, settingSaved, toast } from "../helpers";
+import { checkIn, clearInbox, core, createReview, pickIn, settingSaved, toast } from "../helpers";
 
 /** Deletes every project, so each test starts with none. */
 async function noProjects(request: APIRequestContext) {
@@ -170,10 +170,7 @@ test("the projects are listed by name, and stay in place while repositories move
   await expect(names).toHaveText(["Busy"]);
 });
 
-test("the inbox groups and filters by project, and names each review's repository in a mixed one", async ({
-  page,
-  request,
-}) => {
+test("the inbox filters by project, and names each row's repository", async ({ page, request }) => {
   await clearInbox(request);
   await createReview(request, { title: "Inbox: app", origin: { repo: "mix/app" } });
   await createReview(request, { title: "Inbox: infra", origin: { repo: "mix/infra" } });
@@ -184,49 +181,12 @@ test("the inbox groups and filters by project, and names each review's repositor
   const { id } = (await created.json()) as { id: string };
 
   await page.goto("/#/");
-  await pickIn(page, "Display options", "Grouping", "Project");
-  const groups = page.getByTestId("inbox-group-name");
-  await expect(groups).toHaveText(["mix/elsewhere", "Mix"]);
-  const mixed = page.getByTestId("inbox-group").filter({ has: page.getByText("Mix", { exact: true }) });
-  await expect(mixed.getByTestId("review-row-project")).toHaveText(["mix/infra", "mix/app"]);
-  // each heading's arrow, and its icon or avatar, is centred on the name's capital letters
-  for (const heading of await page.getByTestId("inbox-group-heading").all()) {
-    const offsets = await heading.evaluate((h) => {
-      const name = h.querySelector("strong")!;
-      // the baseline, where an empty inline block sits, and the capitals' height
-      const probe = document.createElement("span");
-      probe.style.cssText = "display: inline-block; width: 0; height: 0";
-      name.appendChild(probe);
-      const baseline = probe.getBoundingClientRect().bottom;
-      probe.remove();
-      // the capitals' height measured at 1000px and scaled: Chromium on Linux
-      // rounds a glyph's bounds up to whole pixels, which at the name's size
-      // would move the centre by up to half a pixel
-      const style = getComputedStyle(name);
-      const context = document.createElement("canvas").getContext("2d")!;
-      context.font = `${style.fontWeight} 1000px ${style.fontFamily}`;
-      const cap = (context.measureText("P").actualBoundingBoxAscent / 1000) * parseFloat(style.fontSize);
-      const capCentre = baseline - cap / 2;
-      return [...h.querySelectorAll(":scope > svg, :scope > .project-avatar")].map((icon) => {
-        const box = icon.getBoundingClientRect();
-        return box.top + box.height / 2 - capCentre;
-      });
-    });
-    expect(offsets.length).toBe(2);
-    for (const offset of offsets) expect(Math.abs(offset)).toBeLessThan(0.3);
-  }
-
-  // the filter takes the project, and the address keeps it
-  await pickIn(page, "Filter", "Project or repository", "Mix");
-  await expect(page).toHaveURL(new RegExp(`project=${id}`));
-  await expect(page.getByTestId("review-row")).toHaveCount(2);
-
-  // the history filters by it too
-  await page.getByRole("tab", { name: "History" }).click();
-  await expect(page).toHaveURL(new RegExp(`project=${id}`));
-
-  // the layout is kept in the settings
-  await settingSaved(request, (s) => s.inbox.layout, "project");
+  await checkIn(page, "Project or repository", "Mix");
+  await expect(page).toHaveURL(new RegExp(`scope=project%3A${id}`));
+  const rows = page.getByTestId("review-row");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: "Inbox: app" })).toContainText("mix/app");
+  await expect(rows.filter({ hasText: "Inbox: infra" })).toContainText("mix/infra");
 });
 
 test("the project or repository filter narrows its choices to what is typed", async ({ page, request }) => {
@@ -244,7 +204,7 @@ test("the project or repository filter narrows its choices to what is typed", as
     await filter.click();
     await page.getByRole("menuitem", { name: /^Project or repository/ }).click();
   };
-  const choices = page.getByRole("menu", { name: "Project or repository" }).getByRole("menuitemradio");
+  const choices = page.getByRole("menu", { name: "Project or repository" }).getByRole("menuitemcheckbox");
 
   // the submenu opens with its search focused, and narrows to what is typed
   await openScope();
@@ -266,7 +226,7 @@ test("the project or repository filter narrows its choices to what is typed", as
   await expect(choices.locator(".menu-label")).toHaveText([`Typed ${tag}`, app, web]);
   await search.press("ArrowDown");
   await search.press("Enter");
-  await expect(page).toHaveURL(new RegExp(`repo=${tag}%2Fapp`));
+  await expect(page).toHaveURL(new RegExp(`scope=${tag}%2Fapp`));
   await expect(page.getByTestId("review-row")).toHaveText([/Type: app/]);
 
   // a pick leaves the menu open for another filter, until Escape
@@ -279,7 +239,7 @@ test("the project or repository filter narrows its choices to what is typed", as
   await search.press("Escape");
   await expect(page.getByRole("menu", { name: "Project or repository" })).toHaveCount(0);
   await expect(filter).toBeFocused();
-  await expect(page).toHaveURL(new RegExp(`repo=${tag}%2Fapp`));
+  await expect(page).toHaveURL(new RegExp(`scope=${tag}%2Fapp`));
 });
 
 test("a project's avatar takes a colour and an icon, and shows where the project does", async ({ page, request }) => {
@@ -344,15 +304,6 @@ test("a project's avatar takes a colour and an icon, and shows where the project
     return baseline - cap / 2 - (svg.top + svg.height / 2);
   });
   expect(Math.abs(offset)).toBeLessThan(0.3);
-
-  // the inbox's group shows it too, at the size the Projects page does
-  const onPage = (await group.locator(".project-avatar").boundingBox())!;
-  await page.goto("/#/");
-  await pickIn(page, "Display options", "Grouping", "Project");
-  const inInbox = page.getByTestId("inbox-group").filter({ hasText: "Avatar" }).locator(".project-avatar");
-  await expect(inInbox).toHaveAttribute("data-color", "green");
-  const inbox = (await inInbox.boundingBox())!;
-  expect([inbox.width, inbox.height]).toEqual([onPage.width, onPage.height]);
 });
 
 test("at the large interface size, a project's menu opens under its button", async ({ page, request }) => {
@@ -398,7 +349,8 @@ test("the command palette goes to the projects, makes one, and shows one's revie
   await page.keyboard.press("Escape");
 
   await run("show palette", /Show Palette in the inbox/);
-  await expect(page).toHaveURL(new RegExp(`project=${id}`));
+  // the inbox takes the project as its Project or repository filter
+  await expect(page).toHaveURL(new RegExp(`scope=project%3A${id}`));
 });
 
 test("a project's avatar takes a PNG, cropped to its middle square, and gives it up again", async ({
@@ -440,7 +392,7 @@ test("a project's avatar takes a PNG, cropped to its middle square, and gives it
   await edit.getByRole("button", { name: "Save" }).click();
   await expect(edit).toBeHidden();
 
-  // shown on the page and in the inbox, as the middle square at 256 pixels
+  // shown on the page, as the middle square at 256 pixels
   const shown = group.locator(".project-avatar img");
   await expect(shown).toHaveAttribute("src", /\/api\/v1\/projects\/p_\w+\/image\?v=[0-9a-f]{64}$/);
   const size = await shown.evaluate(async (img: HTMLImageElement) => {
@@ -448,11 +400,6 @@ test("a project's avatar takes a PNG, cropped to its middle square, and gives it
     return [img.naturalWidth, img.naturalHeight];
   });
   expect(size).toEqual([256, 256]);
-  await page.goto("/#/");
-  await pickIn(page, "Display options", "Grouping", "Project");
-  await expect(
-    page.getByTestId("inbox-group").filter({ hasText: "Pictured" }).locator(".project-avatar img"),
-  ).toBeVisible();
 
   // removed, the letter is back
   await page.goto("/#/projects");
@@ -583,7 +530,7 @@ test("a repository's menu opens it in the inbox, its sessions and the history", 
   // a repository with something waiting opens in the inbox, filtered to it
   let menu = await menuOf(waiting);
   await menu.getByRole("menuitem", { name: "Open in the inbox" }).click();
-  await expect(page).toHaveURL(new RegExp(`repo=${encodeURIComponent(waiting)}`));
+  await expect(page).toHaveURL(new RegExp(`scope=${encodeURIComponent(waiting)}`));
   await expect(page.getByTestId("review-row")).toHaveText([/Open: waiting/]);
 
   // one with nothing waiting cannot, but its sessions and its history can

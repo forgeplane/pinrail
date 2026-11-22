@@ -52,8 +52,9 @@ test("the sidebar lists what waits under its project on every page, and ⌥↓ w
   await expect(project(page, "acme/api")).toContainText("2");
   await expect(project(page, "No repository")).toContainText("1");
   await project(page, "No repository").getByRole("link", { name: "No repository" }).click();
-  await expect(page).toHaveURL(/repo=-/);
-  await expect(page.getByTestId("inbox-group-name")).toHaveText(["No repository"]);
+  // the inbox takes it as its Project or repository filter
+  await expect(page).toHaveURL(/scope=-/);
+  await expect(page.getByTestId("review-row")).toHaveText([/Sidebar: no project/]);
   await expect(page.getByTestId("filter-chip")).toHaveText(["Project or repository: No repository"]);
   await decideNothing(page.request, loose.id);
   await expect(projects.getByTestId("waiting-review").filter({ hasText: "no project" })).toHaveCount(0);
