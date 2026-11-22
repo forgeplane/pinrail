@@ -93,7 +93,9 @@ impl Notifications {
         Ok(json!({
             "notifications": notifications,
             "total": total,
-            "counts": self.db.notification_counts()?.to_json(),
+            // each tab's count of what the filters keep, and of everything
+            "counts": self.db.notification_counts_of(filters)?.to_json(),
+            "all": self.db.notification_counts()?.to_json(),
             "up_to": up_to,
         }))
     }

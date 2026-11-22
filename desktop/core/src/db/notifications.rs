@@ -1112,6 +1112,31 @@ impl Db {
         )
     }
 
+    /// [`Db::notification_counts`] of what `filters` keep, whatever their
+    /// tab: each tab's count.
+    pub fn notification_counts_of(
+        &self,
+        filters: &NotificationFilters,
+    ) -> rusqlite::Result<Counts> {
+        let count = |listed: Listed, extra: &str| -> rusqlite::Result<i64> {
+            let (filter, args) = NotificationFilters {
+                listed,
+                done: false,
+                ..filters.clone()
+            }
+            .sql();
+            self.read().query_row(
+                &format!("SELECT count(*) FROM notifications n WHERE {filter}{extra}"),
+                rusqlite::params_from_iter(&args),
+                |r| r.get(0),
+            )
+        };
+        Ok(Counts {
+            waiting: count(Listed::Waiting, "")?,
+            unread: count(Listed::Unread, " AND n.waiting = 0")?,
+        })
+    }
+
     /// How many notifications wait for the person, and how many of the
     /// others are unread.
     pub fn notification_counts(&self) -> rusqlite::Result<Counts> {

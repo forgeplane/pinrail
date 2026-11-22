@@ -1,4 +1,5 @@
-// The inbox's tabs: Pending, New rounds and History, under one filter bar.
+// The inbox's tabs: All, Waiting on you, Unread and History, under one
+// filter bar.
 
 import { expect, test } from "../fixtures";
 import { clearInbox, core, createReview, decide, shownIn, toggleFilter } from "../helpers";
@@ -43,7 +44,7 @@ test("switching tabs keeps the search and the project, and leaves the outcome be
 
   await page.goto(`/#/?tab=history&q=${run}&status=withdrawn`);
   await expect(page.getByTestId("history-row")).toHaveCount(0);
-  await tab(page, "Pending").click();
+  await tab(page, "All").click();
   await expect(page).toHaveURL(new RegExp(`#/\\?q=${run}$`));
   await expect(page.getByTestId("review-row")).toHaveText([new RegExp(`Tabs: waiting ${run}`)]);
 });
@@ -63,7 +64,7 @@ test("the star filter lists the starred waiting reviews", async ({ page }) => {
 
 test("⌘⇧H opens the History tab", async ({ page }) => {
   await page.goto("/#/");
-  await expect(tab(page, "Pending")).toHaveAttribute("aria-selected", "true");
+  await expect(tab(page, "All")).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+H" : "Control+Shift+H");
   await expect(page).toHaveURL(/#\/\?tab=history$/);
   await expect(tab(page, "History")).toHaveAttribute("aria-selected", "true");
@@ -75,19 +76,17 @@ test("the tabs count what the filters keep, and the title says how much of the w
   await createReview(page.request, { title: "Counts: api again", origin: { repo: "counts/api" }, revises: first.id });
   await createReview(page.request, { title: "Counts: web", origin: { repo: "counts/web" } });
   await page.goto("/#/");
-  await expect(tab(page, "Pending")).toContainText("2");
-  await expect(tab(page, "New rounds")).toContainText("1");
-
+  // a new round of a review is one more round of the same review
+  await expect(tab(page, "Waiting on you")).toContainText("2");
   await expect(page.getByTestId("inbox-total")).toHaveText("2");
 
-  await page.goto("/#/?repo=counts%2Fweb");
-  await expect(tab(page, "Pending")).toContainText("1");
-  await expect(tab(page, "New rounds")).toContainText("0");
+  await page.goto("/#/?scope=counts%2Fweb");
+  await expect(tab(page, "Waiting on you")).toContainText("1");
   await expect(page.getByTestId("inbox-total")).toHaveText("1 of 2");
 
   // the search counts as a filter too
   await page.goto("/#/");
   await page.getByLabel("Search inbox").fill("again");
-  await expect(tab(page, "Pending")).toContainText("1");
-  await expect(tab(page, "New rounds")).toContainText("1");
+  await expect(tab(page, "Waiting on you")).toContainText("1");
+  await expect(page.getByTestId("inbox-total")).toHaveText("1 of 2");
 });

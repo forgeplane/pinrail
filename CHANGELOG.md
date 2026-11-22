@@ -265,6 +265,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Count in the inbox's tabs what the filters and the search keep, and show
+  in its title how much of the whole that is, such as "1 of 2".
 - Stop notifying about sessions the sidebar leaves out, those known only
   from an agent's hooks and archived ones. An agent that waits for you
   still notifies you, and its session shows in the sidebar again.

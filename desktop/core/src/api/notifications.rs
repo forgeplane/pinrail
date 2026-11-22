@@ -63,8 +63,9 @@ fn count(params: &HashMap<String, String>, name: &str, default: usize) -> Result
 }
 
 /// A page of a list, newest first: `tab`, `limit` and `offset`. Answers
-/// the notifications, how many the list holds, the counts, and `up_to`, the
-/// newest event the list reflects.
+/// the notifications, how many the list holds, `counts`, each tab's count
+/// of what the filters keep, `all`, the counts of everything, and `up_to`,
+/// the newest event the list reflects.
 async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,

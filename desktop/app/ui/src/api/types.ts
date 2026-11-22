@@ -535,7 +535,10 @@ export type InboxCounts = { waiting: number; unread: number };
 export type NotificationList = {
   notifications: Notification[];
   total: number;
+  /** each tab's count of what the filters keep */
   counts: InboxCounts;
+  /** the counts of every notification */
+  all?: InboxCounts;
   up_to: number;
 };
 

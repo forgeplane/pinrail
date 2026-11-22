@@ -81,6 +81,7 @@ export function InboxHead({
   plugins,
   onClear,
   counts,
+  all,
   onReadAll,
 }: {
   tab: InboxTab;
@@ -94,8 +95,11 @@ export function InboxHead({
   unassigned: boolean;
   plugins: string[];
   onClear: () => void;
-  /** how many notifications wait, and how many are unread, for the tabs */
+  /** how many notifications the filters keep wait, and how many are
+   *  unread, for the tabs */
   counts?: { waiting: number; unread: number };
+  /** the same of every notification, for the title */
+  all?: { waiting: number; unread: number };
   /** marks read what the list shows, when some of it is unread */
   onReadAll?: () => void;
 }) {
@@ -266,7 +270,9 @@ export function InboxHead({
         <div className="heading-inline">
           <h1>Inbox</h1>
           <span className="inbox-total" data-testid="inbox-total">
-            {counts?.waiting ?? live.pendingCount}
+            {counts && all && counts.waiting !== all.waiting
+              ? `${counts.waiting} of ${all.waiting}`
+              : (counts?.waiting ?? live.pendingCount)}
           </span>
         </div>
         <div className="inbox-controls">

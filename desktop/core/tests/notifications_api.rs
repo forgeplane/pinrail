@@ -698,3 +698,22 @@ async fn an_item_is_muted_from_its_page_before_it_has_a_notification() {
     .await;
     assert_eq!(keys(&list(&app, "").await), ["PIN-1"]);
 }
+
+#[tokio::test]
+async fn the_counts_follow_the_filters_and_the_search_beside_the_whole() {
+    let app = app();
+    three(&app).await;
+    let all = list(&app, "").await;
+    assert_eq!(all["counts"], json!({"waiting": 0, "unread": 3}));
+    assert_eq!(all["all"], json!({"waiting": 0, "unread": 3}));
+
+    let searched = list(&app, "?q=Docs").await;
+    assert_eq!(searched["counts"], json!({"waiting": 0, "unread": 1}));
+    assert_eq!(searched["all"], json!({"waiting": 0, "unread": 3}));
+
+    let elsewhere = list(&app, "?scope=acme%2Fother").await;
+    assert_eq!(elsewhere["counts"], json!({"waiting": 0, "unread": 0}));
+    // the tab leaves the counts alone: they count each tab
+    let waiting = list(&app, "?tab=waiting&q=Docs").await;
+    assert_eq!(waiting["counts"], json!({"waiting": 0, "unread": 1}));
+}

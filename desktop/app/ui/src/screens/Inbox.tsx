@@ -372,6 +372,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
           plugins={[...live.plugins.keys()].sort()}
           onClear={() => setQ("")}
           counts={counts}
+          all={paged?.all}
           onReadAll={(counts?.unread ?? 0) > 0 ? readAll : undefined}
         />
         <TelemetryNotice />
