@@ -82,6 +82,12 @@ const LEAVES: &[Leaf] = &[
         "The width of those tables: as wide as their content, or the full width of the text.",
     ),
     (
+        "/appearance/element_tiles",
+        Kind::Bool,
+        || json!(false),
+        "Show the chemical element each session is named after, and the periodic table.",
+    ),
+    (
         "/autostart",
         Kind::Bool,
         || json!(false),

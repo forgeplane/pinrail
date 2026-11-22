@@ -263,7 +263,9 @@ export function Layout({ children }: { children: ReactNode }) {
       run: () => navigate(`/?project=${encodeURIComponent(project.id)}`),
     })),
     fromCommand("go-plugins", Blocks),
-    { id: "periodic-table", label: "Show the periodic table", icon: Atom, run: () => void navigate("/elements") },
+    ...(prefs.appearance.element_tiles
+      ? [{ id: "periodic-table", label: "Show the periodic table", icon: Atom, run: () => void navigate("/elements") }]
+      : []),
     {
       ...fromCommand("toggle-theme", SunMoon),
       label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",

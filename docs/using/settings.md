@@ -75,6 +75,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 | **Text size** | *Small*, *Default* or *Large*. |
 | **Tables** | How tables look in messages, notes and work item descriptions. *Bordered* draws a line around every cell, *Lines* draws lines between rows under a tinted header, and *Striped* tints every other row. |
 | **Table width** | *Fit* makes each table as wide as its content, and *Full width* stretches it across the text. |
+| **Element tiles** | Shows the chemical element each session is named after, in the session's header and as a filter on the Sessions page, and the periodic table of your sessions in the command palette. It is off by default. |
 
 ## Work items
 

@@ -3594,7 +3594,6 @@ body.is-resizing iframe {
 }
 .thread-avatar {
   grid-area: avatar;
-  align-self: start;
 }
 /* the title at the top of the first row and the meta line at the bottom
    of the second, which the avatar or the element spans exactly */

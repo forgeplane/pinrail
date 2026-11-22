@@ -283,20 +283,21 @@ export function Sessions() {
         ),
     },
   ];
-  // the elements some session was named after
+  // the elements some session was named after, while Settings shows them
   const found = (elements ?? []).filter((e) => (e.sessions ?? 0) > 0 || String(e.number) === element);
-  filters.push({
-    key: "element",
-    label: "Element",
-    value: element,
-    off: "",
-    searchable: true,
-    choices: [
-      { value: "", label: "Any element" },
-      ...found.map((e) => ({ value: String(e.number), label: e.name, mark: <ElementTile element={e} /> })),
-    ],
-    onChange: (v) => setParam("element", v || null),
-  });
+  if (prefs.appearance.element_tiles)
+    filters.push({
+      key: "element",
+      label: "Element",
+      value: element,
+      off: "",
+      searchable: true,
+      choices: [
+        { value: "", label: "Any element" },
+        ...found.map((e) => ({ value: String(e.number), label: e.name, mark: <ElementTile element={e} /> })),
+      ],
+      onChange: (v) => setParam("element", v || null),
+    });
   const toggles: Toggle[] = [
     {
       key: "attention",

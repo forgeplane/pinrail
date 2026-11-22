@@ -31,6 +31,7 @@ const settings = {
     text_size: "default",
     tables: "bordered",
     table_width: "fit",
+    element_tiles: false,
   },
   sidebar: { open: true },
   close_window: "hide",

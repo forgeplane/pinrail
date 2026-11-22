@@ -1,10 +1,20 @@
-// A session's element, in its header's avatar place, with its card.
+// A session's element, in its header's avatar place, with its card, while
+// Settings shows the element tiles.
 
 import { expect, test } from "../fixtures";
-import { core, sessionId } from "../helpers";
+import { core, sessionId, settingSaved } from "../helpers";
+
+// the element tiles show only while Settings › Appearance turns them on
+test.beforeEach(async ({ request }) => {
+  await request.patch(`${core}/api/v1/settings`, { data: { appearance: { element_tiles: true } } });
+  await settingSaved(request, (s) => s.appearance.element_tiles, true);
+});
 
 // a test may end while the page waits for an answer a route gives it
-test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+test.afterEach(async ({ page, request }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await request.patch(`${core}/api/v1/settings`, { data: { appearance: { element_tiles: false } } });
+});
 
 test("a session's header shows its element with the agent on its corner, and its card on hover", async ({ page }) => {
   const session = `s-element-${Date.now()}`;

@@ -80,6 +80,8 @@ export type Settings = {
     text_size: TextSize;
     tables: TableStyle;
     table_width: TableWidth;
+    /** whether the element each session is named after shows, with the periodic table */
+    element_tiles: boolean;
   };
   /** whether the sidebar is open, and how it lists the sessions */
   sidebar: { open: boolean; sessions: Choices & { collapsed: string[] } };
@@ -241,6 +243,7 @@ export const fromServer = (s: ServerSettings): Served => ({
     text_size: s.appearance.text_size,
     tables: s.appearance.tables,
     table_width: s.appearance.table_width,
+    element_tiles: s.appearance.element_tiles,
   },
   sidebar: { open: s.sidebar.open, sessions: { ...SESSIONS, ...s.sidebar.sessions } },
   close_window: s.close_window,
@@ -390,6 +393,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       text_size: "default",
       tables: "bordered",
       table_width: "fit",
+      element_tiles: false,
     },
     sidebar: { open: true, sessions: SESSIONS },
     close_window: "hide",

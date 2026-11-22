@@ -415,6 +415,16 @@ export function SettingsDialog({
                   ]}
                 />
               </SettingsRow>
+              <SettingsRow
+                label="Element tiles"
+                description="Show the chemical element each session is named after, and the periodic table"
+              >
+                <Toggle
+                  label="Element tiles"
+                  checked={settings.appearance.element_tiles}
+                  onChange={(v) => update({ appearance: { element_tiles: v } })}
+                />
+              </SettingsRow>
             </SettingsGroup>
           </SettingsPage>
         ) : null}

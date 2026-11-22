@@ -181,6 +181,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Hide the element tiles and the periodic table by default. The new
+  Element tiles switch in Settings › Appearance shows them.
 - Start the quick add on the open work item's repository, as it already
   does for the open session or review.
 - Show a sidebar session's full title in its tooltip, with its state,

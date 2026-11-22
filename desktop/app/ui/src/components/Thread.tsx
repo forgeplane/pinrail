@@ -365,7 +365,9 @@ export function Thread({
   // renaming the session in its header, which Rename in a session's menu
   // elsewhere asks for as it opens the page
   const routed = useLocation();
-  const element = elementOf(useElements(), session?.element);
+  const elements = useElements();
+  // the element the session is named after, while Settings shows it
+  const element = prefs.appearance.element_tiles ? elementOf(elements, session?.element) : null;
   const asksRename = (routed.state as { rename?: boolean } | null)?.rename === true;
   const [renaming, setRenaming] = useState(asksRename);
   const [routedKey, setRoutedKey] = useState(routed.key);

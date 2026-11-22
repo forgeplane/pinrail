@@ -663,6 +663,7 @@ export type ServerSettings = {
     text_size: "small" | "default" | "large";
     tables: TableStyle;
     table_width: TableWidth;
+    element_tiles: boolean;
   };
   sidebar: { open: boolean; sessions?: Partial<import("../lib/sidebarSessions").Choices & { collapsed: string[] }> };
   close_window: "hide" | "quit";

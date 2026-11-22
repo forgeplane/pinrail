@@ -11,6 +11,7 @@ const served = fromServer({
     text_size: "default",
     tables: "bordered",
     table_width: "fit",
+    element_tiles: false,
   },
   sidebar: { open: true, sessions: { archived: true } },
   close_window: "quit",
