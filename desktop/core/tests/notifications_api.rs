@@ -554,6 +554,15 @@ async fn a_finished_agent_is_new_with_its_last_reply() {
             .extend(extra.as_object().unwrap().clone());
         body
     };
+    // a session the sidebar lists, as a status makes it
+    let (code, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"kind": "step", "text": "Working"})),
+    )
+    .await;
+    assert!(code.is_success(), "{answer}");
     let path = "/api/v1/sessions/claude-code/s-1/reports";
     for body in [
         report("prompt", 0, json!({})),

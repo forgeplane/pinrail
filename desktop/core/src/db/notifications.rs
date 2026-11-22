@@ -519,6 +519,18 @@ fn project_review(conn: &Connection, review: &str, event: &Projected<'_>) -> rus
     Ok(())
 }
 
+/// Whether the sidebar leaves the session out: it is known only from its
+/// hooks, or the person archived it.
+fn unlisted(conn: &Connection, session: &str) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT hidden = 1 OR archived_at IS NOT NULL FROM sessions WHERE id = ?1",
+        params![session],
+        |r| r.get(0),
+    )
+    .optional()
+    .map(|unlisted| unlisted.unwrap_or(false))
+}
+
 /// Applies an event about a session to its notification. An agent that
 /// waits for a permission or an answer in its terminal waits on the
 /// person until it moves on; a finished or failed turn, an agent that
@@ -614,6 +626,11 @@ fn project_session(
         _ => return Ok(()),
     };
     if !waiting && skipped(conn, reason, &EventSubject::Session(session.to_string()))? {
+        return Ok(());
+    }
+    // a session the sidebar does not list, hidden or archived, reports
+    // only that it waits on the person, which shows it again
+    if !waiting && unlisted(conn, session)? {
         return Ok(());
     }
     report(

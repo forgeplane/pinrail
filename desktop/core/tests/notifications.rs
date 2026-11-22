@@ -589,9 +589,22 @@ async fn a_working_agents_reports_add_no_notification() {
     assert!(of_session(&app).is_none());
 }
 
+/// Shows claude-code's session s-1 in the sidebar, as a status does.
+async fn shown(app: &App) {
+    let (code, answer) = call(
+        app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-1/status",
+        Some(json!({"kind": "step", "text": "Working"})),
+    )
+    .await;
+    assert!(code.is_success(), "{code} {answer}");
+}
+
 #[tokio::test]
 async fn a_finished_turn_is_reported_until_the_person_sees_the_session() {
     let app = app();
+    shown(&app).await;
     hook(&app, "prompt", 0, json!({})).await;
     hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
     let n = of_session(&app).unwrap();
@@ -619,6 +632,7 @@ async fn a_finished_turn_is_reported_until_the_person_sees_the_session() {
 #[tokio::test]
 async fn marking_a_sessions_notification_read_sees_the_session() {
     let app = app();
+    shown(&app).await;
     hook(&app, "prompt", 0, json!({})).await;
     hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
     let n = of_session(&app).unwrap();
@@ -962,4 +976,51 @@ async fn a_subjects_notification_is_its_own_even_beside_one_with_no_events() {
     let own = report(&db, &item, "item_added", 5).unwrap();
     let found = db.notification_of(0, Some(&item)).unwrap().unwrap();
     assert_eq!(found.id, own);
+}
+
+#[tokio::test]
+async fn a_session_the_sidebar_does_not_list_reports_nothing_until_it_waits_on_the_person() {
+    let app = app();
+    // known only from its hooks, it is hidden: its turns report nothing
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    assert!(of_session(&app).is_none());
+
+    // shown, then archived: nor do they
+    shown(&app).await;
+    let session = common::sid(&app, "claude-code", "s-1");
+    let path = format!("/api/v1/sessions/claude-code/{session}/archive");
+    let (code, _) = call(&app, "PUT", &path, None).await;
+    assert!(code.is_success());
+    hook(&app, "prompt", 20, json!({})).await;
+    // a new turn brings it back; archived again, its end reports nothing
+    let (code, _) = call(&app, "PUT", &path, None).await;
+    assert!(code.is_success());
+    hook(&app, "turn_ended", 30, json!({"end": "done"})).await;
+    assert!(of_session(&app).is_none());
+
+    // waiting on the person, it is reported, and comes back to the sidebar
+    hook(&app, "prompt", 40, json!({})).await;
+    let (code, _) = call(&app, "PUT", &path, None).await;
+    assert!(code.is_success());
+    hook(
+        &app,
+        "needs_input",
+        50,
+        json!({"wait": "permission", "detail": {"tool": "Bash", "summary": "cargo test"}}),
+    )
+    .await;
+    let n = of_session(&app).unwrap();
+    assert_eq!(
+        (n.reason.as_str(), n.waiting),
+        ("permission_requested", true)
+    );
+    let (_, body) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert!(body["session"]["archived_at"].is_null(), "{body}");
 }

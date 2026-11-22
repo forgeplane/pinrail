@@ -318,9 +318,13 @@ impl Db {
                 params![agent, id, path],
             )?;
         }
-        // a session that needs the person shows from now on
+        // a session that needs the person shows from now on, archived or not
         if matches!(report.event, ReportEvent::NeedsInput { .. }) {
             super::sessions::reveal(&tx, agent, id)?;
+            tx.execute(
+                "UPDATE sessions SET archived_at = NULL WHERE agent = ?1 AND id = ?2",
+                params![agent, id],
+            )?;
         }
         let turned = record_turns(&tx, agent, id, report, &at, &now_at, keep_texts, !newer)?;
 

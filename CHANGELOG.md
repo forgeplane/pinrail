@@ -265,6 +265,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Stop notifying about sessions the sidebar leaves out, those known only
+  from an agent's hooks and archived ones. An agent that waits for you
+  still notifies you, and its session shows in the sidebar again.
 - Show in a session's summary when an agent running in its own terminal
   waits for a permission, an answer or a sign-in, and where to answer it.
 - Offer only a repository's checkouts as its folders when starting an
