@@ -265,6 +265,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show in a session's summary when an agent running in its own terminal
+  waits for a permission, an answer or a sign-in, and where to answer it.
 - Offer only a repository's checkouts as its folders when starting an
   agent. A folder that a `pinrail` command ran from outside a checkout no
   longer becomes the repository's default folder.

@@ -109,7 +109,10 @@ type Wait = NonNullable<NonNullable<Session["presence"]>["wait"]>;
 
 /** What the agent waits for in its terminal, above the message box: what
  *  it asks, and a button that opens the terminal to answer it there. */
-export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; onOpen: () => void }) {
+/** What the agent waits for in its terminal. With `onOpen`, Pinrail runs
+ *  it and opens its terminal; without, it runs in a terminal of its own,
+ *  where the person answers. */
+export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; onOpen?: () => void }) {
   const [Icon, label] =
     wait.kind === "permission"
       ? [ShieldAlert, `${name} needs permission`]
@@ -126,9 +129,13 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
           {detail}
         </span>
       ) : null}
-      <button type="button" className="chrome-button" onClick={onOpen}>
-        Open the terminal
-      </button>
+      {onOpen ? (
+        <button type="button" className="chrome-button" onClick={onOpen}>
+          Open the terminal
+        </button>
+      ) : (
+        <span className="thread-waiting-where">Answer it in the terminal where {name} runs</span>
+      )}
     </div>
   );
 }

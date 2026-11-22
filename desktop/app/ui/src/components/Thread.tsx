@@ -894,6 +894,9 @@ export function Thread({
                 <div className="thread-state">
                   {waitingFor ? (
                     <WaitingLine name={agentName} wait={waitingFor} onOpen={() => chooseView("terminal")} />
+                  ) : wait ? (
+                    // an agent in a terminal of its own, which its hooks report
+                    <WaitingLine name={agentName} wait={wait} />
                   ) : agentWorking ? (
                     <WorkingLine name={agentName} />
                   ) : null}

@@ -350,6 +350,26 @@ test("the summary shows a question the agent asks in its terminal, and opens the
   await expect(page.getByTestId("terminal-bar")).toBeVisible();
 });
 
+test("the summary shows what an agent in a terminal of its own waits for, and where to answer it", async ({ page }) => {
+  // a session Pinrail knows only from its hooks
+  const session = `s-outside-${Date.now()}`;
+  const report = (data: unknown) =>
+    page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+  await report({ event: "prompt", detail: { prompt: "Commit it" } });
+  await report({ event: "needs_input", wait: "permission", detail: { tool: "Bash", summary: "git commit -F -" } });
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
+
+  const waiting = page.getByTestId("thread").getByTestId("waiting-line");
+  await expect(waiting).toContainText("Claude Code needs permission");
+  await expect(waiting).toContainText("Bash · git commit -F -");
+  await expect(waiting).toContainText("Answer it in the terminal where Claude Code runs");
+  await expect(waiting.getByRole("button", { name: "Open the terminal" })).toHaveCount(0);
+
+  // allowed there, it goes on, and the line goes
+  await report({ event: "working" });
+  await expect(page.getByTestId("thread").getByTestId("waiting-line")).toHaveCount(0);
+});
+
 test("the summary shows turns, where the run started, and what it waits for", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   const report = (data: unknown) =>
