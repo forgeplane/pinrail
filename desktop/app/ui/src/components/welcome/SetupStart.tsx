@@ -16,6 +16,7 @@ import { PopoverMenu, type MenuEntry } from "../PopoverMenu";
 import { startRun } from "../session/startRun";
 import type { AgentStatus } from "../settings/AgentsSection";
 import { chooseFolder } from "../useAgentStart";
+import { shortPath } from "./names";
 import { startFolders, type StartFolder } from "./startFolders";
 
 /** A request to give an agent for each official plugin, in the order the
@@ -32,7 +33,6 @@ const REQUESTS: [plugin: string, request: string][] = [
 const ROOM = 3;
 
 /** A folder's path with ~ for the home folder. */
-const short = (folder: string) => folder.replace(/^\/(?:Users|home)\/[^/]+/, "~");
 
 function CopyRequest({ text }: { text: string }) {
   const { state, copy } = useCopy(1600);
@@ -137,13 +137,21 @@ export function SetupStart({
     ...folders.map((f): MenuEntry => ({
       label: baseName(f.folder),
       icon: Folder,
-      hint: short(f.folder),
+      hint: shortPath(f.folder),
       checked: f.folder === folder,
       onPick: () => setChosen(f.folder),
     })),
     // a folder chosen outside the list stays offered
     ...(folder && !folders.some((f) => f.folder === folder)
-      ? [{ label: baseName(folder), icon: Folder, hint: short(folder), checked: true, onPick: () => {} } as MenuEntry]
+      ? [
+          {
+            label: baseName(folder),
+            icon: Folder,
+            hint: shortPath(folder),
+            checked: true,
+            onPick: () => {},
+          } as MenuEntry,
+        ]
       : []),
     ...(inTauri()
       ? [
