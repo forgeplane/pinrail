@@ -112,16 +112,6 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
     setScreen("run");
   };
 
-  // a run that ends with every part done goes on by itself, after a moment
-  // to see the last pin fill; a part that failed keeps the screen
-  // one with something left for the person to read keeps it too
-  const complete = screen === "run" && finished && !running && failed.length === 0 && !parts.some((p) => p.newTerminal);
-  useEffect(() => {
-    if (!complete) return;
-    const timer = window.setTimeout(() => setScreen("last"), 700);
-    return () => window.clearTimeout(timer);
-  }, [complete]);
-
   // back from the terminal with the PATH changed: the command is looked at again
   const waitsOnPath = screen === "run" && !running && failed.some((p) => p.fix);
   useEffect(() => {
@@ -202,6 +192,7 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
           <SetupRun
             parts={parts}
             running={running}
+            finished={finished}
             failed={failed}
             onRetry={retry}
             onRecheck={recheck}

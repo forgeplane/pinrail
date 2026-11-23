@@ -94,8 +94,10 @@ test("the plugins view adds a plugin to the ones the setup installs", async ({ p
     await setup.getByRole("button", { name: "Add 1 plugin", exact: true }).click();
     await expect(summary).toContainText("adds the Action list, Feedback and Notes plugins");
 
-    // the setup installs what was picked, and goes on when it is done
+    // the setup installs what was picked, and goes on when Continue is pressed
     await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
     expect((await installed(page)).map((p) => p.name).sort()).toEqual(["feedback", "list", "notes"]);
     await setup.getByRole("button", { name: "Done", exact: true }).click();
@@ -328,7 +330,7 @@ async function native(
   };
 }
 
-test("Set up Pinrail installs the command, connects the agents and goes on", async ({ page }) => {
+test("Set up Pinrail installs the command, connects the agents and waits for Continue", async ({ page }) => {
   await restoring(page, async () => {
     await page.request.patch(`${core}/api/v1/settings`, { data: { telemetry: { notice_shown: null } } });
     const app = await native(page, {
@@ -342,6 +344,11 @@ test("Set up Pinrail installs the command, connects the agents and goes on", asy
     await expect(step("agent-claude-code")).toContainText("Connected");
     await expect(step("agent-codex")).toContainText("Connected");
     await expect(step("notifications")).toContainText("On");
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    // the setup waits for the person, however long they take
+    await page.waitForTimeout(1500);
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
 
     // each agent is connected and its Report status turned on, and macOS
@@ -382,6 +389,8 @@ test("a part that fails keeps the setup on its screen, and Try again runs it alo
     await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
 
     await setup.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
     const calls = await app.calls();
     expect(calls.filter((c) => c === "connect_agent cursor")).toHaveLength(2);
@@ -415,6 +424,8 @@ test("a command that is not on the PATH shows the line to add, and Check again l
     await expect(command).toContainText("Not on your PATH");
     await app.putOnPath();
     await command.getByRole("button", { name: "Check again" }).click();
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
     // the command was installed once, and only looked at after that
     expect((await app.calls()).filter((c) => c === "install_cli")).toHaveLength(1);
@@ -427,6 +438,8 @@ test("with no agent found, the setup says so and does the rest", async ({ page }
     const setup = await openSetup(page);
     await setup.getByRole("button", { name: "Set up Pinrail" }).click();
     await expect(setup.getByTestId("setup-step-agents")).toContainText("None found");
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
   });
 });
@@ -532,6 +545,8 @@ async function atLastScreen(page: Page, options: { pickFolder?: string } = {}) {
   });
   const setup = await openSetup(page);
   await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+  await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+  await setup.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(setup.getByRole("heading", { name: "Pinrail is ready. Start your first session." })).toBeVisible();
   return setup;
 }
@@ -657,6 +672,8 @@ test("when Pinrail can start none of the connected agents, the requests are ther
     await native(page, { agents: [agent("cline", "Cline", true, "absent")] });
     const setup = await openSetup(page);
     await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready", exact: true })).toBeVisible();
     await expect(setup).toContainText("Paste one of these requests into your agent to try it.");
     const request = setup.getByTestId("setup-request-list");

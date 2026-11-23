@@ -73,6 +73,7 @@ function PathLine({ line }: { line: string }) {
 export function SetupRun({
   parts,
   running,
+  finished,
   failed,
   onRetry,
   onRecheck,
@@ -81,6 +82,8 @@ export function SetupRun({
 }: {
   parts: Part[];
   running: boolean;
+  /** whether the run has ended */
+  finished: boolean;
   /** the parts that failed, once the run has ended */
   failed: Part[];
   onRetry: () => void;
@@ -91,6 +94,8 @@ export function SetupRun({
   const stopped = !running && failed.length > 0;
   // every part is done, and the command is only in terminals opened from now on
   const newTerminal = !running && !stopped && parts.some((p) => p.newTerminal);
+  // every part is done: the screen waits for Continue
+  const ready = finished && !running && !stopped;
   // the command is checked again; anything else is tried again
   const retriable = failed.some((p) => !p.fix);
   const onlyPath = failed.length === 1 && failed[0].fix === "path";
@@ -105,7 +110,7 @@ export function SetupRun({
             </span>
           )}
           <h1 className={`setup-title ${stopped ? "is-view" : ""}`}>
-            {newTerminal
+            {ready
               ? "Pinrail is set up"
               : !stopped
                 ? "Setting up Pinrail"
@@ -119,6 +124,8 @@ export function SetupRun({
                 Open a new terminal to use the <code>pinrail</code> command. The terminals that are open now do not have
                 it yet.
               </>
+            ) : ready ? (
+              "Everything is ready. Continue to start your first session."
             ) : !stopped ? (
               "This takes a few seconds. You do not need to do anything."
             ) : onlyPath ? (
@@ -188,7 +195,7 @@ export function SetupRun({
         </ol>
       </div>
 
-      {stopped || newTerminal ? (
+      {stopped || ready ? (
         <div className="setup-foot">
           <div className="setup-actions">
             {retriable ? (
