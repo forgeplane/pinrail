@@ -56,6 +56,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   Settings › Agents, which installs Pinrail's hooks and trusts them in
   Codex. Its sessions then show their turns, prompts and replies, and
   whether the agent is working, waits for a permission, or is finished.
+- Codex can run the `pinrail` command from its sandbox. Connecting Codex in
+  Settings › Agents also adds a rule to `~/.codex/rules/pinrail.rules` that
+  runs `pinrail` outside the sandbox, so the command reaches the app.
 - Antigravity CLI reports its status to Pinrail. Turn on **Report status**
   for it in Settings › Agents, and its sessions show their turns, prompts
   and replies, and whether the agent is working or finished.

@@ -631,3 +631,19 @@ fn every_codex_hook_installed_is_one_pinrail_hook_reads() {
         assert!(entry.command.contains(" hook codex "));
     }
 }
+
+#[test]
+fn codex_s_rule_for_the_pinrail_command_goes_in_its_rules_folder() {
+    let codex = adapter("codex").unwrap();
+    let files = codex.skill_files(Path::new("/Users/you"), &|_| None);
+    assert_eq!(files.len(), 1);
+    assert_eq!(
+        files[0].path,
+        Path::new("/Users/you/.codex/rules/pinrail.rules")
+    );
+    assert!(files[0].text.starts_with(files[0].marker));
+    let moved = codex.skill_files(Path::new("/Users/you"), &|k| {
+        (k == "CODEX_HOME").then(|| "/work/codex".to_string())
+    });
+    assert_eq!(moved[0].path, Path::new("/work/codex/rules/pinrail.rules"));
+}

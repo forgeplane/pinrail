@@ -9,10 +9,30 @@ use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task, resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
-use crate::integration::{HookEntry, Integration, Kind, Layout};
+use crate::integration::{HookEntry, Integration, Kind, Layout, OwnFile};
 use crate::registry::AgentSpec;
 
 pub struct Codex;
+
+/// Codex's rule for the `pinrail` command: run it outside the sandbox, which
+/// turns the network off, so that it reaches the app. Codex applies a rule
+/// only to a plain command, not to one in a pipe or a heredoc.
+const PINRAIL_RULE: &str = "\
+# Written by Pinrail. Codex runs the pinrail command outside its sandbox,
+# so that the command can reach the Pinrail app.
+prefix_rule(pattern=[\"pinrail\"], decision=\"allow\")
+";
+
+/// The start of the rule file's first line, which marks it as Pinrail's.
+const RULE_MARKER: &str = "# Written by Pinrail.";
+
+/// Codex's folder: `$CODEX_HOME`, or `~/.codex`.
+fn codex_home(home: &Path, env: Env) -> std::path::PathBuf {
+    env("CODEX_HOME")
+        .filter(|h| !h.trim().is_empty())
+        .map(Into::into)
+        .unwrap_or_else(|| home.join(".codex"))
+}
 
 impl Agent for Codex {
     fn spec(&self) -> &'static AgentSpec {
@@ -72,13 +92,9 @@ impl Agent for Codex {
     /// has trusted it.
     fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
         let entry = |event, hook| HookEntry::new("codex", event, None, hook);
-        let folder = env("CODEX_HOME")
-            .filter(|h| !h.trim().is_empty())
-            .map(Into::into)
-            .unwrap_or_else(|| home.join(".codex"));
         Some(Integration {
             kind: Kind::Hooks,
-            file: folder.join("hooks.json"),
+            file: codex_home(home, env).join("hooks.json"),
             layout: Layout::Settings,
             entries: vec![
                 entry("SessionStart", "session-start").in_background(),
@@ -90,6 +106,16 @@ impl Agent for Codex {
                 entry("SessionEnd", "session-end"),
             ],
         })
+    }
+
+    /// A rule file of Pinrail's own in Codex's rules folder, which lets the
+    /// skill's `pinrail` commands out of Codex's sandbox.
+    fn skill_files(&self, home: &Path, env: Env) -> Vec<OwnFile> {
+        vec![OwnFile {
+            path: codex_home(home, env).join("rules").join("pinrail.rules"),
+            text: PINRAIL_RULE,
+            marker: RULE_MARKER,
+        }]
     }
 
     /// Through Codex's app server, started in the login shell, so that the

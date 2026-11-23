@@ -254,6 +254,28 @@ fn front_matter(text: &str) -> Option<impl Iterator<Item = &str>> {
     )
 }
 
+/// The files of Pinrail's own that go with the skill for an agent, such as
+/// Codex's rule for the `pinrail` command, as this computer's environment
+/// places them.
+fn skill_files(home: &Path, id: &str) -> Vec<pinrail_runtime::integration::OwnFile> {
+    pinrail_runtime::adapter(id)
+        .map(|agent| agent.skill_files(home, &|key| std::env::var(key).ok()))
+        .unwrap_or_default()
+}
+
+/// A connected skill counts as outdated while a file that goes with it is
+/// missing or another version's, so that updating it writes the file.
+fn with_files(state: State, home: &Path, id: &str) -> State {
+    use pinrail_runtime::integration::HookState;
+    let whole = skill_files(home, id)
+        .iter()
+        .all(|file| file.state() == HookState::Current);
+    match state {
+        State::Connected if !whole => State::Outdated,
+        state => state,
+    }
+}
+
 /// Whether the front matter marks the skill as the app's.
 fn managed(text: &str) -> bool {
     front_matter(text).is_some_and(|mut lines| lines.any(|line| line == MARK))
@@ -274,7 +296,7 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
             name: agent.label,
             found: home.join(folders.config).is_dir(),
             skill: skill_path(home, folders).display().to_string(),
-            state: state_of(&skill_path(home, folders), skill),
+            state: with_files(state_of(&skill_path(home, folders), skill), home, agent.id),
             also_reads: folders
                 .also_reads
                 .iter()
@@ -365,6 +387,11 @@ pub fn connect(home: &Path, id: &str, skill: &Skill) -> Result<(), String> {
             "{} is a skill of yours, not Pinrail's; it is left alone",
             path.display()
         ));
+    }
+    // the files that go with it first, so the skill counts as connected
+    // only once they are there
+    for file in skill_files(home, id) {
+        file.apply(true)?;
     }
     let dir = path.parent().expect("the skill's path has a folder");
     // the references and plugin skills written before go, and these take
@@ -458,6 +485,12 @@ pub fn disconnect(home: &Path, id: &str) -> Result<(), String> {
         remove_generated(dir)?;
         // only when empty: the person may keep files of their own beside it
         let _ = fs::remove_dir(dir);
+    }
+    // a file of the person's at the path of one of them stays
+    for file in skill_files(home, id) {
+        if file.state() != pinrail_runtime::integration::HookState::Unreadable {
+            file.apply(false)?;
+        }
     }
     Ok(())
 }
@@ -733,6 +766,39 @@ mod tests {
             "the agent's skills folder stays"
         );
         assert_eq!(state(home.path(), "codex").state, State::Absent);
+    }
+
+    #[test]
+    fn codex_gets_a_rule_for_the_pinrail_command_with_its_skill() {
+        let home = home_with(&[".codex"]);
+        let rule = home.path().join(".codex/rules/pinrail.rules");
+        connect(home.path(), "codex", &none()).unwrap();
+        let text = fs::read_to_string(&rule).unwrap();
+        assert!(
+            text.contains(r#"prefix_rule(pattern=["pinrail"], decision="allow")"#),
+            "{text}"
+        );
+        assert_eq!(state(home.path(), "codex").state, State::Connected);
+        // without its rule, the skill is outdated, and updating writes it
+        fs::remove_file(&rule).unwrap();
+        assert_eq!(state(home.path(), "codex").state, State::Outdated);
+        connect(home.path(), "codex", &none()).unwrap();
+        assert_eq!(state(home.path(), "codex").state, State::Connected);
+
+        disconnect(home.path(), "codex").unwrap();
+        assert!(!rule.exists());
+    }
+
+    #[test]
+    fn a_rule_file_of_the_persons_own_is_left_alone() {
+        let home = home_with(&[".codex/rules"]);
+        let rule = home.path().join(".codex/rules/pinrail.rules");
+        let theirs = "prefix_rule(pattern=[\"pinrail\", \"status\"], decision=\"allow\")\n";
+        fs::write(&rule, theirs).unwrap();
+        assert!(connect(home.path(), "codex", &none()).is_err());
+        assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);
+        disconnect(home.path(), "codex").unwrap();
+        assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);
     }
 
     #[test]

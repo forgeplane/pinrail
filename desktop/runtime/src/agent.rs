@@ -38,6 +38,13 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// Files of Pinrail's own that go with its skill under `home` (or where
+    /// `env` moved the agent's configuration), such as a rule that lets the
+    /// skill's `pinrail` commands reach the app from the agent's sandbox.
+    fn skill_files(&self, _home: &Path, _env: Env) -> Vec<crate::integration::OwnFile> {
+        Vec::new()
+    }
+
     /// Trusts the hooks `plan` installed, for an agent that runs a hook only
     /// once the person has trusted it, and returns how many it trusted.
     /// `shell` makes the command that runs a command line, such as

@@ -440,6 +440,31 @@ pub fn apply(plan: &Integration, installed: bool) -> Result<HookState, String> {
     Ok(state(Some(&settings), plan))
 }
 
+/// A file of Pinrail's own written whole, which goes with what Pinrail
+/// installs for an agent, such as Codex's rule for the `pinrail` command:
+/// `text` at `path`. A file there whose first line starts with `marker` is
+/// Pinrail's, of this version or another; any other file is the person's,
+/// and is never written or removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnFile {
+    pub path: PathBuf,
+    pub text: &'static str,
+    pub marker: &'static str,
+}
+
+impl OwnFile {
+    /// Whether the file is there as this version writes it.
+    pub fn state(&self) -> HookState {
+        own_file_state(&self.path, self.text, self.marker)
+    }
+
+    /// Writes the file, or removes it, unless a file of the person's is at
+    /// its path, and returns the state it is left in.
+    pub fn apply(&self, installed: bool) -> Result<HookState, String> {
+        apply_own_file(&self.path, self.text, self.marker, installed)
+    }
+}
+
 /// The state of a file Pinrail writes whole.
 fn own_file_state(file: &std::path::Path, text: &str, marker: &str) -> HookState {
     match std::fs::read_to_string(file) {
