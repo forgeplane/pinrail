@@ -9,16 +9,19 @@ import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { discover } from "./elements";
 import { rememberSessions } from "./knownSessions";
+import { useLatest } from "./useLatest";
 
 export function useSessionsSeen(): (sessions: Session[]) => void {
   const toast = useToast();
-  const shown = useSettings().settings.appearance.element_tiles;
+  // the setting as it is when a list arrives: a list asked for before the
+  // settings loaded, or before the person changed them, follows them too
+  const shown = useLatest(useSettings().settings.appearance.element_tiles);
   return useCallback(
     (sessions: Session[]) => {
       rememberSessions(sessions);
       // what is found while the tiles are hidden counts as found
       for (const { element, count } of discover(sessions)) {
-        if (!shown) continue;
+        if (!shown.current) continue;
         if (element.rarity !== "rare" && element.rarity !== "legendary") continue;
         const by = sessions.find((s) => s.element === element.number);
         const name = by?.generated_name;

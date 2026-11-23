@@ -113,6 +113,41 @@ test("a session with a rare element no session had announces its discovery", asy
   await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.generated_name}.`)).toBeVisible();
 });
 
+test("a list of sessions asked for before the settings loaded announces a discovery in it", async ({ page }) => {
+  const session = `s-rare-early-${Date.now()}`;
+  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Find a rare one early" },
+  });
+  const { session: s } = (await (await page.request.get(`${core}/api/v1/sessions/claude-code/${session}`)).json()) as {
+    session: { id: string; element: number; generated_name: string };
+  };
+  const { elements } = (await (await page.request.get(`${core}/api/v1/elements`)).json()) as {
+    elements: { number: number; name: string; rarity: string; sessions: number }[];
+  };
+  const element = elements[s.element - 1];
+  element.rarity = "rare";
+  element.sessions = 0;
+  await page.route(/\/api\/v1\/elements$/, (route) => route.fulfill({ json: { elements } }));
+  // no list of sessions answers until the app has the settings and the
+  // elements, the first of them asked for before either
+  let ready = () => {};
+  const loaded = new Promise<void>((resolve) => (ready = resolve));
+  await page.route(/\/api\/v1\/sessions\?/, async (route) => {
+    const answer = await route.fetch();
+    const body = (await answer.json()) as { sessions: { id: string; element: number }[] };
+    body.sessions = body.sessions.filter((other) => other.element !== s.element || other.id === s.id);
+    await loaded;
+    await route.fulfill({ response: answer, json: body });
+  });
+
+  await page.goto(`/#/sessions/claude-code/${s.id}`);
+  await expect(
+    page.getByTestId("thread").getByRole("img", { name: `${element.name}, element ${s.element}` }),
+  ).toBeVisible();
+  ready();
+  await expect(page.getByText(`New rare element discovered: ${element.name}, by ${s.generated_name}.`)).toBeVisible();
+});
+
 test("the periodic table lights a session's element, describes it, and a click keeps its card", async ({ page }) => {
   const session = `s-table-${Date.now()}`;
   await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
