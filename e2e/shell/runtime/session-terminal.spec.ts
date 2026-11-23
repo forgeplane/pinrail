@@ -122,7 +122,8 @@ test("the terminal keeps room from the left edge of its view", async ({ page }) 
 test("Settings › Terminal names the renderer the open terminal uses", async ({ page }) => {
   const { session } = await sessionWithRun(page);
   await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
-  await expect(page.locator(".thread-terminal .terminal-surface")).toBeVisible();
+  // the renderer loads after the surface shows, and Settings names it once loaded
+  await terminalReady(page);
   await page.keyboard.press("ControlOrMeta+,");
   await settingsSection(page, "Terminal").click();
   await expect(settingsDialog(page)).toContainText(/In use: (libghostty|xterm\.js)\./);
