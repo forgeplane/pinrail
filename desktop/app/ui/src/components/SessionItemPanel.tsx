@@ -11,10 +11,13 @@ export function SessionItemPanel({
   itemKey,
   onOpen,
   onClose,
+  onOpenReview,
 }: {
   itemKey: string;
   onOpen: (key: string) => void;
   onClose: () => void;
+  /** shows a review in the panel, in the item's place */
+  onOpenReview?: (id: string) => void;
 }) {
   const [items, setItems] = useState<WorkItem[]>([]);
   const load = useCallback(() => {
@@ -33,6 +36,7 @@ export function SessionItemPanel({
       onOpen={onOpen}
       onClose={onClose}
       onChanged={load}
+      onOpenReview={onOpenReview}
     />
   );
 }

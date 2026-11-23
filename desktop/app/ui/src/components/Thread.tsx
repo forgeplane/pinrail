@@ -160,16 +160,17 @@ export function Thread({
   const openReview = panelMode ? params.get("review") : null;
   // and ?item= the work item shown there, as a review is
   const openItem = panelMode ? params.get("item") : null;
-  /** Shows a review beside the thread, or closes the panel with null. A
-   *  review shown in place of another, or of an item, replaces its history
-   *  entry. */
+  /** Shows a review beside the thread, or closes it with null, which shows
+   *  again the item it was opened from. A review shown in place of
+   *  another, or of an item, replaces its history entry. */
   const showReview = useCallback(
     (id: string | null, options?: { replace?: boolean }) =>
       updateParams(
         (next) => {
-          next.delete("item");
-          if (id) next.set("review", id);
-          else next.delete("review");
+          if (id) {
+            next.delete("item");
+            next.set("review", id);
+          } else next.delete("review");
         },
         {
           replace: options?.replace ?? (!!id && (currentParams().has("review") || currentParams().has("item"))),
@@ -948,7 +949,14 @@ export function Thread({
           ) : null}
           {openItem && !openReview ? (
             <SidePanel split={body} label="Work item">
-              <SessionItemPanel key={openItem} itemKey={openItem} onOpen={showItem} onClose={() => showItem(null)} />
+              <SessionItemPanel
+                key={openItem}
+                itemKey={openItem}
+                onOpen={showItem}
+                onClose={() => showItem(null)}
+                // the review shows in the item's place, which closing it shows again
+                onOpenReview={(id) => updateParams((next) => next.set("review", id))}
+              />
             </SidePanel>
           ) : null}
           {!hasDetails || !detailsShown || narrow || openReview || openItem ? null : (

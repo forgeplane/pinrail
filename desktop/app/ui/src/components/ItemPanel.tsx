@@ -62,6 +62,7 @@ export function ItemPanel({
   onClose,
   onChanged,
   onOpenPage,
+  onOpenReview,
 }: {
   itemKey: string;
   /** the items the pickers offer */
@@ -74,6 +75,8 @@ export function ItemPanel({
   onChanged: () => void;
   /** opens the item on the Work items page, from a panel outside it */
   onOpenPage?: () => void;
+  /** shows a review in this panel, in the item's place */
+  onOpenReview?: (id: string) => void;
 }) {
   const toast = useToast();
   const { settings } = useSettings();
@@ -465,33 +468,44 @@ export function ItemPanel({
         <section className="item-section" aria-label="Reviews">
           <h3>Reviews</h3>
           <ul className="item-related">
-            {waitingFirst(item.reviews).map((r) => (
-              <li key={r.id}>
-                <Link
-                  className={r.status === "pending" ? undefined : "is-ended"}
-                  to={
-                    // a question opens in its session, where it is answered
-                    r.kind === "question" && r.requested_by && r.session
-                      ? sessionPath({ agent: r.requested_by, id: r.session })
-                      : reviewPath(r.id, settings.inbox.open_in)
-                  }
-                >
-                  <ReviewStatusIcon review={r} size={14} />
-                  <span className="item-related-title truncate">{r.title}</span>
-                  <span className="item-review-kind">{r.kind === "question" ? "question" : r.plugin}</span>
-                </Link>
-                <button
-                  type="button"
-                  className="bar-button item-related-menu"
-                  aria-label={`${r.title} actions`}
-                  aria-haspopup="menu"
-                  aria-expanded={reviewMenu?.id === r.id}
-                  onClick={(event) => setReviewMenu({ id: r.id, title: r.title, anchor: event.currentTarget })}
-                >
-                  <MoreHorizontal size={14} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
+            {waitingFirst(item.reviews).map((r) => {
+              // a question opens in its session, where it is answered
+              const inSession = r.kind === "question" && r.requested_by && r.session;
+              return (
+                <li key={r.id}>
+                  <Link
+                    className={r.status === "pending" ? undefined : "is-ended"}
+                    to={
+                      inSession
+                        ? sessionPath({ agent: r.requested_by!, id: r.session! })
+                        : reviewPath(r.id, settings.inbox.open_in)
+                    }
+                    onClick={(event) => {
+                      // another review shows in this panel, while a modified
+                      // click opens the link as usual
+                      if (inSession || !onOpenReview || event.button !== 0) return;
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      onOpenReview(r.id);
+                    }}
+                  >
+                    <ReviewStatusIcon review={r} size={14} />
+                    <span className="item-related-title truncate">{r.title}</span>
+                    <span className="item-review-kind">{r.kind === "question" ? "question" : r.plugin}</span>
+                  </Link>
+                  <button
+                    type="button"
+                    className="bar-button item-related-menu"
+                    aria-label={`${r.title} actions`}
+                    aria-haspopup="menu"
+                    aria-expanded={reviewMenu?.id === r.id}
+                    onClick={(event) => setReviewMenu({ id: r.id, title: r.title, anchor: event.currentTarget })}
+                  >
+                    <MoreHorizontal size={14} aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

@@ -25,6 +25,7 @@ import { CancelItemDialog, openSubItems } from "../components/CancelItemDialog";
 import { DeleteItemDialog } from "../components/DeleteItemDialog";
 import { HoldItemDialog, stoppedByHold } from "../components/HoldItemDialog";
 import { SidePanel } from "../components/SidePanel";
+import { ReviewView } from "./ReviewScreen";
 import { SearchInput } from "../components/SearchInput";
 import { PopoverMenu } from "../components/PopoverMenu";
 import { NO_PROJECT, inScope, scopeOf, scopeOptions, setScope, useUrlParams } from "../lib/url";
@@ -126,6 +127,9 @@ export function WorkItems() {
   // the done and cancelled sub-items of the parents listed, under them
   const closedSubs = params.get("closed") === "1";
   const openKey = params.get("open");
+  // a review opened from the item's panel, shown in the item's place while
+  // reviews open in a side panel
+  const openReview = openKey && prefs.inbox.open_in === "panel" ? params.get("review") : null;
   const filtered = !!(query || status || scope || by || waiting || closedSubs);
   // each project's repositories, by its id: where an item dropped on it goes
   // the parents the person folded or unfolded, kept on this machine; the
@@ -329,6 +333,7 @@ export function WorkItems() {
       updateParams(
         (next) => {
           next.set("open", key);
+          next.delete("review");
         },
         { replace: !!currentParams().get("open") },
       ),
@@ -339,8 +344,31 @@ export function WorkItems() {
     () =>
       updateParams((next) => {
         next.delete("open");
+        next.delete("review");
       }),
     [updateParams],
+  );
+  /** Shows a review in the panel, in the open item's place, or with null
+   *  shows the item again. */
+  const showReview = useCallback(
+    (id: string | null, options?: { replace?: boolean }) =>
+      updateParams(
+        (next) => {
+          if (id) next.set("review", id);
+          else next.delete("review");
+        },
+        { replace: options?.replace ?? (!!id && !!currentParams().get("review")) },
+      ),
+    [updateParams, currentParams],
+  );
+  /** Where a link to another round of the shown review goes. */
+  const reviewTo = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(currentParams());
+      next.set("review", id);
+      return `/items?${next}`;
+    },
+    [currentParams],
   );
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
@@ -499,6 +527,8 @@ export function WorkItems() {
   /** S, D, Q, H, X and ⌘⌫ on the item open in the panel, which may have
    *  left the list, or else on the focused row. */
   const act = async (key: string) => {
+    // the review shown in the item's place has keys of its own
+    if (openReview) return;
     let at = openKey ? items?.find((i) => i.key === openKey) : rows[focused]?.item;
     if (openKey && !at) at = await api.item(openKey).catch(() => undefined);
     if (key === "delete" && at) setDeleting(at);
@@ -976,7 +1006,18 @@ export function WorkItems() {
           }}
         />
       ) : null}
-      {openKey ? (
+      {openKey && openReview ? (
+        <SidePanel split={split} listMin={560}>
+          <ReviewView
+            key={openReview}
+            id={openReview}
+            inPanel
+            linkTo={reviewTo}
+            onEnded={() => showReview(null, { replace: true })}
+            onClose={() => showReview(null)}
+          />
+        </SidePanel>
+      ) : openKey ? (
         <SidePanel split={split} label="Work item" listMin={560}>
           <ItemPanel
             key={openKey}
@@ -986,6 +1027,7 @@ export function WorkItems() {
             onOpen={openKeyed}
             onClose={closePanel}
             onChanged={reload}
+            onOpenReview={prefs.inbox.open_in === "panel" ? (id) => showReview(id) : undefined}
           />
         </SidePanel>
       ) : null}
