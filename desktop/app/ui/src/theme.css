@@ -4270,6 +4270,11 @@ button.thread-line {
   height: 20px;
   color: var(--faint);
 }
+/* centred on the text's capitals, which sit half a pixel above the
+   middle of its line */
+.thread-line > .thread-line-icon {
+  margin-top: -0.5px;
+}
 .thread-line-text {
   flex: 1;
   min-width: 0;

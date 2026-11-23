@@ -572,6 +572,36 @@ async function report(request: APIRequestContext, session: string, body: Record<
   expect(response.status(), await response.text()).toBe(200);
 }
 
+test("a thread line's icon is centred on the capitals of its text", async ({ page }) => {
+  const session = fresh();
+  await report(page.request, session, { text: "Restyle the thread", kind: "start" });
+  await report(page.request, session, { text: "Reading the styles" });
+  await report(page.request, session, { kind: "done", text: "Restyled the lines" });
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(thread(page).getByTestId("finished")).toBeVisible();
+  const offsets = await thread(page)
+    .locator(".thread-line")
+    .evaluateAll((lines) =>
+      lines.map((line) => {
+        const icon = line.querySelector(".thread-line-icon svg")!.getBoundingClientRect();
+        const text = line.querySelector(".thread-line-text")!;
+        // the text's baseline, from an empty box that sits on it
+        const probe = document.createElement("span");
+        probe.style.cssText = "display: inline-block; width: 0; height: 0";
+        text.prepend(probe);
+        const baseline = probe.getBoundingClientRect().top;
+        probe.remove();
+        const style = getComputedStyle(text);
+        const context = document.createElement("canvas").getContext("2d")!;
+        context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const cap = context.measureText("H").actualBoundingBoxAscent;
+        return Math.abs(icon.top + icon.height / 2 - (baseline - cap / 2));
+      }),
+    );
+  expect(offsets.length).toBeGreaterThanOrEqual(3);
+  for (const offset of offsets) expect(offset).toBeLessThan(0.25);
+});
+
 test("the statuses an agent reports show in its thread between the questions and reviews", async ({ page }) => {
   await clearInbox(page.request);
   const session = fresh();
