@@ -11,31 +11,36 @@ import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
 import { Dialog } from "../Dialog";
 import { byName, useAgents } from "../settings/AgentsSection";
-import { Mark } from "./Mark";
-import { listed } from "./names";
 import { SetupPlugins, included } from "./SetupPlugins";
+import { SetupRun } from "./SetupRun";
 import { SetupWelcome, connectable } from "./SetupWelcome";
 import { StepDots } from "./StepDots";
 import { TipBar } from "./TipBar";
+import { useSetupRun, type SetupPlan } from "./useSetupRun";
 
 /** The setup's steps: the welcome, the setup itself, and a first session. */
 const STEPS = 3;
 
-/** The recommended plugins first, and each group in the order of its titles. */
 /** The agents the welcome always shows as tiles, in this order. */
 const FIRST = ["claude-code", "codex", "opencode", "grok", "pi"];
 const rank = (id: string) => (FIRST.includes(id) ? FIRST.indexOf(id) : FIRST.length);
 
+/** The recommended plugins first, and each group in the order of its titles. */
 const recommendedFirst = (a: CatalogEntry, b: CatalogEntry) =>
   Number(b.recommended) - Number(a.recommended) || a.title.localeCompare(b.title);
 
-type Screen = "welcome" | "plugins" | "run";
+type Screen = "welcome" | "plugins" | "run" | "last";
 
 export function SetupDialog({ onClose }: { onClose: () => void }) {
   const live = useLive();
-  const { settings } = useSettings();
-  const { agents, error } = useAgents(true);
+  const { settings, update } = useSettings();
   const [screen, setScreen] = useState<Screen>("welcome");
+  // the agents are looked at again when the window comes back, but not
+  // while the setup runs and changes them itself
+  const { agents, error } = useAgents(screen !== "run");
+  // what the setup runs, once Set up Pinrail is pressed
+  const [plan, setPlan] = useState<SetupPlan | null>(null);
+  const { parts, running, finished, failed, retry, recheck } = useSetupRun(plan);
   const primary = useRef<HTMLButtonElement>(null);
   // what the person chose: the agents left out, and the plugins added
   const [leftOut, setLeftOut] = useState<Set<string>>(new Set());
@@ -61,7 +66,8 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
       // the list of agents takes its own keys, Esc among them
       if (e.key !== "Escape" || agentMenu) return;
       if (screen === "plugins") setScreen("welcome");
-      else onClose();
+      // the setup cannot be left halfway through its run
+      else if (!running) onClose();
     },
     { capture: true },
   );
@@ -85,6 +91,36 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
   const toConnect = (found ?? []).filter((a) => connectable(a) && !leftOut.has(a.id));
   const toInstall = (catalog ?? []).filter((e) => included(e) || (added.has(e.id) && !e.installed && !e.needs));
 
+  const setUp = () => {
+    // the welcome told the person about usage data, so the inbox need not
+    if (!settings.telemetry.notice_shown)
+      void update({ telemetry: { notice_shown: new Date().toISOString().replace(/\.\d+Z$/, "Z") } });
+    setPlan({
+      agents: toConnect,
+      noAgents: inTauri() && found?.length === 0,
+      plugins: toInstall,
+      notifications: settings.notifications.enabled,
+    });
+    setScreen("run");
+  };
+
+  // a run that ends with every part done goes on by itself, after a moment
+  // to see the last pin fill; a part that failed keeps the screen
+  const complete = screen === "run" && finished && !running && failed.length === 0;
+  useEffect(() => {
+    if (!complete) return;
+    const timer = window.setTimeout(() => setScreen("last"), 700);
+    return () => window.clearTimeout(timer);
+  }, [complete]);
+
+  // back from the terminal with the PATH changed: the command is looked at again
+  const waitsOnPath = screen === "run" && !running && failed.some((p) => p.fix);
+  useEffect(() => {
+    if (!waitsOnPath) return;
+    window.addEventListener("focus", recheck);
+    return () => window.removeEventListener("focus", recheck);
+  });
+
   const agentsNote = !inTauri()
     ? "The desktop app finds your agents and connects them."
     : found
@@ -103,8 +139,8 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
       closeOnEscape={false}
       closeOnBackdrop={false}
     >
-      <StepDots count={STEPS} current={screen === "run" ? 1 : 0} />
-      {screen === "plugins" ? null : (
+      <StepDots count={STEPS} current={screen === "run" ? 1 : screen === "last" ? 2 : 0} />
+      {screen !== "welcome" ? null : (
         <button type="button" className="setup-corner is-skip" onClick={onClose}>
           Skip setup
         </button>
@@ -122,7 +158,7 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
             plugins={toInstall.map((e) => e.title)}
             telemetry={settings.telemetry.usage || settings.telemetry.crashes}
             primary={primary}
-            onSetUp={() => setScreen("run")}
+            onSetUp={setUp}
             onPlugins={() => setScreen("plugins")}
           />
           <div className="setup-tip">
@@ -153,27 +189,35 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
       ) : null}
 
       {screen === "run" ? (
-        // the setup itself is not built yet: this says what it will do
+        <>
+          <SetupRun
+            parts={parts}
+            running={running}
+            failed={failed}
+            onRetry={retry}
+            onRecheck={recheck}
+            onContinue={() => setScreen("last")}
+          />
+          {failed.length && !running ? null : (
+            <div className="setup-tip">
+              <TipBar>
+                <b>Report status</b> lets Pinrail show when an agent works, waits for you or finishes.
+              </TipBar>
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {screen === "last" ? (
+        // the first session is not built yet: this ends the setup
         <>
           <div className="setup-body">
-            <span className="setup-run-mark">
-              <Mark size={44} />
-            </span>
-            <h1 className="setup-title is-view">Setting up Pinrail</h1>
-            <p className="setup-sub" data-testid="setup-plan-agents">
-              {toConnect.length ? (
-                <>Agents to connect: {listed(toConnect.map((a) => a.name))}.</>
-              ) : (
-                "No agent to connect."
-              )}
-            </p>
-            <p className="setup-sub" data-testid="setup-plan-plugins">
-              {toInstall.length ? <>Plugins to add: {listed(toInstall.map((e) => e.title))}.</> : "No plugin to add."}
-            </p>
+            <h1 className="setup-title is-view">Pinrail is ready</h1>
+            <p className="setup-sub">Your agents can now ask you. What they ask appears in your inbox.</p>
           </div>
           <div className="setup-foot">
-            <button type="button" className="chrome-button setup-button" onClick={() => setScreen("welcome")}>
-              Back
+            <button type="button" className="chrome-button button-primary setup-button" onClick={onClose} autoFocus>
+              Done
             </button>
           </div>
         </>

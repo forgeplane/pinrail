@@ -6711,6 +6711,12 @@ button.setup-tile[aria-disabled="true"] {
   color: var(--bg-panel);
   box-shadow: 0 0 0 2px var(--bg-panel);
 }
+/* the setting-up screen: the parts of the setup as pins on a line */
+.setup-run-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .setup-run-mark {
   margin-top: 52px;
 }
@@ -6720,6 +6726,163 @@ button.setup-tile[aria-disabled="true"] {
 }
 .setup-run-mark + .setup-title {
   margin-top: 16px;
+}
+.setup-sub code,
+.setup-step code {
+  font-family: var(--mono);
+  font-size: 0.93em;
+  color: var(--text);
+}
+.setup-steps {
+  width: min(460px, 100%);
+  margin: 26px 0 0;
+  padding: 0 0 8px;
+  list-style: none;
+}
+.setup-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 26px 18px minmax(0, 1fr) auto;
+  /* the part's own line, then what to do about it when it failed */
+  grid-template-rows: 46px auto;
+  align-items: center;
+  column-gap: 12px;
+}
+/* the line runs from one pin's middle to the next one's, whatever is
+   between them, and turns green under a part that is done */
+.setup-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 23px;
+  left: 12px;
+  width: 2px;
+  height: 100%;
+  background: var(--border);
+}
+.setup-step.is-done:not(:last-child)::before {
+  background: var(--ok);
+}
+.setup-step-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-panel);
+  color: var(--bg-panel);
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: 1;
+}
+.is-done > .setup-step-node {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+.is-failed > .setup-step-node {
+  border-color: var(--sev-major);
+  background: var(--sev-major);
+}
+.is-waiting > .setup-step-node::after,
+.is-skipped > .setup-step-node::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.is-working > .setup-step-node {
+  border-color: var(--accent-bg);
+}
+.is-working > .setup-step-node::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-radius: 50%;
+  animation: setup-turn 0.8s linear infinite;
+}
+@keyframes setup-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.setup-step-icon {
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+}
+.setup-step-agent {
+  display: grid;
+  width: 16px;
+  height: 16px;
+}
+.setup-step-agent svg {
+  width: 100%;
+  height: 100%;
+}
+.setup-step-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 520;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-waiting > .setup-step-name,
+.is-waiting > .setup-step-icon,
+.is-skipped > .setup-step-name,
+.is-skipped > .setup-step-icon {
+  color: var(--faint);
+}
+.setup-step-state {
+  color: var(--dim);
+  font-size: var(--text-md);
+  white-space: nowrap;
+}
+.is-done > .setup-step-state {
+  color: var(--ok);
+  font-weight: 500;
+}
+.is-working > .setup-step-state {
+  color: var(--accent);
+}
+.is-failed > .setup-step-state {
+  color: var(--sev-major);
+  font-weight: 500;
+}
+.setup-step-fix {
+  grid-column: 2 / -1;
+  padding: 0 0 14px;
+}
+.setup-step-fix p {
+  margin: 0;
+  color: var(--dim);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.setup-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.setup-step-line {
+  flex: 1 1 100%;
+  overflow-x: auto;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  white-space: nowrap;
+}
+.setup-step-actions .chrome-button {
+  cursor: pointer;
 }
 
 /* the plugins view: a card for each plugin */
@@ -6828,6 +6991,9 @@ button.setup-tile[aria-disabled="true"] {
   .step-dots li,
   .setup-tile {
     transition: none;
+  }
+  .is-working > .setup-step-node::after {
+    animation: none;
   }
 }
 
