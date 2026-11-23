@@ -6468,11 +6468,11 @@ body.is-resizing iframe {
   gap: 10px;
 }
 .chrome-button.setup-button {
-  gap: 9px;
-  height: 42px;
-  padding: 0 20px;
-  border-radius: 11px;
-  font-size: 14px;
+  gap: 8px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13px;
   font-weight: 550;
   letter-spacing: -0.005em;
   cursor: pointer;
@@ -6492,7 +6492,7 @@ body.is-resizing iframe {
   font-weight: 600;
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.18) inset,
-    0 8px 20px -10px var(--button-bg);
+    0 6px 14px -10px var(--button-bg);
 }
 .setup-fine {
   max-width: 640px;
@@ -6506,6 +6506,10 @@ body.is-resizing iframe {
   display: flex;
   justify-content: center;
   padding: 14px 48px 22px;
+}
+/* room between the buttons and the tip under them */
+.setup-foot + .setup-tip {
+  padding-top: 26px;
 }
 .tip-bar {
   display: inline-flex;
