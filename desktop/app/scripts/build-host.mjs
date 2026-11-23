@@ -7,8 +7,12 @@
 // macOS names the bundle in the privacy prompts that agents cause, and keeps
 // the person's answers by its bundle identifier. The bundle is signed with
 // HOST_SIGNING_IDENTITY, the hardened runtime and the host's entitlements,
-// or ad hoc when HOST_SIGNING_IDENTITY is not set. On Linux the host is the
-// sidecar src-tauri/binaries/pinrail-host-<target triple>.
+// or ad hoc when HOST_SIGNING_IDENTITY is not set. A --dev build without
+// HOST_SIGNING_IDENTITY is signed with the keychain's Developer ID
+// Application identity when there is one, so that macOS keeps the grants
+// given to the dev host across rebuilds; HOST_SIGNING_IDENTITY=- signs it
+// ad hoc. On Linux the host is the sidecar
+// src-tauri/binaries/pinrail-host-<target triple>.
 //
 //   node scripts/build-host.mjs                          # the host's triple
 //   node scripts/build-host.mjs universal-apple-darwin   # arm64, x86_64, and the two joined with lipo
@@ -54,11 +58,21 @@ function version() {
   return /^version = "([^"]+)"/m.exec(manifest)[1];
 }
 
+/** The first Developer ID Application identity in the keychain, if any. */
+function developerId() {
+  try {
+    const found = execFileSync("security", ["find-identity", "-v", "-p", "codesigning"], { encoding: "utf8" });
+    return /"(Developer ID Application: [^"]+)"/.exec(found)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Makes `Pinrail Host.app` in `folder` from the host binary `binary`, and
- * signs it. Returns the bundle's path.
+ * signs it with `identity`, or ad hoc with "-". Returns the bundle's path.
  */
-function bundle(binary, folder) {
+function bundle(binary, folder, identity) {
   const bundlePath = path.join(folder, "Pinrail Host.app");
   fs.rmSync(bundlePath, { recursive: true, force: true });
   fs.mkdirSync(path.join(bundlePath, "Contents", "MacOS"), { recursive: true });
@@ -67,9 +81,8 @@ function bundle(binary, folder) {
   const executable = path.join(bundlePath, "Contents", "MacOS", "pinrail-host");
   fs.copyFileSync(binary, executable);
   fs.chmodSync(executable, 0o755);
-  const identity = process.env.HOST_SIGNING_IDENTITY || "-";
-  // a secure timestamp, which notarization needs, only for a real identity
-  const timestamp = identity === "-" ? [] : ["--timestamp"];
+  // a secure timestamp, which notarization needs, only for a release
+  const timestamp = identity === "-" || dev ? [] : ["--timestamp"];
   run("codesign", [
     "--force",
     "--sign",
@@ -95,11 +108,12 @@ if (target.includes("-windows-")) {
 }
 const apple = target.endsWith("-apple-darwin");
 
+const identity = process.env.HOST_SIGNING_IDENTITY || (dev && apple && developerId()) || "-";
 const written = [];
 if (dev) {
   // tauri dev's app finds the bundle beside its own binary
   const binary = build(target, { dev });
-  written.push(apple ? bundle(binary, path.dirname(binary)) : binary);
+  written.push(apple ? bundle(binary, path.dirname(binary), identity) : binary);
 } else {
   fs.mkdirSync(out, { recursive: true });
 
@@ -123,6 +137,7 @@ if (dev) {
     binary = place(build(target), target);
     written.push(binary);
   }
-  if (apple) written.push(bundle(binary, out));
+  if (apple) written.push(bundle(binary, out, identity));
 }
 console.log(`host: ${written.map((f) => path.relative(app, f)).join(", ")}`);
+if (apple) console.log(`host: signed ${identity === "-" ? "ad hoc" : `with ${identity}`}`);

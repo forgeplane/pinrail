@@ -11,7 +11,7 @@ change in behaviour, open an issue first.
 
 - **Bug reports:** describe what you ran, what you expected and what
   happened instead. Include your operating system, the app's version (shown
-  in *Settings › About*), and the output of the `pinrail` command run with
+  in _Settings › About_), and the output of the `pinrail` command run with
   `-v`. If you can fix the bug, a pull request is welcome.
 - **Suggestions:** open an issue that describes the problem first, then the
   change you would like to see.
@@ -45,7 +45,7 @@ pinrail plugins install plugins/code-review --link
 
 The link takes the place of the installed plugin of that name, including
 the copy of `list` or `feedback` that the app carries. When you change the
-folder, an open review of the plugin offers *Reload*. A plugin with a
+folder, an open review of the plugin offers _Reload_. A plugin with a
 build step, such as `artifact`, needs `npm run build` after each change.
 Remove the link to go back: `pinrail plugins remove review`.
 
@@ -63,6 +63,14 @@ mise install
 mise run setup              # the npm packages, the UI and plugin builds, and Playwright's browser
 mise run dev:desktop        # the app with live reload
 ```
+
+On macOS, `mise run dev:desktop` builds the terminal host as
+`Pinrail Host.app` and signs it with the Developer ID Application identity in
+your keychain, if you have one. macOS then keeps the permissions you give
+Pinrail Host, such as Developer Tools or access to a folder, across rebuilds.
+Without such an identity the host is signed ad hoc, and macOS asks for those
+permissions again after each rebuild. Set `HOST_SIGNING_IDENTITY=-` to sign
+it ad hoc on purpose.
 
 `mise run setup` performs the same preparation as CI. The tests and the
 linters need it, so run it once after cloning, and again when a
@@ -191,7 +199,7 @@ request can be merged.
   what exists.
 - **Commits:** keep each commit to one change. Write the title as a sentence
   that says what the commit does, without an `area:` prefix. For example:
-  *Let the artifact plugin take its page as an HTML file*.
+  _Let the artifact plugin take its page as an HTML file_.
 
 ## License
 
