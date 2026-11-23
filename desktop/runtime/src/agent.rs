@@ -38,6 +38,19 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// Trusts the hooks `plan` installed, for an agent that runs a hook only
+    /// once the person has trusted it, and returns how many it trusted.
+    /// `shell` makes the command that runs a command line, such as
+    /// `codex app-server`, in the person's login shell, which finds the
+    /// agent's program as a terminal would.
+    fn trust_hooks(
+        &self,
+        _plan: &crate::integration::Integration,
+        _shell: &dyn Fn(&str) -> std::process::Command,
+    ) -> Result<usize, String> {
+        Ok(0)
+    }
+
     /// How Pinrail starts a new session of the agent in a terminal; `None`
     /// for an agent Pinrail does not start.
     fn start(&self, _request: &StartRequest) -> Option<StartPlan> {

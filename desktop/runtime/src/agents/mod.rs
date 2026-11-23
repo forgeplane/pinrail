@@ -3,6 +3,7 @@
 mod antigravity;
 mod claude_code;
 mod codex;
+mod codex_trust;
 mod copilot;
 mod cursor;
 mod grok;

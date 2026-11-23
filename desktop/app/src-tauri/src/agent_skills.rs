@@ -297,7 +297,8 @@ fn integration(home: &Path, id: &str) -> Option<pinrail_runtime::integration::In
 }
 
 /// Installs Pinrail's status hooks in an installed agent's settings, or
-/// removes them. Only Pinrail's entries change.
+/// removes them. Only Pinrail's entries change. Installed hooks are
+/// trusted in an agent that runs only the hooks the person has trusted.
 pub fn set_hooks(home: &Path, id: &str, on: bool) -> Result<(), String> {
     let (agent, folders) = find(id)?;
     let plan = integration(home, id)
@@ -308,7 +309,38 @@ pub fn set_hooks(home: &Path, id: &str, on: bool) -> Result<(), String> {
             agent.label, folders.config
         ));
     }
-    pinrail_runtime::integration::apply(&plan, on).map(|_| ())
+    pinrail_runtime::integration::apply(&plan, on)?;
+    if !on {
+        return Ok(());
+    }
+    let adapter = pinrail_runtime::adapter(id).ok_or_else(|| format!("{id} has no adapter"))?;
+    let shell = |line: &str| in_login_shell(home, line);
+    adapter.trust_hooks(&plan, &shell).map(|_| ()).map_err(|e| {
+        let name = agent.label;
+        format!(
+            "Pinrail installed its hooks, but could not trust them in {name}: {e}. \
+             {name} asks you to review them when it next starts."
+        )
+    })
+}
+
+/// A command that runs `line` in the person's login shell, from their home
+/// folder, so that it finds the programs a terminal finds.
+fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
+    #[cfg(not(windows))]
+    let mut command = {
+        let mut command = std::process::Command::new(crate::cli_install::this_login_shell());
+        command.args(["-l", "-c", &format!("exec {line}")]);
+        command
+    };
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.args(["/C", line]);
+        command
+    };
+    command.current_dir(home);
+    command
 }
 
 fn find(id: &str) -> Result<Installable, String> {

@@ -82,17 +82,22 @@ export function useAgents(open: boolean) {
     }
   }, []);
 
-  const setHooks = useCallback(async (id: string, on: boolean) => {
-    setBusy(id);
-    setError(null);
-    try {
-      setAgents(await invoke<AgentStatus[]>("set_agent_hooks", { id, on }));
-    } catch (e) {
-      setError({ id, message: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  }, []);
+  const setHooks = useCallback(
+    async (id: string, on: boolean) => {
+      setBusy(id);
+      setError(null);
+      try {
+        setAgents(await invoke<AgentStatus[]>("set_agent_hooks", { id, on }));
+      } catch (e) {
+        setError({ id, message: String(e) });
+        // the hooks may be installed even so, such as when trusting them failed
+        check();
+      } finally {
+        setBusy(null);
+      }
+    },
+    [check],
+  );
 
   return { agents, busy, error, act, setHooks };
 }

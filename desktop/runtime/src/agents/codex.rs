@@ -92,6 +92,16 @@ impl Agent for Codex {
         })
     }
 
+    /// Through Codex's app server, started in the login shell, so that the
+    /// person does not have to trust Pinrail's hooks at Codex's next start.
+    fn trust_hooks(
+        &self,
+        plan: &Integration,
+        shell: &dyn Fn(&str) -> std::process::Command,
+    ) -> Result<usize, String> {
+        super::codex_trust::trust(plan, shell("codex app-server"))
+    }
+
     /// `codex --no-daemon [extra args] [task]`. Without the daemon, the
     /// session, its hooks and its tool commands run in the terminal's own
     /// process, so they see the run's environment. Codex chooses the
