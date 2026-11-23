@@ -417,6 +417,26 @@ test("the summary shows turns, where the run started, and what it waits for", as
   await expect(thread.getByTestId("waiting-line")).toHaveCount(0);
 });
 
+test("a failed turn shows its error on the line that says it failed", async ({ page }) => {
+  const { session } = await sessionWithRun(page);
+  const report = (data: unknown) =>
+    page.request.post(`${core}/api/v1/sessions/claude-code/${session}/reports`, { data });
+  await report({ event: "prompt", detail: { prompt: "Render the shorts" } });
+  await report({
+    event: "turn_ended",
+    end: "failed",
+    detail: { reply: "Can't reach the API server — check your internet or DNS (ENOTFOUND)" },
+  });
+  await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
+
+  const thread = page.getByTestId("thread");
+  const failed = thread.getByTestId("turn-state");
+  await expect(failed).toHaveText(
+    /^Claude Code's turn failed after .+: Can't reach the API server — check your internet or DNS \(ENOTFOUND\)/,
+  );
+  await expect(thread.getByTestId("turn-reply")).toHaveCount(0);
+});
+
 test("the summary says how the run ended, and keeps turns without their texts when told to", async ({ page }) => {
   const session = `s-ended-${Date.now()}`;
   await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {

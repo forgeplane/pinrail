@@ -62,6 +62,9 @@ describe("a turn that ended without a reply", () => {
     const name = "Antigravity CLI";
     expect(turnEndText(turn({ end_kind: "interrupted" }), name)).toBe("Antigravity CLI stopped after 10 min");
     expect(turnEndText(turn({ end_kind: "failed" }), name)).toBe("Antigravity CLI's turn failed after 10 min");
+    expect(turnEndText(turn({ end_kind: "failed", reply: "Rate limit reached" }), name)).toBe(
+      "Antigravity CLI's turn failed after 10 min: Rate limit reached",
+    );
     expect(turnEndText(turn({ end_kind: "ended" }), name)).toBe(
       "The session ended during Antigravity CLI's turn, after 10 min",
     );

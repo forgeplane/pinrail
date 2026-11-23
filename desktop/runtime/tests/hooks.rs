@@ -125,11 +125,48 @@ fn claude_code_reports_each_event_of_its_session() {
             end: TurnEnd::Failed
         }
     );
-    assert_eq!(failed.detail.error.as_deref(), Some("rate_limit"));
+    // without the error text Claude Code shows, its details
+    assert_eq!(
+        failed.detail.error.as_deref(),
+        Some("429 Too Many Requests")
+    );
 
     let end = parse(c, "session-end", "session-end").unwrap();
     assert_eq!(end.event, HookEvent::Ended);
     assert_eq!(end.detail.reason.as_deref(), Some("other"));
+}
+
+#[test]
+fn a_failed_claude_code_turn_reports_the_error_claude_code_shows() {
+    let failure = |fields: &[(&str, &str)]| {
+        let mut input = input("claude-code", "stop-failure");
+        for (key, value) in fields {
+            input[*key] = Value::from(*value);
+        }
+        adapter("claude-code")
+            .unwrap()
+            .parse_hook("stop-failure", &input, &|k| {
+                (k == "CLAUDE_CODE_SESSION_ID").then(|| CLAUDE_SESSION.to_string())
+            })
+            .unwrap()
+            .detail
+            .error
+    };
+    let shown = "API Error: Can't reach the API server — check your internet or DNS (ENOTFOUND)";
+    assert_eq!(
+        failure(&[("error", "server_error"), ("last_assistant_message", shown)]).as_deref(),
+        Some("Can't reach the API server — check your internet or DNS (ENOTFOUND)")
+    );
+    // with neither the text nor details, the error's type
+    let mut bare = input("claude-code", "stop-failure");
+    bare.as_object_mut().unwrap().remove("error_details");
+    let report = adapter("claude-code")
+        .unwrap()
+        .parse_hook("stop-failure", &bare, &|k| {
+            (k == "CLAUDE_CODE_SESSION_ID").then(|| CLAUDE_SESSION.to_string())
+        })
+        .unwrap();
+    assert_eq!(report.detail.error.as_deref(), Some("rate_limit"));
 }
 
 #[test]
@@ -272,7 +309,7 @@ fn a_report_is_sent_as_the_core_reads_it() {
     let failed = body(c, "stop-failure", "stop-failure");
     assert_eq!(failed["event"], "turn_ended");
     assert_eq!(failed["end"], "failed");
-    assert_eq!(failed["detail"]["reply"], "rate_limit");
+    assert_eq!(failed["detail"]["reply"], "429 Too Many Requests");
     assert!(
         failed["transcript_path"]
             .as_str()

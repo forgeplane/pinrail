@@ -76,7 +76,15 @@ impl Agent for ClaudeCode {
                 HookEvent::TurnEnded { end: TurnEnd::Done }
             }
             "stop-failure" => {
-                detail.error = text(input, "error").or_else(|| text(input, "error_details"));
+                // the error as Claude Code shows it, then its details, then
+                // only its type, such as `server_error`
+                detail.error = text(input, "last_assistant_message")
+                    .map(|shown| match shown.strip_prefix("API Error: ") {
+                        Some(rest) => rest.to_string(),
+                        None => shown,
+                    })
+                    .or_else(|| text(input, "error_details"))
+                    .or_else(|| text(input, "error"));
                 HookEvent::TurnEnded {
                     end: TurnEnd::Failed,
                 }

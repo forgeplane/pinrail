@@ -160,7 +160,8 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
 }
 
 /** How a turn that ended without a reply ended, in a sentence, or null
- *  while it goes on. */
+ *  while it goes on. A failed turn's reply is its error, which the
+ *  sentence ends with. */
 export function turnEndText(turn: SessionTurn, name: string): string | null {
   if (!turn.ended_at) return null;
   const took = lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at));
@@ -170,7 +171,7 @@ export function turnEndText(turn: SessionTurn, name: string): string | null {
     case "interrupted":
       return `${name} stopped after ${took}`;
     case "failed":
-      return `${name}'s turn failed after ${took}`;
+      return turn.reply ? `${name}'s turn failed after ${took}: ${turn.reply}` : `${name}'s turn failed after ${took}`;
     case "ended":
       return `The session ended during ${name}'s turn, after ${took}`;
     default:
@@ -194,6 +195,8 @@ export const TurnEntry = memo(function TurnEntry({
   const name = agentOf(agent)?.label ?? agent ?? "The agent";
   const took = turn.ended_at ? lasted(Date.parse(turn.ended_at) - Date.parse(turn.started_at)) : null;
   const interrupted = turn.end_kind === "interrupted";
+  // a failed turn's reply is the agent's error, not a message of its own
+  const failed = turn.end_kind === "failed";
   // how the turn ended, and how long it took
   const ends = [interrupted ? "Interrupted" : turn.ended_at ? null : "Working", took].filter(Boolean).join(" · ");
   return (
@@ -208,7 +211,7 @@ export const TurnEntry = memo(function TurnEntry({
           </div>
         </div>
       ) : null}
-      {part === "end" && turn.reply !== null ? (
+      {part === "end" && turn.reply !== null && !failed ? (
         // what the agent replied, under its icon, as its other messages are
         <div className="thread-note thread-turn-reply msg" data-testid="turn-reply">
           <span className="msg-avatar">
@@ -225,10 +228,10 @@ export const TurnEntry = memo(function TurnEntry({
           </div>
         </div>
       ) : null}
-      {part === "end" && turn.reply === null && turn.ended_at ? (
-        // a turn with no reply kept says how it ended where the reply
-        // would be, as a line across the thread, since the agent wrote
-        // nothing
+      {part === "end" && (turn.reply === null || failed) && turn.ended_at ? (
+        // a turn with no reply kept, or one that failed, says how it ended
+        // where the reply would be, as a line across the thread, since the
+        // agent wrote nothing
         <TurnEndLine turn={turn} name={name} />
       ) : null}
     </div>

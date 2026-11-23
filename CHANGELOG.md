@@ -290,6 +290,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show the error of a failed Claude Code turn, such as a lost connection,
+  on the line that says the turn failed. The thread showed only the
+  error's type, such as `server_error`, as Claude Code's reply.
 - Show a work item's key on one line in a Markdown table's narrow column.
 - Start new agents under the current build's terminal host after an
   update. They were started by a process of the build before the update,
