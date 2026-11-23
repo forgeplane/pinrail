@@ -85,7 +85,7 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
 
 /// Whether `folder` is under a temporary folder, where an agent's work is
 /// a test or a one-off.
-fn is_scratch(folder: &Path) -> bool {
+pub(crate) fn is_scratch(folder: &Path) -> bool {
     [
         "/tmp",
         "/private/tmp",

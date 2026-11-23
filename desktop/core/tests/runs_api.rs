@@ -695,6 +695,40 @@ async fn recent_folders_include_the_ones_agents_worked_in_before_pinrail_saw_the
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn recent_folders_leave_out_a_temporary_folder_pinrail_saw() {
+    let home = tempfile::tempdir().unwrap();
+    let project = home.path().join("code/api");
+    std::fs::create_dir_all(&project).unwrap();
+    // a scratch folder outside the home folder, as an agent's one-off is
+    let scratch = tempfile::tempdir().unwrap();
+    let history = home.path().to_path_buf();
+    let app = common::app_with(|config| config.agent_history = Some(history));
+
+    for (session, folder) in [("s-api", project.as_path()), ("s-tmp", scratch.path())] {
+        let body = json!({"kind": "step", "text": "working",
+                          "origin": {"folder": folder.to_string_lossy()}});
+        let (status, answer) = call(
+            &app,
+            "POST",
+            &format!("/api/v1/sessions/claude-code/{session}/status"),
+            Some(body),
+        )
+        .await;
+        assert!(status.is_success(), "{answer}");
+    }
+
+    let (status, body) = call(&app, "GET", "/api/v1/folders/recent", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let folders: Vec<&str> = body["folders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|f| f["folder"].as_str())
+        .collect();
+    assert_eq!(folders, [project.to_string_lossy()], "{body}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());

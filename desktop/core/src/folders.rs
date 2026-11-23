@@ -17,11 +17,19 @@ pub const SUGGESTED: usize = 8;
 /// its sessions named, the branch checked out in it now, and whether it
 /// still exists. After the ones Pinrail has seen come the ones the agents
 /// under `history`, the person's home folder, worked in without it, which
-/// are still there; each of those names its agent.
+/// are still there; each of those names its agent. Temporary folders
+/// outside the home folder are left out.
 pub fn recent(db: &Db, history: Option<&Path>) -> rusqlite::Result<Vec<Value>> {
     let mut folders: Vec<Value> = db
         .recent_folders(RECENT)?
         .into_iter()
+        // a temporary folder is no project's, unless the home folder is in
+        // one, as a test's is
+        .filter(|(folder, _, _)| {
+            let path = Path::new(folder);
+            !(crate::agent_history::is_scratch(path)
+                && history.is_some_and(|home| !path.starts_with(home)))
+        })
         .map(|(folder, repo, used_at)| {
             let path = Path::new(&folder);
             let exists = path.is_dir();
