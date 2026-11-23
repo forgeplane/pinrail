@@ -206,6 +206,84 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
         .unwrap();
 }
 
+/// A copy of the host binary in `dir` that is another build: the same
+/// program with other bytes, as an older release would be.
+fn another_build(dir: &Path) -> PathBuf {
+    let copy = dir.join("pinrail-host");
+    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &copy).unwrap();
+    if cfg!(target_os = "macos") {
+        // signed again under another identifier, which changes its bytes
+        let status = Command::new("codesign")
+            .args([
+                "--force",
+                "--sign",
+                "-",
+                "--identifier",
+                "dev.pinrail.host.old",
+            ])
+            .arg(&copy)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    } else {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&copy)
+            .unwrap();
+        file.write_all(b"\0").unwrap();
+    }
+    copy
+}
+
+#[test]
+fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    let old_dir = root.path().join("old");
+    std::fs::create_dir_all(&old_dir).unwrap();
+    let mut old_launcher = launcher(&data, Method::Detached);
+    old_launcher.bundled = another_build(&old_dir);
+    let (old, _) = old_launcher.ensure(&|_| {}).unwrap();
+    let old_host = Started(old.clone());
+    let old_build = old.build.clone().unwrap();
+    let old_binary = std::fs::read_dir(data.join("host/bin"))
+        .unwrap()
+        .map(|e| e.unwrap().path().join("pinrail-host"))
+        .next()
+        .unwrap();
+
+    // as a holder of the old build does when its host stops: it starts a
+    // host from its own binary, here as soon as the old host is gone
+    let racer = {
+        let (data, old_binary, pid) = (data.clone(), old_binary.clone(), old.pid);
+        std::thread::spawn(move || {
+            while Command::new("kill")
+                .args(["-0", &pid.to_string()])
+                .stderr(std::process::Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success())
+            {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            Command::new(&old_binary)
+                .args(["serve", "--daemonize", "--data-dir"])
+                .arg(&data)
+                .status()
+                .unwrap();
+        })
+    };
+
+    let (new, _) = launcher(&data, Method::Detached).ensure(&|_| {}).unwrap();
+    racer.join().unwrap();
+    let new_host = Started(new.clone());
+    std::mem::forget(old_host);
+    let ours = Registration::read(&data.join("host/host.json")).unwrap();
+    assert_ne!(new.build.as_deref(), Some(old_build.as_str()));
+    assert_eq!(ours.pid, new.pid);
+    drop(new_host);
+}
+
 #[test]
 fn the_host_names_the_snapshot_formats_it_reads() {
     let output = Command::new(env!("CARGO_BIN_EXE_pinrail-host"))

@@ -88,29 +88,52 @@ impl Launcher {
 
     /// The running host of this boot, or a new one: its registration, and
     /// how it was started when it is new.
+    ///
+    /// A host of another build hands its terminals over to a new one. A
+    /// holder of an older build may start a host from its own binary while
+    /// the new one starts, and win; that host is replaced in turn, up to
+    /// [`REPLACEMENTS`] times.
     pub fn ensure(&self, log: &dyn Fn(&str)) -> Result<(Registration, Option<Method>), Error> {
         let paths = Paths::new(&self.data_dir);
-        if let Some(registration) = answering(&paths) {
-            // the app works with its own host: one of another build hands
-            // its terminals over to a new one
-            let ours = build_of(&self.bundled)?;
-            if registration.build.as_deref() == Some(ours.as_str()) {
-                remove_unused_in_background(&self.data_dir, &self.bundled);
-                return Ok((registration, None));
+        let ours = build_of(&self.bundled)?;
+        let mut started = None;
+        for attempt in 0..=REPLACEMENTS {
+            if let Some(registration) = answering(&paths) {
+                // the app works with its own host
+                if registration.build.as_deref() == Some(ours.as_str()) {
+                    remove_unused_in_background(&self.data_dir, &self.bundled);
+                    return Ok((registration, started));
+                }
+                if attempt == REPLACEMENTS {
+                    log(&format!(
+                        "keeping the terminal host of build {}: it came back {REPLACEMENTS} times",
+                        registration.build.as_deref().unwrap_or("unknown")
+                    ));
+                    return Ok((registration, started));
+                }
+                log(&format!(
+                    "replacing the terminal host of build {} with {ours}",
+                    registration.build.as_deref().unwrap_or("unknown")
+                ));
+                let copy = install(&self.bundled, &self.data_dir)?;
+                replace(&registration, &formats_of(&copy))?;
+            } else if attempt == REPLACEMENTS {
+                break;
             }
-            log(&format!(
-                "replacing the terminal host of build {} with {ours}",
-                registration.build.as_deref().unwrap_or("unknown")
-            ));
-            let copy = install(&self.bundled, &self.data_dir)?;
-            replace(&registration, &formats_of(&copy))?;
+            started = Some(self.launch(&paths, log)?);
         }
+        Err(Error::NotStarted)
+    }
+
+    /// Starts a host from this build's copy with the first method that
+    /// works, and waits until a host answers.
+    fn launch(&self, paths: &Paths, log: &dyn Fn(&str)) -> Result<Method, Error> {
         paths.create()?;
         let copy = install(&self.bundled, &self.data_dir)?;
         for &method in &self.methods {
             let launched = match method {
-                Method::Launchd => launchd(&copy, &paths, &self.data_dir, &self.env),
-                Method::SystemdRun => systemd_run(&copy, &paths, &self.data_dir, &self.env),
+                Method::Launchd => launchd(&copy, paths, &self.data_dir, &self.env),
+                Method::SystemdRun => systemd_run(&copy, paths, &self.data_dir, &self.env),
                 Method::Detached => detached(&copy, &self.data_dir, &self.env),
             };
             match launched {
@@ -118,9 +141,8 @@ impl Launcher {
                     if method == Method::Detached && self.methods.len() > 1 {
                         log("the terminal host was started detached and may end with the app");
                     }
-                    let registration = wait_for_host(&paths, START_WITHIN)?;
-                    remove_unused_in_background(&self.data_dir, &self.bundled);
-                    return Ok((registration, Some(method)));
+                    wait_for_host(paths, START_WITHIN)?;
+                    return Ok(method);
                 }
                 Err(error) => log(&format!(
                     "starting the terminal host with {method:?}: {error}"
@@ -130,6 +152,10 @@ impl Launcher {
         Err(Error::NotStarted)
     }
 }
+
+/// How many times a host of another build is replaced before the core
+/// keeps working with it.
+const REPLACEMENTS: u32 = 3;
 
 /// The registered host, if it is of this boot and answers `hello`.
 fn answering(paths: &Paths) -> Option<Registration> {
