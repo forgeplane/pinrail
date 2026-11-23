@@ -52,6 +52,10 @@ The `pinrail` command ships inside the app and carries the app's version.
   the inbox adds: an agent's new work items, its comments, the items it
   closes or claims, and its other changes.
 - A button beside the **Parent** of a work item opens the parent item.
+- Codex reports its status to Pinrail. Turn on **Report status** for it in
+  Settings › Agents, and trust Pinrail's hooks when Codex asks at its next
+  start. Its sessions then show their turns, prompts and replies, and
+  whether the agent is working, waits for a permission, or is finished.
 - Antigravity CLI reports its status to Pinrail. Turn on **Report status**
   for it in Settings › Agents, and its sessions show their turns, prompts
   and replies, and whether the agent is working or finished.

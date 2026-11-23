@@ -1,12 +1,15 @@
 //! Codex: what each of its hooks reports about its session. The
 //! fields are those of `codex-rs/hooks/schema/generated/`.
 
+use std::path::Path;
+
 use serde_json::Value;
 
 use crate::agent::{
     Agent, Env, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task, resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
+use crate::integration::{HookEntry, Integration, Kind, Layout};
 use crate::registry::AgentSpec;
 
 pub struct Codex;
@@ -57,6 +60,35 @@ impl Agent for Codex {
             session,
             event,
             detail,
+        })
+    }
+
+    /// Pinrail's groups in Codex's hooks file, `~/.codex/hooks.json` (or
+    /// `$CODEX_HOME/hooks.json`), beside the person's: for the start of a
+    /// session, each prompt, each finished tool call, a permission, an
+    /// interrupt, and the end of each turn and of the session. Codex runs
+    /// them without waiting, except at the end of the session, which it
+    /// cannot run in the background. Codex runs no hook until the person
+    /// has trusted it.
+    fn integration(&self, home: &Path, env: Env) -> Option<Integration> {
+        let entry = |event, hook| HookEntry::new("codex", event, None, hook);
+        let folder = env("CODEX_HOME")
+            .filter(|h| !h.trim().is_empty())
+            .map(Into::into)
+            .unwrap_or_else(|| home.join(".codex"));
+        Some(Integration {
+            kind: Kind::Hooks,
+            file: folder.join("hooks.json"),
+            layout: Layout::Settings,
+            entries: vec![
+                entry("SessionStart", "session-start").in_background(),
+                entry("UserPromptSubmit", "prompt").in_background(),
+                entry("PostToolUse", "tool").in_background(),
+                entry("PermissionRequest", "permission").in_background(),
+                entry("Interrupt", "interrupt").in_background(),
+                entry("Stop", "stop").in_background(),
+                entry("SessionEnd", "session-end"),
+            ],
         })
     }
 

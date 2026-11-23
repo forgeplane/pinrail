@@ -85,13 +85,14 @@ pub enum Layout {
     },
 }
 
-/// One hook: the agent's event, its matcher if it takes one, and the
-/// command it runs.
+/// One hook: the agent's event, its matcher if it takes one, the command
+/// it runs, and whether the agent runs it without waiting for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HookEntry {
     pub event: &'static str,
     pub matcher: Option<&'static str>,
     pub command: String,
+    pub background: bool,
 }
 
 impl HookEntry {
@@ -105,6 +106,16 @@ impl HookEntry {
             event,
             matcher,
             command: format!("{COMMAND_PREFIX} {agent} {hook}"),
+            background: false,
+        }
+    }
+
+    /// The same hook, written with `"async": true`, which Codex reads as
+    /// running it without waiting for it.
+    pub fn in_background(self) -> Self {
+        HookEntry {
+            background: true,
+            ..self
         }
     }
 }
@@ -147,8 +158,29 @@ fn is_pinrail(handler: &Value) -> bool {
 }
 
 /// A handler as Pinrail writes it.
-fn handler(command: &str) -> Value {
-    json!({"type": "command", "command": command, "timeout": TIMEOUT_SECONDS})
+fn handler(command: &str, background: bool) -> Value {
+    let mut handler = json!({"type": "command", "command": command, "timeout": TIMEOUT_SECONDS});
+    if background {
+        handler["async"] = json!(true);
+    }
+    handler
+}
+
+/// The handler Pinrail writes for `entry`.
+fn entry_handler(entry: &HookEntry) -> Value {
+    handler(&entry.command, entry.background)
+}
+
+/// Whether `h` is a handler exactly as some version of Pinrail writes one,
+/// run in the background or not.
+fn as_written(h: &Value) -> bool {
+    let command = h.get("command").and_then(Value::as_str).unwrap_or_default();
+    is_pinrail(h) && (h == &handler(command, false) || h == &handler(command, true))
+}
+
+/// Whether a handler is written to run in the background.
+fn runs_in_background(h: &Value) -> bool {
+    h.get("async").and_then(Value::as_bool) == Some(true)
 }
 
 /// Pinrail's handlers in `settings`, each with its event and matcher.
@@ -185,8 +217,8 @@ fn named_hook(plan: &Integration) -> Value {
     let mut events = Map::new();
     for entry in &plan.entries {
         let item = match entry.matcher {
-            Some(matcher) => json!({"matcher": matcher, "hooks": [handler(&entry.command)]}),
-            None => handler(&entry.command),
+            Some(matcher) => json!({"matcher": matcher, "hooks": [entry_handler(entry)]}),
+            None => entry_handler(entry),
         };
         events
             .entry(entry.event)
@@ -224,8 +256,6 @@ fn named_state(file: &Value, name: &str, plan: &Integration) -> HookState {
                 None => vec![item],
             })
     });
-    let as_written =
-        |h: &Value| is_pinrail(h) && h == &handler(h["command"].as_str().unwrap_or_default());
     if handlers.clone().all(as_written) && handlers.count() > 0 {
         HookState::Outdated
     } else {
@@ -257,16 +287,17 @@ pub fn state(settings: Option<&Value>, plan: &Integration) -> HookState {
         return HookState::Absent;
     }
     // a handler that is not exactly as Pinrail writes one was edited
-    if found.iter().any(|(_, _, h)| {
-        h != &handler(h.get("command").and_then(Value::as_str).unwrap_or_default())
-    }) {
+    if found.iter().any(|(_, _, h)| !as_written(h)) {
         return HookState::Modified;
     }
-    let mut have: Vec<(String, Option<String>, String)> = found
+    let mut have: Vec<(String, Option<String>, String, bool)> = found
         .into_iter()
-        .map(|(e, m, h)| (e, m, h["command"].as_str().unwrap_or_default().to_string()))
+        .map(|(e, m, h)| {
+            let command = h["command"].as_str().unwrap_or_default().to_string();
+            (e, m, command, runs_in_background(&h))
+        })
         .collect();
-    let mut want: Vec<(String, Option<String>, String)> = plan
+    let mut want: Vec<(String, Option<String>, String, bool)> = plan
         .entries
         .iter()
         .map(|e| {
@@ -274,6 +305,7 @@ pub fn state(settings: Option<&Value>, plan: &Integration) -> HookState {
                 e.event.to_string(),
                 e.matcher.map(str::to_string),
                 e.command.clone(),
+                e.background,
             )
         })
         .collect();
@@ -346,14 +378,14 @@ pub fn install(settings: &mut Value, plan: &Integration) {
                 .or_insert_with(|| json!([]))
                 .as_array_mut()
                 .expect("an event's hooks are a list")
-                .push(handler(&entry.command));
+                .push(entry_handler(entry));
             continue;
         }
         let mut group = Map::new();
         if let Some(matcher) = entry.matcher {
             group.insert("matcher".into(), json!(matcher));
         }
-        group.insert("hooks".into(), json!([handler(&entry.command)]));
+        group.insert("hooks".into(), json!([entry_handler(entry)]));
         hooks
             .entry(entry.event)
             .or_insert_with(|| json!([]))

@@ -548,3 +548,86 @@ fn opencode_s_plugin_goes_beside_the_person_s_and_comes_out_whole() {
     assert_eq!(file_state(&plan), HookState::Unreadable);
     assert!(apply(&plan, true).is_err());
 }
+
+fn codex_plan() -> Integration {
+    adapter("codex")
+        .unwrap()
+        .integration(Path::new("/Users/you"), &|_| None)
+        .unwrap()
+}
+
+#[test]
+fn codex_s_hooks_go_beside_the_person_s_in_its_hooks_file() {
+    let plan = codex_plan();
+    assert_eq!(plan.file, Path::new("/Users/you/.codex/hooks.json"));
+    let moved = adapter("codex")
+        .unwrap()
+        .integration(Path::new("/Users/you"), &|k| {
+            (k == "CODEX_HOME").then(|| "/work/codex".to_string())
+        })
+        .unwrap();
+    assert_eq!(moved.file, Path::new("/work/codex/hooks.json"));
+    // the file as herdr leaves it
+    let original = json!({
+        "hooks": {"SessionStart": [{"hooks": [{
+            "command": "bash '/Users/you/.codex/herdr-agent-state.sh' session",
+            "timeout": 10,
+            "type": "command"
+        }]}]}
+    });
+    let mut hooks = original.clone();
+    install(&mut hooks, &plan);
+    assert_eq!(state(Some(&hooks), &plan), HookState::Current);
+    assert_eq!(hooks["hooks"]["SessionStart"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        hooks["hooks"]["UserPromptSubmit"][0]["hooks"][0],
+        json!({
+            "type": "command",
+            "command": "\"${PINRAIL_CLI:-pinrail}\" hook codex prompt",
+            "timeout": 2,
+            "async": true
+        })
+    );
+    // Codex cannot run the end of a session in the background
+    assert_eq!(
+        hooks["hooks"]["SessionEnd"][0]["hooks"][0].get("async"),
+        None
+    );
+    remove(&mut hooks, &plan);
+    assert_eq!(hooks, original);
+}
+
+#[test]
+fn a_codex_hook_waited_for_or_edited_by_hand_is_told_apart() {
+    let plan = codex_plan();
+    let mut hooks = json!({});
+    install(&mut hooks, &plan);
+    // as a version that did not run it in the background wrote it
+    let mut waited = hooks.clone();
+    waited["hooks"]["Stop"][0]["hooks"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("async");
+    assert_eq!(state(Some(&waited), &plan), HookState::Outdated);
+    let mut edited = hooks.clone();
+    edited["hooks"]["Stop"][0]["hooks"][0]["async"] = json!(false);
+    assert_eq!(state(Some(&edited), &plan), HookState::Modified);
+}
+
+#[test]
+fn every_codex_hook_installed_is_one_pinrail_hook_reads() {
+    let known = [
+        "session-start",
+        "prompt",
+        "tool",
+        "permission",
+        "interrupt",
+        "stop",
+        "session-end",
+    ];
+    for entry in codex_plan().entries {
+        let hook = entry.command.rsplit(' ').next().unwrap();
+        assert!(known.contains(&hook), "{}", entry.command);
+        assert!(entry.command.contains(" hook codex "));
+    }
+}
