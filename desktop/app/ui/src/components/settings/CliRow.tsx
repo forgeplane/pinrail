@@ -21,6 +21,11 @@ export type CliStatus = {
   dir_on_path: boolean | null;
   /** something that went wrong after installing, such as the PATH not updating */
   warning: string | null;
+  /** the file the person's shell reads at start, where Pinrail can add the
+   *  PATH line; null for a shell it does not know, and on Windows */
+  profile: string | null;
+  /** that line, in the shell's syntax */
+  profile_line: string | null;
 };
 
 const invoke = <T,>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
@@ -61,11 +66,28 @@ export function useCli(open: boolean) {
     }
   }, []);
 
-  return { status, busy, error, install, check, checking };
+  /** Adds the PATH line to the shell's profile file, and says whether it did. */
+  const addToPath = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setStatus(await invoke<CliStatus>("add_cli_to_path"));
+      return true;
+    } catch (e) {
+      setError(String(e));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  return { status, busy, error, install, check, checking, addToPath };
 }
 
 export function CliRow({ open }: { open: boolean }) {
-  const { status, busy, error, install: installCli } = useCli(open);
+  const { status, busy, error, install: installCli, addToPath } = useCli(open);
+  // the profile file the PATH line was added to from here
+  const [added, setAdded] = useState<string | null>(null);
 
   if (!inTauri())
     return <SettingsRow label="Install the CLI" description="Puts pinrail into ~/.local/bin; the app does this" />;
@@ -102,11 +124,18 @@ export function CliRow({ open }: { open: boolean }) {
   else if (status.outdated) note = `${link} is a copy from another version of Pinrail; installing replaces it`;
   else if (!status.installed && status.occupied_by)
     note = `${link} is already ${status.occupied_by}; installing replaces ${status.mode === "copy" ? "a link or an older copy" : "a link"}, never another file`;
+  else if (added)
+    note = (
+      <span>
+        Added {folder(link)} to your PATH in <span className="mono">{added}</span>. Open a new terminal to use it
+      </span>
+    );
   else if (status.installed && status.dir_on_path === false)
     note = (
       <span>
-        {folder(link)} is not on your PATH. Add <span className="mono">export PATH="$HOME/.local/bin:$PATH"</span> to
-        your shell profile
+        {folder(link)} is not on your PATH. Add{" "}
+        <span className="mono">{status.profile_line ?? 'export PATH="$HOME/.local/bin:$PATH"'}</span> to{" "}
+        {status.profile ? <span className="mono">{short(status.profile)}</span> : "your shell profile"}
       </span>
     );
   else if (status.installed && status.runs && status.runs !== status.link)
@@ -115,14 +144,36 @@ export function CliRow({ open }: { open: boolean }) {
         A new terminal runs <span className="mono">{short(status.runs)}</span> first, which is not this one
       </span>
     );
+  // the line can be added from here for a shell Pinrail knows
+  const profile = !added && status.installed && status.dir_on_path === false && status.profile;
+  const add = profile ? (
+    <button
+      type="button"
+      className="chrome-button"
+      onClick={async () => {
+        if (await addToPath()) setAdded(short(profile));
+      }}
+      disabled={busy}
+    >
+      Add it to {short(profile)}
+    </button>
+  ) : null;
 
-  if (status.mode === "package") return <SettingsRow label="Install the CLI" description={description} note={note} />;
+  if (status.mode === "package")
+    return (
+      <SettingsRow label="Install the CLI" description={description} note={note}>
+        {add}
+      </SettingsRow>
+    );
 
   return (
     <SettingsRow label="Install the CLI" description={description} note={note}>
-      <button type="button" className="chrome-button" onClick={installCli} disabled={busy}>
-        {busy ? "Installing…" : status.outdated ? "Update" : status.installed ? "Reinstall" : "Install"}
-      </button>
+      <span className="settings-row-buttons">
+        {add}
+        <button type="button" className="chrome-button" onClick={installCli} disabled={busy}>
+          {busy ? "Installing…" : status.outdated ? "Update" : status.installed ? "Reinstall" : "Install"}
+        </button>
+      </span>
     </SettingsRow>
   );
 }

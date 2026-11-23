@@ -83,3 +83,49 @@ test("an older settings answer that arrives last does not undo a newer change", 
 
   await page.request.patch(`${core}/api/v1/settings`, { data: { notifications: { enabled: true, sound: true } } });
 });
+
+test("Install the CLI adds its folder to the PATH in the shell's file", async ({ page }) => {
+  await page.goto("/#/");
+  await page.getByRole("main").waitFor();
+  // the browser build has no native side, so the test answers its calls
+  await page.evaluate(() => {
+    const w = window as unknown as Record<string, unknown>;
+    const calls: string[] = [];
+    w.__calls = calls;
+    let onPath = false;
+    const link = "/Users/you/.local/bin/pinrail";
+    const cli = () => ({
+      mode: "link",
+      bundled: "/Applications/Pinrail.app/Contents/MacOS/pinrail",
+      link,
+      installed: true,
+      outdated: false,
+      occupied_by: null,
+      runs: onPath ? link : null,
+      dir_on_path: onPath,
+      warning: null,
+      profile: "/Users/you/.config/fish/config.fish",
+      profile_line: 'fish_add_path "$HOME/.local/bin"',
+    });
+    w.__TAURI_INTERNALS__ = {
+      invoke: async (command: string) => {
+        calls.push(command);
+        if (command === "cli_status") return cli();
+        if (command === "add_cli_to_path") {
+          onPath = true;
+          return cli();
+        }
+        throw new Error(`${command} is not answered here`);
+      },
+    };
+  });
+  await page.keyboard.press("ControlOrMeta+,");
+  await settingsSection(page, "Data").click();
+  const dialog = settingsDialog(page);
+  // the line in the shell's own syntax, and the file it goes in
+  await expect(dialog).toContainText('fish_add_path "$HOME/.local/bin"');
+  await dialog.getByRole("button", { name: "Add it to ~/.config/fish/config.fish" }).click();
+  await expect(dialog).toContainText("Open a new terminal to use it");
+  await expect(dialog.getByRole("button", { name: /^Add it to/ })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __calls: string[] }).__calls)).toContain("add_cli_to_path");
+});

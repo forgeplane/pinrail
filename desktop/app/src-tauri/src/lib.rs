@@ -15,6 +15,7 @@ mod notify_linux;
 #[cfg(target_os = "macos")]
 mod notify_mac;
 mod quit;
+mod shell_profile;
 mod startup;
 mod updater;
 mod window_buttons;
@@ -371,21 +372,66 @@ async fn set_agent_hooks(
     .map_err(|e| e.to_string())?
 }
 
+/// The file the person's shell reads at start, and the line that puts
+/// `~/.local/bin` on its PATH; none for a shell Pinrail does not know.
+#[cfg(not(windows))]
+fn shell_profile_of(home: &Path) -> Option<shell_profile::Profile> {
+    shell_profile::profile(
+        &cli_install::this_login_shell(),
+        home,
+        cfg!(target_os = "macos"),
+        &|name| std::env::var(name).ok(),
+    )
+}
+
+/// On Windows the PATH is in the registry, not in a file.
+#[cfg(windows)]
+fn shell_profile_of(_home: &Path) -> Option<shell_profile::Profile> {
+    None
+}
+
+/// Where the CLI stands now: what is installed, what a new terminal runs,
+/// and the file the PATH line can go in.
+fn cli_status_now(home: &Path) -> cli_install::Status {
+    let bundled = cli_install::bundled();
+    let mode = bundled.as_deref().map_or(cli_install::Mode::Link, |b| {
+        cli_install::mode(b, cli_install::in_appimage())
+    });
+    let shell = cli_install::ask_login_shell();
+    let mut status = cli_install::with_warning(cli_install::status(
+        mode,
+        bundled.as_deref(),
+        &cli_install::link_path(home),
+        shell.as_ref(),
+    ));
+    if let Some(profile) = shell_profile_of(home) {
+        status.profile = Some(profile.file);
+        status.profile_line = Some(profile.line.to_string());
+    }
+    status
+}
+
 #[tauri::command]
 async fn cli_status() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
-        let bundled = cli_install::bundled();
-        let mode = bundled.as_deref().map_or(cli_install::Mode::Link, |b| {
-            cli_install::mode(b, cli_install::in_appimage())
-        });
-        let shell = cli_install::ask_login_shell();
-        Ok(cli_install::with_warning(cli_install::status(
-            mode,
-            bundled.as_deref(),
-            &cli_install::link_path(&home),
-            shell.as_ref(),
-        )))
+        Ok(cli_status_now(&home))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Adds the line that puts `~/.local/bin` on the PATH to the file the
+/// person's shell reads at start, then reports as `cli_status`.
+#[tauri::command]
+async fn add_cli_to_path() -> Result<cli_install::Status, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
+        let profile = shell_profile_of(&home).ok_or(
+            "Pinrail does not know where your shell keeps its PATH; add the line yourself",
+        )?;
+        shell_profile::add(&profile)?;
+        Ok(cli_status_now(&home))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -488,13 +534,7 @@ async fn install_cli() -> Result<cli_install::Status, String> {
         #[cfg(not(windows))]
         let warning = None;
         cli_install::remember_warning(warning);
-        let shell = cli_install::ask_login_shell();
-        Ok(cli_install::with_warning(cli_install::status(
-            mode,
-            Some(&bundled),
-            &link,
-            shell.as_ref(),
-        )))
+        Ok(cli_status_now(&home))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -817,6 +857,7 @@ pub fn run() {
             set_autostart,
             cli_status,
             install_cli,
+            add_cli_to_path,
             agents_status,
             agent_skill,
             connect_agent,

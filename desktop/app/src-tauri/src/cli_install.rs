@@ -78,6 +78,12 @@ pub struct Status {
     /// something that went wrong after the CLI was installed, such as the
     /// PATH not being updated
     pub warning: Option<String>,
+    /// the file the person's shell reads at start, where Pinrail can add the
+    /// line that puts the install's folder on the PATH; none for a shell it
+    /// does not know, and on Windows
+    pub profile: Option<PathBuf>,
+    /// that line, in the shell's syntax
+    pub profile_line: Option<String>,
 }
 
 /// What went wrong after the last install, kept so that the status check that
@@ -187,6 +193,8 @@ pub fn status(
         occupied_by,
         runs: shell.and_then(|s| s.command.clone()),
         warning: None,
+        profile: None,
+        profile_line: None,
         dir_on_path: shell.map(|s| {
             dir.as_ref()
                 .is_some_and(|d| s.path.iter().any(|p| same_file(p, d)))
@@ -436,12 +444,18 @@ pub fn ask_login_shell() -> Option<ShellView> {
 
 #[cfg(not(windows))]
 fn ask_unix_login_shell() -> Option<ShellView> {
+    ask_shell(&this_login_shell())
+}
+
+/// The shell a new terminal starts for the person.
+#[cfg(not(windows))]
+pub fn this_login_shell() -> String {
     #[cfg(unix)]
     let uid = rustix::process::getuid().as_raw();
     #[cfg(not(unix))]
     let uid = 0;
     let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
-    ask_shell(&login_shell(std::env::var("SHELL").ok(), &passwd, uid))
+    login_shell(std::env::var("SHELL").ok(), &passwd, uid)
 }
 
 /// The shell a new terminal starts: SHELL, which an app started from a

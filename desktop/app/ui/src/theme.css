@@ -6337,6 +6337,12 @@ body.is-resizing iframe {
   white-space: nowrap;
 }
 
+/* two buttons at the end of a settings row */
+.settings-row-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 /* the setup: one screen at a time in a dialog, with the steps as dots at
    the top and a tip at the bottom */
 .setup-dialog {
@@ -6864,6 +6870,10 @@ button.setup-tile[aria-disabled="true"] {
   font-size: var(--text-md);
   line-height: 1.5;
   white-space: pre-line;
+}
+.setup-step-fix .setup-step-error {
+  margin-top: 6px;
+  color: var(--danger);
 }
 .setup-step-actions {
   display: flex;

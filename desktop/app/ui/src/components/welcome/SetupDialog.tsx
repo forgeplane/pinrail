@@ -40,7 +40,7 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
   const { agents, error } = useAgents(screen !== "run");
   // what the setup runs, once Set up Pinrail is pressed
   const [plan, setPlan] = useState<SetupPlan | null>(null);
-  const { parts, running, finished, failed, retry, recheck } = useSetupRun(plan);
+  const { parts, running, finished, failed, retry, recheck, addToPath } = useSetupRun(plan);
   const primary = useRef<HTMLButtonElement>(null);
   // what the person chose: the agents left out, and the plugins added
   const [leftOut, setLeftOut] = useState<Set<string>>(new Set());
@@ -106,7 +106,8 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
 
   // a run that ends with every part done goes on by itself, after a moment
   // to see the last pin fill; a part that failed keeps the screen
-  const complete = screen === "run" && finished && !running && failed.length === 0;
+  // one with something left for the person to read keeps it too
+  const complete = screen === "run" && finished && !running && failed.length === 0 && !parts.some((p) => p.newTerminal);
   useEffect(() => {
     if (!complete) return;
     const timer = window.setTimeout(() => setScreen("last"), 700);
@@ -196,9 +197,10 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
             failed={failed}
             onRetry={retry}
             onRecheck={recheck}
+            onAddToPath={addToPath}
             onContinue={() => setScreen("last")}
           />
-          {failed.length && !running ? null : (
+          {(failed.length || parts.some((p) => p.newTerminal)) && !running ? null : (
             <div className="setup-tip">
               <TipBar>
                 <b>Report status</b> lets Pinrail show when an agent works, waits for you or finishes.

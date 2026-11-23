@@ -234,11 +234,17 @@ test("with more agents than tiles, a list of every agent opens from the +N tile"
  *  the agents, their Report status and notifications. It records each call. */
 async function native(
   page: Page,
-  options: { agents: ReturnType<typeof agent>[]; onPath?: boolean; failOnce?: string[] },
+  options: {
+    agents: ReturnType<typeof agent>[];
+    onPath?: boolean;
+    failOnce?: string[];
+    /** the file of the login shell's PATH; null for a shell Pinrail does not know */
+    profile?: string | null;
+  },
 ) {
   await page.goto("/");
   await page.getByRole("main").waitFor();
-  await page.evaluate(({ agents, onPath = true, failOnce = [] }) => {
+  await page.evaluate(({ agents, onPath = true, failOnce = [], profile = "/Users/you/.zshrc" }) => {
     const w = window as unknown as Record<string, unknown>;
     const calls: string[] = [];
     const state = { installed: false, onPath, asked: false, failed: new Set<string>() };
@@ -259,6 +265,8 @@ async function native(
       runs: state.installed && state.onPath ? link : null,
       dir_on_path: state.onPath,
       warning: null,
+      profile,
+      profile_line: profile ? 'export PATH="$HOME/.local/bin:$PATH"' : null,
     });
     const allowed = { alert_style: "banner", alerts: true, sound: true, badge: true };
     w.__TAURI_INTERNALS__ = {
@@ -272,6 +280,10 @@ async function native(
             return cli();
           case "install_cli":
             state.installed = true;
+            return cli();
+          case "add_cli_to_path":
+            // a new terminal reads the file, so it finds the command
+            state.onPath = true;
             return cli();
           case "connect_agent":
             if (failOnce.includes(args!.id!) && !state.failed.has(args!.id!)) {
@@ -367,7 +379,12 @@ test("a part that fails keeps the setup on its screen, and Try again runs it alo
 
 test("a command that is not on the PATH shows the line to add, and Check again looks once more", async ({ page }) => {
   await restoring(page, async () => {
-    const app = await native(page, { agents: [agent("codex", "Codex", true, "absent")], onPath: false });
+    // a shell Pinrail does not know: the line is the person's to add
+    const app = await native(page, {
+      agents: [agent("codex", "Codex", true, "absent")],
+      onPath: false,
+      profile: null,
+    });
     const setup = await openSetup(page);
     await setup.getByRole("button", { name: "Set up Pinrail" }).click();
     await expect(setup.getByRole("heading", { name: "One step is left" })).toBeVisible();
@@ -375,6 +392,7 @@ test("a command that is not on the PATH shows the line to add, and Check again l
     await expect(command).toContainText("Not on your PATH");
     await expect(command).toContainText('export PATH="$HOME/.local/bin:$PATH"');
     await expect(command.getByRole("button", { name: "Copy the line" })).toBeVisible();
+    await expect(command.getByRole("button", { name: /^Add it to/ })).toHaveCount(0);
     await expect(setup.getByTestId("setup-step-agent-codex")).toContainText("Connected");
     // nothing else failed, so there is nothing to try again
     await expect(setup.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
@@ -396,6 +414,27 @@ test("with no agent found, the setup says so and does the rest", async ({ page }
     const setup = await openSetup(page);
     await setup.getByRole("button", { name: "Set up Pinrail" }).click();
     await expect(setup.getByTestId("setup-step-agents")).toContainText("None found");
+    await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
+  });
+});
+
+test("Add it to the shell's file puts the command on the PATH, and says to open a new terminal", async ({ page }) => {
+  await restoring(page, async () => {
+    const app = await native(page, { agents: [agent("codex", "Codex", true, "absent")], onPath: false });
+    const setup = await openSetup(page);
+    await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+    const command = setup.getByTestId("setup-step-command");
+    await expect(command).toContainText("Add this line to ~/.zshrc");
+    await expect(command.getByRole("button", { name: "Copy the line" })).toBeVisible();
+
+    await command.getByRole("button", { name: "Add it to ~/.zshrc" }).click();
+    await expect(command).toContainText("Added to ~/.zshrc");
+    await expect(command.getByRole("button")).toHaveCount(0);
+    // the part is done, and the screen waits for the person to read what is left to do
+    await expect(setup.getByRole("heading", { name: "Pinrail is set up" })).toBeVisible();
+    await expect(setup).toContainText("Open a new terminal to use the pinrail command.");
+    expect((await app.calls()).filter((c) => c === "add_cli_to_path")).toHaveLength(1);
+    await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
   });
 });

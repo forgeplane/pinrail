@@ -8,6 +8,7 @@ import { ApiError, api, inTauri } from "../../api/client";
 import type { CatalogEntry } from "../../api/types";
 import type { NotificationStatus } from "../../state/notifications";
 import type { AgentStatus } from "../settings/AgentsSection";
+import { tilde } from "../../lib/cliPaths";
 import type { CliStatus } from "../settings/CliRow";
 
 /** What the person chose on the welcome, as the run takes it. */
@@ -40,9 +41,16 @@ export type Part = {
   /** why it failed */
   reason?: string;
   fix?: Fix;
+  /** for the command off the PATH: the file Pinrail can add the PATH line
+   *  to, as the person reads it, when it knows the shell */
+  profile?: string;
+  /** the PATH line in the shell's syntax */
+  line?: string;
+  /** done, with something left for the person: to open a new terminal */
+  newTerminal?: boolean;
 };
 
-type Outcome = Pick<Part, "state" | "text" | "reason" | "fix">;
+type Outcome = Pick<Part, "state" | "text" | "reason" | "fix" | "profile" | "line" | "newTerminal">;
 
 /** Up to this many agents have a line each; more share one. */
 const AGENT_LINES = 4;
@@ -86,7 +94,14 @@ function commandOutcome(status: CliStatus): Outcome {
     };
   }
   if (status.installed) {
-    if (status.dir_on_path === false) return { state: "failed", text: "Not on your PATH", fix: "path" };
+    if (status.dir_on_path === false)
+      return {
+        state: "failed",
+        text: "Not on your PATH",
+        fix: "path",
+        profile: status.profile ? tilde(status.link)(status.profile) : undefined,
+        line: status.profile_line ?? undefined,
+      };
     // the shell could not be asked, or it answered nothing: the command is in place
     return done;
   }
@@ -178,7 +193,7 @@ export function useSetupRun(plan: SetupPlan | null) {
       setParts((all) => all.map((p) => (p.key === key ? { ...p, ...change } : p)));
     for (const part of list) {
       const say = (text: string) => set(part.key, { text });
-      set(part.key, { state: "working", text: undefined, reason: undefined, fix: undefined });
+      set(part.key, { state: "working", text: undefined, reason: undefined, fix: undefined, newTerminal: undefined });
       let outcome: Outcome;
       try {
         if (part.kind === "command") outcome = await runCommand();
@@ -213,5 +228,22 @@ export function useSetupRun(plan: SetupPlan | null) {
   /** Looks again at whether a terminal finds the command. */
   const recheck = () => void run(parts.filter((p) => p.key === "command"));
 
-  return { parts, running, finished, failed, retry, recheck };
+  /** Adds the PATH line to the shell's profile file. A new terminal then
+   *  finds the command, so the part is done; the open ones do not yet. */
+  const addToPath = async () => {
+    const command = parts.find((p) => p.key === "command");
+    if (!command?.profile) return;
+    const set = (change: Partial<Part>) =>
+      setParts((all) => all.map((p) => (p.key === "command" ? { ...p, ...change } : p)));
+    setRunning(true);
+    try {
+      await invoke<CliStatus>("add_cli_to_path");
+      set({ state: "done", text: `Added to ${command.profile}`, reason: undefined, fix: undefined, newTerminal: true });
+    } catch (e) {
+      set({ reason: message(e) });
+    }
+    setRunning(false);
+  };
+
+  return { parts, running, finished, failed, retry, recheck, addToPath };
 }
