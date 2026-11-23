@@ -36,7 +36,17 @@ pub fn folders() -> Folders {
 }
 
 pub fn command(folders: &Folders, args: &[&str]) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pinrail-host"));
+    command_of(
+        std::path::Path::new(env!("CARGO_BIN_EXE_pinrail-host")),
+        folders,
+        args,
+    )
+}
+
+/// A command of the host at `binary`, such as a copy that stands for
+/// another build.
+pub fn command_of(binary: &std::path::Path, folders: &Folders, args: &[&str]) -> Command {
+    let mut command = Command::new(binary);
     command
         .args(args)
         .arg("--data-dir")
@@ -90,9 +100,18 @@ pub fn registration_path(folders: &Folders) -> PathBuf {
 }
 
 pub fn serve(folders: &Folders, extra: &[&str]) -> Host {
+    serve_of(
+        std::path::Path::new(env!("CARGO_BIN_EXE_pinrail-host")),
+        folders,
+        extra,
+    )
+}
+
+/// A running `serve` of the host at `binary`.
+pub fn serve_of(binary: &std::path::Path, folders: &Folders, extra: &[&str]) -> Host {
     let mut args = vec!["serve"];
     args.extend(extra);
-    let mut child = command(folders, &args)
+    let mut child = command_of(binary, folders, &args)
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()

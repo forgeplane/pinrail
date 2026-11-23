@@ -66,6 +66,42 @@ pub fn uid() -> u32 {
     unsafe { libc::geteuid() }
 }
 
+/// The executable of the process `pid`, as the system resolves it, or
+/// `None` when it cannot be read.
+#[cfg(target_os = "macos")]
+pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut buf = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+    // SAFETY: the buffer holds `buf.len()` bytes.
+    let len = unsafe {
+        libc::proc_pidpath(
+            libc::pid_t::try_from(pid).ok()?,
+            buf.as_mut_ptr().cast(),
+            buf.len() as u32,
+        )
+    };
+    if len <= 0 {
+        return None;
+    }
+    let len = buf.iter().position(|&b| b == 0).unwrap_or(len as usize);
+    Some(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+        &buf[..len],
+    )))
+}
+
+/// The executable of the process `pid`, as the system resolves it, or
+/// `None` when it cannot be read.
+#[cfg(target_os = "linux")]
+pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
+    std::fs::read_link(format!("/proc/{pid}/exe")).ok()
+}
+
+/// Elsewhere a process's executable is not known.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub fn executable_of(_pid: u32) -> Option<std::path::PathBuf> {
+    None
+}
+
 /// The executables of the running processes of this user, as the system
 /// resolves them. An error means the list may be incomplete. A process
 /// that exits while the list is made is left out.

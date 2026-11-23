@@ -95,6 +95,69 @@ fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
 }
 
 #[test]
+fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
+    let folders = folders();
+    // a copy at another path stands for the build before an update
+    let old = folders.home.join("old-build");
+    std::fs::create_dir(&old).unwrap();
+    let old = old.join("pinrail-host");
+    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &old).unwrap();
+    let parent = |pid: u64| pinrail_runtime::process::process(pid as u32).map(|p| p.parent);
+
+    let mut first = common::serve_of(&old, &folders, &[]);
+    let mut client = connect(&first);
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", "echo ready; read line; echo got:$line"],
+                   "cwd": folders.runtime, "cols": 80, "rows": 24,
+                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+        )
+        .unwrap();
+    let before = spawned["terminal"].as_str().unwrap().to_string();
+    let old_holder = parent(spawned["pid"].as_u64().unwrap()).unwrap();
+    wait_for(&mut client, &before, "ready");
+
+    // the update: the old build's host goes, and its holder stays
+    let _ = first.child.kill();
+    let _ = first.child.wait();
+    drop(client);
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    let second = serve(&folders, &[]);
+    let mut client = connect(&second);
+    assert_eq!(listed(&mut client).len(), 1);
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sleep", "600"], "cwd": folders.runtime, "cols": 80, "rows": 24,
+                   "env_base": "host"}),
+        )
+        .unwrap();
+    let new_holder = parent(spawned["pid"].as_u64().unwrap()).unwrap();
+    assert_ne!(new_holder, old_holder, "the old build's holder started it");
+
+    // the old holder still serves the terminal it keeps
+    client
+        .call(
+            "terminal.submit",
+            json!({"terminal": before, "text": "hello", "bracketed": false, "anyway": true}),
+        )
+        .unwrap();
+    wait_for(&mut client, &before, "got:hello");
+
+    // and exits once that terminal has ended, while the host runs on
+    let deadline = Instant::now() + pinrail_host::holder::ALONE_EXIT + Duration::from_secs(15);
+    while pinrail_runtime::process::process(old_holder).is_some() {
+        assert!(Instant::now() < deadline, "the old holder kept running");
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    assert!(pinrail_runtime::process::process(new_holder).is_some());
+    drop(second);
+}
+
+#[test]
 fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     let folders = folders();
     let mut first = serve(&folders, &[]);

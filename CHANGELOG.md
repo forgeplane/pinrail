@@ -282,6 +282,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 ### Fixed
 
 - Show a work item's key on one line in a Markdown table's narrow column.
+- Start new agents under the current build's terminal host after an
+  update. They were started by a process of the build before the update,
+  so macOS did not apply the grants of Pinrail Host to them.
 - Keep the window up to date after Pinrail's server restarts. Its updates
   could stop without an error, so new reviews and questions did not show
   until the window was reloaded.

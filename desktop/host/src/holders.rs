@@ -1,13 +1,20 @@
-//! The host's side of the holders: it finds the holders that run, starts
-//! one when none does, spawns each terminal's program through one, and
-//! hears from them when a program exits. The holder keeps the PTYs open,
-//! so the programs outlive this host.
+//! The host's side of the holders: it finds the holders that run, spawns
+//! each terminal's program through one, and hears from them when a program
+//! exits. The holder keeps the PTYs open, so the programs outlive this
+//! host.
+//!
+//! A program belongs to the holder that spawned it, which is what macOS
+//! names in a privacy prompt and checks a grant against. So the host
+//! spawns only through a holder of its own build, and starts one when none
+//! runs. A holder of another build, as one left by the host before an
+//! update, keeps the terminals it has, and the host closes its connection
+//! when the last of them ends, which lets that holder exit.
 
 use std::collections::{BTreeMap, HashMap};
 use std::os::fd::OwnedFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
@@ -46,9 +53,18 @@ struct Link {
     next_id: AtomicU64,
     /// Cleared when the holder goes away.
     alive: Arc<AtomicBool>,
+    /// Whether the holder runs this host's build.
+    own: bool,
+    /// How many terminals of this host the holder keeps.
+    terminals: AtomicUsize,
 }
 
 impl Link {
+    /// Closes the connection, which leaves the holder without a host.
+    fn close(&self) {
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+
     /// Sends a request, and waits for its answer.
     fn request(&self, mut request: Value, fds: &[i32]) -> std::io::Result<(Value, Vec<OwnedFd>)> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
@@ -104,6 +120,23 @@ impl Holders {
             .ok_or_else(|| std::io::Error::other("the host's registration is missing"))
     }
 
+    /// Whether the holder that runs as the process `pid` is of this host's
+    /// build: it runs the binary this host starts a holder from.
+    fn own(&self, pid: Option<u64>) -> bool {
+        let Some(pid) = pid.and_then(|pid| u32::try_from(pid).ok()) else {
+            return false;
+        };
+        match &self.start {
+            Start::Thread => pid == std::process::id(),
+            Start::Process(binary) => {
+                let binary = binary.canonicalize().ok();
+                binary.is_some()
+                    && crate::sys::executable_of(pid).and_then(|exe| exe.canonicalize().ok())
+                        == binary
+            }
+        }
+    }
+
     /// Connects to the holder `instance`.
     fn connect(&self, instance: &str) -> std::io::Result<Arc<Link>> {
         let socket = holder::socket_path(&self.paths.socket_dir, instance);
@@ -127,6 +160,8 @@ impl Holders {
             pending: Pending::default(),
             next_id: AtomicU64::new(1),
             alive: Arc::new(AtomicBool::new(true)),
+            own: self.own(hello["pid"].as_u64()),
+            terminals: AtomicUsize::new(0),
         });
         let (pending, exits, instance, alive) = (
             link.pending.clone(),
@@ -143,24 +178,35 @@ impl Holders {
         Ok(link)
     }
 
-    /// A holder to spawn with: one this host is connected to, else one
-    /// that runs, else a new one.
+    /// A holder to spawn with, of this host's build: one this host is
+    /// connected to, else one that runs, else a new one.
     fn holder(&self) -> std::io::Result<Arc<Link>> {
         let mut links = self.links.lock().unwrap_or_else(|e| e.into_inner());
         links.retain(|_, link| link.alive.load(Ordering::Relaxed));
-        if let Some(link) = links.values().next_back() {
+        if let Some(link) = links.values().rev().find(|link| link.own) {
             return Ok(link.clone());
         }
         for instance in holder::instances(&self.paths.socket_dir) {
-            if let Ok(link) = self.connect(&instance) {
-                links.insert(instance, link);
+            if links.contains_key(&instance) {
+                continue;
             }
-        }
-        if let Some(link) = links.values().next_back() {
-            return Ok(link.clone());
+            let Ok(link) = self.connect(&instance) else {
+                continue;
+            };
+            if link.own {
+                links.insert(instance, link.clone());
+                return Ok(link);
+            }
+            link.close();
         }
         let instance = self.start_holder()?;
         let link = self.connect(&instance)?;
+        if !link.own {
+            link.close();
+            return Err(std::io::Error::other(
+                "the holder this host started is not of its build",
+            ));
+        }
         links.insert(instance, link.clone());
         Ok(link)
     }
@@ -220,6 +266,7 @@ impl Holders {
             .into_iter()
             .next()
             .ok_or_else(|| std::io::Error::other("the holder sent no descriptor"))?;
+        link.terminals.fetch_add(1, Ordering::Relaxed);
         Ok((
             link.instance.clone(),
             Spawned {
@@ -260,6 +307,7 @@ impl Holders {
                     }
                     _ => None,
                 };
+                link.terminals.fetch_add(1, Ordering::Relaxed);
                 kept.push(Kept {
                     holder: instance.clone(),
                     terminal: entry["terminal"].as_str().unwrap_or_default().to_string(),
@@ -272,6 +320,11 @@ impl Holders {
                     exit,
                 });
             }
+            // a holder of another build with nothing to keep may exit
+            if !link.own && link.terminals.load(Ordering::Relaxed) == 0 {
+                link.close();
+                continue;
+            }
             links.insert(instance, link);
         }
         kept
@@ -279,15 +332,28 @@ impl Holders {
 
     /// Tells the holder `instance` that the host is done with `terminal`:
     /// it closes the descriptors and reaps the program. It does not wait.
+    /// A holder of another build that keeps no other terminal of this host
+    /// is then left, so that it exits.
     pub fn forget(&self, instance: &str, terminal: &str) {
-        let links = self.links.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(link) = links.get(instance) {
-            let id = link.next_id.fetch_add(1, Ordering::Relaxed);
-            let _ = fdpass::send(
-                &link.stream,
-                &json!({"op": "forget", "id": id, "terminal": terminal}),
-                &[],
-            );
+        let mut links = self.links.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(link) = links.get(instance) else {
+            return;
+        };
+        let id = link.next_id.fetch_add(1, Ordering::Relaxed);
+        let _ = fdpass::send(
+            &link.stream,
+            &json!({"op": "forget", "id": id, "terminal": terminal}),
+            &[],
+        );
+        let left = link
+            .terminals
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+                Some(n.saturating_sub(1))
+            })
+            .map_or(0, |before| before.saturating_sub(1));
+        if !link.own && left == 0 {
+            link.close();
+            links.remove(instance);
         }
     }
 }
