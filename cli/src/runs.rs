@@ -1,4 +1,4 @@
-//! `pinrail start`, `runs`, `stop` and `host status`: the agents Pinrail
+//! `pinrail start`, `runs`, `output`, `stop` and `host status`: the agents Pinrail
 //! runs in its terminal host, for the person at their own terminal. These
 //! act as the person, with the person token the app writes to the data
 //! folder while the setting `/runtime/cli_control` is on.
@@ -45,6 +45,21 @@ pub struct StopArgs {
     /// Stop the agent at once, without giving it 2 seconds to exit
     #[arg(long)]
     force: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct OutputArgs {
+    /// The run to read, such as run_01J…
+    run: String,
+    /// How many of the last lines to print, at most 500
+    #[arg(long, default_value_t = 20)]
+    lines: usize,
+    /// Wait until the output contains this text, then print the output
+    #[arg(long, value_name = "TEXT")]
+    wait_for: Option<String>,
+    /// With --wait-for, how many seconds to wait
+    #[arg(long, default_value_t = 60, requires = "wait_for")]
+    timeout: u64,
 }
 
 #[derive(Args, Debug)]
@@ -148,6 +163,56 @@ pub fn stop(client: &Client, args: StopArgs, output: Output) -> Result<u8> {
         )
     });
     Ok(0)
+}
+
+/// How often `output --wait-for` reads the run's output.
+const OUTPUT_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
+
+pub fn output(client: &Client, args: OutputArgs, output: Output) -> Result<u8> {
+    let run = segment(&args.run);
+    let read = || -> Result<String> {
+        let answer = client.get(
+            &format!("/api/v1/runs/{run}/output"),
+            &[("lines", args.lines.to_string())],
+        )?;
+        Ok(text(&answer["text"]).to_string())
+    };
+    let print = |shown: &str| {
+        output.data(&json!({"run": args.run, "text": shown}), |v| {
+            let shown = text(&v["text"]);
+            if shown.is_empty() || shown.ends_with('\n') {
+                shown.to_string()
+            } else {
+                format!("{shown}\n")
+            }
+        });
+    };
+    let Some(wanted) = &args.wait_for else {
+        print(&read()?);
+        return Ok(0);
+    };
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(args.timeout);
+    loop {
+        let shown = read()?;
+        if shown.contains(wanted.as_str()) {
+            print(&shown);
+            return Ok(0);
+        }
+        let ended = !client.get(&format!("/api/v1/runs/{run}"), &[])?["ended_at"].is_null();
+        if ended {
+            print(&shown);
+            anyhow::bail!("run {} ended without showing {wanted:?}", args.run);
+        }
+        if std::time::Instant::now() >= until {
+            print(&shown);
+            eprintln!(
+                "pinrail: run {} did not show {wanted:?} within {} seconds",
+                args.run, args.timeout
+            );
+            return Ok(crate::EXIT_TIMEOUT);
+        }
+        std::thread::sleep(OUTPUT_EVERY);
+    }
 }
 
 pub fn host(client: &Client, args: HostArgs, pretty: bool) -> Result<u8> {

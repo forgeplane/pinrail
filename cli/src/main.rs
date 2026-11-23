@@ -61,7 +61,7 @@ pub const EXITS: &[(u8, &str)] = &[
     ),
     (
         EXIT_TIMEOUT,
-        "`--timeout` ran out. The review is still pending.",
+        "`--timeout` ran out. The review is still pending, or the run has not shown the text that `output --wait-for` waits for.",
     ),
     (
         EXIT_DISCARDED,
@@ -322,7 +322,7 @@ enum Command {
     ///     pinrail start codex --folder ~/code/app -- --model gpt-5
     ///
     /// The agent keeps running when this command ends, and when the app
-    /// quits. Like runs, stop and host status, this command acts as you:
+    /// quits. Like runs, output, stop and host status, this command acts as you:
     /// it needs the setting /runtime/cli_control on, as its error says.
     #[command(verbatim_doc_comment)]
     Start(runs::StartArgs),
@@ -340,6 +340,18 @@ enum Command {
     Attach(attach::AttachArgs),
     /// List the agents Pinrail started, latest first
     Runs(runs::RunsArgs),
+    /// Print the last lines an agent's terminal showed
+    ///
+    ///     pinrail output run_01J…
+    ///     pinrail output run_01J… --lines 100
+    ///     pinrail output run_01J… --wait-for "test result" --timeout 300
+    ///
+    /// With --wait-for, the command waits until the output contains the
+    /// text. It exits with 4 when --timeout runs out, and with 1 when the
+    /// agent has exited without showing the text. Like start, this command
+    /// acts as you.
+    #[command(verbatim_doc_comment)]
+    Output(runs::OutputArgs),
     /// Stop an agent Pinrail started
     Stop(runs::StopArgs),
     /// The terminal host that runs the agents
@@ -1111,6 +1123,7 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Runs(args) => runs::runs(&runs::as_person(client)?, args, output),
+        Command::Output(args) => runs::output(&runs::as_person(client)?, args, output),
         Command::Stop(args) => runs::stop(&runs::as_person(client)?, args, output),
         Command::Host(args) => runs::host(&runs::as_person(client)?, args, pretty),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),

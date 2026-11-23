@@ -5050,6 +5050,7 @@ fn the_commands_that_act_as_the_person_need_cli_control() {
         &["start", "claude-code"][..],
         &["runs"],
         &["stop", "run_1"],
+        &["output", "run_1"],
         &["host", "status"],
     ] {
         let out = pinrail()
@@ -5150,6 +5151,106 @@ fn runs_and_stop_go_to_the_runs_routes() {
     assert_eq!(stopped.status.code(), Some(0));
     assert!(String::from_utf8_lossy(&stopped.stdout).starts_with("Stopping run_1."));
     assert_eq!(server.authorizations(), ["Bearer tok", "Bearer tok"]);
+}
+
+#[test]
+fn output_prints_the_last_lines_a_run_showed() {
+    let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
+        ("GET", "/api/v1/runs/run_1/output?lines=50") => (
+            200,
+            r#"{"text":"cargo test\n\u001b[32mtest result: ok\u001b[0m"}"#.into(),
+        ),
+        _ => (404, "{}".into()),
+    }));
+    let data = data_dir_with_token("tok");
+    let out = pinrail()
+        .env_remove("PINRAIL_JSON")
+        .args(["output", "run_1", "--lines", "50"])
+        .env("PINRAIL_URL", &server.url)
+        .env("PINRAIL_DATA_DIR", &data.0)
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // a line of its own at the end, and no escape sequence of the agent's
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "cargo test\ntest result: ok\n"
+    );
+    assert_eq!(server.authorizations(), ["Bearer tok"]);
+}
+
+#[test]
+fn output_waits_until_the_run_shows_a_text() {
+    let mut reads = 0;
+    let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
+        ("GET", "/api/v1/runs/run_1/output?lines=20") => {
+            reads += 1;
+            let text = if reads < 3 {
+                "building"
+            } else {
+                "building\ntests passed"
+            };
+            (200, serde_json::json!({ "text": text }).to_string())
+        }
+        ("GET", "/api/v1/runs/run_1") => (200, r#"{"id":"run_1","ended_at":null}"#.into()),
+        ("GET", "/api/v1/runs/run_2/output?lines=20") => (200, r#"{"text":"exited"}"#.into()),
+        ("GET", "/api/v1/runs/run_2") => (
+            200,
+            r#"{"id":"run_2","ended_at":"2026-11-23T10:00:00Z"}"#.into(),
+        ),
+        _ => (404, "{}".into()),
+    }));
+    let data = data_dir_with_token("tok");
+    let run = |args: &[&str]| {
+        pinrail()
+            .env_remove("PINRAIL_JSON")
+            .args(args)
+            .env("PINRAIL_URL", &server.url)
+            .env("PINRAIL_DATA_DIR", &data.0)
+            .output()
+            .unwrap()
+    };
+    let shown = run(&["output", "run_1", "--wait-for", "tests passed"]);
+    assert_eq!(
+        shown.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&shown.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&shown.stdout),
+        "building\ntests passed\n"
+    );
+
+    // a text that never shows: what the run shows, and exit 4
+    let waited = run(&[
+        "output",
+        "run_1",
+        "--wait-for",
+        "deployed",
+        "--timeout",
+        "1",
+    ]);
+    assert_eq!(waited.status.code(), Some(4));
+    assert_eq!(
+        String::from_utf8_lossy(&waited.stdout),
+        "building\ntests passed\n"
+    );
+
+    // a run that ended is not waited for
+    let ended = run(&["output", "run_2", "--wait-for", "deployed"]);
+    assert_eq!(ended.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&ended.stdout), "exited\n");
+    assert!(
+        String::from_utf8_lossy(&ended.stderr).contains("ended"),
+        "{}",
+        String::from_utf8_lossy(&ended.stderr)
+    );
 }
 
 #[test]
