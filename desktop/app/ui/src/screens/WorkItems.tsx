@@ -814,7 +814,13 @@ export function WorkItems() {
           onClose={() => setAdding(false)}
           repos={[...new Set([...repos, ...(items ?? []).map((i) => i.repo)])]}
           items={items ?? []}
-          defaultRepo={params.get("repo") ?? focusedItem?.repo ?? null}
+          // the filter's repository, or the open item's, or the focused row's
+          defaultRepo={
+            params.get("repo") ??
+            (openKey ? items?.find((i) => i.key === openKey)?.repo : undefined) ??
+            focusedItem?.repo ??
+            null
+          }
           defaultParent={focusedItem?.parent ?? null}
           onAdded={(item, more) => {
             reload();

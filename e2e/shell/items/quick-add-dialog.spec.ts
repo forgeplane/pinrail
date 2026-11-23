@@ -88,10 +88,10 @@ test("the command palette offers to add a work item", async ({ page }) => {
 });
 
 test("from a work item, the quick add starts on its repository", async ({ page, request }) => {
-  const shown = fresh("item-repo");
-  const item = await add(request, shown, "Theme loader");
   const other = fresh("other-repo");
   await add(request, other, "Elsewhere");
+  const shown = fresh("item-repo");
+  const item = await add(request, shown, "Theme loader");
   // the quick add used another repository last
   await page.addInitScript((repo) => localStorage.setItem("pinrail.quickAdd.repo", repo), other);
   const repository = page
@@ -109,6 +109,8 @@ test("from a work item, the quick add starts on its repository", async ({ page, 
   // and beside the work items of all repositories
   await page.goto(`/#/items?open=${item.key}`);
   await expect(page.getByTestId("item-panel")).toContainText("Theme loader");
+  // another repository's row has the focus
+  await page.getByTestId("item-row").filter({ hasText: "Elsewhere" }).hover();
   await page.keyboard.press("ControlOrMeta+Shift+C");
   await expect(repository).toHaveText(shown);
 });
