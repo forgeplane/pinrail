@@ -190,19 +190,28 @@ fn an_unknown_source_or_event_reports_nothing() {
 fn codex_reports_each_event_of_its_session() {
     let x = "codex";
     let start = parse(x, "session-start", "session-start").unwrap();
-    assert_eq!(start.session, "019a7f3e-5b2c-7d10-9e4f-2a6b8c0d1e3f");
+    assert_eq!(start.session, "01a208a0-e346-7ba2-90ac-581a6132beac");
     assert_eq!(
         start.event,
         HookEvent::Started {
             source: StartSource::Startup
         }
     );
+    assert_eq!(
+        event(x, "session-start", "session-start-clear"),
+        Some(HookEvent::Started {
+            source: StartSource::Clear
+        })
+    );
+    assert_eq!(
+        event(x, "session-start", "session-start-resume"),
+        Some(HookEvent::Started {
+            source: StartSource::Resume
+        })
+    );
     let prompt = parse(x, "prompt", "prompt").unwrap();
     assert_eq!(prompt.event, HookEvent::Prompt);
-    assert_eq!(
-        prompt.detail.prompt.as_deref(),
-        Some("Add a health check endpoint")
-    );
+    assert_eq!(prompt.detail.prompt.as_deref(), Some("Say ok."));
     assert_eq!(event(x, "tool", "pre-tool"), Some(HookEvent::Working));
     assert_eq!(event(x, "tool", "post-tool"), Some(HookEvent::Working));
     let permission = parse(x, "permission", "permission").unwrap();
@@ -214,7 +223,7 @@ fn codex_reports_each_event_of_its_session() {
     );
     assert_eq!(
         permission.detail.summary.as_deref(),
-        Some("git push origin main")
+        Some("printf '%s\\n' hi > /Users/you/codex-probe-test.txt")
     );
     assert_eq!(
         event(x, "interrupt", "interrupt"),
@@ -225,7 +234,7 @@ fn codex_reports_each_event_of_its_session() {
     let stop = parse(x, "stop", "stop").unwrap();
     assert_eq!(
         stop.detail.reply.as_deref(),
-        Some("Added /health, with a test.")
+        Some("It finished successfully. The command wrote `/tmp/pinrail-detection/codex-sub.txt`.")
     );
     assert_eq!(
         event(x, "session-end", "session-end"),
@@ -277,7 +286,7 @@ fn a_report_is_sent_as_the_core_reads_it() {
     let codex = parse("codex", "stop", "stop").unwrap().to_body();
     assert_eq!(
         codex["detail"]["turn_id"],
-        "019a7f3e-6a00-7c00-8000-000000000001"
+        "01a2089f-bcac-7242-b3c9-f31bb4933759"
     );
     // the prompt is cut to what the core keeps
     let mut input = input(c, "prompt");

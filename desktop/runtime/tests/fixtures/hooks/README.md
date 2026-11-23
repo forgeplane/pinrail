@@ -18,8 +18,10 @@ does not fire: `permission-denied`, `notification-*`, `stop-failure`,
 with its camelCase `hookEventName`); the tests run these without Claude
 Code's `CLAUDE_CODE_SESSION_ID`, as Cursor and Grok do and `session-start-unknown-source`.
 
-**Codex, built from its schemas** in `codex-rs/hooks/schema/generated/`:
-every file in `codex/`.
+**Codex 0.171.0, captured** from interactive sessions with hooks that saved
+their input: every file in `codex/`. `session-start-clear` follows `/clear`,
+`session-start-resume` follows `codex resume`, and the `subagent-*` files
+come from a subagent the session spawned.
 
 **Claude Code's status file**, `tests/fixtures/status/claude-code-idle.json`:
 `~/.claude/sessions/<pid>.json` of Claude Code 2.1.323, captured seconds after

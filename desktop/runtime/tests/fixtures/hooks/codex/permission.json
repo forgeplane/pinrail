@@ -1,13 +1,14 @@
 {
-  "session_id": "019a7f3e-5b2c-7d10-9e4f-2a6b8c0d1e3f",
-  "transcript_path": "/Users/you/.codex/sessions/2026/11/13/rollout-2026-11-13T10-00-00-019a7f3e-5b2c-7d10-9e4f-2a6b8c0d1e3f.jsonl",
+  "session_id": "01a2089b-1675-7f51-9054-352852279131",
+  "turn_id": "01a2089e-c6d9-7533-8b5c-ed03e2ee0f1b",
+  "transcript_path": "/Users/you/.codex/sessions/2026/11/23/rollout-2026-11-23T15-31-51-01a2089b-1675-7f51-9054-352852279131.jsonl",
   "cwd": "/Users/you/code/app",
-  "model": "gpt-5.6",
-  "permission_mode": "default",
-  "turn_id": "019a7f3e-6a00-7c00-8000-000000000001",
   "hook_event_name": "PermissionRequest",
+  "model": "gpt-5.6-luna",
+  "permission_mode": "default",
   "tool_name": "Bash",
   "tool_input": {
-    "command": "git push origin main"
+    "command": "printf '%s\\n' hi > /Users/you/codex-probe-test.txt",
+    "description": "May I create /Users/you/codex-probe-test.txt containing the word hi?"
   }
 }

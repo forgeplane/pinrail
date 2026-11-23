@@ -1,0 +1,9 @@
+{
+  "session_id": "01a208a1-6281-7232-ba46-84ce611d6e9f",
+  "turn_id": "01a208a1-c825-7093-b764-d28a115e3463",
+  "transcript_path": "/Users/you/.codex/sessions/2026/11/23/rollout-2026-11-23T15-38-43-01a208a1-6281-7232-ba46-84ce611d6e9f.jsonl",
+  "cwd": "/Users/you/code/app",
+  "hook_event_name": "PostCompact",
+  "model": "gpt-5.6-luna",
+  "trigger": "manual"
+}

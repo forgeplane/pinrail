@@ -1,0 +1,14 @@
+{
+  "session_id": "01a2089b-1675-7f51-9054-352852279131",
+  "turn_id": "01a2089f-d354-7cb0-af5f-a86dddeb1717",
+  "transcript_path": "/Users/you/.codex/sessions/2026/11/23/rollout-2026-11-23T15-31-51-01a2089b-1675-7f51-9054-352852279131.jsonl",
+  "agent_transcript_path": "/Users/you/.codex/sessions/2026/11/23/rollout-2026-11-23T15-37-01-01a2089f-d32c-7010-bff3-e8b93a178686.jsonl",
+  "cwd": "/Users/you/code/app",
+  "hook_event_name": "SubagentStop",
+  "model": "gpt-5.6-luna",
+  "permission_mode": "default",
+  "stop_hook_active": false,
+  "agent_id": "01a2089f-d32c-7010-bff3-e8b93a178686",
+  "agent_type": "default",
+  "last_assistant_message": "Finished successfully (exit code 0).\n\nOutput: `Wrote /tmp/pinrail-detection/codex-sub.txt`"
+}
