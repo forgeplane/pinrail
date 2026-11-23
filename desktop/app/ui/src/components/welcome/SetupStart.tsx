@@ -9,7 +9,7 @@ import { inTauri } from "../../api/client";
 import { runtime, type RunSession, type StartableAgent } from "../../api/runtime";
 import type { Plugin } from "../../api/types";
 import { useCopy } from "../../lib/useCopy";
-import { AgentIcon } from "../AgentIcon";
+import { AgentIcon, agentOf } from "../AgentIcon";
 import { baseName, refusal } from "../NewSession";
 import { PluginIcon } from "../PluginIcon";
 import { PopoverMenu, type MenuEntry } from "../PopoverMenu";
@@ -127,7 +127,13 @@ export function SetupStart({
     checked: a.id === agent?.id,
     onPick: () => setPicked(a.id),
   }));
+  // when every folder comes from one agent's history, the list says so
+  const source =
+    folders.length && folders.every((f) => f.agent && f.agent === folders[0].agent) ? folders[0].agent : null;
   const folderEntries: MenuEntry[] = [
+    ...(source
+      ? [{ kind: "heading", label: `Folders ${agentOf(source)?.label ?? source} worked in` } as MenuEntry]
+      : []),
     ...folders.map((f): MenuEntry => ({
       label: baseName(f.folder),
       icon: Folder,

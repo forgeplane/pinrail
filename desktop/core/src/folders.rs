@@ -1,5 +1,6 @@
 //! The folders agents work in, as the Start an agent dialog offers them:
-//! the recent ones, with their repository and the branch checked out now.
+//! the recent ones, with their repository and the branch checked out now,
+//! and the ones the agents worked in before Pinrail saw them.
 
 use std::path::{Path, PathBuf};
 
@@ -9,12 +10,16 @@ use crate::db::Db;
 
 /// How many recent folders the dialog offers.
 pub const RECENT: usize = 20;
+/// How many more it offers from the agents' own history.
+pub const SUGGESTED: usize = 8;
 
 /// The recent folders, most recently used first: each with the repository
 /// its sessions named, the branch checked out in it now, and whether it
-/// still exists.
-pub fn recent(db: &Db) -> rusqlite::Result<Vec<Value>> {
-    Ok(db
+/// still exists. After the ones Pinrail has seen come the ones the agents
+/// under `history`, the person's home folder, worked in without it, which
+/// are still there; each of those names its agent.
+pub fn recent(db: &Db, history: Option<&Path>) -> rusqlite::Result<Vec<Value>> {
+    let mut folders: Vec<Value> = db
         .recent_folders(RECENT)?
         .into_iter()
         .map(|(folder, repo, used_at)| {
@@ -33,9 +38,29 @@ pub fn recent(db: &Db) -> rusqlite::Result<Vec<Value>> {
                 "branch": if exists { branch(path) } else { None },
                 "exists": exists,
                 "used_at": used_at,
+                "agent": null,
             })
         })
-        .collect())
+        .collect();
+    let suggested = history
+        .map(|home| crate::agent_history::recent_folders(home, SUGGESTED))
+        .unwrap_or_default();
+    for used in suggested {
+        if folders.iter().any(|seen| seen["folder"] == used.folder) {
+            continue;
+        }
+        folders.push(json!({
+            "folder": used.folder,
+            "repo": null,
+            "branch": branch(Path::new(&used.folder)),
+            "exists": true,
+            "used_at": crate::reviews::iso(used.used_at),
+            "agent": used.agent,
+        }));
+    }
+    // every time is written the same way, so they sort as text
+    folders.sort_by(|a, b| b["used_at"].as_str().cmp(&a["used_at"].as_str()));
+    Ok(folders)
 }
 
 /// The branch checked out in the Git repository or worktree that holds

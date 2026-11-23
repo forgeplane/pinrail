@@ -459,9 +459,30 @@ const STARTABLE = [
   { id: "pi", name: "Pi", program: "pi", installed: true, version: "1.0.0", last_used: false },
 ];
 const FOLDERS = [
-  { folder: "/work/api", repo: "acme/api", branch: "main", exists: true, used_at: "2026-11-14T10:00:00Z" },
-  { folder: "/work/web", repo: "acme/web", branch: "main", exists: true, used_at: "2026-11-10T10:00:00Z" },
-  { folder: "/work/old", repo: null, branch: null, exists: false, used_at: "2026-11-01T10:00:00Z" },
+  {
+    folder: "/work/api",
+    repo: "acme/api",
+    branch: "main",
+    exists: true,
+    used_at: "2026-11-14T10:00:00Z",
+    agent: null as string | null,
+  },
+  {
+    folder: "/work/web",
+    repo: "acme/web",
+    branch: "main",
+    exists: true,
+    used_at: "2026-11-10T10:00:00Z",
+    agent: null as string | null,
+  },
+  {
+    folder: "/work/old",
+    repo: null,
+    branch: null,
+    exists: false,
+    used_at: "2026-11-01T10:00:00Z",
+    agent: null as string | null,
+  },
 ];
 
 /** Stands in for the runtime: the agents Pinrail can start, the folders it
@@ -587,6 +608,20 @@ test("the folder is one Pinrail has seen, or one chosen in the system's dialog",
       .click();
     await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
     expect(started[0]).toMatchObject({ folder: "/Users/you/code/shop" });
+  });
+});
+
+test("folders that all come from one agent's history say so", async ({ page }) => {
+  await restoring(page, async () => {
+    // a first run: Pinrail has seen no folder, and Claude Code worked in two
+    await runtime(page, { folders: FOLDERS.slice(0, 2).map((f) => ({ ...f, agent: "claude-code" })) });
+    const setup = await atLastScreen(page);
+    const folder = setup.getByRole("button", { name: /^Folder:/ });
+    await expect(folder).toHaveAccessibleName("Folder: /work/api");
+    await folder.click();
+    const folders = page.getByRole("menu", { name: "Folders" });
+    await expect(folders).toContainText("Folders Claude Code worked in");
+    await expect(folders.getByRole("menuitem")).toHaveText([/api/, /web/, /Choose another folder…/]);
   });
 });
 

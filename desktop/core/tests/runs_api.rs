@@ -637,6 +637,64 @@ async fn recent_folders_come_most_recent_first_with_their_repository_and_branch(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn recent_folders_include_the_ones_agents_worked_in_before_pinrail_saw_them() {
+    // a home folder where Claude Code worked in two projects
+    let home = tempfile::tempdir().unwrap();
+    let project = |name: &str| {
+        let folder = home.path().join("code").join(name);
+        std::fs::create_dir_all(&folder).unwrap();
+        folder.to_string_lossy().into_owned()
+    };
+    let (shop, api) = (project("shop"), project("api"));
+    std::fs::create_dir_all(format!("{api}/.git")).unwrap();
+    std::fs::write(format!("{api}/.git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    for (name, folder) in [("shop", &shop), ("api", &api)] {
+        let sessions = home.path().join(".claude/projects").join(name);
+        std::fs::create_dir_all(&sessions).unwrap();
+        std::fs::write(
+            sessions.join("one.jsonl"),
+            format!("{{\"type\":\"user\",\"cwd\":\"{folder}\"}}\n"),
+        )
+        .unwrap();
+    }
+    let history = home.path().to_path_buf();
+    let app = common::app_with(|config| config.agent_history = Some(history));
+
+    // Pinrail has seen one of them itself, with its repository
+    let body = json!({"kind": "step", "text": "working",
+                      "origin": {"repo": "acme/api", "folder": api}});
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/claude-code/s-api/status",
+        Some(body),
+    )
+    .await;
+    assert!(status.is_success(), "{answer}");
+
+    let (status, body) = call(&app, "GET", "/api/v1/folders/recent", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let folders = body["folders"].as_array().unwrap();
+    let of = |folder: &str| -> Vec<&Value> {
+        folders.iter().filter(|f| f["folder"] == folder).collect()
+    };
+    // the one only an agent's history names says which agent
+    let [suggested] = of(&shop)[..] else {
+        panic!("{body}")
+    };
+    assert_eq!(suggested["agent"], "claude-code");
+    assert_eq!(suggested["exists"], true);
+    assert_eq!(suggested["repo"], Value::Null);
+    assert!(suggested["used_at"].is_string(), "{suggested}");
+    // the one Pinrail has seen is listed once, as Pinrail knows it
+    let [seen] = of(&api)[..] else {
+        panic!("{body}")
+    };
+    assert_eq!(seen["repo"], "acme/api");
+    assert_eq!(seen["agent"], Value::Null);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
     let hosts = tempfile::tempdir().unwrap();
     let registration = common::host(hosts.path());

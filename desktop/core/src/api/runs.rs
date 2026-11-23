@@ -336,7 +336,9 @@ async fn startable(
 
 /// The folders agents worked in lately, for the Start an agent dialog.
 async fn recent_folders(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
-    let folders = state.runtime().recent_folders()?;
+    let folders = state
+        .runtime()
+        .recent_folders(state.config().agent_history.as_deref())?;
     Ok(Json(json!({ "folders": folders })))
 }
 

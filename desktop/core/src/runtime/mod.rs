@@ -84,9 +84,14 @@ impl Runtime {
         Ok(self.db.runs(filters)?)
     }
 
-    /// The folders agents worked in lately, for the Start an agent dialog.
-    pub fn recent_folders(&self) -> Result<Vec<Value>, crate::error::Error> {
-        Ok(crate::folders::recent(&self.db)?)
+    /// The folders agents worked in lately, for the Start an agent dialog:
+    /// those Pinrail has seen, and those in the agents' own history under
+    /// `history`, the person's home folder.
+    pub fn recent_folders(
+        &self,
+        history: Option<&std::path::Path>,
+    ) -> Result<Vec<Value>, crate::error::Error> {
+        Ok(crate::folders::recent(&self.db, history)?)
     }
 
     /// The first task and the extra arguments a run was started with.

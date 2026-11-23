@@ -47,6 +47,10 @@ pub struct Config {
     /// over the person's own. Empty but in tests, which put a stand-in
     /// agent on `PATH` with it.
     pub run_env: std::collections::BTreeMap<String, String>,
+    /// The home folder whose agents' own history suggests folders to start
+    /// a session in: the person's. `None` reads none, as the tests do, so
+    /// that they do not depend on the computer they run on.
+    pub agent_history: Option<PathBuf>,
 }
 
 /// 100 MB: a model, a recording, a document with its images.
@@ -85,6 +89,7 @@ impl Config {
             .filter(|u| !u.trim().is_empty())
             .unwrap_or_else(|| "pinrail".to_string());
         config.sdk_dir = env::var_os("PINRAIL_SDK_DIR").map(PathBuf::from);
+        config.agent_history = home_dir();
         config.host_binary = env::var_os("PINRAIL_HOST_BIN").map(PathBuf::from);
         config.host_socket = env::var_os("PINRAIL_HOST_SOCKET")
             .map(PathBuf::from)
@@ -110,6 +115,7 @@ impl Config {
             host_binary: None,
             host_socket: None,
             run_env: Default::default(),
+            agent_history: None,
         }
     }
 

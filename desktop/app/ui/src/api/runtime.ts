@@ -57,6 +57,9 @@ export type RecentFolder = {
   branch: string | null;
   exists: boolean;
   used_at: string;
+  /** the agent whose own history names the folder, by its id, for one
+   *  Pinrail has not seen itself */
+  agent?: string | null;
 };
 
 export type StartRequest = {
