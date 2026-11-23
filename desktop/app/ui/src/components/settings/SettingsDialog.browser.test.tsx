@@ -4,6 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type { ServerSettings } from "../../api/types";
 import { core } from "../../testing/core";
 import { cleanup, render } from "../../testing/render";
+import { loadRenderer } from "../terminal/view";
 import { SettingsDialog } from "./SettingsDialog";
 
 vi.mock("../../api/client", async (real) => (await import("../../testing/core")).fakeClient(await real()));
@@ -33,7 +34,7 @@ const served = {
 } as unknown as ServerSettings;
 
 /** The dialog on `section`, against a core that saves each change. */
-async function open(section: "general" | "notifications" | "items") {
+async function open(section: "general" | "notifications" | "items" | "terminal") {
   core.answer("settings", served);
   // the core answers with the settings as they are after the change
   core.answer("patchSettings", (body: unknown) => ({ ...served, ...(body as object) }));
@@ -142,5 +143,16 @@ describe("quitting with agents running", () => {
     await choices.getByRole("radio", { name: "Stop them" }).click();
     await vi.waitFor(() => expect(lastPatch()).toEqual({ runtime: { on_quit: "stop" } }));
     await expect.element(page.getByText("Pinrail stops the agents that run in it, then quits.")).toBeVisible();
+  });
+});
+
+describe("the terminal section", () => {
+  test("names the renderer once a terminal has loaded it", async () => {
+    await open("terminal");
+    await expect.element(page.getByText(/Automatic uses libghostty/)).toBeVisible();
+    await loadRenderer(["xterm"], {
+      xterm: async () => ({ id: "xterm", load: async () => {}, create: () => ({}) as never }),
+    });
+    await expect.element(page.getByText(/In use: xterm\.js\./)).toBeVisible();
   });
 });

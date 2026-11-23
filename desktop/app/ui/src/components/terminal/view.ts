@@ -134,8 +134,16 @@ export function failedRenderers(): ReadonlyMap<string, string> {
 /** The renderer the last terminal loaded, by id, or null before any did. */
 let loaded: string | null = null;
 
+const loadedListeners = new Set<() => void>();
+
 export function loadedRenderer(): string | null {
   return loaded;
+}
+
+/** Calls `listener` whenever a terminal loads a renderer. */
+export function onRendererLoaded(listener: () => void): Unsubscribe {
+  loadedListeners.add(listener);
+  return () => loadedListeners.delete(listener);
 }
 
 /** Marks a renderer as failed for the rest of the run, such as one that
@@ -154,6 +162,7 @@ export async function loadRenderer(order: readonly string[], registry: Registry)
       const renderer = await make();
       await renderer.load();
       loaded = renderer.id;
+      loadedListeners.forEach((listener) => listener());
       return renderer;
     } catch (error) {
       rendererFailed(id, error instanceof Error ? error.message : String(error));

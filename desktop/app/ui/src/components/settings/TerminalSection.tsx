@@ -1,9 +1,10 @@
 // Settings › Terminal: the terminal of an agent that runs in Pinrail, and
 // the view a session opens in.
 
+import { useSyncExternalStore } from "react";
 import { useSettings } from "../../state/settings";
 import { isMac } from "../../lib/keys";
-import { failedRenderers, loadedRenderer } from "../terminal/view";
+import { failedRenderers, loadedRenderer, onRendererLoaded } from "../terminal/view";
 import { Select } from "../Select";
 import { Segmented, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
@@ -21,9 +22,8 @@ function rendererChoice(setting: string[]): string {
 
 /** What the renderer row says: which one draws the terminals now, and why
  *  xterm.js does when libghostty could not load. */
-function rendererNote(): string {
+function rendererNote(loaded: string | null): string {
   const later = "A change applies to terminals opened afterwards.";
-  const loaded = loadedRenderer();
   if (!loaded) return `Automatic uses libghostty, and xterm.js where libghostty cannot run. ${later}`;
   const why = failedRenderers().get("ghostty");
   const inUse = `In use: ${RENDERERS[loaded] ?? loaded}.`;
@@ -35,11 +35,12 @@ export function TerminalSection() {
   const { settings, update } = useSettings();
   const terminal = settings.runtime.terminal;
   const renderer = rendererChoice(terminal.renderer);
+  const loaded = useSyncExternalStore(onRendererLoaded, loadedRenderer);
   const setTerminal = (change: Partial<typeof terminal>) => update({ runtime: { terminal: change } });
   return (
     <SettingsPage title="Terminal">
       <SettingsGroup caption="The terminal of an agent that runs in Pinrail.">
-        <SettingsRow label="Renderer" description={rendererNote()}>
+        <SettingsRow label="Renderer" description={rendererNote(loaded)}>
           <Select
             label="Renderer"
             value={renderer}
