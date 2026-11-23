@@ -415,10 +415,7 @@ export function SettingsDialog({
                   ]}
                 />
               </SettingsRow>
-              <SettingsRow
-                label="Element tiles"
-                description="Show the chemical element each session is named after, and the periodic table"
-              >
+              <SettingsRow label="Element tiles" description="Show the chemical element each session is named after">
                 <Toggle
                   label="Element tiles"
                   checked={settings.appearance.element_tiles}
