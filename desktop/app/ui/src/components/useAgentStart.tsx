@@ -1,4 +1,4 @@
-// Starting an agent on a work item at once: the agent used last, in the
+// Starting an agent on a work item at once: the agent used most, in the
 // folder of the item's repository used last, with the item's description,
 // comments and files as its task. The new session claims the item. The
 // item page's Start button and the quick add both use it, with a menu that
@@ -7,7 +7,7 @@
 import { Folder, FolderOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { inTauri } from "../api/client";
-import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
+import { defaultAgent, runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { itemTask, type TaskItem } from "../lib/itemTask";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -37,10 +37,7 @@ export function useAgentStart(repo: string, enabled = true) {
       (found) => {
         if (!current) return;
         setAgents(found);
-        setAgent(
-          (chosen) =>
-            chosen ?? (found.find((a) => a.last_used && a.installed) ?? found.find((a) => a.installed))?.id ?? null,
-        );
+        setAgent((chosen) => chosen ?? defaultAgent(found)?.id ?? null);
       },
       () => {},
     );

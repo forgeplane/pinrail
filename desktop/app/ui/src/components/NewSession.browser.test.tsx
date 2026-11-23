@@ -68,7 +68,7 @@ const agent = (
   program: id,
   installed: true,
   version: "1.0.0",
-  last_used: true,
+  preferred: true,
   names_session,
   reports,
   installs,

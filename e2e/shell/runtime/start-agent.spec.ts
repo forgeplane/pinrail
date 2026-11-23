@@ -18,8 +18,8 @@ test.afterEach(async ({ page }) => {
 });
 
 const AGENTS = [
-  { id: "claude-code", name: "Claude Code", program: "claude", installed: true, version: "2.1.325", last_used: true },
-  { id: "codex", name: "Codex", program: "codex", installed: true, version: "0.98.0", last_used: false },
+  { id: "claude-code", name: "Claude Code", program: "claude", installed: true, version: "2.1.325", preferred: true },
+  { id: "codex", name: "Codex", program: "codex", installed: true, version: "0.98.0", preferred: false },
 ];
 
 /** Stands in for the agents, the folders, the run and its terminal; the
@@ -91,7 +91,7 @@ test("starting Claude Code opens its session in the terminal view at the size it
   await page.getByRole("link", { name: /New session/ }).click();
   await expect(page).toHaveURL(/#\/sessions\/new$/);
 
-  // the most recent folder that exists, and the agent used last
+  // the most recent folder that exists, and the preferred agent
   await expect(folderPicker(page)).toHaveAccessibleName("Folder: /work/api");
   await expect(folderPicker(page)).toContainText("acme/api · main");
   await expect(agentPicker(page)).toHaveAccessibleName("Agent: Claude Code");

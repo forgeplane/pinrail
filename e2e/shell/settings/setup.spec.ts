@@ -466,10 +466,10 @@ test("Add it to the shell's file puts the command on the PATH, and says to open 
 });
 
 const STARTABLE = [
-  { id: "claude-code", name: "Claude Code", program: "claude", installed: true, version: "2.1.325", last_used: false },
-  { id: "codex", name: "Codex", program: "codex", installed: true, version: "0.98.0", last_used: true },
+  { id: "claude-code", name: "Claude Code", program: "claude", installed: true, version: "2.1.325", preferred: false },
+  { id: "codex", name: "Codex", program: "codex", installed: true, version: "0.98.0", preferred: true },
   // Pinrail can start it, but the setup did not connect it
-  { id: "pi", name: "Pi", program: "pi", installed: true, version: "1.0.0", last_used: false },
+  { id: "pi", name: "Pi", program: "pi", installed: true, version: "1.0.0", preferred: false },
 ];
 const FOLDERS = [
   {

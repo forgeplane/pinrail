@@ -19,7 +19,7 @@ const ALL: (Tip & { macOnly?: boolean })[] = [
     category: "Starting a session",
     text: "Type a path in the folder picker to start in a folder you have not used before.",
   },
-  { category: "Starting a session", text: "The agent and the folder you used last are picked for you." },
+  { category: "Starting a session", text: "The agent you use most and the folder you used last are picked for you." },
   { category: "Sessions", text: "Within a session, {Ctrl+`} switches between its summary and its terminal." },
   { category: "Sessions", text: "{MOD+SHIFT+X} stops the agent of the session you are looking at." },
   { category: "Sessions", text: "{MOD+F} finds text in a session's thread." },

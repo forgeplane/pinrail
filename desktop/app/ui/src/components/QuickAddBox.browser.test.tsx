@@ -13,13 +13,13 @@ const app = vi.hoisted(() => ({ started: [] as Record<string, unknown>[] }));
 vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
 vi.mock("../api/runtime", async (real) => {
   const actual = await real<typeof import("../api/runtime")>();
-  const agent = (id: string, name: string, last_used: boolean): StartableAgent => ({
+  const agent = (id: string, name: string, preferred: boolean): StartableAgent => ({
     id,
     name,
     program: id,
     installed: true,
     version: "1.0.0",
-    last_used,
+    preferred,
   });
   return {
     ...actual,
@@ -76,7 +76,7 @@ async function open(runtime = true) {
   return onAdded;
 }
 
-test("⌥Enter adds the item and starts the agent used last on it", async () => {
+test("⌥Enter adds the item and starts the preferred agent on it", async () => {
   const onAdded = await open();
   await expect.element(page.getByRole("button", { name: "Add and start Claude Code" })).toBeVisible();
   await userEvent.keyboard("Fix the login");

@@ -192,6 +192,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Pick the agent you use most when you start an agent on a work item or
+  open a new session. Pinrail counts the sessions of the last 30 days.
 - Show the lines in a session's thread in one compact style, with an icon
   and the time on each. A session that Pinrail started shows its start and
   its first run in one line.

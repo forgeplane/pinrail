@@ -469,6 +469,8 @@ impl super::Runtime {
         spawns.running.remove(&id);
         match reply {
             Ok(reply) => {
+                // the start adds a session, which can change the preferred agent
+                self.lock_startable().by_use = None;
                 let terminal = reply["terminal"].as_str().unwrap_or_default();
                 let run = self
                     .spawned(&id, terminal, process_of(&reply))?
@@ -872,10 +874,10 @@ impl super::Runtime {
         };
         // a check that began since covers what made it due
         let due = refresh || stale || Utc::now() - begun > STARTABLE_FOR;
-        let last = self.db.latest_run_agent()?;
+        let by_use = self.agents_by_use()?;
         let home = crate::config::home_dir();
         let reports = |id: &str| reports(home.as_deref(), id);
-        let agents = startable_list(&startable_agents(), &found, last.as_deref(), &reports);
+        let agents = startable_list(&startable_agents(), &found, &by_use, &reports);
         Ok((
             json!({ "agents": agents, "checked_at": crate::reviews::iso(checked_at) }),
             due,
@@ -936,6 +938,20 @@ impl super::Runtime {
             Err(HostError::Refused { message, .. }) => Err(RunError::StartFailed(message)),
             Err(_) => Err(RunError::HostOffline),
         }
+    }
+
+    /// The agents by their sessions of the last [`PREFERRED_OVER`], as
+    /// counted at most [`STARTABLE_FOR`] ago or since the last start.
+    fn agents_by_use(&self) -> Result<Vec<String>, RunError> {
+        let now = Utc::now();
+        if let Some((agents, at)) = &self.lock_startable().by_use
+            && now - *at < STARTABLE_FOR
+        {
+            return Ok(agents.clone());
+        }
+        let agents = self.db.agents_by_use(now - PREFERRED_OVER)?;
+        self.lock_startable().by_use = Some((agents.clone(), now));
+        Ok(agents)
     }
 
     fn lock_startable(&self) -> std::sync::MutexGuard<'_, Startable> {
@@ -1096,7 +1112,11 @@ fn last_lines(text: &str, n: usize) -> String {
 /// How long what the host found of the agents counts as current.
 const STARTABLE_FOR: chrono::TimeDelta = chrono::TimeDelta::hours(1);
 
-/// What the host last found of the agents' programs.
+/// How far back the sessions go that choose the preferred agent.
+const PREFERRED_OVER: chrono::TimeDelta = chrono::TimeDelta::days(30);
+
+/// What the host last found of the agents' programs, and the agents by
+/// their recent sessions.
 #[derive(Debug, Default)]
 pub(super) struct Startable {
     /// Its answer, in the order of [`startable_agents`], and when the
@@ -1106,6 +1126,8 @@ pub(super) struct Startable {
     stale: bool,
     /// When the latest check began, which may still run.
     begun: Option<DateTime<Utc>>,
+    /// The agents by their recent sessions, and when they were counted.
+    by_use: Option<(Vec<String>, DateTime<Utc>)>,
 }
 
 /// An agent Pinrail can start: its program, and whether Pinrail chooses
@@ -1159,13 +1181,19 @@ fn installs(id: &str) -> Option<&'static str> {
 }
 
 /// The agents Pinrail can start, from what the host found of their
-/// programs.
+/// programs. The installed agent first in `by_use`, the agents by their
+/// recent sessions, is the preferred one.
 fn startable_list(
     agents: &[StartableAgent],
     found: &[Value],
-    last: Option<&str>,
+    by_use: &[String],
     reports: &dyn Fn(&str) -> Option<bool>,
 ) -> Vec<Value> {
+    let installed = |i: usize| found.get(i).is_some_and(|one| one["path"].is_string());
+    let preferred = by_use.iter().find_map(|id| {
+        let i = agents.iter().position(|a| a.spec.id == id.as_str())?;
+        installed(i).then_some(i)
+    });
     agents
         .iter()
         .enumerate()
@@ -1175,9 +1203,9 @@ fn startable_list(
                 "id": agent.spec.id,
                 "name": agent.spec.label,
                 "program": agent.program,
-                "installed": one["path"].is_string(),
+                "installed": installed(i),
                 "version": one["version"],
-                "last_used": last == Some(agent.spec.id),
+                "preferred": preferred == Some(i),
                 "names_session": agent.names_session,
                 "reports": reports(agent.spec.id),
                 "installs": installs(agent.spec.id),
@@ -1226,11 +1254,14 @@ mod tests {
             json!({"name": "codex", "path": null, "version": null}),
         ];
         let reports = |id: &str| (id == "codex").then_some(false);
-        let list = startable_list(&agents(), &found, Some("codex"), &reports);
+        let by_use = ["codex".to_string(), "claude-code".to_string()];
+        let list = startable_list(&agents(), &found, &by_use, &reports);
         assert_eq!(list[0]["installed"], true);
         assert_eq!(list[0]["version"], "2.1.325");
         assert_eq!(list[1]["installed"], false);
-        assert_eq!(list[1]["last_used"], true);
+        // Codex has more sessions, but is not installed
+        assert_eq!(list[0]["preferred"], true);
+        assert_eq!(list[1]["preferred"], false);
         // an agent that chooses its own session's id needs its hooks on
         assert_eq!(list[0]["names_session"], true);
         assert_eq!(list[1]["names_session"], false);

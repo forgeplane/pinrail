@@ -571,21 +571,58 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
             "pi"
         ]
     );
-    assert!(agents.iter().all(|a| a["last_used"] == false));
+    assert!(agents.iter().all(|a| a["preferred"] == false));
 
-    // the agent started last is marked
+    // the installed agent with the most sessions is preferred, whether or
+    // not Pinrail started them, over the one started last
+    for (agent, session) in [
+        ("grok", "s-1"),
+        ("grok", "s-2"),
+        ("codex", "s-3"),
+        ("codex", "s-4"),
+        ("codex", "s-5"),
+    ] {
+        let body = json!({"kind": "step", "text": "working"});
+        let path = format!("/api/v1/sessions/{agent}/{session}/status");
+        let (status, answer) = call(&app, "POST", &path, Some(body)).await;
+        assert!(status.is_success(), "{answer}");
+    }
     let work = folder(&app, "app");
     let body = json!({"host": "local", "agent": "claude-code", "folder": work});
     let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
     let (_, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
     let agents = body["agents"].as_array().unwrap();
-    let last: Vec<_> = agents
+    let preferred: Vec<_> = agents
         .iter()
-        .filter(|a| a["last_used"] == true)
+        .filter(|a| a["preferred"] == true)
         .map(|a| &a["id"])
         .collect();
-    assert_eq!(last, ["claude-code"]);
+    // Codex has more sessions, but is not installed
+    assert_eq!(preferred, ["grok"]);
+
+    // the count is kept until the next start
+    for session in ["s-6", "s-7", "s-8"] {
+        let body = json!({"kind": "step", "text": "working"});
+        let path = format!("/api/v1/sessions/pi/{session}/status");
+        let (status, answer) = call(&app, "POST", &path, Some(body)).await;
+        assert!(status.is_success(), "{answer}");
+    }
+    let preferred = |body: Value| -> Vec<Value> {
+        let agents = body["agents"].as_array().unwrap();
+        agents
+            .iter()
+            .filter(|a| a["preferred"] == true)
+            .map(|a| a["id"].clone())
+            .collect()
+    };
+    let (_, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(preferred(body), ["grok"]);
+    let body = json!({"host": "local", "agent": "claude-code", "folder": work});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let (_, body) = call(&app, "GET", "/api/v1/agents/startable", None).await;
+    assert_eq!(preferred(body), ["pi"]);
 }
 
 #[tokio::test(flavor = "multi_thread")]

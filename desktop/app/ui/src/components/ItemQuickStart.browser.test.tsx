@@ -16,13 +16,13 @@ const app = vi.hoisted(() => ({
 vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
 vi.mock("../api/runtime", async (real) => {
   const actual = await real<typeof import("../api/runtime")>();
-  const agent = (id: string, name: string, last_used: boolean): StartableAgent => ({
+  const agent = (id: string, name: string, preferred: boolean): StartableAgent => ({
     id,
     name,
     program: id,
     installed: true,
     version: "1.0.0",
-    last_used,
+    preferred,
   });
   return {
     ...actual,
@@ -66,7 +66,7 @@ function Toasts() {
 
 const item = itemDetail({ title: "Fix the login", number: 7, body: "The redirect loops after a sign-in." });
 
-test("starts the agent used last on the item, in the latest folder of its repository", async () => {
+test("starts the preferred agent on the item, in the latest folder of its repository", async () => {
   await render(<ItemQuickStart item={item} />);
   const start = page.getByRole("button", { name: "Start Claude Code" });
   await expect.element(start).toBeVisible();

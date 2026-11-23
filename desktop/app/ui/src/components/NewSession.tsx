@@ -16,7 +16,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
-import { runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
+import { defaultAgent, runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
 import { combo, hasMod, MOD, modalOpen } from "../lib/keys";
 import { TIPS, tipParts } from "../lib/tips";
@@ -73,12 +73,7 @@ export function NewSession() {
   const [agents, setAgents] = useState(knownAgents);
   const [folders, setFolders] = useState(knownFolders);
   const [folder, setFolder] = useState(() => initial.folder ?? knownFolders.find((f) => f.exists)?.folder ?? "");
-  const [agent, setAgent] = useState<string | null>(
-    () =>
-      initial.agent ??
-      (knownAgents.find((a) => a.last_used && a.installed) ?? knownAgents.find((a) => a.installed))?.id ??
-      null,
-  );
+  const [agent, setAgent] = useState<string | null>(() => initial.agent ?? defaultAgent(knownAgents)?.id ?? null);
   const [task, setTask] = useState(initial.task ?? "");
   const [args, setArgs] = useState(initial.args ? writeArgs(initial.args) : "");
   const [showArgs, setShowArgs] = useState(!!initial.args?.length);
@@ -105,7 +100,7 @@ export function NewSession() {
         setAgents(found);
         setAgent((chosen) => {
           if (chosen && found.some((a) => a.id === chosen && a.installed)) return chosen;
-          return (found.find((a) => a.last_used && a.installed) ?? found.find((a) => a.installed))?.id ?? null;
+          return defaultAgent(found)?.id ?? null;
         });
       },
       (e: unknown) => current && setError(refusal(e, undefined)),

@@ -1,5 +1,5 @@
 // The button in a work item's panel that starts an agent on the item at
-// once: the agent used last, in the folder of the item's repository used
+// once: the agent used most, in the folder of the item's repository used
 // last, with the item's description, comments and files as its task. The
 // new session claims the item. The arrow beside it changes the agent and
 // the folder.

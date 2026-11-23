@@ -38,7 +38,9 @@ export type StartableAgent = {
   program: string;
   installed: boolean;
   version: string | null;
-  last_used: boolean;
+  /** Whether this is the installed agent with the most sessions in the
+   *  last 30 days, which Pinrail picks for a new session */
+  preferred: boolean;
   /** Whether Pinrail chooses the session's id; one that chooses its own
    *  tells Pinrail only through its hooks */
   names_session?: boolean;
@@ -129,3 +131,8 @@ export const runtime = {
   attachUrl: async (terminal: string) =>
     `${(await serverUrl()).replace(/^http/, "ws")}/api/v1/terminals/${seg(terminal)}/attach`,
 };
+
+/** The agent to pick for a new session: the preferred one, else the first
+ *  installed. */
+export const defaultAgent = (agents: StartableAgent[]): StartableAgent | undefined =>
+  agents.find((a) => a.preferred && a.installed) ?? agents.find((a) => a.installed);

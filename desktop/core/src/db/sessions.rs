@@ -347,6 +347,19 @@ pub(super) fn touch_review(conn: &Connection, review_id: &str) -> rusqlite::Resu
 }
 
 impl Db {
+    /// The agents with sessions that began since `since`, the agent with
+    /// the most sessions first. Of two agents with as many sessions, the
+    /// one used last comes first.
+    pub fn agents_by_use(&self, since: DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(
+            "SELECT agent FROM sessions WHERE first_at >= ?1
+             GROUP BY agent ORDER BY COUNT(*) DESC, MAX(last_at) DESC, agent",
+        )?;
+        stmt.query_map(params![crate::reviews::iso(since)], |r| r.get(0))?
+            .collect()
+    }
+
     /// The session an agent names by its own id, by Pinrail's id: created,
     /// hidden, when Pinrail does not know it yet; and whether it was. A
     /// report sent with a run token resolves through
@@ -1043,4 +1056,41 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
             }
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agents_come_by_their_sessions_of_the_last_month() {
+        let db = Db::in_memory().unwrap();
+        let now = Utc::now();
+        let day = |n: i64| crate::reviews::iso(now - chrono::Duration::days(n));
+        let sessions = [
+            ("codex", "s-1", day(1)),
+            ("codex", "s-2", day(2)),
+            ("claude-code", "s-3", day(3)),
+            ("claude-code", "s-4", day(4)),
+            // Pi has the most sessions, but none this month
+            ("pi", "s-5", day(40)),
+            ("pi", "s-6", day(41)),
+            ("pi", "s-7", day(42)),
+            // Grok was used last, once
+            ("grok", "s-8", day(0)),
+        ];
+        for (agent, id, at) in sessions {
+            db.conn()
+                .execute(
+                    "INSERT INTO sessions (agent, id, first_at, last_at) VALUES (?1, ?2, ?3, ?3)",
+                    params![agent, id, at],
+                )
+                .unwrap();
+        }
+        let since = now - chrono::Duration::days(30);
+        assert_eq!(
+            db.agents_by_use(since).unwrap(),
+            ["codex", "claude-code", "grok"]
+        );
+    }
 }
