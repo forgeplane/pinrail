@@ -320,6 +320,8 @@ struct State {
     stopping: Option<Reason>,
     /// When the person last typed, pasted or clicked in the terminal.
     last_input_at: Option<String>,
+    /// Set once the exit is recorded and its event is sent.
+    exit_reported: bool,
 }
 
 /// What a terminal reports to and keeps for the rest of the host.
@@ -395,6 +397,7 @@ impl Terminal {
             master: Some(spawned.master.try_clone()?),
             stopping: None,
             last_input_at: None,
+            exit_reported: false,
         }));
         let (wake_read, wake_write) = io::pipe()?;
         let (output_tx, output_rx) = mpsc::channel(QUEUED_CHUNKS);
@@ -491,6 +494,13 @@ impl Terminal {
 
     pub fn live(&self) -> bool {
         self.lock().info.ended_at.is_none()
+    }
+
+    /// Whether the terminal has ended and said so: its final screen is
+    /// kept, its record has the exit, and the `exited` event is sent. A
+    /// terminal stops being live a moment before.
+    pub fn exit_reported(&self) -> bool {
+        self.lock().exit_reported
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -1488,6 +1498,10 @@ impl Actor {
         self.viewers.close_all(&last);
         self.ended = true;
         self.context.events.emit("exited", params);
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .exit_reported = true;
     }
 }
 

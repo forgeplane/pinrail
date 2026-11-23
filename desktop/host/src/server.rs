@@ -758,8 +758,17 @@ impl Shared {
                 let _ = terminal.stop(Duration::from_millis(2_000), Reason::HostShutdown);
             }
         }
+        // until each has recorded its exit and sent the event, which is
+        // a moment after it stops being live: the host exits next
+        let reported = || {
+            self.terminals
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .values()
+                .all(Terminal::exit_reported)
+        };
         let deadline = Instant::now() + Duration::from_secs(5);
-        while self.live_terminals() > 0 && Instant::now() < deadline {
+        while !reported() && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     }
