@@ -66,6 +66,111 @@ pub fn uid() -> u32 {
     unsafe { libc::geteuid() }
 }
 
+/// The executables of the running processes of this user, as the system
+/// resolves them. An error means the list may be incomplete. A process
+/// that exits while the list is made is left out.
+#[cfg(target_os = "macos")]
+pub fn running_executables() -> std::io::Result<Vec<std::path::PathBuf>> {
+    use std::os::unix::ffi::OsStrExt;
+    // libproc.h's selector for the processes of one user, which libc
+    // does not define
+    const PROC_UID_ONLY: u32 = 4;
+    let user = uid();
+    // SAFETY: a null buffer asks only for the size the list needs.
+    let bytes = unsafe { libc::proc_listpids(PROC_UID_ONLY, user, std::ptr::null_mut(), 0) };
+    if bytes <= 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // room for processes started meanwhile
+    let mut pids = vec![0 as libc::pid_t; bytes as usize / size_of::<libc::pid_t>() + 1024];
+    let capacity = libc::c_int::try_from(pids.len() * size_of::<libc::pid_t>())
+        .map_err(std::io::Error::other)?;
+    // SAFETY: the buffer holds `capacity` bytes.
+    let bytes =
+        unsafe { libc::proc_listpids(PROC_UID_ONLY, user, pids.as_mut_ptr().cast(), capacity) };
+    if bytes <= 0 || bytes >= capacity {
+        return Err(std::io::Error::other("the process list is incomplete"));
+    }
+    pids.truncate(bytes as usize / size_of::<libc::pid_t>());
+    let mut paths = Vec::new();
+    for pid in pids.into_iter().filter(|&pid| pid > 0) {
+        let mut buf = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        // SAFETY: the buffer holds `buf.len()` bytes.
+        let len = unsafe { libc::proc_pidpath(pid, buf.as_mut_ptr().cast(), buf.len() as u32) };
+        if len <= 0 {
+            let error = std::io::Error::last_os_error();
+            if matches!(error.raw_os_error(), Some(libc::ESRCH | libc::ENOENT)) {
+                continue;
+            }
+            return Err(error);
+        }
+        let len = buf.iter().position(|&b| b == 0).unwrap_or(len as usize);
+        paths.push(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+            &buf[..len],
+        )));
+    }
+    Ok(paths)
+}
+
+/// The executables of the running processes of this user, as the system
+/// resolves them. An error means the list may be incomplete. A process
+/// that exits while the list is made is left out, and so is one whose
+/// executable cannot be read and whose first argument is not an absolute
+/// path: a host's copy always starts with the absolute path of its
+/// executable.
+#[cfg(target_os = "linux")]
+pub fn running_executables() -> std::io::Result<Vec<std::path::PathBuf>> {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::MetadataExt;
+    let user = uid();
+    let gone = |e: &std::io::Error| {
+        e.kind() == std::io::ErrorKind::NotFound || e.raw_os_error() == Some(libc::ESRCH)
+    };
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir("/proc")? {
+        let entry = entry?;
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .bytes()
+            .all(|b| b.is_ascii_digit())
+        {
+            continue;
+        }
+        let process = entry.path();
+        match std::fs::metadata(&process) {
+            Ok(meta) if meta.uid() != user => continue,
+            Ok(_) => {}
+            Err(e) if gone(&e) => continue,
+            Err(e) => return Err(e),
+        }
+        match std::fs::read_link(process.join("exe")) {
+            Ok(exe) => paths.push(exe),
+            Err(e) if gone(&e) => continue,
+            // a process that may not be inspected, such as one that is
+            // not dumpable, still shows its arguments
+            Err(_) => match std::fs::read(process.join("cmdline")) {
+                Ok(cmdline) => {
+                    let first = cmdline.split(|&b| b == 0).next().unwrap_or_default();
+                    let first = std::path::Path::new(std::ffi::OsStr::from_bytes(first));
+                    if first.is_absolute() {
+                        paths.push(first.to_path_buf());
+                    }
+                }
+                Err(e) if gone(&e) => continue,
+                Err(e) => return Err(e),
+            },
+        }
+    }
+    Ok(paths)
+}
+
+/// Elsewhere the running processes are not known.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub fn running_executables() -> std::io::Result<Vec<std::path::PathBuf>> {
+    Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+}
+
 /// Leaves the caller's process tree: forks, the parent exits at once, and
 /// the child starts a new session with its standard streams on
 /// `/dev/null`. Returns in the child. Call it only while the process has

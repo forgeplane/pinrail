@@ -95,6 +95,7 @@ impl Launcher {
             // its terminals over to a new one
             let ours = build_of(&self.bundled)?;
             if registration.build.as_deref() == Some(ours.as_str()) {
+                remove_unused_in_background(&self.data_dir, &self.bundled);
                 return Ok((registration, None));
             }
             log(&format!(
@@ -118,6 +119,7 @@ impl Launcher {
                         log("the terminal host was started detached and may end with the app");
                     }
                     let registration = wait_for_host(&paths, START_WITHIN)?;
+                    remove_unused_in_background(&self.data_dir, &self.bundled);
                     return Ok((registration, Some(method)));
                 }
                 Err(error) => log(&format!(
@@ -254,6 +256,102 @@ pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
             Err(error)
         }
     }
+}
+
+/// How long a copy is kept after it was made, whether or not a process
+/// runs from it: another core may have just made it and be about to start
+/// its host.
+const NEW_FOR: Duration = Duration::from_secs(600);
+
+/// The prefix of a copy's folder while it is removed. A removal that
+/// stops halfway leaves a folder no host runs from, which the next
+/// cleanup removes.
+const REMOVING: &str = ".removing-";
+
+/// Removes the copies in `<data dir>/host/bin/` that no process of this
+/// user runs from, other than `keep` and copies made in the last ten
+/// minutes. A copy is a whole folder, `<version>-<sha8>`, with a bare
+/// `pinrail-host` or a `Pinrail Host.app` in it; it is in use when a
+/// running process's executable is inside it, such as a host, or a holder
+/// that kept agents' terminals across an update. Returns the removed
+/// folders. When the running processes cannot all be read, nothing is
+/// removed.
+pub fn remove_unused_copies(data_dir: &Path, keep: &Path) -> io::Result<Vec<PathBuf>> {
+    remove_unused(
+        &data_dir.join("host/bin"),
+        keep,
+        crate::sys::running_executables(),
+    )
+}
+
+fn remove_unused(
+    bin: &Path,
+    keep: &Path,
+    running: io::Result<Vec<PathBuf>>,
+) -> io::Result<Vec<PathBuf>> {
+    let running = running?;
+    let keep = keep.canonicalize().ok();
+    let mut removed = Vec::new();
+    for entry in fs::read_dir(bin)? {
+        let Ok(entry) = entry else { continue };
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        let path = entry.path();
+        // a removal that stopped halfway
+        if name.starts_with(REMOVING) {
+            let _ = fs::remove_dir_all(&path);
+            continue;
+        }
+        // a copy being put in place, a link, a file: none is a copy
+        if name.starts_with('.') || !entry.file_type().is_ok_and(|t| t.is_dir()) {
+            continue;
+        }
+        let Ok(real) = path.canonicalize() else {
+            continue;
+        };
+        // a date that cannot be read, or one in the future, is new
+        let old = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .is_ok_and(|at| at.elapsed().is_ok_and(|age| age >= NEW_FOR));
+        if keep.as_deref() == Some(real.as_path())
+            || running.iter().any(|exe| exe.starts_with(&real))
+            || !old
+        {
+            continue;
+        }
+        // renamed first, so that no folder is ever left as half a copy
+        let removing = bin.join(format!("{REMOVING}{name}"));
+        if fs::rename(&path, &removing).is_ok() {
+            let _ = fs::remove_dir_all(&removing);
+            removed.push(path);
+        }
+    }
+    Ok(removed)
+}
+
+/// Removes the unused copies on a thread of its own, so that the host's
+/// start never waits for it, and writes what it removed to `host.log`.
+fn remove_unused_in_background(data_dir: &Path, bundled: &Path) {
+    let (data_dir, bundled) = (data_dir.to_path_buf(), bundled.to_path_buf());
+    std::thread::spawn(move || {
+        let Ok(build) = build_of(&bundled) else {
+            return;
+        };
+        let keep = data_dir.join("host/bin").join(build);
+        let log = crate::log::Log::open(&Paths::new(&data_dir).log());
+        match remove_unused_copies(&data_dir, &keep) {
+            Ok(removed) => {
+                for folder in removed {
+                    log.line(&format!(
+                        "removed the unused host copy {}",
+                        folder.display()
+                    ));
+                }
+            }
+            Err(error) => log.line(&format!("kept the host copies: {error}")),
+        }
+    });
 }
 
 /// The app bundle whose executable `binary` is: `X.app` for
@@ -690,6 +788,102 @@ mod tests {
         assert_ne!(second, copy);
         assert!(copy.is_file());
         assert_eq!(fs::read_dir(data.join("host/bin")).unwrap().count(), 2);
+    }
+
+    /// A copy in `bin` named `name`: a bare `pinrail-host`, or one in a
+    /// `Pinrail Host.app`, made from `/bin/sleep` so that it can run.
+    /// Returns the copy's executable.
+    fn copy_in(bin: &Path, name: &str, bundle: bool) -> PathBuf {
+        let folder = bin.join(name);
+        let executable = if bundle {
+            folder.join("Pinrail Host.app/Contents/MacOS/pinrail-host")
+        } else {
+            folder.join("pinrail-host")
+        };
+        fs::create_dir_all(executable.parent().unwrap()).unwrap();
+        fs::copy("/bin/sleep", &executable).unwrap();
+        executable
+    }
+
+    /// Dates a copy's folder an hour back, as one made long ago.
+    fn made_long_ago(bin: &Path, name: &str) {
+        let folder = fs::File::open(bin.join(name)).unwrap();
+        let hour_ago = std::time::SystemTime::now() - Duration::from_secs(3600);
+        folder.set_modified(hour_ago).unwrap();
+    }
+
+    /// Runs `executable` until dropped.
+    struct Running(std::process::Child);
+
+    impl Drop for Running {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    fn run(executable: &Path) -> Running {
+        Running(Command::new(executable).arg("60").spawn().unwrap())
+    }
+
+    #[test]
+    fn unused_copies_are_removed_and_copies_in_use_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        let bin = data.join("host/bin");
+        let names = [
+            ("0.5.0-0000aaaa", false), // unused, bare
+            ("0.6.0-0000bbbb", true),  // unused, a bundle
+            ("0.5.0-0000cccc", false), // in use, bare
+            ("0.6.0-0000dddd", true),  // in use, a bundle
+            ("0.6.0-0000eeee", true),  // the current copy
+        ];
+        let executables: Vec<_> = names
+            .iter()
+            .map(|(name, bundle)| copy_in(&bin, name, *bundle))
+            .collect();
+        for (name, _) in names {
+            made_long_ago(&bin, name);
+        }
+        // a copy another core is putting in place
+        fs::create_dir_all(bin.join(".0000ffff.ab12")).unwrap();
+        let _bare = run(&executables[2]);
+        let _bundle = run(&executables[3]);
+
+        let removed = remove_unused_copies(data, &bin.join("0.6.0-0000eeee")).unwrap();
+
+        assert_eq!(removed.len(), 2, "{removed:?}");
+        assert!(!bin.join("0.5.0-0000aaaa").exists());
+        assert!(!bin.join("0.6.0-0000bbbb").exists());
+        for kept in ["0.5.0-0000cccc", "0.6.0-0000dddd", "0.6.0-0000eeee"] {
+            assert!(bin.join(kept).is_dir(), "{kept} was removed");
+        }
+        assert!(bin.join(".0000ffff.ab12").is_dir());
+        assert!(executables[3].is_file());
+    }
+
+    #[test]
+    fn a_copy_made_moments_ago_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("host/bin");
+        copy_in(&bin, "0.6.0-0000aaaa", true);
+        let removed = remove_unused_copies(dir.path(), &bin.join("0.6.0-0000bbbb")).unwrap();
+        assert!(removed.is_empty());
+        assert!(bin.join("0.6.0-0000aaaa").is_dir());
+    }
+
+    #[test]
+    fn no_copy_is_removed_when_the_running_programs_are_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("host/bin");
+        copy_in(&bin, "0.5.0-0000aaaa", false);
+        copy_in(&bin, "0.6.0-0000bbbb", true);
+        made_long_ago(&bin, "0.5.0-0000aaaa");
+        made_long_ago(&bin, "0.6.0-0000bbbb");
+        let unknown = Err(io::Error::other("the process list is incomplete"));
+        assert!(remove_unused(&bin, &bin.join("0.6.0-0000cccc"), unknown).is_err());
+        assert!(bin.join("0.5.0-0000aaaa").is_dir());
+        assert!(bin.join("0.6.0-0000bbbb").is_dir());
     }
 
     #[test]
