@@ -1,6 +1,15 @@
 import fs from "node:fs";
 import { expect, test, type Page } from "../fixtures";
-import { core, settingSaved } from "../helpers";
+import { core, sessionId, settingSaved } from "../helpers";
+
+// The shell's core has no terminal host, and the computer the specs run on
+// may or may not have agents: by default Pinrail can start none, and has
+// seen no folder. A test that starts a session answers these itself.
+test.beforeEach(async ({ page }) => {
+  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: [] } }));
+  await page.route(/\/api\/v1\/folders\/recent/, (route) => route.fulfill({ json: { folders: [] } }));
+});
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 async function openSetup(page: Page) {
   await page.keyboard.press("ControlOrMeta+k");
@@ -240,11 +249,13 @@ async function native(
     failOnce?: string[];
     /** the file of the login shell's PATH; null for a shell Pinrail does not know */
     profile?: string | null;
+    /** the folder the system's folder dialog answers */
+    pickFolder?: string;
   },
 ) {
   await page.goto("/");
   await page.getByRole("main").waitFor();
-  await page.evaluate(({ agents, onPath = true, failOnce = [], profile = "/Users/you/.zshrc" }) => {
+  await page.evaluate(({ agents, onPath = true, failOnce = [], profile = "/Users/you/.zshrc", pickFolder = null }) => {
     const w = window as unknown as Record<string, unknown>;
     const calls: string[] = [];
     const state = { installed: false, onPath, asked: false, failed: new Set<string>() };
@@ -281,6 +292,8 @@ async function native(
           case "install_cli":
             state.installed = true;
             return cli();
+          case "plugin:dialog|open":
+            return pickFolder;
           case "add_cli_to_path":
             // a new terminal reads the file, so it finds the command
             state.onPath = true;
@@ -436,5 +449,186 @@ test("Add it to the shell's file puts the command on the PATH, and says to open 
     expect((await app.calls()).filter((c) => c === "add_cli_to_path")).toHaveLength(1);
     await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
+  });
+});
+
+const STARTABLE = [
+  { id: "claude-code", name: "Claude Code", program: "claude", installed: true, version: "2.1.325", last_used: false },
+  { id: "codex", name: "Codex", program: "codex", installed: true, version: "0.98.0", last_used: true },
+  // Pinrail can start it, but the setup did not connect it
+  { id: "pi", name: "Pi", program: "pi", installed: true, version: "1.0.0", last_used: false },
+];
+const FOLDERS = [
+  { folder: "/work/api", repo: "acme/api", branch: "main", exists: true, used_at: "2026-11-14T10:00:00Z" },
+  { folder: "/work/web", repo: "acme/web", branch: "main", exists: true, used_at: "2026-11-10T10:00:00Z" },
+  { folder: "/work/old", repo: null, branch: null, exists: false, used_at: "2026-11-01T10:00:00Z" },
+];
+
+/** Stands in for the runtime: the agents Pinrail can start, the folders it
+ *  has seen, and the start itself, which answers with a session of the
+ *  core's or refuses with `refuse`. It records each start. */
+async function runtime(page: Page, options: { folders?: typeof FOLDERS; refuse?: Record<string, unknown> } = {}) {
+  const name = `s-setup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const made = await page.request.post(`${core}/api/v1/sessions/claude-code/${name}/status`, {
+    data: { kind: "start", text: "A first session", origin: { repo: "acme/api" } },
+  });
+  expect(made.status(), await made.text()).toBeLessThan(300);
+  const session = { agent: "claude-code", id: await sessionId(page.request, "claude-code", name), agent_session: null };
+  const run = {
+    id: "run_1",
+    host: "local",
+    agent: "claude-code",
+    state: "running",
+    terminal: "local:t_1",
+    folder: "/work/api",
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    end_reason: null,
+    exit_code: null,
+    session,
+  };
+  const started: Record<string, unknown>[] = [];
+  await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: STARTABLE } }));
+  await page.route(/\/api\/v1\/folders\/recent/, (route) =>
+    route.fulfill({ json: { folders: options.folders ?? FOLDERS } }),
+  );
+  await page.route(/\/api\/v1\/runs(\?|$)/, async (route) => {
+    if (route.request().method() !== "POST") return route.fulfill({ json: { runs: started.length ? [run] : [] } });
+    if (options.refuse) return route.fulfill({ status: 409, json: options.refuse });
+    started.push(route.request().postDataJSON());
+    return route.fulfill({ status: 201, json: { run, session } });
+  });
+  await page.route(/\/api\/v1\/runs\/run_1$/, (route) => route.fulfill({ json: run }));
+  await page.route(/\/api\/v1\/terminals\/[^/]+\/tickets/, (route) => route.fulfill({ json: { ticket: "t" } }));
+  return { started, session };
+}
+
+/** The setup, run to its last screen with Claude Code and Codex connected. */
+async function atLastScreen(page: Page, options: { pickFolder?: string } = {}) {
+  await native(page, {
+    agents: [agent("codex", "Codex", true, "absent"), agent("claude-code", "Claude Code", true, "absent")],
+    ...options,
+  });
+  const setup = await openSetup(page);
+  await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+  await expect(setup.getByRole("heading", { name: "Pinrail is ready. Start your first session." })).toBeVisible();
+  return setup;
+}
+
+test("a request on the last screen starts a session of the first agent, and ends the setup", async ({ page }) => {
+  await restoring(page, async () => {
+    const { started, session } = await runtime(page);
+    const setup = await atLastScreen(page);
+    // the first agent in the welcome's order that Pinrail can start, and the
+    // folder used last
+    await expect(setup.getByRole("button", { name: /^Agent:/ })).toHaveAccessibleName("Agent: Claude Code");
+    await expect(setup.getByRole("button", { name: /^Folder:/ })).toHaveAccessibleName("Folder: /work/api");
+    // a request for each plugin the setup installed
+    await expect(setup.getByTestId("setup-request-list")).toContainText("which TODOs in this repository");
+    await expect(setup.getByTestId("setup-request-feedback")).toContainText("what you need to know");
+    await expect(setup.getByRole("note")).toContainText("under Waiting on you");
+
+    await setup
+      .getByTestId("setup-request-list")
+      .getByRole("button", { name: /^Start/ })
+      .click();
+    await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
+    expect(started).toHaveLength(1);
+    expect(started[0]).toMatchObject({
+      agent: "claude-code",
+      folder: "/work/api",
+      task: "Ask me through Pinrail which TODOs in this repository to tackle first.",
+    });
+    // the new session takes the setup's place
+    await expect(page).toHaveURL(new RegExp(`#/sessions/claude-code/${session.id}`));
+    await expect(page.getByText("Setup is finished. What Claude Code asks appears in your inbox.")).toBeVisible();
+  });
+});
+
+test("the last screen starts another agent on a request of your own", async ({ page }) => {
+  await restoring(page, async () => {
+    const { started } = await runtime(page);
+    const setup = await atLastScreen(page);
+    // the connected agents Pinrail can start, and no other
+    await setup.getByRole("button", { name: /^Agent:/ }).click();
+    const agents = page.getByRole("menu", { name: "Agents" });
+    await expect(agents.getByRole("menuitem")).toHaveCount(2);
+    await agents.getByRole("menuitem", { name: /Codex/ }).click();
+    await expect(setup.getByRole("button", { name: /^Agent:/ })).toHaveAccessibleName("Agent: Codex");
+
+    const own = setup.getByRole("textbox", { name: "Your own request" });
+    await expect(setup.getByRole("button", { name: "Start with your request" })).toBeDisabled();
+    await own.fill("Fix the login redirect");
+    await own.press("Enter");
+    await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
+    expect(started[0]).toMatchObject({ agent: "codex", folder: "/work/api", task: "Fix the login redirect" });
+  });
+});
+
+test("the folder is one Pinrail has seen, or one chosen in the system's dialog", async ({ page }) => {
+  await restoring(page, async () => {
+    const { started } = await runtime(page);
+    const setup = await atLastScreen(page, { pickFolder: "/Users/you/code/shop" });
+    const folder = setup.getByRole("button", { name: /^Folder:/ });
+    await folder.click();
+    const folders = page.getByRole("menu", { name: "Folders" });
+    // the folders that are still there, the one used last first
+    await expect(folders.getByRole("menuitem")).toHaveText([/api/, /web/, /Choose another folder…/]);
+    await folders.getByRole("menuitem", { name: /web/ }).click();
+    await expect(folder).toHaveAccessibleName("Folder: /work/web");
+
+    await folder.click();
+    await page.getByRole("menuitem", { name: "Choose another folder…" }).click();
+    await expect(folder).toHaveAccessibleName("Folder: /Users/you/code/shop");
+    await expect(folder).toContainText("shop");
+    await setup
+      .getByTestId("setup-request-feedback")
+      .getByRole("button", { name: /^Start/ })
+      .click();
+    await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
+    expect(started[0]).toMatchObject({ folder: "/Users/you/code/shop" });
+  });
+});
+
+test("with no folder seen yet, the folder button asks for one", async ({ page }) => {
+  await restoring(page, async () => {
+    await runtime(page, { folders: [] });
+    const setup = await atLastScreen(page, { pickFolder: "/Users/you/code/shop" });
+    const folder = setup.getByRole("button", { name: /^Folder:/ });
+    await expect(folder).toHaveText("Choose a folder");
+    await folder.click();
+    await expect(folder).toHaveAccessibleName("Folder: /Users/you/code/shop");
+    await setup.getByRole("button", { name: "Skip", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
+  });
+});
+
+test("a start that fails says why, and the setup stays open", async ({ page }) => {
+  await restoring(page, async () => {
+    const { started } = await runtime(page, { refuse: { error: "folder_missing", message: "no such folder" } });
+    const setup = await atLastScreen(page);
+    await setup
+      .getByTestId("setup-request-list")
+      .getByRole("button", { name: /^Start/ })
+      .click();
+    await expect(setup.getByRole("alert")).toHaveText("The folder no longer exists.");
+    await expect(setup.getByTestId("setup-request-list").getByRole("button", { name: /^Start/ })).toBeEnabled();
+    expect(started).toHaveLength(0);
+  });
+});
+
+test("when Pinrail can start none of the connected agents, the requests are there to copy", async ({ page }) => {
+  await restoring(page, async () => {
+    await native(page, { agents: [agent("cline", "Cline", true, "absent")] });
+    const setup = await openSetup(page);
+    await setup.getByRole("button", { name: "Set up Pinrail" }).click();
+    await expect(setup.getByRole("heading", { name: "Pinrail is ready", exact: true })).toBeVisible();
+    await expect(setup).toContainText("Paste one of these requests into your agent to try it.");
+    const request = setup.getByTestId("setup-request-list");
+    await expect(request.getByRole("button", { name: "Copy" })).toBeVisible();
+    await expect(setup.getByRole("button", { name: /^Start/ })).toHaveCount(0);
+    await expect(setup.getByRole("textbox")).toHaveCount(0);
+    await setup.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Set up Pinrail" })).toHaveCount(0);
   });
 });

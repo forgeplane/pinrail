@@ -6895,6 +6895,180 @@ button.setup-tile[aria-disabled="true"] {
   cursor: pointer;
 }
 
+/* the last screen: a request to start an agent on, in a folder */
+.setup-title.is-start {
+  margin-top: 62px;
+}
+.setup-start-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 14px 0 0;
+  color: var(--dim);
+  font-size: 15px;
+}
+.setup-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  height: 34px;
+  padding: 0 10px 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.setup-pick:disabled {
+  cursor: default;
+}
+.setup-pick:not(:disabled):hover {
+  background: var(--bg-hover);
+}
+.setup-pick[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.setup-pick.is-empty {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.setup-pick-folder {
+  flex: none;
+  color: var(--accent);
+}
+.setup-pick-more {
+  flex: none;
+  color: var(--faint);
+}
+.setup-requests {
+  display: grid;
+  gap: 8px;
+  width: min(640px, 100%);
+  margin-top: 20px;
+}
+.setup-request {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 0 12px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-panel);
+  font-size: 13.5px;
+}
+.setup-request:not(.is-own):hover {
+  border-color: var(--border-strong);
+}
+.setup-request-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.setup-request-text {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  line-height: 1.4;
+}
+.setup-request-go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 550;
+  cursor: pointer;
+}
+.setup-request-go:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.setup-request:hover .setup-request-go.is-start:not(:disabled),
+.setup-request-go.is-start:focus-visible {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
+.setup-request-go:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.setup-request.is-own {
+  padding: 0 8px 0 16px;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+.setup-request.is-own:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+}
+.setup-request.is-own input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+/* the row around the field shows the focus */
+.setup-request.is-own input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+.setup-request.is-own input::placeholder {
+  color: var(--faint);
+}
+.setup-request.is-own button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--button-bg);
+  color: var(--button-text);
+  cursor: pointer;
+}
+.setup-request.is-own button:disabled {
+  background: var(--border);
+  color: var(--faint);
+  cursor: default;
+}
+.setup-start-error {
+  margin: 2px 0 0;
+  color: var(--danger);
+  font-size: var(--text-md);
+  text-align: center;
+}
+
 /* the plugins view: a card for each plugin */
 /* the cards' scroll area is as wide as the body's content, so nothing
    overflows sideways: the body is narrower by the room the area keeps for a

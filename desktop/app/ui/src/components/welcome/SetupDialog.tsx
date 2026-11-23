@@ -4,15 +4,19 @@
 // finished or skipped, and the command palette brings it back.
 
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { api, inTauri } from "../../api/client";
 import type { CatalogEntry } from "../../api/types";
 import { useWindowKey } from "../../lib/useWindowKey";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
+import { useToast } from "../../state/toasts";
 import { Dialog } from "../Dialog";
+import { sessionPath } from "../Thread";
 import { byName, useAgents } from "../settings/AgentsSection";
 import { SetupPlugins, included } from "./SetupPlugins";
 import { SetupRun } from "./SetupRun";
+import { SetupStart } from "./SetupStart";
 import { SetupWelcome, connectable } from "./SetupWelcome";
 import { StepDots } from "./StepDots";
 import { TipBar } from "./TipBar";
@@ -47,6 +51,10 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
   const [added, setAdded] = useState<Set<string>>(new Set());
   // the button the list of every agent is open under
   const [agentMenu, setAgentMenu] = useState<HTMLElement | null>(null);
+  // a menu of the last screen is open
+  const [startMenu, setStartMenu] = useState(false);
+  const navigate = useNavigate();
+  const toast = useToast();
 
   // the official plugins the app carries, with what is installed
   const [catalog, setCatalog] = useState<CatalogEntry[] | null>(null);
@@ -63,8 +71,8 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
   useWindowKey(
     (e) => {
       e.stopPropagation();
-      // the list of agents takes its own keys, Esc among them
-      if (e.key !== "Escape" || agentMenu) return;
+      // an open menu takes its own keys, Esc among them
+      if (e.key !== "Escape" || agentMenu || startMenu) return;
       if (screen === "plugins") setScreen("welcome");
       // the setup cannot be left halfway through its run
       else if (!running) onClose();
@@ -211,16 +219,23 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
       ) : null}
 
       {screen === "last" ? (
-        // the first session is not built yet: this ends the setup
         <>
-          <div className="setup-body">
-            <h1 className="setup-title is-view">Pinrail is ready</h1>
-            <p className="setup-sub">Your agents can now ask you. What they ask appears in your inbox.</p>
-          </div>
-          <div className="setup-foot">
-            <button type="button" className="chrome-button button-primary setup-button" onClick={onClose} autoFocus>
-              Done
-            </button>
+          <SetupStart
+            connected={(found ?? []).filter((a) => a.state === "connected" || a.state === "outdated")}
+            plugins={[...live.plugins.values()]}
+            onMenu={setStartMenu}
+            onStarted={(session, agent) => {
+              // the setup is over: the new session takes its place
+              onClose();
+              navigate(sessionPath(session), { state: { newRun: true } });
+              toast(`Setup is finished. What ${agent.name} asks appears in your inbox.`);
+            }}
+            onClose={onClose}
+          />
+          <div className="setup-tip">
+            <TipBar>
+              The agent's review appears in your <b>Inbox</b>, under <b>Waiting on you</b>.
+            </TipBar>
           </div>
         </>
       ) : null}
