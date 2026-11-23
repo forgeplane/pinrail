@@ -1603,6 +1603,25 @@ async fn an_item_lists_the_sessions_that_worked_on_it_with_their_status() {
     assert!(sessions.iter().any(|(s, _)| s == "s-1"), "{sessions:?}");
 }
 
+#[tokio::test]
+async fn an_items_sessions_are_named_by_their_task_after_a_bare_done() {
+    let app = app();
+    add(&app, "Work").await;
+    let path = "/api/v1/sessions/claude-code/s-2/status";
+    let start = json!({"kind": "start", "text": "Fix the theme"});
+    agent(&app, "POST", path, "s-2", start).await;
+    edit(&app, "PIN-1", "s-2", json!({"claim": "claim"})).await;
+    agent(&app, "POST", path, "s-2", json!({"kind": "done"})).await;
+    let read = item(&app, "PIN-1").await;
+    let session = read["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["agent_session"] == "s-2")
+        .unwrap();
+    assert_eq!(session["label"], "Fix the theme", "{session}");
+}
+
 // --- the API's refusals and events
 
 #[tokio::test]

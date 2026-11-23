@@ -882,6 +882,8 @@ export type ItemDetail = WorkItem & {
     session: string;
     agent_session: string | null;
     status: string | null;
+    /** the session's name, else the task it last started, else its generated name */
+    label: string | null;
     last_at: string | null;
   }[];
   timeline: ItemEntry[];

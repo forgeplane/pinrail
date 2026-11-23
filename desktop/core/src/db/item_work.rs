@@ -186,6 +186,9 @@ pub struct ItemSession {
     /// the agent's own id for it, if it is known
     pub agent_session: Option<String>,
     pub status: Option<String>,
+    /// what names the session where it is shown: its name, else the task
+    /// it last started, else the name Pinrail gave it
+    pub label: Option<String>,
     pub last_at: Option<DateTime<Utc>>,
 }
 
@@ -194,7 +197,7 @@ impl ItemSession {
         json!({
             "agent": self.agent, "session": self.session,
             "agent_session": self.agent_session, "status": self.status,
-            "last_at": self.last_at.map(iso),
+            "label": self.label, "last_at": self.last_at.map(iso),
         })
     }
 }
@@ -1481,7 +1484,7 @@ impl Db {
     /// status.
     pub fn item_sessions(&self, id: &str) -> rusqlite::Result<Vec<ItemSession>> {
         let conn = self.read();
-        let mut stmt = conn.prepare(
+        let mut stmt = conn.prepare(&format!(
             "WITH worked(agent, session) AS (
                SELECT actor, session FROM work_item_events WHERE item_id = ?1 AND session IS NOT NULL
                UNION SELECT author, session FROM work_item_comments WHERE item_id = ?1 AND session IS NOT NULL
@@ -1494,10 +1497,13 @@ impl Db {
              SELECT w.agent, w.session,
                (SELECT t.text FROM session_statuses t WHERE t.agent = w.agent AND t.session = w.session
                   AND t.kind <> 'note' ORDER BY t.id DESC LIMIT 1),
-               s.last_at, s.agent_session
+               s.last_at, s.agent_session,
+               CASE WHEN s.id IS NOT NULL
+                 THEN COALESCE(s.name, {title}, session_generated_name(s.agent, s.id)) END
              FROM worked w LEFT JOIN sessions s ON s.agent = w.agent AND s.id = w.session
              ORDER BY s.last_at DESC, w.agent, w.session",
-        )?;
+            title = super::sessions::title(),
+        ))?;
         stmt.query_map(params![id], |r| {
             Ok(ItemSession {
                 agent: r.get(0)?,
@@ -1507,6 +1513,7 @@ impl Db {
                     .get::<_, Option<String>>(3)?
                     .and_then(|t| parse_datetime(&t)),
                 agent_session: r.get(4)?,
+                label: r.get(5)?,
             })
         })?
         .collect()

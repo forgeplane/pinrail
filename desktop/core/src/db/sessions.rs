@@ -966,7 +966,7 @@ fn select() -> String {
 }
 
 /// The session's title: the task the agent last said it started.
-fn title() -> &'static str {
+pub(super) fn title() -> &'static str {
     "(SELECT t.text FROM session_statuses t \
      WHERE t.agent = s.agent AND t.session = s.id AND t.kind = 'start' ORDER BY t.id DESC LIMIT 1)"
 }
