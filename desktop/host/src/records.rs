@@ -1,7 +1,8 @@
 //! `terminals.json`: a record of each live or recently ended terminal, so
 //! that `pinrail-host status` and a restarted core can tell what runs. It
 //! is written by one background writer at most once a second, except a new
-//! terminal's record, which is written before its program starts.
+//! terminal's record, which is written before its program starts, and the
+//! last write, which the host makes as it stops.
 
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
@@ -79,6 +80,25 @@ impl Records {
         }
     }
 
+    /// Gives `ended_at` to the records without one that `held` does not
+    /// name: terminals that a host stopped or lost without recording it,
+    /// such as a host that was killed. They have no exit. A host that
+    /// starts calls it once it has adopted what the holders keep, so that
+    /// these records are forgotten like the others.
+    pub fn end_lost(&self, held: impl Fn(&str) -> bool, ended_at: &str) {
+        let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let mut changed = false;
+        for (id, record) in entries.iter_mut() {
+            if record["ended_at"].is_null() && !held(id) {
+                record["ended_at"] = Value::from(ended_at);
+                changed = true;
+            }
+        }
+        if changed {
+            self.changed.notify_one();
+        }
+    }
+
     /// Forgets the ended terminals that `held` does not name, keeping the
     /// newest `keep` of those that ended at or after `cutoff`, and returns
     /// the ids forgotten. A host that starts calls it for the terminals
@@ -139,8 +159,9 @@ impl Records {
 
     /// Writes every record to a temporary file, flushes it and renames it
     /// into place. The records are read under the same lock, so a write
-    /// never replaces a newer one with an older copy.
-    fn write(&self) -> io::Result<()> {
+    /// never replaces a newer one with an older copy. The host calls it as
+    /// it stops, since the writer may not have written the last changes.
+    pub fn write(&self) -> io::Result<()> {
         let _writing = self.writing.lock().unwrap_or_else(|e| e.into_inner());
         let entries = self
             .entries

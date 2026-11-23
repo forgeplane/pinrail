@@ -243,7 +243,7 @@ async fn run(
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut tick = tokio::time::interval(idle_exit.min(Duration::from_secs(1)));
     let mut next_connection = 0u64;
-    loop {
+    let reason = loop {
         tokio::select! {
             accepted = listener.accept() => {
                 if let Ok((stream, _)) = accepted {
@@ -251,20 +251,23 @@ async fn run(
                     tokio::spawn(connection(stream, next_connection, shared.clone()));
                 }
             }
-            () = shared.stop.notified() => return Ok("host.stop".to_string()),
-            _ = terminate.recv() => return Ok("SIGTERM".to_string()),
-            _ = interrupt.recv() => return Ok("SIGINT".to_string()),
+            () = shared.stop.notified() => break "host.stop",
+            _ = terminate.recv() => break "SIGTERM",
+            _ = interrupt.recv() => break "SIGINT",
             _ = tick.tick() => {
                 shared.prune();
                 let idle = *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner());
                 if shared.live_terminals() == 0
                     && idle.is_some_and(|since| since.elapsed() >= idle_exit)
                 {
-                    return Ok("idle".to_string());
+                    break "idle";
                 }
             }
         }
-    }
+    };
+    // the writer is at most a second behind, and stops with the host
+    let _ = shared.context.records.write();
+    Ok(reason.to_string())
 }
 
 /// Takes back the terminals the holders keep. A terminal with a record
@@ -785,6 +788,9 @@ impl Shared {
             .cloned()
             .collect();
         let records = &self.context.records;
+        // those a host stopped or lost without recording it ended now, as
+        // far as anyone can tell
+        records.end_lost(|id| held.contains(id), &crate::now());
         for id in records.forget_ended(|id| held.contains(id), &prune_cutoff(), KEPT_ENDED) {
             let _ = fs::remove_file(self.context.screens.join(format!("{id}.snap")));
         }

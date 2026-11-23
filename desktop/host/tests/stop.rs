@@ -294,6 +294,56 @@ fn stopping_the_host_stops_its_terminals() {
     assert!(common::exits_within(&mut host, Duration::from_secs(5)));
 }
 
+/// The records in the host's `terminals.json`.
+fn records(folders: &common::Folders) -> Vec<Value> {
+    std::fs::read_to_string(folders.data.join("host/terminals.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_host_that_stops_leaves_the_exits_in_its_records() {
+    let folders = folders();
+    let mut host = serve(&folders, &[]);
+    let mut client = Client::connect(&host.registration).unwrap();
+    let (id, _) = spawn(&mut client, &folders, "echo ready; sleep 300");
+    ready(&mut client, &id);
+    client
+        .call("host.stop", json!({"stop_terminals": true}))
+        .unwrap();
+    assert!(common::exits_within(&mut host, Duration::from_secs(5)));
+    let records = records(&folders);
+    assert_eq!(records[0]["id"], id.as_str());
+    assert!(records[0]["ended_at"].is_string(), "{records:?}");
+    assert!(records[0]["exit"].is_object(), "{records:?}");
+}
+
+#[test]
+fn a_host_that_starts_ends_the_records_of_terminals_no_holder_keeps() {
+    let folders = folders();
+    // what a host that was killed as it stopped its terminals leaves
+    std::fs::create_dir_all(folders.data.join("host")).unwrap();
+    std::fs::write(
+        folders.data.join("host/terminals.json"),
+        json!([{"id": "t_gone", "holder": "0a0a0a0a", "pid": 1, "labels": {},
+                "started_at": "2026-01-01T00:00:00Z", "ended_at": null, "exit": null}])
+        .to_string(),
+    )
+    .unwrap();
+    let host = serve(&folders, &[]);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let records = records(&folders);
+        if records.len() == 1 && records[0]["ended_at"].is_string() {
+            break;
+        }
+        assert!(Instant::now() < deadline, "{records:?}");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    drop(host);
+}
+
 #[test]
 fn a_subscriber_that_resumes_gets_only_what_it_missed() {
     let folders = folders();
