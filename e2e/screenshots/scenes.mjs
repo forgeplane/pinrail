@@ -1010,7 +1010,7 @@ export const scenes = [
       await page.getByRole("textbox").fill("Set up Pinrail");
       await page.getByRole("option", { name: /Set up Pinrail/ }).click();
       const setup = page.getByRole("dialog", { name: "Set up Pinrail" });
-      await setup.getByTestId("welcome-agent-claude").waitFor();
+      await setup.getByTestId("setup-agent-claude").waitFor();
       await settle(page, 500);
       await shot("setup-connect");
     },

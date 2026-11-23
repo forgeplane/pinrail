@@ -1,43 +1,23 @@
 // The setup: opened until it is finished or skipped, asked once when the
-// settings first arrive. It steps aside while its first review is decided,
-// and comes back on that step once it is.
+// settings first arrive.
 
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { reviewPath } from "../lib/url";
-import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
-import { FIRST_REVIEW, type WelcomeAt } from "./welcome/WelcomeDialog";
 
 export function useWelcome() {
-  const live = useLive();
-  const navigate = useNavigate();
   const { settings: prefs, update, loaded } = useSettings();
   // Pinrail opens the setup until it is finished or skipped; asked once,
   // when the settings first arrive
-  const [welcome, setWelcome] = useState<WelcomeAt | null>(null);
+  const [welcome, setWelcome] = useState(false);
   const [asked, setAsked] = useState(false);
   if (loaded && !asked) {
     setAsked(true);
-    if (!prefs.welcome.seen) setWelcome({ step: 0 });
+    if (!prefs.welcome.seen) setWelcome(true);
   }
   const closeWelcome = () => {
-    setWelcome(null);
-    setAway(null);
+    setWelcome(false);
     if (!prefs.welcome.seen) void update({ welcome: { seen: true } });
   };
-  // the setup steps aside while its first review is decided, and comes
-  // back on that step once it is
-  const [away, setAway] = useState<string | null>(null);
-  const openFromWelcome = (id: string) => {
-    setAway(id);
-    setWelcome(null);
-    navigate(reviewPath(id, prefs.inbox.open_in));
-  };
-  if (away && live.connected && !live.pending.some((r) => r.id === away)) {
-    setWelcome({ step: FIRST_REVIEW, sample: away, decided: true });
-    setAway(null);
-  }
 
-  return { welcome, setWelcome, closeWelcome, openFromWelcome };
+  return { welcome, openWelcome: () => setWelcome(true), closeWelcome };
 }

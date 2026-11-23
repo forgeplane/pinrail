@@ -6337,466 +6337,497 @@ body.is-resizing iframe {
   white-space: nowrap;
 }
 
-/* the setup wizard: a rail of steps beside the current one */
-.welcome-dialog {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  width: min(800px, calc(100vw - 32px));
-  height: min(640px, calc(100vh - 48px));
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--bg-panel);
-  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.45);
-}
-.welcome-rail {
+/* the setup: one screen at a time in a dialog, with the steps as dots at
+   the top and a tip at the bottom */
+.setup-dialog {
+  /* the red of the app's mark, for the pins on the rail and the tip's bulb */
+  --setup-pin: #e5694f;
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 26px 18px;
-  border-right: 1px solid var(--border);
-  background: var(--sidebar);
+  width: min(760px, calc(100vw - 32px));
+  height: min(584px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-xl) + 4px);
+  background: var(--bg-panel);
+  box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.5);
 }
-.welcome-logo {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.5);
-}
-.welcome-rail h1 {
-  margin: 14px 0 4px;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-}
-.welcome-rail > p {
-  margin: 0 0 20px;
-  color: var(--dim);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-}
-.welcome-rail ol {
+.step-dots {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 4px;
+  transform: translateX(-50%);
 }
-/* the line from one step to the next, green once the step is done */
-.welcome-rail li {
-  position: relative;
+.step-dots li {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: width 0.2s ease;
 }
-.welcome-rail li:not(:last-child)::before {
-  content: "";
+.step-dots li.is-current {
+  width: 18px;
+  background: var(--text);
+}
+.setup-corner {
   position: absolute;
-  left: 19px;
-  top: 34px;
-  bottom: -6px;
-  width: 1.5px;
-  background: var(--border);
-}
-.welcome-rail li.is-done:not(:last-child)::before {
-  background: var(--ok);
-}
-.welcome-rail li button {
+  top: 14px;
+  z-index: 1;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  padding: 8px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
   border: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: none;
-  color: var(--dim);
+  color: var(--faint);
   font: inherit;
-  text-align: left;
+  font-size: var(--text-md);
   cursor: pointer;
 }
-.welcome-rail li button:not(:disabled):hover {
-  background: var(--bg-hover);
-}
-.welcome-rail li button.is-current {
-  background: var(--accent-bg);
-}
-.welcome-rail li button:disabled {
-  cursor: default;
-}
-.welcome-step-text {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-.welcome-step-label {
-  font-size: var(--text-base);
-  font-weight: 500;
-}
-.is-current .welcome-step-label {
+.setup-corner:hover {
   color: var(--text);
 }
-.welcome-step-detail {
-  color: var(--faint);
-  font-size: var(--text-xs);
-  line-height: 1.4;
+.setup-corner.is-skip {
+  right: 14px;
 }
-.welcome-dot {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid var(--border-strong);
-  border-radius: 50%;
-  font-size: var(--text-xs);
-  font-weight: 600;
+.setup-corner.is-back {
+  left: 14px;
   color: var(--dim);
-  background: var(--sidebar);
 }
-.is-current .welcome-dot {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-bg);
-}
-.welcome-dot.is-done {
-  border-color: var(--ok);
-  background: var(--ok);
-  color: var(--bg-panel);
-}
-.welcome-dot.is-locked {
-  border-style: dashed;
-  color: var(--faint);
-}
-.welcome-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-.welcome-content {
+.setup-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 28px 32px 20px;
-  animation: welcome-in 0.18s ease;
+  align-items: center;
+  padding: 0 48px;
 }
-.welcome-content > * {
+.setup-body > * {
   flex-shrink: 0;
 }
-.welcome-eyebrow {
-  color: var(--accent);
-  font: 600 var(--text-2xs) var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.setup-title {
+  margin: 28px 0 0;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-align: center;
 }
-.welcome-content h2 {
-  margin: -6px 0 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+.setup-title.is-view {
+  margin-top: 40px;
 }
-.welcome-content p {
-  margin: 0;
+.setup-sub {
+  max-width: 440px;
+  margin: 8px 0 0;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: center;
+}
+.setup-sub.is-wide {
+  max-width: 640px;
+}
+.setup-found {
+  margin: 22px 0 0;
   color: var(--dim);
   font-size: var(--text-base);
-  line-height: 1.55;
+  text-align: center;
 }
-.welcome-content code {
-  font-family: var(--mono);
-  font-size: var(--text-sm);
+.setup-found b {
   color: var(--text);
+  font-weight: 550;
 }
-@keyframes welcome-in {
-  from {
-    opacity: 0;
-    transform: translateX(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.setup-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 48px 0;
 }
-/* a part of a step: the command, the agents, notifications */
-.welcome-section {
+/* a screen without a tip under its buttons */
+.setup-foot:last-child {
+  padding-bottom: 22px;
+}
+.setup-actions {
+  display: flex;
+  gap: 10px;
+}
+.chrome-button.setup-button {
+  gap: 9px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+}
+.chrome-button.setup-button:not(.button-primary) {
+  border-color: var(--border-strong);
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+.chrome-button.setup-button:not(.button-primary):hover {
+  background: var(--bg-hover);
+}
+.chrome-button.setup-button:not(.button-primary) svg {
+  color: var(--dim);
+}
+.chrome-button.setup-button.button-primary {
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.18) inset,
+    0 8px 20px -10px var(--button-bg);
+}
+.setup-fine {
+  max-width: 640px;
+  margin: 0;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  text-align: center;
+}
+.setup-tip {
+  display: flex;
+  justify-content: center;
+  padding: 14px 48px 22px;
+}
+.tip-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 16px 5px 6px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--dim);
+  font-size: var(--text-md);
+  line-height: 1.4;
 }
-.welcome-section-head {
+.tip-bar-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--setup-pin, var(--accent)) 16%, transparent);
+  color: var(--setup-pin, var(--accent));
+}
+.tip-bar b {
+  color: var(--text);
+  font-weight: 550;
+}
+.tip-bar .tip-bar-label {
+  margin-right: 7px;
+  font-weight: 600;
+}
+
+/* the welcome's picture: the agents, Pinrail and the person on one rail */
+.setup-hero {
+  position: relative;
+  display: grid;
+  /* the mark stays in the middle, however many agents there are */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 64px;
+  width: 100%;
+  height: 188px;
+  margin-top: 30px;
+}
+.setup-hero::before {
+  content: "";
+  position: absolute;
+  inset: -40px -48px -10px;
+  background: radial-gradient(ellipse 46% 60% at 50% 52%, var(--accent-bg), transparent 100%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.setup-hero-rail {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong) 16%, var(--border-strong) 84%, transparent);
+}
+.setup-stop {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.setup-stop.is-agents {
+  justify-self: end;
+}
+.setup-stop.is-you {
+  justify-self: start;
+}
+.setup-stop small {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+/* a pin on the rail at each side of the mark: what an agent asks, and what
+   the person answers */
+.setup-stop.has-pins::before,
+.setup-stop.has-pins::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--setup-pin);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--setup-pin) 18%, transparent);
+}
+.setup-stop.has-pins::before {
+  left: -35.5px;
+}
+.setup-stop.has-pins::after {
+  right: -35.5px;
+}
+.setup-mark {
+  display: block;
+}
+.setup-stop .setup-mark {
+  border-radius: 20px;
+  box-shadow:
+    0 18px 34px -16px rgb(0 0 0 / 0.55),
+    0 0 0 6px var(--bg-panel);
+}
+.setup-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 226px;
+}
+.setup-tile {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 6px 16px -10px rgb(0 0 0 / 0.35);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+button.setup-tile {
+  cursor: pointer;
+}
+button.setup-tile:not([aria-disabled="true"]):hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+button.setup-tile[aria-disabled="true"] {
+  cursor: default;
+}
+.setup-tile-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+}
+.setup-tile-icon svg {
+  width: 100%;
+  height: 100%;
+}
+/* with more than four tiles, the tiles are smaller, to fit on the left of
+   the mark */
+.setup-tiles[data-many] {
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: none;
+}
+.setup-tiles[data-many] .setup-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
+.setup-tiles[data-many] .setup-tile-icon {
+  width: 20px;
+  height: 20px;
+}
+.setup-tile.is-more {
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.setup-tile[aria-pressed="false"],
+.setup-tile.is-empty {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+  box-shadow: none;
+}
+.setup-tile[aria-pressed="false"] .setup-tile-icon,
+.setup-tile[aria-pressed="false"] > svg {
+  opacity: 0.38;
+  filter: grayscale(1);
+}
+.setup-tile.is-empty {
+  color: var(--faint);
+}
+.setup-tile.is-you {
+  border-radius: 50%;
+  color: var(--dim);
+}
+.setup-tile-check {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg-panel);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+.setup-run-mark {
+  margin-top: 52px;
+}
+.setup-run-mark .setup-mark {
+  border-radius: 12px;
+  box-shadow: 0 10px 22px -12px rgb(0 0 0 / 0.5);
+}
+.setup-run-mark + .setup-title {
+  margin-top: 16px;
+}
+
+/* the plugins view: a card for each plugin */
+/* the cards' scroll area is as wide as the body's content, so nothing
+   overflows sideways: the body is narrower by the room the area keeps for a
+   picked card's outline */
+.setup-body.is-plugins {
+  padding: 0 44px;
+}
+.setup-body > .setup-plugins-scroll {
+  flex: 1 1 0;
+  align-self: stretch;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 18px;
+  /* room for a picked card's outline, and for the last row to clear the fade */
+  padding: 4px 4px 28px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
+}
+.setup-plugins {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.setup-plugin {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  height: 142px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.setup-plugin:not([aria-disabled="true"]):hover {
+  border-color: var(--border-strong);
+}
+.setup-plugin[aria-disabled="true"] {
+  cursor: default;
+}
+.setup-plugin[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-bg) 55%, var(--bg-panel));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.setup-plugin-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 8px;
 }
-.welcome-section-icon {
-  flex: none;
+.setup-plugin-icon {
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-lg);
+  margin-right: auto;
+  border-radius: 9px;
   background: var(--accent-bg);
   color: var(--accent);
 }
-.welcome-section-text {
-  display: grid;
-  flex: 1;
-  gap: 1px;
-  min-width: 0;
-}
-.welcome-section-text b {
-  font-size: var(--text-base);
-  font-weight: 500;
-}
-.welcome-section-text > span {
-  color: var(--dim);
-  font-size: var(--text-sm);
-  line-height: 1.45;
-}
-.welcome-section-text .mono {
-  font-size: var(--text-xs);
-}
-.welcome-section-body {
-  display: grid;
-  gap: 8px;
-  padding: 0 14px 12px 58px;
-}
-.welcome-section-body p {
-  font-size: var(--text-md);
-}
-.welcome-section-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.welcome-section-row p {
-  flex: 1;
-}
-.welcome-ok {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ok);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.welcome-pill {
-  padding: 1px 7px;
+.setup-plugin-state {
+  color: var(--accent);
   font-size: var(--text-2xs);
-  font-weight: 500;
-  white-space: nowrap;
+  font-weight: 600;
 }
-.welcome-pill.is-ok {
-  background: color-mix(in srgb, var(--ok) 12%, transparent);
-  color: var(--ok);
-}
-.welcome-agents {
-  border-top: 1px solid var(--border);
-}
-.welcome-agent {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  cursor: pointer;
-}
-.welcome-agent + .welcome-agent {
-  border-top: 1px solid var(--border);
-}
-.welcome-agent.is-fixed {
-  cursor: default;
-}
-.welcome-agent input,
-.welcome-plugin input {
-  flex: none;
-  margin: 0;
-  accent-color: var(--accent);
-}
-.welcome-agent .agent-tile {
-  width: 28px;
-  height: 28px;
-}
-.welcome-agent-text {
-  display: flex;
-  align-items: baseline;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-}
-.welcome-agent-text b {
-  font-size: var(--text-base);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.welcome-agent-text .mono {
-  overflow: hidden;
-  color: var(--dim);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.welcome-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 6px 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-.welcome-line code {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-.welcome-error {
-  color: var(--danger) !important;
-}
-.welcome-foot {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 32px;
-  border-top: 1px solid var(--border);
-}
-.welcome-skip {
-  padding: 0;
-  border: 0;
-  background: none;
+.setup-plugin-state.is-off {
   color: var(--faint);
-  font: inherit;
-  font-size: var(--text-md);
-  cursor: pointer;
 }
-.welcome-skip:hover {
-  color: var(--text);
-}
-.welcome-nav {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-/* the setup's plugins, and the plugins to try: each a row */
-.welcome-plugins,
-.welcome-tries {
-  display: grid;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.welcome-tries:empty {
-  display: none;
-}
-.welcome-plugin,
-.welcome-try {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-}
-.welcome-plugin {
-  cursor: pointer;
-}
-.welcome-plugin:has(input:checked:not(:disabled)) {
-  background: var(--bg-hover);
-}
-.welcome-plugin + .welcome-plugin,
-.welcome-try + .welcome-try {
-  border-top: 1px solid var(--border);
-}
-.welcome-plugin.is-unavailable {
-  opacity: 0.55;
-  cursor: default;
-}
-.welcome-plugin-text,
-.welcome-try-text {
-  display: grid;
-  flex: 1;
-  gap: 2px;
-  min-width: 0;
-  font-size: var(--text-base);
-}
-.welcome-plugin-text .dim,
-.welcome-try-text > span {
-  color: var(--dim);
-  font-size: var(--text-sm);
-  line-height: 1.45;
-}
-.welcome-plugin-text .dim {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.welcome-try-text b {
-  font-weight: 500;
-}
-.welcome-try-text > .welcome-try-prompt {
-  color: var(--text);
-  font-size: var(--text-md);
-}
-.welcome-plugin-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-}
-.welcome-plugin-state {
-  flex: none;
-  font-size: var(--text-sm);
-}
-.welcome-wait {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 46px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  background: var(--bg-hover);
-  color: var(--dim);
-  font-size: var(--text-base);
-}
-.welcome-wait b {
-  color: var(--text);
-  font-weight: 500;
-}
-.welcome-wait .chrome-button {
-  margin-left: auto;
-}
-.welcome-wait.is-done {
-  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
-  background: color-mix(in srgb, var(--ok) 7%, transparent);
-  color: var(--text);
-}
-.welcome-wait-mark {
+.setup-plugin-mark {
   flex: none;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border-strong);
   border-radius: 50%;
-  background: var(--ok);
-  color: var(--bg-panel);
-  animation: welcome-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1);
+  color: var(--faint);
 }
-@keyframes welcome-pop {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
+.setup-plugin[aria-pressed="true"] .setup-plugin-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-panel);
+}
+.setup-plugin b {
+  margin-top: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.setup-plugin-text {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 @media (prefers-reduced-motion: reduce) {
-  .welcome-content,
-  .welcome-wait-mark {
-    animation: none;
+  .step-dots li,
+  .setup-tile {
+    transition: none;
   }
 }
 

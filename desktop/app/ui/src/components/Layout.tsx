@@ -50,7 +50,7 @@ import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { chooseTheme, chosenTheme } from "../lib/themes";
 import { Tooltip } from "./Tooltip";
-import { WelcomeDialog } from "./welcome/WelcomeDialog";
+import { SetupDialog } from "./welcome/SetupDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
 import { QuitAsk } from "./QuitDialog";
 import { useLatest } from "../lib/useLatest";
@@ -132,7 +132,7 @@ export function Layout({ children }: { children: ReactNode }) {
     onSettings: (section) => setSettings(section),
   });
 
-  const { welcome, setWelcome, closeWelcome, openFromWelcome } = useWelcome();
+  const { welcome, openWelcome, closeWelcome } = useWelcome();
 
   // a link to /plugins lands in the settings section
   useEffect(() => {
@@ -290,7 +290,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { ...fromCommand("toggle-sidebar", PanelLeft), label: sidebar ? "Hide the sidebar" : "Show the sidebar" },
     fromCommand("shortcuts", Keyboard),
     fromCommand("settings", Settings),
-    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
+    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: openWelcome },
     ...(latest.length ? [fromCommand("whats-new", Sparkles)] : []),
     fromCommand("feedback", MessageSquare),
     ...(reviewShown(location.pathname, location.search)
@@ -390,7 +390,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
-      {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
+      {welcome ? <SetupDialog onClose={closeWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}
         section={settings ?? "general"}

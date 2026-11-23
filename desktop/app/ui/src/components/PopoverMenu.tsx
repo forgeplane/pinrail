@@ -25,6 +25,8 @@ export type MenuEntry =
       /** the pick opens a dialog in the menu's place, which its holder keeps
        *  open: the menu does not close, the dialog takes it away */
       asks?: boolean;
+      /** the pick leaves the menu open: one of several choices to check */
+      stays?: boolean;
     }
   | { kind: "heading"; label: string }
   | { kind: "separator" };
@@ -71,8 +73,9 @@ export function PopoverMenu({
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !anchor.contains(target)) onClose();
     };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    // in the capture phase, since a dialog stops the press from bubbling
+    window.addEventListener("mousedown", onDown, true);
+    return () => window.removeEventListener("mousedown", onDown, true);
   }, [anchor, onClose]);
   // one listener while the menu is open, so no key is lost when the app
   // draws again during the key press
@@ -121,7 +124,7 @@ export function PopoverMenu({
             disabled={!!entry.disabled}
             title={entry.disabled}
             onClick={() => {
-              if (!entry.asks) onClose();
+              if (!entry.asks && !entry.stays) onClose();
               entry.onPick();
             }}
           >
