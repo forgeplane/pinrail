@@ -92,8 +92,9 @@ run = "node ui/bench/terminal/check.mjs"
 [tasks."dev:desktop"]
 description = "Desktop app with the UI dev server and live reload, and the current terminal host"
 dir = "{{config_root}}/desktop/app"
-# tauri dev builds the app alone; the host it starts is built here
-run = ["cargo build -q -p pinrail-host --manifest-path ../Cargo.toml", "npx tauri dev"]
+# tauri dev builds the app alone; the host it starts is built here, as
+# Pinrail Host.app beside the app's binary on macOS
+run = ["node scripts/build-host.mjs --dev", "npx tauri dev"]
 
 [tasks."dev:telemetry"]
 description = "Desktop app in dev mode with usage data on, in a data folder of its own; prints each batch, or sends it with --send"

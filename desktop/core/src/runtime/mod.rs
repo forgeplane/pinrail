@@ -462,13 +462,38 @@ fn host_env(vars: impl Iterator<Item = (String, String)>) -> Vec<(String, String
     vars.into_iter().filter(|(k, _)| !set_by_cargo(k)).collect()
 }
 
-/// The `pinrail-host` the app carries beside its own binary.
+/// The `pinrail-host` the app carries.
 #[cfg(unix)]
 fn bundled_host() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join("pinrail-host")))
+        .and_then(|exe| exe.parent().map(|dir| host_beside(dir, &|p| p.is_file())))
         .unwrap_or_else(|| "pinrail-host".into())
+}
+
+/// The host's executable for an app whose binary is in `dir`. On macOS
+/// the host is `Pinrail Host.app`: in `Contents/Helpers` of the app's
+/// bundle, or beside a development build's binary. Elsewhere, and when
+/// there is no bundle, it is `pinrail-host` beside the app's binary.
+#[cfg(unix)]
+fn host_beside(
+    dir: &std::path::Path,
+    exists: &dyn Fn(&std::path::Path) -> bool,
+) -> std::path::PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        let executable = std::path::Path::new("Pinrail Host.app/Contents/MacOS/pinrail-host");
+        let in_bundle = dir.join("../Helpers").join(executable);
+        let beside = dir.join(executable);
+        for candidate in [in_bundle, beside] {
+            if exists(&candidate) {
+                return candidate;
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = exists;
+    dir.join("pinrail-host")
 }
 
 #[cfg(test)]
@@ -524,5 +549,42 @@ mod host_env_tests {
             ("DYLD_FALLBACK_LIBRARY_PATH", "/opt/lib"),
         ];
         assert_eq!(host_env(vars(&given)), vars(&given).collect::<Vec<_>>());
+    }
+}
+
+#[cfg(all(test, unix))]
+mod host_beside_tests {
+    use super::host_beside;
+    use std::path::{Path, PathBuf};
+
+    fn found(dir: &str, existing: &[&str]) -> PathBuf {
+        let existing: Vec<PathBuf> = existing.iter().map(PathBuf::from).collect();
+        host_beside(Path::new(dir), &|p| existing.iter().any(|e| e == p))
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_host_bundle_is_found_in_the_app_s_helpers() {
+        let helper =
+            "/A/Pinrail.app/Contents/MacOS/../Helpers/Pinrail Host.app/Contents/MacOS/pinrail-host";
+        assert_eq!(
+            found("/A/Pinrail.app/Contents/MacOS", &[helper]),
+            PathBuf::from(helper)
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_host_bundle_is_found_beside_a_development_build() {
+        let beside = "/w/target/debug/Pinrail Host.app/Contents/MacOS/pinrail-host";
+        assert_eq!(found("/w/target/debug", &[beside]), PathBuf::from(beside));
+    }
+
+    #[test]
+    fn without_a_bundle_the_host_is_the_binary_beside_the_app() {
+        assert_eq!(
+            found("/usr/lib/pinrail", &[]),
+            PathBuf::from("/usr/lib/pinrail/pinrail-host")
+        );
     }
 }

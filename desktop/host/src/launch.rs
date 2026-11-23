@@ -202,14 +202,24 @@ fn formats_of(copy: &Path) -> Vec<String> {
 /// Copies the bundled binary to `<data dir>/host/bin/<version>-<sha8>/`,
 /// unless that copy exists, and returns the copy. A running host stays
 /// independent of the app's bundle, which an update replaces and an
-/// AppImage unmounts when the app quits.
+/// AppImage unmounts when the app quits. On macOS, a binary that is the
+/// executable of an app bundle, `Pinrail Host.app`, is copied with its
+/// bundle, and the copy is the executable inside it: macOS names the
+/// bundle in privacy prompts and keeps grants by its bundle identifier.
 pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
     let bytes = fs::read(bundled)?;
     let build = build_of_bytes(&bytes);
     let sha8 = build.rsplit('-').next().unwrap_or_default().to_string();
     let bin = data_dir.join("host/bin");
     let folder = bin.join(&build);
-    let copy = folder.join("pinrail-host");
+    let bundle = bundle_of(bundled);
+    let inside = |root: &Path| match bundle {
+        Some(bundle) => root
+            .join(bundle.file_name().unwrap_or_default())
+            .join(bundled.strip_prefix(bundle).unwrap_or(bundled)),
+        None => root.join("pinrail-host"),
+    };
+    let copy = inside(&folder);
     if copy.is_file() {
         return Ok(copy);
     }
@@ -217,9 +227,21 @@ pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
     // written beside, then renamed into place, so a copy is never half
     let staging = bin.join(format!(".{sha8}.{}", crate::random_hex(4)));
     DirBuilder::new().mode(0o700).create(&staging)?;
-    let staged = staging.join("pinrail-host");
-    fs::write(&staged, &bytes)?;
-    fs::set_permissions(&staged, fs::Permissions::from_mode(0o700))?;
+    let written = match bundle {
+        Some(bundle) => copy_tree(
+            bundle,
+            &staging.join(bundle.file_name().unwrap_or_default()),
+        ),
+        None => {
+            let staged = inside(&staging);
+            fs::write(&staged, &bytes)
+                .and_then(|()| fs::set_permissions(&staged, fs::Permissions::from_mode(0o700)))
+        }
+    };
+    if let Err(error) = written {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(error);
+    }
     match fs::rename(&staging, &folder) {
         Ok(()) => Ok(copy),
         // another core copied it meanwhile
@@ -232,6 +254,47 @@ pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
             Err(error)
         }
     }
+}
+
+/// The app bundle whose executable `binary` is: `X.app` for
+/// `X.app/Contents/MacOS/<name>`. Only macOS has app bundles.
+fn bundle_of(binary: &Path) -> Option<&Path> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let macos = binary.parent()?;
+    let contents = macos.parent()?;
+    let bundle = contents.parent()?;
+    (macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app")
+        .then_some(bundle)
+}
+
+/// Copies the folder `from` to `to`, which must not exist, readable by
+/// the person alone: executables stay executable, and links are refused,
+/// since a bundle the app carries has none.
+fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
+    DirBuilder::new().mode(0o700).create(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let (source, dest) = (entry.path(), to.join(entry.file_name()));
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            copy_tree(&source, &dest)?;
+        } else if kind.is_file() {
+            let executable = entry.metadata()?.permissions().mode() & 0o100 != 0;
+            fs::write(&dest, fs::read(&source)?)?;
+            let mode = if executable { 0o700 } else { 0o600 };
+            fs::set_permissions(&dest, fs::Permissions::from_mode(mode))?;
+        } else {
+            return Err(io::Error::other(format!(
+                "{} is neither a file nor a folder",
+                source.display()
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Starts `serve --daemonize` as a child, which forks into its own session
@@ -577,6 +640,71 @@ mod tests {
         assert!(first.is_file());
         // nothing half-made is left behind
         assert_eq!(fs::read_dir(data.join("host/bin")).unwrap().count(), 2);
+    }
+
+    /// Makes `Pinrail Host.app` in `dir` with `executable` as its binary.
+    #[cfg(target_os = "macos")]
+    fn host_bundle(dir: &Path, executable: &[u8]) -> PathBuf {
+        let bundle = dir.join("Pinrail Host.app");
+        fs::create_dir_all(bundle.join("Contents/MacOS")).unwrap();
+        fs::create_dir_all(bundle.join("Contents/_CodeSignature")).unwrap();
+        fs::write(bundle.join("Contents/Info.plist"), b"info").unwrap();
+        fs::write(
+            bundle.join("Contents/_CodeSignature/CodeResources"),
+            b"seal",
+        )
+        .unwrap();
+        let binary = bundle.join("Contents/MacOS/pinrail-host");
+        fs::write(&binary, executable).unwrap();
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
+        binary
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_host_bundle_is_copied_whole_and_named_by_its_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundled = host_bundle(dir.path(), b"binary one");
+        let data = dir.path().join("data");
+        let copy = install(&bundled, &data).unwrap();
+        let build = build_of(&bundled).unwrap();
+        assert_eq!(
+            copy,
+            data.join("host/bin")
+                .join(&build)
+                .join("Pinrail Host.app/Contents/MacOS/pinrail-host")
+        );
+        assert_eq!(fs::read(&copy).unwrap(), b"binary one");
+        let mode = fs::metadata(&copy).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700);
+        let contents = copy.parent().unwrap().parent().unwrap();
+        assert_eq!(fs::read(contents.join("Info.plist")).unwrap(), b"info");
+        assert_eq!(
+            fs::read(contents.join("_CodeSignature/CodeResources")).unwrap(),
+            b"seal"
+        );
+        assert_eq!(install(&bundled, &data).unwrap(), copy);
+        // a new build of the executable goes to a new folder
+        fs::write(&bundled, b"binary two").unwrap();
+        let second = install(&bundled, &data).unwrap();
+        assert_ne!(second, copy);
+        assert!(copy.is_file());
+        assert_eq!(fs::read_dir(data.join("host/bin")).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn only_the_executable_of_an_app_bundle_is_one() {
+        let bundle = bundle_of(Path::new("/A/Pinrail Host.app/Contents/MacOS/pinrail-host"));
+        if cfg!(target_os = "macos") {
+            assert_eq!(bundle, Some(Path::new("/A/Pinrail Host.app")));
+        } else {
+            assert_eq!(bundle, None);
+        }
+        assert_eq!(bundle_of(Path::new("/A/bin/pinrail-host")), None);
+        assert_eq!(
+            bundle_of(Path::new("/A/Host/Contents/MacOS/pinrail-host")),
+            None
+        );
     }
 
     #[test]

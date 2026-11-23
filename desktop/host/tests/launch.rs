@@ -102,27 +102,48 @@ fn a_host_started_by_launchd_leaves_the_core_s_process_tree() {
     // the one-shot job is gone, so launchd never starts it again
     let jobs = Command::new("/bin/launchctl").arg("list").output().unwrap();
     assert!(!String::from_utf8_lossy(&jobs.stdout).contains("dev.pinrail.host."));
+    // in the same test, as another job would show in launchd's list
+    a_host_bundle_runs_from_the_executable_in_its_copy();
+}
+
+/// Starts a host from `Pinrail Host.app` through launchd, and checks that
+/// it runs from the executable inside the bundle's copy.
+#[cfg(target_os = "macos")]
+fn a_host_bundle_runs_from_the_executable_in_its_copy() {
+    let root = tempfile::tempdir().unwrap();
+    let contents = root.path().join("Pinrail Host.app/Contents");
+    std::fs::create_dir_all(contents.join("MacOS")).unwrap();
+    std::fs::write(contents.join("Info.plist"), "<plist><dict/></plist>").unwrap();
+    let executable = contents.join("MacOS/pinrail-host");
+    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &executable).unwrap();
+    let data = root.path().join("data");
+    let mut launcher = launcher(&data, Method::Launchd);
+    launcher.bundled = executable;
+    let (registration, how) = launcher.ensure(&|_| {}).unwrap();
+    let started = Started(registration.clone());
+    assert_eq!(how, Some(Method::Launchd));
+    let output = Command::new("ps")
+        .args(["-o", "comm=", "-p", &registration.pid.to_string()])
+        .output()
+        .unwrap();
+    let running = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let build = std::fs::read_dir(data.join("host/bin"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .next()
+        .unwrap();
+    let expected = build.join("Pinrail Host.app/Contents/MacOS/pinrail-host");
+    assert_eq!(
+        std::fs::canonicalize(&running).unwrap(),
+        std::fs::canonicalize(&expected).unwrap()
+    );
+    drop(started);
 }
 
 #[cfg(target_os = "macos")]
 fn user_id() -> String {
     let output = Command::new("id").arg("-u").output().unwrap();
     String::from_utf8_lossy(&output.stdout).trim().to_string()
-}
-
-#[cfg(target_os = "macos")]
-#[test]
-fn the_binary_names_pinrail_for_the_privacy_prompts() {
-    let binary = std::fs::read(env!("CARGO_BIN_EXE_pinrail-host")).unwrap();
-    let text = String::from_utf8_lossy(&binary);
-    assert!(text.contains("<string>dev.pinrail.host</string>"));
-    assert!(text.contains("<key>CFBundleName</key>\n  <string>Pinrail</string>"));
-    // in the section macOS reads
-    let output = Command::new("otool")
-        .args(["-l", env!("CARGO_BIN_EXE_pinrail-host")])
-        .output()
-        .unwrap();
-    assert!(String::from_utf8_lossy(&output.stdout).contains("sectname __info_plist"));
 }
 
 #[test]

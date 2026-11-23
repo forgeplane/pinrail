@@ -1,14 +1,22 @@
-// Builds pinrail-host, the terminal host, for a release bundle and puts it
-// where Tauri looks for a sidecar: src-tauri/binaries/pinrail-host-<target
-// triple>. The core copies it into the data folder and starts it from
-// there, so that it outlives the app. It runs on macOS and Linux only.
+// Builds pinrail-host, the terminal host, for a release bundle. The core
+// copies it into the data folder and starts it from there, so that it
+// outlives the app. It runs on macOS and Linux only.
+//
+// On macOS the host is an app bundle, src-tauri/binaries/Pinrail Host.app,
+// which tauri.release.conf.json places in Pinrail.app's Contents/Helpers.
+// macOS names the bundle in the privacy prompts that agents cause, and keeps
+// the person's answers by its bundle identifier. The bundle is signed with
+// HOST_SIGNING_IDENTITY, the hardened runtime and the host's entitlements,
+// or ad hoc when HOST_SIGNING_IDENTITY is not set. On Linux the host is the
+// sidecar src-tauri/binaries/pinrail-host-<target triple>.
 //
 //   node scripts/build-host.mjs                          # the host's triple
 //   node scripts/build-host.mjs universal-apple-darwin   # arm64, x86_64, and the two joined with lipo
 //   node scripts/build-host.mjs x86_64-unknown-linux-gnu
+//   node scripts/build-host.mjs --dev                    # a debug build, as target/debug/Pinrail Host.app on macOS
 //
 // The release build merges src-tauri/tauri.release.conf.json (and, on Linux,
-// tauri.release.linux.conf.json), which name the sidecar.
+// tauri.release.linux.conf.json), which name the bundle or the sidecar.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,50 +25,104 @@ import { fileURLToPath } from "node:url";
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const workspace = path.resolve(app, "..");
 const out = path.join(app, "src-tauri", "binaries");
+const macos = path.join(workspace, "host", "macos");
 
 const run = (cmd, args) => execFileSync(cmd, args, { stdio: "inherit" });
 const host = () => /host: (\S+)/.exec(execFileSync("rustc", ["-vV"], { encoding: "utf8" }))[1];
 
-/** Builds for one target and returns the binary's path. */
-function build(target) {
-  run("cargo", [
+/** Builds for one target, or for the host's in debug, and returns the binary's path. */
+function build(target, { dev = false } = {}) {
+  const args = [
     "build",
-    "--release",
     "--locked",
     "--manifest-path",
     path.join(workspace, "Cargo.toml"),
     "--package",
     "pinrail-host",
-    "--target",
-    target,
-  ]);
+  ];
+  if (dev) {
+    run("cargo", ["-q", ...args]);
+    return path.join(workspace, "target", "debug", "pinrail-host");
+  }
+  run("cargo", [...args, "--release", "--target", target]);
   return path.join(workspace, "target", target, "release", "pinrail-host");
 }
 
-const target = process.argv[2] ?? host();
+/** The version of the desktop workspace, which the host reports. */
+function version() {
+  const manifest = fs.readFileSync(path.join(workspace, "Cargo.toml"), "utf8");
+  return /^version = "([^"]+)"/m.exec(manifest)[1];
+}
+
+/**
+ * Makes `Pinrail Host.app` in `folder` from the host binary `binary`, and
+ * signs it. Returns the bundle's path.
+ */
+function bundle(binary, folder) {
+  const bundlePath = path.join(folder, "Pinrail Host.app");
+  fs.rmSync(bundlePath, { recursive: true, force: true });
+  fs.mkdirSync(path.join(bundlePath, "Contents", "MacOS"), { recursive: true });
+  const info = fs.readFileSync(path.join(macos, "Info.plist"), "utf8").replaceAll("@VERSION@", version());
+  fs.writeFileSync(path.join(bundlePath, "Contents", "Info.plist"), info);
+  const executable = path.join(bundlePath, "Contents", "MacOS", "pinrail-host");
+  fs.copyFileSync(binary, executable);
+  fs.chmodSync(executable, 0o755);
+  const identity = process.env.HOST_SIGNING_IDENTITY || "-";
+  // a secure timestamp, which notarization needs, only for a real identity
+  const timestamp = identity === "-" ? [] : ["--timestamp"];
+  run("codesign", [
+    "--force",
+    "--sign",
+    identity,
+    ...timestamp,
+    "--options",
+    "runtime",
+    "--entitlements",
+    path.join(macos, "Entitlements.plist"),
+    "--identifier",
+    "dev.pinrail.host",
+    bundlePath,
+  ]);
+  run("codesign", ["--verify", "--strict", bundlePath]);
+  return bundlePath;
+}
+
+const dev = process.argv.includes("--dev");
+const target = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? host();
 if (target.includes("-windows-")) {
   console.error("pinrail-host runs only on macOS and Linux");
   process.exit(1);
 }
-fs.mkdirSync(out, { recursive: true });
-
-/** Puts a built binary where Tauri looks for the sidecar of `triple`. */
-function place(from, triple) {
-  const to = path.join(out, `pinrail-host-${triple}`);
-  fs.copyFileSync(from, to);
-  fs.chmodSync(to, 0o755);
-  return to;
-}
+const apple = target.endsWith("-apple-darwin");
 
 const written = [];
-if (target === "universal-apple-darwin") {
-  const arches = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
-  const parts = arches.map((triple) => place(build(triple), triple));
-  const merged = path.join(out, `pinrail-host-${target}`);
-  run("lipo", ["-create", "-output", merged, ...parts]);
-  fs.chmodSync(merged, 0o755);
-  written.push(...parts, merged);
+if (dev) {
+  // tauri dev's app finds the bundle beside its own binary
+  const binary = build(target, { dev });
+  written.push(apple ? bundle(binary, path.dirname(binary)) : binary);
 } else {
-  written.push(place(build(target), target));
+  fs.mkdirSync(out, { recursive: true });
+
+  /** Puts a built binary where Tauri looks for the sidecar of `triple`. */
+  const place = (from, triple) => {
+    const to = path.join(out, `pinrail-host-${triple}`);
+    fs.copyFileSync(from, to);
+    fs.chmodSync(to, 0o755);
+    return to;
+  };
+
+  let binary;
+  if (target === "universal-apple-darwin") {
+    const arches = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
+    const parts = arches.map((triple) => place(build(triple), triple));
+    binary = path.join(out, `pinrail-host-${target}`);
+    run("lipo", ["-create", "-output", binary, ...parts]);
+    fs.chmodSync(binary, 0o755);
+    written.push(...parts, binary);
+  } else {
+    binary = place(build(target), target);
+    written.push(binary);
+  }
+  if (apple) written.push(bundle(binary, out));
 }
 console.log(`host: ${written.map((f) => path.relative(app, f)).join(", ")}`);

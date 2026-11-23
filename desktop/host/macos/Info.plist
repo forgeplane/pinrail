@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The Info.plist of Pinrail Host.app, the bundle the terminal host runs from
+  on macOS. macOS names the bundle in the privacy prompts that agents cause,
+  keeps the person's answers by its bundle identifier, and shows the usage
+  descriptions below in the prompts. scripts/build-host.mjs in desktop/app
+  fills in the version.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>dev.pinrail.host</string>
+	<key>CFBundleName</key>
+	<string>Pinrail Host</string>
+	<key>CFBundleDisplayName</key>
+	<string>Pinrail Host</string>
+	<key>CFBundleExecutable</key>
+	<string>pinrail-host</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@VERSION@</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the files on your Desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the files in your Documents folder.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the files in your Downloads folder.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the files on a network volume.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the files on a removable volume.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your media library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your photos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the camera.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>An agent running in Pinrail wants to use the microphone.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your contacts.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your calendars.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your calendars.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your reminders.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>An agent running in Pinrail wants to use your reminders.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>An agent running in Pinrail wants to control another app.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>An agent running in Pinrail wants to connect to devices on your local network.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>An agent running in Pinrail wants to use Bluetooth.</string>
+</dict>
+</plist>

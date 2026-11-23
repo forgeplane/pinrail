@@ -4,10 +4,15 @@
   },
   "bundle": {
     "createUpdaterArtifacts": true,
-    "externalBin": ["binaries/pinrail-cli", "binaries/pinrail-host"],
+    "externalBin": ["binaries/pinrail-cli"],
     "resources": {
       "../sdk/v1": "sdk/v1",
       "../notices/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt"
+    },
+    "macOS": {
+      "files": {
+        "Helpers/Pinrail Host.app": "binaries/Pinrail Host.app"
+      }
     }
   }
 }

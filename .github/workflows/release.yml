@@ -256,11 +256,45 @@ jobs:
       - name: Build the CLI
         working-directory: desktop/app
         run: npm run cli:build -- ${{ matrix.triple }}
-      # and the terminal host as the pinrail-host sidecar, which the core
-      # copies into the data folder and starts from there
+      # and the terminal host, which the core copies into the data folder
+      # and starts from there: on Linux the pinrail-host sidecar, on macOS
+      # Pinrail Host.app in Contents/Helpers. Tauri does not sign a bundle
+      # it is given as a file, so the host's is signed here with the
+      # Developer ID and its own entitlements, from a keychain of its own
+      # that is removed again before Tauri makes its keychain for the app
       - name: Build the terminal host
         working-directory: desktop/app
-        run: npm run host:build -- ${{ matrix.triple }}
+        env:
+          TRIPLE: ${{ matrix.triple }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" != macOS ] || [ "$SIGNED" != true ]; then
+            npm run host:build -- "$TRIPLE"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/host-signing.keychain-db"
+          password=$(openssl rand -hex 32)
+          searched=$(security list-keychains -d user | tr -d '"')
+          cleanup() {
+            # shellcheck disable=SC2086
+            security list-keychains -d user -s $searched
+            security delete-keychain "$keychain" || true
+            rm -f "$RUNNER_TEMP/host-certificate.p12"
+          }
+          trap cleanup EXIT
+          printf %s "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/host-certificate.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/host-certificate.p12" -k "$keychain" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "$keychain" $searched
+          HOST_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" npm run host:build -- "$TRIPLE"
       # a tag that cannot sign is a mistake, not an unsigned release
       - name: Refuse to build a tag with nowhere to upload
         if: startsWith(github.ref, 'refs/tags/v') && needs.draft.outputs.id == ''
@@ -351,6 +385,21 @@ jobs:
           test -n "$app" || { echo "no .app was built"; exit 1; }
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign -dvv "$app" 2>&1 | grep -E 'Authority|TeamIdentifier'
+          # the terminal host: its own bundle id, the same team, the
+          # hardened runtime and its own entitlements
+          host="$app/Contents/Helpers/Pinrail Host.app"
+          codesign --verify --deep --strict --verbose=2 "$host"
+          signature=$(codesign -dvv "$host" 2>&1)
+          echo "$signature"
+          app_team=$(codesign -dvv "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
+          grep -qx 'Identifier=dev.pinrail.host' <<< "$signature"
+          grep -qx "TeamIdentifier=$app_team" <<< "$signature"
+          grep -q 'flags=.*runtime' <<< "$signature"
+          entitlements=$(codesign -d --entitlements - --xml "$host" 2>/dev/null)
+          for key in device.camera device.audio-input personal-information.addressbook \
+            personal-information.calendars personal-information.photos-library automation.apple-events; do
+            grep -q "com.apple.security.$key" <<< "$entitlements" || { echo "the host lacks com.apple.security.$key"; exit 1; }
+          done
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
       # What the person installing gets on the oldest Ubuntu Pinrail
