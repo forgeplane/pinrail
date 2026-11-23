@@ -1,13 +1,28 @@
 // A session's turns and the runs Pinrail started for it, in its thread.
 
-import { CircleCheck, CircleSlash, CircleX, KeyRound, MessageCircleQuestion, Power, ShieldAlert } from "lucide-react";
+import {
+  CircleCheck,
+  CircleSlash,
+  CircleX,
+  KeyRound,
+  MessageCircleQuestion,
+  Play,
+  Power,
+  ShieldAlert,
+  Square,
+  TriangleAlert,
+  Unplug,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Run } from "../../api/runtime";
 import type { Session, SessionTurn } from "../../api/types";
-import { age, stamp } from "../../lib/format";
+import { stamp } from "../../lib/format";
 import { AgentIcon, agentOf } from "../AgentIcon";
 import { MarkdownHtml } from "../MarkdownHtml";
 import { WaitMark } from "../WaitMark";
+import { ThreadLine } from "./messages";
 
 /** How long something lasted, in the largest unit that fits. */
 export function lasted(ms: number): string {
@@ -97,7 +112,9 @@ export function WorkingLine({ name }: { name: string }) {
   }, []);
   return (
     <div className="thread-turn-working" role="status" aria-label={`${name} is working`} data-testid="turn-working">
-      <WaitMark size={18} />
+      <span className="thread-line-icon">
+        <WaitMark size={18} />
+      </span>
       <span key={at} className="thread-turn-doing">
         {DOING[at]}…
       </span>
@@ -122,7 +139,9 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
   const detail = wait.kind === "permission" ? [wait.tool, wait.summary].filter(Boolean).join(" · ") : wait.summary;
   return (
     <div className={`thread-waiting is-${wait.kind}`} data-testid="waiting-line">
-      <Icon size={15} aria-hidden />
+      <span className="thread-line-icon">
+        <Icon size={15} aria-hidden />
+      </span>
       <span className="thread-waiting-label">{label}</span>
       {detail ? (
         <span className="thread-waiting-detail truncate" title={detail}>
@@ -270,31 +289,69 @@ export function runLineText(run: Run, ended: boolean): string {
   }
 }
 
-/** How a turn that ended without a reply ended, as a line across the
- *  thread: an icon, a sentence, and the times it ran. */
+/** The icon of a run's line, and its colour for a run that went wrong. */
+export function runLineIcon(run: Run, ended: boolean): [LucideIcon, "warn" | "danger" | undefined] {
+  if (!ended) return [Play, undefined];
+  switch (run.end_reason) {
+    case "stopped":
+      return [Square, undefined];
+    case "host_lost":
+      return [Unplug, "warn"];
+    case "restart":
+      return [Power, undefined];
+    case "start_failed":
+      return [TriangleAlert, "danger"];
+    default:
+      if (run.exit_code !== null && run.exit_code !== 0) return [TriangleAlert, "warn"];
+      if (run.exit_code === null && run.exit_signal !== null) return [Zap, "warn"];
+      return [Square, undefined];
+  }
+}
+
+/** How a turn that ended without a reply ended, as a line in the thread:
+ *  an icon, a sentence, and when it ended. */
 function TurnEndLine({ turn, name }: { turn: SessionTurn; name: string }) {
   const Icon = TURN_END_ICONS[turn.end_kind as keyof typeof TURN_END_ICONS] ?? CircleCheck;
+  const tone = turn.end_kind === "interrupted" ? "warn" : turn.end_kind === "failed" ? "danger" : undefined;
   return (
-    <div className={`thread-divider thread-turn-end is-${turn.end_kind ?? "done"}`} data-testid="turn-state">
-      <span>
-        <Icon size={13} aria-hidden />
+    <ThreadLine
+      icon={<Icon size={13} aria-hidden />}
+      tone={tone}
+      at={turn.ended_at}
+      className={`thread-turn-end is-${turn.end_kind ?? "done"}`}
+      data-testid="turn-state"
+    >
+      <span title={`Turn ${turn.turn}, from ${stamp(turn.started_at)} to ${stamp(turn.ended_at)}`}>
         {turnEndText(turn, name)}
-        <span
-          className="thread-turn-end-time"
-          title={`Turn ${turn.turn}, from ${stamp(turn.started_at)} to ${stamp(turn.ended_at)}`}
-        >
-          {age(turn.ended_at)} ago
-        </span>
       </span>
-    </div>
+    </ThreadLine>
   );
 }
 
-export const RunLine = memo(function RunLine({ run, ended }: { run: Run; ended: boolean }) {
+/** Where a run Pinrail started began or ended. With `session`, the line
+ *  also says when the session started, which it began. */
+export const RunLine = memo(function RunLine({
+  run,
+  ended,
+  session,
+}: {
+  run: Run;
+  ended: boolean;
+  /** when the session started, for its first run */
+  session?: string;
+}) {
   const at = ended ? run.ended_at! : run.started_at;
+  const [Icon, tone] = runLineIcon(run, ended);
   return (
-    <div className="thread-divider thread-run" data-testid="run-line">
-      <span title={stamp(at)}>{runLineText(run, ended)}</span>
-    </div>
+    <ThreadLine
+      icon={<Icon size={13} aria-hidden />}
+      tone={tone}
+      start={!ended}
+      at={session ?? at}
+      when={session ? stamp(session) : undefined}
+      data-testid="run-line"
+    >
+      {session ? "Session started in Pinrail" : runLineText(run, ended)}
+    </ThreadLine>
   );
 });

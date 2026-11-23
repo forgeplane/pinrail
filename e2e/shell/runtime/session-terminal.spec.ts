@@ -381,7 +381,7 @@ test("the summary shows turns, where the run started, and what it waits for", as
   await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
 
   const thread = page.getByTestId("thread");
-  await expect(thread.getByTestId("run-line")).toHaveText("Started in Pinrail");
+  await expect(thread.getByTestId("run-line")).toHaveText(/^Started in Pinrail/);
   // the first turn's prompt and its reply, then the second turn's prompt
   const turns = thread.getByTestId("turn");
   await expect(turns).toHaveCount(3);
@@ -451,7 +451,7 @@ test("the summary says how the run ended, and keeps turns without their texts wh
     await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
 
     const thread = page.getByTestId("thread");
-    await expect(thread.getByTestId("run-line")).toHaveText(["Started in Pinrail", "Stopped by you"]);
+    await expect(thread.getByTestId("run-line")).toHaveText([/^Session started in Pinrail/, /^Stopped by you/]);
     const turn = thread.getByTestId("turn");
     // how it ended, as a line across the thread, not as Claude Code's message
     const ended = turn.getByTestId("turn-state");
@@ -461,6 +461,38 @@ test("the summary says how the run ended, and keeps turns without their texts wh
   } finally {
     await page.request.patch(`${core}/api/v1/settings`, { data: { runtime: { record_turns: true } } });
   }
+});
+
+test("a session Pinrail started shows its start and its first run in one line", async ({ page }) => {
+  const session = fresh();
+  const run = {
+    id: "run_7",
+    host: "local",
+    agent: "claude-code",
+    kind: "start",
+    state: "ended",
+    terminal: "local:t_7",
+    folder: "/work",
+    // before the agent's first report, as when Pinrail starts the agent
+    started_at: new Date(Date.now() - 60_000).toISOString(),
+    ended_at: new Date().toISOString(),
+    end_reason: "stopped",
+    exit_code: null,
+    exit_signal: null,
+    session: null as unknown,
+  };
+  await page.request.post(`${core}/api/v1/sessions/claude-code/${session}/status`, {
+    data: { kind: "start", text: "Fix the login redirect", origin: { repo: "acme/api" } },
+  });
+  const id = await sessionId(page.request, "claude-code", session);
+  run.session = { agent: "claude-code", id, agent_session: session };
+  await page.route(/\/api\/v1\/runs(\?|$)/, (route) => route.fulfill({ json: { runs: [run] } }));
+  await page.route(/\/api\/v1\/runs\/run_7\/output/, (route) => route.fulfill({ json: { text: "" } }));
+  await page.goto(`/#/sessions/claude-code/${id}?view=summary`);
+
+  const thread = page.getByTestId("thread");
+  await expect(thread.getByTestId("run-line")).toHaveText([/^Session started in Pinrail/, /^Stopped by you/]);
+  await expect(thread.getByText("Session started")).toHaveCount(1);
 });
 
 test("Cmd+F finds text in the terminal, and Escape gives the terminal the keyboard again", async ({ page }) => {

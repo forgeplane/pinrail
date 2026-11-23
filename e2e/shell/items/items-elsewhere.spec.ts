@@ -481,7 +481,7 @@ test("a session's thread shows a line for each change its agent made to a work i
   const offsets = await lines.evaluateAll((all) =>
     all.map((line) => {
       const icon = line.querySelector("svg.item-status")!.getBoundingClientRect();
-      const text = line.querySelector(".thread-item-event")!.getBoundingClientRect();
+      const text = line.querySelector(".thread-line-text")!.getBoundingClientRect();
       return Math.abs(icon.top + icon.height / 2 - (text.top + text.height / 2));
     }),
   );

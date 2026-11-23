@@ -50,7 +50,7 @@ test("a review revised in a later stage stays in its stage, with a line where th
   await expect(cards.last()).not.toContainText("round");
 
   const line = thread(page).getByTestId("revised");
-  await expect(line).toHaveText(/Revised Rounds: the spec · round 2 · .* agoWaiting for you/);
+  await expect(line).toHaveText(/Revised Rounds: the spec · round 2.* agoWaiting for you/);
   await page.locator(".thread-items").evaluate((el) => (el.scrollTop = el.scrollHeight));
   await line.click();
   await expect(cards.first()).toHaveAttribute("data-flashed", "true");
@@ -96,7 +96,7 @@ test("a withdrawn review adds a line with the reason, which leads to its card", 
 
   await page.goto(`/#/sessions/claude-code/${session}`);
   const line = thread(page).getByTestId("withdrawn");
-  await expect(line).toHaveText(/claude-code withdrew Rounds: withdrawn spec · .* ago: the branch was force-pushed/);
+  await expect(line).toHaveText(/claude-code withdrew Rounds: withdrawn spec: the branch was force-pushed.* ago/);
   await line.click();
   await expect(page.locator(`#review-${spec}`)).toHaveAttribute("data-flashed", "true");
 });

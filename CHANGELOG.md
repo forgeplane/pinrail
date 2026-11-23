@@ -185,6 +185,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Show the lines in a session's thread in one compact style, with an icon
+  and the time on each. A session that Pinrail started shows its start and
+  its first run in one line.
 - Open a review from a work item's side panel in that panel. Closing the
   review shows the work item again.
 - Hide the element tiles and the periodic table by default. The new

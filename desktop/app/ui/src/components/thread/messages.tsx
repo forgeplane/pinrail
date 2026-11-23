@@ -19,7 +19,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import { api, errorMessage } from "../../api/client";
 import type {
@@ -58,8 +58,70 @@ export function Linked({ text }: { text: string }) {
   return <MarkdownHtml as="span" mode="links" text={text} />;
 }
 
+/** A line of the thread: an icon in the avatars' column, then what
+ *  happened and when, on the messages' left edge. A line that begins
+ *  something, such as a stage, draws a hairline to the thread's edge. */
+export function ThreadLine({
+  icon,
+  tone,
+  start = false,
+  at,
+  when,
+  after,
+  chips = false,
+  onClick,
+  className,
+  children,
+  ...rest
+}: {
+  icon: ReactNode;
+  /** the colour of the icon and the label */
+  tone?: "accent" | "ok" | "warn" | "danger";
+  start?: boolean;
+  /** when it happened, shown as an age with the full time in its tooltip */
+  at?: string | null;
+  /** the time as it reads, in place of the age */
+  when?: string;
+  /** what follows the time, such as a button */
+  after?: ReactNode;
+  /** the text holds item chips, which wrap under the words */
+  chips?: boolean;
+  onClick?: () => void;
+  className?: string;
+  children: ReactNode;
+  id?: string;
+  "data-testid"?: string;
+}) {
+  const classes = ["thread-line", start ? "is-start" : "", tone ? `is-${tone}` : "", className ?? ""]
+    .filter(Boolean)
+    .join(" ");
+  const body = (
+    <>
+      <span className="thread-line-icon">{icon}</span>
+      <span className={`thread-line-text ${chips ? "has-chips" : ""}`}>
+        {children}
+        {at ? (
+          <span className="thread-line-time" title={stamp(at)}>
+            {when ?? `${age(at)} ago`}
+          </span>
+        ) : null}
+        {after}
+      </span>
+    </>
+  );
+  return onClick ? (
+    <button type="button" className={classes} onClick={onClick} {...rest}>
+      {body}
+    </button>
+  ) : (
+    <div className={classes} {...rest}>
+      {body}
+    </div>
+  );
+}
+
 /** Statuses the agent reported in a row: the newest, and the earlier ones
- *  behind a button. */
+ *  behind a button at the end of the newest. */
 export const StatusGroup = memo(
   function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
     const [open, setOpen] = useState(false);
@@ -67,22 +129,29 @@ export const StatusGroup = memo(
     const earlier = statuses.length - 1;
     const shown = open ? statuses : [newest];
     return (
-      <div className="thread-statuses" data-testid="status-group">
-        {earlier > 0 ? (
-          <button type="button" className="thread-status-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-            {open ? "Show only the newest" : `${earlier} earlier`}
-          </button>
-        ) : null}
+      <div className="thread-lines" data-testid="status-group">
         {shown.map((status) => (
-          <div key={status.id} className="thread-status-line" data-testid="status">
-            <Activity size={13} className="thread-status-icon" aria-hidden />
-            <span className="thread-status-text truncate">
-              <Linked text={status.text} />
-            </span>
-            <span className="faint" title={stamp(status.at)}>
-              {age(status.at)} ago
-            </span>
-          </div>
+          <ThreadLine
+            key={status.id}
+            icon={<Activity size={13} aria-hidden />}
+            tone={status === newest ? "accent" : undefined}
+            at={status.at}
+            after={
+              status === newest && earlier > 0 ? (
+                <button
+                  type="button"
+                  className="thread-status-more"
+                  aria-expanded={open}
+                  onClick={() => setOpen((o) => !o)}
+                >
+                  {open ? "Show only the newest" : `${earlier} earlier`}
+                </button>
+              ) : null
+            }
+            data-testid="status"
+          >
+            <Linked text={status.text} />
+          </ThreadLine>
         ))}
       </div>
     );
@@ -99,20 +168,19 @@ export function StarMark({ review }: { review: Review }) {
 /** The agent saying it starts a stage, which it names. */
 export const StartedLine = memo(function StartedLine({ status }: { status: SessionStatus }) {
   return (
-    <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
-      <span>
-        <span className="thread-line-label">
-          <GitCommitHorizontal size={12} aria-hidden /> Started:
-        </span>{" "}
-        <span className="thread-line-text">
-          <Linked text={status.text} />
-        </span>{" "}
-        ·{" "}
-        <span className="thread-age" title={stamp(status.at)}>
-          {age(status.at)} ago
-        </span>
-      </span>
-    </div>
+    <ThreadLine
+      icon={<GitCommitHorizontal size={13} aria-hidden />}
+      tone="accent"
+      start
+      at={status.at}
+      id={`status-${status.id}`}
+      data-testid="started"
+    >
+      <span className="thread-line-label">Started:</span>{" "}
+      <strong>
+        <Linked text={status.text} />
+      </strong>
+    </ThreadLine>
   );
 });
 
@@ -144,20 +212,18 @@ export const ItemEventLine = memo(
                   : `Set ${STATUS_LABEL[to ?? "open"].toLowerCase()}`;
     const icon: ItemStatus = event.kind === "claimed" ? "in_progress" : event.kind === "status" && to ? to : "open";
     return (
-      <div className="thread-statuses" data-testid="item-event">
-        <div className="thread-status-line is-item-event">
-          <ItemStatusIcon status={icon} size={13} decorative />
-          <span className="thread-status-text truncate thread-item-event">
-            <span className="thread-item-event-did">{did}</span>
-            {events.map((e) => (
-              <ItemChip key={e.id} item={e.item} />
-            ))}
-          </span>
-          <span className="faint thread-item-event-age" title={stamp(event.at)}>
-            {age(event.at)} ago
-          </span>
-        </div>
-      </div>
+      <ThreadLine
+        icon={<ItemStatusIcon status={icon} size={13} decorative />}
+        at={event.at}
+        chips
+        className="thread-item-event"
+        data-testid="item-event"
+      >
+        <span className="thread-item-event-did">{did}</span>
+        {events.map((e) => (
+          <ItemChip key={e.id} item={e.item} />
+        ))}
+      </ThreadLine>
     );
   },
   (a, b) => sameItems(a.events, b.events),
@@ -267,22 +333,17 @@ export const NoteMessage = memo(function NoteMessage({
 /** The agent saying it has finished, with what it finished with. */
 export const FinishedLine = memo(function FinishedLine({ status }: { status: SessionStatus }) {
   return (
-    <div className="thread-divider thread-finished" data-testid="finished">
-      <span>
-        <span className="thread-line-label">
-          <CheckCircle2 size={13} aria-hidden /> Finished{status.text ? ":" : ""}
-        </span>{" "}
-        {status.text ? (
-          <span className="thread-line-text">
+    <ThreadLine icon={<CheckCircle2 size={13} aria-hidden />} tone="ok" at={status.at} data-testid="finished">
+      <span className="thread-line-label">Finished{status.text ? ":" : ""}</span>
+      {status.text ? (
+        <>
+          {" "}
+          <strong>
             <Linked text={status.text} />
-          </span>
-        ) : null}{" "}
-        ·{" "}
-        <span className="thread-age" title={stamp(status.at)}>
-          {age(status.at)} ago
-        </span>
-      </span>
-    </div>
+          </strong>
+        </>
+      ) : null}
+    </ThreadLine>
   );
 });
 
@@ -369,18 +430,22 @@ export const RevisedLine = memo(function RevisedLine({
   const { review, round, card } = entry;
   const waiting = card.status === "pending" && review === card;
   return (
-    <button type="button" className="thread-revised" data-testid="revised" onClick={() => showCard(card.id, onOpen)}>
-      <RefreshCw size={13} className="thread-revised-icon" aria-hidden />
-      <span className="thread-revised-text truncate">
-        Revised <span className="thread-revised-title">{review.title}</span>
-        {round ? ` · round ${round}` : ""} ·{" "}
-        <span className="thread-age" title={stamp(review.created_at)}>
-          {age(review.created_at)} ago
-        </span>
-      </span>
-      {waiting ? <span className="thread-revised-waiting">Waiting for you</span> : null}
-      <ArrowUp size={12} className="thread-revised-up" aria-hidden />
-    </button>
+    <ThreadLine
+      icon={<RefreshCw size={13} aria-hidden />}
+      tone="accent"
+      at={review.created_at}
+      onClick={() => showCard(card.id, onOpen)}
+      after={
+        <>
+          {waiting ? <span className="thread-revised-waiting">Waiting for you</span> : null}
+          <ArrowUp size={12} className="thread-revised-up" aria-hidden />
+        </>
+      }
+      data-testid="revised"
+    >
+      Revised <strong>{review.title}</strong>
+      {round ? ` · round ${round}` : ""}
+    </ThreadLine>
   );
 });
 
@@ -396,22 +461,16 @@ export const WithdrawnLine = memo(function WithdrawnLine({
   const at = review.withdrawn_at!;
   const said = `${review.withdrawn_by ?? "The agent"} withdrew`;
   return (
-    <button
-      type="button"
-      className="thread-revised thread-withdrawn"
-      data-testid="withdrawn"
+    <ThreadLine
+      icon={<Undo2 size={13} aria-hidden />}
+      at={at}
       onClick={() => showCard(card.id, onOpen)}
+      after={<ArrowUp size={12} className="thread-revised-up" aria-hidden />}
+      data-testid="withdrawn"
     >
-      <Undo2 size={13} className="thread-revised-icon" aria-hidden />
-      <span className="thread-revised-text truncate">
-        {said} <span className="thread-revised-title">{review.title}</span> ·{" "}
-        <span className="thread-age" title={stamp(at)}>
-          {age(at)} ago
-        </span>
-        {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : ""}
-      </span>
-      <ArrowUp size={12} className="thread-revised-up" aria-hidden />
-    </button>
+      {said} <strong>{review.title}</strong>
+      {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : ""}
+    </ThreadLine>
   );
 });
 

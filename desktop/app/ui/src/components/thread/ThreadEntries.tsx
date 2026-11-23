@@ -3,6 +3,7 @@
 // so that typing in the find bar, dragging the details edge or a notice for
 // another session does not draw every entry again.
 
+import { Play } from "lucide-react";
 import { memo } from "react";
 import type { To } from "react-router";
 import { stamp } from "../../lib/format";
@@ -14,6 +15,7 @@ import {
   MessageBubble,
   NoteMessage,
   ReviewCard,
+  ThreadLine,
   RevisedLine,
   StartedLine,
   StatusGroup,
@@ -60,14 +62,19 @@ export const ThreadEntries = memo(function ThreadEntries({
   showReview,
   openFromLink,
 }: Props) {
+  // a session Pinrail started joins its first run to its start, in one line
+  const first = entries[0];
+  const joined = startedAt && first?.kind === "run" && !first.ended && first.run.kind !== "resume" ? first : null;
   return (
     <>
-      {startedAt ? (
-        <div className="thread-divider">
-          <span>Session started {stamp(startedAt)}</span>
-        </div>
+      {joined ? (
+        <RunLine key={entryKey(joined)} run={joined.run} ended={false} session={startedAt!} />
+      ) : startedAt ? (
+        <ThreadLine icon={<Play size={13} aria-hidden />} start at={startedAt} when={stamp(startedAt)}>
+          Session started
+        </ThreadLine>
       ) : null}
-      {entries.map((entry) => {
+      {(joined ? entries.slice(1) : entries).map((entry) => {
         if (entry.kind === "message")
           return <MessageBubble key={entryKey(entry)} message={entry.message} session={named!} onDeleted={load} />;
         if (entry.kind === "statuses") return <StatusGroup key={entryKey(entry)} statuses={entry.statuses} />;

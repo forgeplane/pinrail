@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { Run } from "../../api/runtime";
 import type { SessionTurn } from "../../api/types";
-import { lasted, runLineText, turnEndText } from "./runLines";
+import { Play, Square, TriangleAlert, Unplug, Zap } from "lucide-react";
+import { lasted, runLineIcon, runLineText, turnEndText } from "./runLines";
 
 const run = (over: Partial<Run>): Run => ({
   id: "run_1",
@@ -27,6 +28,14 @@ describe("the run lines", () => {
     expect(runLineText(run({ exit_code: 1 }), true)).toBe("Exited with code 1");
     expect(runLineText(run({ end_reason: "stopped" }), true)).toBe("Stopped by you");
     expect(runLineText(run({ end_reason: "restart" }), true)).toBe("Stopped when the computer restarted");
+  });
+  test("mark a run that went wrong in a warning colour", () => {
+    expect(runLineIcon(run({}), false)).toEqual([Play, undefined]);
+    expect(runLineIcon(run({}), true)).toEqual([Square, undefined]);
+    expect(runLineIcon(run({ exit_code: 1 }), true)).toEqual([TriangleAlert, "warn"]);
+    expect(runLineIcon(run({ exit_code: null, exit_signal: "SIGKILL" }), true)).toEqual([Zap, "warn"]);
+    expect(runLineIcon(run({ end_reason: "host_lost" }), true)).toEqual([Unplug, "warn"]);
+    expect(runLineIcon(run({ end_reason: "start_failed" }), true)).toEqual([TriangleAlert, "danger"]);
   });
   test("tell how long something lasted", () => {
     expect(lasted(42_000)).toBe("42 s");

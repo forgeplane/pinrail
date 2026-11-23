@@ -4242,65 +4242,139 @@ body.is-resizing iframe {
 .thread.in-panel .thread-items {
   padding: 16px 4px 0 0;
 }
-.thread-divider {
+/* a line of the thread: its icon in the avatars' column, then what
+   happened and when, on the messages' left edge */
+.thread-line {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--faint);
-  font-size: var(--text-sm);
-}
-.thread-divider::before,
-.thread-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-/* how a turn that ended without a reply ended: an icon, a sentence and
-   the times it ran, with an interrupt or a failure in its colour */
-.thread-turn-end > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 20px;
   color: var(--dim);
+  font-size: var(--text-sm);
+  line-height: 20px;
+  text-align: left;
 }
-.thread-turn-end svg {
+button.thread-line {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.thread-line-icon {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 20px;
   color: var(--faint);
 }
-.thread-turn-end.is-interrupted svg {
-  color: var(--attention-warn);
+.thread-line-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.thread-turn-end.is-failed svg {
-  color: var(--danger);
+.thread-line-text strong {
+  color: var(--text);
+  font-weight: 500;
 }
-.thread-turn-end-time {
+button.thread-line:hover strong {
+  text-decoration: underline;
+}
+.thread-line-time {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.thread-turn-end-time::before {
+.thread-line-time::before {
   content: "·";
-  margin-right: 6px;
+  margin: 0 6px;
 }
-/* what the agent said it is doing: under the title, and in the timeline
-   as a quiet line between the messages, past their avatar */
-.thread-status-text {
-  min-width: 0;
+.thread-line-label {
+  font-weight: 500;
+  white-space: nowrap;
 }
-/* the pulse the mockup marks a status with, in the accent colour */
-.thread-status-icon {
-  flex: none;
-  color: var(--accent);
-}
-.thread-items > .thread-statuses {
+/* lines in a row sit 4px apart, not the thread's 18px */
+.thread-lines {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 4px;
-  width: calc(100% - 38px);
-  max-width: calc(900px - 38px);
-  margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
-  margin-right: 0;
+}
+.thread-items
+  > :is(.thread-line, .thread-lines, .thread-turn:has(> .thread-line))
+  + :is(.thread-line, .thread-lines, .thread-turn:has(> .thread-line)) {
+  margin-top: -14px;
+}
+/* a line that begins something has more room above it, and one hairline
+   from its text to the thread's right edge */
+.thread-items > :is(.thread-line, .thread-lines, .thread-turn:has(> .thread-line)) + .thread-line.is-start {
+  margin-top: -8px;
+}
+.thread-line.is-start .thread-line-text {
+  flex: 0 1 auto;
+}
+.thread-line.is-start::after {
+  content: "";
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  margin-top: 10px;
+  background: var(--border);
+}
+/* the icon and the label carry the colour; the text stays quiet */
+.thread-line.is-accent :is(.thread-line-icon, .thread-line-label) {
+  color: var(--accent);
+}
+.thread-line.is-ok :is(.thread-line-icon, .thread-line-label) {
+  color: var(--ok);
+}
+.thread-line.is-warn .thread-line-icon {
+  color: var(--attention-warn);
+}
+.thread-line.is-danger .thread-line-icon {
+  color: var(--danger);
+}
+/* an item event: the chips wrap under the words */
+.thread-line-text.has-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+}
+.thread-line-text.has-chips .item-chip {
+  line-height: 18px;
+}
+.thread-line-text.has-chips .thread-line-time::before {
+  margin: 0 6px 0 0;
+}
+.thread-item-event-did {
+  white-space: nowrap;
+}
+/* the button for a group's earlier statuses, at the end of its newest */
+.thread-line .thread-status-more {
+  margin-left: 8px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  line-height: 16px;
+}
+.thread-line .thread-status-more:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  text-decoration: none;
+}
+.thread-line .thread-revised-waiting {
+  margin-left: 6px;
+}
+.thread-line .thread-revised-up {
+  margin-left: 4px;
+  vertical-align: -2px;
+}
+/* a turn that holds only its end line needs no room of its own */
+.thread-turn:has(> .thread-line) {
+  padding: 0;
 }
 /* a note the agent sent: a message of plain Markdown, folded when long */
 .thread-note-body {
@@ -4639,25 +4713,6 @@ body.is-resizing iframe {
   font-size: var(--text-sm);
   cursor: pointer;
 }
-.thread-status-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  max-width: 100%;
-  color: var(--dim);
-  font-size: var(--text-md);
-}
-.thread-status-line .thread-status-icon {
-  align-self: center;
-  color: var(--faint);
-}
-.thread-status-line:last-child .thread-status-icon {
-  color: var(--accent);
-}
-.thread-status-line .thread-status-text {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 .thread-status-more {
   padding: 0;
   border: 0;
@@ -4670,29 +4725,7 @@ body.is-resizing iframe {
   color: var(--text);
   text-decoration: underline;
 }
-.thread-finished {
-  color: var(--ok);
-}
-.thread-started {
-  color: var(--accent);
-}
-/* Started and Finished run as text: the label, then what the agent said,
-   which wraps under it on a narrow thread, then the time */
-.thread-started > span,
-.thread-finished > span {
-  min-width: 0;
-  text-align: center;
-  line-height: 1.5;
-}
-.thread-line-label {
-  white-space: nowrap;
-}
-.thread-line-label svg {
-  margin-right: 2px;
-  vertical-align: -2px;
-}
 /* a time never breaks inside, nor a name in a message's header */
-.thread-age,
 .msg-meta .text {
   white-space: nowrap;
 }
@@ -4981,53 +5014,6 @@ body.is-resizing iframe {
 .thread-card[data-flashed] {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
-}
-/* where the agent sent a later round of a review shown further up */
-.thread-items > .thread-revised {
-  width: auto;
-  /* no wider than the cards, so a long reason wraps at their right edge */
-  max-width: min(calc(100% - 38px), calc(900px - 38px));
-  margin-left: max(38px, calc((100% - 900px) / 2 + 38px));
-  margin-right: auto;
-}
-.thread-revised {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dim);
-  font: inherit;
-  font-size: var(--text-md);
-  text-align: left;
-  cursor: pointer;
-}
-.thread-revised-icon {
-  flex: none;
-  color: var(--accent);
-}
-.thread-revised-text {
-  min-width: 0;
-}
-/* a withdrawn review's reason is the point of its line */
-.thread-withdrawn {
-  align-items: flex-start;
-}
-.thread-withdrawn .thread-revised-text {
-  white-space: normal;
-}
-/* the icons stay beside the first line of a wrapped reason */
-.thread-withdrawn .thread-revised-icon,
-.thread-withdrawn .thread-revised-up {
-  margin-top: calc((1lh - 13px) / 2);
-}
-.thread-revised-title {
-  color: var(--text);
-}
-.thread-revised:hover .thread-revised-title {
-  text-decoration: underline;
 }
 .thread-revised-waiting {
   flex: none;
@@ -8696,37 +8682,6 @@ a.item-ref {
   color: var(--accent);
 }
 
-/* a line for what the session's agent did to a work item: its icon, its
-   chips and its time centred on one line */
-/* a line of 20px each: the icon and the time stay with the first one when
-   the chips wrap */
-.thread-status-line.is-item-event {
-  align-items: flex-start;
-  line-height: 20px;
-}
-.thread-status-line.is-item-event .item-status {
-  flex: none;
-  margin-top: 3.5px;
-}
-/* the words and the time keep to one line each; the chips wrap under the
-   words where they do not fit beside them */
-.thread-status-text.thread-item-event {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 6px;
-  overflow: visible;
-  white-space: normal;
-}
-.thread-item-event .item-chip {
-  line-height: 18px;
-}
-.thread-item-event-did,
-.thread-item-event-age {
-  flex: none;
-  white-space: nowrap;
-}
-
 /* a menu at the right of the window opens its submenus to its left */
 .menu-popup.opens-left .menu-submenu {
   left: auto;
@@ -9386,9 +9341,6 @@ a.item-ref {
   font: var(--text-xs) var(--font);
   cursor: pointer;
 }
-.thread-turn-end {
-  font-size: var(--text-xs);
-}
 /* what the agent is doing now, above the message box: working, waiting
    for permission, or nothing, on a line that keeps its height */
 .thread-footer > .thread-state {
@@ -9396,7 +9348,6 @@ a.item-ref {
   align-items: center;
   height: 28px;
   margin-bottom: 8px;
-  padding-inline: 4px;
   min-width: 0;
 }
 /* in the tint of the Needs you chip, the whole line's width */
@@ -9404,17 +9355,20 @@ a.item-ref {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
   height: 28px;
-  padding: 0 4px 0 10px;
+  padding: 0 4px 0 0;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--attention-warn) 12%, transparent);
   color: var(--text);
   font-size: var(--text-sm);
 }
-.thread-waiting > svg {
-  flex: none;
+/* the footer's lines keep to the thread's columns */
+.thread-footer .thread-line-icon {
+  height: 28px;
+}
+.thread-waiting .thread-line-icon {
   color: var(--attention-warn);
 }
 .thread-waiting-label {
@@ -9457,7 +9411,7 @@ a.item-ref {
 .thread-turn-working {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--dim);
   font-size: var(--text-sm);
 }

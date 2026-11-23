@@ -296,7 +296,7 @@ test("a long session's thread shows its newest entries first, at its end", async
     Object.assign(window, { drawn_: drawn, frames_: frames });
     const count = () => {
       const el = document.querySelector(".thread-items");
-      const entries = el?.querySelectorAll(":scope > :not(.thread-divider)").length ?? 0;
+      const entries = el?.querySelectorAll(":scope > :not(.thread-line)").length ?? 0;
       if (entries && entries !== drawn[drawn.length - 1]) drawn.push(entries);
       return el && entries ? el : null;
     };
