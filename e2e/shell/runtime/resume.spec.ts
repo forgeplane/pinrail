@@ -312,3 +312,46 @@ test("a Codex session running in another terminal is not offered to open", async
   await expect(header(page).getByRole("button", { name: /in Pinrail$/ })).toHaveCount(0);
   await expect(header(page).getByRole("button", { name: /^Resume/ })).toHaveCount(0);
 });
+
+test("the Terminal view of a Codex session running in another terminal says how to stop it", async ({ page }) => {
+  const session = await runningSession(page, "codex");
+  await standIn(page, session, []);
+  await page.goto(`/#/sessions/codex/${session}?view=terminal`);
+
+  const outside = page.getByTestId("outside-run");
+  await expect(outside.getByRole("heading", { name: "Codex runs in another terminal" })).toBeVisible();
+  await expect(outside).toContainText(
+    "This session runs in a terminal outside Pinrail, so Pinrail cannot show its terminal or stop it. To stop Codex, use the terminal it runs in. Once it stops, you can resume it in Pinrail.",
+  );
+  await expect(outside.getByRole("button")).toHaveCount(0);
+});
+
+test("the Terminal view of a stopped session that cannot be resumed says so", async ({ page }) => {
+  const session = await stoppedSession(page, "goose");
+  await standIn(page, session, []);
+  await page.goto(`/#/sessions/goose/${session}?view=terminal`);
+
+  const outside = page.getByTestId("outside-run");
+  await expect(outside.getByRole("heading", { name: "Goose ran in another terminal" })).toBeVisible();
+  await expect(outside).toContainText(
+    "This session ran in a terminal outside Pinrail. Pinrail cannot resume Goose sessions.",
+  );
+  await expect(outside.getByRole("button")).toHaveCount(0);
+});
+
+test("the Terminal view of a session known only from its statuses says why it has no Stop", async ({ page }) => {
+  const reported = fresh();
+  const response = await page.request.post(`${core}/api/v1/sessions/goose/${reported}/status`, {
+    data: { kind: "start", text: "Make a thumbnail", origin: { folder: "/work/api" } },
+  });
+  expect(response.status(), await response.text()).toBeLessThan(300);
+  const session = await sessionId(page.request, "goose", reported);
+  await standIn(page, session, []);
+  await page.goto(`/#/sessions/goose/${session}?view=terminal`);
+
+  const outside = page.getByTestId("outside-run");
+  await expect(outside.getByRole("heading", { name: "Goose runs outside Pinrail" })).toBeVisible();
+  await expect(outside).toContainText(
+    "Pinrail knows this session only from the statuses, questions and reviews that Goose sends. Pinrail did not start it, so it cannot show its terminal or stop it.",
+  );
+});

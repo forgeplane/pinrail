@@ -23,7 +23,7 @@ import { FailedStart } from "./session/FailedStart";
 import { EndedRun } from "./session/EndedRun";
 import { OpenInPinrail, ResumeButton, StopButton } from "./session/RunControls";
 import { MovedRun } from "./session/MovedRun";
-import { OutsideRun } from "./session/OutsideRun";
+import { OutsideRun, type Outside } from "./session/OutsideRun";
 import { WaitMark } from "./WaitMark";
 import { runtime } from "../api/runtime";
 import { MuteToggle } from "./MuteToggle";
@@ -267,9 +267,24 @@ export function Thread({
   // without hooks, nothing tells whether it still runs there
   const unsure = openable && !session?.presence;
   const [askingOpen, setAskingOpen] = useState(false);
-  const outside = openable || (resumable && runs.length === 0);
+  // a session Pinrail never ran: its Terminal view says why it has no
+  // terminal or Stop here, and offers to open or resume it where it can
+  const outside: Outside | null =
+    runsLoading || !onPage || !prefs.labs.runtime || !session || movedOn
+      ? null
+      : openable
+        ? "open"
+        : runs.length > 0
+          ? null
+          : resumable
+            ? "resume"
+            : !session.presence
+              ? "statuses"
+              : session.presence.state === "stopped"
+                ? "stopped"
+                : "running";
   // a run that ended shows how in the terminal's place
-  const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || !!movedOn || outside;
+  const hasTerminalView = runsLoading || !!terminal || !!failed || !!ended || !!movedOn || !!outside;
   const { view, choose: chooseView, toggle: toggleView, switches } = useSessionView(named, hasTerminalView);
   // the run goes on in another session, as after /clear: the page follows
   // its terminal there
@@ -829,19 +844,18 @@ export function Thread({
                   <FailedStart run={failed} />
                 ) : movedOn ? (
                   <MovedRun agent={named!.agent} to={movedOn} />
-                ) : openable ? (
+                ) : ended && outside !== "open" ? (
+                  <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
+                ) : outside ? (
                   <OutsideRun
                     agent={named!.agent}
-                    running
+                    outside={outside}
+                    session={session}
                     unsure={unsure}
                     resuming={resuming}
-                    onResume={() => setAskingOpen(true)}
+                    onResume={() => (outside === "open" ? setAskingOpen(true) : void resume())}
                   />
-                ) : ended ? (
-                  <EndedRun run={ended} onResume={resumable ? () => void resume() : undefined} resuming={resuming} />
-                ) : (
-                  <OutsideRun agent={named!.agent} resuming={resuming} onResume={() => void resume()} />
-                )}
+                ) : null}
               </div>
             ) : null}
             <div
