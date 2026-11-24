@@ -68,7 +68,7 @@ pub fn uid() -> u32 {
 
 /// The executable of the process `pid`, as the system resolves it, or
 /// `None` when it cannot be read.
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "server", target_os = "macos"))]
 pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
     use std::os::unix::ffi::OsStrExt;
     let mut buf = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
@@ -91,13 +91,13 @@ pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
 
 /// The executable of the process `pid`, as the system resolves it, or
 /// `None` when it cannot be read.
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "server", target_os = "linux"))]
 pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
     std::fs::read_link(format!("/proc/{pid}/exe")).ok()
 }
 
 /// Elsewhere a process's executable is not known.
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(all(feature = "server", not(any(target_os = "macos", target_os = "linux"))))]
 pub fn executable_of(_pid: u32) -> Option<std::path::PathBuf> {
     None
 }
