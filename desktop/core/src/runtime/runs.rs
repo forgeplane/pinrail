@@ -988,6 +988,15 @@ impl super::Runtime {
         Ok(())
     }
 
+    /// Stops the live runs of the sessions of `repo`, as before the
+    /// repository is deleted.
+    pub async fn stop_repo(&self, repo: &str) -> Result<(), RunError> {
+        for (agent, session) in self.db.live_sessions_in_repo(repo)? {
+            self.stop_session(&agent, &session).await?;
+        }
+        Ok(())
+    }
+
     /// The runs live on this computer, with the title of each one's
     /// session, for the quit dialog.
     pub fn live(&self) -> Result<Vec<(RunRow, Option<String>)>, RunError> {

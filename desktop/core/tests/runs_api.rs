@@ -1496,6 +1496,65 @@ async fn archiving_a_session_stops_its_agent_and_keeps_it_archived() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn deleting_a_repository_stops_the_agents_of_its_sessions() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let run = started["run"]["id"].as_str().unwrap().to_string();
+    let agent_session = started["session"]["agent_session"].as_str().unwrap();
+    token(&folder).await;
+    // the session works in a repository
+    let (status, answer) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{agent_session}/status"),
+        Some(json!({"kind": "step", "text": "working", "origin": {"repo": "acme/app"}})),
+    )
+    .await;
+    assert!(status.is_success(), "{answer}");
+
+    let (status, deleted) = call(&app, "DELETE", "/api/v1/repos/acme%2Fapp", None).await;
+    assert_eq!(status, StatusCode::OK, "{deleted}");
+    assert_eq!(deleted["sessions"], 1, "{deleted}");
+    let run = run_becomes(&app, &run, |r| r["state"] == "ended").await;
+    assert_eq!(run["end_reason"], "stopped");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_history_sweep_keeps_a_session_whose_agent_runs() {
+    let app = linked().await;
+    let folder = folder(&app, "app");
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    token(&folder).await;
+
+    let later = chrono::Utc::now() + chrono::Duration::days(400);
+    app.state.reviews().sweep_history_before(later).unwrap();
+    let (status, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/sessions/claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{shown}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn stopping_every_run_stops_each_running_agent() {
     let app = linked().await;
     let mut runs = Vec::new();

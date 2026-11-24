@@ -816,7 +816,12 @@ impl Db {
                    (SELECT 1 FROM reviews r WHERE r.requested_by = sessions.agent AND r.session = sessions.id)
                  AND NOT EXISTS
                    (SELECT 1 FROM session_messages m WHERE m.agent = sessions.agent
-                      AND m.session = sessions.id AND m.state != 'delivered')",
+                      AND m.session = sessions.id AND m.state != 'delivered')
+                 -- nor one whose agent Pinrail runs, however long it sat idle
+                 AND NOT EXISTS
+                   (SELECT 1 FROM run_sessions rs JOIN runs r ON r.id = rs.run_id
+                     WHERE rs.agent = sessions.agent AND rs.session = sessions.id
+                       AND rs.unbound_at IS NULL AND r.state != 'ended')",
             )?
             .query_map(params![activity(before)], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;

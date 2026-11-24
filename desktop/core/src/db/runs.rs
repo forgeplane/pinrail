@@ -269,6 +269,21 @@ fn get(conn: &Connection, id: &str) -> rusqlite::Result<Option<RunRow>> {
 }
 
 impl Db {
+    /// The sessions of `repo` that a live run is in, as agent and id.
+    pub fn live_sessions_in_repo(&self, repo: &str) -> rusqlite::Result<Vec<(String, String)>> {
+        let conn = self.read();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT s.agent, s.id FROM sessions s
+               JOIN repos g ON g.id = s.repo_id
+               JOIN run_sessions rs ON rs.agent = s.agent AND rs.session = s.id
+                                   AND rs.unbound_at IS NULL
+               JOIN runs r ON r.id = rs.run_id
+              WHERE g.name = ?1 AND r.state != 'ended'",
+        )?;
+        let rows = stmt.query_map(params![repo], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        rows.collect()
+    }
+
     /// Records a run as `starting`, with its command and the digest of its
     /// token, before the host is asked to spawn it. A run that names its
     /// session is bound to it from the start, and the session is created
