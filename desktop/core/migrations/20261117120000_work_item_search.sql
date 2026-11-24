@@ -38,22 +38,22 @@ END;
 -- an item's comments, oldest first, one after another
 CREATE TRIGGER work_item_search_comment_insert AFTER INSERT ON work_item_comments BEGIN
   UPDATE work_item_search SET comments = (
-      SELECT IFNULL(group_concat(body, char(10)), '')
-        FROM (SELECT body FROM work_item_comments WHERE item_id = new.item_id ORDER BY created_at, id))
+      SELECT IFNULL(group_concat(body, char(10) ORDER BY created_at, id), '')
+        FROM work_item_comments WHERE item_id = new.item_id)
     WHERE rowid = (SELECT row FROM work_item_search_rows WHERE item_id = new.item_id);
 END;
 
 CREATE TRIGGER work_item_search_comment_update AFTER UPDATE OF body ON work_item_comments BEGIN
   UPDATE work_item_search SET comments = (
-      SELECT IFNULL(group_concat(body, char(10)), '')
-        FROM (SELECT body FROM work_item_comments WHERE item_id = new.item_id ORDER BY created_at, id))
+      SELECT IFNULL(group_concat(body, char(10) ORDER BY created_at, id), '')
+        FROM work_item_comments WHERE item_id = new.item_id)
     WHERE rowid = (SELECT row FROM work_item_search_rows WHERE item_id = new.item_id);
 END;
 
 CREATE TRIGGER work_item_search_comment_delete AFTER DELETE ON work_item_comments BEGIN
   UPDATE work_item_search SET comments = (
-      SELECT IFNULL(group_concat(body, char(10)), '')
-        FROM (SELECT body FROM work_item_comments WHERE item_id = old.item_id ORDER BY created_at, id))
+      SELECT IFNULL(group_concat(body, char(10) ORDER BY created_at, id), '')
+        FROM work_item_comments WHERE item_id = old.item_id)
     WHERE rowid = (SELECT row FROM work_item_search_rows WHERE item_id = old.item_id);
 END;
 
@@ -61,6 +61,6 @@ INSERT INTO work_item_search_rows (item_id) SELECT id FROM work_items ORDER BY c
 
 INSERT INTO work_item_search (rowid, title, body, comments)
   SELECT r.row, i.title, i.body, (
-      SELECT IFNULL(group_concat(body, char(10)), '')
-        FROM (SELECT body FROM work_item_comments WHERE item_id = i.id ORDER BY created_at, id))
+      SELECT IFNULL(group_concat(body, char(10) ORDER BY created_at, id), '')
+        FROM work_item_comments WHERE item_id = i.id)
     FROM work_item_search_rows r JOIN work_items i ON i.id = r.item_id;
