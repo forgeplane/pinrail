@@ -50,6 +50,11 @@ targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-
 version = 2
 yanked = "deny"
 unmaintained = "workspace"
+ignore = [
+  # chrono has no maintainer and no replacement release; it has no known
+  # vulnerability, and moving off it is a change of its own
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, with no known vulnerability" },
+]
 
 # Several versions of one crate are allowed: they come from Tauri's tree,
 # and Pinrail cannot pick one. A version wildcard is refused, except the

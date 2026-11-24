@@ -303,6 +303,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Security
 
+- Update the `cookie`, `url` and `zip` crates for RUSTSEC-2026-0594,
+  RUSTSEC-2026-0592 and RUSTSEC-2026-0548.
 - Only the Pinrail app can now act as you. Sending an agent a message,
   changing settings, projects or themes, and any decision, discard or
   work-item change made as you need a token that only the app's window
