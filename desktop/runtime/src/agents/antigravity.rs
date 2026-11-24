@@ -118,6 +118,7 @@ impl Agent for Antigravity {
         Some(StartPlan {
             argv,
             session: None,
+            type_task: None,
         })
     }
 

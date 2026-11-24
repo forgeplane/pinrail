@@ -104,6 +104,7 @@ async fn start(
     let local_id = body.get("local_id").and_then(Value::as_str);
     match state.runtime().start_once(local_id, &request).await {
         Ok(run) => {
+            type_first_task(&state, &request, &run);
             let mut answer = started(&run);
             if let (Some(item), Some((agent, session))) = (&item, &run.session)
                 && let Err(refused) = claim_for(&state, item, agent, session)
@@ -113,6 +114,34 @@ async fn start(
             (StatusCode::CREATED, Json(answer)).into_response()
         }
         Err(error) => run_error(error),
+    }
+}
+
+/// Sends the first task as the person's first message to the run's
+/// session, for an agent that takes no task in its command. It is typed
+/// once the agent is idle. A start repeated with its `local_id` sends it
+/// once.
+fn type_first_task(state: &Arc<Pinrail>, request: &crate::runtime::Start, run: &RunRow) {
+    let Some(agent) = pinrail_runtime::adapter(&request.agent) else {
+        return;
+    };
+    let task = agent
+        .start(&pinrail_runtime::StartRequest {
+            task: request.task.as_deref(),
+            extra_args: &request.args,
+            session_id: "",
+        })
+        .and_then(|plan| plan.type_task);
+    let (Some(task), Some((agent, session))) = (task, &run.session) else {
+        return;
+    };
+    let local_id = format!("first-task-{}", run.id);
+    match state
+        .reviews()
+        .send_message(agent, session, &task, Some(&local_id), "type")
+    {
+        Ok(_) => super::reviews::deliver_later(state, agent, session),
+        Err(error) => eprintln!("pinrail: sending the first task failed: {error:?}"),
     }
 }
 

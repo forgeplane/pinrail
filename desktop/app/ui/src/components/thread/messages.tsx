@@ -14,6 +14,7 @@ import {
   TriangleAlert,
   Paperclip,
   RefreshCw,
+  SendHorizontal,
   Star,
   Trash2,
   Undo2,
@@ -33,6 +34,7 @@ import type {
 import { copyText } from "../../lib/clipboard";
 import { sameItems } from "../../lib/reuse";
 import { age, stamp } from "../../lib/format";
+import { useNow } from "../../lib/useNow";
 import { type Entry, type FromSession, type Round } from "../../lib/sessions";
 import { useToast } from "../../state/toasts";
 import { ItemChip, ItemChips } from "../ItemChip";
@@ -557,8 +559,9 @@ export const MessageBubble = memo(function MessageBubble({
 
 /** The messages the agent has not received yet, oldest first, a line each
  *  at the top of the message box: what it says, its state in its tooltip,
- *  and Delete while it is queued, or Retry and Copy when it was typed with
- *  no confirmation. The thread shows a message once the agent receives it. */
+ *  and Delete while it is queued, Type now once it has waited a minute for
+ *  the agent to start, or Retry and Copy when it was typed with no
+ *  confirmation. The thread shows a message once the agent receives it. */
 export function MessageQueue({
   messages,
   session,
@@ -569,6 +572,7 @@ export function MessageQueue({
   onChanged: () => void;
 }) {
   const toast = useToast();
+  const now = useNow(5_000);
   if (!messages.length) return null;
   const remove = async (message: SessionMessage) => {
     try {
@@ -639,6 +643,13 @@ export function MessageQueue({
                 </button>
               </>
             ) : null}
+            {state === "queued" &&
+            message.held === "starting" &&
+            now - new Date(message.sent_at).getTime() >= START_WAIT_MS ? (
+              <button type="button" className="message-queue-action" onClick={() => void retry(message)}>
+                <SendHorizontal size={12} aria-hidden /> Type now
+              </button>
+            ) : null}
             {state === "queued" ? (
               <Tooltip label="Delete it: the agent has not received it yet" side="top">
                 <button
@@ -658,6 +669,10 @@ export function MessageQueue({
   );
 }
 
+/** How long a message waits for the agent to start before the person can
+ *  type it. */
+const START_WAIT_MS = 60_000;
+
 /** When a waiting message goes to the agent, in a few words, beside it in
  *  the queue: with its next status, after the turn it works on, once it is
  *  idle, or what is happening to it now. */
@@ -671,6 +686,8 @@ function waitsUntil(message: SessionMessage, state: NonNullable<SessionMessage["
       return "not confirmed";
     default:
       switch (message.held) {
+        case "starting":
+          return "once it has started";
         case "working":
           return "after this turn";
         case "needs_input":
@@ -706,6 +723,11 @@ function messageState(
       return { icon: clock, text: "Being handed to the agent" };
     default:
       switch (message.held) {
+        case "starting":
+          return {
+            icon: clock,
+            text: "Waits for the agent to start. It is typed into the agent's terminal once the agent is idle.",
+          };
         case "working":
           return {
             icon: clock,

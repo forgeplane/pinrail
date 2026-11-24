@@ -1129,7 +1129,7 @@ async fn send_message(
 }
 
 /// Types the messages waiting for the session, in the background.
-fn deliver_later(state: &Arc<Pinrail>, agent: &str, id: &str) {
+pub(super) fn deliver_later(state: &Arc<Pinrail>, agent: &str, id: &str) {
     #[cfg(unix)]
     {
         let (app, agent, id) = (state.clone(), agent.to_string(), id.to_string());

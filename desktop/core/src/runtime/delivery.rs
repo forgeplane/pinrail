@@ -5,6 +5,8 @@
 //! an answer, and is typed once it is idle, one at a time; the agent's
 //! prompt hook confirms it, whatever the person did in the terminal, and
 //! without hooks, the agent's terminal reporting work right after it. A
+//! message waits, too, until the agent first reports a state, so that it
+//! is not typed while the agent starts; the person can type it sooner. A
 //! message is typed once by itself: after that, the person retries it. One held for 30 minutes, or whose run
 //! ended, goes to the Queue.
 
@@ -113,6 +115,8 @@ impl super::Runtime {
         };
         let presence = self.db.presence(agent, session)?;
         let hold = match presence.as_ref().map(|p| p.state.as_str()) {
+            // nothing has said the agent is ready for a prompt yet
+            None => Some("starting"),
             Some("working") => Some("working"),
             Some("needs_input") => Some("needs_input"),
             Some("stopped") => return to_queue(self),
@@ -134,7 +138,7 @@ impl super::Runtime {
             }
             return Ok(());
         }
-        // idle, or no hooks to say otherwise
+        // idle
         self.type_one(agent, session, first.id, &run, &["queued"])
             .await
     }

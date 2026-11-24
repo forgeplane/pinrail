@@ -7,6 +7,10 @@ license.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# a stand-in agent for the core's tests
+stand-in = []
+
 [dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 

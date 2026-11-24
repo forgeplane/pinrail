@@ -282,4 +282,28 @@ test.describe("an agent Pinrail runs", () => {
     await expect.poll(() => typed.map((t) => t.id)).toEqual(["100"]);
     await expect(message.getByRole("button", { name: "Delete the message" })).toHaveCount(0);
   });
+
+  test("a message that waited a minute for the agent to start can be typed now", async ({ page }) => {
+    const session = fresh();
+    await report(page.request, session, "Reading the callers");
+    const typed = await hosted(page, session, [
+      {
+        text: "Fix the login.",
+        state: "queued",
+        held: "starting",
+        sent_at: new Date(Date.now() - 61_000).toISOString(),
+      },
+      { text: "Then the logout.", state: "queued", held: "starting" },
+    ]);
+    await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=summary`);
+    await expect(waiting(page).getByTestId("message-state")).toHaveText([
+      "Waits for the agent to start. It is typed into the agent's terminal once the agent is idle.",
+      "Waits for the agent to start. It is typed into the agent's terminal once the agent is idle.",
+    ]);
+    await expect(waiting(page).getByTestId("message-when")).toHaveText(["once it has started", "once it has started"]);
+    // only the one that waited a minute offers it
+    await expect(waiting(page).nth(1).getByRole("button", { name: "Type now" })).toHaveCount(0);
+    await waiting(page).first().getByRole("button", { name: "Type now" }).click();
+    await expect.poll(() => typed.map((t) => t.id)).toEqual(["100"]);
+  });
 });

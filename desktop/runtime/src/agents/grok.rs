@@ -157,6 +157,7 @@ impl Agent for Grok {
         Some(StartPlan {
             argv,
             session: Some(request.session_id.to_string()),
+            type_task: None,
         })
     }
 

@@ -631,7 +631,7 @@ export type SessionMessage = {
    *  next status */
   route?: "type" | "queue" | null;
   /** why a message to type waits */
-  held?: "working" | "needs_input" | "not_foreground" | null;
+  held?: "starting" | "working" | "needs_input" | "not_foreground" | null;
 };
 
 /** The web origins a plugin may open without asking, while it stays

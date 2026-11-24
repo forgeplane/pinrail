@@ -30,8 +30,8 @@ pub struct MessageRow {
     /// `type`, into the terminal of the run Pinrail runs it in, or `queue`,
     /// for its next status; `None` for a message from before routes
     pub route: Option<String>,
-    /// why a message to be typed waits: `working`, `needs_input`,
-    /// `used_since_idle` or `not_foreground`
+    /// why a message to be typed waits: `starting`, `working`,
+    /// `needs_input`, `used_since_idle` or `not_foreground`
     pub held: Option<String>,
 }
 

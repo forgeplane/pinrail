@@ -144,6 +144,9 @@ pub struct StartPlan {
     /// The session's id, when the agent let Pinrail choose it; otherwise
     /// the run learns it from the agent's first `SessionStart`.
     pub session: Option<String>,
+    /// The first task, for an agent that takes none in its command:
+    /// Pinrail types it as the first prompt once the agent is idle.
+    pub type_task: Option<String>,
 }
 
 /// How to type a message into the agent's terminal: the paste, the wait
@@ -243,6 +246,10 @@ pub enum HintStatus {
 
 /// The adapter of the agent an id or an alias names, if it has one.
 pub fn adapter(name: &str) -> Option<&'static dyn Agent> {
+    #[cfg(feature = "stand-in")]
+    if name == crate::agents::STAND_IN.id {
+        return Some(&crate::agents::StandIn);
+    }
     let agent: &'static dyn Agent = match crate::registry::find(name)?.id {
         "claude-code" => &ClaudeCode,
         "codex" => &Codex,

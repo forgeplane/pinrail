@@ -150,6 +150,7 @@ impl Agent for Pi {
         Some(StartPlan {
             argv,
             session: Some(request.session_id.to_string()),
+            type_task: None,
         })
     }
 

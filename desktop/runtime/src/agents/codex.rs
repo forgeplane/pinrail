@@ -139,6 +139,7 @@ impl Agent for Codex {
         Some(StartPlan {
             argv,
             session: None,
+            type_task: None,
         })
     }
 

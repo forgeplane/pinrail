@@ -409,3 +409,87 @@ async fn without_hooks_the_terminal_confirms_a_typed_message_and_lets_the_next_t
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_message_waits_for_the_agent_to_start_and_can_be_typed_sooner() {
+    let app = linked().await;
+    let (session, folder) = hosted(&app, "app").await;
+
+    // nothing has reported a state yet
+    let sent = send(&app, &session, "Use the v2 endpoint.").await;
+    let held = message_becomes(&app, &session, &sent["id"], |m| m["held"] == "starting").await;
+    assert_eq!(held["state"], "queued");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !folder.join("heard").exists(),
+        "typed before the agent started"
+    );
+
+    // the person types it without waiting
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!(
+            "/api/v1/sessions/claude-code/{session}/messages/{}/type",
+            sent["id"]
+        ),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let heard = file(folder.join("heard")).await;
+    assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_first_task_of_an_agent_that_takes_none_is_typed_once_it_is_idle() {
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("records"), "").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "stand-in", "folder": folder, "task": "Fix the login."})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    file(folder.join("token")).await;
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    // the task is not in the agent's command
+    let argv = file(folder.join("argv")).await;
+    assert!(!argv.contains("Fix the login."), "{argv:?}");
+
+    let thread = || async {
+        let (_, thread) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/sessions/stand-in/{session}"),
+            None,
+        )
+        .await;
+        thread["messages"].as_array().unwrap().clone()
+    };
+    let messages = thread().await;
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    assert_eq!(messages[0]["text"], "Fix the login.");
+    assert_eq!(messages[0]["route"], "type");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        !folder.join("heard").exists(),
+        "typed before the agent was idle"
+    );
+
+    common::record(&folder, "state=idle:app=stand-in").await;
+    let heard = file(folder.join("heard")).await;
+    assert_eq!(heard.matches("Fix the login.").count(), 1, "{heard:?}");
+
+    // typed once: later idle records type nothing more
+    common::record(&folder, "state=working:app=stand-in").await;
+    common::record(&folder, "state=done:app=stand-in").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let heard = std::fs::read_to_string(folder.join("heard")).unwrap();
+    assert_eq!(heard.matches("Fix the login.").count(), 1, "{heard:?}");
+    assert_eq!(thread().await.len(), 1);
+}

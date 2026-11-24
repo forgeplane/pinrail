@@ -126,6 +126,7 @@ impl Agent for OpenCode {
         Some(StartPlan {
             argv,
             session: Some(session),
+            type_task: None,
         })
     }
 
