@@ -292,9 +292,10 @@ class GhosttyView implements TerminalView, BenchHooks {
   }
 
   /** The screen was replaced: what waited to be parsed belongs to the old
-   *  one, find starts over, and everything is drawn again. */
+   *  one and is dropped, with its credit returned, find starts over, and
+   *  everything is drawn again. */
   private afterReplace() {
-    this.queue.stop();
+    this.queue.stop({ credit: true });
     this.queue = this.newQueue();
     this.finder.clear();
     this.lastSelection = null;

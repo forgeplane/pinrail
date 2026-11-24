@@ -162,6 +162,23 @@ describe("TerminalStream", () => {
     ]);
   });
 
+  test("returns no credit on a new connection for output the old one sent", async () => {
+    const { view, sockets, stream } = setup();
+    stream.start();
+    await flush();
+    await attach(sockets[0], 100);
+    sockets[0].binary(0x01, bytes("hello"), 100);
+    await flush();
+    sockets[0].drop(4010, "host offline");
+    await flush();
+    await attach(sockets[1], 105);
+    // the view drops the old output, and credits it, once replaced
+    view.parse();
+    await flush();
+    // the new snapshot's bytes only
+    expect(sockets[1].controls().filter((c) => c.t === "credit")).toEqual([{ t: "credit", bytes: 6 }]);
+  });
+
   test("sends the person's input and the emulator's replies as their own kinds", async () => {
     const { view, sockets, stream } = setup();
     stream.start();

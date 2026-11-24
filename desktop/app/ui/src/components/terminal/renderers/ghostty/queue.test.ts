@@ -135,6 +135,20 @@ describe("the write queue", () => {
   });
 });
 
+describe("a screen replaced while output waits", () => {
+  test("credits what it drops, as the connection goes on", () => {
+    const { queue, pieces, frame } = rig();
+    const credited: string[] = [];
+    queue.write(new Uint8Array(PIECE * 10), () => credited.push("partly parsed"));
+    queue.write(new Uint8Array(4), () => credited.push("waiting"));
+    // too much for one frame's budget: the first write is only begun
+    frame();
+    expect(pieces.length).toBeGreaterThan(0);
+    queue.stop({ credit: true });
+    expect(credited).toEqual(["partly parsed", "waiting"]);
+  });
+});
+
 describe("the echo of what the person typed", () => {
   test("is parsed and drawn at once, without waiting for a frame", () => {
     const { queue, pieces, seen } = rig();

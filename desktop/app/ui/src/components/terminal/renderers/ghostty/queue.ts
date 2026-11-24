@@ -111,11 +111,15 @@ export class WriteQueue {
     return this.pending.reduce((n, p) => n + p.bytes.length - p.at, 0);
   }
 
-  /** Drops what waits; its credit is not returned, as the stream it came
-   *  from is gone. */
-  stop(): void {
+  /** Drops what waits. With `credit`, as when a snapshot replaces the
+   *  screen on a live connection, its credit is returned, or the host
+   *  would wait for it for good; without, the stream it came from is
+   *  gone. */
+  stop({ credit = false }: { credit?: boolean } = {}): void {
     this.stopped = true;
+    const dropped = this.pending;
     this.pending = [];
+    if (credit) for (const p of dropped) p.consumed();
   }
 
   private schedule() {

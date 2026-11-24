@@ -210,7 +210,11 @@ export class TerminalStream {
       const at = Number(new DataView(bytes.buffer, bytes.byteOffset + 1, 8).getBigUint64(0, true));
       const output = bytes.slice(9);
       this.offset = at + output.length;
-      this.options.view.write(output, () => this.returnCredit(output.length));
+      // credit goes back on the connection that sent the bytes, not a later one
+      const socket = this.socket;
+      this.options.view.write(output, () => {
+        if (this.socket === socket) this.returnCredit(output.length);
+      });
     }
   }
 
