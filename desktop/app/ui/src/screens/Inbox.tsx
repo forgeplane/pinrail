@@ -237,7 +237,8 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
 
   const split = useRef<HTMLDivElement>(null);
   const setRead = (n: Notification, read: boolean) => void api.setNotificationRead(n.id, read).catch(() => {});
-  const setDone = (n: Notification) => void api.setNotificationDone(n.id, true).catch(() => {});
+  /** Marks a notification done, or one shown as done not done. */
+  const setDone = (n: Notification) => void api.setNotificationDone(n.id, !n.done).catch(() => {});
   const readAll = () => void api.readNotifications({ ...filters, tab }, upTo).catch(() => {});
   /** Opening a notification other than a review marks it read; a review is
    *  read when the person opens it, which the core records. */
@@ -297,7 +298,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    // E marks the focused notification done, unless it waits
+    // E marks the focused notification done or not done, unless it waits
     if ((event.key === "e" || event.key === "E") && !event.shiftKey && !isTyping(event.target)) {
       if (focusedRow && !focusedRow.waiting) {
         event.preventDefault();

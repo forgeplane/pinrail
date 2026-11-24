@@ -3,7 +3,7 @@
 // ended. A row is bold with a dot while it is unread; its buttons mark it
 // read or unread and, when it does not wait, done.
 
-import { Check, ListChecks, Mail, MailOpen, MessageCircleQuestion, MessagesSquare } from "lucide-react";
+import { Check, ListChecks, Mail, MailOpen, MessageCircleQuestion, MessagesSquare, Undo2 } from "lucide-react";
 import { memo, type MouseEvent, type ReactNode } from "react";
 import { Link, type To } from "react-router";
 import type { Notification } from "../api/types";
@@ -26,6 +26,7 @@ export type NotificationActions = {
    *  takes the click to open it there */
   open: (event: MouseEvent, n: Notification) => void;
   setRead: (n: Notification, read: boolean) => void;
+  /** marks it done, or not done when it is */
   setDone: (n: Notification) => void;
 };
 
@@ -198,7 +199,11 @@ export const NotificationRow = memo(function NotificationRow({
           ? button("Mark as unread", ["U"], <Mail size={14} />, () => actions.setRead(n, false))
           : button("Mark as read", ["U"], <MailOpen size={14} />, () => actions.setRead(n, true))}
         {/* what waits ends when the person acts on it, not when they file it */}
-        {n.waiting ? null : button("Mark as done", ["E"], <Check size={14} />, () => actions.setDone(n))}
+        {n.waiting
+          ? null
+          : n.done
+            ? button("Mark as not done", ["E"], <Undo2 size={14} />, () => actions.setDone(n))
+            : button("Mark as done", ["E"], <Check size={14} />, () => actions.setDone(n))}
       </span>
     </Link>
   );

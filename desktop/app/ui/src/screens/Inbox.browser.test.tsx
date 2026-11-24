@@ -193,6 +193,18 @@ describe("the inbox", () => {
     expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
   });
 
+  test("an update shown as done can be marked not done, with its button or E", async () => {
+    await open([update(5, "Old news", { read: true, unread: 0, done: true })], "/?done=1");
+    await page.getByRole("button", { name: "Mark as not done: Old news" }).click();
+    expect(core.calls("setNotificationDone").at(-1)).toEqual([5, false]);
+    await userEvent.keyboard("j");
+    await userEvent.keyboard("e");
+    expect(core.calls("setNotificationDone")).toEqual([
+      [5, false],
+      [5, false],
+    ]);
+  });
+
   test("Mark all as read covers what the tab and the filters list", async () => {
     await open([update(1, "Load themes"), update(2, "Docs")], "/?kind=item_commented,item_added");
     await page.getByRole("button", { name: "Mark all as read" }).click();
