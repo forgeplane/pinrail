@@ -26,6 +26,17 @@ fn an_agent_s_process_is_one_named_after_its_binary() {
 }
 
 #[test]
+fn claude_code_s_native_process_is_named_after_its_version() {
+    let claude = adapter("claude-code").unwrap();
+    for name in ["claude", "2.1.331", "2.0.14"] {
+        assert!(claude.is_own_process(&named(name)), "{name}");
+    }
+    for name in ["2", "2.1.x", "v2.1.3", ".2.1", "node"] {
+        assert!(!claude.is_own_process(&named(name)), "{name}");
+    }
+}
+
+#[test]
 fn grok_s_process_is_named_after_the_versioned_binary_it_links_to() {
     let grok = adapter("grok").unwrap();
     for name in ["grok", "grok-1.0.89-macos-aarch64", "grok-1.0.89-lin"] {

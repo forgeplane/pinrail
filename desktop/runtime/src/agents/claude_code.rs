@@ -191,6 +191,19 @@ impl Agent for ClaudeCode {
         vec!["--settings".to_string(), settings.to_string()]
     }
 
+    /// The native install links `claude` to
+    /// `~/.local/share/claude/versions/<version>`, and the system names the
+    /// process after that file: `2.1.331`.
+    fn is_own_process(&self, process: &crate::process::Process) -> bool {
+        let name = process.name.as_str();
+        name == "claude"
+            || (name.contains('.')
+                && name.starts_with(|c: char| c.is_ascii_digit())
+                && name
+                    .split('.')
+                    .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())))
+    }
+
     fn deny_flags(&self) -> &'static [&'static str] {
         &[
             "--dangerously-skip-permissions",
