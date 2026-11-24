@@ -1085,6 +1085,10 @@ function SessionName({
   const toast = useToast();
   // Esc ends the edit before the blur that follows would save it
   const cancelled = useRef(false);
+  // each edit starts uncancelled, however it was opened
+  useEffect(() => {
+    if (editing) cancelled.current = false;
+  }, [editing]);
   const save = async (text: string) => {
     onEdit(false);
     const name = text.trim();
@@ -1100,15 +1104,7 @@ function SessionName({
   };
   if (!editing)
     return (
-      <button
-        type="button"
-        className="thread-name"
-        onClick={() => {
-          cancelled.current = false;
-          onEdit(true);
-        }}
-        title="Rename"
-      >
+      <button type="button" className="thread-name" onClick={() => onEdit(true)} title="Rename">
         <span className="thread-name-text">{label}</span>
         <Pencil size={12} className="thread-name-pencil" aria-hidden="true" />
       </button>

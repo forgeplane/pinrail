@@ -90,3 +90,21 @@ test("Rename in a session's menu in the sidebar opens it to rename", async ({ pa
   await expect(heading(page)).toHaveText("Menu work");
   await expect(row).toContainText("Menu work");
 });
+
+test("a rename from the sidebar's menu is saved after an earlier Esc", async ({ page }) => {
+  const session = fresh();
+  await started(page, session, "Escape first");
+  const id = await sessionId(page.request, "claude-code", session);
+  await page.goto(`/#/sessions/claude-code/${id}`);
+  await heading(page).getByRole("button").click();
+  await page.keyboard.press("Escape");
+  await expect(heading(page)).toHaveText("Escape first");
+
+  const row = page.locator(`[data-testid="sidebar-session"][href="#/sessions/claude-code/${id}"]`);
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Saved anyway");
+  await page.keyboard.press("Enter");
+  await expect(heading(page)).toHaveText("Saved anyway");
+});
