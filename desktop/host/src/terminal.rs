@@ -817,11 +817,17 @@ async fn actor(mut actor: Actor) {
 /// asked, with every end-of-paste marker removed from it, so that the text
 /// cannot end the paste early and have its rest read as typed keys.
 fn paste(submit: &Submit) -> Vec<u8> {
+    const END_PASTE: &str = "\x1b[201~";
     if !submit.bracketed {
         return submit.text.clone().into_bytes();
     }
+    // removing a marker can join the text around it into another one
+    let mut text = submit.text.clone();
+    while text.contains(END_PASTE) {
+        text = text.replace(END_PASTE, "");
+    }
     let mut bytes = b"\x1b[200~".to_vec();
-    bytes.extend(submit.text.replace("\x1b[201~", "").into_bytes());
+    bytes.extend(text.into_bytes());
     bytes.extend(b"\x1b[201~");
     bytes
 }
@@ -1646,6 +1652,11 @@ mod tests {
         assert_eq!(
             paste(&submit("a\x1b[201~b\x1b[201~c", true)),
             b"\x1b[200~abc\x1b[201~"
+        );
+        // a marker that a removal would put back together
+        assert_eq!(
+            paste(&submit("a\x1b[20\x1b[201~1~\rb", true)),
+            b"\x1b[200~a\rb\x1b[201~"
         );
         assert_eq!(paste(&submit("plain", false)), b"plain");
     }
