@@ -146,6 +146,37 @@ describe("a question set", () => {
     expect(core.calls("decide")).toEqual([]);
   });
 
+  test("the keys leave the set alone behind the terminal, and while typing in it", async () => {
+    core.answer("decide", {});
+    const footer = document.createElement("div");
+    document.body.append(footer);
+    const set = (hidden: boolean) => (
+      <div className="thread-main" aria-hidden={hidden || undefined}>
+        <QuestionSet review={asked([keep])} active footer={footer} onActivate={() => {}} onDone={() => {}} />
+      </div>
+    );
+    // the Terminal view covers the summary
+    await render(set(true));
+    await send();
+    await userEvent.keyboard("{ControlOrMeta>}d{/ControlOrMeta}");
+    expect(core.calls("decide")).toEqual([]);
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    cleanup();
+
+    // the Split view, with the focus in the terminal
+    await render(
+      <>
+        {set(false)}
+        <div className="terminal-pane">
+          <textarea aria-label="Terminal input" />
+        </div>
+      </>,
+    );
+    await userEvent.click(page.getByRole("textbox", { name: "Terminal input" }));
+    await send();
+    expect(core.calls("decide")).toEqual([]);
+  });
+
   test("a set that was answered shows no chips to pick", async () => {
     await open(
       asked([keep], {

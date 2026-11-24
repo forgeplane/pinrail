@@ -197,10 +197,14 @@ export const QuestionSet = memo(function QuestionSet({ review, active, footer, o
   useWindowKey(
     (event) => {
       if (modalOpen()) return;
+      const thread = document.getElementById(`set-${review.id}`)?.closest(".thread-main");
+      // the Terminal view covers the set, and keys typed in a terminal are
+      // its program's
+      if (thread?.getAttribute("aria-hidden") === "true") return;
+      if ((event.target as Element | null)?.closest?.(".terminal-pane")) return;
       // with a review open beside the thread, the keys are the review's,
       // unless the focus is in the thread. The thread may itself be in the
       // Sessions page's panel, which is no review beside it.
-      const thread = document.getElementById(`set-${review.id}`)?.closest(".thread-main");
       const beside = [...document.querySelectorAll(".review-panel")].some((panel) => !panel.contains(thread ?? null));
       if (beside && !thread?.contains(document.activeElement)) return;
       if (hasMod(event) && !event.shiftKey && !event.altKey && event.key === "Enter") {
