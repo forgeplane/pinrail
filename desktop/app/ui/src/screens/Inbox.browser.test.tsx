@@ -234,6 +234,12 @@ describe("the inbox", () => {
       .toHaveTextContent("/?kind=review_requested&plugin=list&tab=waiting");
   });
 
+  test("a page past the last one, as after its rows were marked done, moves to the last", async () => {
+    await open([update(1, "Load themes")], "/?tab=updates&page=3");
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?tab=updates");
+    expect(lastQuery()).toMatchObject({ offset: 0 });
+  });
+
   test("the tabs ask the core for their own list", async () => {
     await open([update(1, "Load themes"), waitingReview(2, "Rate limiter")]);
     await page.getByRole("tab", { name: /Unread/ }).click();

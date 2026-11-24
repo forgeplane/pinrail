@@ -163,6 +163,17 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const upTo = Math.max(waiting?.up_to ?? 0, paged?.up_to ?? 0);
 
   const pages = Math.max(1, Math.ceil((paged?.total ?? 0) / size));
+  // a page past the last, as when its rows were marked done, moves to the last
+  useEffect(() => {
+    if (!paged || page <= pages) return;
+    updateParams(
+      (next) => {
+        if (pages > 1) next.set("page", String(pages));
+        else next.delete("page");
+      },
+      { replace: true },
+    );
+  }, [paged, page, pages, updateParams]);
   const setPage = (n: number | ((current: number) => number)) => {
     updateParams((next) => {
       const now = Math.min(pageOf(next.get("page")), pages);

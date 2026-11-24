@@ -311,6 +311,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Move to the last page of the inbox when the current page empties, for
+  example after its updates are marked done. The inbox said that all was
+  caught up, and the updates on the earlier pages could not be reached.
 - Empty the search field when Clear filters is pressed on the Work items
   and Sessions pages. The field kept the old search text while the list
   showed every item.
