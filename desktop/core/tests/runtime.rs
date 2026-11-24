@@ -289,7 +289,7 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         args: &[],
         created_by: "app",
         token_digest: id,
-        session: None,
+        session: (id == "run_gone").then_some("s-gone"),
         agent_session: None,
         checkout: None,
     };
@@ -328,6 +328,9 @@ async fn on_connect_the_runs_are_reconciled_with_the_hosts_terminals() {
         }
     };
     assert_eq!(ended("run_gone").await, "host_lost");
+    // its session stopped with it, and can be resumed
+    let presence = db.presence("claude-code", "s-gone").unwrap().unwrap();
+    assert_eq!(presence.state, "stopped");
     assert_eq!(ended("run_never").await, "start_failed");
     let run = run_becomes(&db, "run_lost_reply", |r| r.state == "running").await;
     assert_eq!(run.terminal.as_deref(), Some(adopted.as_str()));

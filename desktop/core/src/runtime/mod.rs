@@ -411,8 +411,11 @@ fn deliver_later(app: &Arc<Pinrail>, run: &crate::db::RunRow) {
 #[cfg(unix)]
 fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
     let reason = match run.end_reason.as_deref() {
-        Some("exited" | "stopped") => "exited",
         Some("restart") => "restart",
+        Some("exited" | "stopped") => "exited",
+        // lost with its host, or its resume failed after the spawn: the
+        // agent is gone all the same, and the session can be resumed
+        Some(_) if run.terminal.is_some() => "exited",
         _ => return,
     };
     let Some((agent, session)) = &run.session else {
