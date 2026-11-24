@@ -92,7 +92,9 @@ async function open(rows: Notification[], route = "/", width?: number, inbox = <
     const kept = rows.filter((n) =>
       tab === "waiting" ? n.waiting : tab === "updates" ? !n.waiting : tab === "unread" ? !n.read : true,
     );
-    return { ...listOf(kept), counts: listOf(rows).counts };
+    // the core lists at most `limit` of them, and gives the whole total
+    const limit = (query as NotificationQuery).limit;
+    return { ...listOf(kept), notifications: limit ? kept.slice(0, limit) : kept, counts: listOf(rows).counts };
   });
   for (const write of [
     "setNotificationRead",
@@ -209,6 +211,15 @@ describe("the inbox", () => {
     expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
     await userEvent.keyboard("{Shift>}U{/Shift}");
     expect(core.calls("readNotifications").at(-1)?.[1]).toBe(40);
+  });
+
+  test("see all opens the Waiting on you tab with the filters kept", async () => {
+    const rows = Array.from({ length: 201 }, (_, i) => waitingReview(i + 1, `Review ${i + 1}`));
+    await open(rows, "/?kind=review_requested&plugin=list&page=2");
+    await page.getByTestId("inbox-waiting-more").click();
+    await expect
+      .element(page.getByTestId("where"))
+      .toHaveTextContent("/?kind=review_requested&plugin=list&tab=waiting");
   });
 
   test("the tabs ask the core for their own list", async () => {

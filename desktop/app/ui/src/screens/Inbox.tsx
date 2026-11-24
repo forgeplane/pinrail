@@ -184,6 +184,13 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     );
   };
 
+  /** The Waiting on you tab, with the filters kept, from its first page. */
+  const waitingTab = (): To => {
+    const next = new URLSearchParams(params);
+    next.set("tab", "waiting");
+    next.delete("page");
+    return { pathname: "/", search: `?${next}` };
+  };
   /** The link of a review's row: the side panel, keeping the filters, or its page. */
   const hrefFor = useCallback(
     (id: string): To => {
@@ -441,7 +448,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
                   Waiting on you <span>{waiting?.total ?? waitingRows.length}</span>
                   {/* All shows the first of them: the tab has every one */}
                   {(waiting?.total ?? 0) > (waiting?.notifications.length ?? 0) ? (
-                    <Link className="inbox-section-more" to="/?tab=waiting" data-testid="inbox-waiting-more">
+                    <Link className="inbox-section-more" to={waitingTab()} data-testid="inbox-waiting-more">
                       {waiting!.notifications.length} shown · see all
                     </Link>
                   ) : null}
