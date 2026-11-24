@@ -66,10 +66,12 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
   }, [live.plugins]);
 
   // the dialog holds the keyboard: no key reaches the screen behind it, and
-  // Esc leaves the plugins view, or else the setup; buttons, Tab and
-  // copying still work, being the browser's own
+  // Esc leaves the plugins view, or else the setup; buttons and copying
+  // still work, being the browser's own. Tab goes on to the dialog, which
+  // keeps it among its controls.
   useWindowKey(
     (e) => {
+      if (e.key === "Tab") return;
       e.stopPropagation();
       // an open menu takes its own keys, Esc among them
       if (e.key !== "Escape" || agentMenu || startMenu) return;
