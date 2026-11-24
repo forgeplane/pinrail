@@ -6,7 +6,7 @@
 
 import { ChevronDown, FolderGit2, ListPlus, Play, Plus, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { api, errorMessage } from "../api/client";
+import { api, errorMessage, inTauri } from "../api/client";
 import { useAttach } from "../lib/attach";
 import { countFeature } from "../lib/usage";
 import type { WorkItem } from "../api/types";
@@ -91,8 +91,9 @@ export function QuickAddBox({
     const folder = start ? await agent.folderToUse() : null;
     if (start && !folder) {
       setBusy(false);
-      // no folder of the repository is known, and none can be asked for here
-      if (!agent.where) setMenu(startMore.current);
+      // no folder of the repository is known, and none can be asked for
+      // here; in the app, the person cancelled the folder picker
+      if (!agent.where && !inTauri()) setMenu(startMore.current);
       return;
     }
     try {

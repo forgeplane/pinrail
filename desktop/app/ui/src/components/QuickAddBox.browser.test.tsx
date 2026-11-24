@@ -9,8 +9,13 @@ import { itemDetail, workItem } from "../testing/items";
 import { cleanup, render } from "../testing/render";
 import { QuickAddBox } from "./QuickAddBox";
 
-const app = vi.hoisted(() => ({ started: [] as Record<string, unknown>[] }));
-vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
+const app = vi.hoisted(() => ({ started: [] as Record<string, unknown>[], tauri: false }));
+vi.mock("../api/client", async (real) => ({
+  ...(await import("../testing/core")).fakeClient(await real()),
+  inTauri: () => app.tauri,
+}));
+// the app's folder picker, cancelled
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: async () => null }));
 vi.mock("../api/runtime", async (real) => {
   const actual = await real<typeof import("../api/runtime")>();
   const agent = (id: string, name: string, preferred: boolean): StartableAgent => ({
@@ -43,6 +48,7 @@ afterEach(() => {
   cleanup();
   core.reset();
   app.started = [];
+  app.tauri = false;
 });
 
 /** The settings as the core serves them, with the agent runtime on or off. */
@@ -58,7 +64,7 @@ const served = (runtime: boolean) =>
 
 const added = workItem({ title: "Fix the login", number: 7 });
 
-async function open(runtime = true) {
+async function open(runtime = true, repo = "acme/app") {
   core.answer("settings", served(runtime));
   core.answer("addItem", added);
   core.answer("item", itemDetail({ title: "Fix the login", number: 7, body: "The redirect loops." }));
@@ -66,9 +72,9 @@ async function open(runtime = true) {
   await render(
     <QuickAddBox
       onClose={() => {}}
-      repos={["acme/api", "acme/app"]}
+      repos={["acme/api", "acme/app", "acme/web"]}
       items={[]}
-      defaultRepo="acme/app"
+      defaultRepo={repo}
       defaultParent={null}
       onAdded={onAdded}
     />,
@@ -103,6 +109,17 @@ test("the button's menu changes the agent and the folder of the start", async ()
   await userEvent.click(page.getByRole("button", { name: "Add and start Codex" }));
   await expect.poll(() => app.started[0]).toMatchObject({ agent: "codex", folder: "/work/app-login" });
   expect(onAdded).toHaveBeenCalledWith(added, false, true);
+});
+
+test("in the app, cancelling the folder picker adds nothing and opens no menu", async () => {
+  app.tauri = true;
+  await open(true, "acme/web");
+  await expect.element(page.getByRole("button", { name: "Add and start Claude Code…" })).toBeVisible();
+  await userEvent.keyboard("Fix the login");
+  await userEvent.keyboard("{Alt>}{Enter}{/Alt}");
+  await expect.element(page.getByRole("button", { name: "Add and start Claude Code…" })).toBeEnabled();
+  expect(page.getByRole("menu").elements()).toEqual([]);
+  expect(core.calls("addItem")).toEqual([]);
 });
 
 test("Enter only adds the item", async () => {
