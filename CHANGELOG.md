@@ -13,6 +13,11 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- A welcome screen sets Pinrail up with one button. It shows the agents
+  found on your computer, connects the ones you keep with their status
+  reports on, installs the plugins you pick, and adds the `pinrail`
+  command to your PATH. Its last screen suggests the folders your agents
+  worked in and starts your first session.
 - Press ⌘P to go to a session. The command palette opens on its Sessions
   filter, with the sessions that need you first and the current one
   selected. With nothing typed, ⌘K also lists the sessions that need you.
@@ -46,7 +51,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   first: reviews, questions and agents that wait for a permission or an
   answer. Below it, **Updates** lists what agents did. The **Kind**,
   **Project or repository** and **Plugin** filters each take several
-  values, and **Show done** lists the notifications marked done.
+  values, and **Show done** lists the notifications marked done. Mark a
+  notification read or unread with **U**, mark it done with **E**, and
+  mark every one read with **Shift+U** or **Mark all as read**.
 - Every row of the inbox has the same layout. An icon shows what the row
   is about, such as a work item, a session or a review. A badge on the icon
   shows what happened, such as added, commented, done or failed.
@@ -57,16 +64,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   panel beside the list, as a review already opens, so you stay in the
   inbox. **J** and **K** move the panel through every row.
 - Mute a work item's or a session's notifications with the bell in its
-  header, or from its row in the inbox with **M**. The bell unmutes them.
-- The inbox lists updates under the reviews that wait: a work item an
-  agent added, commented on or closed. Mark an update read or unread with
-  **U**, mark it done with **E**, and mark every update read with
-  **Shift+U** or **Mark all as read**.
+  header. The bell unmutes them.
 - The sidebar's **Inbox** entry shows how many updates are unread, after
-  the number of reviews that wait for you.
-- Choose in Settings › Work items › Inbox which work item notifications
-  the inbox adds: an agent's new work items, its comments, the items it
-  closes or claims, and its other changes.
+  the number of notifications that wait on you.
 - A button beside the **Parent** of a work item opens the parent item.
 - Codex reports its status to Pinrail. Turn on **Report status** for it in
   Settings › Agents, which installs Pinrail's hooks and trusts them in
@@ -123,11 +123,12 @@ The `pinrail` command ships inside the app and carries the app's version.
   History.
 - Every session has a name of its own, an adjective and a chemical element
   such as **Careful Calcium**. A session with no stage yet shows it, and
-  its header shows the element's tile, with a card about the element on
-  hover. Click a session's name in its header to rename it. **Show the
-  periodic table** in the command palette shows which elements your
-  sessions have found. Click an element to keep its card open. The first
-  session to find a rare element announces it.
+  its details show it always. Click a session's name in its header to
+  rename it. **Element tiles** in Settings › Appearance shows the
+  element's tile in the session's header, with a card about the element
+  on hover. **Show the periodic table** in the command palette shows which
+  elements your sessions have found. Click an element to keep its card
+  open. The first session to find a rare element announces it.
 - Settings › Appearance chooses how tables look in messages, notes and
   work item descriptions: bordered, with lines between rows, or striped.
   **Table width** makes them fit their content or fill the full width.
@@ -183,9 +184,6 @@ The `pinrail` command ships inside the app and carries the app's version.
   what it waits on or how long it has worked.
 - The sidebar's **Priority** sort lists the sessions that need you first,
   and the Sessions page has a **Needs you only** filter.
-- The inbox has an **Agents** section above the reviews. It lists the
-  sessions that wait for you in their terminal, such as for a permission,
-  and those that finished a turn you have not seen.
 - A finished session counts as seen once you have had it open for a
   second. **Mark as unread** in the session header shows it as finished
   again.
@@ -220,13 +218,11 @@ The `pinrail` command ships inside the app and carries the app's version.
   its first run in one line.
 - Open a review from a work item's side panel in that panel. Closing the
   review shows the work item again.
-- Hide the element tiles by default. The new Element tiles switch in
-  Settings › Appearance shows them.
 - Start the quick add on the open work item's repository, as it already
   does for the open session or review.
 - Show a sidebar session's full title in its tooltip, with its state,
   what it is doing or waits for, its agent and branch, and what waits on
-  you. The element tile is gone from it.
+  you.
 - Mark questions that were withdrawn, declined or expired with a badge
   in a session's thread, and show the reason in full colour.
 - Hide a session's details at first in a narrow window, so the terminal
@@ -242,9 +238,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   enough to read.
 - Show the state of a session's terminal with a coloured dot in the bar
   below it: viewing, typing, reconnecting or disconnected.
-- Move a session's generated name from its header to the details panel.
-  In a narrow window, the header hides the start time and shows Stop and
-  Resume as icons, so the title keeps its room.
+- In a narrow window, a session's header hides the start time and shows
+  Stop and Resume as icons, so the title keeps its room.
 - Rearrange the quick add for narrow widths. **Add** and a new **Add more**
   button sit beside **Cancel** on the title line. The repository, the
   parent and **Add and start** share the row under the description, and
@@ -290,9 +285,6 @@ The `pinrail` command ships inside the app and carries the app's version.
   or at its newest message if you were there.
 - When you come back to the inbox, Sessions, Work items or Projects, the
   page keeps its open side panel and its scroll position.
-- The Terminal view of a session that runs, or ran, in another terminal
-  explains what opening or resuming it in Pinrail does, in the middle of
-  the view.
 - The Work items page remembers which parents you folded or unfolded,
   across page changes and restarts.
 - A new project starts with the colour fewest projects have, so projects
@@ -367,10 +359,6 @@ The `pinrail` command ships inside the app and carries the app's version.
   icon. The inbox's tabs no longer wrap.
 - The side panel covers the list when the two do not fit side by side,
   also when a page opens with the panel already open.
-- A session page follows its agent to the new session when the agent
-  starts a new conversation in Pinrail's terminal, such as after `/clear`.
-- A question opened from the inbox shows at once in the side panel, and
-  its session's thread scrolls to it, also in a long session.
 - A session's thread keeps an agent's earlier reply when the agent
   replies again in the same turn, as it does when a background job ends.
 - ⌘Enter in the quick add dialog on the new session page adds the work
@@ -418,9 +406,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   loaded.
 - The breadcrumb on a session's page now names that session after a quick
   switch between sessions, not the one shown before.
-- A question opened from the inbox or a link now shows in its session's
-  thread at once and stays in view. It used to show alone first, and in a
-  long session it ended up out of view.
+- A question opened from the inbox or a link now shows at once in the
+  side panel and in its session's thread, and stays in view. It used to
+  show alone first, and in a long session it ended up out of view.
 - Opening a work item or a review from a session's details keeps the
   thread where you were reading. The narrower thread used to move what
   was in view.
