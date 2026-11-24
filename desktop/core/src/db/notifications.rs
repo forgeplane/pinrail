@@ -973,16 +973,20 @@ impl Db {
     }
 
     /// Keeps the lists short, as of `now`: a read notification that does not
-    /// wait is marked done 7 days after its last event, and a done one is
+    /// wait is marked done `read_for` after its last event, and a done one is
     /// deleted 30 days after it was marked done, unless it is muted, which
     /// it must stay. Returns how many it changed.
-    pub fn sweep_notifications(&self, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+    pub fn sweep_notifications(
+        &self,
+        now: DateTime<Utc>,
+        read_for: chrono::Duration,
+    ) -> rusqlite::Result<usize> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let mut changed = tx.execute(
             "UPDATE notifications SET done_at = ?1
              WHERE waiting = 0 AND unread = 0 AND done_at IS NULL AND updated_at < ?2",
-            params![iso(now), iso(now - chrono::Duration::days(7))],
+            params![iso(now), iso(now - read_for)],
         )?;
         changed += tx.execute(
             "DELETE FROM notifications
@@ -991,6 +995,16 @@ impl Db {
         )?;
         tx.commit()?;
         Ok(changed)
+    }
+
+    /// Marks done, as of `now`, every notification that is read and does not
+    /// wait. Returns how many it marked.
+    pub fn mark_read_notifications_done(&self, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+        self.conn().execute(
+            "UPDATE notifications SET done_at = ?1
+             WHERE waiting = 0 AND unread = 0 AND done_at IS NULL",
+            [iso(now)],
+        )
     }
 
     /// What is new on a notification's subject since the person last looked:

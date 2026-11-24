@@ -25,6 +25,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   › General sets the answer once for all.
 - Add **Add and start** to the quick add. It adds the work item and starts
   an agent on it, and ⌥Enter does the same.
+- Mark read updates in the inbox as done when you return to the inbox, or
+  after a day, with **Mark read updates as done** in Settings › General.
 - Add a Notifications section to Settings. It holds the system notification
   settings, an inbox switch and a system notification switch for each kind
   of notification, quiet hours, and the muted projects and repositories.

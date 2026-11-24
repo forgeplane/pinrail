@@ -4,11 +4,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { useLocation } from "react-router";
-import type { Notification, NotificationList, Review } from "../api/types";
-import type { NotificationQuery } from "../api/client";
+import type { Notification, NotificationList, Review, ServerSettings } from "../api/types";
+import { api, type NotificationQuery } from "../api/client";
 import { core } from "../testing/core";
 import { itemDetail } from "../testing/items";
 import { cleanup, render } from "../testing/render";
+import { useSettings } from "../state/settings";
 import { Inbox } from "./Inbox";
 
 vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
@@ -82,7 +83,7 @@ const listOf = (rows: Notification[], up_to = 40): NotificationList => ({
 });
 
 /** The inbox at `route`, the core answering each tab from `rows`. */
-async function open(rows: Notification[], route = "/", width?: number) {
+async function open(rows: Notification[], route = "/", width?: number, inbox = <Inbox />) {
   core.answer("listReviews", { reviews: [], total: 0 });
   core.answer("plugins", { plugins: [] });
   core.answer("notificationCounts", listOf(rows).counts);
@@ -97,6 +98,7 @@ async function open(rows: Notification[], route = "/", width?: number) {
     "setNotificationRead",
     "setNotificationDone",
     "readNotifications",
+    "doneReadNotifications",
   ] as const) {
     core.answer(write, undefined);
   }
@@ -105,15 +107,21 @@ async function open(rows: Notification[], route = "/", width?: number) {
     <>
       {width ? (
         <div className="app-main" style={{ width, height: 600 }}>
-          <Inbox />
+          {inbox}
         </div>
       ) : (
-        <Inbox />
+        inbox
       )}
       <Where />
     </>,
     { route },
   );
+}
+
+/** The inbox once the settings have loaded, as when the person comes back
+ *  to it from another page. */
+function InboxAfterSettings() {
+  return useSettings().loaded ? <Inbox /> : null;
 }
 
 /** The address the inbox is at, for the test to read. */
@@ -309,6 +317,46 @@ describe("the inbox", () => {
     await row("Load themes").click();
     await page.getByRole("button", { name: "Unmute notifications" }).click();
     expect(core.calls("setSubjectMuted").at(-1)).toEqual([{ item: "ACME-1" }, false]);
+  });
+});
+
+describe("read updates marked done on return", () => {
+  /** The settings the core serves, with read updates marked done as `mode` says. */
+  const settings = (mode: string) =>
+    ({
+      appearance: { theme: "system" },
+      sidebar: { open: true },
+      notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
+      shortcut: { global: "", global_opens: "oldest" },
+      inbox: { open_in: "panel", done_read: mode },
+      plugins: {},
+      port: 4747,
+    }) as unknown as ServerSettings;
+
+  test("the inbox marks them done before it loads its list", async () => {
+    core.answer("settings", settings("return"));
+    await open([update(1, "Load themes")], "/", undefined, <InboxAfterSettings />);
+    await expect.element(row("Load themes")).toBeVisible();
+    expect(core.calls("doneReadNotifications")).toHaveLength(1);
+    const [marked] = vi.mocked(api.doneReadNotifications).mock.invocationCallOrder;
+    const [listed] = vi.mocked(api.notifications).mock.invocationCallOrder;
+    expect(marked).toBeLessThan(listed);
+  });
+
+  test("the window showing again marks them done", async () => {
+    core.answer("settings", settings("return"));
+    await open([update(1, "Load themes")]);
+    await expect.element(row("Load themes")).toBeVisible();
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(core.calls("doneReadNotifications")).toHaveLength(2);
+  });
+
+  test("set to a day or a week, the inbox marks nothing done", async () => {
+    core.answer("settings", settings("week"));
+    await open([update(1, "Load themes")]);
+    await expect.element(row("Load themes")).toBeVisible();
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(core.calls("doneReadNotifications")).toHaveLength(0);
   });
 });
 

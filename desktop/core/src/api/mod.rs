@@ -204,7 +204,13 @@ pub async fn serve(
                 if let Err(error) = app.reviews().sweep_hidden_sessions() {
                     eprintln!("pinrail: hidden sessions sweep failed: {error}");
                 }
-                if let Err(error) = app.notifications().sweep(chrono::Utc::now()) {
+                // the window marks read updates done on return; the week
+                // still applies to the ones it never returns to
+                let read_for = match app.settings().value("/inbox/done_read").as_str() {
+                    Some("day") => chrono::Duration::days(1),
+                    _ => chrono::Duration::days(7),
+                };
+                if let Err(error) = app.notifications().sweep(chrono::Utc::now(), read_for) {
                     eprintln!("pinrail: notifications sweep failed: {error}");
                 }
                 if let Err(error) = app.events().sweep(chrono::Utc::now()) {

@@ -29,6 +29,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/notifications", get(list))
         .route("/api/v1/notifications/counts", get(counts))
         .route("/api/v1/notifications/read", post(read_all))
+        .route("/api/v1/notifications/done-read", post(done_read))
         .route("/api/v1/notifications/{id}/events", get(events))
         .route("/api/v1/notifications/of", get(of))
         .route(
@@ -152,6 +153,16 @@ async fn read_all(
         .ok_or_else(|| Error::invalid("/up_to", "give the newest event id the list showed"))?;
     let read = state.notifications().read_all(&filters, up_to)?;
     Ok(Json(json!({ "read": read })))
+}
+
+/// Marks done every read notification that does not wait. Answers how
+/// many were marked.
+async fn done_read(
+    _person: Person,
+    State(state): State<Arc<Pinrail>>,
+) -> Result<Json<Value>, ApiError> {
+    let done = state.notifications().done_read()?;
+    Ok(Json(json!({ "done": done })))
 }
 
 fn change(state: &Pinrail, id: i64, change: Change) -> Result<StatusCode, ApiError> {

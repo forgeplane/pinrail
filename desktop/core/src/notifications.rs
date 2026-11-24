@@ -182,11 +182,15 @@ impl Notifications {
             .collect())
     }
 
-    /// Marks old read notifications done and deletes old done ones, as of
-    /// `now`, and tells the windows to read their list again when it
-    /// changed any.
-    pub fn sweep(&self, now: chrono::DateTime<Utc>) -> Result<usize, Error> {
-        let changed = self.db.sweep_notifications(now)?;
+    /// Marks done the notifications read for longer than `read_for` and
+    /// deletes old done ones, as of `now`, and tells the windows to read
+    /// their list again when it changed any.
+    pub fn sweep(
+        &self,
+        now: chrono::DateTime<Utc>,
+        read_for: chrono::Duration,
+    ) -> Result<usize, Error> {
+        let changed = self.db.sweep_notifications(now, read_for)?;
         if changed > 0 {
             self.announce(json!({"change": "swept"}))?;
         }
@@ -210,6 +214,17 @@ impl Notifications {
         let read = self.db.read_notifications_up_to(filters, up_to)?;
         self.announce(json!({"change": "read_all", "up_to": up_to}))?;
         Ok(read)
+    }
+
+    /// Marks done every read notification that does not wait, and tells the
+    /// windows to read their list again when it marked any. Returns how
+    /// many it marked.
+    pub fn done_read(&self) -> Result<usize, Error> {
+        let done = self.db.mark_read_notifications_done(Utc::now())?;
+        if done > 0 {
+            self.announce(json!({"change": "done_read"}))?;
+        }
+        Ok(done)
     }
 
     /// Records the person's change as `notification_changed`, and publishes

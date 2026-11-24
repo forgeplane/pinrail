@@ -65,7 +65,38 @@ export function Inbox() {
       { replace: true },
     );
   }, [oldScope, repo, project, updateParams]);
-  return tab === "history" ? <History /> : <Notifications tab={tab} />;
+  const ready = useDoneOnReturn();
+  return tab === "history" ? <History /> : ready ? <Notifications tab={tab} /> : null;
+}
+
+/** With read updates marked done on return, marks them done when the inbox
+ *  opens and when the window shows again. The setting counts as it was when
+ *  the inbox opened, so choosing it in Settings changes nothing on screen.
+ *  Answers whether the list may load: not before the first marking ends. */
+function useDoneOnReturn(): boolean {
+  const { settings, loaded } = useSettings();
+  // the setting when the inbox opened, or null when it opened before the
+  // settings loaded, as at the app's start: its list loads at once
+  const [atOpen] = useState(() => (loaded ? settings.inbox.done_read : null));
+  const [decided, setDecided] = useState(atOpen);
+  if (decided === null && loaded) setDecided(settings.inbox.done_read);
+  const [marked, setMarked] = useState(false);
+  const mode = useLatest(settings.inbox.done_read);
+  useEffect(() => {
+    if (decided !== "return") return;
+    void api
+      .doneReadNotifications()
+      .catch(() => {})
+      .finally(() => setMarked(true));
+    const shown = () => {
+      if (document.visibilityState === "visible" && mode.current === "return") {
+        void api.doneReadNotifications().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", shown);
+    return () => document.removeEventListener("visibilitychange", shown);
+  }, [decided, mode]);
+  return atOpen !== "return" || marked;
 }
 
 /** Whether a notice can change what the inbox lists. */

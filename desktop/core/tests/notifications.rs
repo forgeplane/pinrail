@@ -774,7 +774,7 @@ async fn a_start_on_older_data_shows_what_waits_and_what_finished_unseen() {
 }
 
 #[tokio::test]
-async fn the_sweep_marks_old_read_notifications_done_and_deletes_old_done_ones() {
+async fn the_sweep_marks_read_notifications_done_after_the_set_time_and_deletes_old_done_ones() {
     let app = app();
     // a review that waits, and work items in each state and age
     let review = submit_review(&app, None).await;
@@ -816,7 +816,10 @@ async fn the_sweep_marks_old_read_notifications_done_and_deletes_old_done_ones()
         ),
     );
 
-    app.state.notifications().sweep(now).unwrap();
+    app.state
+        .notifications()
+        .sweep(now, chrono::Duration::days(7))
+        .unwrap();
     let state = |title: &str| {
         let db = common::db(&app);
         let id: Option<String> = rusqlite::Connection::open(app.state.config().db_path())
@@ -837,6 +840,14 @@ async fn the_sweep_marks_old_read_notifications_done_and_deletes_old_done_ones()
     // what waits is never touched, however old
     let n = of_review(&app, &review).unwrap();
     assert!(n.waiting && n.done_at.is_none());
+
+    // set to a day, a read notification goes after a day
+    app.state
+        .notifications()
+        .sweep(now, chrono::Duration::days(1))
+        .unwrap();
+    assert_eq!(state("Fresh read"), Some("done"));
+    assert_eq!(state("Old unread"), Some("open"));
 }
 
 #[tokio::test]

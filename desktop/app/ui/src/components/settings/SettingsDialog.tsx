@@ -257,6 +257,27 @@ export function SettingsDialog({
                   ]}
                 />
               </SettingsRow>
+              <SettingsRow
+                label="Mark read updates as done"
+                description={`Read updates are marked done ${
+                  {
+                    return: "when you return to the inbox",
+                    day: "a day after their last change",
+                    week: "a week after their last change",
+                  }[settings.inbox.done_read]
+                }. To see them, turn on Show done in the Filter menu.`}
+              >
+                <Segmented
+                  label="Mark read updates as done"
+                  value={settings.inbox.done_read}
+                  onChange={(v) => update({ inbox: { done_read: v } })}
+                  options={[
+                    { value: "return", label: "On return" },
+                    { value: "day", label: "After a day" },
+                    { value: "week", label: "After a week" },
+                  ]}
+                />
+              </SettingsRow>
             </SettingsGroup>
             <SettingsGroup caption="Startup">
               <SettingsRow

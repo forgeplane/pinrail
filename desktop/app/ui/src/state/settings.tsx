@@ -94,6 +94,9 @@ export type Settings = {
   /** and the repositories and projects muted in it */
   inbox: {
     open_in: "panel" | "page";
+    /** when a read update is marked done: on returning to the inbox, or
+     *  a day or a week after its last event */
+    done_read: "return" | "day" | "week";
     layout: "project" | "repository" | "list";
     show: InboxShow;
     muted_repos: string[];
@@ -259,6 +262,7 @@ export const fromServer = (s: ServerSettings): Served => ({
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   inbox: {
     open_in: s.inbox?.open_in ?? "panel",
+    done_read: s.inbox?.done_read ?? "week",
     layout: s.inbox?.layout ?? "repository",
     show: { ...INBOX_SHOW, ...s.inbox?.show },
     muted_repos: s.inbox?.muted_repos ?? [],
@@ -407,7 +411,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       announce: ANNOUNCE,
     },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
-    inbox: { open_in: "panel", layout: "repository", show: INBOX_SHOW, muted_repos: [] },
+    inbox: { open_in: "panel", done_read: "week", layout: "repository", show: INBOX_SHOW, muted_repos: [] },
     sessions: { layout: "list" },
     items: {
       layout: "project",

@@ -122,6 +122,7 @@ async fn only_the_person_changes_a_notification() {
         ("PUT", format!("/api/v1/notifications/{id}/done")),
         ("DELETE", format!("/api/v1/notifications/{id}/done")),
         ("POST", "/api/v1/notifications/read".to_string()),
+        ("POST", "/api/v1/notifications/done-read".to_string()),
     ] {
         let (code, _) =
             common::call_as(&app, method, &path, Some(json!({"up_to": 1000})), &[]).await;
@@ -192,6 +193,69 @@ async fn a_waiting_notification_is_not_marked_done() {
     )
     .await;
     assert_eq!(code, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn marking_read_updates_done_keeps_the_unread_and_waiting_ones() {
+    let app = app();
+    three(&app).await;
+    let question = agent(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        json!({"kind": "question", "title": "Deploy?",
+               "origin": {"repo": REPO, "ref": "main"},
+               "requested_by": "claude-code", "session": "s-1",
+               "payload": {"questions": [{"id": "q1", "question": "Deploy?", "answer": "yes-no"}]}}),
+    )
+    .await;
+    let shown = list(&app, "").await;
+    let id_of = |key: &str| {
+        shown["notifications"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["subject"]["item"]["key"] == key)
+            .unwrap()["id"]
+            .clone()
+    };
+    // PIN-1 and PIN-2 read, and PIN-2 changed since; PIN-3 never read
+    for key in ["PIN-1", "PIN-2"] {
+        let path = format!("/api/v1/notifications/{}/read", id_of(key));
+        assert_eq!(
+            call(&app, "PUT", &path, None).await.0,
+            StatusCode::NO_CONTENT
+        );
+    }
+    agent(
+        &app,
+        "POST",
+        "/api/v1/items/PIN-2/comments",
+        json!({"body": "Started."}),
+    )
+    .await;
+
+    let (code, answer) = call(&app, "POST", "/api/v1/notifications/done-read", None).await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    assert_eq!(answer["done"], 1);
+    let open = list(&app, "").await;
+    let mut left: Vec<String> = open["notifications"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| match n["subject"]["kind"].as_str().unwrap() {
+            "item" => n["subject"]["item"]["key"].as_str().unwrap().to_string(),
+            _ => n["subject"]["review"]["id"].as_str().unwrap().to_string(),
+        })
+        .collect();
+    left.sort();
+    let mut expected = vec![
+        "PIN-2".to_string(),
+        "PIN-3".to_string(),
+        question["id"].as_str().unwrap().to_string(),
+    ];
+    expected.sort();
+    assert_eq!(left, expected);
 }
 
 /// What a list query keeps, each notification as its subject's kind, its

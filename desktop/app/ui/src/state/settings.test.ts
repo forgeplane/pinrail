@@ -25,6 +25,7 @@ describe("fromServer", () => {
   test("gives a missing section its default", () => {
     expect(served.inbox).toEqual({
       open_in: "panel",
+      done_read: "week",
       layout: "repository",
       show: {
         item_added: true,

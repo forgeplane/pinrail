@@ -680,6 +680,7 @@ export type ServerSettings = {
   inbox?: {
     muted_repos?: string[];
     open_in: "panel" | "page";
+    done_read?: "return" | "day" | "week";
     layout?: "project" | "repository" | "list";
     show?: {
       item_added?: boolean;

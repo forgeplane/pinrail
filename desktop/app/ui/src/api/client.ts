@@ -387,6 +387,8 @@ export const api = {
   /** marks a notification done, or takes it out of done */
   setNotificationDone: (id: number, done: boolean) =>
     request<void>(done ? "PUT" : "DELETE", `/api/v1/notifications/${id}/done`),
+  /** marks done every read notification that does not wait */
+  doneReadNotifications: () => request<{ done: number }>("POST", "/api/v1/notifications/done-read"),
   /** marks read what a list showed, up to the newest event it reflected */
   readNotifications: (filters: NotificationQuery, upTo: number) =>
     request<{ read: number }>("POST", "/api/v1/notifications/read", {

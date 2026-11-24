@@ -106,6 +106,12 @@ const LEAVES: &[Leaf] = &[
         "Where the inbox opens a review: in a panel beside the list, or as a page of its own.",
     ),
     (
+        "/inbox/done_read",
+        Kind::Enum(&["return", "day", "week"]),
+        || json!("week"),
+        "When the inbox marks a read update done: when you return to the inbox, after a day, or after a week.",
+    ),
+    (
         "/inbox/layout",
         Kind::Enum(&["project", "repository", "list"]),
         || json!("repository"),

@@ -14,6 +14,7 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 | Setting | What it does |
 |---|---|
 | **Opening a review** | *Beside the list* opens a review from the inbox or the history, or a session from the Sessions page, in a panel next to the list, which stays in view. *As a page* opens it on a page of its own. |
+| **Mark read updates as done** | When the inbox marks an update you have read as done, which takes it out of the list. *On return* marks it done the next time you return to the inbox or bring its window back, and *After a day* and *After a week* mark it done that long after its last change. A question or review that waits on you is never marked done this way. **Show done** in the Filter menu lists the done updates. |
 
 ### Startup
 
