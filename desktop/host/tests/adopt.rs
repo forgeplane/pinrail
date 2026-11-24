@@ -308,3 +308,47 @@ fn an_update_hands_the_screens_over_as_a_binary_snapshot() {
         pinrail_screen::ghostty::version()
     ));
 }
+
+#[test]
+fn a_new_host_shows_the_last_screen_of_a_terminal_that_ended_under_the_last() {
+    let folders = folders();
+    let mut first = serve(&folders, &[]);
+    let mut client = connect(&first);
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", "echo the last words; sleep 0.2"],
+                   "cwd": folders.runtime, "cols": 80, "rows": 24,
+                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+        )
+        .unwrap();
+    let terminal = spawned["terminal"].as_str().unwrap().to_string();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while !listed(&mut client)
+        .iter()
+        .any(|t| t["terminal"] == terminal.as_str() && !t["ended_at"].is_null())
+    {
+        assert!(Instant::now() < deadline, "the terminal did not end");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    let _ = first.child.kill();
+    let _ = first.child.wait();
+    drop(client);
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    let second = serve(&folders, &[]);
+    let mut client = connect(&second);
+    let screen = client
+        .call("terminal.screen", json!({"terminal": terminal}))
+        .unwrap();
+    assert!(
+        screen["paint"].as_str().unwrap().contains("the last words"),
+        "{screen}"
+    );
+    assert_eq!(
+        (screen["cols"].as_u64(), screen["rows"].as_u64()),
+        (Some(80), Some(24))
+    );
+}

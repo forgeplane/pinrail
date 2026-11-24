@@ -1255,15 +1255,33 @@ async fn screen(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     let id = params.get("terminal").and_then(Value::as_str).unwrap_or("");
     let request = {
         let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());
-        let terminal = terminals
-            .get(id)
-            .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
-        terminal.paint_request()
+        match terminals.get(id) {
+            Some(terminal) => terminal.paint_request(),
+            // one that ended under an earlier host, from its final screen
+            None => return kept_screen(id, shared),
+        }
     };
     let (paint, (cols, rows)) = request
         .await
         .ok_or_else(|| Failure("not_found", format!("no terminal {id:?}")))?;
     Ok(json!({"paint": String::from_utf8_lossy(&paint), "cols": cols, "rows": rows}))
+}
+
+/// The final screen an earlier host kept for an ended terminal, at the
+/// size its record names.
+fn kept_screen(id: &str, shared: &Shared) -> Result<Value, Failure> {
+    let missing = || Failure("not_found", format!("no terminal {id:?}"));
+    let record = shared.context.records.get(id).ok_or_else(missing)?;
+    if record["ended_at"].is_null() {
+        return Err(missing());
+    }
+    let paint =
+        fs::read(shared.context.screens.join(format!("{id}.snap"))).map_err(|_| missing())?;
+    Ok(json!({
+        "paint": String::from_utf8_lossy(&paint),
+        "cols": record["cols"],
+        "rows": record["rows"],
+    }))
 }
 
 fn result(id: Value, result: Value) -> Value {
