@@ -956,7 +956,8 @@ impl Db {
               WHERE p.state = 'needs_input'
              ON CONFLICT (session_id) WHERE session_id IS NOT NULL DO UPDATE SET
                waiting = 1, reason = excluded.reason, done_at = NULL
-             WHERE waiting = 0 OR done_at IS NOT NULL",
+             -- a muted session stays as the person left it, as its reports do
+             WHERE (waiting = 0 OR done_at IS NOT NULL) AND muted = 0",
             params![now],
         )?;
         // an agent that waits no more
@@ -981,6 +982,8 @@ impl Db {
                   LEFT JOIN repos g ON g.id = s.repo_id
                   WHERE p.finished_at IS NOT NULL
                     AND (p.seen_at IS NULL OR p.seen_at < p.finished_at)
+                    -- nor for a session the sidebar leaves out, as its reports do
+                    AND s.hidden = 0 AND s.archived_at IS NULL
                     AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.session_id = p.session)
                     -- nor for a repository or project the person muted
                     AND NOT EXISTS (SELECT 1 FROM temp.inbox_muted m

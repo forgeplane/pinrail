@@ -759,7 +759,15 @@ async fn a_start_on_older_data_shows_what_waits_and_what_finished_unseen() {
     let review = submit_review(&app, None).await;
     hook(&app, "prompt", 0, json!({})).await;
     hook(&app, "needs_input", 10, json!({"wait": "permission"})).await;
-    // a second session, finished and never seen
+    // a second session the sidebar lists, finished and never seen
+    let (code, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/sessions/codex/s-2/status",
+        Some(json!({"kind": "step", "text": "Working"})),
+    )
+    .await;
+    assert!(code.is_success(), "{code} {answer}");
     let (code, _) = call(
         &app,
         "POST",
@@ -1014,11 +1022,40 @@ async fn a_subjects_notification_is_its_own_even_beside_one_with_no_events() {
 }
 
 #[tokio::test]
+async fn a_muted_session_that_waits_stays_muted_after_the_reconcile() {
+    let app = app();
+    shown(&app).await;
+    hook(&app, "prompt", 0, json!({})).await;
+    let session = common::sid(&app, "claude-code", "s-1");
+    let (code, answer) = call(
+        &app,
+        "PUT",
+        &format!("/api/v1/notifications/of/mute?session=claude-code/{session}"),
+        None,
+    )
+    .await;
+    assert!(code.is_success(), "{code} {answer}");
+    hook(
+        &app,
+        "needs_input",
+        10,
+        json!({"wait": "permission", "detail": {"tool": "Bash", "summary": "cargo test"}}),
+    )
+    .await;
+    assert!(!of_session(&app).unwrap().waiting);
+    app.state.notifications().reconcile().unwrap();
+    assert!(!of_session(&app).unwrap().waiting);
+}
+
+#[tokio::test]
 async fn a_session_the_sidebar_does_not_list_reports_nothing_until_it_waits_on_the_person() {
     let app = app();
     // known only from its hooks, it is hidden: its turns report nothing
     hook(&app, "prompt", 0, json!({})).await;
     hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    assert!(of_session(&app).is_none());
+    // nor does the reconcile add it
+    app.state.notifications().reconcile().unwrap();
     assert!(of_session(&app).is_none());
 
     // shown, then archived: nor do they
@@ -1032,6 +1069,8 @@ async fn a_session_the_sidebar_does_not_list_reports_nothing_until_it_waits_on_t
     let (code, _) = call(&app, "PUT", &path, None).await;
     assert!(code.is_success());
     hook(&app, "turn_ended", 30, json!({"end": "done"})).await;
+    assert!(of_session(&app).is_none());
+    app.state.notifications().reconcile().unwrap();
     assert!(of_session(&app).is_none());
 
     // waiting on the person, it is reported, and comes back to the sidebar
