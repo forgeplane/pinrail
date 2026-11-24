@@ -3,6 +3,7 @@
 // row with nothing between them are one group, and the agent saying it
 // starts a stage, or has finished, is a line of its own.
 
+import { withoutAttachments } from "./attachedPaths";
 import type {
   SessionTurn,
   Review,
@@ -148,19 +149,21 @@ const TYPED_PROMPT_WITHIN_MS = 5_000;
 
 /** The turn without its prompt when the prompt is a message the person
  *  sent from Pinrail, typed into the terminal and delivered as the turn
- *  began: the thread shows it once, as the message. */
+ *  began: the thread shows it once, as the message. The paths of the
+ *  message's files and the `[Image #N]` an agent shows in their place are
+ *  left out of both, as the core does when it confirms the message. */
 function withoutTypedPrompt(turn: SessionTurn, messages: SessionMessage[]): SessionTurn {
   if (turn.prompt === null) return turn;
-  const normal = (s: string) => s.replace(/\r\n?/g, "\n").trim();
+  const normal = (s: string) => withoutAttachments(s.replace(/\r\n?/g, "\n")).trim();
   const prompt = normal(turn.prompt);
   const started = Date.parse(turn.started_at);
-  const typed = messages.some(
-    (m) =>
-      m.route === "type" &&
-      !!m.delivered_at &&
-      Math.abs(Date.parse(m.delivered_at) - started) <= TYPED_PROMPT_WITHIN_MS &&
-      prompt.startsWith(normal(m.text)),
-  );
+  const typed = messages.some((m) => {
+    if (m.route !== "type" || !m.delivered_at) return false;
+    if (Math.abs(Date.parse(m.delivered_at) - started) > TYPED_PROMPT_WITHIN_MS) return false;
+    const text = normal(m.text);
+    // a message of files alone, which its prompt is too
+    return text ? prompt.startsWith(text) : !prompt && !!m.text.trim();
+  });
   return typed ? { ...turn, prompt: null, prompt_cut: false } : turn;
 }
 

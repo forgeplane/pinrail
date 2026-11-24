@@ -430,6 +430,19 @@ describe("a message typed into the agent's terminal", () => {
     expect(entries.find((e) => e.kind === "turn")).toMatchObject({ part: "end", turn: { reply: "Done." } });
   });
 
+  test("shows once when the agent took its attached image's path out of the prompt", () => {
+    const image = "/data/sessions/claude-code/ses_1/files/image.png";
+    const entries = timeline(
+      [],
+      [],
+      [typed(`what do you see here?\n\n${image}`, "2026-11-15T10:00:01.200Z")],
+      [],
+      [],
+      [turn("[Image #1]what do you see here?", "2026-11-15T10:00:01.000Z")],
+    );
+    expect(prompts(entries)).toEqual([]);
+  });
+
   test("leaves the prompt of a turn that it did not start", () => {
     const later = timeline(
       [],

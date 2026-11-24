@@ -28,16 +28,61 @@ pub const HOLD_FOR: chrono::Duration = chrono::Duration::minutes(30);
 /// reported: the same text once line endings are normalised and the ends
 /// trimmed, or a longer prompt that starts with it, as when the person
 /// added to it in the terminal. A prompt the CLI cut to its excerpt
-/// confirms a message that starts with it.
+/// confirms a message that starts with it. The paths of files attached to
+/// the message, and the `[Image #N]` an agent shows in place of an image
+/// it attached, are left out of both: Claude Code takes an image's path
+/// out of the prompt and puts the placeholder first.
 pub fn confirms(prompt: &str, typed: &str, cut: bool) -> bool {
-    let normal = |s: &str| {
-        s.replace("\r\n", "\n")
-            .replace('\r', "\n")
-            .trim()
-            .to_string()
+    let lines = |s: &str| s.replace("\r\n", "\n").replace('\r', "\n");
+    if lines(typed).trim().is_empty() {
+        return false;
+    }
+    let prompt = without_attachments(&lines(prompt)).trim().to_string();
+    let typed = without_attachments(&lines(typed)).trim().to_string();
+    if typed.is_empty() {
+        // a message of files alone, which its prompt is too
+        return prompt.is_empty();
+    }
+    prompt.starts_with(&typed) || (cut && typed.starts_with(&prompt))
+}
+
+/// A text without the lines that are paths of files attached to a session
+/// (`/…/sessions/<agent>/<session>/files/<name>`, quoted or not), and
+/// without the `[Image #N]` placeholders an agent shows for an image.
+fn without_attachments(text: &str) -> String {
+    let kept: Vec<&str> = text.lines().filter(|l| !attached_path(l)).collect();
+    let mut out = String::new();
+    let mut rest = kept.join("\n");
+    while let Some(at) = rest.find("[Image #") {
+        let after = &rest[at + "[Image #".len()..];
+        let digits = after.chars().take_while(char::is_ascii_digit).count();
+        if digits > 0 && after[digits..].starts_with(']') {
+            out.push_str(&rest[..at]);
+            rest = after[digits + 1..].to_string();
+        } else {
+            out.push_str(&rest[..at + 1]);
+            rest = rest[at + 1..].to_string();
+        }
+    }
+    out.push_str(&rest);
+    out
+}
+
+/// Whether a line is only the path of a file attached to a session.
+fn attached_path(line: &str) -> bool {
+    let line = line.trim();
+    let path = line
+        .strip_prefix('\'')
+        .and_then(|l| l.strip_suffix('\''))
+        .unwrap_or(line);
+    let Some((_, tail)) = path.rsplit_once("/sessions/") else {
+        return false;
     };
-    let (prompt, typed) = (normal(prompt), normal(typed));
-    !typed.is_empty() && (prompt.starts_with(&typed) || (cut && typed.starts_with(&prompt)))
+    let parts: Vec<&str> = tail.split('/').collect();
+    path.starts_with('/')
+        && parts.len() == 4
+        && parts[2] == "files"
+        && parts.iter().all(|p| !p.is_empty())
 }
 
 impl super::Runtime {
@@ -336,6 +381,31 @@ mod tests {
         assert!(!confirms("Use v3.", "Use v2.", false));
         assert!(!confirms("Use", "Use v2.", false));
         assert!(!confirms("anything", "   ", false));
+    }
+
+    #[test]
+    fn a_prompt_the_agent_rewrote_around_attached_files_confirms_the_message() {
+        let image = "/data/sessions/claude-code/ses_1/files/image.png";
+        let notes = "'/data/sessions/claude-code/ses_1/files/my notes.md'";
+        // Claude Code takes an image's path out and shows the image first
+        assert!(confirms(
+            "[Image #1]what do you see here?",
+            &format!("what do you see here?\n\n{image}"),
+            false
+        ));
+        // a file it does not attach keeps its path
+        assert!(confirms(
+            &format!("Read these [Image #1]\n\n{notes}"),
+            &format!("Read these\n\n{image}\n{notes}"),
+            false
+        ));
+        // files alone
+        assert!(confirms("[Image #1]", image, false));
+        assert!(!confirms(
+            "Something else",
+            &format!("Look\n\n{image}"),
+            false
+        ));
     }
 
     #[test]

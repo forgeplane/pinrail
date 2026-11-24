@@ -277,6 +277,18 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, await errorBody(response));
     return { sha256, size: bytes.byteLength, media_type: file.type || "application/octet-stream" };
   },
+  /** saves a file the person attaches to a session's prompt, in a folder
+   *  the agent can read; answers its path and the name it was saved under */
+  saveSessionFile: async (agent: string, id: string, file: File): Promise<{ path: string; name: string }> => {
+    const name = encodeURIComponent(file.name || "file");
+    const response = await fetch(`${await serverUrl()}/api/v1/sessions/${seg(agent)}/${seg(id)}/files/${name}`, {
+      method: "PUT",
+      headers: await writeHeaders("application/octet-stream"),
+      body: file,
+    });
+    if (!response.ok) throw new ApiError(response.status, await errorBody(response));
+    return (await response.json()) as { path: string; name: string };
+  },
   /** sets the PNG a project's avatar shows, or removes it with null */
   setProjectImage: async (id: string, png: Blob | null) => {
     const response = await fetch(`${await serverUrl()}/api/v1/projects/${seg(id)}/image`, {

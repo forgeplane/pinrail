@@ -8,11 +8,14 @@ export function AttachButton({
   label,
   onFiles,
   disabled = false,
+  className = "bar-button attach-button",
 }: {
   /** what the files go to, such as "Attach a file to the description" */
   label: string;
   onFiles: (files: File[]) => void;
   disabled?: boolean;
+  /** the button's look, such as a compose field's small icon button */
+  className?: string;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   return (
@@ -20,7 +23,7 @@ export function AttachButton({
       <Tooltip label={label} side="top">
         <button
           type="button"
-          className="bar-button attach-button"
+          className={className}
           aria-label={label}
           disabled={disabled}
           onClick={() => picker.current?.click()}

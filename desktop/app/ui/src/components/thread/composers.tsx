@@ -10,6 +10,8 @@ import { ComposeField } from "../ComposeField";
 import { useItemPicker } from "../ItemPicker";
 import type { SessionMessage } from "../../api/types";
 import { MessageQueue } from "./messages";
+import { AttachButton } from "../AttachButton";
+import { MessageFileChips, useMessageFiles, withPaths } from "./messageFiles";
 
 /** Where a message typed but not sent is kept, by session, while the
  *  window is open. */
@@ -49,14 +51,17 @@ export function MessageComposer({
   const box = useRef<HTMLTextAreaElement>(null);
   const picker = useItemPicker({ box, value: text, onChange: setText, repo });
   const [busy, setBusy] = useState(false);
+  const attached = useMessageFiles(session, (message) => toast(message));
+  const empty = !text.trim() && !attached.files.length;
   const send = async () => {
-    if (!text.trim() || busy) return;
+    if (empty || busy || attached.saving) return;
     setBusy(true);
     try {
-      await api.sendMessage(session.agent, session.id, text, crypto.randomUUID());
+      await api.sendMessage(session.agent, session.id, withPaths(text, attached.files), crypto.randomUUID());
       // the box may show another session by now: only the sent one is cleared
       writeStored(key, null, { session: true });
       setDraft((d) => (d.key === key ? { key, text: "" } : d));
+      attached.clear();
       onSent();
     } catch (e) {
       toast(errorMessage(e, "The message was not sent."));
@@ -64,8 +69,10 @@ export function MessageComposer({
       setBusy(false);
     }
   };
+  const queue = waiting.length ? <MessageQueue messages={waiting} session={session} onChanged={onSent} /> : null;
+  const chips = <MessageFileChips files={attached.files} onRemove={attached.remove} />;
   return (
-    <div className={`thread-composer ${busy ? "is-busy" : ""}`}>
+    <div className={`thread-composer ${busy ? "is-busy" : ""}`} {...attached.handlers}>
       <ComposeField
         value={text}
         onChange={setText}
@@ -73,21 +80,29 @@ export function MessageComposer({
         placeholder="Message the agent"
         onSubmit={send}
         boxRef={box}
-        above={waiting.length ? <MessageQueue messages={waiting} session={session} onChanged={onSent} /> : null}
+        above={
+          queue || attached.files.length ? (
+            <>
+              {queue}
+              {chips}
+            </>
+          ) : null
+        }
+        tools={<AttachButton label="Attach files" onFiles={attached.attach} disabled={busy} className="compose-icon" />}
         keys="Enter to send · Shift+Enter for a new line"
         send={{
           label: connected ? "Send the message to the agent" : "Reconnect to send",
           name: "Send the message",
           keys: ["Enter"],
-          disabled: busy || !connected || !text.trim(),
+          disabled: busy || !connected || empty || attached.saving,
           testId: "send-message",
         }}
       />
       {picker}
       <p className="thread-composer-hint faint">
         {typed
-          ? "Sends to the agent's terminal as your prompt."
-          : "The agent receives your message the next time it reports a status."}
+          ? "Sends to the agent's terminal as your prompt. Paste or drop files to attach them."
+          : "The agent receives your message the next time it reports a status. Paste or drop files to attach them."}
       </p>
     </div>
   );
