@@ -28,6 +28,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Attach files to a message to an agent from its session's summary: paste,
   drop or pick them in the message box. The agent receives each file's path
   after your text.
+- Show the files attached to a message, and the images an agent attached
+  to a prompt, as thumbnails and file badges in a session's thread.
 - Mark read updates in the inbox as done when you return to the inbox, or
   after a day, with **Mark read updates as done** in Settings › General.
 - Add a Notifications section to Settings. It holds the system notification

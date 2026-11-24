@@ -46,6 +46,8 @@ import { NoteFiles, filesOf, useNoteFileUrl, useSaveNoteFile } from "../NoteFile
 import { ReviewIcon } from "../ReviewIcon";
 import { Tooltip } from "../Tooltip";
 import { MarkdownHtml } from "../MarkdownHtml";
+import { attachedParts } from "../../lib/attachedPaths";
+import { AttachedText } from "./AttachedText";
 
 /** How a status reads on its own: a step as it is, the start of a stage, which
  *  the title names, as Started, and the end as Finished with what it says. */
@@ -532,7 +534,7 @@ export const MessageBubble = memo(function MessageBubble({
           </Tooltip>
         ) : null}
         <div className="thread-message-bubble" title={`Sent ${stamp(message.sent_at)}`}>
-          {message.text}
+          <AttachedText text={message.text} />
         </div>
       </div>
       <span
@@ -556,6 +558,24 @@ export const MessageBubble = memo(function MessageBubble({
     </div>
   );
 });
+
+/** A waiting message's text on its line, with how many files it carries
+ *  in place of their paths. */
+function QueuedText({ text }: { text: string }) {
+  const parts = attachedParts(text);
+  const files = parts.files.length;
+  return (
+    <span className="message-queue-text">
+      {parts.text}
+      {files ? (
+        <span className="message-queue-files" aria-label={files === 1 ? "1 file" : `${files} files`}>
+          <Paperclip size={12} aria-hidden />
+          {files}
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 /** The messages the agent has not received yet, oldest first, a line each
  *  at the top of the message box: what it says, its state in its tooltip,
@@ -624,7 +644,7 @@ export function MessageQueue({
                 <span className="message-queue-icon" aria-hidden>
                   {icon}
                 </span>
-                <span className="message-queue-text">{message.text}</span>
+                <QueuedText text={message.text} />
                 <span className="visually-hidden" data-testid="message-state">
                   {text}
                 </span>

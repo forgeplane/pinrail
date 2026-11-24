@@ -23,6 +23,8 @@ import { AgentIcon, agentOf } from "../AgentIcon";
 import { MarkdownHtml } from "../MarkdownHtml";
 import { WaitMark } from "../WaitMark";
 import { ThreadLine } from "./messages";
+import { attachedParts } from "../../lib/attachedPaths";
+import { AttachedBadges } from "./AttachedText";
 
 /** How long something lasted, in the largest unit that fits. */
 export function lasted(ms: number): string {
@@ -35,12 +37,15 @@ export function lasted(ms: number): string {
 }
 
 /** An excerpt, folded to four lines until it is opened. */
-function Excerpt({ text, cut }: { text: string; cut: boolean }) {
+function Excerpt({ text: whole, cut }: { text: string; cut: boolean }) {
   const [open, setOpen] = useState(false);
+  // the attached files and images show as badges under the text
+  const { text, files, images } = attachedParts(whole);
   const long = cut || text.split("\n").length > 4 || text.length > 320;
   return (
     <div className={`thread-turn-text ${open ? "is-open" : ""}`}>
       <p>{cut && open ? `${text}…` : text}</p>
+      <AttachedBadges files={files} images={images} />
       {long ? (
         <button type="button" className="thread-turn-more" onClick={() => setOpen((o) => !o)}>
           {open ? "Show less" : "Show more"}

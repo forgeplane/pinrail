@@ -4179,6 +4179,16 @@ body.is-resizing iframe {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* the files attached to a message or a prompt, under its text */
+.attached-badges {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  white-space: normal;
+}
+.note-file.is-placeholder {
+  color: var(--dim);
+}
 .thread-message-delete {
   display: inline-flex;
   flex: none;
@@ -10187,6 +10197,14 @@ a.item-ref {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.message-queue-files {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  color: var(--dim);
+  font-size: var(--text-sm);
 }
 .message-queue-delete,
 .message-queue-action {

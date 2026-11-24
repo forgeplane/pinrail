@@ -12,6 +12,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::put;
 use futures_util::StreamExt;
 use serde_json::json;
+use tokio_util::io::ReaderStream;
 
 use super::ApiState;
 use super::error::ApiError;
@@ -21,7 +22,10 @@ use crate::error::Error;
 use crate::session_files::MAX_BYTES;
 
 pub fn routes() -> Router<ApiState> {
-    Router::new().route("/api/v1/sessions/{agent}/{id}/files/{name}", put(save))
+    Router::new().route(
+        "/api/v1/sessions/{agent}/{id}/files/{name}",
+        put(save).get(read),
+    )
 }
 
 /// Saves the body, sent as `application/octet-stream`, under `name`, or
@@ -76,6 +80,39 @@ async fn save(
     Ok((
         StatusCode::CREATED,
         axum::Json(json!({ "path": path, "name": saved })),
+    )
+        .into_response())
+}
+
+/// A saved file, for the thread to show: never rendered in this origin,
+/// as a note's files are not. 404 for any name but a saved file's.
+async fn read(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id, name)): Path<(String, String, String)>,
+) -> Result<Response, ApiError> {
+    let Some(path) = state.session_files().file(&agent, &id, &name) else {
+        return Ok(refuse(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("session {id} of {agent} has no file \"{name}\""),
+        ));
+    };
+    let file = tokio::fs::File::open(&path).await.map_err(Error::from)?;
+    let size = file.metadata().await.map_err(Error::from)?.len();
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (header::CONTENT_LENGTH, size.to_string()),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "sandbox; default-src 'none'".to_string(),
+            ),
+            (
+                header::CACHE_CONTROL,
+                "private, max-age=31536000, immutable".to_string(),
+            ),
+        ],
+        Body::from_stream(ReaderStream::new(file)),
     )
         .into_response())
 }

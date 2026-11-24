@@ -76,6 +76,17 @@ impl SessionFiles {
         unreachable!("some name is free")
     }
 
+    /// A saved file of the session, by the name it was saved under; `None`
+    /// for any other name, such as one with a folder in it.
+    pub fn file(&self, agent: &str, id: &str, name: &str) -> Option<PathBuf> {
+        // a name the cleaning would change is not one a file was saved under
+        if file_name(name) != name {
+            return None;
+        }
+        let path = self.folder(agent, id)?.join(name);
+        path.is_file().then_some(path)
+    }
+
     /// Deletes a session's files.
     pub fn remove(&self, agent: &str, id: &str) {
         if let Some(folder) = self.folder(agent, id) {

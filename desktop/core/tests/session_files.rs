@@ -142,3 +142,33 @@ async fn the_sweep_deletes_the_files_of_sessions_that_are_gone() {
     app.state.session_files().sweep().unwrap();
     assert!(!saved.parent().unwrap().exists());
 }
+
+#[tokio::test]
+async fn a_saved_file_is_read_back_by_its_name_and_nothing_else_is() {
+    let app = app();
+    let path = session(&app).await;
+    let (_, saved) = save(&app, &path, "shot.png", b"PNG bytes", true).await;
+    let name = saved["name"].as_str().unwrap();
+
+    let (code, body) = get(&app, &format!("{path}/files/{name}")).await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(body, b"PNG bytes");
+    for missing in ["other.png", "..%2F..%2Fpinrail.db", ".."] {
+        let (code, _) = get(&app, &format!("{path}/files/{missing}")).await;
+        assert_eq!(code, StatusCode::NOT_FOUND, "{missing}");
+    }
+}
+
+/// A GET as any program on this machine sends it, and the body's bytes.
+async fn get(app: &App, uri: &str) -> (StatusCode, Vec<u8>) {
+    let request = Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header("host", "127.0.0.1:4747")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, bytes.to_vec())
+}

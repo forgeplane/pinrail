@@ -2,7 +2,7 @@
 // chips that list them at the bottom of the note, and the pop-up that
 // shows an image at its full size.
 
-import { ChevronLeft, ChevronRight, Download, FileText, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, FolderOpen, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inTauri, serverUrl } from "../api/client";
 import type { NoteAttachment, SessionStatus } from "../api/types";
@@ -103,17 +103,29 @@ export function useSaveNoteFile(note: NoteOf | null, url: (name: string) => stri
   );
 }
 
+/** What a file's button does: save a copy, or show the file, which is on
+ *  this computer already, in Finder. */
+type FileAction = "save" | "reveal";
+
+const actionLabel = (action: FileAction, name: string) =>
+  action === "save" ? `Save ${name}` : `Show ${name} in Finder`;
+
+const ActionIcon = ({ action, size }: { action: FileAction; size: number }) =>
+  action === "save" ? <Download size={size} /> : <FolderOpen size={size} />;
+
 /** The note's files as chips: a thumbnail or an icon, the name and the
- *  size, and a button that saves the file. An image's thumbnail and name
- *  open it in a pop-up. */
+ *  size when it is known, and a button that saves the file or shows it in
+ *  Finder. An image's thumbnail and name open it in a pop-up. */
 export function NoteFiles({
   files,
   url,
   onSave,
+  action = "save",
 }: {
-  files: NoteAttachment[];
+  files: (Omit<NoteAttachment, "size"> & { size?: number })[];
   url: (name: string) => string | null;
   onSave: (name: string) => void;
+  action?: FileAction;
 }) {
   // the name of the image the pop-up shows
   const [shown, setShown] = useState<string | null>(null);
@@ -142,15 +154,15 @@ export function NoteFiles({
                 <span className="note-file-name truncate">{file.name}</span>
               </>
             )}
-            <span className="faint">{size(file.size)}</span>
+            {file.size !== undefined ? <span className="faint">{size(file.size)}</span> : null}
             <button
               type="button"
               className="note-file-save"
-              aria-label={`Save ${file.name}`}
-              title={`Save ${file.name}`}
+              aria-label={actionLabel(action, file.name)}
+              title={actionLabel(action, file.name)}
               onClick={() => onSave(file.name)}
             >
-              <Download size={13} />
+              <ActionIcon action={action} size={13} />
             </button>
           </li>
         );
@@ -162,6 +174,7 @@ export function NoteFiles({
           url={url}
           onShow={setShown}
           onSave={onSave}
+          action={action}
           onClose={() => setShown(null)}
         />
       ) : null}
@@ -178,6 +191,7 @@ function ImagePopup({
   url,
   onShow,
   onSave,
+  action,
   onClose,
 }: {
   images: string[];
@@ -185,6 +199,7 @@ function ImagePopup({
   url: (name: string) => string | null;
   onShow: (name: string) => void;
   onSave: (name: string) => void;
+  action: FileAction;
   onClose: () => void;
 }) {
   const close = useRef<HTMLButtonElement>(null);
@@ -239,11 +254,11 @@ function ImagePopup({
         <button
           type="button"
           className="bar-button"
-          aria-label={`Save ${shown}`}
-          title={`Save ${shown}`}
+          aria-label={actionLabel(action, shown)}
+          title={actionLabel(action, shown)}
           onClick={() => onSave(shown)}
         >
-          <Download size={15} />
+          <ActionIcon action={action} size={15} />
         </button>
         <button ref={close} type="button" className="bar-button" aria-label="Close" title="Close" onClick={onClose}>
           <X size={16} />
