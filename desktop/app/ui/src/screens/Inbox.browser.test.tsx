@@ -96,7 +96,6 @@ async function open(rows: Notification[], route = "/", width?: number) {
   for (const write of [
     "setNotificationRead",
     "setNotificationDone",
-    "setNotificationMuted",
     "readNotifications",
   ] as const) {
     core.answer(write, undefined);
@@ -296,13 +295,13 @@ describe("the inbox", () => {
     await expect.element(page.getByRole("complementary", { name: "Session" })).toBeInTheDocument();
   });
 
-  test("a row is muted, with its button or M, and unmuted with the bell on the work item's panel", async () => {
+  test("a row has no mute button and M does nothing: the work item's panel mutes and unmutes", async () => {
     await open([update(1, "Load themes")]);
-    await page.getByRole("button", { name: "Mute: Load themes" }).click();
-    expect(core.calls("setNotificationMuted").at(-1)).toEqual([1, true]);
+    await expect.element(page.getByRole("button", { name: "Mark as done: Load themes" })).toBeInTheDocument();
+    expect(page.getByRole("button", { name: /^(Un)?[Mm]ute: / }).elements()).toHaveLength(0);
     await row("Load themes").hover();
     await userEvent.keyboard("m");
-    expect(core.calls("setNotificationMuted").length).toBe(2);
+    expect(core.calls("setSubjectMuted")).toEqual([]);
 
     // its panel offers Unmute while it is muted
     core.answer("item", itemDetail({ title: "Load themes", number: 1 }));

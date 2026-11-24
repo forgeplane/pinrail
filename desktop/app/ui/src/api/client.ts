@@ -367,9 +367,6 @@ export const api = {
   /** marks a notification read, or unread */
   setNotificationRead: (id: number, read: boolean) =>
     request<void>(read ? "PUT" : "DELETE", `/api/v1/notifications/${id}/read`),
-  /** mutes a notification, which no later event brings back, or unmutes it */
-  setNotificationMuted: (id: number, muted: boolean) =>
-    request<void>(muted ? "PUT" : "DELETE", `/api/v1/notifications/${id}/mute`),
   /** mutes or unmutes a work item's or a session's notifications from its
    *  page, whether or not it has a notification yet */
   setSubjectMuted: (subject: { item: string } | { session: { agent: string; id: string } }, muted: boolean) =>

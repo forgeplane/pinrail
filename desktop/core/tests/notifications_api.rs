@@ -689,6 +689,8 @@ async fn an_item_is_muted_from_its_page_before_it_has_a_notification() {
         call(&app, "DELETE", mute, None).await.0,
         StatusCode::NO_CONTENT
     );
+    let (_, of) = call(&app, "GET", "/api/v1/notifications/of?item=PIN-1", None).await;
+    assert_eq!(of["muted"], false);
     agent(
         &app,
         "POST",
