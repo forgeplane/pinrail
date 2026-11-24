@@ -432,6 +432,26 @@ fn only_the_conversation_s_own_hooks_report() {
     );
 }
 
+const AGY_SUBAGENT: &str = "b397bc81-a149-472a-883c-ee2e56993905";
+
+#[test]
+fn antigravity_ignores_subagent_hooks() {
+    // agy sets ANTIGRAVITY_CONVERSATION_ID to the subagent's own id when
+    // running its hooks, but a subagent never receives a user prompt so
+    // lastUserInput is empty on every event
+    let env = [("ANTIGRAVITY_CONVERSATION_ID", AGY_SUBAGENT)];
+    assert!(
+        parse_in(
+            "antigravity",
+            "session-start",
+            "subagent-session-start",
+            &env
+        )
+        .is_none()
+    );
+    assert!(parse_in("antigravity", "stop", "subagent-stop", &env).is_none());
+}
+
 const GROK_SESSION: &str = "019a8f2e-4c1d-7b3a-9e55-2f6d8c1a0b7e";
 
 #[test]

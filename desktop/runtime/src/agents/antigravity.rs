@@ -29,8 +29,11 @@ impl Agent for Antigravity {
     fn parse_hook(&self, event: &str, input: &Value, env: Env) -> Option<HookReport> {
         let session = text(input, "conversationId")?;
         // only the conversation's own hooks: agy runs them with its id in the
-        // environment, and a subagent's conversation has another
-        if env("ANTIGRAVITY_CONVERSATION_ID").as_deref() != Some(session.as_str()) {
+        // environment, and a subagent never receives a user prompt so its
+        // lastUserInput is empty on every hook
+        if env("ANTIGRAVITY_CONVERSATION_ID").as_deref() != Some(session.as_str())
+            || text(input, "lastUserInput").is_none()
+        {
             return None;
         }
         let mut detail = Detail {
