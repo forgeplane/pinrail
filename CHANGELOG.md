@@ -34,6 +34,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   in Finder paste their paths, and an image goes to the agent as if you
   pressed Ctrl+V.
 - Drop files on a terminal to paste their paths.
+- Let OpenCode read the files attached to a session without asking. To get
+  it, press Update under OpenCode's Report status in Settings › Agents.
 - Mark read updates in the inbox as done when you return to the inbox, or
   after a day, with **Mark read updates as done** in Settings › General.
 - Add a Notifications section to Settings. It holds the system notification

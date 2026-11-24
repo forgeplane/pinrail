@@ -13,7 +13,13 @@ export default defineConfig({
   },
   test: {
     // and the checks of what the app ships, beside its build scripts
-    include: ["ui/src/**/*.test.ts", "scripts/**/*.test.mjs", "ui/bench/**/*.test.mjs"],
+    // and Pinrail's plugins for agents, which run in Node too
+    include: [
+      "ui/src/**/*.test.ts",
+      "scripts/**/*.test.mjs",
+      "ui/bench/**/*.test.mjs",
+      "../runtime/src/agents/*.test.mjs",
+    ],
     // those run in a browser, with vitest.browser.config.ts
     exclude: ["ui/src/**/*.browser.test.ts"],
     environment: "node",

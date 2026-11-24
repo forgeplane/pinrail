@@ -3,12 +3,36 @@
 // file, so add your own plugins beside it instead of editing it. It runs in
 // OpenCode's terminal interface and reports the state of the session on
 // screen to Pinrail by running `pinrail hook opencode <event>` with JSON on
-// its input, as the hooks of other agents do.
+// its input, as the hooks of other agents do. It also lets OpenCode read
+// the files the person attaches to a session in Pinrail, which Pinrail
+// keeps outside the project, without asking each time.
 import { spawn } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
 import process from "node:process";
 import { clearInterval, setInterval } from "node:timers";
 
 const cli = process.env.PINRAIL_CLI || "pinrail";
+
+/** Where Pinrail keeps the files attached to its sessions, found as
+ *  Pinrail finds its data folder. */
+const sessionFiles = path.join(
+  process.env.PINRAIL_DATA_DIR ||
+    (process.env.XDG_DATA_HOME ? path.join(process.env.XDG_DATA_HOME, "pinrail") : null) ||
+    path.join(os.homedir(), ".local", "share", "pinrail"),
+  "sessions",
+);
+
+/** Whether a permission OpenCode asks for is only to read folders inside
+ *  Pinrail's session files, which it then needs no answer for. */
+function readsSessionFiles(data) {
+  const resources = data.resources ?? [];
+  return (
+    data.action === "external_directory" &&
+    resources.length > 0 &&
+    resources.every((resource) => resource.startsWith(sessionFiles + path.sep))
+  );
+}
 
 /** Runs `pinrail hook opencode <event>` with `body`; a report Pinrail misses
  *  must never stop OpenCode. */
@@ -60,6 +84,13 @@ export default {
     const following = setInterval(follow, 500);
     const off = api.data.listen(({ details }) => {
       const data = details?.data ?? {};
+      // in any session, a subagent's included: no answer is needed
+      if (details?.type === "permission.asked" && readsSessionFiles(data)) {
+        api.client?.permission
+          ?.reply({ sessionID: data.sessionID, requestID: data.id, decision: "once" })
+          ?.catch(() => {});
+        return;
+      }
       if (details?.type === "session.created" && !data.parentID) created.add(data.sessionID);
       // an event can come before the poll sees the session it is of
       follow();
