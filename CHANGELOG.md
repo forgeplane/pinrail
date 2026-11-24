@@ -311,6 +311,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Empty the search field when Clear filters is pressed on the Work items
+  and Sessions pages. The field kept the old search text while the list
+  showed every item.
 - Show the error of a failed Claude Code turn, such as a lost connection,
   on the line that says the turn failed. The thread showed only the
   error's type, such as `server_error`, as Claude Code's reply.

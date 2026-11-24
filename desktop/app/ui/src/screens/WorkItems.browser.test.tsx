@@ -132,6 +132,16 @@ describe("the filters", () => {
     await render(<WorkItems />, { route: "/items?status=done" });
     await expect.element(page.getByText("No matching work items")).toBeVisible();
   });
+
+  test("Clear filters also empties the search field", async () => {
+    const one = workItem({ title: "One", number: 1 });
+    core.answer("searchItems", { items: [one] });
+    await open([one], "?q=one&status=done&closed=1");
+    await expect.element(page.getByLabelText("Search work items")).toHaveValue("one");
+    await userEvent.click(page.getByRole("button", { name: "Clear filters" }));
+    await expect.element(where()).not.toMatchTextContent("q=");
+    await expect.element(page.getByLabelText("Search work items")).toHaveValue("");
+  });
 });
 
 describe("sub-items", () => {

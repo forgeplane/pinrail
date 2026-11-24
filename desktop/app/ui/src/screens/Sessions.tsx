@@ -252,13 +252,15 @@ export function Sessions() {
   };
 
   // the filters, in the Filter menu and as chips while they are on
-  const clearFilters = () =>
+  const clearFilters = () => {
+    setQ("");
     updateParams(
       (next) => {
         for (const key of ["q", "repo", "project", "archived", "attention", "element", "page"]) next.delete(key);
       },
       { replace: true },
     );
+  };
   const filters: Filter[] = [
     {
       key: "scope",

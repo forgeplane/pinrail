@@ -669,13 +669,15 @@ export function WorkItems() {
   );
 
   // the page's filters, in the Filter menu and as chips while they are on
-  const clearFilters = () =>
+  const clearFilters = () => {
+    setQ("");
     updateParams(
       (next) => {
         for (const key of ["q", "status", "repo", "project", "by", "waiting", "closed", "page"]) next.delete(key);
       },
       { replace: true },
     );
+  };
   const filters: Filter[] = [
     {
       key: "status",
