@@ -7,6 +7,8 @@ mod agents_json;
 #[cfg(debug_assertions)]
 mod bench;
 mod cli_install;
+#[cfg(target_os = "macos")]
+mod clipboard_mac;
 mod feedback;
 mod headless;
 mod native;
@@ -43,6 +45,21 @@ const COMMAND_EVENT: &str = "pinrail:command";
 struct ServerUrl {
     url: String,
     token: String,
+}
+
+/// The paths of the files copied to the clipboard, as Finder copies them,
+/// for a terminal to paste: none when it holds no files.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn clipboard_files() -> Vec<String> {
+    clipboard_mac::copied_files()
+}
+
+/// Elsewhere, no files: a terminal pastes the clipboard's text.
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn clipboard_files() -> Vec<String> {
+    Vec::new()
 }
 
 #[tauri::command]
@@ -871,6 +888,7 @@ pub fn run() {
             check_for_updates,
             restart_to_update,
             window_buttons,
+            clipboard_files,
             quit::quit
         ])
         .build(tauri::generate_context!())

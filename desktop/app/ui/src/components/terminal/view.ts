@@ -77,6 +77,12 @@ export interface TerminalView {
   onTitle(listener: (title: string) => void): Unsubscribe;
   onLink(listener: (uri: string, event: MouseEvent) => void): Unsubscribe;
   selection(): string | null;
+  /** Pastes `text` as the person's paste, in the program's paste mode. */
+  paste(text: string): void;
+  /** Sends a key press as the person's, in the program's keyboard mode.
+   *  A renderer that cannot encode every key sends at least Ctrl with a
+   *  letter. */
+  pressKey(key: Pick<KeyboardEventInit, "key" | "code" | "ctrlKey" | "shiftKey" | "altKey" | "metaKey">): void;
   search(query: string, options: SearchOptions): SearchResult;
   scrollToBottom(): void;
   /** Turns the accessible text mirror on or off. */

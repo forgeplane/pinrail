@@ -302,6 +302,29 @@ class XtermView implements TerminalView, BenchHooks {
     return this.term!.hasSelection() ? this.term!.getSelection() : null;
   }
 
+  paste(text: string): void {
+    this.as("paste", () => this.term!.paste(text));
+  }
+
+  /** xterm.js encodes only the keys it is sent as events: Ctrl with a
+   *  letter is its control character, any other key is not sent. */
+  pressKey(key: KeyboardEventInit): void {
+    const letter = key.key?.toLowerCase() ?? "";
+    if (!key.ctrlKey || key.altKey || key.metaKey || !/^[a-z]$/.test(letter)) return;
+    this.as("key", () => this.term!.input(String.fromCharCode(letter.charCodeAt(0) - 96), true));
+  }
+
+  /** Runs `send` with what it emits taken as the person's input of `kind`. */
+  private as(kind: InputKind, send: () => void) {
+    const was = this.origin;
+    this.origin = kind;
+    try {
+      send();
+    } finally {
+      this.origin = was;
+    }
+  }
+
   search(query: string, options: SearchOptions): SearchResult {
     const search = this.search_!;
     const found = options.backwards

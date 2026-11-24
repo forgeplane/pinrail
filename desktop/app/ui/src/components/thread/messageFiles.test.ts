@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { quotePath, withPaths, type MessageFile } from "./messageFiles";
+import { quotePath } from "../../lib/shell";
+import { withPaths, type MessageFile } from "./messageFiles";
 
 const file = (path: string | null): MessageFile => ({ key: path ?? "k", name: "f", type: "", path });
 

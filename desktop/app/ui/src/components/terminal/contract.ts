@@ -116,6 +116,18 @@ export function describeContract(name: string, make: () => Promise<TerminalRende
       expect(inputs.filter((i) => i.kind === "paste").map((i) => i.data)).toEqual(["\x1b[200~pasted\x1b[201~"]);
     });
 
+    test("pastes text and presses a key it is given, in the program's modes", async () => {
+      view.paste("plain");
+      await writeAll(view, bytes("\x1b[?2004h"));
+      view.paste("/tmp/a b.png");
+      view.pressKey({ key: "v", code: "KeyV", ctrlKey: true });
+      expect(inputs.filter((i) => i.kind === "paste").map((i) => i.data)).toEqual([
+        "plain",
+        "\x1b[200~/tmp/a b.png\x1b[201~",
+      ]);
+      expect(inputs.filter((i) => i.kind === "key").map((i) => i.data)).toEqual(["\x16"]);
+    });
+
     test("sends its emulator's replies as replies, never as input", async () => {
       await writeAll(view, bytes("\x1b[6n"));
       await expect.poll(() => replies.length).toBeGreaterThan(0);

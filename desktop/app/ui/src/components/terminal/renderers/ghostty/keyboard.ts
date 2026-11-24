@@ -159,6 +159,17 @@ export class Keyboard {
     });
   }
 
+  /** Pastes text as the person's paste, through the paste encoder. */
+  paste(text: string) {
+    if (text) this.emit(this.target.encodePaste(text), "paste");
+  }
+
+  /** Sends a key press as the person's, through the key encoder. */
+  press(init: KeyboardEventInit) {
+    const encoded = this.target.encodeKey(new KeyboardEvent("keydown", init));
+    if (encoded.length) this.emit(encoded, "key");
+  }
+
   setOptions(options: Partial<KeyboardOptions>) {
     this.options = { ...this.options, ...options };
   }

@@ -6,6 +6,7 @@ import { FileText, Image, LoaderCircle, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
 import { api, errorMessage } from "../../api/client";
 import { readStored, writeStored } from "../../lib/storage";
+import { quotePath } from "../../lib/shell";
 
 /** A file attached to the message: its name, and its path once saved. */
 export type MessageFile = {
@@ -20,12 +21,6 @@ export type MessageFile = {
 
 /** Where the files of a message not sent yet are kept, by session. */
 const storeKey = (session: { agent: string; id: string }) => `pinrail:draft:files:${session.agent}:${session.id}`;
-
-/** A path as a shell would read it: quoted when it has a space or a
- *  character a shell treats specially. */
-export function quotePath(path: string): string {
-  return /^[\w@%+=:,./-]+$/.test(path) ? path : `'${path.replaceAll("'", `'\\''`)}'`;
-}
 
 /** The message as the agent receives it: the text, then each file's path
  *  on a line of its own. */

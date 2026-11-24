@@ -372,6 +372,14 @@ class GhosttyView implements TerminalView, BenchHooks {
     return this.core.selectionText();
   }
 
+  paste(text: string): void {
+    this.keyboard.paste(text);
+  }
+
+  pressKey(key: KeyboardEventInit): void {
+    this.keyboard.press(key);
+  }
+
   search(query: string, options: SearchOptions): SearchResult {
     const result = this.finder.find(query, options);
     this.redraw();

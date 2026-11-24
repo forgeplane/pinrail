@@ -147,6 +147,15 @@ class ReferenceView implements TerminalView {
     return () => {};
   }
 
+  paste(text: string) {
+    if (text) this.emit(this.bracketed ? `\x1b[200~${text}\x1b[201~` : text, "paste");
+  }
+
+  pressKey(key: KeyboardEventInit) {
+    const letter = key.key?.toLowerCase() ?? "";
+    if (key.ctrlKey && /^[a-z]$/.test(letter)) this.emit(String.fromCharCode(letter.charCodeAt(0) - 96), "key");
+  }
+
   selection() {
     const selected = document.getSelection();
     if (!selected || !this.screen || !this.screen.contains(selected.anchorNode)) return null;

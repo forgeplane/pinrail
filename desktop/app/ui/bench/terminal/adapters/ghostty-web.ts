@@ -168,6 +168,11 @@ class GhosttyWebView implements TerminalView, BenchHooks {
     return this.term!.hasSelection() ? this.term!.getSelection() : null;
   }
 
+  // the benchmark types its keys as events: nothing is pasted or pressed
+  paste(): void {}
+
+  pressKey(): void {}
+
   search(): SearchResult {
     return { found: false };
   }
