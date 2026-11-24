@@ -22,3 +22,13 @@ test("only Summary and Terminal show Ctrl+` in their tooltips", async () => {
     await expect.element(tip).not.toBeInTheDocument();
   }
 });
+
+test("the arrow keys move to the view on that side, wrapping at the ends", async () => {
+  const chosen: string[] = [];
+  await render(<ViewSwitch view="terminal" onView={(view) => chosen.push(view)} />);
+  (page.getByRole("tab", { name: "Terminal" }).element() as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowLeft}");
+  await userEvent.keyboard("{ArrowLeft}");
+  await userEvent.keyboard("{ArrowRight}");
+  expect(chosen).toEqual(["summary", "split", "summary"]);
+});

@@ -35,9 +35,10 @@ export function ViewSwitch({ view, onView }: { view: SessionView; onView: (view:
             onKeyDown={(event) => {
               if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
               event.preventDefault();
-              const next = VIEWS[(i + 1) % VIEWS.length][0];
-              onView(next);
-              tabs.current[(i + 1) % VIEWS.length]?.focus();
+              const step = event.key === "ArrowRight" ? 1 : -1;
+              const to = (i + step + VIEWS.length) % VIEWS.length;
+              onView(VIEWS[to][0]);
+              tabs.current[to]?.focus();
             }}
           >
             <Icon size={15} aria-hidden="true" />
