@@ -64,6 +64,11 @@ struct Viewer {
     credit: i64,
     /// Frames waiting for credit, in order.
     pending: VecDeque<Frame>,
+    /// How many of the pending frames, from the first, are the viewer's
+    /// first snapshot, which goes out whole whatever the credit: the
+    /// window returns credit for a snapshot only once it has ended.
+    first: usize,
+    /// The bytes of the pending frames after the first snapshot.
     pending_bytes: usize,
     /// Until the attach reply has been queued.
     paused: bool,
@@ -198,19 +203,15 @@ impl Viewers {
     /// Adds a viewer, paused until [`Viewers::resume`], with the frames it
     /// gets first.
     pub fn add(&mut self, id: ViewerId, out: Outbox, size: (u16, u16), first: Vec<Frame>) {
-        let pending_bytes = first
-            .iter()
-            .filter(|f| f.kind == kind::DATA)
-            .map(|f| f.payload.len())
-            .sum();
         self.viewers.insert(
             id,
             Viewer {
                 out,
                 channel: id.1,
                 credit: INITIAL_CREDIT,
+                first: first.len(),
                 pending: first.into(),
-                pending_bytes,
+                pending_bytes: 0,
                 paused: true,
                 needs: None,
                 size,
@@ -457,6 +458,13 @@ impl Viewers {
                 viewer.send(frame);
             }
         }
+        while viewer.first > 0 {
+            let Some(frame) = viewer.pending.pop_front() else {
+                break;
+            };
+            viewer.first -= 1;
+            viewer.send(frame);
+        }
         while viewer.credit > 0 {
             let Some(frame) = viewer.pending.pop_front() else {
                 break;
@@ -523,6 +531,7 @@ impl Viewer {
 
     fn drop_pending(&mut self, needs: Needs) {
         self.pending.clear();
+        self.first = 0;
         self.pending_bytes = 0;
         // a resync already asks for the snapshot a resize would, and a
         // viewer waiting for its first snapshot gets one at the new size

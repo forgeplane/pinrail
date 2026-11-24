@@ -308,6 +308,25 @@ fn the_controller_s_size_is_the_terminal_s_and_observers_get_a_fresh_snapshot() 
 }
 
 #[test]
+fn a_first_snapshot_larger_than_the_credit_arrives_whole() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut connection = Connection::open(&host);
+    // more history than a viewer's first credit, which the window returns
+    // only once the snapshot has ended
+    let terminal = spawn(
+        &mut connection,
+        &folders,
+        "awk 'BEGIN { for (i = 0; i < 8000; i++) print \"line \" i \" of a long history to scroll back through\" }'; echo ready; sleep 30",
+    );
+    wait_for_text(&mut connection, &terminal, "ready");
+    let (channel, _) = attach(&mut connection, &terminal, json!({"history": 10_000}));
+    let (_, snapshot) = connection.until_meta(channel, "snapshot_end");
+    assert!(snapshot.len() > 256 * 1024, "{}", snapshot.len());
+    connection.call("terminal.stop", json!({"terminal": terminal}));
+}
+
+#[test]
 fn a_viewer_that_returns_no_credit_is_resynchronized_when_it_does() {
     let folders = folders();
     let host = serve(&folders, &[]);
