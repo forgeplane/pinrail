@@ -197,6 +197,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- On the Work items page, the arrow that shows or hides an item's
+  sub-items now sits next to the item's status icon.
 - A message to an agent that Pinrail started now waits until the agent has
   started, so it is not typed while the agent loads. After a minute, the
   waiting message shows **Type now**.

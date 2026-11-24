@@ -102,8 +102,8 @@ export const ItemRow = memo(function ItemRow({
         data-testid="item-row"
         data-key={item.key}
         className={`item-row ${focused ? "is-focused" : ""} ${open ? "is-open" : ""} ${closed ? "is-closed" : ""} ${dropTarget ? "is-drop" : ""}`}
-        // its arrow under the group's, its status under the group's icon,
-        // and each level of sub-items one step in
+        // its status under the group's icon, and each level of sub-items
+        // one step in
         style={{ paddingLeft: 4 + depth * 18 }}
         onMouseEnter={() => actions.hover(index)}
         onClick={() => actions.open(item)}
@@ -192,7 +192,8 @@ export const ItemRow = memo(function ItemRow({
         <button
           type="button"
           className="item-fold-toggle"
-          style={{ left: 4 + depth * 18 }}
+          // just left of the status icon, apart from the group's arrow
+          style={{ left: 10 + depth * 18 }}
           aria-label={folded ? `Show the sub-items of ${item.key}` : `Hide the sub-items of ${item.key}`}
           aria-expanded={!folded}
           onClick={() => actions.toggleFold(item.key)}
