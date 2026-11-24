@@ -145,14 +145,13 @@ jobs:
       # the version rust-toolchain.toml pins, with rustfmt and clippy
       - name: Rust toolchain
         run: rustup toolchain install
-      # Zig at the version mise.toml pins, which builds libghostty-vt for
-      # desktop/screen; the terminal host runs on Unix only
+      # Zig at the version mise.toml pins, which builds libghostty-vt as
+      # WebAssembly for the window's terminal, and for desktop/screen on
+      # Unix, where the terminal host runs
       - name: Zig version
         id: zig
-        if: runner.os != 'Windows'
         run: echo "version=$(sed -n 's/^zig = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        if: runner.os != 'Windows'
         with:
           version: ${{ steps.zig.outputs.version }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
