@@ -373,6 +373,15 @@ impl Db {
         find_or_create(&self.conn(), agent, agent_session, now)
     }
 
+    /// Whether Pinrail knows the session of `agent` with Pinrail's `id`.
+    pub fn has_session(&self, agent: &str, id: &str) -> rusqlite::Result<bool> {
+        self.read().query_row(
+            "SELECT EXISTS (SELECT 1 FROM sessions WHERE agent = ?1 AND id = ?2)",
+            params![agent, id],
+            |r| r.get(0),
+        )
+    }
+
     /// The session an agent names by its own id, by Pinrail's id, if Pinrail
     /// knows it.
     pub fn find_session(

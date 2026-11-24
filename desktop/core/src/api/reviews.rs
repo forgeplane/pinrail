@@ -801,6 +801,7 @@ async fn delete_session(
         eprintln!("pinrail: stopping the run of session {id} failed: {error}");
     }
     state.reviews().delete_session(&agent, &id)?;
+    state.session_files().remove(&agent, &id);
     Ok(StatusCode::NO_CONTENT)
 }
 

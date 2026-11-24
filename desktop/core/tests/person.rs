@@ -42,7 +42,7 @@ async fn send(
 /// The writes only the person makes, through the app's window: they need
 /// the person token from whoever sends them. Every other write is open to
 /// programs, which act as themselves.
-const PERSON_ONLY: [(&str, &str); 37] = [
+const PERSON_ONLY: [(&str, &str); 38] = [
     ("PATCH", "/api/v1/sessions/{agent}/{id}"),
     ("DELETE", "/api/v1/sessions/{agent}/{id}"),
     ("POST", "/api/v1/sessions/{agent}/{id}/messages"),
@@ -75,6 +75,7 @@ const PERSON_ONLY: [(&str, &str); 37] = [
     ("POST", "/api/v1/terminals/{terminal}/tickets"),
     ("POST", "/api/v1/notifications/read"),
     ("POST", "/api/v1/notifications/done-read"),
+    ("PUT", "/api/v1/sessions/{agent}/{id}/files/{name}"),
     ("PUT", "/api/v1/notifications/{id}/read"),
     ("DELETE", "/api/v1/notifications/{id}/read"),
     ("PUT", "/api/v1/notifications/{id}/done"),

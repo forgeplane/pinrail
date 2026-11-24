@@ -12,6 +12,7 @@ mod projects;
 pub(crate) mod reviews;
 #[cfg(unix)]
 mod runs;
+mod session_files;
 mod settings;
 mod sse;
 mod telemetry;
@@ -93,6 +94,7 @@ fn router_with(state: ApiState) -> Router {
         .merge(items::routes())
         .merge(notifications::routes())
         .merge(attachments::routes())
+        .merge(session_files::routes())
         .merge(plugins::routes())
         .merge(sse::routes())
         .merge(files::routes())
@@ -212,6 +214,10 @@ pub async fn serve(
                 };
                 if let Err(error) = app.notifications().sweep(chrono::Utc::now(), read_for) {
                     eprintln!("pinrail: notifications sweep failed: {error}");
+                }
+                // the files of sessions deleted some other way than by the person
+                if let Err(error) = app.session_files().sweep() {
+                    eprintln!("pinrail: session files sweep failed: {error}");
                 }
                 if let Err(error) = app.events().sweep(chrono::Utc::now()) {
                     eprintln!("pinrail: events sweep failed: {error}");

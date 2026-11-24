@@ -33,6 +33,7 @@ pub mod runtime;
 pub use pinrail_format::schema;
 pub use pinrail_format::skill;
 pub mod server_info;
+pub mod session_files;
 pub mod settings;
 pub mod telemetry;
 pub mod themes;

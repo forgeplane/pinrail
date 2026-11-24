@@ -38,6 +38,7 @@ pub struct Pinrail {
     items: Items,
     notifications: crate::notifications::Notifications,
     attachments: Attachments,
+    session_files: crate::session_files::SessionFiles,
     bundles: Bundles,
     telemetry: Arc<Telemetry>,
     runtime: crate::runtime::Runtime,
@@ -86,6 +87,11 @@ impl Pinrail {
     /// The files sent beside reviews, stored by their hash.
     pub fn attachments(&self) -> &Attachments {
         &self.attachments
+    }
+
+    /// The files the person attaches to sessions' prompts.
+    pub fn session_files(&self) -> &crate::session_files::SessionFiles {
+        &self.session_files
     }
 
     /// Settings reads and changes share validation, persistence and notifications.
@@ -236,6 +242,10 @@ impl Pinrail {
             attachments.clone(),
             telemetry.clone(),
         );
+        let session_files = crate::session_files::SessionFiles::new(
+            crate::session_files::root(&config.data_dir),
+            db.clone(),
+        );
         let runtime = crate::runtime::Runtime::new(db, events.bus(), config.run_env.clone());
         Ok(Self {
             config,
@@ -248,6 +258,7 @@ impl Pinrail {
             items,
             notifications,
             attachments,
+            session_files,
             bundles,
             telemetry,
             runtime,
