@@ -211,6 +211,16 @@ impl Notifications {
     /// Marks read what a list showed: every notification of it whose
     /// latest event is `up_to` or older. A later event stays unread.
     pub fn read_all(&self, filters: &NotificationFilters, up_to: i64) -> Result<usize, Error> {
+        // a session's read state is the session's own, as in `change`
+        let now = Utc::now();
+        for (agent, session) in self.db.sessions_to_read_up_to(filters, up_to)? {
+            if let Some(Some((event, attrs))) =
+                self.db.set_seen(&agent, &session, Some(now), now)?
+            {
+                self.bus
+                    .publish(Notice::new(event, events::SESSION_SEEN, &attrs));
+            }
+        }
         let read = self.db.read_notifications_up_to(filters, up_to)?;
         self.announce(json!({"change": "read_all", "up_to": up_to}))?;
         Ok(read)

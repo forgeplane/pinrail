@@ -654,6 +654,30 @@ async fn marking_a_sessions_notification_read_sees_the_session() {
 }
 
 #[tokio::test]
+async fn marking_all_read_sees_the_sessions_it_marks() {
+    let app = app();
+    shown(&app).await;
+    hook(&app, "prompt", 0, json!({})).await;
+    hook(&app, "turn_ended", 10, json!({"end": "done"})).await;
+    let n = of_session(&app).unwrap();
+    let (code, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/notifications/read",
+        Some(json!({"tab": "all", "up_to": n.last_event})),
+    )
+    .await;
+    assert!(code.is_success(), "{code} {answer}");
+    let session = common::sid(&app, "claude-code", "s-1");
+    let presence = common::db(&app)
+        .presence("claude-code", &session)
+        .unwrap()
+        .unwrap();
+    assert!(presence.seen_at.is_some());
+    assert_eq!(of_session(&app).unwrap().unread, 0);
+}
+
+#[tokio::test]
 async fn an_agents_note_is_reported_with_its_first_line() {
     let app = app();
     agent(

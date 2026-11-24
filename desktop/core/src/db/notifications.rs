@@ -783,6 +783,27 @@ impl Db {
         Ok((rows, total))
     }
 
+    /// The sessions, as agent and id, whose unread notification
+    /// [`Db::read_notifications_up_to`] would mark read.
+    pub fn sessions_to_read_up_to(
+        &self,
+        filters: &NotificationFilters,
+        up_to: i64,
+    ) -> rusqlite::Result<Vec<(String, String)>> {
+        let (filter, mut args) = filters.sql();
+        args.push(up_to.to_string());
+        let conn = self.read();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT s.agent, s.id FROM notifications AS n JOIN sessions s ON s.id = n.session_id
+              WHERE {filter} AND n.unread > 0 AND n.last_event <= CAST(?{} AS INTEGER)",
+            args.len()
+        ))?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(&args), |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
+        rows.collect()
+    }
+
     /// Marks read every notification the filters keep whose latest event is
     /// `up_to` or older: what the person saw listed. Returns how many.
     pub fn read_notifications_up_to(
