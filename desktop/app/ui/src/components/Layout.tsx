@@ -20,6 +20,7 @@ import {
   Sun,
   SunMoon,
   Palette,
+  ArrowRightLeft,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -29,7 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useLocation, useNavigate } from "react-router";
 import { sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
-import { CommandPalette, type PaletteAction } from "./CommandPalette";
+import { CommandPalette, type Filter, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -92,7 +93,18 @@ export function Layout({ children }: { children: ReactNode }) {
   const [unsent, setUnsent] = useState<{ draft: FeedbackDraft; reason: string } | null>(null);
   const feedbackOpen = useLatest(feedback);
   const toast = useToast();
-  const [palette, setPalette] = useState(false);
+  // the palette, by the filter it opened on, and the presses of the
+  // Sessions key while it is open
+  const [palette, setPalette] = useState<false | Filter>(false);
+  const [paletteNext, setPaletteNext] = useState(0);
+  const paletteOpen = useLatest(palette);
+  // each opening is a new palette, also one opened from the palette itself
+  const [paletteOpenings, setPaletteOpenings] = useState(0);
+  const openPalette = (filter: Filter) => {
+    setPaletteNext(0);
+    setPaletteOpenings((n) => n + 1);
+    setPalette(filter);
+  };
   // ⌘⇧C adds a work item: in a dialog, or on the Work items page in its own
   // quick add
   const [quickAdd, setQuickAdd] = useState(false);
@@ -202,7 +214,12 @@ export function Layout({ children }: { children: ReactNode }) {
     navigate(reviewPath(list[next].id, openInRef.current));
   };
   const runs: Partial<Record<CommandId, CommandRun>> = {
-    search: () => setPalette((p) => !p),
+    search: () => (paletteOpen.current ? setPalette(false) : openPalette("all")),
+    "go-session": () => {
+      if (paletteOpen.current) setPaletteNext((n) => n + 1);
+      else if (!modalOpen()) openPalette("sessions");
+      else return false;
+    },
     "go-inbox": () => void navigate(pageLink("/")),
     "go-sessions": () => void navigate(pageLink("/sessions")),
     "go-items": () => void navigate(pageLink("/items")),
@@ -234,6 +251,7 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   const actions: PaletteAction[] = [
+    { ...fromCommand("go-session", ArrowRightLeft), run: () => openPalette("sessions") },
     fromCommand("go-inbox", Inbox),
     {
       id: "oldest",
@@ -338,7 +356,7 @@ export function Layout({ children }: { children: ReactNode }) {
           shown={shown}
           openItems={live.openItems}
           itemsInProgress={live.itemsInProgress}
-          onSearch={() => setPalette(true)}
+          onSearch={() => openPalette("all")}
           onSettings={setSettings}
           onFeedback={() => setFeedback(true)}
         />
@@ -386,7 +404,20 @@ export function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-      {palette ? <CommandPalette onClose={() => setPalette(false)} actions={actions} /> : null}
+      {palette ? (
+        <CommandPalette
+          key={paletteOpenings}
+          onClose={() => setPalette(false)}
+          actions={actions}
+          opening={palette}
+          next={paletteNext}
+          onNewSession={
+            runtimeOn
+              ? (folder) => navigate(NEW_SESSION_PATH, { state: { start: folder ? { folder } : undefined } })
+              : undefined
+          }
+        />
+      ) : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}
       {welcome ? <SetupDialog onClose={closeWelcome} /> : null}
       <SettingsDialog

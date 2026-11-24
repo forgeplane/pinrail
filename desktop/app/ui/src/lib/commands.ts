@@ -8,6 +8,7 @@ import { ALT, MOD, SHIFT, hasMod, isMac } from "./keys";
 
 export type CommandId =
   | "search"
+  | "go-session"
   | "go-inbox"
   | "go-sessions"
   | "go-items"
@@ -60,6 +61,19 @@ export const COMMANDS: Command[] = [
           [MOD, SHIFT, "K"],
         ],
     matches: (e) => withMod("k")(e) || (!isMac && withMod("k", true)(e)),
+    menu: true,
+  },
+  {
+    id: "go-session",
+    label: "Go to a session",
+    // on Linux, Ctrl+Shift+O too, since a terminal keeps Ctrl+P
+    keys: isMac
+      ? [[MOD, "P"]]
+      : [
+          [MOD, "P"],
+          [MOD, SHIFT, "O"],
+        ],
+    matches: (e) => withMod("p")(e) || (!isMac && withMod("o", true)(e)),
     menu: true,
   },
   {

@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Press ⌘P to go to a session. The command palette opens on its Sessions
+  filter, with the sessions that need you first and the current one
+  selected. With nothing typed, ⌘K also lists the sessions that need you.
 - Resume a session in another folder when its own was moved or deleted,
   with **Choose another folder…**.
 - Explain in the Terminal view why a session that Pinrail did not start

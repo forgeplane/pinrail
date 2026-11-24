@@ -67,6 +67,12 @@ To archive a session you are done with, click the archive button at the end of i
 
 To resume a stopped session in Pinrail, click **Resume** in its header. This needs **Run agents in Pinrail**, in Settings › Labs. If the session's folder was moved or deleted, Pinrail says so and offers **Choose another folder…**. The session then resumes in the folder you choose, which becomes its folder from then on.
 
+## Going to a session
+
+Press <kbd>⌘P</kbd> to open the command palette on its **Sessions** filter. It lists the sessions that need you first, with what each one waits for, then the sessions that finished a turn since you last looked and those whose agent works. The other sessions are folded under **Earlier**: press <kbd>→</kbd> on that row to show them. The palette opens with the current session selected, and each further press of <kbd>⌘P</kbd> moves down a row. Press <kbd>Enter</kbd> to open the selected session, or type to search every session, archived ones included. While the agent runtime is on, the last row starts a new session in the current session's folder. On Linux, press <kbd>Ctrl+⇧O</kbd> instead of <kbd>Ctrl+P</kbd> in a terminal, which keeps <kbd>Ctrl+P</kbd> for the shell.
+
+With nothing typed, <kbd>⌘K</kbd> also lists the sessions that need you, above the pending reviews.
+
 ## Sessions in the sidebar
 
 The sidebar lists every session that is not archived, under its repository, in the *Repositories* section. Click a repository's name to see its reviews in the inbox, and click the arrow beside it to collapse or expand it. Click a session to open its thread.
@@ -117,4 +123,5 @@ A note is information only. It does not wait in the inbox, and it is not the lat
 | <kbd>⌘↵</kbd> | Send the answers |
 | <kbd>⌘D</kbd> | Decline the questions |
 | <kbd>⌘⇧B</kbd> | Show or hide the session's details |
+| <kbd>⌘P</kbd> | Go to a session |
 | <kbd>⌘F</kbd> | Find in the thread |

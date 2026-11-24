@@ -1,19 +1,21 @@
 // Search across the app: pending reviews, decided ones, work items, the
 // stages agents started, plugins and the shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
-// Tab cycles the filter, Escape closes.
+// Tab cycles the filter, Escape closes. Cmd+P opens it on Sessions, which
+// with nothing typed lists the sessions that need the person first and
+// opens on the current one.
 
-import { GitCommitHorizontal, Search, Zap, type LucideIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, GitCommitHorizontal, Plus, Search, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { api, EVERY_ITEM_STATUS } from "../api/client";
 import type { Plugin, Review, Session, Stage, WorkItem } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
-import { generatedBeside, sessionLabel, stageBeside } from "../lib/sessions";
+import { sessionLabel, stageBeside } from "../lib/sessions";
 import { AgentIcon } from "./AgentIcon";
 import { itemPath } from "./ItemChip";
 import { ItemStatusIcon } from "./ItemStatusIcon";
-import { useLive } from "../state/live";
+import { aboutSessions, useLive, useNoticeCount } from "../state/live";
 import { useSettings } from "../state/settings";
 import { countFeature } from "../lib/usage";
 import { OutcomeBadge } from "./Badges";
@@ -21,6 +23,10 @@ import { PluginIcon } from "./PluginIcon";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 import { sessionPath } from "./Thread";
 import { composing } from "../lib/keys";
+import { command } from "../lib/commands";
+import { STATE_LABEL, stateOf } from "../lib/sidebarSessions";
+import { EARLIER_SHOWN, SECTION_LABEL, sectionOf, sections, sessionShown, waitText } from "../lib/sessionSwitcher";
+import { useLatest } from "../lib/useLatest";
 
 export type PaletteAction = {
   id: string;
@@ -30,7 +36,7 @@ export type PaletteAction = {
   run: () => void;
 };
 
-type Filter = "all" | "inbox" | "history" | "items" | "sessions" | "stages" | "plugins" | "actions";
+export type Filter = "all" | "inbox" | "history" | "items" | "sessions" | "stages" | "plugins" | "actions";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "inbox", label: "Inbox" },
@@ -42,7 +48,23 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "actions", label: "Actions" },
 ];
 
-type Item = { key: string; group: Filter; title: ReactNode; meta?: ReactNode; icon: ReactNode; run: () => void };
+type Item = {
+  key: string;
+  group: Filter;
+  /** the heading it is listed under, in place of its group's; null lists
+   *  it under the heading before it */
+  section?: string | null;
+  title: ReactNode;
+  meta?: ReactNode;
+  icon: ReactNode;
+  run: () => void;
+  /** the palette stays open when it runs */
+  keep?: boolean;
+  className?: string;
+};
+
+/** The sessions listed with nothing typed, which the palette loads once. */
+const LISTED = "200";
 
 const GROUP_TITLES: Record<Exclude<Filter, "all">, [string, string]> = {
   inbox: ["Pending reviews", "Pending reviews"],
@@ -59,13 +81,34 @@ const matches = (q: string, ...fields: (string | null | undefined)[]) =>
 
 const reviewText = (r: Review) => [r.title, r.plugin, r.requested_by, r.origin.repo, r.origin.workflow, r.origin.ref];
 
-export function CommandPalette({ onClose, actions }: { onClose: () => void; actions: PaletteAction[] }) {
+export function CommandPalette({
+  onClose,
+  actions,
+  opening = "all",
+  next = 0,
+  onNewSession,
+}: {
+  onClose: () => void;
+  actions: PaletteAction[];
+  /** the filter it opens on */
+  opening?: Filter;
+  /** counts the presses of the Sessions key while it is open: each one
+   *  shows Sessions, or moves down a row there */
+  next?: number;
+  /** opens the New session dialog, in the folder given; none leaves the row out */
+  onNewSession?: (folder?: string) => void;
+}) {
   const { pending: waiting } = useLive();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { inbox } = useSettings().settings;
   const openIn = inbox.open_in;
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(opening);
+  // whether the Sessions list shows its Earlier sessions
+  const [unfolded, setUnfolded] = useState(false);
+  // whether the Sessions list was opened on the current session yet
+  const placed = useRef(false);
   useEffect(() => countFeature("command_palette"), []);
   // the highlighted entry, the first again after each change of the search
   const [active, setActive] = useState(0);
@@ -76,12 +119,28 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   const show = (next: Filter) => {
     setFilter(next);
     setActive(0);
+    placed.current = false;
   };
   const [history, setHistory] = useState<Review[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  // the sessions listed by what they ask of the person, kept up to date
+  const [listed, setListed] = useState<Session[] | null>(null);
+  const changed = useNoticeCount(aboutSessions);
+  useEffect(() => {
+    let current = true;
+    api
+      .sessions({ limit: LISTED })
+      .then((found) => current && setListed(found.sessions))
+      .catch(() => current && setListed([]));
+    return () => {
+      current = false;
+    };
+  }, [changed]);
+  const shown = sessionShown(pathname);
+  const isShown = (s: Session) => !!shown && s.agent === shown.agent && s.id === shown.id;
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
@@ -129,7 +188,8 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   // the sessions whose name, stage or agent holds the words, from the
   // server, once something is typed
   useEffect(() => {
-    if ((filter !== "all" && filter !== "sessions") || (!q && all)) return;
+    // with nothing typed, Sessions lists the sessions loaded above
+    if ((filter !== "all" && filter !== "sessions") || !q) return;
     let current = true;
     const timer = window.setTimeout(
       () => {
@@ -169,6 +229,45 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
     const want = (g: Filter) => all || filter === g;
+    const sessionItem = (s: Session, section: string | null): Item => {
+      const wait = waitText(s);
+      const finished = !wait && sectionOf(s) === "finished";
+      return {
+        key: `session:${s.agent}/${s.id}`,
+        group: "sessions",
+        section,
+        icon: (
+          <span className={`agent-mark is-${stateOf(s)}`} aria-label={STATE_LABEL[stateOf(s)]}>
+            <AgentIcon requestedBy={s.agent} size={15} />
+          </span>
+        ),
+        title: (
+          <>
+            {sessionLabel(s)}
+            {isShown(s) ? <span className="palette-tag is-current">Current</span> : null}
+          </>
+        ),
+        meta: (
+          <>
+            {wait ? (
+              <span className="palette-wait truncate">{wait}</span>
+            ) : finished ? (
+              <span className="palette-finished">Finished</span>
+            ) : stageBeside(s) ? (
+              <span className="truncate">{stageBeside(s)}</span>
+            ) : null}
+            {s.archived_at ? <span className="palette-tag">Archived</span> : null}
+            {s.repo ? <span>{s.repo}</span> : null}
+            <span>{age(s.last_at)}</span>
+          </>
+        ),
+        run: () => navigate(sessionPath(s)),
+      };
+    };
+    // with nothing typed, All lists the sessions that need the person first
+    if (all && !q && listed) {
+      for (const s of sections(listed).needs_you.slice(0, 5)) out.push(sessionItem(s, "Sessions that need you"));
+    }
     if (want("inbox")) {
       const pending = waiting.filter((r) => matches(q, ...reviewText(r)));
       for (const r of all ? pending.slice(0, 5) : pending) {
@@ -232,25 +331,56 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
         });
       }
     }
-    if (want("sessions")) {
-      for (const s of !q && all ? [] : sessions) {
+    if (want("sessions") && !all && !q && listed) {
+      // what needs the person, what finished and what works, then the
+      // rest folded, and a new session last
+      const by = sections(listed);
+      for (const section of ["needs_you", "finished", "working"] as const)
+        for (const s of by[section]) out.push(sessionItem(s, SECTION_LABEL[section]));
+      if (by.earlier.length) {
+        const Chevron = unfolded ? ChevronDown : ChevronRight;
         out.push({
-          key: `session:${s.agent}/${s.id}`,
+          key: "earlier",
           group: "sessions",
-          icon: <AgentIcon requestedBy={s.agent} size={15} />,
-          title: sessionLabel(s),
-          meta: (
+          section: null,
+          className: "palette-fold",
+          icon: <Chevron size={15} />,
+          title: (
             <>
-              {/* the other name it goes by, which the search may have matched */}
-              {generatedBeside(s) ? <span>{generatedBeside(s)}</span> : null}
-              {stageBeside(s) ? <span className="truncate">{stageBeside(s)}</span> : null}
-              {s.repo ? <span>{s.repo}</span> : null}
-              <span>{age(s.last_at)}</span>
+              Earlier <span className="palette-fold-count">· {by.earlier.length} idle or stopped</span>
             </>
           ),
-          run: () => navigate(sessionPath(s)),
+          meta: <kbd>{unfolded ? "←" : "→"}</kbd>,
+          run: () => setUnfolded((u) => !u),
+          keep: true,
         });
+        if (unfolded) for (const s of by.earlier.slice(0, EARLIER_SHOWN)) out.push(sessionItem(s, null));
       }
+    } else if (want("sessions")) {
+      // what the search found, in the same sections
+      const found = !q && all ? [] : sessions;
+      const order = ["needs_you", "finished", "working", "earlier"] as const;
+      const sorted = [...found].sort((a, b) => order.indexOf(sectionOf(a)) - order.indexOf(sectionOf(b)));
+      for (const s of sorted) out.push(sessionItem(s, SECTION_LABEL[sectionOf(s)]));
+    }
+    if (filter === "sessions" && !q && onNewSession) {
+      const folder = listed?.find(isShown)?.folder ?? undefined;
+      out.push({
+        key: "new-session",
+        group: "sessions",
+        section: null,
+        className: "palette-new",
+        icon: <Plus size={15} />,
+        title: "New session",
+        meta: (
+          <span className="palette-keys">
+            {command("start-agent").keys![0].map((k) => (
+              <kbd key={k}>{k}</kbd>
+            ))}
+          </span>
+        ),
+        run: () => onNewSession(folder),
+      });
     }
     if (want("stages")) {
       for (const s of !q && all ? [] : stages) {
@@ -310,14 +440,53 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, workItems, sessions, stages, plugins, actions, navigate, openIn]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isShown follows `shown`
+  }, [
+    all,
+    filter,
+    q,
+    waiting,
+    history,
+    workItems,
+    sessions,
+    listed,
+    unfolded,
+    shown?.agent,
+    shown?.id,
+    onNewSession,
+    stages,
+    plugins,
+    actions,
+    navigate,
+    openIn,
+  ]);
+
+  // the Sessions list opens on the current session, once it has loaded
+  useEffect(() => {
+    if (placed.current || filter !== "sessions" || q || !listed) return;
+    placed.current = true;
+    const at = items.findIndex((item) => shown && item.key === `session:${shown.agent}/${shown.id}`);
+    setActive(Math.max(0, at));
+  }, [items, filter, q, listed, shown]);
+
+  // each press of the Sessions key shows Sessions, or moves down a row there
+  const itemsRef = useLatest(items);
+  const filterRef = useLatest(filter);
+  useEffect(() => {
+    if (!next) return;
+    if (filterRef.current !== "sessions") {
+      setFilter("sessions");
+      setActive(0);
+      placed.current = false;
+    } else setActive((i) => (itemsRef.current.length ? (i + 1) % itemsRef.current.length : 0));
+  }, [next, filterRef, itemsRef]);
 
   useEffect(() => {
     list.current?.querySelectorAll<HTMLElement>("[data-item]")[active]?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
   const pick = (item: Item) => {
-    onClose();
+    if (!item.keep) onClose();
     item.run();
   };
   const cycle = (dir: 1 | -1) => {
@@ -325,9 +494,19 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
     show(FILTERS[(at + dir + FILTERS.length) % FILTERS.length].key);
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
+    // the Sessions key goes on to the app, which counts it in `next`
+    if (command("go-session").matches?.(event.nativeEvent)) return;
     event.stopPropagation();
     if (composing(event)) return;
     switch (event.key) {
+      case "ArrowRight":
+      case "ArrowLeft":
+        // the Earlier row folds and unfolds; elsewhere the caret moves
+        if (items[active]?.key === "earlier" && (event.key === "ArrowRight") !== unfolded) {
+          event.preventDefault();
+          setUnfolded(event.key === "ArrowRight");
+        }
+        break;
       case "ArrowDown":
         event.preventDefault();
         setActive((i) => Math.min(i + 1, Math.max(0, items.length - 1)));
@@ -352,7 +531,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
   };
 
   let index = -1;
-  let lastGroup: Filter | null = null;
+  let lastHeading: string | null = null;
 
   return (
     <div className="app-dialog-backdrop palette-backdrop" onMouseDown={onClose}>
@@ -372,7 +551,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
             ref={input}
             type="text"
             value={query}
-            placeholder="Search reviews, plugins, actions…"
+            placeholder={filter === "sessions" ? "Go to a session…" : "Search reviews, plugins, actions…"}
             aria-label="Search"
             autoComplete="off"
             spellCheck={false}
@@ -401,9 +580,12 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
           {items.map((item) => {
             index += 1;
             const here = index;
-            const header =
-              item.group !== lastGroup ? GROUP_TITLES[item.group as Exclude<Filter, "all">][all ? 0 : 1] : null;
-            lastGroup = item.group;
+            const heading =
+              item.section === null
+                ? lastHeading
+                : (item.section ?? GROUP_TITLES[item.group as Exclude<Filter, "all">][all ? 0 : 1]);
+            const header = heading !== lastHeading ? heading : null;
+            lastHeading = heading;
             return (
               <div key={item.key}>
                 {header ? <div className="palette-group">{header}</div> : null}
@@ -411,7 +593,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
                   data-item
                   role="option"
                   aria-selected={here === active}
-                  className={`palette-item ${here === active ? "is-active" : ""}`}
+                  className={`palette-item ${item.className ?? ""} ${here === active ? "is-active" : ""}`}
                   onMouseEnter={() => setActive(here)}
                   onClick={() => pick(item)}
                 >
@@ -431,6 +613,14 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
           <span>
             <kbd>↵</kbd> Open
           </span>
+          {filter === "sessions" ? (
+            <span>
+              {command("go-session").keys![0].map((k) => (
+                <kbd key={k}>{k}</kbd>
+              ))}{" "}
+              Next
+            </span>
+          ) : null}
           <span>
             <kbd>Tab</kbd> Change filter
           </span>

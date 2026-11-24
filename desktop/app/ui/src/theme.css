@@ -1664,6 +1664,51 @@ body.is-resizing iframe {
   align-items: center;
   gap: 3px;
 }
+/* the Sessions list: what a session waits for, a finished turn, the
+   current session, the folded Earlier row and the New session row */
+.palette-item {
+  --mark-ring: var(--bg-panel);
+}
+.palette-item.is-active {
+  --mark-ring: var(--accent-bg);
+}
+.palette-wait {
+  color: var(--attention-warn);
+  max-width: 260px;
+}
+.palette-finished {
+  color: var(--attention-done);
+}
+.palette-tag {
+  margin-left: 8px;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  line-height: 16px;
+  color: var(--faint);
+  vertical-align: 1px;
+}
+.palette-tag.is-current {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.palette-item.palette-fold {
+  margin-top: 6px;
+  color: var(--dim);
+  box-shadow: 0 -1px 0 var(--border);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.palette-item.palette-fold.is-active {
+  border-radius: var(--radius-md);
+}
+.palette-fold-count {
+  color: var(--faint);
+}
+.palette-item.palette-new {
+  margin-top: 4px;
+  color: var(--dim);
+}
 .palette-empty {
   margin: 0;
   padding: 28px 8px;

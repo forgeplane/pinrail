@@ -808,6 +808,7 @@ pub fn run() {
             if matches!(
                 id,
                 "search"
+                    | "go-session"
                     | "settings"
                     | "add-item"
                     | "go-inbox"
@@ -923,6 +924,13 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
+            &MenuItem::with_id(
+                app,
+                "go-session",
+                "Go to Session…",
+                true,
+                Some("CmdOrCtrl+P"),
+            )?,
             &MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
             &MenuItem::with_id(
                 app,

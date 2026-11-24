@@ -116,11 +116,9 @@ test("⌘K finds a session by its name, with the stage it is on", async ({ page 
   await page.goto("/#/");
   await page.keyboard.press("ControlOrMeta+k");
   await page.getByRole("dialog", { name: "Search" }).getByRole("textbox").fill(name);
-  // names are not unique, so other sessions of the core may share this one
-  const found = page
-    .getByRole("option")
-    .filter({ hasText: name })
-    .filter({ hasText: `Tidy the palette ${session}` });
+  // names are not unique, so other sessions of the core may share this
+  // one: the stage tells this one apart
+  const found = page.getByRole("option").filter({ hasText: `Tidy the palette ${session}` });
   await expect(found).toHaveCount(1);
   await found.click();
   await expect(page).toHaveURL(
