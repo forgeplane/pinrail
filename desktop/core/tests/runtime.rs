@@ -181,8 +181,22 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     // the agent's own id is the one Pinrail chose for it
     let own = run.agent_session.clone().unwrap();
 
+    // and may read the files attached to sessions
+    let rule = format!(
+        "Read(/{}/**)",
+        setup
+            .app
+            .config()
+            .data_dir
+            .join("sessions")
+            .to_string_lossy()
+    );
+    let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
     let argv = file(folder.join("argv")).await;
-    assert_eq!(argv, format!("--session-id\n{own}\n--\nfix the login\n"));
+    assert_eq!(
+        argv,
+        format!("--settings\n{settings}\n--session-id\n{own}\n--\nfix the login\n")
+    );
     // the core keeps only the token's digest
     let token = file(folder.join("token")).await;
     let db = setup.db();

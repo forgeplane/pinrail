@@ -222,6 +222,7 @@ impl super::Runtime {
                 RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
             })?;
 
+        let argv = self.with_session_files(agent, plan.argv);
         let id = crate::id::next_run();
         let token = new_token();
         let checkout = checkout_of(&start.folder).await;
@@ -235,7 +236,7 @@ impl super::Runtime {
                 agent: &start.agent,
                 kind: "start",
                 folder: &start.folder,
-                argv: &plan.argv,
+                argv: &argv,
                 task: start.task.as_deref(),
                 args: &start.args,
                 created_by: &start.created_by,
@@ -246,8 +247,18 @@ impl super::Runtime {
             },
             Utc::now(),
         )?;
-        self.spawn(&link, run, &plan.argv, start.cols, start.rows, token)
+        self.spawn(&link, run, &argv, start.cols, start.rows, token)
             .await
+    }
+
+    /// A command with the arguments that let the agent read the files
+    /// attached to sessions, for an agent that needs them.
+    fn with_session_files(
+        &self,
+        agent: &dyn pinrail_runtime::Agent,
+        argv: Vec<String>,
+    ) -> Vec<String> {
+        pinrail_runtime::with_read_folder(agent, argv, &self.session_files.to_string_lossy())
     }
 
     /// Resumes a stopped session in a new terminal, in the folder it
@@ -279,6 +290,7 @@ impl super::Runtime {
             )
         })?;
         let argv = agent.resume(&agent_session).ok_or_else(cannot)?;
+        let argv = self.with_session_files(agent, argv);
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let token = new_token();
         let run = {

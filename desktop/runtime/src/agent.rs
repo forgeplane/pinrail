@@ -123,6 +123,23 @@ pub trait Agent: Send + Sync {
     fn deny_flags(&self) -> &'static [&'static str] {
         &[]
     }
+
+    /// The arguments that let the agent read the files in `folder`, outside
+    /// the folder it works in, without asking, such as the files the person
+    /// attaches to sessions. None for an agent that reads them already.
+    fn read_folder_args(&self, _folder: &str) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+/// A command with the arguments that let the agent read `folder`, right
+/// after the program's name.
+pub fn with_read_folder(agent: &dyn Agent, mut argv: Vec<String>, folder: &str) -> Vec<String> {
+    let args = agent.read_folder_args(folder);
+    if !args.is_empty() && !argv.is_empty() {
+        argv.splice(1..1, args);
+    }
+    argv
 }
 
 /// A new session Pinrail is asked to start.
@@ -277,4 +294,37 @@ pub fn runs_as(id: &str, process: &crate::process::Process) -> bool {
 /// The registry entry of an adapter's agent.
 pub(crate) fn spec(id: &str) -> &'static AgentSpec {
     crate::registry::find(id).expect("an adapter's agent is in the registry")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(words: &[&str]) -> Vec<String> {
+        words.iter().map(|w| w.to_string()).collect()
+    }
+
+    #[test]
+    fn claude_code_may_read_the_folder_by_a_rule_after_the_program_name() {
+        let claude = adapter("claude-code").unwrap();
+        let rule = r#"{"permissions":{"allow":["Read(//data/sessions/**)"]}}"#;
+        assert_eq!(
+            with_read_folder(
+                claude,
+                argv(&["claude", "--resume", "s-1"]),
+                "/data/sessions"
+            ),
+            argv(&["claude", "--settings", rule, "--resume", "s-1"])
+        );
+    }
+
+    #[test]
+    fn an_agent_that_reads_anywhere_gets_no_flag() {
+        let codex = adapter("codex").unwrap();
+        let command = argv(&["codex", "resume", "s-1"]);
+        assert_eq!(
+            with_read_folder(codex, command.clone(), "/data/sessions"),
+            command
+        );
+    }
 }

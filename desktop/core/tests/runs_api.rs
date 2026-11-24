@@ -359,8 +359,10 @@ async fn a_claude_code_start_has_pinrails_session_id_and_the_one_it_chose() {
     assert_eq!(status, StatusCode::CREATED, "{started}");
     let session = started["session"]["id"].as_str().unwrap();
     assert!(session.starts_with("ses_"), "{started}");
-    // the agent's own id is the one Pinrail passed it
+    // the agent's own id is the one Pinrail passed it, and it may read the
+    // files attached to sessions
     let argv = argv(&folder).await;
+    assert!(argv.starts_with(&files_flag(&app)), "{argv}");
     let chosen = argv
         .lines()
         .skip_while(|a| *a != "--session-id")
@@ -939,6 +941,19 @@ async fn resume(app: &App, agent: &str, session: &str) -> (StatusCode, Value) {
     .await
 }
 
+/// The rule that lets Claude Code read the files attached to sessions, as
+/// the stand-in agent writes it in its argv.
+fn files_flag(app: &App) -> String {
+    let rule = format!(
+        "Read(/{}/**)",
+        app.dir.path().join("sessions").to_string_lossy()
+    );
+    format!(
+        "--settings\n{}\n",
+        serde_json::json!({ "permissions": { "allow": [rule] } })
+    )
+}
+
 async fn argv(folder: &str) -> String {
     let path = std::path::Path::new(folder).join("argv");
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -967,7 +982,10 @@ async fn the_person_resumes_a_stopped_session_in_its_folder() {
     assert_eq!(run["session"]["id"], session.as_str());
     // the agent resumes it by its own id
     let own = run["session"]["agent_session"].as_str().unwrap();
-    assert_eq!(argv(&folder).await, format!("--resume\n{own}\n"));
+    assert_eq!(
+        argv(&folder).await,
+        format!("{}--resume\n{own}\n", files_flag(&app))
+    );
 
     // a running session is not resumed twice
     let (status, again) = resume(&app, "claude-code", &session).await;
@@ -1129,7 +1147,10 @@ async fn a_session_running_in_another_terminal_is_resumed_when_asked_to_anyway()
     let (status, resumed) = resume_anyway(&app, "claude-code", &outside).await;
     assert_eq!(status, StatusCode::CREATED, "{resumed}");
     assert_eq!(resumed["run"]["kind"], "resume");
-    assert_eq!(argv(&folder).await, "--resume\nc-outside\n");
+    assert_eq!(
+        argv(&folder).await,
+        format!("{}--resume\nc-outside\n", files_flag(&app))
+    );
 
     // a session Pinrail runs is never resumed twice, anyway or not
     let (status, again) = resume_anyway(&app, "claude-code", &outside).await;
@@ -1577,7 +1598,10 @@ async fn a_session_whose_folder_moved_is_resumed_in_the_folder_the_person_choose
     assert_eq!(status, StatusCode::CREATED, "{resumed}");
     assert_eq!(resumed["run"]["folder"], moved.as_str());
     let own = resumed["run"]["session"]["agent_session"].as_str().unwrap();
-    assert_eq!(argv(&moved).await, format!("--resume\n{own}\n"));
+    assert_eq!(
+        argv(&moved).await,
+        format!("{}--resume\n{own}\n", files_flag(&app))
+    );
 
     // the session is in its new folder from now on
     let (_, shown) = call(

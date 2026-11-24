@@ -246,7 +246,12 @@ impl Pinrail {
             crate::session_files::root(&config.data_dir),
             db.clone(),
         );
-        let runtime = crate::runtime::Runtime::new(db, events.bus(), config.run_env.clone());
+        let runtime = crate::runtime::Runtime::new(
+            db,
+            events.bus(),
+            config.run_env.clone(),
+            crate::session_files::root(&config.data_dir),
+        );
         Ok(Self {
             config,
             events,

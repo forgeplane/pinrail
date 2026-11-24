@@ -35,6 +35,10 @@ pub struct Runtime {
     /// Variables added to every run's environment, from the config.
     #[cfg_attr(not(unix), allow(dead_code))]
     run_env: BTreeMap<String, String>,
+    /// The folder of the files attached to sessions, which every run may
+    /// read.
+    #[cfg_attr(not(unix), allow(dead_code))]
+    session_files: std::path::PathBuf,
     #[cfg(unix)]
     spawns: Mutex<runs::Spawns>,
     #[cfg(unix)]
@@ -53,12 +57,18 @@ impl std::fmt::Debug for Runtime {
 }
 
 impl Runtime {
-    pub(crate) fn new(db: Arc<Db>, bus: Bus, run_env: BTreeMap<String, String>) -> Self {
+    pub(crate) fn new(
+        db: Arc<Db>,
+        bus: Bus,
+        run_env: BTreeMap<String, String>,
+        session_files: std::path::PathBuf,
+    ) -> Self {
         Runtime {
             link: Mutex::new(None),
             db,
             bus,
             run_env,
+            session_files,
             #[cfg(unix)]
             spawns: Mutex::default(),
             #[cfg(unix)]

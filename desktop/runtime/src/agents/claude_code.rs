@@ -181,6 +181,16 @@ impl Agent for ClaudeCode {
         Some(PASTE_AND_ENTER)
     }
 
+    /// A rule that allows reading the folder, given with `--settings`.
+    /// `--add-dir` would ask the person to trust the folder in every
+    /// session, and would let Claude Code edit and run files there too.
+    fn read_folder_args(&self, folder: &str) -> Vec<String> {
+        // an absolute path in a rule starts with `//`
+        let rule = format!("Read(/{}/**)", folder.trim_end_matches('/'));
+        let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
+        vec!["--settings".to_string(), settings.to_string()]
+    }
+
     fn deny_flags(&self) -> &'static [&'static str] {
         &[
             "--dangerously-skip-permissions",
