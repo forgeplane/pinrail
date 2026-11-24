@@ -5,7 +5,8 @@ import { useState } from "react";
 import { useLocation } from "react-router";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { Session } from "../api/types";
+import type { Run } from "../api/runtime";
+import type { ServerSettings, Session } from "../api/types";
 import { core } from "../testing/core";
 import { session } from "../testing/items";
 import { useToasts } from "../state/toasts";
@@ -18,7 +19,14 @@ vi.mock("../lib/clipboard", () => ({
   copyText: async (text: string) => void clipboard.copied.push(text),
 }));
 
+const app = vi.hoisted(() => ({ runs: [] as Run[] }));
+vi.mock("../api/runtime", async (real) => {
+  const actual = await real<typeof import("../api/runtime")>();
+  return { ...actual, runtime: { ...actual.runtime, runs: async () => ({ runs: app.runs }) } };
+});
+
 afterEach(() => {
+  app.runs = [];
   cleanup();
   core.reset();
   clipboard.copied = [];
@@ -124,5 +132,41 @@ describe("copying the session id", () => {
     await expect.element(copy).toBeDisabled();
     await expect.element(copy).toMatchTextContent("Not known yet");
     expect(clipboard.copied).toEqual([]);
+  });
+});
+
+describe("with the agent runtime on", () => {
+  /** A run of Claude Code, live, in session `id`. */
+  const live = (id: string): Run => ({
+    id: "run_1",
+    host: "local",
+    agent: "claude-code",
+    state: "running",
+    terminal: "local:t1",
+    folder: "/work/app",
+    started_at: "2026-11-19T09:00:00Z",
+    ended_at: null,
+    end_reason: null,
+    exit_code: null,
+    exit_signal: null,
+    session: { agent: "claude-code", id, agent_session: null },
+  });
+
+  test("a run that went on in another session, as after /clear, is not this session's to stop", async () => {
+    core.answer("settings", {
+      appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
+      sidebar: { open: true },
+      notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
+      shortcut: { global: "", global_opens: "oldest" },
+      port: 4747,
+      labs: { runtime: true },
+    } as unknown as ServerSettings);
+    app.runs = [live("s-2")];
+    await menu("/", {
+      resume: { resume: true, while_running: false },
+      presence: { state: "stopped" },
+    } as Partial<Session>);
+    await expect.element(page.getByRole("menuitem", { name: "Resume Claude Code" })).toBeVisible();
+    await expect.element(page.getByRole("menuitem", { name: "Stop Claude Code" })).not.toBeInTheDocument();
   });
 });

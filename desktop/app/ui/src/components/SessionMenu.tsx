@@ -58,8 +58,10 @@ export function SessionMenu({
       current = false;
     };
   }, [runsOn, session.agent, session.id]);
-  const live = runs?.find((r) => r.state !== "ended" && r.terminal) ?? null;
-  const resumable = !!runs && !live && canResume(session, runs);
+  // a run moved to another session, as on /clear, still lists this one
+  const here = runs?.filter((r) => r.session?.agent === session.agent && r.session.id === session.id) ?? null;
+  const live = here?.find((r) => r.state !== "ended" && r.terminal) ?? null;
+  const resumable = !!here && !live && canResume(session, here);
 
   // Stop asks first while the agent works on a turn
   const [asking, setAsking] = useState<Run | null>(null);
