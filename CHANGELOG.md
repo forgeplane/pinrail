@@ -33,6 +33,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Paste screenshots and copied files into a terminal with ⌘V. Files copied
   in Finder paste their paths, and an image goes to the agent as if you
   pressed Ctrl+V.
+- Drop files on a terminal to paste their paths.
 - Mark read updates in the inbox as done when you return to the inbox, or
   after a day, with **Mark read updates as done** in Settings › General.
 - Add a Notifications section to Settings. It holds the system notification

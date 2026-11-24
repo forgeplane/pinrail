@@ -5,7 +5,7 @@
 // three is detached and its view disposed; showing it again reattaches it
 // with a snapshot.
 
-import { pasteInto } from "./clipboardPaste";
+import { allowFileDrop, dropInto, pasteInto } from "./clipboardPaste";
 import { TerminalStream, type ExitInfo, type Role, type SocketLike, type StreamState } from "./stream";
 import { currentTheme } from "../../lib/theme";
 import type { TerminalRenderer, TerminalTheme, TerminalView, ViewOptions } from "./view";
@@ -109,6 +109,9 @@ export class PooledTerminal {
     this.element.addEventListener("pointerdown", take);
     // files and images on the clipboard, before the renderer sees the paste
     this.element.addEventListener("paste", (event) => pasteInto(this.view, event), { capture: true });
+    // files dropped on it, by their paths
+    this.element.addEventListener("dragover", allowFileDrop);
+    this.element.addEventListener("drop", (event) => dropInto(this.view, event));
     this.stream.start();
   }
 

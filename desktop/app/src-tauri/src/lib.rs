@@ -62,6 +62,21 @@ fn clipboard_files() -> Vec<String> {
     Vec::new()
 }
 
+/// The paths of the files of the last drag, which a terminal pastes when
+/// they are dropped on it: none when it carried no files.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn dragged_files() -> Vec<String> {
+    clipboard_mac::dragged_files()
+}
+
+/// Elsewhere, none: a terminal reads a drop's URI list.
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn dragged_files() -> Vec<String> {
+    Vec::new()
+}
+
 #[tauri::command]
 fn server_url(server: State<'_, ServerUrl>) -> ServerUrl {
     server.inner().clone()
@@ -889,6 +904,7 @@ pub fn run() {
             restart_to_update,
             window_buttons,
             clipboard_files,
+            dragged_files,
             quit::quit
         ])
         .build(tauri::generate_context!())
