@@ -616,14 +616,18 @@ impl Db {
     }
 
     /// Deletes the sessions known only from their hooks that reported
-    /// nothing since `before`, with all that hangs off them. Returns how
-    /// many went.
+    /// nothing since `before`, with all that hangs off them, unless they
+    /// hold a work item's claim. Returns how many went.
     pub fn delete_hidden_sessions(&self, before: DateTime<Utc>) -> rusqlite::Result<usize> {
         self.conn().execute(
             "DELETE FROM sessions WHERE hidden = 1 AND COALESCE(
                (SELECT p.updated_at FROM session_presence p
                 WHERE p.agent = sessions.agent AND p.session = sessions.id),
-               last_at) < ?1",
+               last_at) < ?1
+               -- its agent may come back to the item, as one the upgrade
+               -- from 0.6.0 hid does
+               AND NOT EXISTS (SELECT 1 FROM work_items w
+                                WHERE w.claim_agent = sessions.agent AND w.claim_session = sessions.id)",
             params![activity(before)],
         )
     }

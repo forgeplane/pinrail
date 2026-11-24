@@ -12,6 +12,11 @@ use serde_json::Value;
 
 /// A core on a copy of the database 0.6.0 wrote.
 fn from_0_6_0() -> (tempfile::TempDir, common::App) {
+    from_0_6_0_with("")
+}
+
+/// A core on a copy of the database 0.6.0 wrote, changed by `sql` first.
+fn from_0_6_0_with(sql: &str) -> (tempfile::TempDir, common::App) {
     let dir = tempfile::tempdir().unwrap();
     std::fs::copy(
         concat!(
@@ -21,6 +26,10 @@ fn from_0_6_0() -> (tempfile::TempDir, common::App) {
         dir.path().join("pinrail.db"),
     )
     .unwrap();
+    if !sql.is_empty() {
+        let conn = rusqlite::Connection::open(dir.path().join("pinrail.db")).unwrap();
+        conn.execute_batch(sql).unwrap();
+    }
     let mut config = Config::new(dir.path(), 0);
     config.telemetry_env = false;
     let state = Arc::new(Pinrail::open(config).unwrap());
@@ -193,4 +202,28 @@ async fn the_sessions_of_an_earlier_release_are_named_when_it_opens() {
             assert_eq!(session["title"], "Add rate limiting");
         }
     }
+}
+
+#[tokio::test]
+async fn a_claim_of_a_session_known_only_from_its_items_outlives_the_hidden_session_sweep() {
+    // an agent's session that only worked on an item, claimed long ago
+    let (dir, app) = from_0_6_0_with(
+        "UPDATE work_items SET status = 'in_progress', claim_agent = 'claude-code',
+           claim_session = 's-item', updated_at = '2026-11-01T00:00:00Z'
+         WHERE number = 1",
+    );
+    let conn = rusqlite::Connection::open(dir.path().join("pinrail.db")).unwrap();
+    let held = || -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM work_items w JOIN sessions s ON s.id = w.claim_session
+              WHERE w.number = 1 AND s.agent_session = 's-item'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    assert_eq!(held(), 1, "the upgrade names the claim's session");
+    let later = chrono::Utc::now() + chrono::Duration::seconds(1);
+    common::db(&app).delete_hidden_sessions(later).unwrap();
+    assert_eq!(held(), 1, "the claim names a session that is gone");
 }
