@@ -3,7 +3,7 @@
 // text, and sent as its path at the end of the message.
 
 import { FileText, Image, LoaderCircle, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
+import { useCallback, useEffect, useState, type ClipboardEvent, type DragEvent } from "react";
 import { api, errorMessage } from "../../api/client";
 import { readStored, writeStored } from "../../lib/storage";
 import { quotePath } from "../../lib/shell";
@@ -46,7 +46,6 @@ export function useMessageFiles(session: { agent: string; id: string }, onError:
   const [state, setState] = useState(() => ({ key, files: stored() }));
   if (state.key !== key) setState({ key, files: stored() });
   const files = state.key === key ? state.files : [];
-  const next = useRef(0);
 
   // what is saved is kept, without the pictures, which do not outlive the window
   useEffect(() => {
@@ -64,7 +63,8 @@ export function useMessageFiles(session: { agent: string; id: string }, onError:
     (list: File[]) => {
       for (const file of list) {
         const added: MessageFile = {
-          key: `f${next.current++}`,
+          // unique across visits, as the kept files keep their keys
+          key: crypto.randomUUID(),
           name: file.name || "file",
           type: file.type,
           path: null,

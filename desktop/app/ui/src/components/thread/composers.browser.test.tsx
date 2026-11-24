@@ -85,3 +85,24 @@ test("files alone can be sent, and a file still saving holds the send", async ()
   await expect.poll(() => core.calls("sendMessage").length).toBe(1);
   expect(core.calls("sendMessage")[0][2]).toBe("/data/sessions/claude-code/ses_1/files/build.log");
 });
+
+test("a file attached after the box is opened again joins the files kept from before", async () => {
+  await open();
+  const picker = () => document.querySelector<HTMLInputElement>('.thread-composer input[type="file"]')!;
+  await userEvent.upload(picker(), new File(["a"], "first.md", { type: "text/markdown" }));
+  await expect.poll(() => sessionStorage.length).toBe(1);
+
+  // leaving the session and coming back
+  cleanup();
+  await open();
+  await expect.element(chip("first.md")).toBeVisible();
+  await userEvent.upload(picker(), new File(["b"], "second.md", { type: "text/markdown" }));
+  await expect.element(chip("second.md")).toBeVisible();
+  await expect.element(chip("first.md")).toBeVisible();
+
+  await page.getByTestId("send-message").click();
+  await expect.poll(() => core.calls("sendMessage").length).toBe(1);
+  expect(core.calls("sendMessage")[0][2]).toBe(
+    "/data/sessions/claude-code/ses_1/files/first.md\n/data/sessions/claude-code/ses_1/files/second.md",
+  );
+});
