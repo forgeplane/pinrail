@@ -12,6 +12,7 @@ mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod groups;
 mod hook;
 mod items;
 mod md;
