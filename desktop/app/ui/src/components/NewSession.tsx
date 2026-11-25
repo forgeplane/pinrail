@@ -18,10 +18,12 @@ import { useLocation, useNavigate } from "react-router";
 import { ApiError, inTauri } from "../api/client";
 import { defaultAgent, runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
+import { useSettings } from "../state/settings";
 import { combo, hasMod, MOD, modalOpen } from "../lib/keys";
 import { TIPS, tipParts } from "../lib/tips";
 import { useWindowKey } from "../lib/useWindowKey";
 import { AgentIcon } from "./AgentIcon";
+import { Tooltip } from "./Tooltip";
 import { useItemPicker } from "./ItemPicker";
 import { PopoverMenu, type MenuEntry } from "./PopoverMenu";
 import { startRun } from "./session/startRun";
@@ -77,6 +79,8 @@ export function NewSession() {
   const [task, setTask] = useState(initial.task ?? "");
   const [args, setArgs] = useState(initial.args ? writeArgs(initial.args) : "");
   const [showArgs, setShowArgs] = useState(!!initial.args?.length);
+  // the arguments the person gave each agent for every start
+  const { settings } = useSettings();
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [agentMenu, setAgentMenu] = useState<HTMLElement | null>(null);
@@ -122,6 +126,7 @@ export function NewSession() {
   // installed agents first, then up to two that are not
   const shown = [...agents.filter((a) => a.installed), ...agents.filter((a) => !a.installed).slice(0, 2)];
   const chosen = agents.find((a) => a.id === agent);
+  const chosenArgs = chosen ? settings.agents.args[chosen.id] : undefined;
   const known = folders.find((f) => f.folder === folder);
   const folderGone = !!known && !known.exists;
   // # lists the work items, the folder's repository's first
@@ -211,21 +216,24 @@ export function NewSession() {
           ?
         </h1>
         <div className="new-session-pickers">
-          <button
-            type="button"
-            className="new-session-picker"
-            aria-label={`Agent: ${chosen?.name ?? "none"}`}
-            aria-haspopup="menu"
-            onClick={(event) => {
-              const button = event.currentTarget;
-              setAgentMenu((open) => (open ? null : button));
-            }}
-          >
-            {chosen ? <AgentIcon requestedBy={chosen.id} size={14} /> : null}
-            <span>{chosen?.name ?? (agents.length ? "Choose an agent" : "Looking for agents…")}</span>
-            {chosen?.version ? <span className="faint">{chosen.version}</span> : null}
-            <ChevronDown size={13} aria-hidden="true" />
-          </button>
+          {/* the arguments the agent starts with, from its settings */}
+          <WithArgs args={chosenArgs}>
+            <button
+              type="button"
+              className="new-session-picker"
+              aria-label={`Agent: ${chosen?.name ?? "none"}`}
+              aria-haspopup="menu"
+              onClick={(event) => {
+                const button = event.currentTarget;
+                setAgentMenu((open) => (open ? null : button));
+              }}
+            >
+              {chosen ? <AgentIcon requestedBy={chosen.id} size={14} /> : null}
+              <span>{chosen?.name ?? (agents.length ? "Choose an agent" : "Looking for agents…")}</span>
+              {chosen?.version ? <span className="faint">{chosen.version}</span> : null}
+              <ChevronDown size={13} aria-hidden="true" />
+            </button>
+          </WithArgs>
           <FolderPicker
             folder={folder}
             folders={folders}
@@ -514,4 +522,10 @@ function FolderPicker({
       ) : null}
     </div>
   );
+}
+
+/** The agent picker, with a tooltip of the arguments the agent starts with
+ *  when the person gave it some in Settings › Agents. */
+function WithArgs({ args, children }: { args?: string; children: React.ReactElement<Record<string, unknown>> }) {
+  return args ? <Tooltip label={`Starts with ${args}, from Settings › Agents`}>{children}</Tooltip> : children;
 }

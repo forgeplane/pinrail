@@ -128,8 +128,9 @@ export type Settings = {
   history: { keep_days: number | null };
   /** look for a new version at start and every few hours */
   updates: { check: boolean };
-  /** update the connected agents' skills when the app starts */
-  agents: { auto_update: boolean };
+  /** update the connected agents when the app starts, and the arguments
+   *  each agent gets on every start, as a line */
+  agents: { auto_update: boolean; args: Record<string, string> };
   /** the welcome screen was closed; until then the app opens on it */
   welcome: { seen: boolean };
   /** the release whose notes were last shown, or null if none has been */
@@ -175,7 +176,8 @@ type Patch = {
   port?: number;
   history?: Partial<Settings["history"]>;
   updates?: Partial<Settings["updates"]>;
-  agents?: Partial<Settings["agents"]>;
+  /** an agent's arguments set to null are cleared */
+  agents?: { auto_update?: boolean; args?: Record<string, string | null> };
   welcome?: Partial<Settings["welcome"]>;
   whats_new?: Partial<Settings["whats_new"]>;
   telemetry?: Partial<Settings["telemetry"]>;
@@ -283,7 +285,7 @@ export const fromServer = (s: ServerSettings): Served => ({
   port: s.port,
   history: { keep_days: s.history?.keep_days ?? null },
   updates: { check: s.updates?.check ?? true },
-  agents: { auto_update: s.agents?.auto_update ?? true },
+  agents: { auto_update: s.agents?.auto_update ?? true, args: s.agents?.args ?? {} },
   welcome: { seen: s.welcome?.seen ?? false },
   whats_new: { seen: s.whats_new?.seen ?? null },
   telemetry: {
@@ -322,6 +324,16 @@ const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"])
   return out;
 };
 
+const mergeArgs = (current: Record<string, string>, patch?: Record<string, string | null>): Record<string, string> => {
+  if (!patch) return current;
+  const out = { ...current };
+  for (const [id, line] of Object.entries(patch)) {
+    if (line) out[id] = line;
+    else delete out[id];
+  }
+  return out;
+};
+
 /** The settings with a patch applied: each section merged key by key, a
  *  plugin's settings per plugin, and a link set to null removed. */
 export function mergeSettings(base: Served, patch: Patch): Served {
@@ -347,7 +359,10 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     port: patch.port ?? base.port,
     history: { ...base.history, ...patch.history },
     updates: { ...base.updates, ...patch.updates },
-    agents: { ...base.agents, ...patch.agents },
+    agents: {
+      auto_update: patch.agents?.auto_update ?? base.agents.auto_update,
+      args: mergeArgs(base.agents.args, patch.agents?.args),
+    },
     welcome: { ...base.welcome, ...patch.welcome },
     whats_new: { ...base.whats_new, ...patch.whats_new },
     telemetry: { ...base.telemetry, ...patch.telemetry },
@@ -428,7 +443,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     port: 4747,
     history: { keep_days: null },
     updates: { check: true },
-    agents: { auto_update: true },
+    agents: { auto_update: true, args: {} },
     welcome: { seen: false },
     whats_new: { seen: null },
     telemetry: { usage: true, crashes: true, notice_shown: null },

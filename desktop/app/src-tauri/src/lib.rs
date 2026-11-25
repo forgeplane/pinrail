@@ -278,7 +278,11 @@ async fn agents_status(
 ) -> Result<Vec<agent_skills::AgentStatus>, String> {
     let state = native.state.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        Ok(agent_skills::status(&home()?, &current_skill(&state)))
+        Ok(agent_skills::status_with(
+            &home()?,
+            &current_skill(&state),
+            &|id| state.settings().agent_args(id),
+        ))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -364,7 +368,9 @@ async fn connect_agent(
         let home = home()?;
         let skill = current_skill(&state);
         agent_skills::connect(&home, &id, &skill)?;
-        Ok(agent_skills::status(&home, &skill))
+        Ok(agent_skills::status_with(&home, &skill, &|id| {
+            state.settings().agent_args(id)
+        }))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -381,7 +387,11 @@ async fn disconnect_agent(
     tauri::async_runtime::spawn_blocking(move || {
         let home = home()?;
         agent_skills::disconnect(&home, &id)?;
-        Ok(agent_skills::status(&home, &current_skill(&state)))
+        Ok(agent_skills::status_with(
+            &home,
+            &current_skill(&state),
+            &|id| state.settings().agent_args(id),
+        ))
     })
     .await
     .map_err(|e| e.to_string())?

@@ -176,6 +176,13 @@ pub struct AgentStatus {
     /// What connecting installs for the agent's status, for an agent
     /// Pinrail can report the status of
     pub integration: Option<Integration>,
+    /// Pinrail can start the agent, so the person's arguments for it apply
+    pub starts: bool,
+    /// the flag of the person's arguments that turns the agent's permission
+    /// checks off, if one does
+    pub skips_checks: Option<String>,
+    /// an example of arguments for the agent, from its `--help`
+    pub args_example: Option<&'static str>,
 }
 
 /// What connecting installs for one agent's status: hooks, an extension
@@ -254,6 +261,16 @@ fn env(key: &str) -> Option<String> {
 
 /// Every agent the app knows, found or not.
 pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
+    status_with(home, skill, &|_| Vec::new())
+}
+
+/// Every agent the app knows, with what the person's arguments for each,
+/// as `args` gives them, say about its permission checks.
+pub fn status_with(
+    home: &Path,
+    skill: &Skill,
+    args: &dyn Fn(&str) -> Vec<String>,
+) -> Vec<AgentStatus> {
     agents()
         .map(|agent| {
             let spec = agent.spec();
@@ -279,6 +296,10 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
                     file: plan.file.display().to_string(),
                     state: pinrail_runtime::integration::file_state(&plan).as_str(),
                 }),
+                starts: pinrail_runtime::adapter(spec.id).is_some(),
+                skips_checks: pinrail_runtime::skips_checks(agent, &args(spec.id))
+                    .map(str::to_string),
+                args_example: agent.args_example(),
             }
         })
         .collect()
@@ -708,5 +729,28 @@ mod tests {
             (cursor.state, cursor.skill_state),
             (State::Connected, State::Theirs)
         );
+    }
+
+    #[test]
+    fn an_agent_says_when_the_persons_arguments_turn_its_checks_off() {
+        let home = home_with(&[".claude", ".config/goose"]);
+        let args = |id: &str| match id {
+            "claude-code" => vec![
+                "--model".to_string(),
+                "--dangerously-skip-permissions".to_string(),
+            ],
+            _ => Vec::new(),
+        };
+        let all = status_with(home.path(), &none(), &args);
+        let claude = all.iter().find(|a| a.id == "claude-code").unwrap();
+        assert!(claude.starts);
+        assert_eq!(
+            claude.skips_checks.as_deref(),
+            Some("--dangerously-skip-permissions")
+        );
+        // Pinrail does not start Goose, so arguments do not apply to it
+        let goose = all.iter().find(|a| a.id == "goose").unwrap();
+        assert!(!goose.starts);
+        assert_eq!(goose.skips_checks, None);
     }
 }

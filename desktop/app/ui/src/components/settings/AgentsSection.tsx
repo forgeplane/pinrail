@@ -2,9 +2,9 @@
 // computer. The skill says how to submit through
 // Pinrail; the prompt or skill that sends an agent to it says when.
 
-import { Check, ChevronRight, Copy, Plug } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Plug, TriangleAlert } from "lucide-react";
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from "react";
-import { inTauri } from "../../api/client";
+import { ApiError, api, inTauri } from "../../api/client";
 import { AgentIcon } from "../AgentIcon";
 import { useSettings } from "../../state/settings";
 import { Toggle } from "./controls";
@@ -28,6 +28,13 @@ export type AgentStatus = {
   /** What connecting installs for the agent's status, for an agent Pinrail
    *  can report the status of */
   integration?: Integration | null;
+  /** Pinrail can start the agent, so the person's arguments for it apply */
+  starts?: boolean;
+  /** the flag of the person's arguments that turns the agent's permission
+   *  checks off, if one does */
+  skips_checks?: string | null;
+  /** an example of arguments for the agent, from its `--help` */
+  args_example?: string | null;
 };
 
 /** What connecting installs for an agent's status: hooks, an extension or a
@@ -93,7 +100,7 @@ export function useAgents(open: boolean) {
     [check],
   );
 
-  return { agents, busy, error, act };
+  return { agents, busy, error, act, check };
 }
 
 /** What an agent's hooks, extension or plugin is called in a sentence. */
@@ -162,6 +169,7 @@ function AgentCard({
   busy,
   error,
   act,
+  onArgs,
 }: {
   agent: AgentStatus;
   /** the connected agents whose skill this one reads */
@@ -169,20 +177,19 @@ function AgentCard({
   busy: boolean;
   error: string | null;
   act: (command: "connect_agent" | "disconnect_agent", id: string) => void;
+  /** looks at the agents again, after their arguments changed */
+  onArgs: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const config = where(agent.skill).replace(/\/skills\/pinrail$/, "");
-  const button = (
-    label: string,
-    command: "connect_agent" | "disconnect_agent",
-    kind: "primary" | "plain" | "quiet",
-  ) => (
+  const button = (label: string, command: "connect_agent" | "disconnect_agent", primary = false) => (
     <button
       type="button"
-      className={kind === "quiet" ? "agent-remove" : `chrome-button ${kind === "primary" ? "button-primary" : ""}`}
+      className={`chrome-button ${primary ? "button-primary" : ""}`}
       onClick={() => act(command, agent.id)}
       disabled={busy}
     >
-      {kind === "primary" ? <Plug size={13} /> : null}
+      {primary ? <Plug size={13} /> : null}
       {busy ? (command === "connect_agent" ? "Connecting…" : "Removing…") : label}
     </button>
   );
@@ -196,27 +203,31 @@ function AgentCard({
       ))}
     </>
   );
+  const linked = agent.found && (agent.state === "connected" || agent.state === "outdated");
+  // a connected agent that Pinrail starts has settings of its own
+  const settings = linked && !!agent.starts;
 
   let where_: ReactNode;
   let side: ReactNode = null;
   let note: ReactNode = error ?? connectionNote(agent);
   let state = agent.found ? agent.state : "missing";
-  if (agent.state === "connected") {
+  if (linked) {
     where_ = parts;
     side = (
       <>
-        <span className="agent-ok">
-          <Check size={14} strokeWidth={2.5} /> Connected
-        </span>
-        {button("Remove", "disconnect_agent", "quiet")}
-      </>
-    );
-  } else if (agent.state === "outdated") {
-    where_ = parts;
-    side = (
-      <>
-        {button("Remove", "disconnect_agent", "quiet")}
-        {button("Update", "connect_agent", "primary")}
+        {settings ? (
+          <button
+            type="button"
+            className={`chrome-button ${open ? "is-active" : ""}`}
+            aria-expanded={open}
+            aria-label={`${agent.name}'s settings`}
+            onClick={() => setOpen((o) => !o)}
+          >
+            More {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        ) : null}
+        {button("Remove", "disconnect_agent")}
+        {agent.state === "outdated" ? button("Update", "connect_agent", true) : null}
       </>
     );
   } else if (agent.state === "theirs") {
@@ -225,15 +236,14 @@ function AgentCard({
         <span className="mono">{where(agent.skill)}</span> is a skill of your own
       </>
     );
-    if (agent.integration && agent.integration.state !== "unreadable")
-      side = button("Connect", "connect_agent", "primary");
+    if (agent.integration && agent.integration.state !== "unreadable") side = button("Connect", "connect_agent", true);
   } else if (agent.found) {
     where_ = (
       <>
         Found in <span className="mono">{config}</span>
       </>
     );
-    side = button("Connect", "connect_agent", "primary");
+    side = button("Connect", "connect_agent", true);
   } else {
     where_ = "Not found";
     note = null;
@@ -252,12 +262,96 @@ function AgentCard({
     <div className={`agent-card is-${state}`} data-testid={`agent-${agent.id}`}>
       <Tile id={agent.id} />
       <div className="agent-text">
-        <div className="agent-name">{agent.name}</div>
+        <div className="agent-name">
+          {agent.name}
+          {linked ? (
+            <span className="agent-badge">
+              <Check size={11} strokeWidth={2.5} aria-hidden="true" /> Connected
+            </span>
+          ) : null}
+          {settings && agent.skips_checks ? (
+            <span className="agent-flag" title={`${agent.skips_checks} turns ${agent.name}'s permission checks off`}>
+              <TriangleAlert size={11} aria-hidden="true" /> Permission checks off
+            </span>
+          ) : null}
+        </div>
         <div className="agent-where">{where_}</div>
         {note ? <div className="agent-note">{note}</div> : null}
         {reads ? <div className="agent-note">{reads}</div> : null}
       </div>
       {side ? <div className="agent-side">{side}</div> : null}
+      {settings && open ? (
+        <div className="agent-settings">
+          <AgentArgs agent={agent} onSaved={onArgs} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The arguments the person gives an agent for every start and resume, a
+ *  line saved when they press Enter or leave the field; Esc puts back the
+ *  saved line. The core says why it refuses one. */
+function AgentArgs({ agent, onSaved }: { agent: AgentStatus; onSaved: () => void }) {
+  const { settings } = useSettings();
+  const saved = settings.agents.args[agent.id] ?? "";
+  const [line, setLine] = useState(saved);
+  const [refused, setRefused] = useState<string | null>(null);
+  // a line saved elsewhere, or by this field, replaces what it shows
+  const [shown, setShown] = useState(saved);
+  if (shown !== saved) {
+    setShown(saved);
+    setLine(saved);
+  }
+  const save = async () => {
+    const next = line.trim();
+    if (next === saved) return setRefused(null);
+    try {
+      await api.patchSettings({ agents: { args: { [agent.id]: next || null } } });
+      setRefused(null);
+      onSaved();
+    } catch (e) {
+      setRefused(e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : String(e));
+    }
+  };
+  return (
+    <div className="agent-setting">
+      <div className="agent-setting-text">
+        <div className="agent-setting-label">Arguments</div>
+        <div className="agent-setting-desc">
+          Pinrail adds these arguments to every start and resume of {agent.name}. Write them as on a shell line; quotes
+          work.
+        </div>
+      </div>
+      <div className="agent-setting-control">
+        <input
+          className={`settings-input mono ${refused ? "is-refused" : ""}`}
+          value={line}
+          placeholder={agent.args_example ? `Such as ${agent.args_example}` : undefined}
+          aria-label={`${agent.name}'s arguments`}
+          spellCheck={false}
+          onChange={(e) => setLine(e.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setLine(saved);
+              setRefused(null);
+            }
+          }}
+        />
+        {refused ? (
+          <div className="agent-setting-note is-refused" role="alert">
+            <TriangleAlert size={12} aria-hidden="true" /> Pinrail did not save this line. It {refused}.
+          </div>
+        ) : agent.skips_checks && line.trim() === saved ? (
+          <div className="agent-setting-note is-warning">
+            <TriangleAlert size={12} aria-hidden="true" /> With {agent.skips_checks}, {agent.name} does not ask before
+            it runs commands or changes files.
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -285,7 +379,7 @@ function AnotherAgent() {
 }
 
 export function AgentsSection({ open }: { open: boolean }) {
-  const { agents, busy, error, act } = useAgents(open);
+  const { agents, busy, error, act, check } = useAgents(open);
   const { settings, update } = useSettings();
   const [updating, setUpdating] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
@@ -364,6 +458,7 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
+                        onArgs={check}
                       />
                     ))}
                   </div>
@@ -391,6 +486,7 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
+                        onArgs={check}
                       />
                     ))}
                   </div>

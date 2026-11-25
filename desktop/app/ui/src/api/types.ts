@@ -718,8 +718,9 @@ export type ServerSettings = {
   history: { keep_days: number | null };
   /** look for a new version at start and every few hours */
   updates?: { check: boolean };
-  /** update the connected agents' skills when the app starts */
-  agents?: { auto_update: boolean };
+  /** update the connected agents when the app starts, and each agent's
+   *  arguments for every start */
+  agents?: { auto_update: boolean; args?: Record<string, string> };
   /** the welcome screen was closed */
   welcome?: { seen: boolean };
   /** usage data and crash reports, and when the notice about them was shown */

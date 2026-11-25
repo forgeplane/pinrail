@@ -152,3 +152,21 @@ test("⌘Enter in the quick add dialog adds the item and starts no session", asy
   expect(app.started).toEqual([]);
   await expect.element(page.getByTestId("where")).toHaveTextContent("/new");
 });
+
+test("the agent picker says which arguments the agent starts with", async () => {
+  core.answer("settings", {
+    appearance: { theme: "system" },
+    sidebar: { open: true },
+    notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
+    shortcut: { global: "", global_opens: "oldest" },
+    plugins: {},
+    port: 4747,
+    agents: { auto_update: true, args: { grok: "--model grok-5 --yolo" } },
+  });
+  app.agents = [agent("grok", "Grok CLI", true, true)];
+  await render(<NewSession />);
+  await userEvent.hover(page.getByRole("button", { name: "Agent: Grok CLI" }));
+  await expect
+    .element(page.getByRole("tooltip"))
+    .toHaveTextContent("Starts with --model grok-5 --yolo, from Settings › Agents");
+});

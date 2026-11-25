@@ -13,6 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Give each agent arguments for every start and resume from Pinrail, such
+  as `--model opus`, in Settings › Agents. They may turn the agent's
+  permission checks off, which its card then warns about.
 - A welcome screen sets Pinrail up with one button. It shows the agents
   found on your computer, connects the ones you keep with their status
   reports on, installs the plugins you pick, and adds the `pinrail`

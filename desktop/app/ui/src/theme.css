@@ -5836,59 +5836,105 @@ button.thread-line:hover strong {
   gap: 4px;
   color: var(--ok);
 }
-.agent-card:has(.agent-status) {
+/* a connected agent: the Connected badge beside its name, and a label
+   when its arguments turn its permission checks off */
+.agent-name:has(.agent-badge) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.agent-badge,
+.agent-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  color: var(--ok);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.agent-flag {
+  border-color: color-mix(in srgb, var(--attention-warn) 45%, var(--border));
+  background: none;
+  color: var(--attention-warn);
+}
+/* the agent's own settings, opened by More: a row each, its label and
+   description beside its control */
+.agent-card:has(.agent-settings) {
   flex-wrap: wrap;
 }
-.agent-status {
-  flex-basis: 100%;
+.agent-settings {
+  flex: none;
+  width: calc(100% + 28px);
+  margin: 0 -14px -11px;
+  border-top: 1px solid color-mix(in srgb, var(--ok) 25%, var(--border));
+}
+.agent-setting {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-left: 42px;
-  padding-top: 10px;
+  gap: 18px;
+  padding: 12px 14px;
+}
+.agent-setting + .agent-setting {
   border-top: 1px solid var(--border);
 }
-.agent-status-text {
-  min-width: 0;
+.agent-setting-text {
+  flex: none;
+  width: 250px;
 }
-.agent-status-label {
-  font-size: var(--text-sm);
-  font-weight: 500;
+.agent-setting-label {
+  font-size: var(--text-base);
   color: var(--text);
 }
-.agent-inline-action {
-  border: 0;
-  background: none;
-  padding: 0;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
+.agent-setting-desc {
+  margin-top: 1px;
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+.agent-setting-control {
+  flex: 1;
+  min-width: 0;
+}
+.agent-settings .settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: var(--text-sm);
+}
+.agent-settings .settings-input.is-refused {
+  border-color: var(--danger);
+}
+.agent-setting-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--text-xs);
+}
+.agent-setting-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+.agent-setting-note.is-warning {
+  color: var(--attention-warn);
+}
+.agent-setting-note.is-refused {
+  color: var(--danger);
+}
+.chrome-button.is-active {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 .agent-side {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-}
-.agent-ok {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--text-md);
-  font-weight: 500;
-  color: var(--ok);
-}
-.agent-remove {
-  border: 0;
-  background: none;
-  padding: 0;
-  color: var(--faint);
-  font: inherit;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-.agent-remove:hover {
-  color: var(--danger);
 }
 .settings-group-head {
   display: flex;
