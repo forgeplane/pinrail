@@ -36,6 +36,8 @@ A session that Pinrail runs has three views. The buttons at the right of the ses
 
 Use the summary to follow several agents and to answer what waits on you. Use the terminal to watch the details of a turn, or to type to the agent directly.
 
+![A session in its split view. The summary shows the prompt, the stage the agent started, a status, a note and that the agent is working. The terminal below it shows the files the agent read and changed and the tests it ran.](screenshot:session-split "The split view: the summary above the agent's terminal.")
+
 Press <kbd>Ctrl+&#96;</kbd> or <kbd>⌘⇧T</kbd> to switch between the summary and the terminal. On Linux, the second shortcut is <kbd>Ctrl+⇧T</kbd>. Each session remembers the view you used last. To choose the view a session opens in, set **Open a session in** in *Settings › Terminal*. An agent that you just started opens in its terminal, which **Open an agent you start in** changes.
 
 A session in your own terminal has no terminal to show. Its Terminal view says so, and offers to resume the session in Pinrail once it has stopped.

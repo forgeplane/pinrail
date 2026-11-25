@@ -1,0 +1,41 @@
+#!/bin/sh
+# A stand-in for an agent, for the screenshot scenes that need a program
+# running in Pinrail's terminal host. Pinrail starts it as `claude`. It
+# prints what an agent at work on a task prints, tells the terminal that it
+# works, as an agent that reports its state there does (OSC 7501), and then
+# waits, so that its terminal stays open and its session shows Working.
+# It reads no file, changes none and calls no model.
+if [ "$1" = "--version" ]; then echo "1.0.0 (stand-in)"; exit 0; fi
+
+dim=$(printf '\033[2m'); bold=$(printf '\033[1m'); green=$(printf '\033[32m')
+cyan=$(printf '\033[36m'); off=$(printf '\033[0m')
+
+printf '\033]7501;state=working\033\\'
+cat <<SCREEN
+
+${bold}>${off} Limit exports to 100 a minute for each API key, and answer 429
+  with Retry-After when a key goes over.
+
+  The export route has no limit of its own, so I will add a token
+  bucket for each key in the middleware and apply it to /v1/exports.
+
+  ${cyan}Read${off}  src/routes/exports.ts ${dim}(84 lines)${off}
+  ${cyan}Read${off}  src/middleware/auth.ts ${dim}(52 lines)${off}
+  ${cyan}Write${off} src/middleware/rate-limit.ts ${dim}(+46)${off}
+  ${cyan}Edit${off}  src/routes/exports.ts ${dim}(+3 -1)${off}
+  ${cyan}Run${off}   npm test -- rate-limit
+
+    ${green}✓${off} allows 100 exports a minute for a key ${dim}(12 ms)${off}
+    ${green}✓${off} answers 429 with Retry-After once a key goes over ${dim}(9 ms)${off}
+    ${green}✓${off} counts each key on its own ${dim}(7 ms)${off}
+    ${green}✓${off} lets a key export again after its bucket refills ${dim}(31 ms)${off}
+
+  The four tests pass. Next I will run the whole suite and check the
+  types.
+
+  ${cyan}Run${off}   npm test
+
+${dim}  Working… press Esc to interrupt${off}
+SCREEN
+# whatever is typed stays unread: the agent is in the middle of a turn
+exec sleep 3600

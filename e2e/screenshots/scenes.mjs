@@ -9,6 +9,7 @@ import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { NOW } from "./app.mjs";
 
@@ -313,6 +314,63 @@ async function fullSession(app) {
     made.reviews.push(sent.id);
   }
   return made;
+}
+
+/** The folder the stand-in agent runs in: outside this checkout, so that
+ *  the app shows it under no repository and branch of the person's. */
+const RUN_FOLDER = path.join(os.tmpdir(), "pinrail-screenshots", "acme-api");
+
+/**
+ * Runs `fn` with a session whose agent Pinrail runs in its terminal host,
+ * then deletes the session, which stops the agent. The agent is the stand-in
+ * in stand-in/, which the run's login shell finds in place of any agent on
+ * this computer: it prints what an agent at work prints, and reports in its
+ * terminal that it works. `fn` gets the session. An agent runs now, not at
+ * the fixed moment of the other scenes, so the page's clock is set a few
+ * minutes on for as long as the session shows.
+ */
+async function withRunningAgent(page, app, fn) {
+  await page.clock.setFixedTime(Date.now() + 9 * 60_000);
+  let started = null;
+  try {
+    for (const end = Date.now() + 60_000; (await app.api("GET", "/api/v1/runtime")).state !== "ready";) {
+      if (Date.now() > end) throw new Error("the terminal host did not start");
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    fs.mkdirSync(RUN_FOLDER, { recursive: true });
+    const folder = RUN_FOLDER;
+    started = await app.api("POST", "/api/v1/runs", {
+      host: "local",
+      agent: "claude-code",
+      folder,
+      cols: 100,
+      rows: 30,
+    });
+    const { session } = started;
+    const route = `/api/v1/sessions/${session.agent}/${session.agent_session}`;
+    const origin = { repo: "acme/api", ref: "export-limits", folder: "/Users/maya/code/acme-api" };
+    const status = (text, kind) => app.api("POST", `${route}/status`, { text, origin, ...(kind ? { kind } : {}) });
+    await app.api("POST", `${route}/reports`, {
+      event: "prompt",
+      origin,
+      detail: {
+        prompt: "Limit exports to 100 a minute for each API key, and answer 429 with Retry-After when a key goes over.",
+      },
+    });
+    await status("Limit exports for each API key", "start");
+    await status("Adding a token bucket for each key");
+    await status(
+      "The export route had no limit of its own. I added a token bucket for each API key in `src/middleware/rate-limit.ts` and applied it to `/v1/exports` only, so the other routes keep the limits they have.",
+      "note",
+    );
+    await status("Running the tests");
+    await fn(session);
+  } finally {
+    if (started) {
+      await app.api("DELETE", `/api/v1/sessions/${started.session.agent}/${started.session.id}`).catch(() => {});
+    }
+    await page.clock.setFixedTime(NOW);
+  }
 }
 
 /**
@@ -1546,6 +1604,92 @@ export const scenes = [
         await page.keyboard.press("Escape");
       } finally {
         if (switched) await app.api("PATCH", "/api/v1/settings", { labs: { runtime: false } });
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+    },
+  },
+  {
+    // a session whose agent Pinrail runs: its split view and its terminal,
+    // its menu, and the New session page
+    name: "session-run",
+    async run({ page, app, shot }) {
+      await page.setViewportSize({ width: 960, height: 820 });
+      try {
+        await withRunningAgent(page, app, async (session) => {
+          await page.goto(`${app.ui}/#/sessions/${session.agent}/${session.id}`);
+          await page.getByRole("button", { name: "Hide sidebar" }).click();
+          try {
+            const views = page.getByRole("tablist", { name: "Session view" });
+            // the terminal has the room: the session's details stay hidden
+            const details = page.getByRole("complementary", { name: "Session details" });
+            await views.waitFor();
+            await settle(page, 800);
+            if (await details.isVisible()) {
+              await page.keyboard.press("Meta+Shift+B");
+              await details.waitFor({ state: "hidden" });
+            }
+            /** Shows a view with the terminal, at this window's size and live. */
+            const show = async (view) => {
+              await views.getByRole("tab", { name: view }).click();
+              await page.getByTestId("terminal-bar").waitFor();
+              // the terminal takes the size of this window, as it does for
+              // the person who clicks it
+              const typing = () =>
+                page.evaluate(() =>
+                  /You are typing/.test(document.querySelector('[data-testid="terminal-bar"]')?.textContent ?? ""),
+                );
+              // a click before the terminal's stream is live is dropped, as
+              // the app means it to be: click until it has taken
+              for (const end = Date.now() + 30_000; !(await typing());) {
+                if (Date.now() > end) throw new Error("the terminal did not take control");
+                await page.locator(".terminal-surface").click();
+                await page.waitForTimeout(400);
+              }
+              await page.mouse.move(5, 5);
+              await settle(page, 1200);
+            };
+            await show("Split view");
+            await shot("session-split");
+            // a shorter window, so that the bar under the terminal is in the picture
+            await page.setViewportSize({ width: 960, height: 600 });
+            await show("Terminal");
+            await shot("session-terminal");
+            await page.setViewportSize({ width: 960, height: 820 });
+
+            // the session's menu, under its header
+            await views.getByRole("tab", { name: "Summary" }).click();
+            await page.getByRole("button", { name: "Session actions" }).click();
+            const menu = page.getByRole("menu").last();
+            await menu.waitFor();
+            await settle(page, 400);
+            const box = await menu.boundingBox();
+            await shot("session-menu", page, {
+              clip: { x: 0, y: 0, width: 700, height: Math.round(box.y + box.height + 20) },
+            });
+            await page.keyboard.press("Escape");
+          } finally {
+            await page.getByRole("button", { name: "Show sidebar" }).click();
+          }
+
+          // the New session page
+          await page.goto(`${app.ui}/#/sessions/new`);
+          const message = page.getByRole("textbox", { name: "First message" });
+          await message.waitFor();
+          await page.getByRole("button", { name: /^Agent: Claude Code/ }).waitFor();
+          // the folder of the scene, not one this computer's agents worked in
+          await page.getByRole("button", { name: /^Folder: / }).click();
+          await page.getByLabel("Folder", { exact: true }).fill(RUN_FOLDER);
+          await page.getByRole("option", { name: /Use this folder/ }).dispatchEvent("mousedown");
+          await page.getByRole("button", { name: `Folder: ${RUN_FOLDER}` }).waitFor();
+          await message.fill("Add cursor pagination to the orders endpoint, and keep the offset parameter working.");
+          await page.mouse.move(5, 5);
+          await settle(page, 600);
+          const main = await page.locator(".app-main").boundingBox();
+          await shot("new-session", page, {
+            clip: { x: Math.round(main.x), y: 150, width: Math.round(960 - main.x), height: 330 },
+          });
+        });
+      } finally {
         await page.setViewportSize({ width: 1440, height: 900 });
       }
     },

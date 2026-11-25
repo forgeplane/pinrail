@@ -1,0 +1,11 @@
+#!/bin/sh
+# The login shell of a screenshot run. Pinrail's terminal host asks the
+# person's login shell for the environment its agents start with
+# (`$SHELL -l -i -c <command>`). This one answers with the folder of the
+# stand-in agent first on a short PATH, so that a scene that starts an
+# agent starts the stand-in and never an agent installed on this computer.
+here=$(cd "$(dirname "$0")" && pwd)
+PATH="$here:/usr/bin:/bin"
+export PATH
+while [ $# -gt 0 ] && [ "$1" != "-c" ]; do shift; done
+exec /bin/sh -c "$2"

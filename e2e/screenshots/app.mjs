@@ -114,7 +114,14 @@ export async function startApp({ build = true } = {}) {
         tokenFile,
       ],
       {
-        env: { ...process.env, PINRAIL_SHELL_ORIGIN: ui },
+        // an agent that a scene starts is the stand-in in stand-in/, which
+        // the login shell there puts first on the PATH: never an agent
+        // installed on this computer
+        env: {
+          ...process.env,
+          PINRAIL_SHELL_ORIGIN: ui,
+          SHELL: path.join(root, "e2e", "screenshots", "stand-in", "login-shell"),
+        },
         stdio: ["ignore", "ignore", "inherit"],
       },
     );
