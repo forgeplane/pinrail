@@ -336,8 +336,17 @@ describe("the inbox", () => {
     await expect.element(page.getByRole("complementary", { name: "Work item" })).toBeInTheDocument();
     expect(core.calls("setNotificationRead").at(-1)).toEqual([1, true]);
     await row("Migrate the billing tables").click();
-    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=session:claude-code/ses_3");
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=session:claude-code/ses_3&view=terminal");
     await expect.element(page.getByRole("complementary", { name: "Session" })).toBeInTheDocument();
+  });
+
+  test("a session that waits on the person opens on its terminal", async () => {
+    await open([update(1, "Load themes"), waitingAgent(3)]);
+    await row("Migrate the billing tables").click();
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=session:claude-code/ses_3&view=terminal");
+    // the next subject opens in its own view
+    await row("Load themes").click();
+    await expect.element(page.getByTestId("where")).toHaveTextContent("/?open=item:PIN-1");
   });
 
   test("E marks the update done while its work item is open beside the list", async () => {

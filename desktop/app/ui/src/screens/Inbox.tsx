@@ -17,7 +17,13 @@ import { InboxHead, tabOf, type InboxTab } from "./InboxHead";
 import { ReviewView } from "./ReviewScreen";
 import { InboxRow, type InboxRowActions } from "../components/InboxRow";
 import { ItemPanel } from "../components/ItemPanel";
-import { NotificationRow, notificationPath, panelToken, type NotificationActions } from "../components/NotificationRow";
+import {
+  NotificationRow,
+  notificationPath,
+  opensOnTerminal,
+  panelToken,
+  type NotificationActions,
+} from "../components/NotificationRow";
 import { Thread } from "../components/Thread";
 import { useWindowKey } from "../lib/useWindowKey";
 import { useListKeys } from "../lib/useListKeys";
@@ -208,12 +214,16 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     },
     [panelMode, params],
   );
-  /** Opens a review in the side panel, or closes the panel with null. */
+  /** Opens a subject in the side panel, a session on its terminal with
+   *  `terminal`, or closes the panel with null. */
   const openInPanel = useCallback(
-    (id: string | null, options?: { replace?: boolean }) =>
+    (id: string | null, options?: { replace?: boolean; terminal?: boolean }) =>
       updateParams((next) => {
         if (id) next.set("open", id);
         else next.delete("open");
+        // the view is the open session's: the next subject opens in its own
+        if (options?.terminal) next.set("view", "terminal");
+        else next.delete("view");
       }, options),
     [updateParams],
   );
@@ -258,6 +268,8 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     if (!panelMode) return notificationPath(n, hrefFor);
     const next = new URLSearchParams(params);
     next.set("open", panelToken(n));
+    if (opensOnTerminal(n)) next.set("view", "terminal");
+    else next.delete("view");
     return { pathname: "/", search: `?${next}` };
   };
   /** A plain click on a row in the panel mode opens its subject in the
@@ -266,7 +278,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     markOpened(n);
     if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    openInPanel(panelToken(n), { replace: currentParams().has("open") });
+    openInPanel(panelToken(n), { replace: currentParams().has("open"), terminal: opensOnTerminal(n) });
   };
 
   // J, K and Enter over every row, what waits first; the side panel walks
@@ -284,7 +296,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     },
     onWalk: (n) => {
       markOpened(n);
-      openInPanel(panelToken(n), { replace: true });
+      openInPanel(panelToken(n), { replace: true, terminal: opensOnTerminal(n) });
     },
     rowOf: (i) => document.querySelector<HTMLElement>(`.inbox-side [data-row="${i}"]`),
   });

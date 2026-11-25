@@ -45,12 +45,18 @@ export function panelToken(n: Notification): string {
 
 /** Where a notification leads: its work item, its session, or its review
  *  as `reviewHref` opens it. */
+/** Whether a notification's session opens on its terminal: the agent waits
+ *  there for the person's answer. */
+export const opensOnTerminal = (n: Notification) => n.waiting && n.subject.kind === "session";
+
 export function notificationPath(n: Notification, reviewHref: (id: string) => To): To {
   switch (n.subject.kind) {
     case "item":
       return itemPath(n.subject.item.key);
     case "session":
-      return sessionPath(n.subject.session);
+      return opensOnTerminal(n)
+        ? { pathname: sessionPath(n.subject.session), search: "?view=terminal" }
+        : sessionPath(n.subject.session);
     case "review":
       return reviewHref(n.subject.review.id);
   }

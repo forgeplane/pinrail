@@ -9451,6 +9451,12 @@ a.item-ref {
   padding: 2px 8px;
   font-size: var(--text-xs);
 }
+.thread-waiting.is-openable {
+  cursor: pointer;
+}
+.thread-waiting.is-openable:hover {
+  background: color-mix(in srgb, var(--attention-warn) 18%, transparent);
+}
 /* where an agent in a terminal of its own is answered */
 .thread-waiting-where {
   flex: none;

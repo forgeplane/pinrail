@@ -129,11 +129,10 @@ export function WorkingLine({ name }: { name: string }) {
 
 type Wait = NonNullable<NonNullable<Session["presence"]>["wait"]>;
 
-/** What the agent waits for in its terminal, above the message box: what
- *  it asks, and a button that opens the terminal to answer it there. */
-/** What the agent waits for in its terminal. With `onOpen`, Pinrail runs
- *  it and opens its terminal; without, it runs in a terminal of its own,
- *  where the person answers. */
+/** What the agent waits for in its terminal, above the message box. With
+ *  `onOpen`, Pinrail runs the agent, and a click anywhere on the line opens
+ *  its terminal; without, it runs in a terminal of its own, where the
+ *  person answers. */
 export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; onOpen?: () => void }) {
   const [Icon, label] =
     wait.kind === "permission"
@@ -143,7 +142,12 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
         : [MessageCircleQuestion, `${name} asks`];
   const detail = wait.kind === "permission" ? [wait.tool, wait.summary].filter(Boolean).join(" · ") : wait.summary;
   return (
-    <div className={`thread-waiting is-${wait.kind}`} data-testid="waiting-line">
+    // the button is the line's for the keyboard; its click reaches the line
+    <div
+      className={`thread-waiting is-${wait.kind} ${onOpen ? "is-openable" : ""}`}
+      data-testid="waiting-line"
+      onClick={onOpen}
+    >
       <span className="thread-line-icon">
         <Icon size={15} aria-hidden />
       </span>
@@ -154,7 +158,7 @@ export function WaitingLine({ name, wait, onOpen }: { name: string; wait: Wait; 
         </span>
       ) : null}
       {onOpen ? (
-        <button type="button" className="chrome-button" onClick={onOpen}>
+        <button type="button" className="chrome-button">
           Open the terminal
         </button>
       ) : (
