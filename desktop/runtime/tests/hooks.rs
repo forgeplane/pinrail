@@ -190,6 +190,16 @@ fn a_background_task_s_notification_is_work_in_the_turn_not_a_prompt() {
 }
 
 #[test]
+fn a_message_from_another_session_is_work_not_the_person_s_prompt() {
+    // another Claude Code session's message, which Claude Code hands its
+    // session as a prompt
+    assert_eq!(
+        event("claude-code", "prompt", "cross-session-prompt"),
+        Some(HookEvent::Working)
+    );
+}
+
+#[test]
 fn only_claude_code_s_own_hooks_report() {
     let c = "claude-code";
     // Cursor and Grok run Claude Code's hooks without its session's id

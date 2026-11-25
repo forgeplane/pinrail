@@ -1,0 +1,9 @@
+{
+  "session_id": "22751b4b-336a-4c33-baef-fbe1d334abab",
+  "transcript_path": "/Users/you/.claude/projects/-Users-you-code-app/22751b4b-336a-4c33-baef-fbe1d334abab.jsonl",
+  "cwd": "/Users/you/code/app",
+  "prompt_id": "0c9a1e52-6b3f-4d7a-8e21-5f4b9c7d2a10",
+  "permission_mode": "auto",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "<cross-session-message from=\"uds:/tmp/cc-socks/27486.sock\" from-name=\"app-49\" from-mode=\"prompting\">\nYes, that's us. I'll message you here as soon as that work is committed.\n</cross-session-message>"
+}

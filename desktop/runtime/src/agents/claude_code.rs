@@ -15,10 +15,15 @@ use crate::registry::AgentSpec;
 pub struct ClaudeCode;
 
 /// How Claude Code begins the prompts it gives itself rather than the
-/// person: a subagent's result handed back to the main session, and the
-/// notice that a background command finished. Each fires
-/// `UserPromptSubmit` without an `agent_id`, but the turn goes on.
-const OWN_PROMPTS: [&str; 2] = ["<agent-message ", "<task-notification>"];
+/// person: a subagent's result handed back to the main session, the
+/// notice that a background command finished, and a message from another
+/// Claude Code session. Each fires `UserPromptSubmit` without an
+/// `agent_id`, but the turn goes on.
+const OWN_PROMPTS: [&str; 3] = [
+    "<agent-message ",
+    "<task-notification>",
+    "<cross-session-message ",
+];
 
 impl Agent for ClaudeCode {
     fn spec(&self) -> &'static AgentSpec {
