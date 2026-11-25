@@ -693,6 +693,114 @@ export const scenes = [
     },
   },
   {
+    // What's new in 0.7.0: an agent Pinrail runs, in the Split view
+    name: "run-agents-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await withRunningAgent(page, app, async (session) => {
+        await page.goto(`${app.ui}/#/sessions/${session.agent}/${session.id}`);
+        const views = page.getByRole("tablist", { name: "Session view" });
+        await views.waitFor();
+        await settle(page, 800);
+        const details = page.getByRole("complementary", { name: "Session details" });
+        if (await details.isVisible()) {
+          await page.keyboard.press("Meta+Shift+B");
+          await details.waitFor({ state: "hidden" });
+        }
+        await views.getByRole("tab", { name: "Split view" }).click();
+        await page.getByTestId("terminal-bar").waitFor();
+        // the terminal takes the window's size once it is clicked, and a
+        // click before its stream is live is dropped
+        const typing = () =>
+          page.evaluate(() =>
+            /You are typing/.test(document.querySelector('[data-testid="terminal-bar"]')?.textContent ?? ""),
+          );
+        for (const end = Date.now() + 30_000; !(await typing());) {
+          if (Date.now() > end) throw new Error("the terminal did not take control");
+          await page.locator(".terminal-surface").click();
+          await page.waitForTimeout(400);
+        }
+        await page.mouse.move(5, 570);
+        await settle(page, 1200);
+        await shot("run-agents-card");
+      });
+    },
+  },
+  {
+    // What's new in 0.7.0: the sidebar's sessions under their states,
+    // beside a session whose agent works
+    name: "session-states-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      const sessions = (await app.api("GET", "/api/v1/settings")).sidebar.sessions;
+      try {
+        await withReportedSessions(page, app, async (session) => {
+          await app.api("PATCH", "/api/v1/settings", {
+            sidebar: { sessions: { grouping: "status", repos: ["acme/api"] } },
+          });
+          await page.goto(`${app.ui}/#/sessions/${session.agent}/${session.id}`);
+          await page.getByTestId("presence-chip").waitFor();
+          await page.mouse.move(5, 570);
+          await settle(page, 800);
+          await shot("session-states-card");
+        });
+      } finally {
+        await app.api("PATCH", "/api/v1/settings", {
+          sidebar: { sessions: { grouping: sessions.grouping, repos: sessions.repos } },
+        });
+      }
+    },
+  },
+  {
+    // What's new in 0.7.0: the inbox, with a work item open beside it
+    name: "inbox-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      const key = (await app.api("GET", "/api/v1/items?repo=acme/api")).items.find((i) =>
+        i.title.startsWith("Answer 429"),
+      ).key;
+      await page.goto(`${app.ui}/#/?open=item:${key}`);
+      await page.getByTestId("item-panel").waitFor();
+      await page.mouse.move(5, 570);
+      await settle(page, 600);
+      await shot("inbox-card");
+    },
+  },
+  {
+    // What's new in 0.7.0: a message to an agent, with a screenshot
+    // attached, as the agent took it
+    name: "message-card",
+    async run({ page, app, shot }) {
+      await card(page);
+      await withReportedSessions(page, app, async (session) => {
+        // the file as the message box saves it, in the session's files
+        const files = path.join(app.data, "sessions", session.agent, session.id, "files");
+        fs.mkdirSync(files, { recursive: true });
+        const image = path.join(files, "export-rates.png");
+        fs.copyFileSync(path.join(app.root, "e2e", "screenshots", "fixtures", "assets", "export-rates.png"), image);
+        await app.api("POST", `/api/v1/sessions/${session.agent}/${session.id}/messages`, {
+          text: `The bulk export still goes over the limit, as this morning's chart shows.\n\n${image}`,
+        });
+        // the agent takes it with its next status, and the thread shows it
+        // with its picture
+        const route = `/api/v1/sessions/${session.agent}/${session.agent_session}`;
+        const { messages } = await app.api("POST", `${route}/status`, {
+          text: "Checking the bulk export against the limit",
+        });
+        // the CLI says it printed them, which delivers them
+        await app.api("POST", `${route}/messages/ack`, { ids: messages.map((m) => m.id) });
+        await page.goto(`${app.ui}/#/sessions/${session.agent}/${session.id}`);
+        // the message among the turns, delivered, not waiting above the box
+        const delivered = page.getByTestId("thread").getByText(/^Delivered/);
+        await delivered.waitFor();
+        await delivered.scrollIntoViewIfNeeded();
+        await page.mouse.move(5, 570);
+        await settle(page, 800);
+        await shot("message-card");
+      });
+    },
+  },
+  {
     name: "inbox",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);

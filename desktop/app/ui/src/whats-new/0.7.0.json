@@ -1,0 +1,41 @@
+{
+  "version": "0.7.0",
+  "cards": [
+    {
+      "title": "Run your agents in Pinrail",
+      "text": "Start Claude Code, Codex, Cursor, Grok CLI, Copilot CLI, Pi, OpenCode and Antigravity CLI from Pinrail, and resume their sessions. Pinrail keeps them running after you quit the app, and a session shows its summary, its terminal, or both side by side.",
+      "image": "run-agents-card",
+      "alt": "A session in the Split view: the summary of the agent's turns above the agent's terminal",
+      "action": {
+        "label": "Start an agent",
+        "to": "/sessions/new"
+      }
+    },
+    {
+      "title": "See what each session is doing",
+      "text": "Connect an agent in Settings › Agents, and its sessions show whether it needs you, is working or has finished, with each turn's prompt and reply. Connecting adds the pinrail skill and the agent's hooks together.",
+      "image": "session-states-card",
+      "alt": "The sidebar's sessions, each marked as needing you, working or finished, and one session's turns open beside them",
+      "action": {
+        "label": "Open Agents settings",
+        "settings": "agents"
+      }
+    },
+    {
+      "title": "One inbox for everything",
+      "text": "The inbox lists what happened to your reviews, questions, work items and sessions in one list, and says what changed since you last looked. Mark updates read or done, and open a work item or a session beside the list.",
+      "image": "inbox-card",
+      "alt": "The inbox with updates of several kinds, and a work item open in the side panel",
+      "action": {
+        "label": "Open the inbox",
+        "to": "/"
+      }
+    },
+    {
+      "title": "Write to your agents",
+      "text": "Write to an agent from its session, and attach screenshots and files. Pinrail types your message into the agent's terminal as soon as the agent is ready for it.",
+      "image": "message-card",
+      "alt": "A session's thread with a message the agent received, and the chart attached to it"
+    }
+  ]
+}
