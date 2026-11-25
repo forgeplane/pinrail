@@ -553,9 +553,9 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
             prompt: Some("fix the login".into()),
         },
     );
+    // its prompt opens a turn, which works
     let presence = db.presence(&session.0, &session.1).unwrap().unwrap();
-    assert_eq!(presence.state, "idle", "a hook no longer sets the state");
-    // but its prompt opens a turn
+    assert_eq!(presence.state, "working");
     assert_eq!(presence.turn, 1);
 
     common::record(&folder, "state=working:app=claude-code").await;
@@ -571,6 +571,12 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
     assert_eq!(
         waiting.wait_summary.as_deref(),
         Some("answer: Red or blue?")
+    );
+    // the hooks' other reports no longer set the state
+    hook(&setup.app, &session, ReportEvent::Working);
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "needs_input"
     );
 
     // a subagent's record leaves the session as it is
@@ -597,6 +603,64 @@ async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() 
         db.presence(&session.0, &session.1).unwrap().unwrap().state,
         "working"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hosted_agent_with_a_background_task_is_idle_once_its_turn_ends() {
+    use pinrail_core::db::ReportEvent;
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+    common::record(&folder, "state=idle:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
+
+    // the person's prompt, which the terminal reports first
+    common::record(&folder, "state=working:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "working").await;
+    let prompt = ReportEvent::Prompt {
+        prompt: Some("run the tests in the background".into()),
+    };
+    hook(&setup.app, &session, prompt.clone());
+
+    // the turn ends while a shell it started runs on: Claude Code's terminal
+    // goes on saying it works, but its prompt takes the next message
+    hook(
+        &setup.app,
+        &session,
+        ReportEvent::TurnEnded {
+            end: "done".into(),
+            reply: Some("Started them.".into()),
+        },
+    );
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "idle"
+    );
+    common::record(&folder, "state=working:app=claude-code").await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "idle"
+    );
+
+    // the next prompt works again, whichever reports it first
+    hook(&setup.app, &session, prompt);
+    assert_eq!(
+        db.presence(&session.0, &session.1).unwrap().unwrap().state,
+        "working"
+    );
+    common::record(&folder, "state=done:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

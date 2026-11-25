@@ -295,12 +295,33 @@ impl Db {
             at >= s.event_at || micros_between(&s.state_at, &now_at) > WINDOW_MICROS
         });
         // once a hosted run's terminal sets the state, its hooks add turns
-        // and detail only
+        // and detail only; the prompt that opens a turn and the end that
+        // closes it still set it
+        let by_terminal = stored
+            .as_ref()
+            .is_some_and(|s| s.source == Source::Terminal.as_str());
         let held = report.source == Source::Hook
-            && stored
-                .as_ref()
-                .is_some_and(|s| s.source == Source::Terminal.as_str());
-        let sets_state = newer && !held;
+            && by_terminal
+            && !matches!(
+                report.event,
+                ReportEvent::Prompt { .. } | ReportEvent::TurnEnded { .. }
+            );
+        // the terminal's work after the hooks closed the turn is the agent's
+        // background, such as a shell Claude Code left running: its prompt
+        // takes the next message, until a prompt opens the next turn
+        let background = report.source == Source::Terminal
+            && report.event == ReportEvent::Working
+            && tx
+                .query_row(
+                    "SELECT ended_at IS NOT NULL FROM session_turns
+                     WHERE agent = ?1 AND session = ?2
+                     ORDER BY started_at DESC, turn DESC LIMIT 1",
+                    params![agent, id],
+                    |r| r.get::<_, bool>(0),
+                )
+                .optional()?
+                .unwrap_or(false);
+        let sets_state = newer && !held && !background;
         // the presence service decides the state; a report it ignores
         // changes nothing at all
         let Some(next) = transition(
