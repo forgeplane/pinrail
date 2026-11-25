@@ -95,10 +95,11 @@ it.
 1. **Install the app** from the [download page](https://pinrail.dev/download/)
    or the [latest release](https://github.com/forgeplane/pinrail/releases/latest).
    On macOS, it is signed and notarized.
-2. **Follow the setup** that opens the first time. It installs the `pinrail`
-   command, adds Pinrail's skill to the agents it finds on your computer,
-   and installs the recommended plugins.
-3. **Ask your agent** for something, in your own words:
+2. **Click Set up Pinrail** on the welcome screen that opens the first
+   time. Pinrail installs the `pinrail` command, connects the agents it
+   finds on your computer, and installs the recommended plugins.
+3. **Start your first session** from the setup's last screen, or ask an
+   agent in your own terminal for something, in your own words:
 
    ```txt
    Ask me through Pinrail which TODOs in this repository to tackle first.

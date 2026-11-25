@@ -3,7 +3,7 @@ title: Your first review
 description: "Ask your agent to check with you through Pinrail, decide in the app, and watch the agent carry on with your answer."
 ---
 
-The quickest way to see Pinrail at work is to have your agent ask you something. Once Pinrail's skill is connected to the agent, a request in your own words is enough: the skill tells the agent how to submit a review and how to read your decision.
+The quickest way to see Pinrail at work is to have your agent ask you something. The setup's last screen starts your first session with such a request. Once an agent is connected, a request in your own words is enough: Pinrail's skill tells the agent how to submit a review and how to read your decision.
 
 ```mermaid title="The steps on this page"
 sequenceDiagram
@@ -19,22 +19,32 @@ sequenceDiagram
 ## Before you start
 
 - Pinrail is running. See [Install](/docs/getting-started/install/).
-- Your agent has Pinrail's skill. The setup's *Connect* step adds it, and so does *Connect* in [Settings › Agents](/docs/using/settings/#agents).
+- Your agent is connected. The setup connects the agents it finds, and so does **Connect** in [Settings › Agents](/docs/using/settings/#agents).
 - The [List](/docs/plugins/list/) plugin is installed. The setup installs it, and `pinrail plugins install list` installs it later.
 
 ## 1. Ask your agent
 
-Open your agent in one of your projects, such as Claude Code in a repository, and give it this request:
+The setup's last screen starts the agent for you.
 
-```txt wrap
-Ask me through Pinrail which TODOs in this repository to tackle first.
-```
+![The setup's last screen: Pinrail is ready, start your first session. It names the agent and the folder, lists three requests, each with a Start button, and has a field for a request of your own.](screenshot:setup-start "The setup's last screen starts your first session.")
+
+1. Choose the agent, when you connected several.
+2. Choose the folder. Pinrail offers the folders your agents worked in, and **Choose another folder…** opens any other.
+3. Click **Start** on this request, or write your own in the field under the requests:
+
+   ```txt wrap
+   Ask me through Pinrail which TODOs in this repository to tackle first.
+   ```
+
+Pinrail starts the agent in that folder with the request as its first prompt, and opens its [session](/docs/using/sessions/), where you can watch the agent work in its terminal.
+
+If you closed the setup, start the agent from the **New session** page with the same request, or give the request to an agent in your own terminal.
 
 The agent finds the TODOs, puts them in a list review, and submits it with the `pinrail` command. Then it waits for your decision.
 
 ## 2. Decide
 
-Pinrail notifies you, and the review is waiting at the top of your inbox. Open it:
+Pinrail notifies you, and the review waits in your inbox, under **Waiting on you**. It also shows in the agent's session. Open it:
 
 - **Accept** the TODOs you want done first, and add a note to one of them, such as "and add a test for it".
 - **Reject** one, with a reason.
@@ -52,7 +62,7 @@ If you **discard** the review instead, with the *Discard* button at the right of
 
 ## More to try
 
-Each official plugin is a different kind of review. Give your agent one of these requests to see the others. The setup's *Try it* step offers the same requests, with a button to copy each one.
+Each official plugin is a different kind of review. Give your agent one of these requests to see the others. The setup's last screen offers the requests of up to three plugins that you installed, each with a **Start** button.
 
 | Plugin | Request |
 |---|---|

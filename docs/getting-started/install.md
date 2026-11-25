@@ -1,9 +1,15 @@
 ---
 title: Install
-description: "Install the Pinrail app and the pinrail command, and check that they can talk to each other."
+description: "Install the Pinrail app, run its setup, and check that the pinrail command reaches the app."
 ---
 
-Pinrail has two parts. The **app** is where reviews wait for you and where you decide them. The **`pinrail` command** is what agents and scripts use to ask. The app carries the command, so installing the app is usually all you need.
+Pinrail has three parts. Installing the app gives you all of them.
+
+| Part | What it is |
+|---|---|
+| **The app** | The window, and the core behind it, which keeps your sessions, work items and reviews and serves them on `127.0.0.1:4747`. |
+| **The terminal host** | A separate program, Pinrail Host, that runs the agents you start in Pinrail and keeps them running when the app quits. The app starts it when the app starts. See [The terminal host](/docs/concepts/terminal-host/). |
+| **The `pinrail` command** | What agents and scripts run to reach the app. The app carries it, and installs it in its setup. |
 
 :::note[Early development]
 Pinrail is in early development. Expect rough edges, and expect things to change between releases.
@@ -20,23 +26,54 @@ Download it from [the download page](/download/), which has every system and for
 | Linux, ARM64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.AppImage), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-arm64.deb) (`sudo apt install ./pinrail-app-arm64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.rpm) (`sudo dnf install ./pinrail-app-aarch64.rpm`). |
 | Windows | Coming soon. |
 
-Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
+Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. It also starts the terminal host. The host runs from its own copy of the program, in the `host/bin` folder of Pinrail's data directory, and the app starts it through `launchd` on macOS and as a unit of your `systemd` user manager on Linux, so that it does not end with the app. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
 
 The macOS app and the AppImage update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. With the AppImage, Pinrail updates the copy of the command it installed the next time it starts. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
 
-## The command
+An update ends no agent. The updated app starts the terminal host of the new version, which takes over the terminals of the agents that run, and the agents that you start afterwards run under the new host.
 
-The first time you open Pinrail, it shows a short setup in three steps:
+## The setup
 
-1. *Connect* installs the `pinrail` command, adds Pinrail's skill to the agents you choose, and turns notifications on. It lists only the agents found on your computer. [Settings › Agents](/docs/using/settings/#agents) connects them later too.
-2. *Plugins* installs the plugins you choose. The two that Pinrail recommends are already selected.
-3. *Try it* gives you, for each installed plugin, a prompt to give your agent and a sample review to send yourself. This step opens once a plugin is installed.
+The first time you open Pinrail, it shows a welcome screen that sets Pinrail up with one button.
 
-![The setup's first step: the pinrail command, the agents found on this computer, and notifications.](screenshot:setup-connect)
+![The welcome screen. It shows the four agents found on this computer, each with a tick, beside Pinrail and you. Under them are the Set up Pinrail button and the Add more plugins button.](screenshot:setup-welcome "The welcome screen, with the agents found on this computer.")
+
+1. **Check the agents.** The screen shows the agents that Pinrail found on your computer. Click one to leave it out. You can connect an agent later in [Settings › Agents](/docs/using/settings/#agents).
+2. **Choose the plugins, if you like.** Pinrail installs the two plugins it recommends, List and Feedback. **Add more plugins** lists the others. Each plugin is one kind of review that an agent can ask you for.
+3. **Click Set up Pinrail.** Pinrail then does the rest by itself, and shows each step with its result:
+   - it installs the `pinrail` command;
+   - it connects each agent you kept, which adds Pinrail's skill and its hooks to the agent;
+   - it installs the plugins;
+   - it turns notifications on, and your system asks you to allow them.
+4. **Start your first session.** When every step is done, **Continue** opens the last screen. See [Your first review](/docs/getting-started/first-review/).
+
+When a step fails, the screen says why. **Try again** runs the failed steps again, and **Continue** goes on without them, so that you can finish them later in Settings. **Skip setup** on the welcome screen closes the setup.
 
 To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
 
-You can also install the command from **Settings › Data** with **Install the CLI**. It puts `pinrail` into `~/.local/bin`, so make sure that folder is on your `PATH`. With the `.deb` or `.rpm`, the command is already installed as `/usr/bin/pinrail`.
+## The command
+
+Agents and scripts reach Pinrail with the `pinrail` command, which the setup installs.
+
+| You installed | Where the command is |
+|---|---|
+| The macOS app | `~/.local/bin/pinrail`, a link to the command inside the app. It updates with the app. |
+| The AppImage | `~/.local/bin/pinrail`, a copy that Pinrail updates the next time it starts. |
+| The `.deb` or `.rpm` | `/usr/bin/pinrail`. The package installs it. |
+
+### When a terminal cannot find the command
+
+A terminal finds `pinrail` only when `~/.local/bin` is on your `PATH`. When it is not, the setup's step for the command reads *Not on your PATH*, and shows the line that adds the folder, written for your shell.
+
+![The setting-up screen with one step left. The step for the pinrail command says Not on your PATH, with the line to add, and the buttons Copy the line, Add it to ~/.zshrc and Check again. The four agents below it are connected.](screenshot:setup-path "The command is installed, and a new terminal cannot find it yet.")
+
+- **Add it to ~/.zshrc** adds the line to your shell's profile file for you. The button names the file of your shell: `~/.zshrc` for zsh, `~/.bash_profile` or `~/.bashrc` for bash, and `config.fish` for fish. Open a new terminal afterwards. The terminals that are already open do not find the command yet.
+- **Copy the line** copies it, so that you can add it yourself. Use this when your shell is another one, and the button to add the line does not show, or when Pinrail could not change the file. In that case the screen says why under the line.
+- **Check again** looks once more, after you changed the `PATH` yourself.
+
+When the step reads *Another one runs first*, a different `pinrail` is earlier on your `PATH`, for example one that you built from source. Put `~/.local/bin` earlier on the `PATH`, or remove the other one.
+
+You can also install the command later from **Settings › Data** with **Install the CLI**.
 
 Check that the command works:
 
@@ -61,6 +98,14 @@ pinrail list
 ```
 
 An empty list means that the command found the app. If the command cannot reach the app, see [Finding the app](/docs/agents/cli/#finding-the-app).
+
+## Uninstalling
+
+1. In *Settings › Agents*, click **Remove** on each connected agent. This takes Pinrail's skill and hooks out of the agent's own folders.
+2. Quit Pinrail with **Stop agents and quit**. With no agent left and the app closed, the terminal host stops by itself within ten minutes. It leaves no `launchd` job and no `systemd` unit behind.
+3. Remove the app: drag it out of Applications on macOS, delete the AppImage, or remove the `.deb` or `.rpm` package with your package manager.
+4. Delete the data directory, `~/.local/share/pinrail` by default. It holds your sessions, work items, reviews and settings, and the copies of the terminal host.
+5. Delete `~/.local/bin/pinrail`, unless the package installed the command, and the line that adds `~/.local/bin` to your `PATH` if the setup added it to your shell's profile.
 
 ## Next
 

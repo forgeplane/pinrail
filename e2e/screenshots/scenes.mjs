@@ -87,6 +87,16 @@ const AGENTS = [
   starts: true,
 }));
 
+/** The agents the setup's screens show, under the ids the app knows them
+ *  by, so that the last screen finds the one Pinrail can start. */
+const SETUP_AGENTS = AGENTS.filter((a) => a.found).map((a) => ({
+  ...a,
+  id: a.id === "claude" ? "claude-code" : a.id,
+  state: "absent",
+  skill_state: "absent",
+  integration: { ...a.integration, state: "absent" },
+}));
+
 /** Writes a note on a code review proposal, opening the field when a verdict did not. */
 async function note(f, id, text) {
   if (!(await f.locator(`[data-note-ta="${id}"]`).count()))
@@ -1481,39 +1491,93 @@ export const scenes = [
     },
   },
   {
-    // the setup over the inbox: the browser has no native side, so the
-    // scene answers the calls Connect makes, with the command installed
+    // the setup, from its welcome to its last screen: the agents found, the
+    // setting-up screen with the command off the PATH, and the first session.
+    // The desktop app's native side is answered here, as a computer with
+    // three agents and a shell that does not find the command yet; the
+    // folders the last screen offers are the scene's, not this computer's.
     name: "setup",
     async run({ page, app, shot }) {
+      await page.route("**/api/v1/folders/recent", (route) =>
+        route.fulfill({
+          json: {
+            folders: [
+              ["acme-api", "acme/api", "main"],
+              ["acme-web", "acme/web", "main"],
+              ["northwind-infra", "northwind/infra", "providers"],
+            ].map(([name, repo, branch]) => ({
+              folder: `/Users/maya/code/${name}`,
+              repo,
+              branch,
+              exists: true,
+              used_at: new Date(NOW).toISOString(),
+              agent: null,
+            })),
+          },
+        }),
+      );
       await page.goto(`${app.ui}/#/`);
       await inboxRows(page);
       await page.evaluate((agents) => {
+        // the command is installed, and a new terminal does not find it
+        // until its folder is added to the PATH
+        const cli = {
+          mode: "link",
+          bundled: "/Applications/Pinrail.app/Contents/MacOS/pinrail",
+          link: "/Users/maya/.local/bin/pinrail",
+          installed: true,
+          outdated: false,
+          occupied_by: null,
+          runs: null,
+          dir_on_path: false,
+          profile: "/Users/maya/.zshrc",
+          profile_line: 'export PATH="$HOME/.local/bin:$PATH"',
+        };
         window.__TAURI_INTERNALS__ = {
-          invoke: async (command) => {
+          invoke: async (command, args) => {
             if (command === "agents_status") return agents;
-            if (command === "notification_status") return null;
-            if (command === "cli_status")
-              return {
-                mode: "link",
-                bundled: "/Applications/Pinrail.app/Contents/MacOS/pinrail",
-                link: "/Users/you/.local/bin/pinrail",
-                installed: true,
-                outdated: false,
-                occupied_by: null,
-                runs: "/Users/you/.local/bin/pinrail",
-                dir_on_path: true,
-              };
+            if (command === "connect_agent") {
+              const agent = agents.find((a) => a.id === args.id);
+              agent.state = agent.skill_state = "connected";
+              agent.integration.state = "current";
+              return agents;
+            }
+            if (command === "notification_status" || command === "request_notifications") return null;
+            if (command === "cli_status" || command === "install_cli") return cli;
+            if (command === "add_cli_to_path") {
+              cli.dir_on_path = true;
+              return cli;
+            }
             throw new Error(`${command} is not answered in screenshots`);
           },
         };
-      }, AGENTS);
+      }, SETUP_AGENTS);
       await page.keyboard.press("Meta+k");
       await page.getByRole("textbox").fill("Set up Pinrail");
       await page.getByRole("option", { name: /Set up Pinrail/ }).click();
       const setup = page.getByRole("dialog", { name: "Set up Pinrail" });
-      await setup.getByTestId("setup-agent-claude").waitFor();
-      await settle(page, 500);
-      await shot("setup-connect");
+      await setup.getByRole("heading", { name: "Welcome to Pinrail" }).waitFor();
+      await setup.getByTestId("setup-summary").waitFor();
+      await page.mouse.move(5, 5);
+      await settle(page, 600);
+      await shot("setup-welcome", setup);
+
+      await setup.getByRole("button", { name: /^Set up Pinrail/ }).click();
+      await setup.getByRole("button", { name: /^Add it to / }).waitFor();
+      await page.mouse.move(5, 5);
+      await settle(page, 600);
+      await shot("setup-path", setup);
+
+      await setup.getByRole("button", { name: /^Add it to / }).click();
+      await setup.getByRole("button", { name: "Continue" }).click();
+      await setup
+        .getByRole("button", { name: /^Start with: / })
+        .first()
+        .waitFor();
+      await page.mouse.move(5, 5);
+      await settle(page, 600);
+      await shot("setup-start", setup);
+      await page.keyboard.press("Escape");
     },
   },
   {
