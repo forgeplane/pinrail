@@ -5077,6 +5077,9 @@ button.thread-line:hover strong {
 }
 .thread-revised-waiting {
   flex: none;
+  /* a badge moves to the next line whole */
+  display: inline-block;
+  white-space: nowrap;
   padding: 1px 7px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--sev-major) 14%, transparent);
