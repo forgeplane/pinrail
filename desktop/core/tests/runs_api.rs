@@ -1682,3 +1682,75 @@ async fn a_session_whose_folder_moved_is_resumed_in_the_folder_the_person_choose
     .await;
     assert_eq!(shown["session"]["folder"], moved.as_str(), "{shown}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
+    let app = linked().await;
+    let here = folder(&app, "lost");
+    let session = stopped_session(&app, &here).await;
+    // the agent of a run whose host Pinrail lost goes on running
+    let mut left = std::process::Command::new("sleep")
+        .arg("60")
+        .spawn()
+        .unwrap();
+    let pid = left.id();
+    let started = pinrail_runtime::process::process(pid).unwrap().started;
+    let db = common::db(&app);
+    let now = chrono::Utc::now();
+    db.insert_run(
+        &pinrail_core::db::NewRun {
+            id: "run_lost",
+            host: "local",
+            agent: "claude-code",
+            kind: "resume",
+            folder: &here,
+            argv: &["claude".to_string()],
+            task: None,
+            args: &[],
+            created_by: "app",
+            token_digest: "d-lost",
+            session: Some(&session),
+            agent_session: None,
+            checkout: None,
+        },
+        now,
+    )
+    .unwrap();
+    db.run_spawned(
+        "run_lost",
+        "local:t_lost",
+        Some((pid as i64, started.clone())),
+    )
+    .unwrap();
+    db.end_run("run_lost", "host_lost", None, None, now)
+        .unwrap();
+    let agent_session = db
+        .session("claude-code", &session, now)
+        .unwrap()
+        .unwrap()
+        .agent_session
+        .unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{agent_session}/reports"),
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": here}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+
+    let (status, answer) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CREATED, "{answer}");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while left.try_wait().unwrap().is_none() {
+        assert!(
+            Instant::now() < deadline,
+            "the agent left running still runs"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}

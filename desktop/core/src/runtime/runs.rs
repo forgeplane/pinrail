@@ -251,6 +251,47 @@ impl super::Runtime {
             .await
     }
 
+    /// Stops the agents of the session's runs whose host Pinrail lost that
+    /// still run, and returns their processes: asked to end first, then
+    /// killed if they have not after a few seconds.
+    async fn stop_lost(&self, key: &(String, String)) -> Result<Vec<(i64, String)>, RunError> {
+        let lost: Vec<(i64, String)> = self
+            .db
+            .runs(&RunFilters {
+                live: Some(false),
+                session: Some(key.clone()),
+                ..RunFilters::default()
+            })?
+            .into_iter()
+            .filter(|r| r.end_reason.as_deref() == Some("host_lost"))
+            .filter_map(|r| r.process)
+            .filter(|(pid, started)| crate::presence::alive(*pid, started))
+            .collect();
+        #[cfg(unix)]
+        {
+            let send = |force| {
+                for (pid, started) in &lost {
+                    if let Ok(pid) = u32::try_from(*pid) {
+                        pinrail_runtime::process::stop(pid, started, force);
+                    }
+                }
+            };
+            let running = || {
+                lost.iter()
+                    .any(|(pid, started)| crate::presence::alive(*pid, started))
+            };
+            send(false);
+            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+            while running() && tokio::time::Instant::now() < deadline {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            if running() {
+                send(true);
+            }
+        }
+        Ok(lost)
+    }
+
     /// A command with the arguments that let the agent read the files
     /// attached to sessions, for an agent that needs them.
     fn with_session_files(
@@ -292,6 +333,9 @@ impl super::Runtime {
         let argv = agent.resume(&agent_session).ok_or_else(cannot)?;
         let argv = self.with_session_files(agent, argv);
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
+        // an agent of this session that a lost host left running answers it
+        // beside the one resumed, and no viewer can reach it: it is stopped
+        let lost = self.stop_lost(&key).await?;
         let token = new_token();
         let run = {
             // checked and recorded under one lock, so that two resumes of
@@ -318,6 +362,7 @@ impl super::Runtime {
             let outside = self
                 .db
                 .session_process(&resume.agent, &resume.session)?
+                .filter(|process| !lost.contains(process))
                 .filter(|(pid, started)| crate::presence::alive(*pid, started));
             if let Some((pid, _)) = outside
                 && !(resume.anyway && agent.resumes_while_running())

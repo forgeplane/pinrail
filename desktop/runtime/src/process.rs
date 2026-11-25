@@ -26,6 +26,21 @@ pub fn process(pid: u32) -> Option<Process> {
     read(pid)
 }
 
+/// Asks the process `pid` to end, or kills it with `force`, if it is still
+/// the one that began at `started`, not a later process that got its pid.
+/// Returns whether the signal was sent.
+#[cfg(unix)]
+#[allow(unsafe_code)]
+pub fn stop(pid: u32, started: &str, force: bool) -> bool {
+    let Ok(raw) = i32::try_from(pid) else {
+        return false;
+    };
+    let signal = if force { libc::SIGKILL } else { libc::SIGTERM };
+    read(pid).is_some_and(|p| p.started == started)
+        // SAFETY: kill(2) takes any pid and signal, and only returns an error
+        && unsafe { libc::kill(raw, signal) } == 0
+}
+
 /// The nearest process above `from` (itself included) that `accepts`
 /// takes: the agent a hook or a command runs under, as its adapter
 /// recognises it.
