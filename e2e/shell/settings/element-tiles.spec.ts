@@ -19,7 +19,8 @@ test("element tiles show only when the switch in Settings is on", async ({ page,
   const tile = thread.getByTestId("element-tile");
   const palette = page.getByRole("dialog", { name: "Search" });
 
-  // off: the agent's icon in the tile's place, no Element filter, no periodic table
+  // off: the agent's icon in the tile's place and no Element filter; the
+  // periodic table stays in the palette
   await page.goto(`/#/sessions/claude-code/${session}`);
   await expect(thread.getByText("Hide the tiles").first()).toBeVisible();
   const avatar = page.locator(".thread-head > .thread-avatar");
@@ -29,7 +30,7 @@ test("element tiles show only when the switch in Settings is on", async ({ page,
   expect(Math.round(box.width)).toBe(Math.round(box.height));
   await page.keyboard.press("ControlOrMeta+k");
   await palette.getByRole("textbox").fill("periodic");
-  await expect(palette.getByRole("option", { name: /Show the periodic table/ })).toHaveCount(0);
+  await expect(palette.getByRole("option", { name: /Show the periodic table/ })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.goto("/#/sessions");
   const filters = page.getByRole("menu", { name: /^Filter/ });
