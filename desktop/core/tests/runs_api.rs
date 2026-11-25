@@ -379,6 +379,16 @@ async fn a_claude_code_start_has_pinrails_session_id_and_the_one_it_chose() {
     assert_eq!(status, StatusCode::OK, "{shown}");
     assert_eq!(shown["session"]["agent_session"], chosen);
     assert_eq!(shown["session"]["resume"]["resume"], true);
+    // the list has it before the agent reports
+    let (_, listed) = call(&app, "GET", "/api/v1/sessions", None).await;
+    assert!(
+        listed["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == session),
+        "{listed}"
+    );
 
     // the agent's reports name the session by its own id
     let token = token(&folder).await;

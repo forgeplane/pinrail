@@ -356,9 +356,9 @@ export const noticeItem = (notice: Notice): NoticeItem | null =>
 export const anItem = (notice: Notice) => !!notice.item;
 
 /** Whether a notice can change what a list of sessions shows: a review, a
- *  session's status, message or archive, a change to the projects, or a
- *  resync. */
+ *  session's status, message or archive, a run that starts a session, a
+ *  change to the projects, or a resync. */
 export const aboutSessions = (notice: Notice) =>
   !!notice.review_id ||
   notice.kind.startsWith("session_") ||
-  ["projects_changed", "repository_deleted", "resync"].includes(notice.kind);
+  ["run_started", "projects_changed", "repository_deleted", "resync"].includes(notice.kind);

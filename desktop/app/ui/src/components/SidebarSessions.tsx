@@ -110,10 +110,12 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
   // a session's own menu, by the button on its row
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; anchor: HTMLElement } | null>(null);
 
+  // a run started from Pinrail adds its session before the agent reports,
   // a status may change a session's stage or mark it done, the person may
   // rename it, archiving one moves it in or out, and deleting one takes it out
   const reported = useNoticeCount((n) =>
     [
+      "run_started",
       "session_status",
       "session_presence",
       "session_seen",

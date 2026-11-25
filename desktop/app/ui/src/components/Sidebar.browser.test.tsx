@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import type { Notice } from "../api/types";
 import { core } from "../testing/core";
+import { session } from "../testing/items";
 import { cleanup, render } from "../testing/render";
 import { Sidebar, useSidebarWidth } from "./Sidebar";
 
@@ -65,5 +66,16 @@ describe("the inbox's counts", () => {
     await expect.element(unread).toHaveTextContent("2");
     core.notice({ event_id: 7, kind: "notification_changed", counts: { waiting: 0, unread: 0 } } as unknown as Notice);
     await expect.element(unread).not.toBeInTheDocument();
+  });
+});
+
+describe("the sidebar's sessions", () => {
+  test("a session started from Pinrail shows as its run starts", async () => {
+    core.answer("sessions", { sessions: [], total: 0 });
+    await render(<Shown />, { route: "/sessions" });
+    await expect.element(page.getByText("No sessions yet")).toBeVisible();
+    core.answer("sessions", { sessions: [session({ id: "ses_1", title: "Fix the login" })], total: 1 });
+    core.notice({ event_id: 5, kind: "run_started", run: { id: "run_1" } } as unknown as Notice);
+    await expect.element(page.getByTestId("sidebar-session").filter({ hasText: "Fix the login" })).toBeVisible();
   });
 });
