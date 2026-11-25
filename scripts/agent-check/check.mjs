@@ -34,7 +34,14 @@ const repo = path.join(scratch, "repo");
  *  folder-trust question, and the keys that answer yes, Enter when none. */
 const AGENTS = {
   "claude-code": { name: "Claude Code", trust: /trust this folder|Do you trust/i, yes: ["\x1bOB", "\r"] },
-  codex: { name: "Codex", trust: /Trust and continue|trust the contents|Do you trust/i },
+  codex: {
+    name: "Codex",
+    trust: /Trust and continue|trust the contents|Do you trust/i,
+    // its own offer to update itself, answered with Skip: the check runs
+    // the agent as it is installed
+    update: /Update available/i,
+    skipUpdate: ["\x1b[B", "\r"],
+  },
   cursor: { name: "Cursor", trust: /Trust this workspace|Do you trust/i },
   antigravity: { name: "Antigravity", trust: /trust this folder|Do you trust/i },
   opencode: { name: "OpenCode", trust: /Do you trust/i },
@@ -42,9 +49,15 @@ const AGENTS = {
   pi: { name: "Pi", trust: /Do you trust/i },
   copilot: { name: "Copilot", trust: /trust the files|Do you trust/i },
 };
-/** What an agent shows when it is not signed in. */
-const SIGNED_OUT =
-  /\b(log ?in|sign in|authenticate|API key)\b.*\b(to continue|required|first)\b|Select login method|Please log in/i;
+/** What an agent shows when it cannot answer: not signed in, or out of the
+ *  usage its plan allows. */
+const CANNOT_ANSWER = [
+  [
+    /\b(log ?in|sign in|authenticate|API key)\b.*\b(to continue|required|first)\b|Select login method|Please log in/i,
+    "not signed in",
+  ],
+  [/usage limit reached|quota exceeded|out of credits/i, "usage limit reached"],
+];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -180,6 +193,43 @@ async function press(app, run, keys) {
   ws.close();
 }
 
+/** Waits until the agent's screen has not changed for three seconds,
+ *  answering its prompts on the way, so that what is typed next reaches
+ *  its input. */
+async function settled(app, ctx, run) {
+  let last = "";
+  let since = Date.now();
+  await waitForScreen(
+    app,
+    ctx,
+    run,
+    ctx.agent,
+    {
+      test: (text) => {
+        if (text !== last) [last, since] = [text, Date.now()];
+        return text.trim() !== "" && Date.now() - since >= 3_000;
+      },
+    },
+    "the agent's screen to settle",
+    90_000,
+  );
+}
+
+/** Types `prompt` into the agent's input and submits it once it shows. */
+async function typePrompt(app, ctx, run, prompt) {
+  await settled(app, ctx, run);
+  await press(app, run, [prompt]);
+  // the start of the prompt, which may wrap
+  const start = prompt.slice(0, 30);
+  const flat = (text) => text.replace(/\s+/g, " ");
+  await until(
+    async () => flat(await screen(app, run)).includes(start),
+    "the typed prompt to show in the agent's input",
+    15_000,
+  );
+  await press(app, run, ["\r"]);
+}
+
 /** The last lines the run's terminal shows. */
 const screen = async (app, run, lines = 60) =>
   (await app.api("GET", `/api/v1/runs/${run.id}/output?lines=${lines}`)).text;
@@ -189,10 +239,17 @@ const screen = async (app, run, lines = 60) =>
  *  showed; throws when the agent is not signed in. */
 async function waitForScreen(app, ctx, run, agent, want, what, ms = 180_000) {
   let trusted = false;
+  let skipped = false;
   return until(
     async () => {
       const text = await screen(app, run);
-      if (SIGNED_OUT.test(text)) throw Object.assign(new Error("not signed in"), { skip: true });
+      for (const [shows, why] of CANNOT_ANSWER)
+        if (shows.test(text)) throw Object.assign(new Error(why), { skip: true });
+      if (!skipped && agent.update?.test(text)) {
+        skipped = true;
+        await press(app, run, agent.skipUpdate);
+        return null;
+      }
       if (!trusted && agent.trust.test(text)) {
         trusted = true;
         ctx.trusted.push({ run: run.id, screen: text });
@@ -266,25 +323,18 @@ async function resume(app, ctx) {
     rows: 40,
   });
   ctx.run = run;
-  // the agent is ready for a prompt once its screen settles
-  let last = "";
-  await until(
-    async () => {
-      const text = await screen(app, run);
-      const same = text === last && text.trim() !== "";
-      last = text;
-      return same;
-    },
-    "the resumed agent to start",
-    60_000,
+  await typePrompt(
+    app,
+    ctx,
+    run,
+    "Which word did you reply with before? Answer with it in lowercase, and nothing else.",
   );
-  await press(app, run, ["Which word did you reply with before? Answer with it in lowercase, and nothing else.", "\r"]);
   await waitForScreen(
     app,
     ctx,
     run,
     ctx.agent,
-    { test: (text) => /^\W*ready\W*$/m.test(answer(text)) },
+    { test: (text) => /\bready\b/.test(answer(text)) },
     "the agent to remember its answer",
   );
   const now = await app.api("GET", `/api/v1/runs/${run.id}`);
@@ -293,20 +343,21 @@ async function resume(app, ctx) {
   return "remembered its answer in the same session";
 }
 
-/** No prompt asks to trust Pinrail's files folder, at start or resume:
- *  the only trust question is the scratch repository's, at the first start. */
+/** No prompt asks to trust Pinrail's files folder, at start or resume: a
+ *  trust question names the repository, or comes at the first start. */
 async function noFilesFolderTrust(app, ctx) {
   if (!ctx.session) throw Object.assign(new Error("needs a new session"), { needs: true });
-  const files = path.join(data, "sessions");
-  const wrong = ctx.trusted.filter((t, i) => i > 0 || t.screen.includes(files));
-  if (wrong.length)
-    throw new Error(
-      `asked to trust a folder ${wrong.length} more time(s): ${wrong[0].screen
-        .split("\n")
-        .filter((l) => l.trim())
-        .slice(-6)
-        .join(" ⏎ ")}`,
-    );
+  // by a part of each path, as an agent may show /var as /private/var
+  const names = (screen, folder) => screen.replace(/\s+/g, "").includes(path.relative(os.tmpdir(), folder));
+  const wrong = ctx.trusted.filter((t, i) => names(t.screen, data) || (i > 0 && !names(t.screen, repo)));
+  if (wrong.length) {
+    const last = wrong[0].screen
+      .split("\n")
+      .filter((l) => l.trim())
+      .slice(-8)
+      .join(" ⏎ ");
+    throw new Error(`asked to trust a folder other than the repository: ${last}`);
+  }
   return ctx.trusted.length ? "asked only about the repository" : "asked nothing";
 }
 
@@ -420,7 +471,7 @@ async function idleMessage(app, ctx) {
 /** A message sent while the agent works waits for the turn to end. */
 async function busyMessage(app, ctx) {
   if (!ctx.session) throw Object.assign(new Error("needs a new session"), { needs: true });
-  await press(app, ctx.run, ["Write the numbers from 1 to 150, one on each line, and then the word COUNTED.", "\r"]);
+  await typePrompt(app, ctx, ctx.run, "Write the numbers from 1 to 150, one on each line, and then the word COUNTED.");
   // the turn has begun
   await until(
     async () =>
