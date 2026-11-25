@@ -76,7 +76,11 @@ struct Sink {
 /// One terminal's screen and history.
 pub struct Terminal {
     raw: ffi::Terminal,
-    sink: Box<Sink>,
+    /// The callbacks' state, which the library holds as userdata and writes
+    /// through during a call. Owned here as a raw box, so that no Rust
+    /// reference to it is alive while the library writes; freed after the
+    /// handle in `drop`.
+    sink: *mut Sink,
     /// whether focus reporting was on after the last write
     focus_reporting: bool,
 }
@@ -166,12 +170,12 @@ impl Terminal {
         // from here on, Drop frees the handle if a setting fails
         let mut terminal = Terminal {
             raw,
-            sink: Box::new(Sink {
+            sink: Box::into_raw(Box::new(Sink {
                 replies: Vec::new(),
                 signals: Vec::new(),
                 name: format!("Pinrail {}", env!("CARGO_PKG_VERSION")).into_bytes(),
                 color_scheme: None,
-            }),
+            })),
             focus_reporting: false,
         };
         terminal.set_callbacks()?;
@@ -208,7 +212,7 @@ impl Terminal {
     /// Gives the library the sink as userdata, and the callbacks that fill
     /// it. Every callback runs on this thread, inside a write.
     fn set_callbacks(&self) -> Result<(), Error> {
-        let sink: *const Sink = &*self.sink;
+        let sink = self.sink;
         let callbacks: [(ffi::TerminalOption, *const c_void); 8] = [
             (
                 ffi::OPT_WRITE_PTY,
@@ -238,8 +242,7 @@ impl Terminal {
             ),
         ];
         // SAFETY: USERDATA takes the pointer itself, which stays valid as
-        // long as the terminal, since the box is dropped after the handle
-        // is freed.
+        // long as the terminal, since the sink is freed after the handle.
         check("ghostty_terminal_set(USERDATA)", unsafe {
             ffi::ghostty_terminal_set(self.raw, ffi::OPT_USERDATA, sink.cast())
         })?;
@@ -515,8 +518,9 @@ impl Screen for Terminal {
         // reads during the call only. The callbacks it makes meanwhile reach
         // the sink, which nothing else touches during the call.
         unsafe { ffi::ghostty_terminal_vt_write(self.raw, bytes.as_ptr(), bytes.len()) }
-        replies.append(&mut self.sink.replies);
-        signals.append(&mut self.sink.signals);
+        let sink = self.sink_mut();
+        replies.append(&mut sink.replies);
+        signals.append(&mut sink.signals);
         let focus_reporting = self.mode_set(FOCUS_EVENT);
         if focus_reporting != self.focus_reporting {
             self.focus_reporting = focus_reporting;
@@ -538,7 +542,7 @@ impl Screen for Terminal {
     }
 
     fn set_facts(&mut self, facts: &DisplayFacts) {
-        self.sink.color_scheme = facts.color_scheme;
+        self.sink_mut().color_scheme = facts.color_scheme;
         self.set_color(ffi::OPT_COLOR_FOREGROUND, facts.foreground);
         self.set_color(ffi::OPT_COLOR_BACKGROUND, facts.background);
         self.set_color(ffi::OPT_COLOR_CURSOR, facts.cursor);
@@ -742,10 +746,23 @@ fn hyperlink(at: &ffi::GridRef) -> Option<String> {
     (result == ffi::SUCCESS).then(|| String::from_utf8_lossy(&buf[..len]).into_owned())
 }
 
+impl Terminal {
+    /// The sink, between library calls.
+    fn sink_mut(&mut self) -> &mut Sink {
+        // SAFETY: the pointer came from Box::into_raw and lives until drop.
+        // `&mut self` means no library call, and so no callback, runs
+        // meanwhile, so this is the only reference to the sink.
+        unsafe { &mut *self.sink }
+    }
+}
+
 impl Drop for Terminal {
     fn drop(&mut self) {
         // SAFETY: the handle came from ghostty_terminal_new and is freed once.
         unsafe { ffi::ghostty_terminal_free(self.raw) }
+        // SAFETY: the pointer came from Box::into_raw, and the library that
+        // held it is gone, so this is its only owner.
+        drop(unsafe { Box::from_raw(self.sink) });
     }
 }
 
