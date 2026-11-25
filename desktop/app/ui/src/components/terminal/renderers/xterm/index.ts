@@ -89,6 +89,8 @@ const ORIGINS: [string, InputKind][] = [
 class XtermView implements TerminalView, BenchHooks {
   readonly snapshotFormats = ["vt"] as const;
   private term: Terminal | null = null;
+  /** Whether a program may copy to the clipboard (OSC 52). */
+  private allowWrite = true;
   private host: HTMLElement | null = null;
   private search_: SearchAddon | null = null;
   /** The kind of the person's event being handled, if one is. */
@@ -123,13 +125,13 @@ class XtermView implements TerminalView, BenchHooks {
     this.term = term;
     term.loadAddon(new Unicode11Addon());
     term.unicode.activeVersion = "11";
-    const allowWrite = options.clipboardWrite ?? true;
+    this.allowWrite = options.clipboardWrite ?? true;
     term.loadAddon(
       new ClipboardAddon(undefined, {
         // never read: a program cannot learn what the person copied
         readText: () => "",
         writeText: (_selection: ClipboardSelectionType, text: string) => {
-          if (allowWrite && text.length <= CLIPBOARD_MAX) void navigator.clipboard?.writeText(text);
+          if (this.allowWrite && text.length <= CLIPBOARD_MAX) void navigator.clipboard?.writeText(text);
         },
       }),
     );
@@ -263,6 +265,11 @@ class XtermView implements TerminalView, BenchHooks {
 
   setTheme(theme: TerminalTheme): void {
     this.term!.options.theme = toXtermTheme(theme);
+  }
+
+  setInputOptions(options: Pick<ViewOptions, "optionAsMeta" | "clipboardWrite">): void {
+    this.term!.options.macOptionIsMeta = (options.optionAsMeta ?? "off") !== "off";
+    this.allowWrite = options.clipboardWrite ?? true;
   }
 
   setFont(font: TerminalFont): void {

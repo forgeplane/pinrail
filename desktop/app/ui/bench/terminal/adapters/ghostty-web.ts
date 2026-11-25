@@ -136,6 +136,8 @@ class GhosttyWebView implements TerminalView, BenchHooks {
     this.term!.renderer?.setTheme(themeOf(theme));
   }
 
+  setInputOptions(): void {}
+
   setFont(font: TerminalFont): void {
     this.term!.renderer?.setFontFamily(font.family);
     this.term!.renderer?.setFontSize(font.size);

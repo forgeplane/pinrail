@@ -60,10 +60,15 @@ export function TerminalPane({ terminal, autoFocus = false }: { terminal: string
     rendererSetting = renderer;
   }, [renderer]);
   useEffect(() => {
-    const changed = viewSettings.screenReader !== screenReader;
+    const before = viewSettings;
     viewSettings = { optionAsMeta, screenReader, clipboardWrite };
-    // terminals already shown turn their mirror on or off
-    if (changed) terminalPool().restyle();
+    // terminals already shown take the change
+    if (
+      before.screenReader !== screenReader ||
+      before.optionAsMeta !== optionAsMeta ||
+      before.clipboardWrite !== clipboardWrite
+    )
+      terminalPool().restyle();
   }, [optionAsMeta, screenReader, clipboardWrite]);
   const [entry, setEntry] = useState<PooledTerminal | null>(null);
   const [failed, setFailed] = useState<string | null>(null);

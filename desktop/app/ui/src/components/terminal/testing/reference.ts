@@ -126,6 +126,7 @@ class ReferenceView implements TerminalView {
   }
   setTheme(_theme: TerminalTheme) {}
   setFont(_font: TerminalFont) {}
+  setInputOptions() {}
 
   private listen<T>(set: Set<T>, listener: T): Unsubscribe {
     set.add(listener);

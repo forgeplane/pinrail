@@ -67,6 +67,8 @@ export interface TerminalView {
   blur(): void;
   setTheme(theme: TerminalTheme): void;
   setFont(font: TerminalFont): void;
+  /** Applies a change to Option as Meta or to programs' clipboard writes. */
+  setInputOptions(options: Pick<ViewOptions, "optionAsMeta" | "clipboardWrite">): void;
   /** Encoded input for the PTY: keys, paste, mouse, focus, in the program's modes. */
   onInput(listener: (bytes: Uint8Array, kind: InputKind) => void): Unsubscribe;
   /** Replies the renderer's emulator generates to queries in the output.

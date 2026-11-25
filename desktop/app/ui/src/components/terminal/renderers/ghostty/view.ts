@@ -79,6 +79,8 @@ class GhosttyView implements TerminalView, BenchHooks {
   private core!: GhosttyCore;
   private renderer!: CanvasRenderer;
   private queue!: WriteQueue;
+  /** Whether a program may copy to the clipboard (OSC 52). */
+  private clipboardWrite = true;
   private keyboard!: Keyboard;
   private pointer!: Pointer;
   private finder!: Finder;
@@ -135,9 +137,9 @@ class GhosttyView implements TerminalView, BenchHooks {
     this.queue = this.newQueue();
     // a program may copy to the clipboard (OSC 52), unless the view says
     // not; it can never read it
-    const clipboardWrite = options.clipboardWrite ?? true;
+    this.clipboardWrite = options.clipboardWrite ?? true;
     this.core.onClipboardWrite((text) => {
-      if (!clipboardWrite) return false;
+      if (!this.clipboardWrite) return false;
       void navigator.clipboard?.writeText(text);
       return true;
     });
@@ -336,6 +338,11 @@ class GhosttyView implements TerminalView, BenchHooks {
     if (theme.selectionBackground)
       this.renderer.setSelectionColour(parseColour(theme.selectionBackground, { r: 60, g: 62, b: 90 }));
     this.redraw();
+  }
+
+  setInputOptions(options: Pick<ViewOptions, "optionAsMeta" | "clipboardWrite">): void {
+    this.clipboardWrite = options.clipboardWrite ?? true;
+    this.keyboard.setOptions({ optionAsMeta: options.optionAsMeta ?? "off" });
   }
 
   setFont(font: TerminalFont): void {

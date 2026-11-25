@@ -214,3 +214,21 @@ test("a theme change reaches the attached terminals and the host", async () => {
   });
   pool.clear();
 });
+
+test("a change to Option as Meta or clipboard writes reaches the attached terminals", async () => {
+  const { pool, pane } = rig(referenceRenderer);
+  const a = await pool.show("local:a", pane);
+  await expect.poll(() => a.state.stream).toBe("live");
+  const applied: unknown[] = [];
+  a.view.setInputOptions = (options) => applied.push(options);
+  (pool as unknown as { deps: PoolDeps }).deps.appearance = () => ({
+    theme: { foreground: "#111111", background: "#fafafa", cursor: "#111111" },
+    font: { family: "monospace", size: 13 },
+    scheme: "light",
+    optionAsMeta: "left",
+    clipboardWrite: false,
+  });
+  pool.restyle();
+  await expect.poll(() => applied).toEqual([{ optionAsMeta: "left", clipboardWrite: false }]);
+  pool.clear();
+});

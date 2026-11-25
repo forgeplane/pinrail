@@ -123,6 +123,7 @@ export class PooledTerminal {
     this.view.setTheme(look.theme);
     this.view.setFont(look.font);
     this.view.setScreenReader(look.screenReader ?? false);
+    this.view.setInputOptions({ optionAsMeta: look.optionAsMeta, clipboardWrite: look.clipboardWrite });
     this.sendFacts();
     this.refit();
   }
