@@ -6,8 +6,13 @@ use std::fs;
 use std::path::Path;
 
 use pinrail_runtime::connection::{SkillFiles, SkillState, managed};
-use pinrail_runtime::integration::{HookState, file_state};
+use pinrail_runtime::integration::HookState;
 use pinrail_runtime::{Agent, connector};
+
+/// A shell for agents with no trust step: running it fails.
+fn no_shell(_: &str) -> std::process::Command {
+    std::process::Command::new("false")
+}
 
 /// No variables: every folder is under the test's home.
 fn env(_: &str) -> Option<String> {
@@ -44,22 +49,6 @@ fn state(home: &Path, id: &str, sha: &str) -> SkillState {
 }
 
 #[test]
-fn report_status_installs_and_removes_the_hooks() {
-    let home = home_with(&[".claude"]);
-    let claude = agent("claude-code");
-    let plan = claude.integration(home.path(), &env).unwrap();
-    let shell = |_: &str| std::process::Command::new("false");
-    claude
-        .set_reporting(home.path(), &env, true, &shell)
-        .unwrap();
-    assert_eq!(file_state(&plan), HookState::Current);
-    claude
-        .set_reporting(home.path(), &env, false, &shell)
-        .unwrap();
-    assert_eq!(file_state(&plan), HookState::Absent);
-}
-
-#[test]
 fn an_agent_that_is_not_installed_is_not_connected() {
     let home = home_with(&[]);
     let files = skill("abc");
@@ -68,7 +57,7 @@ fn an_agent_that_is_not_installed_is_not_connected() {
         sha: "abc",
     };
     let refused = agent("antigravity")
-        .connect(home.path(), &env, &skill)
+        .connect(home.path(), &env, &skill, &no_shell)
         .unwrap_err();
     assert!(
         refused.contains("Antigravity CLI is not installed"),
@@ -90,6 +79,7 @@ fn a_skill_with_another_hash_is_outdated_and_connecting_updates_it() {
                 files: &older,
                 sha: "0123",
             },
+            &no_shell,
         )
         .unwrap();
     let dir = home.path().join(".claude/skills/pinrail");
@@ -114,6 +104,7 @@ fn a_skill_with_another_hash_is_outdated_and_connecting_updates_it() {
                 files: &files,
                 sha: "abc",
             },
+            &no_shell,
         )
         .unwrap();
     assert_eq!(
@@ -124,7 +115,7 @@ fn a_skill_with_another_hash_is_outdated_and_connecting_updates_it() {
 }
 
 #[test]
-fn a_pinrail_skill_of_the_person_s_own_is_left_alone() {
+fn a_pinrail_skill_of_the_person_s_own_stays_and_connecting_adds_only_the_hooks() {
     let home = home_with(&[".cursor"]);
     let dir = home.path().join(".cursor/skills/pinrail");
     fs::create_dir_all(&dir).unwrap();
@@ -136,20 +127,72 @@ fn a_pinrail_skill_of_the_person_s_own_is_left_alone() {
         sha: "abc",
     };
     let cursor = agent("cursor");
+    let hooks = || cursor.reporting_state(home.path(), &env).unwrap();
     assert_eq!(state(home.path(), "cursor", "abc"), SkillState::Theirs);
-    assert!(
-        cursor
-            .connect(home.path(), &env, &skill)
-            .unwrap_err()
-            .contains("a skill of yours")
-    );
-    assert!(
-        cursor
-            .disconnect(home.path(), &env)
-            .unwrap_err()
-            .contains("a skill of yours")
-    );
+    cursor
+        .connect(home.path(), &env, &skill, &no_shell)
+        .unwrap();
     assert_eq!(fs::read_to_string(dir.join("SKILL.md")).unwrap(), theirs);
+    assert_eq!(hooks(), HookState::Current);
+
+    cursor.disconnect(home.path(), &env).unwrap();
+    assert_eq!(fs::read_to_string(dir.join("SKILL.md")).unwrap(), theirs);
+    assert_eq!(hooks(), HookState::Absent);
+}
+
+#[test]
+fn an_agent_without_hooks_is_not_connected_over_a_skill_of_the_person_s_own() {
+    let home = home_with(&[".kiro/skills/pinrail"]);
+    let path = home.path().join(".kiro/skills/pinrail/SKILL.md");
+    fs::write(&path, "---\nname: pinrail\n---\nmine\n").unwrap();
+    let files = skill("abc");
+    let refused = agent("kiro")
+        .connect(
+            home.path(),
+            &env,
+            &SkillFiles {
+                files: &files,
+                sha: "abc",
+            },
+            &no_shell,
+        )
+        .unwrap_err();
+    assert!(refused.contains("a skill of yours"), "{refused}");
+    assert_eq!(
+        fs::read_to_string(&path).unwrap(),
+        "---\nname: pinrail\n---\nmine\n"
+    );
+}
+
+#[test]
+fn a_hooks_file_pinrail_cannot_read_is_left_alone_and_the_skill_still_added() {
+    let home = home_with(&[".claude"]);
+    let settings = home.path().join(".claude/settings.json");
+    fs::write(&settings, "{ not json").unwrap();
+    let files = skill("abc");
+    let claude = agent("claude-code");
+    claude
+        .connect(
+            home.path(),
+            &env,
+            &SkillFiles {
+                files: &files,
+                sha: "abc",
+            },
+            &no_shell,
+        )
+        .unwrap();
+    assert_eq!(
+        state(home.path(), "claude-code", "abc"),
+        SkillState::Connected
+    );
+    assert_eq!(
+        claude.reporting_state(home.path(), &env),
+        Some(HookState::Unreadable)
+    );
+    claude.disconnect(home.path(), &env).unwrap();
+    assert_eq!(fs::read_to_string(&settings).unwrap(), "{ not json");
+    assert_eq!(state(home.path(), "claude-code", "abc"), SkillState::Absent);
 }
 
 #[test]
@@ -165,6 +208,7 @@ fn removing_keeps_files_of_the_person_s_own_beside_the_skill() {
                 files: &files,
                 sha: "abc",
             },
+            &no_shell,
         )
         .unwrap();
     let dir = home.path().join(".claude/skills/pinrail");

@@ -9,16 +9,16 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 
 ## The parts
 
-| Part | What it is |
-|---|---|
-| **Agent** | A coding agent, such as Claude Code, Codex or OpenCode. Pinrail works with any agent that can run a command. |
-| **Session** | One run of an agent, such as a Claude Code conversation. Pinrail shows each session's state and a thread of what the agent sent you. See [Sessions](/docs/concepts/sessions/). |
+| Part          | What it is                                                                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Agent**     | A coding agent, such as Claude Code, Codex or OpenCode. Pinrail works with any agent that can run a command.                                                                                     |
+| **Session**   | One run of an agent, such as a Claude Code conversation. Pinrail shows each session's state and a thread of what the agent sent you. See [Sessions](/docs/concepts/sessions/).                   |
 | **Work item** | A task that you and your agents share, with sub-items and dependencies. An agent takes the next item that is ready and records its progress on it. See [Work items](/docs/concepts/work-items/). |
-| **Inbox** | The list of notifications. It shows what waits on you first, and the updates from your agents below it. See [The inbox](/docs/using/inbox/). |
-| **Question** | A short request for an answer that an agent needs before it can go on. You answer it in the session's thread. See [Questions](/docs/concepts/sessions/#questions). |
-| **Review** | A request for your decision on work that an agent is about to do, shown in a view made for that work. See [Reviews](/docs/concepts/reviews/). |
-| **Plugin** | A kind of review. It defines the data an agent sends, the view you decide in, and the decision that goes back. See [Plugins](/docs/concepts/plugins/). |
-| **Project** | A set of repositories that you group under one name. You can filter the inbox and the Sessions page by project. See [Projects](/docs/using/projects/). |
+| **Inbox**     | The list of notifications. It shows what waits on you first, and the updates from your agents below it. See [The inbox](/docs/using/inbox/).                                                     |
+| **Question**  | A short request for an answer that an agent needs before it can go on. You answer it in the session's thread. See [Questions](/docs/concepts/sessions/#questions).                               |
+| **Review**    | A request for your decision on work that an agent is about to do, shown in a view made for that work. See [Reviews](/docs/concepts/reviews/).                                                    |
+| **Plugin**    | A kind of review. It defines the data an agent sends, the view you decide in, and the decision that goes back. See [Plugins](/docs/concepts/plugins/).                                           |
+| **Project**   | A set of repositories that you group under one name. You can filter the inbox and the Sessions page by project. See [Projects](/docs/using/projects/).                                           |
 
 ## Where an agent runs
 
@@ -28,15 +28,15 @@ An agent runs in Pinrail or in your own terminal. Pinrail shows its session in b
 - **In your own terminal.** You start the agent as usual. Pinrail shows the session from what the agent reports, and you answer its questions and reviews in the app. A message that you send from the session reaches the agent the next time it reports a status.
 
 :::note[Agents keep running when you quit Pinrail]
-When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. The agents that you leave running carry on with their work, and you can open them again when you reopen Pinrail. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in *Settings › General*.
+When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. The agents that you leave running carry on with their work, and you can open them again when you reopen Pinrail. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in _Settings › General_.
 :::
 
 ## How an agent reports
 
 An agent tells Pinrail what it is doing in two ways.
 
-- **Its hooks.** Pinrail installs them when you turn on **Report status** for the agent in [Settings › Agents](/docs/using/settings/#agents). They report the agent's turns, your prompts and its replies, and whether the agent is working or has finished. Depending on the agent, they also report that it waits for a permission or an answer.
-- **The `pinrail` command.** The agent runs it to send statuses and notes, to ask questions, to submit reviews and wait for your decision, and to add, take and close work items. Pinrail's skill, which you also add to the agent in Settings › Agents, tells the agent how to use the command. See [The CLI](/docs/agents/cli/).
+- **Its hooks.** Pinrail installs them when you connect the agent in [Settings › Agents](/docs/using/settings/#agents). They report the agent's turns, your prompts and its replies, and whether the agent is working or has finished. Depending on the agent, they also report that it waits for a permission or an answer.
+- **The `pinrail` command.** The agent runs it to send statuses and notes, to ask questions, to submit reviews and wait for your decision, and to add, take and close work items. Pinrail's skill, which connecting the agent also adds, tells the agent how to use the command. See [The CLI](/docs/agents/cli/).
 
 ## What needs you
 

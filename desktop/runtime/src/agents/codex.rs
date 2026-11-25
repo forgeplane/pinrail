@@ -171,7 +171,7 @@ mod tests {
 
     use super::*;
     use crate::connection::SkillFiles;
-    use crate::connection::testing::{Case, connects_and_removes, env, home_with, skill};
+    use crate::connection::testing::{Case, connects_and_removes, env, home_with, no_shell, skill};
 
     #[test]
     fn it_is_connected_and_removed_with_its_hooks_trusted() {
@@ -185,7 +185,7 @@ mod tests {
                 r#"{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "my-own-stop"}]}]}}"#,
             ),
         };
-        // Report status trusts the hooks through Codex's app server, run in
+        // connecting trusts the hooks through Codex's app server, run in
         // the login shell; codex_trust's tests cover what it says to it
         let started = std::cell::Cell::new(0);
         let shell = |line: &str| {
@@ -194,7 +194,16 @@ mod tests {
             super::super::codex_trust::fake_app_server(&out)
         };
         connects_and_removes(&Codex, &case, &shell);
-        assert_eq!(started.get(), 1);
+        // once for each connect
+        assert_eq!(started.get(), 2);
+    }
+
+    /// Codex's app server as the fake answers it, keeping what it was
+    /// asked in a folder of the test's own.
+    fn app_server(_: &str) -> std::process::Command {
+        let out =
+            std::env::temp_dir().join(format!("pinrail-codex-trust-{}.json", std::process::id()));
+        super::super::codex_trust::fake_app_server(&out)
     }
 
     #[test]
@@ -207,7 +216,7 @@ mod tests {
             sha: "abc",
         };
         let rule = home.join(".codex/rules/pinrail.rules");
-        Codex.connect(home, &env, &skill).unwrap();
+        Codex.connect(home, &env, &skill, &app_server).unwrap();
         let text = fs::read_to_string(&rule).unwrap();
         assert!(
             text.contains(r#"prefix_rule(pattern=["pinrail"], decision="allow")"#),
@@ -219,7 +228,7 @@ mod tests {
             Codex.skill_state(home, &env, "abc"),
             crate::connection::SkillState::Outdated
         );
-        Codex.connect(home, &env, &skill).unwrap();
+        Codex.connect(home, &env, &skill, &app_server).unwrap();
         assert_eq!(
             Codex.skill_state(home, &env, "abc"),
             crate::connection::SkillState::Connected
@@ -241,7 +250,7 @@ mod tests {
             files: &files,
             sha: "abc",
         };
-        assert!(Codex.connect(home, &env, &skill).is_err());
+        assert!(Codex.connect(home, &env, &skill, &no_shell).is_err());
         assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);
         Codex.disconnect(home, &env).unwrap();
         assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);

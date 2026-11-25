@@ -195,7 +195,7 @@ pub fn is_cursor_command(args: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection::testing::{Case, connects_and_removes};
+    use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]
     fn it_is_connected_and_removed_with_its_hooks() {
@@ -207,6 +207,6 @@ mod tests {
                 r#"{"version": 1, "hooks": {"sessionStart": [{"command": "my-own-start"}]}}"#,
             ),
         };
-        connects_and_removes(&Cursor, &case, &|_| std::process::Command::new("false"));
+        connects_and_removes(&Cursor, &case, &no_shell);
     }
 }

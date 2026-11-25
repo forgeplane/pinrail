@@ -203,9 +203,7 @@ export function SetupDialog({ onClose }: { onClose: () => void }) {
           />
           {(failed.length || parts.some((p) => p.newTerminal)) && !running ? null : (
             <div className="setup-tip">
-              <TipBar>
-                <b>Report status</b> lets Pinrail show when an agent works, waits for you or finishes.
-              </TipBar>
+              <TipBar>A connected agent&apos;s hooks let Pinrail show when it works, waits for you or finishes.</TipBar>
             </div>
           )}
         </>

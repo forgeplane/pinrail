@@ -98,10 +98,27 @@ pub trait Agent: Send + Sync {
         }
     }
 
-    /// Writes the skill into an installed agent, with the files that go
-    /// with it, or brings an older one up to date. A `pinrail` skill of the
-    /// person's own is never replaced.
-    fn connect(&self, home: &Path, env: Env, skill: &SkillFiles) -> Result<(), String> {
+    /// What Pinrail's hooks, extension or plugin for the agent are in its
+    /// file; `None` for an agent whose status Pinrail does not report.
+    fn reporting_state(&self, home: &Path, env: Env) -> Option<HookState> {
+        self.integration(home, env)
+            .map(|plan| crate::integration::file_state(&plan))
+    }
+
+    /// Connects an installed agent, or brings its connection up to date:
+    /// writes the skill and the files that go with it, then installs the
+    /// hooks, extension or plugin that report its status, and trusts them
+    /// where the agent asks for that. A `pinrail` skill of the person's own
+    /// is never replaced, nor a hooks file Pinrail cannot read; the other
+    /// part is still added. `shell` runs the agent's program for its trust
+    /// step.
+    fn connect(
+        &self,
+        home: &Path,
+        env: Env,
+        skill: &SkillFiles,
+        shell: Shell,
+    ) -> Result<(), String> {
         let label = self.spec().label;
         let path = self
             .skill_path(home)
@@ -110,31 +127,47 @@ pub trait Agent: Send + Sync {
             let config = self.spec().folders.as_ref().map_or("", |f| f.config);
             return Err(format!("{label} is not installed: ~/{config} is not there"));
         }
-        if crate::connection::state_of(&path, skill.sha) == SkillState::Theirs {
-            return Err(crate::connection::theirs(&path));
+        let theirs = crate::connection::state_of(&path, skill.sha) == SkillState::Theirs;
+        if !theirs {
+            // the files that go with it first, so the skill counts as
+            // connected only once they are there
+            for file in self.skill_files(home, env) {
+                file.apply(true)?;
+            }
+            crate::connection::write_skill(&path, skill)?;
         }
-        // the files that go with it first, so the skill counts as connected
-        // only once they are there
-        for file in self.skill_files(home, env) {
-            file.apply(true)?;
-        }
-        crate::connection::write_skill(&path, skill)
+        let plan = self
+            .integration(home, env)
+            .filter(|plan| crate::integration::file_state(plan) != HookState::Unreadable);
+        let Some(plan) = plan else {
+            return if theirs {
+                Err(crate::connection::theirs(&path))
+            } else {
+                Ok(())
+            };
+        };
+        crate::integration::apply(&plan, true)?;
+        self.trust_hooks(&plan, shell).map(|_| ()).map_err(|e| {
+            format!(
+                "Pinrail installed its hooks, but could not trust them in {label}: {e}. \
+                 {label} asks you to review them when it next starts."
+            )
+        })
     }
 
-    /// Removes the app's skill and the files that go with it, then what
-    /// Report status installed. A skill of the person's own stays, and so
-    /// does a file of theirs at the path of one of Pinrail's, or a hooks
-    /// file Pinrail cannot read.
+    /// Removes what connecting the agent added: the skill and the files
+    /// that go with it, and the hooks, extension or plugin. A skill of the
+    /// person's own stays, and so does a file of theirs at the path of one
+    /// of Pinrail's, or a hooks file Pinrail cannot read.
     fn disconnect(&self, home: &Path, env: Env) -> Result<(), String> {
-        if let Some(path) = self.skill_path(home) {
-            if fs_text(&path).is_some_and(|text| !crate::connection::managed(&text)) {
-                return Err(crate::connection::theirs(&path));
-            }
+        if let Some(path) = self.skill_path(home)
+            && fs_text(&path).is_none_or(|text| crate::connection::managed(&text))
+        {
             crate::connection::remove_skill(&path)?;
-        }
-        for file in self.skill_files(home, env) {
-            if file.state() != HookState::Unreadable {
-                file.apply(false)?;
+            for file in self.skill_files(home, env) {
+                if file.state() != HookState::Unreadable {
+                    file.apply(false)?;
+                }
             }
         }
         if let Some(plan) = self.integration(home, env)
@@ -146,30 +179,6 @@ pub trait Agent: Send + Sync {
             crate::integration::apply(&plan, false)?;
         }
         Ok(())
-    }
-
-    /// Installs the hooks, extension or plugin that report the agent's
-    /// status, and trusts them where the agent asks for that, or removes
-    /// them. Only Pinrail's entries change.
-    fn set_reporting(&self, home: &Path, env: Env, on: bool, shell: Shell) -> Result<(), String> {
-        let label = self.spec().label;
-        let plan = self
-            .integration(home, env)
-            .ok_or_else(|| format!("Pinrail cannot report the status of {label} yet"))?;
-        if on && !self.found(home) {
-            let config = self.spec().folders.as_ref().map_or("", |f| f.config);
-            return Err(format!("{label} is not installed: ~/{config} is not there"));
-        }
-        crate::integration::apply(&plan, on)?;
-        if !on {
-            return Ok(());
-        }
-        self.trust_hooks(&plan, shell).map(|_| ()).map_err(|e| {
-            format!(
-                "Pinrail installed its hooks, but could not trust them in {label}: {e}. \
-                 {label} asks you to review them when it next starts."
-            )
-        })
     }
 
     /// How Pinrail starts a new session of the agent in a terminal; `None`
@@ -470,7 +479,7 @@ mod tests {
                 reporting: None,
                 theirs: None,
             };
-            let shell = |_: &str| std::process::Command::new("false");
+            let shell = crate::connection::testing::no_shell;
             crate::connection::testing::connects_and_removes(connector(id).unwrap(), &case, &shell);
         }
     }

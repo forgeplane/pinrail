@@ -1,5 +1,5 @@
-// Pinrail's plugin for OpenCode, installed by Pinrail when Report status is
-// on for OpenCode, and removed when it is turned off: Pinrail rewrites this
+// Pinrail's plugin for OpenCode, installed by Pinrail when OpenCode is
+// connected, and removed when it is removed: Pinrail rewrites this
 // file, so add your own plugins beside it instead of editing it. It runs in
 // OpenCode's terminal interface and reports the state of the session on
 // screen to Pinrail by running `pinrail hook opencode <event>` with JSON on

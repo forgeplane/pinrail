@@ -1,5 +1,5 @@
 // The Start an agent dialog for an agent that tells Pinrail its session
-// only through its hooks: it asks for Report status before it starts one,
+// only through its hooks: it asks to connect the agent before it starts one,
 // and opens the session as soon as the start answers.
 import { useLocation } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
@@ -39,8 +39,8 @@ vi.mock("../api/runtime", async (real) => {
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: async (command: string, args: unknown) => {
     app.invoked.push([command, args]);
-    // the hooks are on from now on
-    if (command === "set_agent_hooks") app.agents = app.agents.map((a) => ({ ...a, reports: true }));
+    // connected, its hooks are on from now on
+    if (command === "connect_agent") app.agents = app.agents.map((a) => ({ ...a, reports: true }));
     return [];
   },
 }));
@@ -76,61 +76,39 @@ const agent = (
 
 const startButton = () => page.getByRole("button", { name: "Start", exact: true });
 
-test("an agent that names its session only in its hooks starts once Report status is on", async () => {
+test("an agent that names its session only in its hooks starts once it is connected", async () => {
   app.agents = [agent("antigravity", "Antigravity CLI", false, false)];
   await render(<NewSession />);
   await expect
-    .element(page.getByText("Antigravity CLI needs Pinrail's hooks to start from Pinrail", { exact: false }))
+    .element(page.getByText("Connect Antigravity CLI to start it from Pinrail", { exact: false }))
     .toBeVisible();
   await expect.element(startButton()).toBeDisabled();
 
-  await userEvent.click(page.getByRole("button", { name: "Install hooks" }));
-  expect(app.invoked.filter(([command]) => command === "set_agent_hooks")).toEqual([
-    ["set_agent_hooks", { id: "antigravity", on: true }],
+  await userEvent.click(page.getByRole("button", { name: "Connect Antigravity CLI" }));
+  expect(app.invoked.filter(([command]) => command === "connect_agent")).toEqual([
+    ["connect_agent", { id: "antigravity" }],
   ]);
-  await expect.element(page.getByText(/needs Pinrail's hooks/)).not.toBeInTheDocument();
+  await expect.element(page.getByText(/to start it from Pinrail/)).not.toBeInTheDocument();
   await expect.element(startButton()).toBeEnabled();
 });
 
-test("an agent whose session Pinrail names starts with its hooks off, and offers to turn them on", async () => {
+test("an agent whose session Pinrail names starts unconnected, and offers to connect it", async () => {
   app.agents = [agent("grok", "Grok CLI", true, false)];
   await render(<NewSession />);
   await expect.element(startButton()).toBeEnabled();
-  await expect.element(page.getByText(/needs Pinrail's/)).not.toBeInTheDocument();
-  // what the hooks add, and the switch, without holding the start back
+  await expect.element(page.getByText(/to start it from Pinrail/)).not.toBeInTheDocument();
+  // what connecting adds, without holding the start back
   const offer = page.getByTestId("new-session-reports-offer");
   await expect
-    .element(offer.getByText("Pinrail's hooks show Grok CLI's turns, prompts and replies in its session."))
+    .element(offer.getByText("Connect Grok CLI to see its turns, prompts and replies in its session."))
     .toBeVisible();
-  await userEvent.click(offer.getByRole("button", { name: "Install hooks" }));
-  expect(app.invoked.filter(([command]) => command === "set_agent_hooks")).toEqual([
-    ["set_agent_hooks", { id: "grok", on: true }],
-  ]);
+  await userEvent.click(offer.getByRole("button", { name: "Connect Grok CLI" }));
+  expect(app.invoked.filter(([command]) => command === "connect_agent")).toEqual([["connect_agent", { id: "grok" }]]);
   await expect.element(offer).not.toBeInTheDocument();
   await expect.element(startButton()).toBeEnabled();
 });
 
-test("an agent Pinrail reports through an extension is offered the extension", async () => {
-  app.agents = [agent("pi", "Pi", true, false, "extension")];
-  await render(<NewSession />);
-  const offer = page.getByTestId("new-session-reports-offer");
-  await expect
-    .element(offer.getByText("Pinrail's extension shows Pi's turns, prompts and replies in its session."))
-    .toBeVisible();
-  await expect.element(offer.getByRole("button", { name: "Install extension" })).toBeVisible();
-});
-
-test("an agent Pinrail reports through a plugin is offered the plugin", async () => {
-  app.agents = [agent("opencode", "OpenCode", true, false, "plugin")];
-  await render(<NewSession />);
-  const offer = page.getByTestId("new-session-reports-offer");
-  await expect
-    .element(offer.getByText("Pinrail's plugin shows OpenCode's turns, prompts and replies in its session."))
-    .toBeVisible();
-  await expect.element(offer.getByRole("button", { name: "Install plugin" })).toBeVisible();
-});
-
-test("an agent whose hooks are on is offered nothing", async () => {
+test("a connected agent is offered nothing", async () => {
   app.agents = [agent("grok", "Grok CLI", true, true)];
   await render(<NewSession />);
   await expect.element(startButton()).toBeEnabled();

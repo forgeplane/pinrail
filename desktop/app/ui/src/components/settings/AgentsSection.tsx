@@ -3,7 +3,7 @@
 // Pinrail; the prompt or skill that sends an agent to it says when.
 
 import { Check, ChevronRight, Copy, Plug } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from "react";
 import { inTauri } from "../../api/client";
 import { AgentIcon } from "../AgentIcon";
 import { useSettings } from "../../state/settings";
@@ -18,15 +18,20 @@ export type AgentStatus = {
   found: boolean;
   /** where the skill goes */
   skill: string;
+  /** the connection as a whole: the skill, and the hooks, extension or
+   *  plugin for an agent whose status Pinrail reports */
   state: "absent" | "connected" | "outdated" | "theirs";
+  /** the skill alone, `theirs` when the person's own is kept */
+  skill_state?: "absent" | "connected" | "outdated" | "theirs";
   /** the other agents whose skill folders this one also reads */
   also_reads?: string[];
-  /** What Report status installs, for an agent Pinrail can report the status of */
+  /** What connecting installs for the agent's status, for an agent Pinrail
+   *  can report the status of */
   integration?: Integration | null;
 };
 
-/** What Report status installs for an agent: hooks or an extension, the
- *  file it goes in, and what the file holds of it. */
+/** What connecting installs for an agent's status: hooks, an extension or a
+ *  plugin, the file it goes in, and what the file holds of it. */
 export type Integration = { kind: "hooks" | "extension" | "plugin"; file: string; state: HookState };
 
 export type HookState = "absent" | "current" | "outdated" | "modified" | "unreadable";
@@ -70,27 +75,16 @@ export function useAgents(open: boolean) {
     return () => window.removeEventListener("focus", check);
   }, [open, check]);
 
-  const act = useCallback(async (command: "connect_agent" | "disconnect_agent", id: string) => {
-    setBusy(id);
-    setError(null);
-    try {
-      setAgents(await invoke<AgentStatus[]>(command, { id }));
-    } catch (e) {
-      setError({ id, message: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  }, []);
-
-  const setHooks = useCallback(
-    async (id: string, on: boolean) => {
+  const act = useCallback(
+    async (command: "connect_agent" | "disconnect_agent", id: string) => {
       setBusy(id);
       setError(null);
       try {
-        setAgents(await invoke<AgentStatus[]>("set_agent_hooks", { id, on }));
+        setAgents(await invoke<AgentStatus[]>(command, { id }));
       } catch (e) {
         setError({ id, message: String(e) });
-        // the hooks may be installed even so, such as when trusting them failed
+        // part of it may be done even so, such as hooks that could not be
+        // trusted
         check();
       } finally {
         setBusy(null);
@@ -99,89 +93,58 @@ export function useAgents(open: boolean) {
     [check],
   );
 
-  return { agents, busy, error, act, setHooks };
+  return { agents, busy, error, act };
 }
 
-/** What the Report status switch says for an agent's integration: what it
- *  installs and where, or what is wrong with the file. */
-export function integrationNote(integration: Integration, agent: string): { note: string; update: boolean } {
-  const file = where(integration.file);
-  const extension = integration.kind === "extension";
-  const plugin = integration.kind === "plugin";
-  switch (integration.state) {
-    case "outdated":
-      return {
-        note: extension
-          ? "Pinrail's extension was installed by another version of Pinrail."
-          : plugin
-            ? "Pinrail's plugin was installed by another version of Pinrail."
-            : "The hooks were installed by another version of Pinrail.",
-        update: true,
-      };
-    case "modified":
-      return { note: `One of Pinrail's hooks in ${file} was changed by hand.`, update: true };
-    case "unreadable":
-      return {
-        note: extension
-          ? `${file} is not Pinrail's extension, so Pinrail leaves it as it is. Move it to turn this on.`
-          : `Pinrail cannot read ${file}, so it leaves the file as it is. Fix the file to turn this on.`,
-        update: false,
-      };
-    default:
-      return {
-        note: extension
-          ? `Installs Pinrail's extension in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`
-          : plugin
-            ? `Adds Pinrail's plugin to ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`
-            : `Installs Pinrail's hooks in ${file} so Pinrail can show when ${agent} works, waits for you or finishes.`,
-        update: false,
-      };
-  }
-}
+/** What an agent's hooks, extension or plugin is called in a sentence. */
+const NAMES: Record<Integration["kind"], string> = { hooks: "hooks", extension: "extension", plugin: "plugin" };
 
-/** The Report status switch of an agent, and what its file holds. */
-function ReportStatus({
-  agent,
-  busy,
-  setHooks,
-}: {
-  agent: AgentStatus;
-  busy: boolean;
-  setHooks: (id: string, on: boolean) => void;
-}) {
+/** What a connection of the agent includes, each with where it is: the
+ *  skill, and what reports the agent's status, when Pinrail can add it. */
+export function connectionParts(agent: AgentStatus): { label: string; path: string }[] {
+  const parts = [
+    { label: agent.skill_state === "theirs" ? "Your own skill in" : "Skill in", path: where(agent.skill) },
+  ];
   const integration = agent.integration;
-  if (!integration) return null;
-  const on = integration.state !== "absent" && integration.state !== "unreadable";
-  const { note, update } = integrationNote(integration, agent.name);
-  return (
-    <div className="agent-status" data-testid={`agent-status-${agent.id}`}>
-      <Toggle
-        label={`Report ${agent.name}'s status`}
-        checked={on}
-        onChange={(value) => setHooks(agent.id, value)}
-        disabled={busy || integration.state === "unreadable"}
-      />
-      <div className="agent-status-text">
-        <div className="agent-status-label">Report status</div>
-        <div className="agent-note">
-          {note}
-          {update ? (
-            <>
-              {" "}
-              <button
-                type="button"
-                className="agent-inline-action"
-                onClick={() => setHooks(agent.id, true)}
-                disabled={busy}
-              >
-                Update
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+  if (integration && integration.state !== "unreadable") {
+    const name = NAMES[integration.kind];
+    parts.push({ label: `${name[0].toUpperCase()}${name.slice(1)} in`, path: where(integration.file) });
+  }
+  return parts;
+}
+
+/** What the card says about the agent's connection beyond its parts: what
+ *  is older or missing, what is the person's own, or what Connect adds. */
+export function connectionNote(agent: AgentStatus): string | null {
+  const integration = agent.integration;
+  const name = integration ? NAMES[integration.kind] : null;
+  if (integration?.state === "unreadable") {
+    const file = where(integration.file);
+    return integration.kind === "hooks"
+      ? `Pinrail cannot read ${file}, so it leaves the file as it is and cannot show ${agent.name}'s status.`
+      : `${file} is not Pinrail's ${name}, so Pinrail leaves it as it is and cannot show ${agent.name}'s status.`;
+  }
+  if (agent.state === "absent") {
+    return integration
+      ? `Connect adds the pinrail skill and Pinrail's ${name}, so Pinrail can show when ${agent.name} works, waits for you or finishes.`
+      : `Connect adds the pinrail skill. Pinrail cannot show ${agent.name}'s status yet.`;
+  }
+  if (agent.state === "theirs") {
+    return integration
+      ? `Connect adds only Pinrail's ${name}, and leaves your skill as it is.`
+      : "Pinrail leaves it alone. Remove or rename it to let Pinrail add its skill.";
+  }
+  if (agent.state === "outdated") {
+    const parts: string[] = [];
+    if (agent.skill_state === "outdated") parts.push("The skill differs from this version of Pinrail's.");
+    if (agent.skill_state === "absent") parts.push("The skill is missing.");
+    if (integration?.state === "absent") parts.push(`Pinrail's ${name} ${name === "hooks" ? "are" : "is"} missing.`);
+    if (integration?.state === "outdated")
+      parts.push(`Pinrail's ${name} ${name === "hooks" ? "were" : "was"} installed by another version of Pinrail.`);
+    if (integration?.state === "modified") parts.push("One of Pinrail's hooks was changed by hand.");
+    return parts.join(" ") || null;
+  }
+  return null;
 }
 
 /** The agent's mark, as the inbox shows it beside a review. */
@@ -199,7 +162,6 @@ function AgentCard({
   busy,
   error,
   act,
-  setHooks,
 }: {
   agent: AgentStatus;
   /** the connected agents whose skill this one reads */
@@ -207,10 +169,8 @@ function AgentCard({
   busy: boolean;
   error: string | null;
   act: (command: "connect_agent" | "disconnect_agent", id: string) => void;
-  setHooks: (id: string, on: boolean) => void;
 }) {
-  const skill = where(agent.skill);
-  const config = skill.replace(/\/skills\/pinrail$/, "");
+  const config = where(agent.skill).replace(/\/skills\/pinrail$/, "");
   const button = (
     label: string,
     command: "connect_agent" | "disconnect_agent",
@@ -226,17 +186,23 @@ function AgentCard({
       {busy ? (command === "connect_agent" ? "Connecting…" : "Removing…") : label}
     </button>
   );
+  const parts = (
+    <>
+      {connectionParts(agent).map((part, i) => (
+        <Fragment key={part.label}>
+          {i ? " · " : null}
+          {part.label} <span className="mono">{part.path}</span>
+        </Fragment>
+      ))}
+    </>
+  );
 
   let where_: ReactNode;
   let side: ReactNode = null;
-  let note: ReactNode = error;
+  let note: ReactNode = error ?? connectionNote(agent);
   let state = agent.found ? agent.state : "missing";
   if (agent.state === "connected") {
-    where_ = (
-      <>
-        Skill added to <span className="mono">{skill}</span>
-      </>
-    );
+    where_ = parts;
     side = (
       <>
         <span className="agent-ok">
@@ -246,11 +212,7 @@ function AgentCard({
       </>
     );
   } else if (agent.state === "outdated") {
-    where_ = (
-      <>
-        The skill in <span className="mono">{skill}</span> differs from this version of Pinrail's
-      </>
-    );
+    where_ = parts;
     side = (
       <>
         {button("Remove", "disconnect_agent", "quiet")}
@@ -260,10 +222,11 @@ function AgentCard({
   } else if (agent.state === "theirs") {
     where_ = (
       <>
-        <span className="mono">{skill}</span> is a skill of your own
+        <span className="mono">{where(agent.skill)}</span> is a skill of your own
       </>
     );
-    note ??= "Pinrail leaves it alone. Remove or rename it to let Pinrail add its skill.";
+    if (agent.integration && agent.integration.state !== "unreadable")
+      side = button("Connect", "connect_agent", "primary");
   } else if (agent.found) {
     where_ = (
       <>
@@ -273,16 +236,17 @@ function AgentCard({
     side = button("Connect", "connect_agent", "primary");
   } else {
     where_ = "Not found";
+    note = null;
     state = "missing";
   }
-  if (agent.found && agent.state === "absent" && usesSkillOf.length)
-    note ??= (
+  const reads =
+    agent.found && agent.state === "absent" && usesSkillOf.length ? (
       <span className="agent-note-ok">
         <Check size={12} strokeWidth={2.5} /> Already uses {usesSkillOf[0]}'s skill
       </span>
-    );
-  else if (agent.found && agent.also_reads?.length && agent.state !== "theirs")
-    note ??= `Reads ${possessives(agent.also_reads)} skills too`;
+    ) : agent.found && agent.also_reads?.length && agent.state !== "theirs" ? (
+      `Reads ${possessives(agent.also_reads)} skills too`
+    ) : null;
 
   return (
     <div className={`agent-card is-${state}`} data-testid={`agent-${agent.id}`}>
@@ -291,9 +255,9 @@ function AgentCard({
         <div className="agent-name">{agent.name}</div>
         <div className="agent-where">{where_}</div>
         {note ? <div className="agent-note">{note}</div> : null}
+        {reads ? <div className="agent-note">{reads}</div> : null}
       </div>
       {side ? <div className="agent-side">{side}</div> : null}
-      {agent.found ? <ReportStatus agent={agent} busy={busy} setHooks={setHooks} /> : null}
     </div>
   );
 }
@@ -321,7 +285,7 @@ function AnotherAgent() {
 }
 
 export function AgentsSection({ open }: { open: boolean }) {
-  const { agents, busy, error, act, setHooks } = useAgents(open);
+  const { agents, busy, error, act } = useAgents(open);
   const { settings, update } = useSettings();
   const [updating, setUpdating] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
@@ -343,17 +307,18 @@ export function AgentsSection({ open }: { open: boolean }) {
           <h3>Connect your agents</h3>
         </div>
         <p className="settings-intro">
-          Connecting an agent adds a global skill named pinrail. It tells the agent how to submit a review and read your
-          decision, whenever a prompt or another skill asks it to use Pinrail.
+          Connecting an agent adds a global skill named pinrail, which tells the agent how to submit a review and read
+          your decision. For the agents that support it, Pinrail also adds hooks, so that it can show when the agent
+          works, waits for you or finishes.
         </p>
         {inTauri() ? (
           <div className="settings-card agent-auto-update">
             <SettingsRow
-              label="Update skills automatically"
-              description="When Pinrail starts, updates the skill of each connected agent that an update of Pinrail changed"
+              label="Update agents automatically"
+              description="When Pinrail starts, updates the skill and hooks of each connected agent that an update of Pinrail changed"
             >
               <Toggle
-                label="Update agent skills automatically"
+                label="Update connected agents automatically"
                 checked={settings.agents.auto_update}
                 onChange={setAutoUpdate}
               />
@@ -399,7 +364,6 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
-                        setHooks={setHooks}
                       />
                     ))}
                   </div>
@@ -427,7 +391,6 @@ export function AgentsSection({ open }: { open: boolean }) {
                         busy={busy === agent.id}
                         error={error && error.id === agent.id ? error.message : null}
                         act={act}
-                        setHooks={setHooks}
                       />
                     ))}
                   </div>

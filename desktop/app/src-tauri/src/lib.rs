@@ -351,7 +351,8 @@ async fn agent_skill(native: State<'_, Native>) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Writes or updates the `pinrail` skill for an agent, then reports as
+/// Connects an agent, or brings its connection up to date: the `pinrail`
+/// skill and the hooks that report its status. Then reports as
 /// `agents_status`.
 #[tauri::command]
 async fn connect_agent(
@@ -380,24 +381,6 @@ async fn disconnect_agent(
     tauri::async_runtime::spawn_blocking(move || {
         let home = home()?;
         agent_skills::disconnect(&home, &id)?;
-        Ok(agent_skills::status(&home, &current_skill(&state)))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-/// Installs or removes Pinrail's status hooks for an agent, then reports as
-/// `agents_status`.
-#[tauri::command]
-async fn set_agent_hooks(
-    native: State<'_, Native>,
-    id: String,
-    on: bool,
-) -> Result<Vec<agent_skills::AgentStatus>, String> {
-    let state = native.state.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let home = home()?;
-        agent_skills::set_hooks(&home, &id, on)?;
         Ok(agent_skills::status(&home, &current_skill(&state)))
     })
     .await
@@ -898,7 +881,6 @@ pub fn run() {
             agent_skill,
             connect_agent,
             disconnect_agent,
-            set_agent_hooks,
             open_notices,
             save_attachment,
             save_note_attachment,

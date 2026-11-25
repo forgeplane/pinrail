@@ -1,4 +1,4 @@
-//! What Report status installs for an agent so that its events run
+//! What connecting an agent installs so that its events run
 //! `pinrail hook`: hooks in its settings or a hooks file, or an extension
 //! file of Pinrail's own. How to add it, how to take it out again, and
 //! whether the file holds it as this version would write it. Everything
@@ -16,7 +16,7 @@ pub const COMMAND_PREFIX: &str = "\"${PINRAIL_CLI:-pinrail}\" hook";
 /// one.
 pub const TIMEOUT_SECONDS: u64 = 2;
 
-/// What Report status installs for an agent: its kind, the file it goes
+/// What connecting an agent installs for its status: its kind, the file it goes
 /// in, how the file lays it out, and the hooks Pinrail adds there.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Integration {
@@ -26,7 +26,7 @@ pub struct Integration {
     pub entries: Vec<HookEntry>,
 }
 
-/// What Report status installs, as the person reads it.
+/// What connecting an agent installs for its status, as the person reads it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// Hooks in the agent's settings or hooks file.

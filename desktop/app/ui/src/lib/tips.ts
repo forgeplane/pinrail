@@ -75,9 +75,9 @@ const ALL: (Tip & { macOnly?: boolean })[] = [
   { category: "Getting around", text: "{MOD+SHIFT+L} switches between the light and dark themes." },
   {
     category: "Settings",
-    text: "Turn on Report status for an agent in Settings › Agents, and its sessions appear in the sidebar on their own.",
+    text: "Connect an agent in Settings › Agents, and its sessions appear in the sidebar on their own.",
   },
-  { category: "Settings", text: "Update the Pinrail skill in Settings › Agents when Pinrail says the advice changed." },
+  { category: "Settings", text: "Update an agent in Settings › Agents when Pinrail says its skill or hooks changed." },
   {
     category: "Settings",
     text: "Settings › Terminal chooses the terminal's renderer, and whether Option acts as Meta.",

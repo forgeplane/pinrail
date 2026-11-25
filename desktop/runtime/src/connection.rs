@@ -201,14 +201,19 @@ pub(crate) mod testing {
     /// The skill `skill("abc")` makes, as the tests connect it.
     pub const SHA: &str = "abc";
 
+    /// A shell for an agent with no trust step: running it fails.
+    pub fn no_shell(_: &str) -> std::process::Command {
+        std::process::Command::new("false")
+    }
+
     /// Connects `agent` with `skill(SHA)`.
-    pub fn connect(agent: &dyn Agent, home: &Path) {
+    pub fn connect(agent: &dyn Agent, home: &Path, shell: Shell) -> Result<(), String> {
         let files = skill(SHA);
         let written = SkillFiles {
             files: &files,
             sha: SHA,
         };
-        agent.connect(home, &env, &written).unwrap();
+        agent.connect(home, &env, &written, shell)
     }
 
     /// The agent has the skill `connect` wrote, as a whole, and every file
@@ -262,7 +267,7 @@ pub(crate) mod testing {
         }
     }
 
-    /// What Report status installs is in the agent's file: each of
+    /// The agent's file has what connecting adds for its status: each of
     /// Pinrail's hooks under its event, or Pinrail's own file and the entry
     /// that loads it.
     pub fn assert_reporting_present(agent: &dyn Agent, home: &Path) {
@@ -306,7 +311,7 @@ pub(crate) mod testing {
         }
     }
 
-    /// Nothing of what Report status installs is left: no hook runs Pinrail,
+    /// Nothing of what connecting adds for its status is left: no hook runs Pinrail,
     /// and Pinrail's own file is gone.
     pub fn assert_reporting_absent(agent: &dyn Agent, home: &Path) {
         let id = agent.spec().id;
@@ -333,7 +338,7 @@ pub(crate) mod testing {
     }
 
     /// One agent's case: its configuration folder, where its skill goes,
-    /// the file Report status installs in, and what the person already has
+    /// the file its hooks or extension go in, and what the person already has
     /// in that file, which must outlast Pinrail's.
     pub struct Case<'a> {
         pub config: &'a str,
@@ -342,10 +347,10 @@ pub(crate) mod testing {
         pub theirs: Option<&'a str>,
     }
 
-    /// Connects `agent` and turns Report status on, then removes it, and
-    /// checks each step: the skill, the files that go with it, the hooks
-    /// or extension, and the person's own entries, kept throughout.
-    /// `shell` runs the agent's program for its trust step.
+    /// Connects `agent`, connects it again as the update at start does,
+    /// then removes it, and checks each step: the skill, the files that go
+    /// with it, the hooks or extension, and the person's own entries, kept
+    /// throughout. `shell` runs the agent's program for its trust step.
     pub fn connects_and_removes(agent: &dyn Agent, case: &Case, shell: Shell) {
         let id = agent.spec().id;
         let home = home_with(&[case.config]);
@@ -366,36 +371,39 @@ pub(crate) mod testing {
             fs::create_dir_all(plan.file.parent().unwrap()).unwrap();
             fs::write(&plan.file, theirs).unwrap();
         }
-        let kept = || {
-            if let (Some(plan), Some(theirs)) = (&plan, case.theirs) {
-                let now = json(&plan.file);
-                let before: Value = serde_json::from_str(theirs).unwrap();
-                for text in strings(&before) {
-                    assert!(
-                        strings(&now).contains(&text),
-                        "{id}: lost {text} from {now}"
-                    );
-                }
+        let present = || {
+            assert_skill_present(agent, home);
+            if plan.is_some() {
+                assert_reporting_present(agent, home);
             }
+            kept(id, plan.as_ref().map(|p| p.file.as_path()), case.theirs);
         };
 
-        connect(agent, home);
-        assert_skill_present(agent, home);
-        if plan.is_some() {
-            agent.set_reporting(home, &env, true, shell).unwrap();
-            assert_reporting_present(agent, home);
-            kept();
-            // connecting again, as the update at start does, keeps them
-            connect(agent, home);
-            assert_skill_present(agent, home);
-            assert_reporting_present(agent, home);
-        }
+        connect(agent, home, shell).unwrap();
+        present();
+        // connecting again, as the update at start does, changes nothing
+        connect(agent, home, shell).unwrap();
+        present();
 
         agent.disconnect(home, &env).unwrap();
         assert_skill_absent(agent, home);
         if plan.is_some() {
             assert_reporting_absent(agent, home);
-            kept();
+        }
+        kept(id, plan.as_ref().map(|p| p.file.as_path()), case.theirs);
+    }
+
+    /// Every string of the person's file `theirs` is still in `file`.
+    fn kept(id: &str, file: Option<&Path>, theirs: Option<&str>) {
+        if let (Some(file), Some(theirs)) = (file, theirs) {
+            let now = json(file);
+            let before: Value = serde_json::from_str(theirs).unwrap();
+            for text in strings(&before) {
+                assert!(
+                    strings(&now).contains(&text),
+                    "{id}: lost {text} from {now}"
+                );
+            }
         }
     }
 

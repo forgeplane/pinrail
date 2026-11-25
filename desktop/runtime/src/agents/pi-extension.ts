@@ -1,5 +1,5 @@
-// Pinrail's extension for Pi, installed by Pinrail when Report status is on
-// for Pi, and removed when it is turned off: Pinrail rewrites this file, so
+// Pinrail's extension for Pi, installed by Pinrail when Pi is connected,
+// and removed when it is removed: Pinrail rewrites this file, so
 // add your own extensions beside it instead of editing it. It reports the
 // session's state to Pinrail by running `pinrail hook pi <event>` with JSON
 // on its input, as the hooks of other agents do.

@@ -10289,8 +10289,8 @@ body.is-resizing-rows {
   cursor: row-resize;
 }
 
-/* Start an agent: an agent that needs Report status says so, with the
-   button that turns it on beside the text */
+/* Start an agent: an agent that needs connecting says so, with the
+   button that connects it beside the text */
 .new-session-reports {
   display: flex;
   align-items: center;

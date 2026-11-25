@@ -242,7 +242,7 @@ test("with more agents than tiles, a list of every agent opens from the +N tile"
 });
 
 /** The desktop app's side of the setup, answered in the page: the command,
- *  the agents, their Report status and notifications. It records each call. */
+ *  the agents and notifications. It records each call. */
 async function native(
   page: Page,
   options: {
@@ -305,9 +305,8 @@ async function native(
               state.failed.add(args!.id!);
               throw "cannot write the skill: permission denied";
             }
+            // the skill and the hooks
             one!.state = "connected";
-            return hooked;
-          case "set_agent_hooks":
             one!.integration.state = "current";
             return hooked;
           case "notification_status":
@@ -351,17 +350,10 @@ test("Set up Pinrail installs the command, connects the agents and waits for Con
     await setup.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(setup.getByRole("heading", { name: "Pinrail is ready" })).toBeVisible();
 
-    // each agent is connected and its Report status turned on, and macOS
-    // is asked for notifications
+    // each agent is connected, with its skill and its hooks, and macOS is
+    // asked for notifications
     const calls = await app.calls();
-    for (const call of [
-      "install_cli",
-      "connect_agent claude-code",
-      "set_agent_hooks claude-code",
-      "connect_agent codex",
-      "set_agent_hooks codex",
-      "request_notifications",
-    ])
+    for (const call of ["install_cli", "connect_agent claude-code", "connect_agent codex", "request_notifications"])
       expect(calls).toContain(call);
     // the welcome told the person about usage data, so the inbox does not
     await settingSaved(page.request, (s) => typeof s.telemetry.notice_shown, "string");

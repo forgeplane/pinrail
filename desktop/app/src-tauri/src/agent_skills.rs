@@ -166,16 +166,20 @@ pub struct AgentStatus {
     pub found: bool,
     /// where the skill goes
     pub skill: String,
+    /// the connection as a whole: the skill, and the hooks, extension or
+    /// plugin for an agent whose status Pinrail reports
     pub state: State,
+    /// the skill alone, which is `theirs` when the person's own is kept
+    pub skill_state: State,
     /// the other agents whose skill folders this one also reads
     pub also_reads: Vec<&'static str>,
-    /// What Report status installs, for an agent Pinrail can report the
-    /// status of
+    /// What connecting installs for the agent's status, for an agent
+    /// Pinrail can report the status of
     pub integration: Option<Integration>,
 }
 
-/// What Report status installs for one agent: hooks or an extension, the
-/// file it goes in, and what the file holds of it.
+/// What connecting installs for one agent's status: hooks, an extension
+/// or a plugin, the file it goes in, and what the file holds of it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Integration {
     pub kind: &'static str,
@@ -262,7 +266,8 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
                 name: spec.label,
                 found: agent.found(home),
                 skill: skill_path(home, folders).display().to_string(),
-                state: agent.skill_state(home, &env, &skill.sha).into(),
+                state: overall(agent, home, skill),
+                skill_state: agent.skill_state(home, &env, &skill.sha).into(),
                 also_reads: folders
                     .also_reads
                     .iter()
@@ -279,11 +284,31 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
         .collect()
 }
 
-/// Installs Pinrail's status hooks in an installed agent's settings, or
-/// removes them. Only Pinrail's entries change. Installed hooks are
-/// trusted in an agent that runs only the hooks the person has trusted.
-pub fn set_hooks(home: &Path, id: &str, on: bool) -> Result<(), String> {
-    find(id)?.set_reporting(home, &env, on, &|line| in_login_shell(home, line))
+/// The state of an agent's connection as a whole: connected once the skill
+/// and what reports its status are both as this version writes them,
+/// outdated while either is older or missing beside the other, and the
+/// person's own while their skill is there and nothing of Pinrail's. A
+/// hooks file Pinrail cannot read leaves the skill alone to decide.
+fn overall(agent: &dyn Agent, home: &Path, skill: &Skill) -> State {
+    use pinrail_runtime::integration::HookState;
+    let reporting = agent.reporting_state(home, &env);
+    let hooks = matches!(
+        reporting,
+        Some(HookState::Current | HookState::Outdated | HookState::Modified)
+    );
+    let hooks_current = !matches!(
+        reporting,
+        Some(HookState::Absent | HookState::Outdated | HookState::Modified)
+    );
+    match agent.skill_state(home, &env, &skill.sha) {
+        SkillState::Outdated => State::Outdated,
+        SkillState::Connected if hooks_current => State::Connected,
+        SkillState::Connected => State::Outdated,
+        SkillState::Theirs if !hooks => State::Theirs,
+        SkillState::Theirs if hooks_current => State::Connected,
+        SkillState::Absent if !hooks => State::Absent,
+        SkillState::Theirs | SkillState::Absent => State::Outdated,
+    }
 }
 
 /// A command that runs `line` in the person's login shell, from their home
@@ -305,10 +330,13 @@ fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
     command
 }
 
-/// Writes the skill for an agent that is installed, or brings an older one
-/// up to date. A `pinrail` skill of the person's own is never replaced.
+/// Connects an installed agent, or brings its connection up to date: the
+/// skill, and the hooks, extension or plugin that report its status. A
+/// `pinrail` skill of the person's own is never replaced.
 pub fn connect(home: &Path, id: &str, skill: &Skill) -> Result<(), String> {
-    find(id)?.connect(home, &env, &skill.files())
+    find(id)?.connect(home, &env, &skill.files(), &|line| {
+        in_login_shell(home, line)
+    })
 }
 
 /// Brings every agent's outdated skill up to date, and returns the names of
@@ -337,14 +365,20 @@ pub fn refresh_plugins(home: &Path, skill: &Skill) -> Vec<&'static str> {
                     .and_then(|path| fs::read_to_string(path).ok())
                     .is_some_and(|text| front_matter_value(&text, "base") == Some(BASE))
         })
-        .filter(|agent| agent.connect(home, &env, &skill.files()).is_ok())
+        .filter(|agent| {
+            agent
+                .connect(home, &env, &skill.files(), &|line| {
+                    in_login_shell(home, line)
+                })
+                .is_ok()
+        })
         .map(|agent| agent.spec().label)
         .collect()
 }
 
-/// Removes the app's skill from an agent, and its folder when nothing else
-/// is in it, then Pinrail's hooks, extension or plugin. A skill of the
-/// person's own stays, and so does a file Pinrail cannot read.
+/// Removes what connecting an agent added: the skill, its folder when
+/// nothing else is in it, and Pinrail's hooks, extension or plugin. A skill
+/// of the person's own stays, and so does a file Pinrail cannot read.
 pub fn disconnect(home: &Path, id: &str) -> Result<(), String> {
     find(id)?.disconnect(home, &env)
 }
@@ -640,5 +674,39 @@ mod tests {
         connect(home.path(), "opencode", &none()).unwrap();
         assert_eq!(state(home.path(), "opencode").state, State::Connected);
         assert_eq!(state(home.path(), "claude-code").state, State::Connected);
+    }
+
+    #[test]
+    fn a_connection_counts_as_whole_only_with_its_skill_and_its_hooks() {
+        let home = home_with(&[".claude"]);
+        connect(home.path(), "claude-code", &none()).unwrap();
+        assert_eq!(state(home.path(), "claude-code").state, State::Connected);
+
+        // the skill without the hooks, as an earlier version left an agent
+        // whose status was not reported: the update at start adds them
+        let settings = home.path().join(".claude/settings.json");
+        fs::write(&settings, "{}").unwrap();
+        let claude = state(home.path(), "claude-code");
+        assert_eq!(
+            (claude.state, claude.skill_state),
+            (State::Outdated, State::Connected)
+        );
+        assert_eq!(update_outdated(home.path(), &none()), ["Claude Code"]);
+        assert_eq!(state(home.path(), "claude-code").state, State::Connected);
+    }
+
+    #[test]
+    fn a_skill_of_the_persons_own_with_pinrails_hooks_is_connected() {
+        let home = home_with(&[".cursor"]);
+        let dir = home.path().join(".cursor/skills/pinrail");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("SKILL.md"), "---\nname: pinrail\n---\nmine\n").unwrap();
+        assert_eq!(state(home.path(), "cursor").state, State::Theirs);
+        connect(home.path(), "cursor", &none()).unwrap();
+        let cursor = state(home.path(), "cursor");
+        assert_eq!(
+            (cursor.state, cursor.skill_state),
+            (State::Connected, State::Theirs)
+        );
     }
 }

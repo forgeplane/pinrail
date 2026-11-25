@@ -76,7 +76,7 @@ export function SetupStart({
   }, []);
 
   // the connected agents Pinrail can start, in the welcome's order; one that
-  // names its own session needs Report status to show up at all
+  // names its own session needs its hooks to show up at all
   const agents = connected
     .map((a) => startable?.find((s) => s.id === a.id))
     .filter((s): s is StartableAgent => !!s && s.installed && !(s.names_session === false && s.reports === false));

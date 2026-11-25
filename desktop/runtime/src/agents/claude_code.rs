@@ -240,7 +240,7 @@ fn status_hint(file: &Value, session: &str) -> Option<Hint> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connection::testing::{Case, connects_and_removes};
+    use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]
     fn it_is_connected_and_removed_with_its_hooks() {
@@ -252,6 +252,6 @@ mod tests {
                 r#"{"model": "opus", "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "my-own-stop"}]}]}}"#,
             ),
         };
-        connects_and_removes(&ClaudeCode, &case, &|_| std::process::Command::new("false"));
+        connects_and_removes(&ClaudeCode, &case, &no_shell);
     }
 }

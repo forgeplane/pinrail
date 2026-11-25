@@ -132,7 +132,7 @@ export function NewSession() {
   // one whose session Pinrail names starts without them, and shows its
   // terminal, but its session shows no turns, prompts or replies
   const offersReports = !!chosen?.installed && !needsReports && chosen.reports === false;
-  // what Report status installs for it, which the button names
+  // what connecting it installs for its status, which the notice names
   const installs = chosen?.installs ?? "hooks";
   const ready = !!folder.trim() && !!chosen?.installed && !folderGone && !starting && !needsReports;
   const [turningOn, setTurningOn] = useState(false);
@@ -142,12 +142,12 @@ export function NewSession() {
     setError(null);
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("set_agent_hooks", { id: chosen.id, on: true });
+      await invoke("connect_agent", { id: chosen.id });
       const found = await runtime.startable();
       knownAgents = found;
       setAgents(found);
     } catch (e) {
-      setError(typeof e === "string" ? e : `Pinrail could not turn on Report status for ${chosen.name}.`);
+      setError(typeof e === "string" ? e : `Pinrail could not connect ${chosen.name}.`);
     } finally {
       setTurningOn(false);
     }
@@ -293,9 +293,8 @@ export function NewSession() {
         {needsReports ? (
           <div className="notice new-session-reports" role="status">
             <p>
-              {chosen.name} needs Pinrail&apos;s {installs} to start from Pinrail: it tells Pinrail its session only
-              through {installs === "hooks" ? "them" : "it"}.
-              {inTauri() ? null : " Turn on Report status in Settings › Agents."}
+              Connect {chosen.name} to start it from Pinrail: it tells Pinrail its session only through Pinrail&apos;s{" "}
+              {installs}.{inTauri() ? null : " Connect it in Settings › Agents."}
             </p>
             {inTauri() ? (
               <button
@@ -304,7 +303,7 @@ export function NewSession() {
                 disabled={turningOn}
                 onClick={() => void turnOnReports()}
               >
-                Install {installs}
+                Connect {chosen.name}
               </button>
             ) : null}
           </div>
@@ -312,13 +311,12 @@ export function NewSession() {
         {offersReports ? (
           <div className="notice new-session-reports" data-testid="new-session-reports-offer">
             <p>
-              Pinrail&apos;s {installs === "hooks" ? "hooks show" : `${installs} shows`} {chosen.name}&apos;s turns,
-              prompts and replies in its session.
-              {inTauri() ? null : " Turn on Report status in Settings › Agents."}
+              Connect {chosen.name} to see its turns, prompts and replies in its session.
+              {inTauri() ? null : " Connect it in Settings › Agents."}
             </p>
             {inTauri() ? (
               <button type="button" className="chrome-button" disabled={turningOn} onClick={() => void turnOnReports()}>
-                Install {installs}
+                Connect {chosen.name}
               </button>
             ) : null}
           </div>

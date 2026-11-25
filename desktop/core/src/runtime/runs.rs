@@ -1237,7 +1237,7 @@ fn reports(home: Option<&std::path::Path>, id: &str) -> Option<bool> {
     ))
 }
 
-/// What Report status installs for the agent: `hooks` or `extension`, or
+/// What connecting the agent installs for its status: `hooks` or `extension`, or
 /// `None` for an agent it installs nothing for. The kind is the adapter's,
 /// whatever the home folder.
 fn installs(id: &str) -> Option<&'static str> {

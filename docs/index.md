@@ -19,7 +19,7 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 - **It keeps your data on your computer.** Pinrail stores your sessions, work items and reviews on your computer, and its server accepts connections from your computer only. It sends anonymous [usage data and crash reports](/docs/using/privacy/), which you can turn off.
 
 :::note[Agents keep running when you quit Pinrail]
-When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in *Settings › General*.
+When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in _Settings › General_.
 :::
 
 ## Reviews in a view made for the work
@@ -42,16 +42,16 @@ A plugin is a manifest, two JSON Schemas and an HTML page, so a view for a new k
 
 ## Where to start
 
-| If you want to… | Read |
-|---|---|
-| Install Pinrail and set it up | [Install](/docs/getting-started/install/) |
-| Understand the parts of Pinrail and how they connect | [Overview](/docs/concepts/overview/) |
-| Follow your agents' sessions and answer their questions | [Questions and sessions](/docs/using/sessions/) |
-| Plan work for your agents | [Work items](/docs/using/work-items/) |
-| Tell your agent when to ask you | [Instructing an agent](/docs/agents/instructing/) |
-| Choose a plugin for what your agent does | [Plugins](/docs/plugins/) |
-| Ask a person before a step in a script or a CI job | [Scripts and CI](/docs/agents/workflows/) |
-| Build a plugin for your own kind of review | [Writing a plugin](/docs/building/writing/) |
+| If you want to…                                         | Read                                              |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| Install Pinrail and set it up                           | [Install](/docs/getting-started/install/)         |
+| Understand the parts of Pinrail and how they connect    | [Overview](/docs/concepts/overview/)              |
+| Follow your agents' sessions and answer their questions | [Questions and sessions](/docs/using/sessions/)   |
+| Plan work for your agents                               | [Work items](/docs/using/work-items/)             |
+| Tell your agent when to ask you                         | [Instructing an agent](/docs/agents/instructing/) |
+| Choose a plugin for what your agent does                | [Plugins](/docs/plugins/)                         |
+| Ask a person before a step in a script or a CI job      | [Scripts and CI](/docs/agents/workflows/)         |
+| Build a plugin for your own kind of review              | [Writing a plugin](/docs/building/writing/)       |
 
 ## How it works
 
@@ -59,6 +59,6 @@ A plugin is a manifest, two JSON Schemas and an HTML page, so a view for a new k
 
 You start an agent in Pinrail, which runs it in a terminal of its own, or in your own terminal as usual. Pinrail shows the agent's session in both cases, and the inbox lists what needs you first. The [Overview](/docs/concepts/overview/) describes each part.
 
-An agent tells Pinrail what it is doing through its hooks and through the `pinrail` command. Pinrail installs the hooks when you turn on **Report status** for the agent in [Settings › Agents](/docs/using/settings/#agents). The agent runs the command to send statuses and notes, to ask questions, to submit reviews and wait for your decision, and to add, take and close work items.
+An agent tells Pinrail what it is doing through its hooks and through the `pinrail` command. Pinrail installs the hooks when you connect the agent in [Settings › Agents](/docs/using/settings/#agents). The agent runs the command to send statuses and notes, to ask questions, to submit reviews and wait for your decision, and to add, take and close work items.
 
 The agent's own instructions say which steps need you. Each kind of review is a [plugin](/docs/concepts/plugins/), which defines what the agent sends, the view you decide in, and the decision that goes back.

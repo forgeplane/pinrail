@@ -1,5 +1,5 @@
 // The setup itself: installing the pinrail command, connecting the chosen
-// agents with Report status on, installing the chosen plugins and asking for
+// agents, installing the chosen plugins and asking for
 // notifications, one part after another. Each part has its own state, and a
 // part that fails does not stop the others.
 
@@ -124,7 +124,7 @@ async function runCommand(): Promise<Outcome> {
   return commandOutcome(status);
 }
 
-/** Connects each agent and turns its Report status on, and says which failed. */
+/** Connects each agent, with its skill and its hooks, and says which failed. */
 async function runAgents(agents: AgentStatus[], say: (text: string) => void): Promise<Outcome> {
   const several = agents.length > 1;
   const failures: string[] = [];
@@ -132,15 +132,11 @@ async function runAgents(agents: AgentStatus[], say: (text: string) => void): Pr
   for (const agent of agents) {
     say(several ? `Connecting ${agent.name}…` : "Connecting…");
     try {
-      let now = all.find((a) => a.id === agent.id);
-      if (now && now.found && (now.state === "absent" || now.state === "outdated")) {
+      const now = all.find((a) => a.id === agent.id);
+      // a skill of the person's own takes Pinrail's hooks beside it, and
+      // stays alone for an agent without them
+      if (now && now.found && now.state !== "connected" && !(now.state === "theirs" && !now.integration))
         all = await invoke<AgentStatus[]>("connect_agent", { id: agent.id });
-        now = all.find((a) => a.id === agent.id);
-      }
-      // Report status, where Pinrail installs it and nothing of the person's is in its place
-      const hooks = now?.integration?.state;
-      if (hooks === "absent" || hooks === "outdated")
-        all = await invoke<AgentStatus[]>("set_agent_hooks", { id: agent.id, on: true });
     } catch (e) {
       failures.push(several ? `${agent.name}: ${message(e)}` : message(e));
     }
