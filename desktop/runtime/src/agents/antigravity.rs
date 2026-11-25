@@ -154,6 +154,12 @@ impl Agent for Antigravity {
             ..PASTE_AND_ENTER
         })
     }
+
+    /// Resuming or switching to an existing conversation fires no session
+    /// start: its first prompt is the first sign.
+    fn prompt_may_start_session(&self) -> bool {
+        true
+    }
 }
 
 /// The agent's last message, from the transcript agy keeps: the content of

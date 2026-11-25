@@ -68,7 +68,7 @@ impl Setup {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config.run_env.insert(
             "PATH".into(),
-            common::stand_in_path_as(dir.path(), &["claude", "grok", "cursor-agent"]),
+            common::stand_in_path_as(dir.path(), &["claude", "grok", "cursor-agent", "agy"]),
         );
         let app = Arc::new(Pinrail::open(config).unwrap());
         Setup {
@@ -795,4 +795,236 @@ async fn a_run_s_session_takes_the_repository_and_branch_of_its_folder() {
         .unwrap();
     assert_eq!(session.repo, None);
     assert_eq!(session.folder.as_deref(), plain.to_str());
+}
+
+/// Sends a hook report through the HTTP API with a run token.
+async fn post_report(
+    app: &Arc<Pinrail>,
+    agent: &str,
+    agent_session: &str,
+    token: &str,
+    process: &(i64, String),
+    mut body: Value,
+) -> (axum::http::StatusCode, Value) {
+    use axum::body::Body;
+    use axum::http::Request;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    body["process"] = json!({"pid": process.0, "started": process.1});
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("/api/v1/sessions/{agent}/{agent_session}/reports"))
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", "application/json")
+        .header("authorization", format!("Run {token}"))
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let response = pinrail_core::api::router(app.clone())
+        .oneshot(request)
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes)
+            .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()))
+    };
+    (status, value)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_unbound_run_binds_to_an_existing_session_on_its_first_non_start_hook() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let db = setup.db();
+    let now = chrono::Utc::now();
+
+    // an existing conversation that Pinrail already recorded
+    let existing_agent_session = "6fa3f07b-f988-478f-aaa2-e80bf573fc08";
+    let (existing_id, _) = db
+        .resolve_session("antigravity", existing_agent_session, now)
+        .unwrap();
+
+    // a new antigravity run starts with a placeholder session and no agent_session
+    let folder = setup.folder("app");
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("antigravity", &folder))
+        .await
+        .unwrap();
+    let (_, placeholder_id) = run.session.clone().unwrap();
+    assert_eq!(run.agent_session, None);
+
+    let token = file(folder.join("token")).await;
+    let process = db.run(&run.id).unwrap().unwrap().process.unwrap();
+
+    // the first hook is Working (not a SessionStart) for the existing conversation
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        existing_agent_session,
+        &token,
+        &process,
+        json!({"event": "working"}),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+
+    // the run moved from the placeholder to the existing session
+    let updated = db.run(&run.id).unwrap().unwrap();
+    assert_eq!(
+        updated.session,
+        Some(("antigravity".into(), existing_id.clone()))
+    );
+    assert_eq!(
+        updated.agent_session.as_deref(),
+        Some(existing_agent_session)
+    );
+    let placeholder = db
+        .presence("antigravity", &placeholder_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (
+            placeholder.state.as_str(),
+            placeholder.stop_reason.as_deref()
+        ),
+        ("stopped", Some("cleared"))
+    );
+
+    // subsequent prompt and reply are recorded on the existing session
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        existing_agent_session,
+        &token,
+        &process,
+        json!({
+            "event": "prompt",
+            "detail": {"prompt": "continue from where we left off"},
+        }),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        existing_agent_session,
+        &token,
+        &process,
+        json!({
+            "event": "turn_ended",
+            "end": "done",
+            "detail": {"reply": "Picked right back up."},
+        }),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+
+    let turns = db.turns("antigravity", &existing_id).unwrap();
+    assert_eq!(turns.len(), 1);
+    assert_eq!(
+        turns[0].prompt.as_deref(),
+        Some("continue from where we left off")
+    );
+    assert_eq!(turns[0].replies.len(), 1);
+    assert_eq!(turns[0].replies[0].text, "Picked right back up.");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_antigravity_run_moves_to_a_resumed_conversation_on_a_prompt_hook() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let db = setup.db();
+    let now = chrono::Utc::now();
+
+    // an earlier conversation already exists in Pinrail
+    let resumed_agent_session = "resumed-conv-2";
+    let (resumed_id, _) = db
+        .resolve_session("antigravity", resumed_agent_session, now)
+        .unwrap();
+
+    // start an antigravity run and bind it to its initial conversation
+    let folder = setup.folder("app");
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("antigravity", &folder))
+        .await
+        .unwrap();
+    let (_, first_id) = run.session.clone().unwrap();
+    let token = file(folder.join("token")).await;
+    let process = db.run(&run.id).unwrap().unwrap().process.unwrap();
+
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        "initial-conv-1",
+        &token,
+        &process,
+        json!({"event": "started", "source": "startup"}),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+    assert_eq!(
+        db.run(&run.id).unwrap().unwrap().agent_session.as_deref(),
+        Some("initial-conv-1")
+    );
+
+    // switching to the resumed conversation mid-run sends Prompt without SessionStart
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        resumed_agent_session,
+        &token,
+        &process,
+        json!({
+            "event": "prompt",
+            "detail": {"prompt": "check the resumed thread"},
+        }),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+
+    let (status, body) = post_report(
+        &setup.app,
+        "antigravity",
+        resumed_agent_session,
+        &token,
+        &process,
+        json!({
+            "event": "turn_ended",
+            "end": "done",
+            "detail": {"reply": "Checked and verified."},
+        }),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::NO_CONTENT, "{body}");
+
+    // the run moved to the resumed conversation, cleared the first, and recorded the turn
+    let updated = db.run(&run.id).unwrap().unwrap();
+    assert_eq!(
+        updated.session,
+        Some(("antigravity".into(), resumed_id.clone()))
+    );
+    assert_eq!(
+        updated.agent_session.as_deref(),
+        Some(resumed_agent_session)
+    );
+    let first = db.presence("antigravity", &first_id).unwrap().unwrap();
+    assert_eq!(
+        (first.state.as_str(), first.stop_reason.as_deref()),
+        ("stopped", Some("cleared"))
+    );
+
+    let turns = db.turns("antigravity", &resumed_id).unwrap();
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].prompt.as_deref(), Some("check the resumed thread"));
+    assert_eq!(turns[0].replies.len(), 1);
+    assert_eq!(turns[0].replies[0].text, "Checked and verified.");
 }

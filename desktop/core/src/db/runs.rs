@@ -429,7 +429,8 @@ impl Db {
     /// by Pinrail's id, from the agent's own id for it, `agent_session`:
     ///
     /// - the run's session, when its agent's id is this one, or is not
-    ///   known yet, which the report then gives it;
+    ///   known yet, which the report then gives it (or moves a live run to
+    ///   the existing session that already has this id);
     /// - otherwise, for a report that starts a session (`starts`), the
     ///   session with this id, created if it is new, to which the run
     ///   moves, as on `/clear` or a fork;
@@ -466,19 +467,29 @@ impl Db {
                 });
             }
             // the agent names the session Pinrail started for the first time
-            if row.agent_session.is_none()
-                && super::sessions::find(&tx, agent, agent_session)?.is_none()
-            {
-                tx.execute(
-                    "UPDATE sessions SET agent_session = ?3 WHERE agent = ?1 AND id = ?2",
-                    params![agent, current, agent_session],
-                )?;
-                tx.commit()?;
-                return Ok(RunResolved::Session {
-                    id: current.clone(),
-                    created: false,
-                    bound: None,
-                });
+            if row.agent_session.is_none() {
+                if let Some(existing) = super::sessions::find(&tx, agent, agent_session)? {
+                    if row.is_live() {
+                        let bound = bind_in(&tx, &row, &existing, origin, now)?;
+                        tx.commit()?;
+                        return Ok(RunResolved::Session {
+                            id: existing,
+                            created: false,
+                            bound,
+                        });
+                    }
+                } else {
+                    tx.execute(
+                        "UPDATE sessions SET agent_session = ?3 WHERE agent = ?1 AND id = ?2",
+                        params![agent, current, agent_session],
+                    )?;
+                    tx.commit()?;
+                    return Ok(RunResolved::Session {
+                        id: current.clone(),
+                        created: false,
+                        bound: None,
+                    });
+                }
             }
         }
         if !starts || !row.is_live() {
