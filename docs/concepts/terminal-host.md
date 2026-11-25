@@ -83,7 +83,7 @@ The host keeps the output of a terminal for you to read later:
 - When an agent ends, the host keeps its last screen for up to 24 hours. The session's Terminal view shows it, with how the agent ended.
 - `pinrail output <run>` prints the last lines that a terminal showed, and with `--wait-for` it waits until they contain a given text. See [`pinrail output`](/docs/reference/cli/#pinrail-output).
 
-A host runs at most 64 terminals at once.
+A host runs as many terminals as its limit of open files allows, about 1,000 on macOS and on most Linux systems. Each terminal holds a few files and two threads in the host, and its scrollback in memory. When the limit is reached, Pinrail says so when you start another agent.
 
 ## Where the host keeps its files
 

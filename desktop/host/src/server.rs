@@ -34,8 +34,22 @@ use crate::viewers::AttachRequest;
 pub const IDLE_EXIT: Duration = Duration::from_secs(10 * 60);
 /// Ended terminals kept, with their final screens, for at most 24 hours.
 const KEPT_ENDED: usize = 200;
-/// The most live terminals a host runs.
-pub const MAX_TERMINALS: usize = 64;
+/// The descriptors the host keeps for each live terminal: its PTY and
+/// output ring, as the holder gives them, the files that go with them, and
+/// room for the viewers attached to it.
+const FILES_PER_TERMINAL: u64 = 8;
+/// The descriptors the host keeps for everything but its terminals: its
+/// socket, the core's and the CLI's connections, its log and its records.
+const FILES_RESERVED: u64 = 128;
+
+/// The most live terminals a host with `open_files` descriptors runs: as
+/// many as the descriptors allow, which only the computer bounds.
+pub fn terminal_limit(open_files: u64) -> usize {
+    (open_files.saturating_sub(FILES_RESERVED) / FILES_PER_TERMINAL) as usize
+}
+
+/// The open files this host may have, as it raised its limit at start.
+static OPEN_FILES: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
 /// The lines of history each terminal keeps.
 pub const SCROLLBACK_LINES: usize = 10_000;
 /// How long a connection has to send its `hello`.
@@ -85,7 +99,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
     let paths = Paths::new(&config.data_dir);
     paths.create()?;
     let _lock = take_lock(&paths)?;
-    crate::sys::raise_open_files(8_192);
+    let _ = OPEN_FILES.set(crate::sys::raise_open_files(8_192));
     let boot_id = crate::boot_id().ok_or(Error::NoBootId)?;
     let log = Log::open(&paths.log());
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -887,10 +901,14 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
             .unwrap_or_default()
     };
     let labels = params.get("labels").cloned().unwrap_or_else(|| json!({}));
-    if shared.live_terminals() >= MAX_TERMINALS {
+    let open_files = OPEN_FILES.get().copied().unwrap_or(256);
+    let most = terminal_limit(open_files);
+    if shared.live_terminals() >= most {
         return Err(Failure(
             "limit",
-            format!("the host runs {MAX_TERMINALS} terminals already"),
+            format!(
+                "the host runs {most} terminals already, as many as its limit of {open_files} open files allows"
+            ),
         ));
     }
     let id = format!("t_{}", crate::random_hex(8));
