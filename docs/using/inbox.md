@@ -1,30 +1,102 @@
 ---
 title: The inbox
-description: "Where reviews wait for you, how you decide them, the history of everything decided, and the keys that move you through it."
+description: "The list of your notifications: what waits on you, the updates from your agents, how to read each row, and the keys that move you through it."
 ---
 
-The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to the inbox's History tab.
+The inbox is the list of your notifications. It shows first what waits on you, which is reviews, questions and agents that wait for a permission or an answer, and below it the updates from your agents, such as a work item an agent added or a turn it finished. You open a row to decide a review, answer a question or read what changed.
 
-Questions an agent asks with `pinrail ask` wait in the inbox too, marked with a question icon and *asks you*. They open in the thread of the agent's session. See [Questions and sessions](/docs/using/sessions/).
+![The inbox on its All tab, filtered to one repository. Under Waiting on you are two agents that wait in their terminals, a question, a review and a new round of a review. Under Updates are a note, a finished agent and a failed turn.](screenshot:inbox-all "The All tab: what waits on you, then the updates.")
 
-![The inbox: eleven pending reviews grouped by project, each with counts of what it asks, and the repositories with their sessions in the sidebar.](screenshot:inbox "Eleven reviews waiting, across eight projects.")
+## The tabs
 
-## The inbox
+| Tab | What it lists |
+|---|---|
+| **All** | What waits on you, under **Waiting on you**, then the **Updates**, newest first. |
+| **Waiting on you** | Only what waits: reviews, new rounds, questions, and agents that wait for a permission or an answer in their terminal. |
+| **Unread** | The rows you have not read yet. |
+| **History** | The reviews that have ended. See [History](#history). |
 
-The inbox has three tabs. *Pending* lists every review that waits, newest first. *New rounds* lists only the waiting reviews that revise an earlier one. *History* lists the reviews that have ended.
+The numbers beside **Waiting on you** and **Unread** count what the filters and the search keep. When a filter is on, the page's title says how much of the whole that is, such as *5 of 30*. On the **All** tab, **Waiting on you** shows the first 200 rows, with a link to the tab for the rest.
 
-On the *Pending* tab, each row shows the title, the plugin, where it came from and who asked, and a summary of what the review asks. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
+In the sidebar, the **Inbox** entry shows two numbers: how many notifications wait on you, then how many updates are unread.
 
-The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a code review or *3 drafts* for emails, colored by importance. Each plugin decides what it counts, and a plugin that counts nothing shows no summary. The same counts appear in the notification for a new review and at the top of the review while it waits.
+## Reading a row
 
-**Display options**, the button at the right of the header, chooses how *Pending* and *New rounds* list the reviews: grouped by project, grouped by repository, or in one list, newest first. Grouped by project, a repository in no project is a group of its own, and in a project with several repositories each review names its repository. The app remembers your choice.
+Every row has the same layout: an unread dot, an icon with a badge, the title, a line that says what changed, the kind of the row, and how long ago it changed.
 
-The filters apply to every tab, and keep their values when you switch tabs or go to another page and come back. Each filter that is on shows as a chip under the tabs: click its × to remove it, or **Clear filters** to remove them all.
+![The Updates of an inbox: a note, two finished agents, a failed turn, a withdrawn review, and work items that an agent added, commented on, cancelled, marked done and claimed. Each row has an icon with a badge and a line that says what changed.](screenshot:inbox-updates "Updates, each with an icon, a badge and what changed.")
 
-- **Filter by project, repository or plugin.** The sidebar lists your projects or repositories. Click one, or choose one or a plugin in the **Filter** menu at the right of the header, to see only those reviews. Choosing a project shows the reviews from all of its repositories.
-- **Show the starred reviews.** Turn on **Starred** in the **Filter** menu. See [Stars](#stars).
-- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched. <kbd>Esc</kbd> leaves the search field and keeps the search, so <kbd>J</kbd> and <kbd>K</kbd> move through the results; the same goes for the search on every page.
-- **Jump to what waits.** The sidebar lists what waits under the session that sent it, one click away on every screen. See [Sessions in the sidebar](/docs/using/sessions/#sessions-in-the-sidebar). <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting, oldest first.
+**The icon** shows what the row is about.
+
+| Icon | The row is about |
+|:-:|---|
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Work item" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg> | A work item. Its key follows the title. |
+| The agent's icon | A session. The title is the session's title. |
+| The plugin's icon | A review, shown with its plugin's icon. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Question" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> | A question that an agent asked. |
+
+**The badge** on the icon shows what happened. A new review has no badge.
+
+| Badge | Name | Colour | What happened |
+|:-:|---|---|---|
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Added" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#5965cb"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></g></svg> | Added | blue | An agent added the work item, or a sub-item of it. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Claimed" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#5965cb"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></g></svg> | Claimed | blue | An agent claimed the work item. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Commented" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#65738e"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></g></svg> | Commented | grey-blue | An agent commented on the work item. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Done" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#28795c"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></g></svg> | Done | green | An agent marked the work item done. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Cancelled" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#7b7d87"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g></svg> | Cancelled | grey | An agent cancelled the work item. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Changed" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#65738e"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></g></svg> | Changed | grey-blue | An agent made another change to the work item. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Finished" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#28795c"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></g></svg> | Finished | green | The agent finished its turn. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Failed" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#bc4655"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g></svg> | Failed | red | The agent's turn failed. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Stopped" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#7b7d87"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></g></svg> | Stopped | grey | The agent stopped. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Waits for a permission" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#99651b"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g></svg> | Waits for a permission | amber | The agent waits for a permission in its terminal. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Waits for an answer" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#99651b"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></g></svg> | Waits for an answer | amber | The agent waits for your answer in its terminal. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Note" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#65738e"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></g></svg> | Note | grey-blue | The agent sent you a note. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Asks you" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#5965cb"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></g></svg> | Asks you | blue | An agent asked you a question. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="New round" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#5965cb"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g></svg> | New round | blue | An agent sent a new round of a review. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Withdrawn" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#7b7d87"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></g></svg> | Withdrawn | grey | The agent withdrew the review. |
+| <svg width="18" height="18" viewBox="0 0 24 24" role="img" aria-label="Expired" style="vertical-align:-4px"><circle cx="12" cy="12" r="12" fill="#7b7d87"/><g transform="translate(5.2 5.2) scale(0.57)" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></g></svg> | Expired | grey | The review expired before you decided. |
+
+**The ring** after a work item's title shows the item's status.
+
+| Ring | Status |
+|:-:|---|
+| <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Open" style="vertical-align:-3px;color:#7b7d87"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg> | Open |
+| <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="In progress" style="vertical-align:-3px;color:#5965cb"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4a4 4 0 0 1 0 8z" fill="currentColor"/></svg> | In progress |
+| <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="On hold" style="vertical-align:-3px;color:#99651b"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.4 1.9"/><path d="M6.6 5.8v4.4M9.4 5.8v4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> | On hold |
+| <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Done" style="vertical-align:-3px;color:#28795c"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="m5 8.2 2 2 4-4.2" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> | Done |
+| <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Cancelled" style="vertical-align:-3px;color:#7b7d87"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m5.8 5.8 4.4 4.4M10.2 5.8l-4.4 4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> | Cancelled |
+
+**The dot** at the start of a row shows that you have not read it, and its title is bold. Opening a row marks it read.
+
+**The second line** says what changed since you last looked, and who did it, such as *claude-code added this work item with 10 sub-items*, *3 new comments*, or the first line of an agent's last reply. When several things changed, it names the latest and adds how many more there are. The repository follows it. A review's line also names the work items it belongs to.
+
+## Working through the inbox
+
+- **Open a row** with a click or <kbd>Enter</kbd>. A review, a work item or a session opens in the side panel beside the list, so you stay in the inbox. <kbd>J</kbd> and <kbd>K</kbd> move to the next and previous row, and move the panel with them. An agent that waits in its terminal opens on its terminal.
+- **Mark a row read or unread** with <kbd>U</kbd>, or with the button at the end of the row.
+- **Mark an update done** with <kbd>E</kbd>, or with the tick at the end of the row. A done update leaves the list. What waits on you cannot be marked done: it leaves when you decide or answer it.
+- **Mark everything read** with **Mark all as read** or <kbd>⇧U</kbd>. It marks the rows that the list shows, so it follows the filters and the search.
+- **Discard a review** with <kbd>⌘D</kbd> on its row. See [Deciding a review](#deciding-a-review).
+
+Pinrail also marks read updates as done by itself, a week after their last change. **Mark read updates as done** in [Settings › General](/docs/using/settings/#inbox) changes when: on your return to the inbox, after a day, or after a week.
+
+## Filtering and searching
+
+The **Filter** button at the right of the header opens the filters. They keep their values when you switch tabs or go to another page and come back. Each filter that is on shows as a chip under the tabs: click its × to remove it, or **Clear filters** to remove them all.
+
+- **Kind** lists only some kinds of notification, such as reviews, questions, new work items, comments or finished agents. It takes several values.
+- **Project or repository** lists the notifications of some projects or repositories. Clicking a repository or a project in the sidebar sets it too.
+- **Plugin** lists the reviews of some plugins.
+- **Starred** lists the starred reviews. See [Stars](#stars).
+- **Show done** adds the updates that are marked done.
+
+To search, press <kbd>/</kbd> and type. The inbox keeps the rows whose title, plugin, requester, project, workflow or reference contains the text. The content of a review is not searched. <kbd>Esc</kbd> leaves the search field and keeps the search, so <kbd>J</kbd> and <kbd>K</kbd> move through the results.
+
+To step through what waits from any page, press <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd>. The sidebar also lists what waits under the session that sent it. See [Sessions in the sidebar](/docs/using/sessions/#sessions-in-the-sidebar).
+
+## Muting
+
+To stop the notifications of one work item or one session, click the bell in its header. The bell unmutes them. To mute a whole project or repository, or to turn a kind of notification off, see [Notifications](/docs/using/notifications/). What waits on you always reaches the inbox.
 
 ## Deciding a review
 
@@ -83,7 +155,7 @@ Star a review to find it again later. Click the star in the review's header, on 
 
 A star belongs to the round you starred. A review is shown as starred when any of its rounds is.
 
-To list the starred reviews, turn on the star filter in the inbox, beside the project and plugin filters. On the *Pending* and *New rounds* tabs, it lists the waiting reviews with a starred round. On the *History* tab, it lists only the rounds you starred. A starred review is deleted with the rest of your history after the time set in *Keep reviews for*.
+To list the starred reviews, turn on **Starred** in the inbox's **Filter** menu. On the **All** and **Waiting on you** tabs, it lists the waiting reviews with a starred round. On the *History* tab, it lists only the rounds you starred. A starred review is deleted with the rest of your history after the time set in *Keep reviews for*.
 
 ## Search everything
 
@@ -99,9 +171,12 @@ Press <kbd>?</kbd> anywhere in the app to see the keys, in sections: those of th
 
 | Keys | Action |
 |---|---|
-| <kbd>J</kbd> / <kbd>K</kbd> | Next / previous review |
-| <kbd>Enter</kbd> | Open the focused review |
-| <kbd>⌥↓</kbd> / <kbd>⌥↑</kbd> | Next / previous waiting review |
+| <kbd>J</kbd> / <kbd>K</kbd> | Next / previous row |
+| <kbd>Enter</kbd> | Open the focused row |
+| <kbd>U</kbd> | Mark the row read or unread |
+| <kbd>E</kbd> | Mark the update done, or not done |
+| <kbd>⇧U</kbd> | Mark all as read |
+| <kbd>⌥↓</kbd> / <kbd>⌥↑</kbd> | Next / previous notification that waits |
 | <kbd>Esc</kbd> | Close the review panel |
 | <kbd>⌘D</kbd> | Discard the focused or open review |
 | <kbd>/</kbd> | Search the page |
@@ -116,7 +191,7 @@ Press <kbd>?</kbd> anywhere in the app to see the keys, in sections: those of th
 | <kbd>⌘[</kbd> / <kbd>⌘]</kbd> | Back / forward |
 | <kbd>⌘↵</kbd> | Hand over to the agent |
 | <kbd>⌘⇧S</kbd> | Star or remove the star of the review |
-| <kbd>E</kbd> | Archive or unarchive the session |
+| <kbd>E</kbd> | On the Sessions page: archive or unarchive the session |
 | <kbd>⌘⇧M</kbd> | Maximize / restore the view |
 | <kbd>⌘F</kbd> | Find in the view |
 | <kbd>[</kbd> / <kbd>]</kbd> | Previous / next round |

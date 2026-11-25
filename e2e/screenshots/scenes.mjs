@@ -24,6 +24,10 @@ async function openReview(page, app, id) {
 
 const settle = (page, ms = 350) => page.waitForTimeout(ms);
 
+/** Waits until the inbox lists its notifications: a review that waits, or
+ *  any other row. */
+const inboxRows = (page) => page.locator('[data-testid="review-row"], [data-testid="update-row"]').first().waitFor();
+
 /** A section's button in the settings dialog's rail, such as "Plugins". */
 const settingsSection = (page, name) =>
   page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name, exact: true });
@@ -401,6 +405,135 @@ async function withRunningAgent(page, app, fn) {
   }
 }
 
+/** The repository of the inbox scene's own notifications: one that no
+ *  fixture uses, so that the inbox filtered to it shows them alone, and
+ *  that the scene deletes with everything in it. */
+const INBOX_REPO = "acme/billing";
+
+/**
+ * Runs `fn` with a notification of every kind in INBOX_REPO, then deletes
+ * the repository. Reviews, questions and agents that wait are under Waiting
+ * on you; work items an agent added, claimed, commented on, closed and
+ * changed, agents that finished, failed and stopped, a note and a withdrawn
+ * review are updates. Agents report now, not at the fixed moment of the
+ * other scenes, so the page's clock is set a few minutes on meanwhile.
+ */
+async function withNotifications(page, app, fn) {
+  await page.clock.setFixedTime(Date.now() + 6 * 60_000);
+  const origin = (ref) => ({ repo: INBOX_REPO, ref, folder: "/Users/maya/code/acme-billing" });
+  try {
+    // a session: its stage, then what its agent's hooks reported
+    const session = async (agent, id, title, ref, reports = []) => {
+      const route = `/api/v1/sessions/${agent}/${id}`;
+      await app.api("POST", `${route}/reports`, { event: "started", origin: origin(ref) });
+      await app.api("POST", `${route}/status`, { kind: "start", text: title, origin: origin(ref) });
+      for (const report of [{ event: "prompt", detail: { prompt: title } }, ...reports])
+        await app.api("POST", `${route}/reports`, { ...report, origin: origin(ref) });
+      return route;
+    };
+
+    // the session whose agent works through the invoice export
+    const agent = "claude-code";
+    const id = "6e1b9d40-37a2-4c85-b0f6-a2d95c7e1834";
+    const main = await session(agent, id, "Export invoices as CSV", "invoice-export");
+    const as = { by: agent, session: id };
+    const add = async (title, body) =>
+      (await app.api("POST", "/api/v1/items", { repo: INBOX_REPO, title, ...(body ? { body } : {}), ...as }, "cli"))
+        .key;
+    const claimed = await add("Export invoices as CSV", "One row for each invoice, with its customer, total and tax.");
+    await app.api("PATCH", `/api/v1/items/${claimed}`, { claim: "claim", ...as }, "cli");
+    await add("Add a currency column to the export");
+    const done = await add("Escape commas in customer names");
+    await app.api("POST", `/api/v1/items/${done}/done`, { comment: "Quoted in `src/export/csv.ts`.", ...as }, "cli");
+    const cancelled = await add("Support the old XLS format");
+    await app.api(
+      "PATCH",
+      `/api/v1/items/${cancelled}`,
+      { status: "cancelled", comment: "Nobody exports XLS any more.", ...as },
+      "cli",
+    );
+    const commented = await add("Paginate the invoice list");
+    await app.api(
+      "POST",
+      `/api/v1/items/${commented}/comments`,
+      { body: "The list loads 5,000 invoices at once. A cursor on the invoice date would fix it.", ...as },
+      "cli",
+    );
+    const changed = await add("Show the tax rate on each line");
+    await app.api(
+      "PATCH",
+      `/api/v1/items/${changed}`,
+      { title: "Show the tax rate on each invoice line", ...as },
+      "cli",
+    );
+
+    const submit = (review) =>
+      app.api("POST", "/api/v1/reviews", {
+        ...review,
+        origin: origin("invoice-export"),
+        requested_by: agent,
+        session: id,
+        items: [claimed],
+      });
+    const list = (title, items) => ({
+      plugin: "list",
+      title,
+      payload: { groups: [{ title, items: items.map((text, i) => ({ id: i + 1, title: text })) }] },
+    });
+    const withdrawn = await submit(list("Old export endpoints to remove", ["GET /v1/invoices.xls", "GET /v1/export"]));
+    await app.api(
+      "POST",
+      `/api/v1/reviews/${withdrawn.id}/withdraw`,
+      { reason: "Both are still called by the mobile app.", by: agent },
+      "cli",
+    );
+    const first = await submit(list("Choose the columns of the export", ["Customer", "Total", "Tax", "Currency"]));
+    await submit({ ...list("Choose the columns of the export", ["Customer", "Total", "Tax"]), revises: first.id });
+    await submit(list("Check the export against last month's invoices", ["March totals match", "Tax is per line"]));
+    await submit({
+      kind: "question",
+      title: "Should the export include voided invoices?",
+      payload: {
+        questions: [{ id: "q1", question: "Should the export include voided invoices?", answer: "yes-no" }],
+      },
+    });
+    await app.api("POST", `${main}/status`, { text: "Writing the export", origin: origin("invoice-export") });
+
+    // agents that wait in their terminals
+    await session("codex", "019b2c7d-41e8-7a53-9f06-2b4d8e1c3a75", "Fix rounding in the tax totals", "tax-rounding", [
+      { event: "needs_input", wait: "permission", detail: { tool: "Bash", summary: "npm test -- tax" } },
+    ]);
+    await session("opencode", "ses_3d9a1f5c82b74e06", "Migrate the invoices table", "invoice-migration", [
+      { event: "needs_input", wait: "question", detail: { summary: "Run the migration on staging first?" } },
+    ]);
+    // and agents whose turn ended
+    await session("claude-code", "b83f6a12-5c9e-4d07-a1e4-7f20c9d6b358", "Send payment reminders", "reminders", [
+      {
+        event: "turn_ended",
+        end: "done",
+        detail: { reply: "The reminders go out three days before an invoice is due." },
+      },
+    ]);
+    await session("cursor", "4c7e2d91-8a35-4f6b-b0d2-e19a5c3f7846", "Rename the ledger module", "ledger-rename", [
+      { event: "turn_ended", end: "failed", detail: { error: "The connection to the model was lost." } },
+    ]);
+    await session("copilot", "a05d7b3e-2f94-4c18-96e7-d3b81f4a6c20", "Update the billing dashboard", "dashboard", [
+      { event: "turn_ended", end: "done", detail: { reply: "The dashboard shows this month's totals." } },
+      { event: "ended" },
+    ]);
+    const notes = await session("pi", "ses-7b21e9", "Audit the refund flow", "refund-audit");
+    await app.api("POST", `${notes}/status`, {
+      kind: "note",
+      text: "Refunds over 500 skip the approval step. I listed the three code paths in the item.",
+      origin: origin("refund-audit"),
+    });
+    await fn();
+  } finally {
+    await app.api("DELETE", `/api/v1/repos/${encodeURIComponent(INBOX_REPO)}`).catch(() => {});
+    await page.clock.setFixedTime(NOW);
+  }
+}
+
 /**
  * Runs `fn` with the sessions in REPORTED_SESSIONS and FULL_SESSION, then
  * deletes them. `fn` gets the first, whose agent works, and the full one. A state is the agent's now, not at the
@@ -446,73 +579,6 @@ async function withReportedSessions(page, app, fn) {
 }
 
 export const scenes = [
-  // What's new in 0.3.0: each saved into that release's folder
-  {
-    name: "inbox-panel",
-    async run({ page, app, reviews, shot }) {
-      await card(page);
-      await page.goto(`${app.ui}/#/?open=${reviews["16-list-cloud"]}`);
-      await page.frameLocator("#plugin-frame").locator("body").waitFor();
-      await settle(page, 700);
-      await shot("inbox-panel");
-    },
-  },
-  {
-    name: "history-source",
-    async run({ page, app, shot }) {
-      await card(page);
-      await page.goto(`${app.ui}/#/?tab=history`);
-      await page.waitForLoadState("networkidle");
-      const row = page.getByTestId("history-row").filter({ hasText: "Bump lodash" });
-      await row.getByTestId("source-badge").hover();
-      await page.getByRole("tooltip").waitFor();
-      await settle(page, 400);
-      await shot("history-source");
-    },
-  },
-  {
-    name: "plugins-official",
-    async run({ page, app, shot }) {
-      await card(page);
-      await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
-      await page.keyboard.press("Meta+,");
-      await settingsSection(page, "Plugins").click();
-      await page.waitForLoadState("networkidle");
-      await settle(page, 500);
-      await shot("plugins-official");
-    },
-  },
-  {
-    name: "note-dictation",
-    async run({ page, app, reviews, shot }) {
-      await card(page);
-      await page.goto(`${app.ui}/#/?open=${reviews["16-list-cloud"]}`);
-      await page.frameLocator("#plugin-frame").locator("body").waitFor();
-      await page
-        .getByRole("textbox", { name: "Note to the agent" })
-        .fill("Keep the staging bucket, the demo data lives there");
-      // the microphone as it looks while listening, which a headless browser cannot do
-      await page
-        .getByRole("button", { name: "Dictate the note" })
-        .evaluate((button) => button.classList.add("is-listening"));
-      await settle(page, 500);
-      await shot("note-dictation");
-    },
-  },
-  {
-    name: "review-shortcuts",
-    async run({ page, app, reviews, shot }) {
-      await card(page);
-      await openReview(page, app, reviews["10-review-webhooks"]);
-      await page.locator("body").press("?");
-      const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
-      await dialog.getByRole("searchbox", { name: "Search shortcuts" }).fill("proposal");
-      await settle(page, 400);
-      await shot("review-shortcuts");
-    },
-  },
-
   // What's new in 0.4.0
   {
     // the change map of a pull request, with a part selected
@@ -538,7 +604,7 @@ export const scenes = [
     async run({ page, app, shot }) {
       await card(page);
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+,");
       await settingsSection(page, "Plugins").click();
       await page.getByRole("button", { name: "Details of change-map" }).click();
@@ -620,7 +686,7 @@ export const scenes = [
         appearance: { dark_theme: "nord", light_theme: "solarized-light" },
       });
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+,");
       await settingsSection(page, "Appearance").click();
       await settle(page, 500);
@@ -670,7 +736,7 @@ export const scenes = [
         await app.api("PATCH", "/api/v1/settings", { inbox: { layout: "project" } });
         try {
           await page.goto(`${app.ui}/#/`);
-          await page.getByTestId("inbox-group").first().waitFor();
+          await inboxRows(page);
           await page.mouse.move(5, 570);
           await settle(page, 500);
           await shot("inbox-projects-card");
@@ -809,7 +875,7 @@ export const scenes = [
     name: "inbox",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await settle(page);
       await shot("inbox", page, { site: true });
     },
@@ -1341,7 +1407,7 @@ export const scenes = [
     name: "palette",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+k");
       const input = page.getByPlaceholder("Search reviews, plugins, actions…");
       await input.waitFor();
@@ -1355,7 +1421,7 @@ export const scenes = [
     name: "shortcuts",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("?");
       await settle(page, 500);
       await shot("shortcuts");
@@ -1379,7 +1445,7 @@ export const scenes = [
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
       fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, icon: "ticket" }, null, 2));
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+,");
       await settingsSection(page, "Plugins").click();
       await page.getByRole("textbox", { name: "Search official plugins, or give a source path" }).fill(dir);
@@ -1420,7 +1486,7 @@ export const scenes = [
     name: "setup",
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.evaluate((agents) => {
         window.__TAURI_INTERNALS__ = {
           invoke: async (command) => {
@@ -1522,7 +1588,7 @@ export const scenes = [
       if (!process.argv.includes("--out")) return;
       await page.setViewportSize({ width: 1400, height: 860 });
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+,");
       await settingsSection(page, "Plugins").click();
       await page.getByRole("button", { name: "Details of change-map" }).click();
@@ -1571,6 +1637,10 @@ export const scenes = [
       await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
       await page.getByTestId("finished").last().waitFor();
       const details = page.getByRole("complementary", { name: "Session details" });
+      // a scene before this one may have hidden the details, which the app remembers
+      await settle(page, 600);
+      if (!(await details.isVisible())) await page.keyboard.press("Meta+Shift+B");
+      await details.waitFor();
       const reviews = details.getByRole("button", { name: /^Reviews · \d+$/ });
       if ((await reviews.getAttribute("aria-expanded")) !== "true") await reviews.click();
       await page.getByTestId("question-set").last().scrollIntoViewIfNeeded();
@@ -1623,7 +1693,7 @@ export const scenes = [
         appearance: { dark_theme: "nord", light_theme: "solarized-light" },
       });
       await page.goto(`${app.ui}/#/`);
-      await page.getByTestId("inbox-group").first().waitFor();
+      await inboxRows(page);
       await page.keyboard.press("Meta+,");
       await settingsSection(page, "Appearance").click();
       await settle(page, 500);
@@ -1650,6 +1720,45 @@ export const scenes = [
       await shot(`settings-${section}`, page.getByRole("dialog", { name: "Settings", exact: true }));
     },
   })),
+  {
+    // the inbox filtered to one repository that has a notification of every
+    // kind: the All tab, and the Updates under what waits
+    name: "inbox-rows",
+    async run({ page, app, shot }) {
+      await page.setViewportSize({ width: 1100, height: 1500 });
+      try {
+        await withNotifications(page, app, async () => {
+          await page.goto(`${app.ui}/#/?repo=${encodeURIComponent(INBOX_REPO)}`);
+          const waiting = page.getByRole("region", { name: "Waiting on you" });
+          const updates = page.getByRole("region", { name: "Updates" });
+          await waiting.getByTestId("review-row").first().waitFor();
+          await updates.getByTestId("update-row").first().waitFor();
+          // two rows that the person has read, without their dot
+          for (const title of ["Send payment reminders", "Add a currency column to the export"])
+            await page.getByRole("button", { name: `Mark as read: ${title}` }).click({ force: true });
+          await page
+            .getByRole("button", { name: "Mark as unread: Send payment reminders" })
+            .waitFor({ state: "attached" });
+          await page.mouse.move(5, 5);
+          await settle(page, 700);
+          const main = await page.locator(".app-main").boundingBox();
+          const third = await updates.getByTestId("update-row").nth(2).boundingBox();
+          // the page's head, what waits, and the first updates under it
+          await shot("inbox-all", page, {
+            clip: {
+              x: Math.round(main.x),
+              y: 0,
+              width: Math.round(1100 - main.x),
+              height: Math.round(third.y + third.height + 12),
+            },
+          });
+          await shot("inbox-updates", updates);
+        });
+      } finally {
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+    },
+  },
   {
     // the Work items list alone, in a narrow window: with each
     // repository's next item marked, and with a search that matches in
@@ -1768,7 +1877,8 @@ export const scenes = [
             const details = page.getByRole("complementary", { name: "Session details" });
             await views.waitFor();
             await settle(page, 800);
-            if (await details.isVisible()) {
+            const hid = await details.isVisible();
+            if (hid) {
               await page.keyboard.press("Meta+Shift+B");
               await details.waitFor({ state: "hidden" });
             }
@@ -1811,6 +1921,12 @@ export const scenes = [
               clip: { x: 0, y: 0, width: 700, height: Math.round(box.y + box.height + 20) },
             });
             await page.keyboard.press("Escape");
+            // the app remembers that the details are hidden: shown again,
+            // for the scenes that follow
+            if (hid) {
+              await page.keyboard.press("Meta+Shift+B");
+              await details.waitFor();
+            }
           } finally {
             await page.getByRole("button", { name: "Show sidebar" }).click();
           }

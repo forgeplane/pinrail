@@ -1,9 +1,11 @@
 ---
 title: Notifications
-description: "When Pinrail tells you a review is waiting, and how to pause, quiet or narrow it."
+description: "What Pinrail notifies you about, where each notification goes, and how to pause, quiet or narrow them."
 ---
 
-While an agent waits for your decision, Pinrail tells you that a review has arrived. It shows a system notification and updates the count in the menu bar. Click the notification to open the review.
+Pinrail notifies you about what waits on you, such as a review, a question or an agent that waits for a permission, and about what your agents did, such as a finished turn or a new work item. Every notification goes to the [inbox](/docs/using/inbox/), and some also raise a system notification. Click a system notification to open what it is about.
+
+Each kind of notification has two switches in [Settings › Notifications](/docs/using/settings/#notifications). The *Inbox* switch adds the kind to the inbox, and the *System* switch also raises a system notification for it. Reviews, questions and agents that wait are always added to the inbox. In the inbox, an icon and a badge on each row show what the notification is about and what happened. See [Reading a row](/docs/using/inbox/#reading-a-row).
 
 ## The menu bar
 
@@ -21,7 +23,8 @@ On Linux, the icon appears in the system tray. Some desktops, such as GNOME, sho
 | To | Do this |
 |---|---|
 | Stop them for a while | **Pause**, from the menu bar or *Settings › Notifications*. Reviews still arrive and are counted. |
-| Stop them for one kind | Turn off its switch in the *System* column of *Settings › Notifications*. |
+| Stop them for one kind | Turn off its switch in the *System* column of *Settings › Notifications*. Turn off its *Inbox* switch to keep the kind out of the inbox too. |
+| Stop them for one work item or session | Click the bell in its header. |
 | Stop them for one plugin | Turn off **Notify** on the plugin's row in *Settings › Plugins*. Its reviews are still counted. |
 | Stop them for a project or repository | **Mute** it in *Settings › Notifications*. Only what waits for you reaches the inbox, and nothing of it is announced. |
 | Keep them silent | Turn off **Sound** in *Settings › Notifications*. |

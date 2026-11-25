@@ -7,7 +7,7 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 
 ![A two-minute demo of Pinrail, with captions](video:demo "Pinrail in two minutes: an agent asks, and each review is decided in the app.")
 
-![The Pinrail inbox, with eleven reviews waiting from different agents and projects.](screenshot:inbox)
+![The Pinrail inbox on its All tab, with the reviews and questions that wait on you from different agents and projects, and the repositories with their sessions in the sidebar.](screenshot:inbox)
 
 ## What Pinrail does
 
