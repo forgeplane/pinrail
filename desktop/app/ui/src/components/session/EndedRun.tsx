@@ -47,14 +47,16 @@ export function EndedRun({
   resuming?: boolean;
 }) {
   const name = agentOf(run.agent)?.label ?? run.agent;
-  // null while it loads; false once the host no longer keeps it
-  const [screen, setScreen] = useState<Screen | false | null>(null);
+  // null while it loads; false once the host no longer keeps it. Kept
+  // with its run, so another run's screen never shows while this one loads.
+  const [loaded, setLoaded] = useState<{ run: string; screen: Screen | false } | null>(null);
+  const screen = loaded?.run === run.id ? loaded.screen : null;
 
   useEffect(() => {
     let current = true;
     runtime.screen(run.id).then(
-      (kept) => current && setScreen(kept),
-      () => current && setScreen(false),
+      (kept) => current && setLoaded({ run: run.id, screen: kept }),
+      () => current && setLoaded({ run: run.id, screen: false }),
     );
     return () => {
       current = false;
@@ -121,6 +123,9 @@ function KeptScreen({ screen, label }: { screen: Screen; label: string }) {
       frame.current!.style.height = `${natural.height * scale}px`;
     };
     const observer = new ResizeObserver(fit);
+    // the app's theme changed: the screen takes its colours
+    const restyle = () => view?.setTheme(appearanceFrom(document.body).theme);
+    window.addEventListener("pinrail:appearance", restyle);
     (async () => {
       const renderer = await chooseRenderer(renderers, RENDERERS);
       if (gone) return;
@@ -145,6 +150,7 @@ function KeptScreen({ screen, label }: { screen: Screen; label: string }) {
     return () => {
       gone = true;
       observer.disconnect();
+      window.removeEventListener("pinrail:appearance", restyle);
       view?.dispose();
     };
   }, [screen, renderers]);
