@@ -89,6 +89,25 @@ cargo install --path cli
 ```
 :::
 
+## On macOS: add Pinrail Host to Developer Tools
+
+Do this if your agents build and run software, such as a test suite. Without it, macOS checks every newly built program the first time it runs, which makes an agent's builds and tests much slower in Pinrail than in a terminal that you already allowed. [The terminal host](/docs/concepts/terminal-host/#pinrail-host-in-macos-privacy-prompts) explains why.
+
+1. Open *System Settings › Privacy & Security › Developer Tools*.
+2. Click **+**, and unlock with your password or Touch ID if macOS asks.
+3. In the file dialog, press <kbd>⌘⇧G</kbd>, enter this path and choose the app:
+
+   ```txt
+   /Applications/Pinrail.app/Contents/Helpers/Pinrail Host.app
+   ```
+
+4. Check that **Pinrail Host** is in the list and switched on.
+5. Stop the agents that run in Pinrail and resume them, so that they start again under the new permission.
+
+On some versions of macOS, *Developer Tools* is listed under *Privacy & Security* only after a program has asked for it. If you do not see it, run `spctl developer-mode enable-terminal` in Terminal, which makes macOS show the list, and open System Settings again.
+
+The first time an agent reads your Documents, Desktop or Downloads folder, macOS also asks whether Pinrail Host may use it. Allow it for the folders your agents work in.
+
 ## Check that it works
 
 With the app running, list your reviews:

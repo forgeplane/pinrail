@@ -100,4 +100,16 @@ The app finds the host through `host.json`. It connects to the socket, which is 
 
 ## Pinrail Host in macOS privacy prompts
 
-On macOS, the host and the holder run as an app of their own, **Pinrail Host**. Every agent is a child of the holder, so macOS names Pinrail Host, and not Pinrail or your terminal, when an agent asks for something that macOS protects, such as the files in your Documents folder. A permission that you grant is granted to Pinrail Host.
+On macOS, the host and the holder run as an app of their own, **Pinrail Host**. Every agent that Pinrail runs is a child of the holder, so macOS treats what the agent does as done by Pinrail Host.
+
+- **Privacy prompts name Pinrail Host.** When an agent first reads a place that macOS protects, such as your Documents, Desktop or Downloads folder, a removable volume or a network volume, macOS asks whether *Pinrail Host* may use it. The prompt says that an agent running in Pinrail wants the access.
+- **A permission belongs to Pinrail Host.** What you allow applies to every agent that Pinrail runs, and to nothing else. It shows for Pinrail Host in *System Settings › Privacy & Security*, under *Files and Folders* for a folder, where you can take it back.
+- **Your terminal's permissions do not carry over.** An agent in your own terminal runs as a child of the terminal app, and uses what you allowed for that app. The same agent in Pinrail asks again, once, for Pinrail Host.
+
+macOS keeps a permission for the app, not for one version of it. A permission that you gave Pinrail Host therefore stays when Pinrail updates. An agent that you start after an update runs under the new version's Pinrail Host, and an agent that kept running through the update stays under the copy that started it. Both are the same app to macOS.
+
+### Developer Tools, for agents that build software
+
+macOS checks a program the first time it runs. For an agent that compiles code, every newly built binary is a new program: a large test binary can wait about 25 seconds before it starts, and a rebuilt test suite can take minutes longer than in your own terminal. macOS skips this check for the programs that an app in **Developer Tools** starts. If you have added your terminal app there, add Pinrail Host too. [Install](/docs/getting-started/install/#on-macos-add-pinrail-host-to-developer-tools) has the steps.
+
+On Linux, there is no such check and no such setting. Agents run with your own permissions, as they do in your terminal.
