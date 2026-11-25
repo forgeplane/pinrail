@@ -212,6 +212,7 @@ echo "stand-in agent starting"
 printf '%s\n' "$@" > argv.part && mv argv.part argv
 printf '%s' "$TERM_PROGRAM" > term_program.part && mv term_program.part term_program
 printf '%s' "$PINRAIL_RUN_TOKEN" > token.part && mv token.part token
+printf '%s' "$PINRAIL_DATA_DIR" > data_dir.part && mv data_dir.part data_dir
 if [ -f exit ]; then exit "$(cat exit)"; fi
 # with a file named listen, it writes each line it is sent to heard
 if [ -f listen ]; then while IFS= read -r line; do printf '%s\n' "$line" >> heard; done; exit 0; fi

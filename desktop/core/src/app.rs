@@ -246,10 +246,18 @@ impl Pinrail {
             crate::session_files::root(&config.data_dir),
             db.clone(),
         );
+        // the agents it runs, and their hooks and pinrail commands, reach
+        // this core through its server.json, whatever other server the
+        // computer runs
+        let mut run_env = config.run_env.clone();
+        run_env.insert(
+            "PINRAIL_DATA_DIR".to_string(),
+            config.data_dir.to_string_lossy().into_owned(),
+        );
         let runtime = crate::runtime::Runtime::new(
             db,
             events.bus(),
-            config.run_env.clone(),
+            run_env,
             crate::session_files::root(&config.data_dir),
         );
         Ok(Self {

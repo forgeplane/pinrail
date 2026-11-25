@@ -177,6 +177,12 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
         argv,
         format!("--settings\n{settings}\n--session-id\n{own}\n--\nfix the login\n")
     );
+    // its hooks and its pinrail commands reach this core, whatever server
+    // the computer runs besides
+    assert_eq!(
+        file(folder.join("data_dir")).await,
+        setup.app.config().data_dir.to_string_lossy()
+    );
     // the core keeps only the token's digest
     let token = file(folder.join("token")).await;
     let db = setup.db();
