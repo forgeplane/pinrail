@@ -1,9 +1,9 @@
 ---
 title: Instructing an agent
-description: "Tell your agent when to stop and ask through Pinrail, what to send, and what to do with your answer."
+description: "Tell your agent when to stop and ask through Pinrail, give it its task from a work item, and send it messages while it works."
 ---
 
-Pinrail never interrupts an agent on its own. The agent decides when to ask, because its instructions tell it to: "before posting review comments, submit them to Pinrail and wait." This page shows where those instructions go, what makes them work, and a template to start from.
+Pinrail never interrupts an agent on its own. The agent decides when to ask, because its instructions tell it to: "before posting review comments, submit them to Pinrail and wait." This page shows where those instructions go, what makes them work, and a template to start from. It also covers the two ways you direct an agent from the app: starting it on a work item, and sending it messages while it works.
 
 ```mermaid title="Where the decision to ask comes from"
 flowchart LR
@@ -17,7 +17,7 @@ flowchart LR
 
 ## Start with the Pinrail skill
 
-In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to ask you questions with `pinrail ask` instead of in the chat, how to report its progress with `pinrail status`, how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
+In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to ask you questions with `pinrail ask` instead of in the chat, how to report its progress with `pinrail status`, how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. It also teaches the agent to work with [work items](/docs/concepts/work-items/): to read an item before it works on it, to search before it adds one, to comment on its progress, and to mark the item done. See [Settings](/docs/using/settings/#agents), and [Supported agents](/docs/agents/supported/) for the agents that take the skill.
 
 ![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents "Claude Code and Cursor are connected, OpenCode uses Claude Code's skill, and Codex is ready to connect.")
 
@@ -40,6 +40,55 @@ Before you post review comments, ask me through Pinrail with the
 ```
 
 This example is for Claude Code. Other agents that support skills keep a project's skills in a folder of their own, which their documentation names. For an agent without skills, or one where you have not connected the `pinrail` skill, write the full instructions described below in its instructions file.
+
+## Start an agent on a work item
+
+You start an agent on a work item in two places:
+
+- **From the item's panel**, with the **Start** button beside the item's status. See [An item's panel](/docs/using/work-items/#an-items-panel).
+- **From the quick add**, which adds the item and starts an agent on it at once. Click **Add and start**, or press <kbd>⌥Enter</kbd> in the title. See [Add an item from any page](/docs/using/work-items/#add-an-item-from-any-page).
+
+![The top of a work item's panel. Beside the item's status and the Claim button, a Start button names the agent that it starts.](screenshot:item-start "The Start button in an item's panel.")
+
+![The quick add dialog with a title and a description. At its bottom right, an Add and start button names the agent that it starts.](screenshot:quick-add-start "Add and start in the quick add.")
+
+Both start the agent that you used most in the last 30 days, in the folder of the item's repository that you used last. The arrow beside the button changes the agent and the folder, and Pinrail asks for a folder when it knows none for the repository.
+
+Either way, the item is the agent's first prompt, and the new session claims the item. The prompt holds:
+
+- the item's key and title, as its heading;
+- the item's description;
+- every comment on the item, with who wrote it and when;
+- the names of the files attached to the description and the comments, with the command that saves them, `pinrail items show <key>`.
+
+So write an item's description as the task you would give the agent:
+
+- **Say what to do and what done means.** The agent has nothing but the item to start from. *Exports have no limit* describes a problem. *Limit exports to 100 a minute for each API key, and answer 429 with Retry-After* is a task.
+- **Put what you know in the item.** A decision you already took, a file to start from or a screenshot of the bug saves the agent a question. Comments reach the agent too, so add what you learn later as a comment.
+- **Leave the standing rules where they are.** When to ask and which plugin to use belong in the agent's instructions, as this page describes, and apply to every item.
+
+An agent with the `pinrail` skill reads the item again with `pinrail items show` before it continues it, keeps the description current as the work becomes clearer, and marks the item done with a comment that says what changed and where.
+
+## Send the agent a message
+
+You write to an agent from its [session's thread](/docs/concepts/sessions/#messages-to-the-agent) in the app. How the message arrives depends on where the agent runs:
+
+- **An agent that Pinrail runs** gets the message as its next prompt. Pinrail types it into the agent's terminal once the agent is idle.
+- **An agent in your own terminal** gets the message the next time it runs `pinrail status`, which prints every waiting message.
+
+A comment that you add to a work item the session holds, and putting such an item on hold, reach the agent in the same way as a message to an agent in your own terminal: with its next `pinrail status`.
+
+The `pinrail` skill tells the agent to report its progress with `pinrail status`, so an agent that follows it sees your messages as it works. An agent that reports rarely sees them late. If you want an agent in your own terminal to act on a message at once, tell it so in its instructions:
+
+```md title="AGENTS.md"
+Run `pinrail status` at the start of each step. If it prints a message
+from me, act on the message before you go on, and say what you did in
+your next status.
+```
+
+## Work items the agent adds
+
+An agent with the `pinrail` skill searches before it adds a work item, with `pinrail items search`, and before it works on a bug. When an item already covers the work, it comments on that item and does not add another. `pinrail items add` also lists the three items most like the new one, for the agent to check. You do not need to instruct the agent to do this. Add a rule only for what is particular to your project, such as which work becomes an item at all. See [Work items](/docs/agents/cli/#work-items) in the CLI guide.
 
 ## Where instructions go
 
@@ -168,7 +217,7 @@ The review shows every file it carries by name and size, and you can save any of
 
 ## Check that it works
 
-Ask your agent to do the step, and watch for the review in your inbox. If it doesn't arrive:
+Ask your agent to do the step, and watch for the review in your inbox, under **Waiting on you**. If it doesn't arrive:
 
 - **The agent went ahead without asking.** Make the "when" more specific, and move it higher in the file.
 - **The command failed.** Run `pinrail list` yourself. If it cannot reach the app, see [Finding the app](/docs/agents/cli/#finding-the-app).

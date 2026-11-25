@@ -52,6 +52,25 @@ export async function startApp({ build = true } = {}) {
     execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], { cwd: desktop, stdio: "inherit" });
   }
   const data = path.join(root, "e2e", ".state", "screenshots-data");
+  // the core starts a terminal host for its data directory, which outlives
+  // it, as it is made to: this run stops its own, and first the one an
+  // earlier run left, while its registration is still there to find it by
+  const stopHost = () => {
+    const host = path.join(desktop, "target", "debug", "pinrail-host");
+    try {
+      if (fs.existsSync(host)) execFileSync(host, ["stop", "--data-dir", data], { stdio: "ignore", timeout: 20_000 });
+    } catch {
+      // no host answered, or it did not stop in time
+    }
+    try {
+      // a host or a holder that did not hear the stop: only this data
+      // directory's, which run from the copy of the host inside it
+      execFileSync("pkill", ["-f", path.join(data, "host", "bin") + path.sep], { stdio: "ignore" });
+    } catch {
+      // none was left
+    }
+  };
+  stopHost();
   fs.rmSync(data, { recursive: true, force: true });
   fs.mkdirSync(data, { recursive: true });
 
@@ -99,7 +118,14 @@ export async function startApp({ build = true } = {}) {
         stdio: ["ignore", "ignore", "inherit"],
       },
     );
-    await waitFor(`${core}/api/v1/info`, "the core");
+    try {
+      await waitFor(`${core}/api/v1/info`, "the core");
+    } catch (error) {
+      // a core that did not come up in time is not left behind, nor its host
+      await stopCore();
+      stopHost();
+      throw error;
+    }
   };
   const stopCore = async () => {
     if (!server) return;
@@ -110,13 +136,22 @@ export async function startApp({ build = true } = {}) {
   };
 
   await startCore();
-  execFileSync("npm", ["run", "--silent", "sdk:build"], { cwd: path.join(desktop, "app"), stdio: "inherit" });
-  const vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], {
-    cwd: path.join(desktop, "app"),
-    env: { ...process.env, VITE_PINRAIL_URL: core, VITE_PINRAIL_TOKEN: token },
-    stdio: ["ignore", "ignore", "inherit"],
-  });
-  await waitFor(ui, "the shell");
+  let vite = null;
+  try {
+    execFileSync("npm", ["run", "--silent", "sdk:build"], { cwd: path.join(desktop, "app"), stdio: "inherit" });
+    vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], {
+      cwd: path.join(desktop, "app"),
+      env: { ...process.env, VITE_PINRAIL_URL: core, VITE_PINRAIL_TOKEN: token },
+      stdio: ["ignore", "ignore", "inherit"],
+    });
+    await waitFor(ui, "the shell");
+  } catch (error) {
+    // the shell did not come up: nothing of the run stays
+    vite?.kill("SIGTERM");
+    await stopCore();
+    stopHost();
+    throw error;
+  }
 
   // `client` sets the client the request identifies as. The default, "app",
   // sends the shell's origin and the person token, so the seed's decisions
@@ -156,6 +191,7 @@ export async function startApp({ build = true } = {}) {
     },
     async stop() {
       await stopCore();
+      stopHost();
       vite.kill("SIGTERM");
     },
   };

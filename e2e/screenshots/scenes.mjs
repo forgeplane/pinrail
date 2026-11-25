@@ -1487,6 +1487,70 @@ export const scenes = [
     },
   },
   {
+    // starting an agent on a work item: the Start button in an item's
+    // panel, and Add and start in the quick add. No agent is started. The
+    // button names the agent this computer has, so the scene needs one that
+    // Pinrail can start.
+    name: "item-start",
+    async run({ page, app, shot }) {
+      // a build that still has the switch for running agents needs it on
+      const settings = await app.api("GET", "/api/v1/settings");
+      const switched = settings.labs?.runtime === false;
+      if (switched) await app.api("PATCH", "/api/v1/settings", { labs: { runtime: true } });
+      await page.setViewportSize({ width: 1180, height: 760 });
+      try {
+        const key = (await app.api("GET", "/api/v1/items?repo=acme/web")).items.find((i) =>
+          i.title.startsWith("Dark mode flickers"),
+        ).key;
+        await page.goto(`${app.ui}/#/items?open=${key}`);
+        const panel = page.getByTestId("item-panel");
+        await panel.waitFor();
+        await panel
+          .getByRole("button", { name: /^(Start |Choose a folder)/ })
+          .first()
+          .waitFor();
+        await page.mouse.move(5, 750);
+        await settle(page, 500);
+        // the top of the panel: the item, its status, the Start button and
+        // the description, which is the agent's task
+        const box = await panel.boundingBox();
+        const next = await panel
+          .getByText(/^Dependencies/i)
+          .first()
+          .boundingBox();
+        await shot("item-start", page, {
+          clip: { x: Math.round(box.x), y: 0, width: Math.round(box.width), height: Math.round(next.y - 14) },
+        });
+
+        // the quick add, over a session's thread, as the quick-add scene has it
+        await page.goto(`${app.ui}/#/sessions/claude-code/3c8d1f60-2b7a-4e19-8f05-9d4c6a1e7b23`);
+        await page.getByTestId("finished").last().waitFor();
+        await page.keyboard.press("Meta+Shift+C");
+        const dialog = page.getByRole("dialog", { name: "Add a work item" });
+        await dialog.getByRole("textbox", { name: "What needs to be done?" }).fill("Log the keys that hit the limit");
+        await dialog
+          .getByRole("textbox", { name: "Description" })
+          .fill(`Count each key that gets a 429, so that support can see who is throttled.`);
+        await dialog.getByRole("button", { name: /^Add and start/ }).waitFor();
+        await page.mouse.move(5, 750);
+        await settle(page, 500);
+        const quick = await dialog.boundingBox();
+        await shot("quick-add-start", page, {
+          clip: {
+            x: Math.round(quick.x - 24),
+            y: Math.round(quick.y - 24),
+            width: Math.round(quick.width + 48),
+            height: Math.round(quick.height + 48),
+          },
+        });
+        await page.keyboard.press("Escape");
+      } finally {
+        if (switched) await app.api("PATCH", "/api/v1/settings", { labs: { runtime: false } });
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+    },
+  },
+  {
     // the sidebar with a session under each state, beside the header of
     // one whose agent works; messages waiting for that agent; and a
     // session with everything a session holds

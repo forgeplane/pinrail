@@ -1,6 +1,6 @@
 ---
 title: Scripts and CI
-description: "Put a person in a script or a CI job: submit a review, branch on the exit code, and act on the decision as JSON."
+description: "Put a person in a script or a CI job: submit a review, branch on the exit code, act on the decision as JSON, and start an agent from a script."
 ---
 
 An agent reads a decision as markdown. A script wants something it can branch on: JSON, an exit code, and a file it already knows how to read. Pinrail gives it all three.
@@ -86,4 +86,33 @@ For a step that should not hold a runner at all, split it in two: submit without
 pinrail list --repo acme/api --workflow prune --status pending
 ```
 
+A review that a script submits belongs to no [session](/docs/concepts/sessions/), so it shows in the inbox only.
+
 `workflow` names the job, so the person deciding knows which pipeline is asking. `--requested-by` (or `PINRAIL_REQUESTED_BY`) names who is asking: by default the coding agent the job runs, when it runs one, and otherwise `pinrail-cli`.
+
+## Starting an agent from a script
+
+A script can also start an agent in Pinrail's [terminal host](/docs/concepts/terminal-host/), wait for something in its output, and stop it. The agent shows as a session in the app, like one you start there, and keeps running when the script ends.
+
+```sh title="run-agent.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+run=$(pinrail start claude-code --folder ~/code/acme-api \
+  --task "Run the nightly dependency audit and submit the findings for review" --json | jq -r .run.id)
+
+status=0
+pinrail output "$run" --wait-for "audit complete" --timeout 1800 || status=$?
+
+case $status in
+  0) echo "The audit finished" ;;
+  4) echo "Still running after 30 minutes"; pinrail stop "$run" ;;
+  *) echo "The agent exited first (exit $status)" ;;
+esac
+```
+
+`pinrail output --wait-for` exits with `0` once the agent's terminal shows the text, with `4` when `--timeout` runs out, and with `1` when the agent has exited without showing it. `pinrail runs --live` lists the agents that still run.
+
+:::caution[These commands act as you]
+`pinrail start`, `runs`, `output`, `attach`, `stop` and `host status` need the app's token, so they work only while the setting [`runtime.cli_control`](/docs/reference/settings/) is on. With the setting on, any program that you run, including an agent, can act as you. See [Who can act as you](/docs/concepts/trust/#who-can-act-as-you).
+:::
