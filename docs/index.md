@@ -19,7 +19,7 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 - **It keeps your data on your computer.** Pinrail stores your sessions, work items and reviews on your computer, and its server accepts connections from your computer only. It sends anonymous [usage data and crash reports](/docs/using/privacy/), which you can turn off.
 
 :::note[Agents keep running when you quit Pinrail]
-When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in _Settings › General_.
+When you quit Pinrail while agents run in it, Pinrail asks whether to leave them running or to stop them first. To make Pinrail stop asking, choose what it does under **Quitting with agents running** in *Settings › General*.
 :::
 
 ## Reviews in a view made for the work
@@ -42,16 +42,16 @@ A plugin is a manifest, two JSON Schemas and an HTML page, so a view for a new k
 
 ## Where to start
 
-| If you want to…                                         | Read                                              |
-| ------------------------------------------------------- | ------------------------------------------------- |
-| Install Pinrail and set it up                           | [Install](/docs/getting-started/install/)         |
-| Understand the parts of Pinrail and how they connect    | [Overview](/docs/concepts/overview/)              |
-| Follow your agents' sessions and answer their questions | [Questions and sessions](/docs/using/sessions/)   |
-| Plan work for your agents                               | [Work items](/docs/using/work-items/)             |
-| Tell your agent when to ask you                         | [Instructing an agent](/docs/agents/instructing/) |
-| Choose a plugin for what your agent does                | [Plugins](/docs/plugins/)                         |
-| Ask a person before a step in a script or a CI job      | [Scripts and CI](/docs/agents/workflows/)         |
-| Build a plugin for your own kind of review              | [Writing a plugin](/docs/building/writing/)       |
+| If you want to… | Read |
+|---|---|
+| Install Pinrail and set it up | [Install](/docs/getting-started/install/) |
+| Understand the parts of Pinrail and how they connect | [Overview](/docs/concepts/overview/) |
+| Follow your agents' sessions and answer their questions | [Questions and sessions](/docs/using/sessions/) |
+| Plan work for your agents | [Work items](/docs/using/work-items/) |
+| Tell your agent when to ask you | [Instructing an agent](/docs/agents/instructing/) |
+| Choose a plugin for what your agent does | [Plugins](/docs/plugins/) |
+| Ask a person before a step in a script or a CI job | [Scripts and CI](/docs/agents/workflows/) |
+| Build a plugin for your own kind of review | [Writing a plugin](/docs/building/writing/) |
 
 ## How it works
 

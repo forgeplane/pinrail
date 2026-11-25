@@ -69,43 +69,44 @@ The `pinrail` command ships inside the app and carries the app's version.
   the number of notifications that wait on you.
 - A button beside the **Parent** of a work item opens the parent item.
 - Codex reports its status to Pinrail. Connecting it in Settings › Agents
-  installs Pinrail's hooks and trusts them in Codex. Its sessions then show their turns, prompts and replies, and
-  whether the agent is working, waits for a permission, or is finished.
+  installs Pinrail's hooks and trusts them in Codex. Its sessions then
+  show their turns, prompts and replies, and whether the agent is working,
+  waits for a permission, or is finished.
 - Codex can run the `pinrail` command from its sandbox. Connecting Codex in
   Settings › Agents also adds a rule to `~/.codex/rules/pinrail.rules` that
   runs `pinrail` outside the sandbox, so the command reaches the app.
 - Antigravity CLI reports its status to Pinrail. Connect it in Settings ›
-  Agents, and its sessions show their turns, prompts
-  and replies, and whether the agent is working or finished.
+  Agents, and its sessions show their turns, prompts and replies, and
+  whether the agent is working or finished.
 - Start and resume Antigravity CLI sessions from Pinrail, and send them
   messages, which are typed into the agent's terminal.
 - Grok CLI reports its status to Pinrail. Connect it in Settings › Agents,
-  and its sessions show their turns, prompts and
-  replies, and whether the agent is working, waits for a permission or an
-  answer, or is finished.
+  and its sessions show their turns, prompts and replies, and whether the
+  agent is working, waits for a permission or an answer, or is finished.
 - Start and resume Grok CLI sessions from Pinrail, and send them messages,
   which are typed into the agent's terminal.
 - Copilot CLI reports its status to Pinrail. Connect it in Settings ›
-  Agents, and its sessions show their turns, prompts and
-  replies, and whether the agent is working, waits for a permission or an
-  answer, or is finished.
+  Agents, and its sessions show their turns, prompts and replies, and
+  whether the agent is working, waits for a permission or an answer, or is
+  finished.
 - Start and resume Copilot CLI sessions from Pinrail, and send them
   messages, which are typed into the agent's terminal.
 - Pi reports its status to Pinrail. Connecting it in Settings › Agents
-  installs a Pinrail extension in Pi's extensions folder, and its sessions show their turns, prompts and replies, and
-  whether the agent is working, waits for an answer, or is finished.
+  installs a Pinrail extension in Pi's extensions folder, and its sessions
+  show their turns, prompts and replies, and whether the agent is working,
+  waits for an answer, or is finished.
 - Start and resume Pi sessions from Pinrail, and send them messages, which
   are typed into the agent's terminal.
 - Cursor's CLI reports its status to Pinrail. Connect it in Settings ›
-  Agents, and its sessions show their turns, prompts and
-  replies, and whether the agent is working, waits for a permission, or is
-  finished. A permission shows while you are not looking at its terminal.
+  Agents, and its sessions show their turns, prompts and replies, and
+  whether the agent is working, waits for a permission, or is finished. A
+  permission shows while you are not looking at its terminal.
 - Start and resume Cursor's CLI sessions from Pinrail, and send them
   messages, which are typed into the agent's terminal.
 - OpenCode reports its status to Pinrail. Connecting it in Settings ›
-  Agents adds a Pinrail plugin to OpenCode's plugin list, and its sessions show their turns, prompts and replies, and whether
-  the agent is working, waits for a permission or an answer, or is
-  finished.
+  Agents adds a Pinrail plugin to OpenCode's plugin list, and its sessions
+  show their turns, prompts and replies, and whether the agent is working,
+  waits for a permission or an answer, or is finished.
 - Start and resume OpenCode sessions from Pinrail, and send them messages,
   which are typed into the agent's terminal.
 - Start an agent on a work item from the item's panel. The new session
@@ -252,9 +253,9 @@ The `pinrail` command ships inside the app and carries the app's version.
   Codex and Antigravity CLI, which report their own session id later.
   The session's details show that id as **Agent session**, and **Copy
   session id** copies it.
-- Starting Codex or Antigravity CLI from Pinrail needs the agent connected,
-  since it tells Pinrail its session only through its hooks. The **New
-  session** page says so and connects it with one click.
+- Starting Codex or Antigravity CLI from Pinrail needs the agent
+  connected, since it tells Pinrail its session only through its hooks.
+  The **New session** page says so and connects it with one click.
 - A session that Pinrail runs takes its status from its terminal when its
   agent reports there, as Claude Code does. It shows Working, Needs you
   with the prompt's text, and Finished even when the agent is not

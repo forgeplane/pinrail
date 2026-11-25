@@ -3,7 +3,7 @@ title: Settings
 description: "Every section of Pinrail's settings, what each option does, and where the settings are stored."
 ---
 
-Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, or from _Navigate › Settings…_ in the menu. Changes take effect immediately. There is no Save button.
+Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, or from *Navigate › Settings…* in the menu. Changes take effect immediately. There is no Save button.
 
 ## General
 
@@ -11,19 +11,19 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 
 ### Inbox
 
-| Setting                       | What it does                                                                                                                                                                                                                                                                                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Opening a review**          | _Beside the list_ opens a review from the inbox or the history, or a session from the Sessions page, in a panel next to the list, which stays in view. _As a page_ opens it on a page of its own.                                                                                                                                                                                                 |
-| **Mark read updates as done** | When the inbox marks an update you have read as done, which takes it out of the list. _On return_ marks it done the next time you return to the inbox or bring its window back, and _After a day_ and _After a week_ mark it done that long after its last change. A question or review that waits on you is never marked done this way. **Show done** in the Filter menu lists the done updates. |
+| Setting | What it does |
+|---|---|
+| **Opening a review** | *Beside the list* opens a review from the inbox or the history, or a session from the Sessions page, in a panel next to the list, which stays in view. *As a page* opens it on a page of its own. |
+| **Mark read updates as done** | When the inbox marks an update you have read as done, which takes it out of the list. *On return* marks it done the next time you return to the inbox or bring its window back, and *After a day* and *After a week* mark it done that long after its last change. A question or review that waits on you is never marked done this way. **Show done** in the Filter menu lists the done updates. |
 
 ### Startup
 
-| Setting                          | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Launch at login**              | Start Pinrail when you log in, so agents can always ask.                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Closing the window**           | _Hide to the menu bar_ keeps Pinrail running, so reviews still arrive. _Quit_ stops it. On Linux, the option is _Hide to the tray_.                                                                                                                                                                                                                                                                                                                                                |
-| **Quitting with agents running** | What happens to the agents that run in Pinrail when you quit it. _Ask_ opens a dialog that lists them, with **Quit**, which leaves them running, and **Stop agents and quit**. Check _Do not ask again_ in the dialog to make your choice the setting. _Keep them running_ quits without asking, and you can open the agents again when you reopen Pinrail. _Stop them_ stops every agent, then quits. The setting shows while **Run agents in Pinrail** is on in Settings › Labs. |
-| **Show in the menu bar**         | The menu bar icon, with the number of waiting reviews and a menu to open them. On Linux, the setting is _Show in the tray_.                                                                                                                                                                                                                                                                                                                                                        |
+| Setting | What it does |
+|---|---|
+| **Launch at login** | Start Pinrail when you log in, so agents can always ask. |
+| **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. On Linux, the option is *Hide to the tray*. |
+| **Quitting with agents running** | What happens to the agents that run in Pinrail when you quit it. *Ask* opens a dialog that lists them, with **Quit**, which leaves them running, and **Stop agents and quit**. Check *Do not ask again* in the dialog to make your choice the setting. *Keep them running* quits without asking, and you can open the agents again when you reopen Pinrail. *Stop them* stops every agent, then quits. The setting shows while **Run agents in Pinrail** is on in Settings › Labs. |
+| **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. On Linux, the setting is *Show in the tray*. |
 
 ## Notifications
 
@@ -31,32 +31,32 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 
 ### System notifications
 
-| Setting                  | What it does                                                                                              |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| **System notifications** | Raise a system notification for the kinds turned on in the _System_ column.                               |
-| **Pause**                | Stop system notifications for 15 minutes, an hour, or until tomorrow. Everything still reaches the inbox. |
-| **Quiet hours**          | Stop system notifications between two times each day, local time. The range may span midnight.            |
-| **Sound**                | Play the system sound with each notification.                                                             |
-| **System**               | What your system allows, with a link to its settings when notifications are blocked.                      |
+| Setting | What it does |
+|---|---|
+| **System notifications** | Raise a system notification for the kinds turned on in the *System* column. |
+| **Pause** | Stop system notifications for 15 minutes, an hour, or until tomorrow. Everything still reaches the inbox. |
+| **Quiet hours** | Stop system notifications between two times each day, local time. The range may span midnight. |
+| **Sound** | Play the system sound with each notification. |
+| **System** | What your system allows, with a link to its settings when notifications are blocked. |
 
 ### Kinds of notifications
 
-Each kind of notification has two switches. The _Inbox_ switch adds it to the inbox, and the _System_ switch also raises a system notification for it. Reviews, questions and an agent that waits for you are always added to the inbox. A kind that is off in the inbox never raises a system notification.
+Each kind of notification has two switches. The *Inbox* switch adds it to the inbox, and the *System* switch also raises a system notification for it. Reviews, questions and an agent that waits for you are always added to the inbox. A kind that is off in the inbox never raises a system notification.
 
-| Kind                                                           | Inbox  | System                              |
-| -------------------------------------------------------------- | ------ | ----------------------------------- |
-| **Reviews**, a new review or a new round                       | Always | On                                  |
-| **Questions**                                                  | Always | On                                  |
-| **Agent waits**, for a permission or an answer in its terminal | Always | Off                                 |
-| **Agent finished**, or failed its turn                         | On     | Off. It covers a stopped agent too. |
-| **Agent stopped**                                              | On     | No switch                           |
-| **Agent notes**                                                | On     | No switch                           |
-| **Ended reviews**, withdrawn or expired                        | On     | No switch                           |
-| **New work items**                                             | On     | No switch                           |
-| **Comments** on a work item                                    | On     | Off                                 |
-| **Closed work items**                                          | On     | No switch                           |
-| **Claimed work items**                                         | On     | No switch                           |
-| **Other changes** to a work item                               | Off    | No switch                           |
+| Kind | Inbox | System |
+|---|---|---|
+| **Reviews**, a new review or a new round | Always | On |
+| **Questions** | Always | On |
+| **Agent waits**, for a permission or an answer in its terminal | Always | Off |
+| **Agent finished**, or failed its turn | On | Off. It covers a stopped agent too. |
+| **Agent stopped** | On | No switch |
+| **Agent notes** | On | No switch |
+| **Ended reviews**, withdrawn or expired | On | No switch |
+| **New work items** | On | No switch |
+| **Comments** on a work item | On | Off |
+| **Closed work items** | On | No switch |
+| **Claimed work items** | On | No switch |
+| **Other changes** to a work item | Off | No switch |
 
 The table shows the defaults.
 
@@ -68,43 +68,43 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 ## Appearance
 
-| Setting                         | What it does                                                                                                                                                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Colour scheme**               | _System_, _Dark_ or _Light_. Plugin views follow it. <kbd>⌘⇧L</kbd> switches it from anywhere in the app.                                                                                                   |
-| **Dark theme**, **Light theme** | The theme for each colour scheme. See [Themes](/docs/using/themes/).                                                                                                                                        |
-| **Custom themes**               | _Open folder_ opens the folder of your own themes, and _New theme…_ creates one from the current theme. Any error in a theme file shows here.                                                               |
-| **Text size**                   | _Small_, _Default_ or _Large_.                                                                                                                                                                              |
-| **Tables**                      | How tables look in messages, notes and work item descriptions. _Bordered_ draws a line around every cell, _Lines_ draws lines between rows under a tinted header, and _Striped_ tints every other row.      |
-| **Table width**                 | _Fit_ makes each table as wide as its content, and _Full width_ stretches it across the text.                                                                                                               |
-| **Element tiles**               | Shows the chemical element each session is named after, in the session's header and as a filter on the Sessions page, and the periodic table of your sessions in the command palette. It is off by default. |
+| Setting | What it does |
+|---|---|
+| **Colour scheme** | *System*, *Dark* or *Light*. Plugin views follow it. <kbd>⌘⇧L</kbd> switches it from anywhere in the app. |
+| **Dark theme**, **Light theme** | The theme for each colour scheme. See [Themes](/docs/using/themes/). |
+| **Custom themes** | *Open folder* opens the folder of your own themes, and *New theme…* creates one from the current theme. Any error in a theme file shows here. |
+| **Text size** | *Small*, *Default* or *Large*. |
+| **Tables** | How tables look in messages, notes and work item descriptions. *Bordered* draws a line around every cell, *Lines* draws lines between rows under a tinted header, and *Striped* tints every other row. |
+| **Table width** | *Fit* makes each table as wide as its content, and *Full width* stretches it across the text. |
+| **Element tiles** | Shows the chemical element each session is named after, in the session's header and as a filter on the Sessions page, and the periodic table of your sessions in the command palette. It is off by default. |
 
 ## Work items
 
-| Setting                                   | What it does                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setting | What it does |
+|---|---|
 | **Close a parent with its last sub-item** | When the last open sub-item of a work item is done or cancelled, and at least one of them is done, the parent is done too, unless someone works on it or something of it waits for you. On by default. Turn it off to close parents yourself. See [Work items](/docs/using/work-items/#status). |
-| **Fold done parents**                     | On the Work items page, a done or cancelled work item starts with its sub-items folded, and you can unfold it. On by default.                                                                                                                                                                   |
-| **Count sub-items at every level**        | On the Work items page, a parent's progress counts every work item under it, at any depth, not only its own sub-items. The item's panel shows both counts either way. Off by default.                                                                                                           |
+| **Fold done parents** | On the Work items page, a done or cancelled work item starts with its sub-items folded, and you can unfold it. On by default. |
+| **Count sub-items at every level** | On the Work items page, a parent's progress counts every work item under it, at any depth, not only its own sub-items. The item's panel shows both counts either way. Off by default. |
 
 ## Terminal
 
 These settings apply to agents that run in Pinrail, which you turn on in Settings › Labs.
 
-| Setting                                | What it does                                                                                                                                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Renderer**                           | Chooses what draws a terminal. **Automatic** uses libghostty, and xterm.js where libghostty cannot run. The row names the renderer in use and, when libghostty could not load, says why. A change applies to terminals opened afterwards. |
-| **Option as Meta**                     | On macOS, chooses which Option keys act as Meta in a terminal: they send Esc and the key rather than the character Option types. Off by default.                                                                                          |
-| **Screen reader**                      | Makes a terminal's text readable by screen readers such as VoiceOver and Orca, and announces new output. Off by default.                                                                                                                  |
-| **Let programs copy to the clipboard** | Lets programs in a terminal copy text to the clipboard, up to 1 MiB at a time. They can never read it. On by default.                                                                                                                     |
-| **Open a session in**                  | Chooses the view a session opens in: **Last used**, the view you last used for it, or else the summary; **Summary**; **Terminal**; or **Split view**, the summary above the terminal.                                                     |
-| **Open an agent you start in**         | Chooses the view the session of an agent you just started opens in: **Summary**, **Terminal**, the default, or **Split view**.                                                                                                            |
+| Setting | What it does |
+|---|---|
+| **Renderer** | Chooses what draws a terminal. **Automatic** uses libghostty, and xterm.js where libghostty cannot run. The row names the renderer in use and, when libghostty could not load, says why. A change applies to terminals opened afterwards. |
+| **Option as Meta** | On macOS, chooses which Option keys act as Meta in a terminal: they send Esc and the key rather than the character Option types. Off by default. |
+| **Screen reader** | Makes a terminal's text readable by screen readers such as VoiceOver and Orca, and announces new output. Off by default. |
+| **Let programs copy to the clipboard** | Lets programs in a terminal copy text to the clipboard, up to 1 MiB at a time. They can never read it. On by default. |
+| **Open a session in** | Chooses the view a session opens in: **Last used**, the view you last used for it, or else the summary; **Summary**; **Terminal**; or **Split view**, the summary above the terminal. |
+| **Open an agent you start in** | Chooses the view the session of an agent you just started opens in: **Summary**, **Terminal**, the default, or **Split view**. |
 
 ## Shortcuts
 
-| Setting          | What it does                                                                                                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Open Pinrail** | Under _Anywhere on your computer_: the keys that bring Pinrail forward from any app, <kbd>⌥⇧W</kbd> by default. Click the keys and press a new combination to change them. |
-| **It opens**     | The oldest pending review, or the inbox.                                                                                                                                   |
+| Setting | What it does |
+|---|---|
+| **Open Pinrail** | Under *Anywhere on your computer*: the keys that bring Pinrail forward from any app, <kbd>⌥⇧W</kbd> by default. Click the keys and press a new combination to change them. |
+| **It opens** | The oldest pending review, or the inbox. |
 
 The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using/inbox/#keys).
 
@@ -112,10 +112,10 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 ![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents)
 
-| Setting                                                                                                                                                                                          | What it does                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Amp**, **Antigravity CLI**, **Augment CLI**, **Claude Code**, **Cline**, **Codex**, **Copilot CLI**, **Cursor**, **Goose**, **Grok CLI**, **Hermes Agent**, **Kiro CLI**, **OpenCode**, **Pi** | _Connect_ adds a global skill named `pinrail` to the agent and, for the agents Pinrail can report on, Pinrail's hooks, extension or plugin. _Update_ appears when an update of Pinrail changed either of them, or when one is missing, and brings both up to date. When several agents need it, _Update all_ updates them together. _Remove_ takes both away. |
-| **Update agents automatically**                                                                                                                                                                  | When Pinrail starts, it updates the skill and the hooks of each connected agent that an update of Pinrail changed. Turning it on also updates the agents that are outdated now. Off by default.                                                                                                                                                               |
+| Setting | What it does |
+|---|---|
+| **Amp**, **Antigravity CLI**, **Augment CLI**, **Claude Code**, **Cline**, **Codex**, **Copilot CLI**, **Cursor**, **Goose**, **Grok CLI**, **Hermes Agent**, **Kiro CLI**, **OpenCode**, **Pi** | *Connect* adds a global skill named `pinrail` to the agent and, for the agents Pinrail can report on, Pinrail's hooks, extension or plugin. *Update* appears when an update of Pinrail changed either of them, or when one is missing, and brings both up to date. When several agents need it, *Update all* updates them together. *Remove* takes both away. |
+| **Update agents automatically** | When Pinrail starts, it updates the skill and the hooks of each connected agent that an update of Pinrail changed. Turning it on also updates the agents that are outdated now. Off by default. |
 
 The skill tells an agent how to submit a review and read your decision, and how to build a plugin. It holds the same guides that `pinrail docs` prints. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
 
@@ -145,26 +145,26 @@ Click a row to open its details:
 - **Send a sample**: sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.
 - **Settings**: the plugin's own settings, when it has any. The code review plugin, for example, lets you choose between an inline and a side-by-side diff.
 
-The _Install_ field at the top installs a new plugin, and _Reload_ reads every plugin from disk again.
+The *Install* field at the top installs a new plugin, and *Reload* reads every plugin from disk again.
 
 ## Data
 
-| Setting                     | What it does                                                                                                                                                           |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Data directory**          | Where reviews, decisions and settings are stored. _Show in Finder_, or _Show in the file manager_ on Linux, opens it.                                                  |
-| **Server**                  | The address of Pinrail's server. _Copy URL_ copies it.                                                                                                                 |
-| **Port**                    | The port Pinrail's server listens on, `4747` by default, from 1024 to 65535. The change takes effect after a restart, and the `pinrail` command follows it on its own. |
-| **Keep reviews for**        | _Forever_, 30 days, 90 days or a year. Ended reviews older than this are deleted from your history, with the files they carried.                                       |
-| **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take.                                                                                               |
-| **Install the CLI**         | Puts the `pinrail` command into `~/.local/bin`, so agents can run it.                                                                                                  |
+| Setting | What it does |
+|---|---|
+| **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder*, or *Show in the file manager* on Linux, opens it. |
+| **Server** | The address of Pinrail's server. *Copy URL* copies it. |
+| **Port** | The port Pinrail's server listens on, `4747` by default, from 1024 to 65535. The change takes effect after a restart, and the `pinrail` command follows it on its own. |
+| **Keep reviews for** | *Forever*, 30 days, 90 days or a year. Ended reviews older than this are deleted from your history, with the files they carried. |
+| **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
+| **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`, so agents can run it. |
 
 ## Privacy
 
-| Setting                | What it does                                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Send usage data**    | Sends anonymous usage data: which features are used and how often. On by default.                               |
-| **Send crash reports** | Sends a report when Pinrail crashes, with file paths and quoted text removed. On by default.                    |
-| **What is sent**       | _Show what is sent_ shows the events waiting to be sent, the last 100 sent and a crash report waiting, as JSON. |
+| Setting | What it does |
+|---|---|
+| **Send usage data** | Sends anonymous usage data: which features are used and how often. On by default. |
+| **Send crash reports** | Sends a report when Pinrail crashes, with file paths and quoted text removed. On by default. |
+| **What is sent** | *Show what is sent* shows the events waiting to be sent, the last 100 sent and a crash report waiting, as JSON. |
 
 When `DO_NOT_TRACK` or `PINRAIL_TELEMETRY` is set in the environment, both switches are off, and the page says which variable turned them off. See [Usage data and crash reports](/docs/using/privacy/).
 
@@ -172,11 +172,11 @@ When `DO_NOT_TRACK` or `PINRAIL_TELEMETRY` is set in the environment, both switc
 
 This section shows the version, the update status, where to start writing a plugin, and the license with its third-party notices.
 
-| Setting                 | What it does                                                                                                                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **What's new**          | Shows the cards about the newest release again. Pinrail shows them by itself the first time a new release starts. They also open from _Help › What's New in Pinrail_ and from <kbd>⌘K</kbd>. |
-| **Updates**             | Shows the update status. _Check for updates_ checks now, and _Restart to update_ installs a downloaded version.                                                                              |
-| **Check automatically** | Look for a new version when Pinrail starts and every few hours, and download it in the background. On by default.                                                                            |
+| Setting | What it does |
+|---|---|
+| **What's new** | Shows the cards about the newest release again. Pinrail shows them by itself the first time a new release starts. They also open from *Help › What's New in Pinrail* and from <kbd>⌘K</kbd>. |
+| **Updates** | Shows the update status. *Check for updates* checks now, and *Restart to update* installs a downloaded version. |
+| **Check automatically** | Look for a new version when Pinrail starts and every few hours, and download it in the background. On by default. |
 
 A downloaded version is installed when you restart Pinrail, or the next time you quit it. Pinrail never restarts by itself. When a version is ready, the sidebar and the menu bar menu say so, and you choose when to restart. An agent waiting on a review keeps waiting through the restart and gets its answer once Pinrail is back.
 
