@@ -75,10 +75,13 @@ export function optionIsMeta(setting: OptionAsMeta, rightOption: boolean): boole
  * The key to encode for a key pressed with Option on macOS. As Meta, the
  * key without Option and with Alt, which the encoder sends as ESC and the
  * key; otherwise the character Option composes, without Alt, sent alone.
+ * A named key, such as an arrow, Backspace or Enter, composes nothing and
+ * keeps Alt, so that Option+Left moves by a word.
  */
 export function optionKey(event: KeyboardEvent, setting: OptionAsMeta, rightOption: boolean): KeyboardEvent {
   const meta = optionIsMeta(setting, rightOption);
   const key = meta ? (unmodifiedKey(event.code, event.shiftKey) ?? event.key) : event.key;
+  const named = event.key.length > 1 && event.key !== "Dead" && event.key !== "Unidentified";
   // the encoder reads these, and getModifierState, from the event
   return {
     key,
@@ -88,7 +91,7 @@ export function optionKey(event: KeyboardEvent, setting: OptionAsMeta, rightOpti
     shiftKey: event.shiftKey,
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
-    altKey: meta,
+    altKey: meta || named,
     getModifierState: (k: string) => event.getModifierState?.(k) ?? false,
   } as KeyboardEvent;
 }

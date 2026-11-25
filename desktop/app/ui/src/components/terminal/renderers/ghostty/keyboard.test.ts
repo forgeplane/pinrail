@@ -39,6 +39,22 @@ describe("Option as Meta", () => {
     expect([right.key, right.altKey]).toEqual(["∫", false]);
   });
 
+  test("keeps Alt for a key Option composes nothing on, such as an arrow", () => {
+    for (const [name, code] of [
+      ["ArrowLeft", "ArrowLeft"],
+      ["ArrowRight", "ArrowRight"],
+      ["Backspace", "Backspace"],
+      ["Enter", "Enter"],
+      ["Delete", "Delete"],
+    ]) {
+      const key = optionKey({ ...optionB(), key: name, code } as unknown as KeyboardEvent, "off", false);
+      expect([key.key, key.altKey], name).toEqual([name, true]);
+    }
+    // a dead key starts a character, which comes without Alt
+    const dead = optionKey({ ...optionB(), key: "Dead", code: "KeyE" } as unknown as KeyboardEvent, "off", false);
+    expect(dead.altKey).toBe(false);
+  });
+
   test("knows the key without Option for letters, digits and punctuation", () => {
     expect(unmodifiedKey("KeyQ", false)).toBe("q");
     expect(unmodifiedKey("Digit3", true)).toBe("#");
