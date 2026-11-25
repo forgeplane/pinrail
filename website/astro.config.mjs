@@ -140,6 +140,7 @@ export default defineConfig({
             "docs/concepts/overview",
             "docs/concepts/reviews",
             "docs/concepts/sessions",
+            "docs/concepts/terminal-host",
             "docs/concepts/work-items",
             "docs/concepts/plugins",
             "docs/concepts/trust",

@@ -24,7 +24,7 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 
 An agent runs in Pinrail or in your own terminal. Pinrail shows its session in both cases.
 
-- **In Pinrail.** You start the agent from the **New session** page or from a work item's panel. Pinrail runs it in a terminal of its own, which you can watch and type into. You can send the agent messages from its session, and Pinrail types each one into the terminal once the agent is idle. You can also stop the agent and resume it later. Pinrail starts and resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and Antigravity CLI.
+- **In Pinrail.** You start the agent from the **New session** page or from a work item's panel. Pinrail runs it in a terminal of its own, which you can watch and type into. The [terminal host](/docs/concepts/terminal-host/) keeps the agent running while the app is closed. You can send the agent messages from its session, and Pinrail types each one into the terminal once the agent is idle. You can also stop the agent and resume it later. Pinrail starts and resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and Antigravity CLI.
 - **In your own terminal.** You start the agent as usual. Pinrail shows the session from what the agent reports, and you answer its questions and reviews in the app. A message that you send from the session reaches the agent the next time it reports a status.
 
 :::note[Agents keep running when you quit Pinrail]

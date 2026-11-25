@@ -1,0 +1,47 @@
+<!-- The app, the terminal host, the holder and the agents, for a page wide
+     enough to set them side by side. The classes are styled in
+     src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 330" width="600" height="330">
+  <rect class="ghost" x="190" y="8" width="402" height="314" rx="14" />
+  <text class="kicker" x="206" y="32">KEEPS RUNNING WITHOUT THE APP</text>
+
+  <rect class="you" x="8" y="64" width="134" height="80" rx="12" />
+  <text class="name you-text" x="75" y="98" text-anchor="middle">Pinrail app</text>
+  <text class="dim" x="75" y="118" text-anchor="middle">its window and core</text>
+  <text class="dim" x="75" y="168" text-anchor="middle">connects to the host</text>
+  <text class="dim" x="75" y="183" text-anchor="middle">over a local socket</text>
+  <path class="flow" d="M150 104H199" />
+  <path class="head" d="M206 104l-9-4.5v9z" />
+
+  <rect class="box" x="214" y="64" width="150" height="80" rx="12" />
+  <text class="name" x="289" y="92" text-anchor="middle">Terminal host</text>
+  <text class="dim" x="289" y="112" text-anchor="middle">each terminal's screen,</text>
+  <text class="dim" x="289" y="127" text-anchor="middle">its viewers and typing</text>
+
+  <rect class="box" x="432" y="64" width="150" height="80" rx="12" />
+  <text class="name" x="507" y="92" text-anchor="middle">Holder</text>
+  <text class="dim" x="507" y="112" text-anchor="middle">keeps each terminal</text>
+  <text class="dim" x="507" y="127" text-anchor="middle">open, and reads none</text>
+
+  <text class="label" x="398" y="54" text-anchor="middle">asks for an agent</text>
+  <path class="flow" d="M372 92H417" />
+  <path class="head" d="M424 92l-9-4.5v9z" />
+  <path class="flow" d="M424 118H379" />
+  <path class="head" d="M372 118l9-4.5v9z" />
+  <text class="label" x="398" y="166" text-anchor="middle">shares its terminal</text>
+
+  <path class="flow" d="M507 152V226" />
+  <path class="head" d="M507 233l-4.5-9h9z" />
+  <text class="label" x="519" y="188">starts,</text>
+  <text class="label" x="519" y="205">as parent</text>
+
+  <rect class="box" x="432" y="240" width="150" height="64" rx="12" />
+  <text class="name" x="507" y="268" text-anchor="middle">Agents</text>
+  <text class="dim" x="507" y="288" text-anchor="middle">each in its own terminal</text>
+
+  <path class="flow" d="M289 152v110a10 10 0 0 0 10 10H417" />
+  <path class="head" d="M424 272l-9-4.5v9z" />
+  <path class="head" d="M289 145l-4.5 9h9z" />
+  <text class="label" x="301" y="232">reads output,</text>
+  <text class="label" x="301" y="249">types input</text>
+</svg>

@@ -1,0 +1,46 @@
+<!-- The app, the terminal host, the holder and the agents, from top to
+     bottom, for a page too narrow to set them side by side. The classes are
+     styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 540" width="340" height="540">
+  <rect class="you" x="60" y="1" width="220" height="60" rx="12" />
+  <text class="name you-text" x="170" y="27" text-anchor="middle">Pinrail app</text>
+  <text class="dim" x="170" y="46" text-anchor="middle">its window and core</text>
+
+  <path class="flow" d="M170 69V121" />
+  <path class="head" d="M170 128l-4.5-9h9z" />
+  <text class="dim" x="184" y="92">connects over a local socket</text>
+
+  <rect class="ghost" x="1" y="104" width="338" height="435" rx="14" />
+
+  <rect class="box" x="60" y="136" width="220" height="64" rx="12" />
+  <text class="name" x="170" y="163" text-anchor="middle">Terminal host</text>
+  <text class="dim" x="170" y="183" text-anchor="middle">screens, viewers and typing</text>
+
+  <path class="flow" d="M140 208V250" />
+  <path class="head" d="M140 257l-4.5-9h9z" />
+  <text class="label" x="128" y="230" text-anchor="end">asks for</text>
+  <text class="label" x="128" y="247" text-anchor="end">an agent</text>
+  <path class="flow" d="M200 256V214" />
+  <path class="head" d="M200 207l-4.5 9h9z" />
+  <text class="label" x="212" y="230">shares its</text>
+  <text class="label" x="212" y="247">terminal</text>
+
+  <rect class="box" x="60" y="264" width="220" height="64" rx="12" />
+  <text class="name" x="170" y="291" text-anchor="middle">Holder</text>
+  <text class="dim" x="170" y="311" text-anchor="middle">keeps each terminal open</text>
+
+  <path class="flow" d="M170 336V378" />
+  <path class="head" d="M170 385l-4.5-9h9z" />
+  <text class="label" x="184" y="362">starts, as parent</text>
+
+  <rect class="box" x="60" y="392" width="220" height="64" rx="12" />
+  <text class="name" x="170" y="419" text-anchor="middle">Agents</text>
+  <text class="dim" x="170" y="439" text-anchor="middle">each in its own terminal</text>
+
+  <path class="flow" d="M46 168H34a8 8 0 0 0-8 8v240a8 8 0 0 0 8 8h12" />
+  <path class="head" d="M53 168l-9-4.5v9z" />
+  <path class="head" d="M53 424l-9-4.5v9z" />
+  <text class="dim" x="170" y="482" text-anchor="middle">The host reads each terminal's output</text>
+  <text class="dim" x="170" y="497" text-anchor="middle">and types the input.</text>
+  <text class="kicker" x="170" y="524" text-anchor="middle">KEEPS RUNNING WITHOUT THE APP</text>
+</svg>
