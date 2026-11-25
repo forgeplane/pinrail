@@ -211,8 +211,9 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     assert_eq!(run.exit_code, Some(3));
     assert!(run.terminal.is_some());
     assert!(run.process.is_some());
-    let presence = db.presence(&agent, &session).unwrap().unwrap();
-    assert_eq!(presence.state, "stopped");
+    // the session stops a moment after its run ends
+    let presence =
+        presence_becomes(&db, &(agent.clone(), session.clone()), |p| p.state == "stopped").await;
     assert_eq!(presence.stop_reason.as_deref(), Some("exited"));
 }
 
