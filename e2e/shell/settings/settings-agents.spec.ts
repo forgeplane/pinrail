@@ -222,7 +222,7 @@ test("an agent that reads a connected agent's skill says it already uses it", as
   await expect(notConnected.getByTestId("agent-amp")).toContainText("Reads Cursor's skills too");
 });
 
-test("Update agents automatically is off at first, and turned on it updates the outdated agents", async ({ page }) => {
+test("Update agents automatically, turned on, updates the outdated agents", async ({ page }) => {
   await page.request.patch(`${core}/api/v1/settings`, { data: { agents: { auto_update: false } } });
   await page.goto("/#/");
   await page.getByRole("main").waitFor();

@@ -283,7 +283,7 @@ export const fromServer = (s: ServerSettings): Served => ({
   port: s.port,
   history: { keep_days: s.history?.keep_days ?? null },
   updates: { check: s.updates?.check ?? true },
-  agents: { auto_update: s.agents?.auto_update ?? false },
+  agents: { auto_update: s.agents?.auto_update ?? true },
   welcome: { seen: s.welcome?.seen ?? false },
   whats_new: { seen: s.whats_new?.seen ?? null },
   telemetry: {
@@ -428,7 +428,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     port: 4747,
     history: { keep_days: null },
     updates: { check: true },
-    agents: { auto_update: false },
+    agents: { auto_update: true },
     welcome: { seen: false },
     whats_new: { seen: null },
     telemetry: { usage: true, crashes: true, notice_shown: null },

@@ -115,7 +115,7 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 | Setting | What it does |
 |---|---|
 | **Amp**, **Antigravity CLI**, **Augment CLI**, **Claude Code**, **Cline**, **Codex**, **Copilot CLI**, **Cursor**, **Goose**, **Grok CLI**, **Hermes Agent**, **Kiro CLI**, **OpenCode**, **Pi** | *Connect* adds a global skill named `pinrail` to the agent and, for the agents Pinrail can report on, Pinrail's hooks, extension or plugin. *Update* appears when an update of Pinrail changed either of them, or when one is missing, and brings both up to date. When several agents need it, *Update all* updates them together. *Remove* takes both away. |
-| **Update agents automatically** | When Pinrail starts, it updates the skill and the hooks of each connected agent that an update of Pinrail changed. Turning it on also updates the agents that are outdated now. Off by default. |
+| **Update agents automatically** | When Pinrail starts, it updates the skill and the hooks of each connected agent that an update of Pinrail changed. Turning it on also updates the agents that are outdated now. On by default. |
 
 The skill tells an agent how to submit a review and read your decision, and how to build a plugin. It holds the same guides that `pinrail docs` prints. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
 

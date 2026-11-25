@@ -396,8 +396,8 @@ const LEAVES: &[Leaf] = &[
     (
         "/agents/auto_update",
         Kind::Bool,
-        || json!(false),
-        "Update the `pinrail` skill of every connected agent when Pinrail starts, after an update of Pinrail changed the skill.",
+        || json!(true),
+        "Update the `pinrail` skill and the hooks of every connected agent when Pinrail starts, after an update of Pinrail changed them.",
     ),
     (
         "/runtime/cli_control",

@@ -752,18 +752,19 @@ pub fn run() {
                     .unwrap_or(true)
             });
 
-            // the agents' skills follow the app, when the person asked for it
+            // the connected agents follow the app, unless the person turned
+            // it off
             if state
                 .settings()
                 .value("/agents/auto_update")
                 .as_bool()
-                .unwrap_or(false)
+                .unwrap_or(true)
             {
                 let skills = state.clone();
                 std::thread::spawn(move || {
                     if let Ok(home) = home() {
                         for name in agent_skills::update_outdated(&home, &current_skill(&skills)) {
-                            eprintln!("pinrail: updated the pinrail skill of {name}");
+                            eprintln!("pinrail: updated the connection of {name}");
                         }
                     }
                 });
