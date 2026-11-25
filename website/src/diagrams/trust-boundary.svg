@@ -1,0 +1,65 @@
+<!-- What runs on the computer, what can act as the person and what leaves
+     the computer, for a page wide enough to set the parts side by side. The
+     classes are styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 462" width="600" height="462">
+  <rect class="ghost" x="8" y="8" width="584" height="346" rx="14" />
+  <text class="kicker" x="24" y="31">YOUR COMPUTER</text>
+
+  <rect class="panel" x="24" y="44" width="336" height="134" rx="14" />
+  <text class="kicker" x="36" y="63">PINRAIL APP</text>
+  <rect class="you" x="36" y="72" width="150" height="96" rx="10" />
+  <text class="name you-text" x="111" y="94" text-anchor="middle">Window</text>
+  <text class="dim" x="111" y="111" text-anchor="middle">carries your token</text>
+  <rect class="ghost" x="46" y="122" width="130" height="34" rx="17" />
+  <text class="dim" x="111" y="143" text-anchor="middle">sandboxed plugin view</text>
+
+  <text class="label needs-text" x="211" y="108" text-anchor="middle">as you</text>
+  <path class="flow needs" d="M194 120H221" />
+  <path class="head needs" d="M228 120l-9-4.5v9z" />
+
+  <rect class="card" x="236" y="72" width="112" height="96" rx="10" />
+  <text class="name" x="292" y="104" text-anchor="middle">Core</text>
+  <text class="dim" x="292" y="123" text-anchor="middle">API on loopback</text>
+  <text class="dim" x="292" y="138" text-anchor="middle">only</text>
+
+  <path class="flow" d="M368 96H385" />
+  <path class="head" d="M392 96l-9-4.5v9z" />
+  <rect class="box" x="400" y="52" width="180" height="84" rx="12" />
+  <text class="name" x="490" y="80" text-anchor="middle">Data directory</text>
+  <text class="dim" x="490" y="100" text-anchor="middle">sessions, work items,</text>
+  <text class="dim" x="490" y="115" text-anchor="middle">reviews and their files</text>
+
+  <path class="flow" d="M540 228V162a10 10 0 0 0-10-10H371" />
+  <path class="head" d="M364 152l9-4.5v9z" />
+  <text class="label" x="528" y="182" text-anchor="end"><tspan class="mono">pinrail</tspan> command</text>
+  <text class="dim" x="528" y="199" text-anchor="end">reads and submits,</text>
+  <text class="dim" x="528" y="214" text-anchor="end">never as you</text>
+
+  <path class="flow" d="M292 186V221" />
+  <path class="head" d="M292 228l-4.5-9h9z" />
+  <text class="label" x="304" y="202">local socket,</text>
+  <text class="dim" x="304" y="217">with a secret</text>
+
+  <rect class="box" x="186" y="236" width="200" height="80" rx="12" />
+  <text class="name" x="286" y="268" text-anchor="middle">Terminal host and holder</text>
+  <text class="dim" x="286" y="288" text-anchor="middle">run the agents you start</text>
+
+  <text class="label" x="405" y="264" text-anchor="middle">runs</text>
+  <path class="flow" d="M393 276H410" />
+  <path class="head" d="M417 276l-9-4.5v9z" />
+
+  <rect class="box" x="424" y="236" width="156" height="80" rx="12" />
+  <text class="name" x="502" y="268" text-anchor="middle">Agents</text>
+  <text class="dim" x="502" y="288" text-anchor="middle">and other programs</text>
+
+  <text class="dim" x="46" y="262">Only the window carries</text>
+  <text class="dim" x="46" y="277">the token that lets the</text>
+  <text class="dim" x="46" y="292">core act as you.</text>
+
+  <path class="flow" d="M32 186V371" />
+  <path class="head" d="M32 378l-4.5-9h9z" />
+  <rect class="box" x="8" y="386" width="584" height="70" rx="12" />
+  <text class="name" x="24" y="411">Leaves your computer</text>
+  <text class="dim" x="24" y="430">anonymous usage data and crash reports, update checks, and feedback when you send it</text>
+  <text class="dim" x="24" y="445">You can turn off the first two.</text>
+</svg>

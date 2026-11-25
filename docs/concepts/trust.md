@@ -1,28 +1,36 @@
 ---
 title: What runs where
-description: "What stays on your machine, what a plugin's view can and cannot do, and what installing a plugin runs."
+description: "What stays on your machine, who can act as you, what a plugin's view can and cannot do, and what installing a plugin runs."
 ---
 
-Pinrail sits between your agents and the things they do, so it matters what it can reach. This page lists what runs where, and what each part is allowed to do.
+Pinrail runs your agents and sits between them and the things they do, so it matters what it can reach. This page lists what runs where, and what each part is allowed to do.
 
 ## Everything is on your machine
 
-```mermaid title="The parts, and the boundaries between them"
-flowchart LR
-  subgraph machine["your machine"]
-    A["agents and scripts"] -->|"pinrail CLI · HTTP"| S["Pinrail's server<br/>127.0.0.1 only"]
-    S --> D[("reviews and decisions<br/>in your data directory")]
-    S --> APP["the app"]
-    subgraph sandbox["sandbox"]
-      V["a plugin's view"]
-    end
-    APP <-->|"messages only"| V
-  end
-```
+![A diagram of what runs on your computer. The Pinrail app has a window and a core. The window carries your token, shows plugin views in a sandbox, and is the only part that acts as you. The core serves its API on loopback only and keeps the data directory, with your sessions, work items, reviews and their files. The core reaches the terminal host and its holder over a local socket, with a secret, and they run the agents you start. Agents and other programs use the pinrail command, which reads and submits but never acts as you. Anonymous usage data and crash reports, update checks, and feedback that you send leave your computer, and you can turn off the first two.](diagram:trust-boundary "What runs on your computer, what acts as you, and what leaves it")
 
 - **The server** listens on your machine's loopback address, `127.0.0.1`, port `4747` by default. Programs on your computer can reach it, but nothing on the network can. Web pages you visit cannot reach it either. It answers only requests addressed to `127.0.0.1` or `localhost`. It changes nothing unless the request is JSON, and browsers do not let another site send JSON to it.
-- **Reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default, with the files sent beside reviews. Pinrail makes that directory readable only by your user account, so other users of the computer cannot read your reviews. There is no account and no cloud service.
-- **The app** shows reviews and sends your decisions. No review, decision or file leaves your machine unless an agent, acting on your decision, sends it. Pinrail sends anonymous usage data and crash reports, which hold none of these, and you can turn them off. See [Usage data and crash reports](/docs/using/privacy/).
+- **Your sessions, work items, reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default, with the files sent beside reviews. Pinrail makes that directory readable only by your user account, so other users of the computer cannot read them. There is no account and no cloud service.
+- **The app** shows your sessions, work items and reviews, and sends your decisions. No review, decision or file leaves your machine unless an agent, acting on your decision, sends it. Pinrail sends anonymous usage data and crash reports, which hold none of these, and you can turn them off. See [Usage data and crash reports](/docs/using/privacy/).
+- **The terminal host** is a separate program on your computer that runs the agents you start in Pinrail. It listens on a socket that only your user account can reach, and accepts a connection only with a secret that it keeps in a file only you can read. See [The terminal host](/docs/concepts/terminal-host/).
+
+## Who can act as you
+
+Only the Pinrail app can act as you. Each time the app starts, it makes a new token, keeps it in memory and gives it to its own window. The server takes an action as yours only when the request carries that token, so another program on your computer cannot decide a review, message an agent or change a setting in your name.
+
+| | The app's window | The `pinrail` command and other programs |
+|---|---|---|
+| **Read** reviews, sessions and work items | Yes | Yes |
+| **Submit** a review, ask a question, send a status, and add, take or close a work item, as an agent | Not its job | Yes |
+| **Decide or discard** a review, or **change a work item**, as you | Yes | No. `pinrail decide` records that the decision was made with the command, and by which agent. |
+| **Send an agent a message**, and start, resume or stop an agent | Yes | No |
+| **Change** settings, projects, themes and sessions | Yes | No |
+
+The server trusts the programs that you run to read what it holds and to send it work, as an agent does. It does not let them speak for you.
+
+:::caution[A setting that lets the command act as you]
+The commands `pinrail start`, `pinrail stop`, `pinrail attach` and `pinrail output` act as you, so they need the token. They work only while the setting [`runtime.cli_control`](/docs/reference/settings/) is on. Pinrail then writes the token to the file `person-token` in your data directory, readable only by your user account, and removes it when the app quits. Any program that you run, including an agent, can read that file and then act as you. The setting is off by default.
+:::
 
 ## What a plugin's view can do
 
@@ -53,4 +61,8 @@ A plugin can also ship a skill: instructions for your agents, and sometimes scri
 
 ## What the agent can do
 
-Pinrail does not run your agents or limit what they do. It gives them a way to ask, and it reports your answer faithfully. Whether an agent asks, and whether it respects the answer, is up to its instructions and its harness. Write instructions that name the moments to ask, and prefer tools that enforce them. See [Instructing an agent](/docs/agents/instructing/).
+An agent that you start in Pinrail runs as you, with your files and your permissions, as it does in your own terminal. Pinrail does not put the agent in a sandbox or limit what it does. The agent's own permission checks still apply. If you add arguments that turn them off, such as `--dangerously-skip-permissions`, in *Settings › Agents*, the agent's card there warns you.
+
+An agent can run any `pinrail` command. It can therefore read your reviews and work items, send you questions and reviews, and add and close work items as itself. It cannot act as you, as [Who can act as you](#who-can-act-as-you) describes.
+
+Pinrail gives an agent a way to ask, and reports your answer faithfully. Whether an agent asks, and whether it respects the answer, is up to its instructions and its harness. Write instructions that name the moments to ask, and prefer tools that enforce them. See [Instructing an agent](/docs/agents/instructing/).

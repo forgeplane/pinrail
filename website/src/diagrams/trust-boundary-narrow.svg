@@ -1,0 +1,61 @@
+<!-- What runs on the computer, what can act as the person and what leaves
+     the computer, from top to bottom, for a page too narrow to set the parts
+     side by side. The classes are styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 716" width="340" height="716">
+  <rect class="box" x="1" y="1" width="338" height="82" rx="12" />
+  <text class="name" x="16" y="25">Leaves your computer</text>
+  <text class="dim" x="16" y="43">anonymous usage data and crash reports,</text>
+  <text class="dim" x="16" y="58">update checks, and feedback when you send it</text>
+  <text class="dim" x="16" y="73">You can turn off the first two.</text>
+  <path class="flow" d="M270 140V98" />
+  <path class="head" d="M270 91l-4.5 9h9z" />
+
+  <g transform="translate(0 104)">
+    <rect class="ghost" x="1" y="1" width="338" height="610" rx="14" />
+    <text class="kicker" x="14" y="24">YOUR COMPUTER</text>
+
+    <rect class="panel" x="12" y="36" width="288" height="284" rx="14" />
+    <text class="kicker" x="26" y="57">PINRAIL APP</text>
+    <rect class="you" x="22" y="68" width="268" height="82" rx="10" />
+    <text class="name you-text" x="156" y="90" text-anchor="middle">Window</text>
+    <text class="dim" x="156" y="107" text-anchor="middle">carries your token</text>
+    <rect class="ghost" x="86" y="116" width="140" height="26" rx="13" />
+    <text class="dim" x="156" y="133" text-anchor="middle">sandboxed plugin view</text>
+
+    <path class="flow needs" d="M156 158V176" />
+    <path class="head needs" d="M156 183l-4.5-9h9z" />
+    <text class="label needs-text" x="168" y="175">as you</text>
+
+    <rect class="card" x="22" y="190" width="268" height="48" rx="10" />
+    <text class="name" x="156" y="211" text-anchor="middle">Core</text>
+    <text class="dim" x="156" y="228" text-anchor="middle">serves its API on loopback only</text>
+
+    <path class="flow" d="M156 242V253" />
+    <path class="head" d="M156 260l-4.5-9h9z" />
+    <rect class="card" x="22" y="264" width="268" height="48" rx="10" />
+    <text class="name" x="156" y="285" text-anchor="middle">Data directory</text>
+    <text class="dim" x="156" y="302" text-anchor="middle">sessions, work items, reviews, files</text>
+
+    <path class="flow" d="M156 328V372" />
+    <path class="head" d="M156 379l-4.5-9h9z" />
+    <text class="label" x="168" y="348">local socket,</text>
+    <text class="dim" x="168" y="363">with a secret</text>
+
+    <rect class="box" x="22" y="386" width="268" height="56" rx="12" />
+    <text class="name" x="156" y="410" text-anchor="middle">Terminal host and holder</text>
+    <text class="dim" x="156" y="428" text-anchor="middle">run the agents you start</text>
+
+    <path class="flow" d="M156 450V478" />
+    <path class="head" d="M156 485l-4.5-9h9z" />
+    <text class="label" x="168" y="472">runs</text>
+
+    <rect class="box" x="22" y="492" width="268" height="56" rx="12" />
+    <text class="name" x="156" y="516" text-anchor="middle">Agents and other programs</text>
+    <text class="dim" x="156" y="534" text-anchor="middle">use the <tspan class="mono">pinrail</tspan> command</text>
+
+    <path class="flow" d="M298 520h14a8 8 0 0 0 8-8V222a8 8 0 0 0-8-8h-1" />
+    <path class="head" d="M303 214l9-4.5v9z" />
+    <text class="dim" x="170" y="572" text-anchor="middle">Programs read and submit through the core.</text>
+    <text class="dim" x="170" y="587" text-anchor="middle">They never act as you.</text>
+  </g>
+</svg>
