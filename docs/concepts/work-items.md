@@ -65,7 +65,7 @@ An item on hold still blocks the items that depend on it. Pinrail refuses a depe
 
 ## Who holds an item
 
-An agent claims an item with `pinrail items next --claim` or `pinrail items edit <key> --claim`, and you claim one in the app.
+An agent claims an item with `pinrail items next --claim` or `pinrail items edit <key> --claim`, and you claim one in the app. You can also start an agent on an item from the app. The new session gets the item's title, description and comments as its task, and claims the item.
 
 :::tip[One holder at a time]
 An item has a single holder: one agent session, or you. Nobody can claim an item that someone else is working on. Pinrail refuses the claim and names who holds it, such as *PIN-42 is claimed by claude-code (session 7f3a…)*, and `pinrail items next` offers only items nobody holds. Two agents therefore never work on the same item by accident. Taking an item over is a deliberate step: an agent must ask for it with `pinrail items edit <key> --claim --take`, and you take one over from the app. An agent also cannot close an item that another session holds.
@@ -88,7 +88,7 @@ Putting an item on hold releases it and its sub-items, and each agent working on
 3. the item that unblocks the most other items;
 4. the oldest item.
 
-There is no priority field. To choose what an agent takes next, queue the item: the queue is one list across all your repositories, and only you change it.
+There is no priority field. To choose what an agent takes next, queue the item. The queue is one list across all your repositories, and only you change it. To see which item is next, turn on **Show next item** on the [Work items page](/docs/using/work-items/#the-work-items-page), which marks one item in each repository.
 
 ## Where to go next
 

@@ -1449,6 +1449,44 @@ export const scenes = [
     },
   })),
   {
+    // the Work items list alone, in a narrow window: with each
+    // repository's next item marked, and with a search that matches in
+    // titles, a description and a comment
+    name: "work-items-list",
+    async run({ page, app, shot }) {
+      await page.setViewportSize({ width: 1040, height: 760 });
+      await app.api("PATCH", "/api/v1/settings", { items: { show_next: true } });
+      try {
+        await page.goto(`${app.ui}/#/items`);
+        await page.getByTestId("item-row").first().waitFor();
+        await page.getByText("Next", { exact: true }).first().waitFor();
+        await page.mouse.move(5, 750);
+        await settle(page, 500);
+        // the list, without the sidebar, down to its last row
+        const list = async () => {
+          const last = await page.getByTestId("item-row").last().boundingBox();
+          const main = await page.locator(".app-main").boundingBox();
+          return {
+            x: Math.round(main.x),
+            y: 0,
+            width: Math.round(1040 - main.x),
+            height: Math.min(760, Math.round(last.y + last.height + 20)),
+          };
+        };
+        await shot("work-items-next", page, { clip: await list() });
+
+        await page.getByRole("searchbox").first().fill("requests");
+        await page.getByTestId("item-snippet").first().waitFor();
+        await page.mouse.move(5, 750);
+        await settle(page, 500);
+        await shot("work-items-search", page, { clip: await list() });
+      } finally {
+        await app.api("PATCH", "/api/v1/settings", { items: { show_next: false } });
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+    },
+  },
+  {
     // the sidebar with a session under each state, beside the header of
     // one whose agent works; messages waiting for that agent; and a
     // session with everything a session holds
