@@ -10,6 +10,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { NOW } from "./app.mjs";
 
 /** Opens a review and waits for its plugin's view to draw. */
 async function openReview(page, app, id) {
@@ -121,6 +122,240 @@ async function withProjects(app, fn) {
     await fn();
   } finally {
     for (const id of made) await app.api("DELETE", `/api/v1/projects/${id}`);
+  }
+}
+
+/** Sessions in each state, as their agents' hooks report them from the
+ *  person's own terminals: the last report decides the state. They share a
+ *  repository, which their scene narrows the sidebar to. */
+const REPORTED_SESSIONS = [
+  {
+    agent: "claude-code",
+    id: "2d6f0b7a-41c9-4e58-b3a2-9f1e7c5d8046",
+    title: "Add cursor pagination to the orders endpoint",
+    origin: { repo: "acme/api", ref: "orders-pagination", folder: "/Users/maya/code/acme-api" },
+    reports: [
+      { event: "started" },
+      {
+        event: "prompt",
+        detail: {
+          prompt: "Page the orders endpoint with a cursor instead of an offset, and keep the old parameter working.",
+        },
+      },
+    ],
+    statuses: [
+      { text: "Reading the orders routes" },
+      {
+        kind: "note",
+        text: "The endpoint pages with `offset`, which gets slow past a few thousand orders. I am adding a `cursor` parameter on `(created_at, id)` and keeping `offset` as it is, so no client has to change.",
+      },
+      { text: "Running the tests" },
+    ],
+  },
+  {
+    agent: "codex",
+    id: "019a4f1e-52c7-7b30-9a6d-3e8c1f20b7a4",
+    title: "Fix the flaky checkout test",
+    origin: { repo: "acme/api", ref: "flaky-checkout", folder: "/Users/maya/code/acme-api" },
+    reports: [
+      { event: "started" },
+      {
+        event: "prompt",
+        detail: { prompt: "The checkout test fails about one run in five. Find out why and fix it." },
+      },
+      { event: "needs_input", wait: "permission", detail: { tool: "Bash", summary: "npm run test:e2e -- checkout" } },
+    ],
+  },
+  {
+    agent: "claude-code",
+    id: "5b2e8c14-9a07-4d63-8f1b-7c3d0e6a2f95",
+    title: "Upgrade the HTTP client",
+    origin: { repo: "acme/api", ref: "http-client", folder: "/Users/maya/code/acme-api" },
+    reports: [
+      { event: "started" },
+      {
+        event: "prompt",
+        detail: { prompt: "Upgrade the HTTP client to its latest minor version." },
+      },
+      {
+        event: "turn_ended",
+        end: "done",
+        detail: { reply: "The client is upgraded, and the whole suite passes." },
+      },
+    ],
+  },
+  {
+    agent: "opencode",
+    id: "ses_8f2c41d07b9e4a65",
+    title: "Document the export endpoints",
+    origin: { repo: "acme/api", ref: "export-docs", folder: "/Users/maya/code/acme-api" },
+    // a finished turn the person has looked at
+    seen: true,
+    reports: [
+      { event: "started" },
+      { event: "prompt", detail: { prompt: "Write the reference for the export endpoints." } },
+      { event: "turn_ended", end: "done", detail: { reply: "The reference is in `docs/exports.md`." } },
+    ],
+  },
+  {
+    agent: "cursor",
+    id: "c7d90a3e-1f48-4b26-a5e9-08b6d2f47c13",
+    title: "Rename the billing module",
+    origin: { repo: "acme/api", ref: "billing-rename", folder: "/Users/maya/code/acme-api" },
+    reports: [
+      { event: "started" },
+      { event: "prompt", detail: { prompt: "Rename the billing module to invoicing." } },
+      { event: "ended" },
+    ],
+  },
+];
+
+/** A session with everything a session holds, in the same repository: two
+ *  work items, a stage it finished and the one it is on, statuses, a note
+ *  with a chart, and a question and a review that wait for the person. */
+const FULL_SESSION = {
+  agent: "claude-code",
+  id: "8a4c2e91-6b0d-4f37-9c58-1e7d3a5f0b62",
+  origin: { repo: "acme/api", ref: "export-limits", folder: "/Users/maya/code/acme-api" },
+};
+
+/** Sends what FULL_SESSION's agent sent, in order, as the pinrail command
+ *  does. Returns the session, and the reviews and work items to delete. */
+async function fullSession(app) {
+  const { agent, id, origin } = FULL_SESSION;
+  const route = `/api/v1/sessions/${agent}/${id}`;
+  const as = { by: agent, session: id };
+  const status = (text, kind) => app.api("POST", `${route}/status`, { text, origin, ...(kind ? { kind } : {}) });
+  const report = (body) => app.api("POST", `${route}/reports`, { ...body, origin });
+  const made = { reviews: [], items: [] };
+
+  await report({ event: "started" });
+  for (const [title, body] of [
+    [
+      "Limit exports for each API key",
+      "A key may start 100 exports a minute. An export over the limit gets a `429` with `Retry-After`.",
+    ],
+    ["Document the export limits", "Say in the API reference what the limit is and how a client should wait."],
+  ]) {
+    const item = await app.api("POST", "/api/v1/items", { repo: origin.repo, title, body, ...as }, "cli");
+    await app.api("PATCH", `/api/v1/items/${item.key}`, { claim: "claim", ...as }, "cli");
+    made.items.push(item.key);
+  }
+
+  await status("Plan the export limits", "start");
+  await report({
+    event: "prompt",
+    detail: {
+      prompt: "Limit exports to 100 a minute for each API key, and answer 429 with Retry-After when a key goes over.",
+    },
+  });
+  await status("Reading the export routes");
+  await status("Planned a token bucket for each key, in the middleware", "done");
+
+  await status("Limit exports for each API key", "start");
+  await status("Adding a token bucket for each key");
+  const chart = fs.readFileSync(path.join(app.root, "e2e", "screenshots", "fixtures", "assets", "export-rates.png"));
+  const sha256 = crypto.createHash("sha256").update(chart).digest("hex");
+  const uploaded = await fetch(`${app.core}/api/v1/attachments/${sha256}`, {
+    method: "PUT",
+    headers: { "content-type": "application/octet-stream" },
+    body: chart,
+  });
+  if (!uploaded.ok) throw new Error(`uploading the chart: ${uploaded.status}`);
+  await app.api("POST", `${route}/status`, {
+    kind: "note",
+    text: "I replayed yesterday's exports of the busiest key against the limiter. Its two bursts are held at 100 a minute, and the exports under the limit are untouched.\n\n![Exports a minute, before and with the limit](attachment:export-rates.png)",
+    origin,
+    attachments: { "export-rates.png": { sha256, size: chart.length, media_type: "image/png" } },
+  });
+  for (const review of [
+    {
+      kind: "question",
+      title: "Should internal keys have a higher limit?",
+      payload: {
+        questions: [
+          {
+            id: "q1",
+            question: "Should internal keys have a higher limit?",
+            answer: "choice",
+            choices: ["The same 100 a minute", "600 a minute", "No limit"],
+            recommended: "600 a minute",
+            context: "The nightly billing job starts about **300** exports a minute with an internal key.",
+          },
+        ],
+      },
+    },
+    {
+      plugin: "list",
+      title: "Check the limiter before the pull request",
+      payload: {
+        summary: "Three things to confirm before I open the pull request.",
+        groups: [
+          {
+            title: "Before the pull request",
+            items: [
+              { id: 1, title: "429 answers carry Retry-After in seconds" },
+              { id: 2, title: "The limit counts exports started, not rows exported" },
+              { id: 3, title: "A key's bucket is kept in Redis, so every server shares it" },
+            ],
+          },
+        ],
+      },
+    },
+  ]) {
+    const sent = await app.api("POST", "/api/v1/reviews", {
+      ...review,
+      origin,
+      requested_by: agent,
+      session: id,
+      items: [made.items[0]],
+    });
+    made.reviews.push(sent.id);
+  }
+  return made;
+}
+
+/**
+ * Runs `fn` with the sessions in REPORTED_SESSIONS and FULL_SESSION, then
+ * deletes them. `fn` gets the first, whose agent works, and the full one. A state is the agent's now, not at the
+ * fixed moment of the other scenes: an agent that reported work long ago is
+ * no longer known to work. So the reports are sent as of now, and the page's
+ * clock is set a few minutes on for as long as the sessions show.
+ */
+async function withReportedSessions(page, app, fn) {
+  await page.clock.setFixedTime(Date.now() + 9 * 60_000);
+  const made = [];
+  // the full session's reviews and work items, which outlive it
+  const full = { reviews: [], items: [] };
+  const known = async (s) =>
+    (await app.api("GET", "/api/v1/sessions?limit=500")).sessions.find(
+      (k) => k.agent === s.agent && k.agent_session === s.id,
+    );
+  try {
+    for (const s of REPORTED_SESSIONS) {
+      const route = `/api/v1/sessions/${s.agent}/${s.id}`;
+      made.push(s);
+      await app.api("POST", `${route}/reports`, { ...s.reports[0], origin: s.origin });
+      await app.api("POST", `${route}/status`, { kind: "start", text: s.title, origin: s.origin });
+      for (const report of s.reports.slice(1))
+        await app.api("POST", `${route}/reports`, { ...report, origin: s.origin });
+      for (const status of s.statuses ?? []) await app.api("POST", `${route}/status`, { ...status, origin: s.origin });
+      if (s.seen) await app.api("PUT", `/api/v1/sessions/${s.agent}/${(await known(s)).id}/seen`);
+    }
+    made.push(FULL_SESSION);
+    Object.assign(full, await fullSession(app));
+    await fn(await known(REPORTED_SESSIONS[0]), await known(FULL_SESSION));
+  } finally {
+    for (const s of made) {
+      const session = await known(s);
+      if (session) await app.api("DELETE", `/api/v1/sessions/${s.agent}/${session.id}`).catch(() => {});
+    }
+    for (const review of full.reviews) await app.api("DELETE", `/api/v1/reviews/${review}`).catch(() => {});
+    for (const item of full.items) await app.api("DELETE", `/api/v1/items/${item}`).catch(() => {});
+    await app.api("PATCH", "/api/v1/settings", {
+      sidebar: { sessions: { grouping: "repository", repos: [] } },
+    });
+    await page.clock.setFixedTime(NOW);
   }
 }
 
@@ -1213,4 +1448,70 @@ export const scenes = [
       await shot(`settings-${section}`);
     },
   })),
+  {
+    // the sidebar with a session under each state, beside the header of
+    // one whose agent works; messages waiting for that agent; and a
+    // session with everything a session holds
+    name: "session-states",
+    async run({ page, app, shot }) {
+      await withReportedSessions(page, app, async (session, full) => {
+        // a narrow window, so that the picture reads at the width of a docs
+        // page, and the sidebar with one repository's sessions under their states
+        await page.setViewportSize({ width: 920, height: 860 });
+        await app.api("PATCH", "/api/v1/settings", {
+          sidebar: { sessions: { grouping: "status", repos: ["acme/api"] } },
+        });
+        await page.goto(`${app.ui}/#/sessions/${session.agent}/${session.id}`);
+        const sidebar = page.getByTestId("sidebar-scroll");
+        const stopped = sidebar.getByText("Rename the billing", { exact: false }).first();
+        await stopped.waitFor();
+        await page.getByTestId("presence-chip").waitFor();
+        await page.mouse.move(700, 850);
+        await settle(page, 600);
+        // the sidebar down to its last session, and the header with its chip
+        const last = await stopped.boundingBox();
+        await shot("session-states", page, {
+          clip: { x: 0, y: 0, width: 920, height: Math.round(last.y + last.height + 28) },
+        });
+
+        for (const text of [
+          "Keep the offset parameter until the mobile app has moved.",
+          "When the tests pass, open a pull request and ask me to review it.",
+        ])
+          await app.api("POST", `/api/v1/sessions/${session.agent}/${session.id}/messages`, { text });
+        const waiting = page.getByRole("list", { name: "Messages waiting for the agent" });
+        await waiting.getByRole("listitem").nth(1).waitFor();
+        await settle(page, 600);
+        // the end of the thread and the message box under it
+        const queue = await waiting.boundingBox();
+        const top = Math.round(queue.y - 84);
+        await shot("session-messages", page, {
+          clip: { x: Math.round(queue.x - 28), y: top, width: Math.round(queue.width + 56), height: 860 - top },
+        });
+
+        // the full session: its header, its thread and its details, without
+        // the sidebar, in a window tall enough for the whole thread
+        await page.setViewportSize({ width: 1060, height: 1500 });
+        await page.goto(`${app.ui}/#/sessions/${full.agent}/${full.id}`);
+        await page.getByRole("button", { name: "Hide sidebar" }).click();
+        try {
+          await page.getByRole("img", { name: "Exports a minute, before and with the limit" }).waitFor();
+          await page.getByTestId("question-set").last().waitFor();
+          const details = page.getByRole("complementary", { name: "Session details" });
+          if (!(await details.isVisible())) await page.keyboard.press("Meta+Shift+B");
+          await details.waitFor();
+          // the whole note, with its chart, and a window that ends under the thread
+          await page.getByTestId("note").last().getByRole("button", { name: "Show more" }).click();
+          await settle(page, 400);
+          const end = await page.locator(".thread-items > *").last().boundingBox();
+          await page.setViewportSize({ width: 1060, height: Math.round(end.y + end.height + 190) });
+          await page.mouse.move(5, 5);
+          await settle(page, 800);
+          await shot("session-work");
+        } finally {
+          await page.getByRole("button", { name: "Show sidebar" }).click();
+        }
+      });
+    },
+  },
 ];

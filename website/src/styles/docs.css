@@ -364,6 +364,12 @@ starlight-toc a[aria-current="true"] {
 .pr-diagram-svg .head {
   fill: var(--sl-color-gray-4);
 }
+/* a place that stands for another on the drawing, such as any state */
+.pr-diagram-svg .ghost {
+  fill: none;
+  stroke: var(--sl-color-gray-4);
+  stroke-dasharray: 4 4;
+}
 /* the person, and what comes to them, in the red pen */
 .pr-diagram-svg .you {
   fill: var(--sl-color-accent-low);

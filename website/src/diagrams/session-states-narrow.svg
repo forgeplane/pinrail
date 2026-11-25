@@ -1,0 +1,55 @@
+<!-- The states of a session and what moves it between them, from top to
+     bottom, for a page too narrow to set them side by side. The classes are
+     styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 580" width="340" height="580">
+  <rect class="box" x="24" y="8" width="120" height="44" rx="10" />
+  <text class="name" x="84" y="35" text-anchor="middle">Idle</text>
+
+  <path class="flow" d="M84 60V94" />
+  <path class="head" d="M84 101l-4.5-9h9z" />
+  <text class="label" x="100" y="84">your prompt</text>
+
+  <rect class="box" x="24" y="108" width="120" height="44" rx="10" />
+  <text class="name" x="84" y="135" text-anchor="middle">Working</text>
+
+  <text class="dim" x="336" y="84" text-anchor="end">a permission, an answer,</text>
+  <text class="dim" x="336" y="99" text-anchor="end">a question or a review</text>
+  <rect class="you" x="216" y="108" width="120" height="44" rx="10" />
+  <text class="name you-text" x="276" y="135" text-anchor="middle">Needs you</text>
+
+  <text class="label needs-text" x="180" y="114" text-anchor="middle">it asks</text>
+  <path class="flow needs" d="M152 122H202" />
+  <path class="head needs" d="M209 122l-9-4.5v9z" />
+  <path class="flow" d="M208 140H158" />
+  <path class="head" d="M151 140l9-4.5v9z" />
+  <text class="label" x="180" y="159" text-anchor="middle">you answer</text>
+
+  <path class="flow" d="M84 160V194" />
+  <path class="head" d="M84 201l-4.5-9h9z" />
+  <text class="label" x="100" y="188">the turn ends</text>
+
+  <rect class="box" x="24" y="208" width="120" height="44" rx="10" />
+  <text class="name" x="84" y="235" text-anchor="middle">Finished</text>
+
+  <path class="flow" d="M52 259v7a6 6 0 0 1-6 6H12a6 6 0 0 1-6-6V36a6 6 0 0 1 6-6h1" />
+  <path class="head" d="M21 30l-9-4.5v9z" />
+  <text class="label" x="24" y="292">you open the session</text>
+
+  <rect class="ghost" x="24" y="332" width="120" height="36" rx="18" />
+  <text class="dim" x="84" y="354" text-anchor="middle">any state</text>
+
+  <path class="flow" d="M84 376V416" />
+  <path class="head" d="M84 423l-4.5-9h9z" />
+  <text class="label" x="100" y="396">the agent exits</text>
+  <text class="dim" x="100" y="412">or you stop it</text>
+
+  <rect class="box" x="24" y="430" width="120" height="44" rx="10" />
+  <text class="name" x="84" y="457" text-anchor="middle">Stopped</text>
+
+  <path class="flow" d="M84 482V522" />
+  <path class="head" d="M84 529l-4.5-9h9z" />
+  <text class="label" x="100" y="508">you resume it</text>
+
+  <rect class="ghost" x="24" y="536" width="120" height="36" rx="18" />
+  <text class="dim" x="84" y="558" text-anchor="middle">Idle</text>
+</svg>
