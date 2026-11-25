@@ -241,10 +241,18 @@ pub trait Agent: Send + Sync {
         self.spec().binaries.contains(&process.name.as_str())
     }
 
-    /// Flags that turn the agent's permission checks off, which Pinrail
-    /// refuses in a person's extra arguments, beside the shared list.
-    fn deny_flags(&self) -> &'static [&'static str] {
+    /// The flags that turn the agent's own permission checks off, from its
+    /// `--help`: a flag alone, or `flag=value` for a flag that does so
+    /// only with that value. The person may give them in the agent's
+    /// settings, which then warn about them; one start's arguments may not.
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
         &[]
+    }
+
+    /// An example of the person's arguments for the agent, from its
+    /// `--help`, which the agent's settings show in the empty field.
+    fn args_example(&self) -> Option<&'static str> {
+        None
     }
 
     /// Flags Pinrail sets itself to name, resume or prompt the session,
@@ -357,26 +365,24 @@ pub fn resumable_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
-/// Flags that turn permission checks off in more than one agent.
-const DENIED_EVERYWHERE: &[&str] = &[
-    "--dangerously-skip-permissions",
-    "--allow-dangerously-skip-permissions",
-    "--yolo",
-];
-
 /// The first of `args` that turns the agent's permission checks off, as
-/// written. A flag counts alone or with `=value`, and `--permission-mode`
-/// counts with the value `bypassPermissions`.
-pub fn denied_arg<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str> {
-    let denied =
-        |flag: &str| DENIED_EVERYWHERE.contains(&flag) || agent.deny_flags().contains(&flag);
+/// written: one of the agent's own flags, alone or with `=value`, or a
+/// flag that does so with a value, given as `flag=value` or as two
+/// arguments.
+pub fn skips_checks<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str> {
     args.iter().enumerate().find_map(|(i, arg)| {
         let (flag, value) = match arg.split_once('=') {
             Some((flag, value)) => (flag, Some(value)),
             None => (arg.as_str(), args.get(i + 1).map(String::as_str)),
         };
-        let bypass = flag == "--permission-mode" && value == Some("bypassPermissions");
-        (denied(flag) || bypass).then_some(arg.as_str())
+        let skips = agent
+            .skip_checks_flags()
+            .iter()
+            .any(|known| match known.split_once('=') {
+                Some((known, only)) => flag == known && value == Some(only),
+                None => flag == *known,
+            });
+        skips.then_some(arg.as_str())
     })
 }
 
@@ -482,6 +488,33 @@ pub(crate) fn spec(id: &str) -> &'static AgentSpec {
     crate::registry::find(id).expect("an adapter's agent is in the registry")
 }
 
+/// What the adapters' tests of their flags share.
+#[cfg(test)]
+pub(crate) mod testing {
+    use super::{Agent, skips_checks};
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// `agent` finds that each line of `skipping` turns its checks off,
+    /// through the argument given beside it as written, and that none of
+    /// `checked` does.
+    pub fn recognizes(agent: &dyn Agent, skipping: &[(&[&str], &str)], checked: &[&[&str]]) {
+        let id = agent.spec().id;
+        for (given, flag) in skipping {
+            assert_eq!(
+                skips_checks(agent, &args(given)),
+                Some(*flag),
+                "{id}: {given:?}"
+            );
+        }
+        for given in checked {
+            assert_eq!(skips_checks(agent, &args(given)), None, "{id}: {given:?}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,6 +545,22 @@ mod tests {
             };
             let shell = crate::connection::testing::no_shell;
             crate::connection::testing::connects_and_removes(connector(id).unwrap(), &case, &shell);
+        }
+    }
+
+    #[test]
+    fn every_adapter_s_example_is_a_line_it_takes_as_it_is() {
+        for spec in crate::registry::all() {
+            let Some(agent) = adapter(spec.id) else {
+                continue;
+            };
+            let example = agent
+                .args_example()
+                .unwrap_or_else(|| panic!("{}: no example", spec.id));
+            let args = split_args(example).unwrap();
+            assert!(!args.is_empty(), "{}", spec.id);
+            assert_eq!(skips_checks(agent, &args), None, "{}", spec.id);
+            assert_eq!(reserved_arg(agent, &args), None, "{}", spec.id);
         }
     }
 

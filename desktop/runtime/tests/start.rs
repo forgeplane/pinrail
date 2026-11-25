@@ -1,7 +1,7 @@
 //! How Pinrail starts each agent, and the arguments it refuses because
 //! they turn the agent's permission checks off.
 
-use pinrail_runtime::{StartRequest, adapter, all, denied_arg, reserved_arg, split_args};
+use pinrail_runtime::{StartRequest, adapter, all, reserved_arg, skips_checks, split_args};
 
 const ID: &str = "6f1c2a4e-0b7d-4c8e-9f3a-2d5b6c7e8f90";
 
@@ -219,87 +219,13 @@ fn a_blank_task_is_left_out() {
 }
 
 #[test]
-fn flags_that_turn_permission_checks_off_are_refused() {
-    let claude = adapter("claude-code").unwrap();
-    let codex = adapter("codex").unwrap();
-    for (agent, given, refused) in [
-        (
-            claude,
-            &["--dangerously-skip-permissions"][..],
-            "--dangerously-skip-permissions",
-        ),
-        (claude, &["--model", "opus", "--yolo"], "--yolo"),
-        (
-            claude,
-            &["--permission-mode", "bypassPermissions"],
-            "--permission-mode",
-        ),
-        (
-            claude,
-            &["--permission-mode=bypassPermissions"],
-            "--permission-mode=bypassPermissions",
-        ),
-        (
-            codex,
-            &["--dangerously-bypass-approvals-and-sandbox"],
-            "--dangerously-bypass-approvals-and-sandbox",
-        ),
-        (
-            codex,
-            &["--dangerously-bypass-hook-trust=true"],
-            "--dangerously-bypass-hook-trust=true",
-        ),
-        (
-            adapter("antigravity").unwrap(),
-            &["--dangerously-skip-permissions"],
-            "--dangerously-skip-permissions",
-        ),
-        (
-            adapter("grok").unwrap(),
-            &["--always-approve"],
-            "--always-approve",
-        ),
-        (
-            adapter("copilot").unwrap(),
-            &["--allow-all-tools"],
-            "--allow-all-tools",
-        ),
-        (adapter("copilot").unwrap(), &["--allow-all"], "--allow-all"),
-        (adapter("pi").unwrap(), &["--approve"], "--approve"),
-        (adapter("cursor").unwrap(), &["--force"], "--force"),
-        (adapter("opencode").unwrap(), &["--auto"], "--auto"),
-        (adapter("cursor").unwrap(), &["-f"], "-f"),
-        (adapter("pi").unwrap(), &["-a"], "-a"),
-        (
-            adapter("copilot").unwrap(),
-            &["--allow-all-paths"],
-            "--allow-all-paths",
-        ),
-        (
-            adapter("copilot").unwrap(),
-            &["--allow-all-urls"],
-            "--allow-all-urls",
-        ),
-    ] {
-        assert_eq!(denied_arg(agent, &args(given)), Some(refused), "{given:?}");
-    }
-    assert_eq!(
-        denied_arg(
-            claude,
-            &args(&["--permission-mode", "plan", "--model", "opus"])
-        ),
-        None
-    );
-}
-
-#[test]
 fn no_start_plan_carries_a_denied_flag() {
     for spec in all() {
         let Some(agent) = adapter(spec.id) else {
             continue;
         };
         if let Some(plan) = agent.start(&request(Some("task"), &[])) {
-            assert_eq!(denied_arg(agent, &plan.argv), None, "{}", spec.id);
+            assert_eq!(skips_checks(agent, &plan.argv), None, "{}", spec.id);
         }
     }
 }

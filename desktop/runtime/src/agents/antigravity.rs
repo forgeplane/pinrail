@@ -136,6 +136,16 @@ impl Agent for Antigravity {
         &["--conversation", "--prompt-interactive"]
     }
 
+    /// The flag that turns its permission checks off, from its `--help`.
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
+        &["--dangerously-skip-permissions"]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--sandbox")
+    }
+
     /// A bracketed paste and Enter, which agy takes as one prompt with its
     /// line breaks; the turn's first `PreInvocation` carries it.
     fn submit(&self) -> Option<SubmitPlan> {
@@ -167,6 +177,18 @@ fn reply(transcript: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &Antigravity,
+            &[(
+                &["--dangerously-skip-permissions"],
+                "--dangerously-skip-permissions",
+            )],
+            &[&["--sandbox"]],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]

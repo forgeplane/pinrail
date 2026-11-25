@@ -139,8 +139,13 @@ impl Agent for Cursor {
         })
     }
 
-    fn deny_flags(&self) -> &'static [&'static str] {
-        &["--force", "-f"]
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
+        &["--force", "-f", "--yolo"]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--model sonnet-4-thinking")
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
@@ -200,6 +205,19 @@ pub fn is_cursor_command(args: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &Cursor,
+            &[
+                (&["--force"], "--force"),
+                (&["-f"], "-f"),
+                (&["--yolo"], "--yolo"),
+            ],
+            &[&["--model", "gpt-5"]],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]

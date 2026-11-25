@@ -193,7 +193,7 @@ async fn a_start_that_cannot_happen_answers_with_its_reason() {
             "invalid",
         ),
         (
-            json!({"agent": "claude-code", "folder": folder, "args": ["--yolo"]}),
+            json!({"agent": "claude-code", "folder": folder, "args": ["--dangerously-skip-permissions"]}),
             StatusCode::BAD_REQUEST,
             "invalid",
         ),

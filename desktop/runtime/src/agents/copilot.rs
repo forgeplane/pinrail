@@ -173,13 +173,18 @@ impl Agent for Copilot {
         Some(PASTE_AND_ENTER)
     }
 
-    fn deny_flags(&self) -> &'static [&'static str] {
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
         &[
             "--allow-all",
             "--allow-all-tools",
             "--allow-all-paths",
             "--allow-all-urls",
         ]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--allow-tool 'shell(git:*)'")
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
@@ -258,6 +263,20 @@ fn tail(transcript: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &Copilot,
+            &[
+                (&["--allow-all"], "--allow-all"),
+                (&["--allow-all-tools"], "--allow-all-tools"),
+                (&["--allow-all-paths"], "--allow-all-paths"),
+                (&["--allow-all-urls"], "--allow-all-urls"),
+            ],
+            &[&["--allow-tool", "shell(git:*)"]],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]

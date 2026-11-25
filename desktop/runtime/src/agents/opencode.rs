@@ -145,19 +145,33 @@ impl Agent for OpenCode {
         Some(PASTE_AND_ENTER)
     }
 
-    fn deny_flags(&self) -> &'static [&'static str] {
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
         &["--auto"]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--log-level debug")
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
     fn own_flags(&self) -> &'static [&'static str] {
-        &["--session", "--prompt"]
+        &["--session", "-s", "--continue", "-c", "--prompt"]
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &OpenCode,
+            &[(&["--auto"], "--auto")],
+            &[&["--log-level", "debug"]],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]

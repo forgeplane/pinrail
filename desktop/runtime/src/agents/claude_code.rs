@@ -204,11 +204,17 @@ impl Agent for ClaudeCode {
                     .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())))
     }
 
-    fn deny_flags(&self) -> &'static [&'static str] {
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
         &[
             "--dangerously-skip-permissions",
             "--allow-dangerously-skip-permissions",
+            "--permission-mode=bypassPermissions",
         ]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--model opus")
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
@@ -245,6 +251,35 @@ fn status_hint(file: &Value, session: &str) -> Option<Hint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &ClaudeCode,
+            &[
+                (
+                    &["--dangerously-skip-permissions"],
+                    "--dangerously-skip-permissions",
+                ),
+                (
+                    &["--allow-dangerously-skip-permissions"],
+                    "--allow-dangerously-skip-permissions",
+                ),
+                (
+                    &["--permission-mode", "bypassPermissions"],
+                    "--permission-mode",
+                ),
+                (
+                    &["--permission-mode=bypassPermissions"],
+                    "--permission-mode=bypassPermissions",
+                ),
+            ],
+            &[
+                &["--permission-mode", "plan", "--model", "opus"],
+                &["--yolo"],
+            ],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]

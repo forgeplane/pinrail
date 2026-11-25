@@ -207,7 +207,7 @@ impl super::Runtime {
         let agent = pinrail_runtime::adapter(&start.agent).ok_or_else(|| {
             RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
         })?;
-        if let Some(arg) = pinrail_runtime::denied_arg(agent, &start.args) {
+        if let Some(arg) = pinrail_runtime::skips_checks(agent, &start.args) {
             return Err(RunError::invalid(
                 "args",
                 format!("Pinrail does not start agents with permission checks turned off ({arg})."),

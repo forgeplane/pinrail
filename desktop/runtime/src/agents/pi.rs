@@ -174,8 +174,13 @@ impl Agent for Pi {
 
     /// Pi has no permission checks to turn off; `--approve` trusts a
     /// folder's own extensions, which then run unasked.
-    fn deny_flags(&self) -> &'static [&'static str] {
+    fn skip_checks_flags(&self) -> &'static [&'static str] {
         &["--approve", "-a"]
+    }
+
+    /// An example of the person's arguments, from its `--help`.
+    fn args_example(&self) -> Option<&'static str> {
+        Some("--model sonnet:high")
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
@@ -187,6 +192,15 @@ impl Agent for Pi {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_knows_the_flags_that_turn_its_checks_off() {
+        crate::agent::testing::recognizes(
+            &Pi,
+            &[(&["--approve"], "--approve"), (&["-a"], "-a")],
+            &[&["--model", "sonnet:high"]],
+        );
+    }
     use crate::connection::testing::{Case, connects_and_removes, no_shell};
 
     #[test]
