@@ -476,8 +476,21 @@ fn remove_generated(dir: &Path) -> Result<(), String> {
 }
 
 /// Removes the app's skill from an agent, and its folder when nothing else
-/// is in it. A skill of the person's own stays.
+/// is in it, then Pinrail's hooks, extension or plugin. A skill of the
+/// person's own stays, and so does a file Pinrail cannot read.
 pub fn disconnect(home: &Path, id: &str) -> Result<(), String> {
+    remove_skill(home, id)?;
+    if let Some(plan) = integration(home, id) {
+        use pinrail_runtime::integration::{HookState, apply, file_state};
+        if !matches!(file_state(&plan), HookState::Absent | HookState::Unreadable) {
+            apply(&plan, false)?;
+        }
+    }
+    Ok(())
+}
+
+/// Removes the app's skill from an agent, and the files that go with it.
+fn remove_skill(home: &Path, id: &str) -> Result<(), String> {
     let (_, folders) = find(id)?;
     let path = skill_path(home, folders);
     match fs::read_to_string(&path) {
@@ -776,6 +789,45 @@ mod tests {
             "the agent's skills folder stays"
         );
         assert_eq!(state(home.path(), "codex").state, State::Absent);
+    }
+
+    #[test]
+    fn removing_an_agent_takes_its_hooks_away_with_its_skill() {
+        let home = home_with(&[".claude"]);
+        connect(home.path(), "claude-code", &none()).unwrap();
+        set_hooks(home.path(), "claude-code", true).unwrap();
+        let hooks = |home: &Path| state(home, "claude-code").integration.unwrap().state;
+        assert_eq!(hooks(home.path()), "current");
+
+        disconnect(home.path(), "claude-code").unwrap();
+        assert_eq!(state(home.path(), "claude-code").state, State::Absent);
+        assert_eq!(hooks(home.path()), "absent");
+    }
+
+    #[test]
+    fn removing_an_agent_takes_its_extension_or_plugin_away() {
+        let home = home_with(&[".pi/agent", ".config/opencode"]);
+        let installed = |id| state(home.path(), id).integration.unwrap().state;
+        for id in ["pi", "opencode"] {
+            connect(home.path(), id, &none()).unwrap();
+            set_hooks(home.path(), id, true).unwrap();
+            assert_eq!(installed(id), "current", "{id}");
+        }
+
+        disconnect(home.path(), "pi").unwrap();
+        assert_eq!(installed("pi"), "absent");
+        assert!(!home.path().join(".pi/agent/extensions/pinrail.ts").exists());
+
+        disconnect(home.path(), "opencode").unwrap();
+        assert_eq!(installed("opencode"), "absent");
+        assert!(
+            !home
+                .path()
+                .join(".config/opencode/pinrail-opencode")
+                .exists()
+        );
+        let listed = fs::read_to_string(home.path().join(".config/opencode/cli.json")).unwrap();
+        assert!(!listed.contains("pinrail-opencode"), "{listed}");
     }
 
     #[test]

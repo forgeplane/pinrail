@@ -369,8 +369,8 @@ async fn connect_agent(
     .map_err(|e| e.to_string())?
 }
 
-/// Removes the app's `pinrail` skill from an agent, then reports as
-/// `agents_status`.
+/// Removes the app's `pinrail` skill and Pinrail's hooks from an agent,
+/// then reports as `agents_status`.
 #[tauri::command]
 async fn disconnect_agent(
     native: State<'_, Native>,

@@ -114,7 +114,7 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 | Setting | What it does |
 |---|---|
-| **Amp**, **Antigravity CLI**, **Augment CLI**, **Claude Code**, **Cline**, **Codex**, **Copilot CLI**, **Cursor**, **Goose**, **Grok CLI**, **Hermes Agent**, **Kiro CLI**, **OpenCode**, **Pi** | *Connect* adds a global skill named `pinrail` to the agent. *Update* appears when an update of Pinrail changed the skill, and rewrites it. When several agents need it, *Update all* updates them together. *Remove* takes the skill away. |
+| **Amp**, **Antigravity CLI**, **Augment CLI**, **Claude Code**, **Cline**, **Codex**, **Copilot CLI**, **Cursor**, **Goose**, **Grok CLI**, **Hermes Agent**, **Kiro CLI**, **OpenCode**, **Pi** | *Connect* adds a global skill named `pinrail` to the agent. *Update* appears when an update of Pinrail changed the skill, and rewrites it. When several agents need it, *Update all* updates them together. *Remove* takes the skill away, and turns *Report status* off. |
 | **Update skills automatically** | When Pinrail starts, it updates the skill of each connected agent that an update of Pinrail changed. Turning it on also updates the skills that are outdated now. Off by default. |
 
 The skill tells an agent how to submit a review and read your decision, and how to build a plugin. It holds the same guides that `pinrail docs` prints. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
