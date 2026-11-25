@@ -178,3 +178,20 @@ impl Agent for Pi {
         &["--approve", "-a"]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_extension() {
+        let case = Case {
+            config: ".pi/agent",
+            skills: ".pi/agent/skills",
+            reporting: Some(".pi/agent/extensions/pinrail.ts"),
+            theirs: None,
+        };
+        connects_and_removes(&Pi, &case, &|_| std::process::Command::new("false"));
+    }
+}

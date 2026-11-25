@@ -171,6 +171,42 @@ impl Server {
 }
 
 #[cfg(test)]
+/// An app server in a shell script: after a line of the login shell's
+/// own output, it answers `initialize`, answers `hooks/list` with the
+/// fixture, and keeps the `config/batchWrite` request in `$OUT`.
+pub(crate) const FAKE_SERVER: &str = r#"
+echo "Welcome to the login shell"
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  case "$line" in
+*'"method":"initialize"'*) echo "{\"id\":$id,\"result\":{}}" ;;
+*'"method":"hooks/list"'*) tr -d '\n' < "$LIST" | sed "s/\"id\": *[0-9]*/\"id\":$id/"; echo ;;
+*'"method":"config/batchWrite"'*)
+  printf '%s\n' "$line" > "$OUT"
+  echo "{\"id\":$id,\"result\":{\"status\":\"ok\"}}" ;;
+  esac
+done
+"#;
+
+/// A command that runs the fake app server, answering `hooks/list` from
+/// the fixture and keeping the `config/batchWrite` request in `out`.
+#[cfg(test)]
+pub(crate) fn fake_app_server(out: &std::path::Path) -> Command {
+    let mut command = Command::new("sh");
+    command
+        .args(["-c", FAKE_SERVER])
+        .env(
+            "LIST",
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/codex-app-server/hooks-list.json"
+            ),
+        )
+        .env("OUT", out);
+    command
+}
+
+#[cfg(test)]
 mod tests {
     use std::path::Path;
 
@@ -223,39 +259,11 @@ mod tests {
             && !k.contains(":session_end:")));
     }
 
-    /// An app server in a shell script: after a line of the login shell's
-    /// own output, it answers `initialize`, answers `hooks/list` with the
-    /// fixture, and keeps the `config/batchWrite` request in `$OUT`.
-    const FAKE_SERVER: &str = r#"
-echo "Welcome to the login shell"
-while IFS= read -r line; do
-  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
-  case "$line" in
-    *'"method":"initialize"'*) echo "{\"id\":$id,\"result\":{}}" ;;
-    *'"method":"hooks/list"'*) tr -d '\n' < "$LIST" | sed "s/\"id\": *[0-9]*/\"id\":$id/"; echo ;;
-    *'"method":"config/batchWrite"'*)
-      printf '%s\n' "$line" > "$OUT"
-      echo "{\"id\":$id,\"result\":{\"status\":\"ok\"}}" ;;
-  esac
-done
-"#;
-
     #[test]
     fn trust_writes_codex_s_hashes_through_its_app_server() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("write.json");
-        let mut command = Command::new("sh");
-        command
-            .args(["-c", FAKE_SERVER])
-            .env(
-                "LIST",
-                concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/tests/fixtures/codex-app-server/hooks-list.json"
-                ),
-            )
-            .env("OUT", &out);
-        assert_eq!(trust(&plan(), command), Ok(7));
+        assert_eq!(trust(&plan(), fake_app_server(&out)), Ok(7));
         let written: Value = serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
         let edit = &written["params"]["edits"][0];
         assert_eq!(edit["keyPath"], "hooks.state");

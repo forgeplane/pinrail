@@ -7,7 +7,9 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::agents::{Antigravity, ClaudeCode, Codex, Copilot, Cursor, Grok, OpenCode, Pi};
+use crate::connection::{Shell, SkillFiles, SkillState};
 use crate::hooks::HookReport;
+use crate::integration::HookState;
 use crate::registry::AgentSpec;
 
 /// A variable of the environment the hook runs in, by name.
@@ -53,9 +55,121 @@ pub trait Agent: Send + Sync {
     fn trust_hooks(
         &self,
         _plan: &crate::integration::Integration,
-        _shell: &dyn Fn(&str) -> std::process::Command,
+        _shell: Shell,
     ) -> Result<usize, String> {
         Ok(0)
+    }
+
+    /// Where the agent's `pinrail` skill goes under `home`; `None` for an
+    /// agent that takes no skill.
+    fn skill_path(&self, home: &Path) -> Option<std::path::PathBuf> {
+        Some(crate::connection::skill_path(
+            home,
+            self.spec().folders.as_ref()?,
+        ))
+    }
+
+    /// Whether the agent is installed under `home`: its configuration
+    /// folder is there.
+    fn found(&self, home: &Path) -> bool {
+        self.spec()
+            .folders
+            .as_ref()
+            .is_some_and(|folders| home.join(folders.config).is_dir())
+    }
+
+    /// What is in the agent's place for the skill with `sha`. A connected
+    /// skill counts as outdated while a file that goes with it is missing
+    /// or another version's, so that updating it writes the file.
+    fn skill_state(&self, home: &Path, env: Env, sha: &str) -> SkillState {
+        let Some(path) = self.skill_path(home) else {
+            return SkillState::Absent;
+        };
+        match crate::connection::state_of(&path, sha) {
+            SkillState::Connected
+                if !self
+                    .skill_files(home, env)
+                    .iter()
+                    .all(|file| file.state() == HookState::Current) =>
+            {
+                SkillState::Outdated
+            }
+            state => state,
+        }
+    }
+
+    /// Writes the skill into an installed agent, with the files that go
+    /// with it, or brings an older one up to date. A `pinrail` skill of the
+    /// person's own is never replaced.
+    fn connect(&self, home: &Path, env: Env, skill: &SkillFiles) -> Result<(), String> {
+        let label = self.spec().label;
+        let path = self
+            .skill_path(home)
+            .ok_or_else(|| format!("Pinrail has no skill for {label}"))?;
+        if !self.found(home) {
+            let config = self.spec().folders.as_ref().map_or("", |f| f.config);
+            return Err(format!("{label} is not installed: ~/{config} is not there"));
+        }
+        if crate::connection::state_of(&path, skill.sha) == SkillState::Theirs {
+            return Err(crate::connection::theirs(&path));
+        }
+        // the files that go with it first, so the skill counts as connected
+        // only once they are there
+        for file in self.skill_files(home, env) {
+            file.apply(true)?;
+        }
+        crate::connection::write_skill(&path, skill)
+    }
+
+    /// Removes the app's skill and the files that go with it, then what
+    /// Report status installed. A skill of the person's own stays, and so
+    /// does a file of theirs at the path of one of Pinrail's, or a hooks
+    /// file Pinrail cannot read.
+    fn disconnect(&self, home: &Path, env: Env) -> Result<(), String> {
+        if let Some(path) = self.skill_path(home) {
+            if fs_text(&path).is_some_and(|text| !crate::connection::managed(&text)) {
+                return Err(crate::connection::theirs(&path));
+            }
+            crate::connection::remove_skill(&path)?;
+        }
+        for file in self.skill_files(home, env) {
+            if file.state() != HookState::Unreadable {
+                file.apply(false)?;
+            }
+        }
+        if let Some(plan) = self.integration(home, env)
+            && !matches!(
+                crate::integration::file_state(&plan),
+                HookState::Absent | HookState::Unreadable
+            )
+        {
+            crate::integration::apply(&plan, false)?;
+        }
+        Ok(())
+    }
+
+    /// Installs the hooks, extension or plugin that report the agent's
+    /// status, and trusts them where the agent asks for that, or removes
+    /// them. Only Pinrail's entries change.
+    fn set_reporting(&self, home: &Path, env: Env, on: bool, shell: Shell) -> Result<(), String> {
+        let label = self.spec().label;
+        let plan = self
+            .integration(home, env)
+            .ok_or_else(|| format!("Pinrail cannot report the status of {label} yet"))?;
+        if on && !self.found(home) {
+            let config = self.spec().folders.as_ref().map_or("", |f| f.config);
+            return Err(format!("{label} is not installed: ~/{config} is not there"));
+        }
+        crate::integration::apply(&plan, on)?;
+        if !on {
+            return Ok(());
+        }
+        self.trust_hooks(&plan, shell).map(|_| ()).map_err(|e| {
+            format!(
+                "Pinrail installed its hooks, but could not trust them in {label}: {e}. \
+                 {label} asks you to review them when it next starts."
+            )
+        })
     }
 
     /// How Pinrail starts a new session of the agent in a terminal; `None`
@@ -281,6 +395,38 @@ pub fn adapter(name: &str) -> Option<&'static dyn Agent> {
     Some(agent)
 }
 
+/// The agent an id or an alias names, to connect: its adapter, or for an
+/// agent with none, one that does only what the trait does by default.
+pub fn connector(name: &str) -> Option<&'static dyn Agent> {
+    if let Some(agent) = adapter(name) {
+        return Some(agent);
+    }
+    let id = crate::registry::find(name)?.id;
+    let at = crate::registry::all().iter().position(|a| a.id == id)?;
+    Some(&PLAIN[at])
+}
+
+/// An agent with no adapter, by its place in the registry.
+struct Plain(usize);
+
+static PLAIN: std::sync::LazyLock<Vec<Plain>> =
+    std::sync::LazyLock::new(|| (0..crate::registry::all().len()).map(Plain).collect());
+
+impl Agent for Plain {
+    fn spec(&self) -> &'static AgentSpec {
+        &crate::registry::all()[self.0]
+    }
+
+    fn parse_hook(&self, _event: &str, _input: &Value, _env: Env) -> Option<HookReport> {
+        None
+    }
+}
+
+/// The text of the file at `path`, if it can be read.
+fn fs_text(path: &Path) -> Option<String> {
+    std::fs::read_to_string(path).ok()
+}
+
 /// Whether `process` is the agent `id`'s own: as its adapter recognises it,
 /// or, for an agent with none, by the names of its binaries.
 pub fn runs_as(id: &str, process: &crate::process::Process) -> bool {
@@ -299,6 +445,50 @@ pub(crate) fn spec(id: &str) -> &'static AgentSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The agents without an adapter, which take the skill alone: their
+    /// configuration folders and where the skill goes.
+    const PLAIN_AGENTS: &[(&str, &str, &str)] = &[
+        ("goose", ".config/goose", ".config/goose/skills"),
+        ("amp", ".config/amp", ".config/amp/skills"),
+        ("kiro", ".kiro", ".kiro/skills"),
+        ("augment", ".augment", ".augment/skills"),
+        ("cline", ".cline", ".cline/skills"),
+        ("hermes-agent", ".hermes", ".hermes/skills"),
+    ];
+
+    #[test]
+    fn an_agent_without_an_adapter_is_connected_and_removed_in_its_folders() {
+        for (id, config, skills) in PLAIN_AGENTS {
+            assert!(
+                adapter(id).is_none(),
+                "{id} has an adapter, whose tests cover it"
+            );
+            let case = crate::connection::testing::Case {
+                config,
+                skills,
+                reporting: None,
+                theirs: None,
+            };
+            let shell = |_: &str| std::process::Command::new("false");
+            crate::connection::testing::connects_and_removes(connector(id).unwrap(), &case, &shell);
+        }
+    }
+
+    #[test]
+    fn every_agent_that_takes_the_skill_has_a_connector_and_a_test() {
+        for spec in crate::registry::all()
+            .iter()
+            .filter(|a| a.folders.is_some())
+        {
+            assert!(connector(spec.id).is_some(), "{}", spec.id);
+            assert!(
+                adapter(spec.id).is_some() || PLAIN_AGENTS.iter().any(|(id, ..)| *id == spec.id),
+                "{} has no adapter and is not in PLAIN_AGENTS",
+                spec.id
+            );
+        }
+    }
 
     fn argv(words: &[&str]) -> Vec<String> {
         words.iter().map(|w| w.to_string()).collect()

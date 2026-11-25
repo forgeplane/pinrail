@@ -191,3 +191,22 @@ pub fn is_cursor_command(args: &[String]) -> bool {
     matches!(invoked, Some("cursor-agent" | "agent"))
         && !args.iter().any(|arg| arg == "worker-server")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_hooks() {
+        let case = Case {
+            config: ".cursor",
+            skills: ".cursor/skills",
+            reporting: Some(".cursor/hooks.json"),
+            theirs: Some(
+                r#"{"version": 1, "hooks": {"sessionStart": [{"command": "my-own-start"}]}}"#,
+            ),
+        };
+        connects_and_removes(&Cursor, &case, &|_| std::process::Command::new("false"));
+    }
+}

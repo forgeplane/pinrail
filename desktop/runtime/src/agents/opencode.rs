@@ -149,3 +149,20 @@ impl Agent for OpenCode {
         &["--auto"]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_plugin_beside_the_person_s() {
+        let case = Case {
+            config: ".config/opencode",
+            skills: ".config/opencode/skills",
+            reporting: Some(".config/opencode/cli.json"),
+            theirs: Some(r#"{"plugins": ["./mine"], "theme": "dark"}"#),
+        };
+        connects_and_removes(&OpenCode, &case, &|_| std::process::Command::new("false"));
+    }
+}

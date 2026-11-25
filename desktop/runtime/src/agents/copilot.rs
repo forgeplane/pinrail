@@ -249,3 +249,20 @@ fn tail(transcript: &Path) -> Option<String> {
     file.read_to_end(&mut bytes).ok()?;
     Some(String::from_utf8_lossy(&bytes).into_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_hooks_file() {
+        let case = Case {
+            config: ".copilot",
+            skills: ".copilot/skills",
+            reporting: Some(".copilot/hooks/pinrail.json"),
+            theirs: None,
+        };
+        connects_and_removes(&Copilot, &case, &|_| std::process::Command::new("false"));
+    }
+}

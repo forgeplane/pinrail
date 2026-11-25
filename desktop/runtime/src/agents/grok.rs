@@ -189,3 +189,20 @@ impl Agent for Grok {
                 .is_some_and(|version| version.starts_with(|c: char| c.is_ascii_digit()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_hooks_file() {
+        let case = Case {
+            config: ".grok",
+            skills: ".grok/skills",
+            reporting: Some(".grok/hooks/pinrail.json"),
+            theirs: None,
+        };
+        connects_and_removes(&Grok, &case, &|_| std::process::Command::new("false"));
+    }
+}

@@ -158,3 +158,24 @@ fn reply(transcript: &Path) -> Option<String> {
         .filter(|step| step.get("type").and_then(Value::as_str) == Some("PLANNER_RESPONSE"))
         .find_map(|step| text(&step, "content"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connection::testing::{Case, connects_and_removes};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_named_hook() {
+        let case = Case {
+            config: ".gemini",
+            skills: ".gemini/config/skills",
+            reporting: Some(".gemini/config/hooks.json"),
+            theirs: Some(
+                r#"{"mine": {"PreInvocation": [{"command": "my-own-start", "type": "command"}]}}"#,
+            ),
+        };
+        connects_and_removes(&Antigravity, &case, &|_| {
+            std::process::Command::new("false")
+        });
+    }
+}

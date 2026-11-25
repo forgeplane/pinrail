@@ -164,3 +164,86 @@ impl Agent for Codex {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+    use crate::connection::SkillFiles;
+    use crate::connection::testing::{Case, connects_and_removes, env, home_with, skill};
+
+    #[test]
+    fn it_is_connected_and_removed_with_its_hooks_trusted() {
+        let trust = tempfile::tempdir().unwrap();
+        let out = trust.path().join("write.json");
+        let case = Case {
+            config: ".codex",
+            skills: ".codex/skills",
+            reporting: Some(".codex/hooks.json"),
+            theirs: Some(
+                r#"{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "my-own-stop"}]}]}}"#,
+            ),
+        };
+        // Report status trusts the hooks through Codex's app server, run in
+        // the login shell; codex_trust's tests cover what it says to it
+        let started = std::cell::Cell::new(0);
+        let shell = |line: &str| {
+            assert_eq!(line, "codex app-server");
+            started.set(started.get() + 1);
+            super::super::codex_trust::fake_app_server(&out)
+        };
+        connects_and_removes(&Codex, &case, &shell);
+        assert_eq!(started.get(), 1);
+    }
+
+    #[test]
+    fn it_gets_a_rule_for_the_pinrail_command_with_its_skill() {
+        let home = home_with(&[".codex"]);
+        let home = home.path();
+        let files = skill("abc");
+        let skill = SkillFiles {
+            files: &files,
+            sha: "abc",
+        };
+        let rule = home.join(".codex/rules/pinrail.rules");
+        Codex.connect(home, &env, &skill).unwrap();
+        let text = fs::read_to_string(&rule).unwrap();
+        assert!(
+            text.contains(r#"prefix_rule(pattern=["pinrail"], decision="allow")"#),
+            "{text}"
+        );
+        // without its rule, the skill is outdated, and updating writes it
+        fs::remove_file(&rule).unwrap();
+        assert_eq!(
+            Codex.skill_state(home, &env, "abc"),
+            crate::connection::SkillState::Outdated
+        );
+        Codex.connect(home, &env, &skill).unwrap();
+        assert_eq!(
+            Codex.skill_state(home, &env, "abc"),
+            crate::connection::SkillState::Connected
+        );
+
+        Codex.disconnect(home, &env).unwrap();
+        assert!(!rule.exists());
+    }
+
+    #[test]
+    fn a_rule_file_of_the_person_s_own_is_left_alone() {
+        let home = home_with(&[".codex/rules"]);
+        let home = home.path();
+        let rule = home.join(".codex/rules/pinrail.rules");
+        let theirs = "prefix_rule(pattern=[\"pinrail\", \"status\"], decision=\"allow\")\n";
+        fs::write(&rule, theirs).unwrap();
+        let files = skill("abc");
+        let skill = SkillFiles {
+            files: &files,
+            sha: "abc",
+        };
+        assert!(Codex.connect(home, &env, &skill).is_err());
+        assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);
+        Codex.disconnect(home, &env).unwrap();
+        assert_eq!(fs::read_to_string(&rule).unwrap(), theirs);
+    }
+}
