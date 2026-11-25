@@ -868,6 +868,9 @@ pub fn run() {
                     .try_state::<Native>()
                     .is_some_and(|n| n.state.settings().value("/close_window") == "quit");
                 if quit {
+                    // the window stays until the app exits, as the quit
+                    // dialog may keep it open to ask about the agents
+                    api.prevent_close();
                     window.app_handle().exit(0);
                 } else {
                     api.prevent_close();
