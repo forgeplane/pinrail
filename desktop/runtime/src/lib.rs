@@ -16,7 +16,7 @@ pub mod skills;
 
 pub use agent::{
     Agent, Env, Hint, HintStatus, StartPlan, StartRequest, SubmitPlan, adapter, connector,
-    denied_arg, runs_as, with_read_folder,
+    denied_arg, reserved_arg, runs_as, split_args, with_read_folder,
 };
 pub use agents::is_cursor_command;
 pub use registry::{AgentSpec, Folders, all, find};

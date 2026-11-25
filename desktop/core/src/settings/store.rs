@@ -9,7 +9,7 @@ use std::time::SystemTime;
 
 use serde_json::{Map, Value, json};
 
-use super::{LINKS, PLUGINS};
+use super::{AGENT_ARGS, LINKS, PLUGINS};
 use crate::error::{Error, Violation};
 
 const FILE: &str = "settings.json";
@@ -543,6 +543,7 @@ fn defaults() -> Value {
     }
     set_at(&mut out, PLUGINS, Value::Object(Map::new()));
     set_at(&mut out, LINKS, Value::Object(Map::new()));
+    set_at(&mut out, AGENT_ARGS, Value::Object(Map::new()));
     out
 }
 
@@ -642,9 +643,12 @@ impl Store {
         let mut raw = inner.raw.clone();
         for value in [&mut file, &mut raw] {
             merge(value, patch);
-            // a plugin's links set to null are forgotten, not kept as null
-            if let Some(Value::Object(links)) = value.pointer_mut(LINKS) {
-                links.retain(|_, v| !v.is_null());
+            // a plugin's links, or an agent's arguments, set to null are
+            // forgotten, not kept as null
+            for map in [LINKS, AGENT_ARGS] {
+                if let Some(Value::Object(entries)) = value.pointer_mut(map) {
+                    entries.retain(|_, v| !v.is_null());
+                }
             }
         }
         if inner.broken {
@@ -810,6 +814,19 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
             .cloned()
             .unwrap_or_default()
     };
+    let args = |v: &Value| {
+        v.pointer(AGENT_ARGS)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let (a, b) = (args(before), args(after));
+    for id in a.keys().chain(b.keys()) {
+        let pointer = format!("{AGENT_ARGS}/{}", super::pointer_part(id));
+        if a.get(id) != b.get(id) && !out.contains(&pointer) {
+            out.push(pointer);
+        }
+    }
     let (a, b) = (links(before), links(after));
     for name in a.keys().chain(b.keys()) {
         let pointer = format!("{LINKS}/{}", super::pointer_part(name));
@@ -842,6 +859,10 @@ fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
     }
     if pointer == LINKS {
         validate_links(value, out);
+        return;
+    }
+    if pointer == AGENT_ARGS {
+        validate_agent_args(value, out);
         return;
     }
     if let Some((_, kind, _, _)) = LEAVES.iter().find(|(p, _, _, _)| *p == pointer) {
@@ -887,6 +908,45 @@ fn validate_plugins(value: &Value, out: &mut Vec<Violation>) {
                     format!("{pointer}/{key}"),
                     "must be true or false, a number or a string",
                 ));
+            }
+        }
+    }
+}
+
+/// An agent's arguments are a line, or null to clear them: an agent
+/// Pinrail knows, quotes that close, and none of the flags Pinrail sets to
+/// name or resume its session. Flags that turn the agent's permission
+/// checks off are the person's to give here.
+fn validate_agent_args(value: &Value, out: &mut Vec<Violation>) {
+    let Value::Object(agents) = value else {
+        out.push(Violation::new(AGENT_ARGS, "must be a JSON object"));
+        return;
+    };
+    for (id, line) in agents {
+        let pointer = format!("{AGENT_ARGS}/{}", super::pointer_part(id));
+        let Some(agent) = pinrail_runtime::connector(id) else {
+            out.push(Violation::new(pointer, "is not an agent Pinrail knows"));
+            continue;
+        };
+        let line = match line {
+            Value::Null => continue,
+            Value::String(line) => line,
+            _ => {
+                out.push(Violation::new(pointer, "must be a string, or null"));
+                continue;
+            }
+        };
+        match pinrail_runtime::split_args(line) {
+            Err(why) => out.push(Violation::new(pointer, why)),
+            Ok(args) => {
+                if let Some(flag) = pinrail_runtime::reserved_arg(agent, &args) {
+                    out.push(Violation::new(
+                        pointer,
+                        format!(
+                            "gives {flag}, which Pinrail sets itself to name or resume the session"
+                        ),
+                    ));
+                }
             }
         }
     }

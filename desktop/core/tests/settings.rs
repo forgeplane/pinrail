@@ -318,3 +318,58 @@ async fn a_plugin_declares_settings_and_the_core_keeps_them() {
         Some(vec!["/plugins/gone/mode".to_string()])
     );
 }
+
+/// The arguments the person gives an agent for every start: a line, as a
+/// shell splits it, or null to clear it.
+#[tokio::test]
+async fn an_agent_s_arguments_are_a_line_without_the_flags_pinrail_sets() {
+    let app = common::app_as_new();
+    let patch = |id: &str, line: Value| json!({"agents": {"args": {id: line}}});
+    // the person's own choice, permission checks turned off included
+    let line = json!("--model opus --dangerously-skip-permissions");
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(patch("claude-code", line.clone())),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["agents"]["args"]["claude-code"], line);
+    assert_eq!(
+        app.state.settings().agent_args("claude-code"),
+        ["--model", "opus", "--dangerously-skip-permissions"]
+    );
+
+    for (id, bad, says) in [
+        ("claude-code", json!("--session-id abc"), "--session-id"),
+        ("claude-code", json!("--name \"open"), "quote"),
+        ("no-such-agent", json!("--model opus"), "agent"),
+        ("claude-code", json!(["--model"]), "string"),
+    ] {
+        let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(patch(id, bad))).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert_eq!(body["violations"][0]["path"], format!("/agents/args/{id}"));
+        assert!(
+            body["violations"][0]["message"]
+                .as_str()
+                .unwrap()
+                .contains(says),
+            "{body}"
+        );
+    }
+
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(patch("claude-code", Value::Null)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body["agents"]["args"].get("claude-code").is_none(),
+        "{body}"
+    );
+    assert!(app.state.settings().agent_args("claude-code").is_empty());
+}

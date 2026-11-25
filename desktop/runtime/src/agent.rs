@@ -247,6 +247,20 @@ pub trait Agent: Send + Sync {
         &[]
     }
 
+    /// Flags Pinrail sets itself to name, resume or prompt the session,
+    /// which a person's arguments may not give again.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    /// `resume`'s command with the person's arguments `extra`, after it by
+    /// default; `None` for an agent Pinrail does not resume.
+    fn resume_with(&self, session: &str, extra: &[String]) -> Option<Vec<String>> {
+        let mut argv = self.resume(session)?;
+        argv.extend(extra.iter().cloned());
+        Some(argv)
+    }
+
     /// The arguments that let the agent read the files in `folder`, outside
     /// the folder it works in, without asking, such as the files the person
     /// attaches to sessions. None for an agent that reads them already.
@@ -364,6 +378,23 @@ pub fn denied_arg<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str> 
         let bypass = flag == "--permission-mode" && value == Some("bypassPermissions");
         (denied(flag) || bypass).then_some(arg.as_str())
     })
+}
+
+/// The arguments in `line`, split as a shell would: by spaces, with
+/// quotes and backslashes keeping one argument whole.
+pub fn split_args(line: &str) -> Result<Vec<String>, String> {
+    shlex::split(line).ok_or_else(|| "has a quote that is not closed".to_string())
+}
+
+/// The first of `args` that gives again a flag Pinrail sets itself for the
+/// agent, alone or with `=value`.
+pub fn reserved_arg<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str> {
+    args.iter()
+        .find(|arg| {
+            let flag = arg.split_once('=').map_or(arg.as_str(), |(flag, _)| flag);
+            agent.own_flags().contains(&flag)
+        })
+        .map(String::as_str)
 }
 
 /// What an agent's own file says its session is doing.

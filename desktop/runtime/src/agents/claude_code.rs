@@ -210,6 +210,11 @@ impl Agent for ClaudeCode {
             "--allow-dangerously-skip-permissions",
         ]
     }
+
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--session-id", "--resume", "-r", "--continue", "-c"]
+    }
 }
 
 /// Claude Code's configuration folder: `CLAUDE_CONFIG_DIR`, or `~/.claude`.

@@ -152,6 +152,15 @@ impl Agent for Codex {
         })
     }
 
+    /// `codex --no-daemon [extra args] resume <id>`: the person's arguments
+    /// are Codex's own options, which go before its `resume` command.
+    fn resume_with(&self, session: &str, extra: &[String]) -> Option<Vec<String>> {
+        let mut argv = self.resume(session)?;
+        let at = argv.iter().position(|a| a == "resume")?;
+        argv.splice(at..at, extra.iter().cloned());
+        Some(argv)
+    }
+
     /// A bracketed paste and Enter, confirmed by `UserPromptSubmit`.
     fn submit(&self) -> Option<SubmitPlan> {
         Some(PASTE_AND_ENTER)

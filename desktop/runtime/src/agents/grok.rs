@@ -178,6 +178,11 @@ impl Agent for Grok {
         &["--always-approve"]
     }
 
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["-s", "-r"]
+    }
+
     /// Grok's installer links `grok` to a versioned binary, and the system
     /// names the process after it: `grok-1.0.89-macos-aarch64` (cut to 15
     /// bytes on Linux).

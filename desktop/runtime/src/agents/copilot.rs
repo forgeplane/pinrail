@@ -181,6 +181,11 @@ impl Agent for Copilot {
             "--allow-all-urls",
         ]
     }
+
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--session-id", "--resume", "--continue", "--interactive"]
+    }
 }
 
 /// How long the end of a turn waits for Copilot to write the turn's reply,

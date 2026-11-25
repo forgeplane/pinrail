@@ -1,7 +1,7 @@
 //! How Pinrail starts each agent, and the arguments it refuses because
 //! they turn the agent's permission checks off.
 
-use pinrail_runtime::{StartRequest, adapter, all, denied_arg};
+use pinrail_runtime::{StartRequest, adapter, all, denied_arg, reserved_arg, split_args};
 
 const ID: &str = "6f1c2a4e-0b7d-4c8e-9f3a-2d5b6c7e8f90";
 
@@ -392,4 +392,52 @@ fn antigravity_takes_a_message_as_a_bracketed_paste_and_enter() {
     assert_eq!(plan.submit, "\r");
     // the turn's first model call carries the prompt that confirms it
     assert_eq!(plan.confirms, Some("invocation"));
+}
+
+#[test]
+fn a_person_s_arguments_are_split_as_a_shell_splits_them() {
+    assert_eq!(
+        split_args(r#"--model opus --append-system-prompt "Be brief" --flag='a b'"#).unwrap(),
+        args(&[
+            "--model",
+            "opus",
+            "--append-system-prompt",
+            "Be brief",
+            "--flag=a b"
+        ])
+    );
+    assert_eq!(split_args("   ").unwrap(), Vec::<String>::new());
+    assert!(split_args(r#"--name "open"#).is_err());
+}
+
+#[test]
+fn a_flag_pinrail_sets_to_name_or_resume_the_session_is_not_given_again() {
+    let claude = adapter("claude-code").unwrap();
+    for given in [&["--session-id", "x"][..], &["--resume=abc"], &["-c"]] {
+        let given = args(given);
+        assert_eq!(reserved_arg(claude, &given), Some(given[0].as_str()));
+    }
+    assert_eq!(reserved_arg(claude, &args(&["--model", "opus"])), None);
+    let opencode = adapter("opencode").unwrap();
+    assert_eq!(
+        reserved_arg(opencode, &args(&["--session", "ses_x"])),
+        Some("--session")
+    );
+}
+
+#[test]
+fn a_resume_takes_the_person_s_arguments_where_the_agent_reads_them() {
+    let extra = args(&["--model", "opus"]);
+    assert_eq!(
+        adapter("claude-code")
+            .unwrap()
+            .resume_with(ID, &extra)
+            .unwrap(),
+        args(&["claude", "--resume", ID, "--model", "opus"])
+    );
+    // Codex's options go before its resume command
+    assert_eq!(
+        adapter("codex").unwrap().resume_with(ID, &extra).unwrap(),
+        args(&["codex", "--no-daemon", "--model", "opus", "resume", ID])
+    );
 }

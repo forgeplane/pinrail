@@ -78,6 +78,7 @@ async fn start(
         Ok(request) => request,
         Err(error) => return run_error(error),
     };
+    request.agent_args = state.settings().agent_args(&request.agent);
     // the CLI names itself, with the person token of /runtime/cli_control
     if headers
         .get(super::reviews::CLIENT_HEADER)
@@ -201,6 +202,7 @@ async fn resume(
     } else {
         "app"
     };
+    let agent_args = state.settings().agent_args(&agent);
     let request = Resume {
         agent,
         session: id,
@@ -212,6 +214,7 @@ async fn resume(
             .get("folder")
             .and_then(Value::as_str)
             .map(str::to_string),
+        agent_args,
     };
     match state.runtime().resume(&request).await {
         Ok(run) => (StatusCode::CREATED, Json(started(&run))).into_response(),
@@ -296,6 +299,7 @@ fn parse_start(body: &Value) -> Result<Start, RunError> {
             .to_string(),
         task: text("task").map(str::to_string),
         args,
+        agent_args: Vec::new(),
         cols: size(body, "cols", 120)?,
         rows: size(body, "rows", 40)?,
         created_by: "app".to_string(),

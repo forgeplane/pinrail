@@ -143,6 +143,11 @@ impl Agent for Cursor {
         &["--force", "-f"]
     }
 
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--resume"]
+    }
+
     /// Cursor sends its notifications only to the terminals it recognises
     /// by `TERM_PROGRAM`, which Pinrail is not. Pinrail's terminal is built
     /// on Ghostty's terminal library, so what Cursor expects of Ghostty

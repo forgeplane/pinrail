@@ -148,6 +148,11 @@ impl Agent for OpenCode {
     fn deny_flags(&self) -> &'static [&'static str] {
         &["--auto"]
     }
+
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--session", "--prompt"]
+    }
 }
 
 #[cfg(test)]

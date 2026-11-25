@@ -66,6 +66,16 @@ impl SettingsService {
         self.store.value(pointer)
     }
 
+    /// The arguments the person gave the agent `id` for every start and
+    /// resume, split as a shell splits them; none when they gave none.
+    pub fn agent_args(&self, id: &str) -> Vec<String> {
+        let pointer = format!("{}/{}", super::AGENT_ARGS, super::pointer_part(id));
+        self.value(&pointer)
+            .as_str()
+            .and_then(|line| pinrail_runtime::split_args(line).ok())
+            .unwrap_or_default()
+    }
+
     /// A handle that reads the settings, for a service that follows one.
     pub(crate) fn reader(&self) -> SettingsReader {
         SettingsReader(self.store.clone())

@@ -126,6 +126,7 @@ fn start(agent: &str, folder: &Path) -> Start {
         folder: folder.to_string_lossy().into_owned(),
         task: Some("fix the login".to_string()),
         args: vec![],
+        agent_args: vec![],
         cols: 80,
         rows: 24,
         created_by: "app".to_string(),
@@ -212,8 +213,10 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     assert!(run.terminal.is_some());
     assert!(run.process.is_some());
     // the session stops a moment after its run ends
-    let presence =
-        presence_becomes(&db, &(agent.clone(), session.clone()), |p| p.state == "stopped").await;
+    let presence = presence_becomes(&db, &(agent.clone(), session.clone()), |p| {
+        p.state == "stopped"
+    })
+    .await;
     assert_eq!(presence.stop_reason.as_deref(), Some("exited"));
 }
 
@@ -448,6 +451,7 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
             created_by: "app".into(),
             anyway: false,
             folder: None,
+            agent_args: vec![],
         })
         .await
         .unwrap();

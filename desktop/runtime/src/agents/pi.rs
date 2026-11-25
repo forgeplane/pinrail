@@ -177,6 +177,11 @@ impl Agent for Pi {
     fn deny_flags(&self) -> &'static [&'static str] {
         &["--approve", "-a"]
     }
+
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--session-id", "--session"]
+    }
 }
 
 #[cfg(test)]

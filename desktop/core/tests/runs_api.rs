@@ -1754,3 +1754,41 @@ async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_starts_and_resumes_with_the_person_s_arguments() {
+    let app = linked().await;
+    app.state
+        .settings()
+        .change(&json!({"agents": {"args": {"claude-code": "--model opus --append-system-prompt 'Be brief'"}}}))
+        .unwrap();
+    let given = "--model\nopus\n--append-system-prompt\nBe brief\n";
+
+    // a session that ran and stopped, started with them
+    let here = folder(&app, "args");
+    std::fs::write(std::path::Path::new(&here).join("exit"), "0").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": here})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let argv_started = argv(&here).await;
+    assert!(argv_started.contains(given), "{argv_started}");
+    run_becomes(&app, started["run"]["id"].as_str().unwrap(), |r| {
+        r["state"] == "ended"
+    })
+    .await;
+    std::fs::remove_file(std::path::Path::new(&here).join("exit")).unwrap();
+    std::fs::remove_file(std::path::Path::new(&here).join("argv")).unwrap();
+
+    // resumed with them
+    let session = started["session"]["id"].as_str().unwrap();
+    let (status, answer) = resume(&app, "claude-code", session).await;
+    assert_eq!(status, StatusCode::CREATED, "{answer}");
+    let resumed = argv(&here).await;
+    assert!(resumed.contains("--resume\n"), "{resumed}");
+    assert!(resumed.ends_with(given), "{resumed}");
+}

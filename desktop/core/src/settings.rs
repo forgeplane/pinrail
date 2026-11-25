@@ -19,6 +19,9 @@ pub const PLUGINS: &str = "/plugins";
 /// open without asking, and the source it was installed from when they
 /// were allowed. The app writes it; a plugin's view cannot.
 pub const LINKS: &str = "/links";
+/// The arguments the person gives each agent for every start and resume,
+/// its id to a line split as a shell splits it.
+pub const AGENT_ARGS: &str = "/agents/args";
 
 /// A key as one part of a JSON pointer, its `~` and `/` escaped. A
 /// plugin's name holds neither, but a key someone wrote by hand might.

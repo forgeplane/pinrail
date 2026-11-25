@@ -131,6 +131,11 @@ impl Agent for Antigravity {
         resumable_id(session).then(|| vec!["agy".to_string(), format!("--conversation={session}")])
     }
 
+    /// The flags Pinrail sets to name, resume or prompt the session.
+    fn own_flags(&self) -> &'static [&'static str] {
+        &["--conversation", "--prompt-interactive"]
+    }
+
     /// A bracketed paste and Enter, which agy takes as one prompt with its
     /// line breaks; the turn's first `PreInvocation` carries it.
     fn submit(&self) -> Option<SubmitPlan> {

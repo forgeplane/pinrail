@@ -30,8 +30,12 @@ pub struct Start {
     pub folder: String,
     /// The first task, typed in as the agent's first prompt.
     pub task: Option<String>,
-    /// Extra arguments for the agent.
+    /// Extra arguments for this start, which may not turn the agent's
+    /// permission checks off.
     pub args: Vec<String>,
+    /// The arguments the person gave the agent in its settings, for every
+    /// start: their own choice, permission checks included.
+    pub agent_args: Vec<String>,
     pub cols: u16,
     pub rows: u16,
     /// `app` or `cli`.
@@ -54,6 +58,8 @@ pub struct Resume {
     /// The folder to resume in, chosen by the person when the session's
     /// own is gone; the session's folder from then on.
     pub folder: Option<String>,
+    /// The arguments the person gave the agent in its settings.
+    pub agent_args: Vec<String>,
 }
 
 /// How soon after it began a resumed agent that exits with an error is
@@ -207,6 +213,21 @@ impl super::Runtime {
                 format!("Pinrail does not start agents with permission checks turned off ({arg})."),
             ));
         }
+        if let Some(arg) = pinrail_runtime::reserved_arg(agent, &start.args)
+            .or_else(|| pinrail_runtime::reserved_arg(agent, &start.agent_args))
+        {
+            return Err(RunError::invalid(
+                "args",
+                format!("Pinrail sets {arg} itself to name or resume the session."),
+            ));
+        }
+        // the agent's own arguments first, then this start's
+        let args: Vec<String> = start
+            .agent_args
+            .iter()
+            .chain(&start.args)
+            .cloned()
+            .collect();
         if start.folder.trim().is_empty() {
             return Err(RunError::invalid("folder", "name the folder to start in"));
         }
@@ -215,7 +236,7 @@ impl super::Runtime {
         let plan = agent
             .start(&pinrail_runtime::StartRequest {
                 task: start.task.as_deref(),
-                extra_args: &start.args,
+                extra_args: &args,
                 session_id: &session_id,
             })
             .ok_or_else(|| {
@@ -238,7 +259,7 @@ impl super::Runtime {
                 folder: &start.folder,
                 argv: &argv,
                 task: start.task.as_deref(),
-                args: &start.args,
+                args: &args,
                 created_by: &start.created_by,
                 token_digest: &super::digest(&token),
                 session: Some(&session),
@@ -330,7 +351,9 @@ impl super::Runtime {
                 "Pinrail does not know the agent's own id for this session.".into(),
             )
         })?;
-        let argv = agent.resume(&agent_session).ok_or_else(cannot)?;
+        let argv = agent
+            .resume_with(&agent_session, &resume.agent_args)
+            .ok_or_else(cannot)?;
         let argv = self.with_session_files(agent, argv);
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         // an agent of this session that a lost host left running answers it
