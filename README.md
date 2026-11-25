@@ -4,38 +4,43 @@
 [Documentation](https://pinrail.dev/docs/) ·
 [Plugins](https://github.com/forgeplane/pinrail-plugins)
 
-Pinrail is a desktop app where your coding agents ask you before they act.
-You review what an agent proposes in a view made for it, and the agent
-carries on with your decision.
+Pinrail is a desktop app for working with coding agents. It runs them,
+tracks their work items, and brings everything that needs you, such as
+questions, permissions and reviews, into one inbox.
 
 ![Pinrail with a code review open: the agent's findings on the diff, one accepted with a note to the agent and one rejected with a reason, and the other waiting reviews in the sidebar](.github/assets/review.png)
 
-Pinrail works with any agent that can run a command, such as Claude Code,
-Codex, Cursor or OpenCode. It runs on macOS and Linux, and Windows support
-is coming. Pinrail is in early development, so expect rough edges and
-changes between releases.
+Pinrail works with any agent that can run a command. It also starts and
+resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and
+Antigravity CLI, and shows their status. It runs on macOS and Linux, and
+Windows support is coming. Pinrail is in early development, so expect rough
+edges and changes between releases.
 
-## Why
+## What it does
 
-Agents are good at doing the work, but some steps need a person: a comment
-posted under your name, an email to a customer, a change to production.
-Approving those steps in a chat means reading a wall of text and typing your
-answer back. Pinrail gives each of these moments a proper review:
-
-- **The agent decides when to ask.** Its instructions name the steps that
-  need you, so it asks at those steps and nowhere else.
-- **Each review has a view made for its content.** A code review shows the
-  diff with the agent's findings on it. A set of generated images shows the
-  images, and you draw a box on the part that should change.
-- **Your decision is structured.** The agent gets back what you accepted,
-  what you rejected and your notes, as Markdown it can act on or JSON for a
-  script.
-- **Everything you review stays on your machine.** The app serves its API
-  on loopback only, and keeps your reviews and decisions locally. It sends
+- **It runs your agents.** Start an agent from Pinrail, watch its terminal
+  and type into it, send the agent messages, and stop and resume it. An
+  agent keeps running when you quit the app, unless you choose to stop it.
+- **It shows what each agent is doing.** Each session shows whether its
+  agent is working, needs you or has finished its turn, with a thread of
+  the agent's questions, reviews, statuses and notes.
+- **It tracks the work.** You and your agents share work items, which have
+  sub-items and dependencies. An agent takes the next item that is ready,
+  and you can start an agent on an item from the item's panel.
+- **It brings what needs you into one inbox.** Questions, reviews and agents
+  that wait for a permission or an answer come first. The updates from your
+  agents follow.
+- **It shows each review in a view made for the work.** A code review shows
+  the diff with the agent's findings on it. A set of generated images shows
+  the images, and you draw a box on the part that should change. The agent
+  gets back what you accepted, what you rejected and your notes, as
+  Markdown it can act on or JSON for a script.
+- **It keeps your data on your machine.** The app serves its API on loopback
+  only, and keeps your sessions, work items and reviews locally. It sends
   anonymous [usage data and crash reports](https://pinrail.dev/docs/using/privacy/),
   which you can turn off.
 
-## How it works
+## How a review works
 
 ```mermaid
 sequenceDiagram

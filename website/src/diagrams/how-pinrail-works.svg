@@ -1,0 +1,45 @@
+<!-- You, Pinrail and your agents, for a page wide enough to set them side by
+     side. The classes are styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 250" width="600" height="250">
+  <rect class="you" x="1" y="85" width="84" height="80" rx="12" />
+  <text class="title you-text" x="43" y="130" text-anchor="middle">You</text>
+
+  <rect class="panel" x="209" y="10" width="184" height="230" rx="14" />
+  <text class="kicker" x="222" y="33">PINRAIL</text>
+  <rect class="card" x="217" y="46" width="168" height="56" rx="9" />
+  <text class="name" x="230" y="69">Inbox</text>
+  <text class="dim" x="230" y="87">what waits on you first</text>
+  <rect class="card" x="217" y="110" width="168" height="56" rx="9" />
+  <text class="name" x="230" y="133">Sessions</text>
+  <text class="dim" x="230" y="151">what each agent is doing</text>
+  <rect class="card" x="217" y="174" width="168" height="56" rx="9" />
+  <text class="name" x="230" y="197">Work items</text>
+  <text class="dim" x="230" y="215">tasks shared with agents</text>
+
+  <rect class="box" x="515" y="85" width="84" height="80" rx="12" />
+  <text class="title" x="557" y="115" text-anchor="middle">Agents</text>
+  <text class="dim" x="557" y="134" text-anchor="middle">Claude Code,</text>
+  <text class="dim" x="557" y="149" text-anchor="middle">Codex, others</text>
+
+  <text class="label" x="147" y="80" text-anchor="middle">start, message,</text>
+  <text class="label" x="147" y="97" text-anchor="middle">decide</text>
+  <path class="flow" d="M93 108H196" />
+  <path class="head" d="M203 108l-9-4.5v9z" />
+
+  <path class="flow needs" d="M201 142H98" />
+  <path class="head needs" d="M91 142l9-4.5v9z" />
+  <text class="label needs-text" x="147" y="163" text-anchor="middle">what needs you</text>
+  <text class="dim" x="147" y="180" text-anchor="middle">questions, reviews,</text>
+  <text class="dim" x="147" y="195" text-anchor="middle">permissions</text>
+
+  <text class="label" x="454" y="80" text-anchor="middle">runs in</text>
+  <text class="label" x="454" y="97" text-anchor="middle">its terminal</text>
+  <path class="flow" d="M401 108H502" />
+  <path class="head" d="M509 108l-9-4.5v9z" />
+
+  <path class="flow" d="M507 142H406" />
+  <path class="head" d="M399 142l9-4.5v9z" />
+  <text class="label" x="454" y="163" text-anchor="middle">report and ask</text>
+  <text class="dim" x="454" y="180" text-anchor="middle">hooks and the</text>
+  <text class="dim" x="454" y="195" text-anchor="middle"><tspan class="mono">pinrail</tspan> command</text>
+</svg>

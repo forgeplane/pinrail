@@ -7,6 +7,7 @@ import starlightLinksValidator from "starlight-links-validator";
 import tailwindcss from "@tailwindcss/vite";
 import { unified } from "@astrojs/markdown-remark";
 import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
+import remarkDiagram from "./src/plugins/remark-diagram.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkVideo from "./src/plugins/remark-video.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
@@ -34,8 +35,9 @@ export default defineConfig({
       },
     },
   },
-  // unified, so the docs' ```mermaid blocks become diagrams, screenshot:
-  // images the app in the reader's theme, and contract: images a plugin's
+  // unified, so the docs' ```mermaid blocks become diagrams, diagram: images
+  // the drawings in src/diagrams, screenshot: images the app in the reader's
+  // theme, and contract: images a plugin's
   // manifest and schemas; Starlight adds its
   // own plugins (asides, heading links) to the same processor
   markdown: {
@@ -43,6 +45,7 @@ export default defineConfig({
       remarkPlugins: [
         remarkPageSlug,
         remarkMermaid,
+        remarkDiagram,
         remarkScreenshots,
         remarkVideo,
         remarkKbd,
@@ -57,7 +60,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Pinrail",
-      description: "The inbox where your agents ask before they act.",
+      description: "A desktop app for working with coding agents.",
       // a link to a page or heading that does not exist fails the build, in
       // the docs and in blog posts; the landing and download pages and the
       // blog's posts are the site's own pages, which it cannot see into, and
@@ -134,6 +137,7 @@ export default defineConfig({
         {
           label: "Concepts",
           items: [
+            "docs/concepts/overview",
             "docs/concepts/reviews",
             "docs/concepts/sessions",
             "docs/concepts/work-items",

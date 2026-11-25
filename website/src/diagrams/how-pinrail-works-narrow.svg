@@ -1,0 +1,40 @@
+<!-- You, Pinrail and your agents, from top to bottom, for a page too narrow
+     to set them side by side. The classes are styled in src/styles/docs.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 556" width="340" height="556">
+  <rect class="you" x="1" y="1" width="338" height="52" rx="12" />
+  <text class="title you-text" x="170" y="33" text-anchor="middle">You</text>
+
+  <path class="flow" d="M24 61V139" />
+  <path class="head" d="M24 146l-4.5-9h9z" />
+  <text class="label" x="40" y="86">start, message, decide</text>
+
+  <path class="flow needs" d="M316 145V67" />
+  <path class="head needs" d="M316 60l-4.5 9h9z" />
+  <text class="label needs-text" x="300" y="116" text-anchor="end">what needs you</text>
+  <text class="dim" x="300" y="133" text-anchor="end">questions, reviews, permissions</text>
+
+  <rect class="panel" x="1" y="153" width="338" height="232" rx="14" />
+  <text class="kicker" x="15" y="176">PINRAIL</text>
+  <rect class="card" x="11" y="189" width="318" height="56" rx="9" />
+  <text class="name" x="25" y="212">Inbox</text>
+  <text class="dim" x="25" y="230">what waits on you first</text>
+  <rect class="card" x="11" y="253" width="318" height="56" rx="9" />
+  <text class="name" x="25" y="276">Sessions</text>
+  <text class="dim" x="25" y="294">what each agent is doing</text>
+  <rect class="card" x="11" y="317" width="318" height="56" rx="9" />
+  <text class="name" x="25" y="340">Work items</text>
+  <text class="dim" x="25" y="358">tasks shared with agents</text>
+
+  <path class="flow" d="M24 393V471" />
+  <path class="head" d="M24 478l-4.5-9h9z" />
+  <text class="label" x="40" y="418">runs in its terminal</text>
+
+  <path class="flow" d="M316 477V399" />
+  <path class="head" d="M316 392l-4.5 9h9z" />
+  <text class="label" x="300" y="448" text-anchor="end">report and ask</text>
+  <text class="dim" x="300" y="465" text-anchor="end">through hooks and the <tspan class="mono">pinrail</tspan> command</text>
+
+  <rect class="box" x="1" y="485" width="338" height="70" rx="12" />
+  <text class="title" x="170" y="515" text-anchor="middle">Agents</text>
+  <text class="dim" x="170" y="535" text-anchor="middle">Claude Code, Codex and others</text>
+</svg>

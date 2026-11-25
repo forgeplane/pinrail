@@ -288,6 +288,125 @@ starlight-toc a[aria-current="true"] {
   color: var(--sl-color-accent-high) !important;
 }
 
+/* A hand-drawn diagram (remark-diagram.mjs): one drawing in the page, which
+   takes the theme's colours and the site's fonts from here. The rules name
+   the drawing, not its figure, so that they hold when it opens full size. */
+.pr-diagram {
+  container-type: inline-size;
+}
+.pr-diagram-svg {
+  --pr-diagram-paper: #23201c;
+  --pr-diagram-panel: #1c1a17;
+  display: block;
+  font-family: var(--sl-font);
+}
+:root[data-theme="light"] .pr-diagram-svg {
+  --pr-diagram-paper: #fffdf8;
+  --pr-diagram-panel: #f2ece1;
+}
+.pr-diagram-narrow {
+  max-width: 340px;
+}
+/* side by side where the page has the width, from top to bottom elsewhere */
+.pr-diagram-fits .pr-diagram-narrow {
+  display: none;
+}
+@container (max-width: 560px) {
+  .pr-diagram-fits .pr-diagram-wide {
+    display: none;
+  }
+  .pr-diagram-fits .pr-diagram-narrow {
+    display: block;
+  }
+}
+.pr-diagram-svg text {
+  fill: var(--sl-color-white);
+}
+.pr-diagram-svg .title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.pr-diagram-svg .name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.pr-diagram-svg .label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.pr-diagram-svg .dim {
+  font-size: 11.5px;
+  fill: var(--sl-color-gray-3);
+}
+.pr-diagram-svg .mono {
+  font-family: var(--sl-font-mono);
+  font-size: 0.94em;
+}
+.pr-diagram-svg .kicker {
+  font: 600 10.5px var(--sl-font-mono);
+  letter-spacing: 0.14em;
+  fill: var(--sl-color-gray-3);
+}
+.pr-diagram-svg .panel {
+  fill: var(--pr-diagram-panel);
+  stroke: var(--sl-color-gray-5);
+}
+.pr-diagram-svg .card,
+.pr-diagram-svg .box {
+  fill: var(--pr-diagram-paper);
+  stroke: var(--sl-color-gray-5);
+}
+.pr-diagram-svg .flow {
+  fill: none;
+  stroke: var(--sl-color-gray-4);
+  stroke-width: 1.5;
+}
+.pr-diagram-svg .head {
+  fill: var(--sl-color-gray-4);
+}
+/* the person, and what comes to them, in the red pen */
+.pr-diagram-svg .you {
+  fill: var(--sl-color-accent-low);
+  stroke: var(--sl-color-accent);
+}
+.pr-diagram-svg .you-text,
+.pr-diagram-svg .needs-text {
+  fill: var(--sl-color-accent-high);
+}
+.pr-diagram-svg .flow.needs {
+  stroke: var(--sl-color-accent);
+}
+.pr-diagram-svg .head.needs {
+  fill: var(--sl-color-accent);
+}
+/* the button that opens it full size, for the keyboard as for the pointer */
+.pr-diagram-open {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.7);
+  color: #fff;
+  font: 600 0.72rem var(--sl-font);
+  cursor: zoom-in;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+.pr-mermaid-canvas:hover .pr-diagram-open,
+.pr-diagram-open:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+.pr-diagram-open:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+
 /* file trees and steps, in the site's inks */
 starlight-file-tree {
   border-radius: 12px;
