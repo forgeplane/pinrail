@@ -715,7 +715,7 @@ impl Db {
 
 /// Every round of the reviews with a starred round: the starred rounds,
 /// and the rounds before and after them, along the `revises` links.
-const STARRED_ROUNDS: &str = "WITH RECURSIVE chain(id) AS (
+pub(super) const STARRED_ROUNDS: &str = "WITH RECURSIVE chain(id) AS (
       SELECT id FROM reviews WHERE starred_at IS NOT NULL
       UNION SELECT n.id FROM reviews n JOIN chain ON n.revises = chain.id
       UNION SELECT p.revises FROM reviews p JOIN chain ON p.id = chain.id WHERE p.revises IS NOT NULL

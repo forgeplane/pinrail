@@ -213,6 +213,14 @@ describe("the inbox", () => {
     expect(upTo).toBe(40);
   });
 
+  test("the Starred filter is the core's to apply, in the list and in Mark all as read", async () => {
+    await open([update(1, "Load themes"), waitingReview(2, "Rate limiter")], "/?starred=1");
+    await expect.poll(() => lastQuery()).toMatchObject({ starred: true });
+    await page.getByRole("button", { name: "Mark all as read" }).click();
+    const [filters] = core.calls("readNotifications").at(-1)!;
+    expect(filters).toMatchObject({ starred: true });
+  });
+
   test("U, E and Shift-U act on the focused notification", async () => {
     await open([update(1, "Load themes")]);
     await row("Load themes").hover();

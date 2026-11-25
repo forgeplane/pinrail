@@ -425,6 +425,45 @@ async fn done_notifications_are_listed_on_request() {
 }
 
 #[tokio::test]
+async fn the_starred_filter_keeps_starred_reviews_in_the_list_and_in_reading_all() {
+    let app = app();
+    mixed(&app).await;
+    let all = list(&app, "?kind=review").await;
+    let review = all["notifications"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["repo"] == "acme/api")
+        .unwrap()["subject"]["review"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (code, _) = call(&app, "PUT", &format!("/api/v1/reviews/{review}/star"), None).await;
+    assert!(code.is_success());
+
+    assert_eq!(
+        kept(&app, "?starred=1").await,
+        ["review review_requested acme/api"]
+    );
+    let shown = list(&app, "?starred=1").await;
+    assert_eq!(shown["total"], 1, "{shown}");
+    let (code, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/notifications/read",
+        Some(json!({"starred": true, "up_to": shown["up_to"]})),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{answer}");
+    // starring it read it already, and nothing else is starred
+    assert_eq!(answer["read"], 0);
+    let items = list(&app, "?kind=item").await;
+    for n in items["notifications"].as_array().unwrap() {
+        assert!(n["unread"].as_i64().unwrap() > 0, "{n}");
+    }
+}
+
+#[tokio::test]
 async fn reading_all_of_two_kinds_leaves_the_other_kinds_unread() {
     let app = app();
     mixed(&app).await;

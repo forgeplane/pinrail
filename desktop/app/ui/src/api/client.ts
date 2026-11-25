@@ -160,6 +160,8 @@ export type NotificationQuery = {
   plugin?: string[];
   q?: string;
   done?: boolean;
+  /** only the reviews with a starred round */
+  starred?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -172,6 +174,7 @@ const notificationFilters = (f: NotificationQuery): Record<string, string | unde
   plugin: f.plugin?.length ? f.plugin.join(",") : undefined,
   q: f.q || undefined,
   done: f.done ? "true" : undefined,
+  starred: f.starred ? "true" : undefined,
 });
 
 export const api = {

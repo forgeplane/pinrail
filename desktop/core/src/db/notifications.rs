@@ -78,6 +78,8 @@ pub struct NotificationFilters {
     pub q: Option<String>,
     /// the notifications marked done too
     pub done: bool,
+    /// only the reviews with a starred round
+    pub starred: bool,
 }
 
 /// The subject kinds a `kind` filter takes beside the reasons.
@@ -124,6 +126,12 @@ impl NotificationFilters {
                 });
             }
             wheres.push(format!("({})", any.join(" OR ")));
+        }
+        if self.starred {
+            wheres.push(format!(
+                "n.review_id IN ({})",
+                super::reviews::STARRED_ROUNDS
+            ));
         }
         if !self.plugins.is_empty() {
             let list: Vec<String> = self.plugins.iter().map(|p| arg(p, &mut args)).collect();

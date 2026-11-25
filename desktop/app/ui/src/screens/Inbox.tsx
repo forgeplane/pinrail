@@ -144,6 +144,7 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
     plugin: list("plugin"),
     q: query.trim() || undefined,
     done: params.get("done") === "1",
+    starred,
   };
   // All: what waits, whole, above a page of the updates; the other tabs: a
   // page of their own list
@@ -152,13 +153,8 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const paged = useNotifications({ ...filters, tab: pagedTab, limit: size, offset: (page - 1) * size });
   const counts: InboxCounts | undefined = paged?.counts;
 
-  // a starred review is the one filter the core does not apply
-  const keep = useCallback(
-    (n: Notification) => !starred || (n.subject.kind === "review" && !!n.subject.review.starred),
-    [starred],
-  );
-  const waitingRows = useMemo(() => (waiting?.notifications ?? []).filter(keep), [waiting, keep]);
-  const pagedRows = useMemo(() => (paged?.notifications ?? []).filter(keep), [paged, keep]);
+  const waitingRows = useMemo(() => waiting?.notifications ?? [], [waiting]);
+  const pagedRows = useMemo(() => paged?.notifications ?? [], [paged]);
   const rows = useMemo(() => [...waitingRows, ...pagedRows], [waitingRows, pagedRows]);
   const upTo = Math.max(waiting?.up_to ?? 0, paged?.up_to ?? 0);
 

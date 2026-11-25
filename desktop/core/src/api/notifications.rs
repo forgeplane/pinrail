@@ -79,7 +79,7 @@ async fn list(
 
 /// The tab and the filters of a list, from the query or the body: `tab`,
 /// `kind`, `scope` and `plugin`, each of the last three a comma-separated
-/// list of alternatives, `q`, and `done`.
+/// list of alternatives, `q`, `done`, and `starred`.
 fn filters(get: impl Fn(&str) -> Option<String>) -> Result<NotificationFilters, Error> {
     let list = |name: &str| -> Vec<String> {
         get(name)
@@ -110,6 +110,7 @@ fn filters(get: impl Fn(&str) -> Option<String>) -> Result<NotificationFilters, 
         plugins: list("plugin"),
         q: get("q").filter(|q| !q.trim().is_empty()),
         done: get("done").is_some_and(|v| v == "true" || v == "1"),
+        starred: get("starred").is_some_and(|v| v == "true" || v == "1"),
     })
 }
 
