@@ -171,7 +171,6 @@ for (const inPanel of [false, true])
  *  live run of Pinrail's in it, so that the thread shows them as an agent
  *  Pinrail runs has them. */
 async function hosted(page: Page, session: string, messages: Record<string, unknown>[]) {
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
   // the app names the session by Pinrail's id
   const id = await sessionId(page.request, "claude-code", session);
   await page.route(new RegExp(`/api/v1/sessions/claude-code/${id}$`), async (route) => {
@@ -216,7 +215,6 @@ async function hosted(page: Page, session: string, messages: Record<string, unkn
 test.describe("an agent Pinrail runs", () => {
   test.afterEach(async ({ page }) => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
-    await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
   });
 
   test("the box says the message goes to the agent's terminal", async ({ page }) => {

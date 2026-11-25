@@ -11,7 +11,6 @@ import { useAttach } from "../lib/attach";
 import { countFeature } from "../lib/usage";
 import type { WorkItem } from "../api/types";
 import { ALT, MOD, SHIFT, composing } from "../lib/keys";
-import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { useItemPicker } from "./ItemPicker";
 import { AgentIcon } from "./AgentIcon";
@@ -75,8 +74,7 @@ export function QuickAddBox({
     field.current?.focus();
   }, []);
 
-  const { settings } = useSettings();
-  const agent = useAgentStart(repo, settings.labs.runtime);
+  const agent = useAgentStart(repo);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const startMore = useRef<HTMLButtonElement>(null);
 

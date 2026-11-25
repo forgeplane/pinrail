@@ -138,8 +138,6 @@ export type Settings = {
   /** anonymous usage data and crash reports, and when the notice about
    *  them was shown; nothing is recorded before it was */
   telemetry: { usage: boolean; crashes: boolean; notice_shown: string | null };
-  /** features still being built, off until turned on */
-  labs: { runtime: boolean };
   /** the agent runtime: the renderers the window tries for a terminal, in
    *  order, where `auto` is the app's own order */
   runtime: {
@@ -181,7 +179,6 @@ type Patch = {
   welcome?: Partial<Settings["welcome"]>;
   whats_new?: Partial<Settings["whats_new"]>;
   telemetry?: Partial<Settings["telemetry"]>;
-  labs?: Partial<Settings["labs"]>;
   runtime?: {
     terminal?: Partial<Settings["runtime"]["terminal"]>;
     default_view?: Settings["runtime"]["default_view"];
@@ -232,7 +229,6 @@ type Served = Pick<
   | "welcome"
   | "whats_new"
   | "telemetry"
-  | "labs"
   | "runtime"
 >;
 /** The sidebar's sessions as they are listed until the person changes it. */
@@ -293,7 +289,6 @@ export const fromServer = (s: ServerSettings): Served => ({
     crashes: s.telemetry?.crashes ?? true,
     notice_shown: s.telemetry?.notice_shown ?? null,
   },
-  labs: { runtime: s.labs?.runtime ?? false },
   runtime: {
     terminal: {
       renderer: s.runtime?.terminal?.renderer ?? ["auto"],
@@ -366,7 +361,6 @@ export function mergeSettings(base: Served, patch: Patch): Served {
     welcome: { ...base.welcome, ...patch.welcome },
     whats_new: { ...base.whats_new, ...patch.whats_new },
     telemetry: { ...base.telemetry, ...patch.telemetry },
-    labs: { ...base.labs, ...patch.labs },
     runtime: {
       ...base.runtime,
       ...patch.runtime,
@@ -396,7 +390,6 @@ export function patchBody(patch: Patch): Record<string, unknown> {
   if (patch.welcome) body.welcome = patch.welcome;
   if (patch.whats_new) body.whats_new = patch.whats_new;
   if (patch.telemetry) body.telemetry = patch.telemetry;
-  if (patch.labs) body.labs = patch.labs;
   if (patch.runtime) body.runtime = patch.runtime;
   return body;
 }
@@ -447,7 +440,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     welcome: { seen: false },
     whats_new: { seen: null },
     telemetry: { usage: true, crashes: true, notice_shown: null },
-    labs: { runtime: false },
     runtime: {
       terminal: { renderer: ["auto"], option_as_meta: "off", screen_reader: false, clipboard_write: true },
       default_view: "last",

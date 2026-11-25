@@ -34,10 +34,6 @@ async fn served() -> Served {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
     });
     runtime::watch(app.state.clone());
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while app.state.runtime().status()["state"] != "ready" {
         assert!(

@@ -9,12 +9,8 @@ import { core, sessionId, settingsDialog, settingsSection } from "../helpers";
 let n = 0;
 const fresh = () => `s-term-${Date.now()}-${++n}`;
 
-test.beforeEach(async ({ page }) => {
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
-});
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
 });
 
 /** A session with a live run, and what its program receives. */

@@ -4,14 +4,9 @@
 // for.
 
 import { expect, test, type Page } from "../fixtures";
-import { core } from "../helpers";
 
-test.beforeEach(async ({ page }) => {
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
-});
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
 });
 
 function stopped(id: string, session: string, title: string | null, agentSession: string | null = `agent-${session}`) {

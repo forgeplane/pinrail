@@ -280,9 +280,7 @@ export function ItemPanel({
             Claim
           </button>
         ) : null}
-        {settings.labs.runtime && item.status !== "done" && item.status !== "cancelled" ? (
-          <ItemQuickStart item={item} />
-        ) : null}
+        {item.status !== "done" && item.status !== "cancelled" ? <ItemQuickStart item={item} /> : null}
         <Select
           id="item-repo"
           searchable

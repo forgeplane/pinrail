@@ -120,9 +120,9 @@ export default async function globalSetup(config: FullConfig) {
             env: {
               ...process.env,
               PINRAIL_SHELL_ORIGIN: shellOrigin,
-              // a terminal host that is never there: a spec that turns the
-              // agent runtime on must not start a real host, which would
-              // outlive it
+              // a terminal host that is never there: the core links to its
+              // host as it starts, and must not start a real one, which
+              // would outlive the specs
               PINRAIL_HOST_SOCKET: path.join(data, "no-host.sock"),
               PINRAIL_HOST_SECRET: "none",
             },

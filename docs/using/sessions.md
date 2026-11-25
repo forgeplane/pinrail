@@ -65,7 +65,7 @@ The **Sessions** page, in the sidebar, lists every session that asked you someth
 
 To archive a session you are done with, click the archive button at the end of its row, or press <kbd>E</kbd> on the focused row. You can also archive the open session with the button in its header, or with <kbd>E</kbd>. An archived session leaves the Sessions page and the sidebar, but nothing it sent is deleted: its questions and reviews stay in the inbox while they wait, and its thread still opens from a review's header and from the command palette. When Pinrail runs the session's agent, archiving the session stops the agent. You can resume the session later. Turn on *Show archived* in the **Filter** menu to list the archived sessions with the others, and unarchive one with its button or <kbd>E</kbd>. When an archived session's agent sends a question, a review or a status, the session comes back by itself.
 
-To resume a stopped session in Pinrail, click **Resume** in its header. This needs **Run agents in Pinrail**, in Settings › Labs. If the session's folder was moved or deleted, Pinrail says so and offers **Choose another folder…**. The session then resumes in the folder you choose, which becomes its folder from then on.
+To resume a stopped session in Pinrail, click **Resume** in its header. If the session's folder was moved or deleted, Pinrail says so and offers **Choose another folder…**. The session then resumes in the folder you choose, which becomes its folder from then on.
 
 ## Going to a session
 

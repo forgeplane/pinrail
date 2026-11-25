@@ -120,7 +120,8 @@ test("the page follows the session's run to the new session it goes on in, witho
       previous: { agent: "claude-code", id: "ses_01ABC" },
     },
   });
-  await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/claude-code/ses_02DEF?view=summary");
+  // in the view it was in: the terminal the run went on in
+  await expect.element(page.getByTestId("where")).toHaveTextContent("/sessions/claude-code/ses_02DEF?view=terminal");
   await expect.element(heading).toHaveTextContent("Fix the logout");
   expect(page.getByTestId("thread").element()).toBe(before);
 });

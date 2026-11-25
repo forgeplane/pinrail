@@ -173,7 +173,7 @@ pub async fn serve(
 ) -> std::io::Result<()> {
     let state = ApiState::new(app);
     let listener = tokio::net::TcpListener::from_std(listener)?;
-    // the link to the terminal host, while /labs/runtime is on
+    // the link to the terminal host
     crate::runtime::watch(state.app.clone());
     server_info::write(state.app.config(), state.started_at)?;
     // a first launch counts once the person has seen the notice

@@ -159,7 +159,6 @@ describe("with the agent runtime on", () => {
       notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
       shortcut: { global: "", global_opens: "oldest" },
       port: 4747,
-      labs: { runtime: true },
     } as unknown as ServerSettings);
     app.runs = [live("s-2")];
     await menu("/", {

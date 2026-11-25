@@ -31,10 +31,6 @@ async fn linked_as(names: &[&str]) -> App {
     // the host's folder lives as long as the test
     std::mem::forget(hosts);
     runtime::watch(app.state.clone());
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     while app.state.runtime().status()["state"] != "ready" {
         assert!(Instant::now() < deadline, "the host did not connect");
@@ -232,26 +228,6 @@ async fn a_start_that_cannot_happen_answers_with_its_reason() {
          (--dangerously-skip-permissions).",
         "{answer}"
     );
-
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": false}}))
-        .unwrap();
-    // the link closes once the settings event is handled
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while app.state.runtime().status()["state"] == "ready" {
-        assert!(Instant::now() < deadline, "the runtime did not stop");
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    let (status, answer) = call(
-        &app,
-        "POST",
-        "/api/v1/runs",
-        Some(json!({"agent": "claude-code", "folder": folder})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(answer["error"], "host_offline");
 }
 
 /// A report of `event` for the session, from `process`, with the run's
@@ -527,10 +503,6 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
             .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
     });
     runtime::watch(app.state.clone());
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     while app.state.runtime().status()["state"] != "ready" {
         assert!(Instant::now() < deadline, "the host did not connect");
@@ -798,10 +770,6 @@ async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
             .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
     });
     runtime::watch(app.state.clone());
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
     let counted = || {
         std::fs::read_to_string(&checks)
             .map(|t| t.lines().count())
@@ -1791,4 +1759,23 @@ async fn an_agent_starts_and_resumes_with_the_person_s_arguments() {
     let resumed = argv(&here).await;
     assert!(resumed.contains("--resume\n"), "{resumed}");
     assert!(resumed.ends_with(given), "{resumed}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_start_while_the_host_cannot_be_reached_says_so() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = common::app_with(|config| {
+        config.host_socket = Some((dir.path().join("no-host.sock"), "secret".into()));
+    });
+    runtime::watch(app.state.clone());
+    let here = folder(&app, "offline");
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": here})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{answer}");
+    assert_eq!(answer["error"], "host_offline");
 }

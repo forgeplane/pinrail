@@ -118,7 +118,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const { settings: prefs, themes, update } = useSettings();
   // ⌘N opens the New session page, while the agent runtime is on; a run
   // to edit and start again asks for it with an event, with what it opens with
-  const runtimeOn = prefs.labs.runtime;
   useEffect(() => {
     const open = (event: Event) =>
       navigate(NEW_SESSION_PATH, { state: { start: (event as CustomEvent<NewSessionInitial | undefined>).detail } });
@@ -232,7 +231,7 @@ export function Layout({ children }: { children: ReactNode }) {
       if (!modalOpen()) startQuickAdd();
     },
     "start-agent": () => {
-      if (runtimeOn && !modalOpen()) navigate(NEW_SESSION_PATH);
+      if (!modalOpen()) navigate(NEW_SESSION_PATH);
     },
     settings: () => setSettings((s) => (s ? null : "general")),
     "toggle-theme": () => void toggleTheme(),
@@ -265,7 +264,7 @@ export function Layout({ children }: { children: ReactNode }) {
     fromCommand("go-history", History),
     fromCommand("go-items", ListChecks),
     { ...fromCommand("add-item", ListPlus), run: startQuickAdd },
-    ...(runtimeOn ? [fromCommand("start-agent", SquarePen)] : []),
+    fromCommand("start-agent", SquarePen),
     fromCommand("go-projects", LayoutGrid),
     {
       id: "new-project",
@@ -411,11 +410,7 @@ export function Layout({ children }: { children: ReactNode }) {
           actions={actions}
           opening={palette}
           next={paletteNext}
-          onNewSession={
-            runtimeOn
-              ? (folder) => navigate(NEW_SESSION_PATH, { state: { start: folder ? { folder } : undefined } })
-              : undefined
-          }
+          onNewSession={(folder) => navigate(NEW_SESSION_PATH, { state: { start: folder ? { folder } : undefined } })}
         />
       ) : null}
       {quickAdd ? <QuickAddDialog onClose={() => setQuickAdd(false)} /> : null}

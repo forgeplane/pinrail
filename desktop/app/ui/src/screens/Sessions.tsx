@@ -348,7 +348,7 @@ export function Sessions() {
             />
           </div>
         </header>
-        {prefs.labs.runtime ? <RestartBanner /> : null}
+        <RestartBanner />
         <FilterChips filters={filters} toggles={toggles} onReset={clearFilters} />
         {loadError ? <p className="notice notice-danger">{loadError}</p> : null}
         {!data ? null : total === 0 ? (

@@ -250,27 +250,27 @@ export function Thread({
     movedTo,
     reload: reloadRuns,
     loaded: runsLoaded,
-  } = useSessionRun(onPage ? named : null, prefs.labs.runtime);
+  } = useSessionRun(onPage ? named : null, true);
   const terminal = live?.terminal ?? null;
   // until its runs have loaded, whether it runs in Pinrail is not known: the
   // terminal's place shows that it loads, and nothing offers to open or
   // resume it
-  const runsLoading = onPage && prefs.labs.runtime && !!named && !runsLoaded;
+  const runsLoading = onPage && !!named && !runsLoaded;
   // a stopped session can be resumed in Pinrail, also one that ran outside it
-  const resumable = !runsLoading && onPage && prefs.labs.runtime && canResume(session, runs);
+  const resumable = !runsLoading && onPage && canResume(session, runs);
   // the run went on in another session, as after /clear, and the terminal
   // with it
   const movedOn = !live && movedTo?.session ? movedTo.session : null;
   // one still running in another terminal can be opened here, after a
   // warning, unless what runs is Pinrail's run, which went on elsewhere
-  const openable = !runsLoading && onPage && prefs.labs.runtime && !movedOn && canOpenWhileRunning(session, runs);
+  const openable = !runsLoading && onPage && !movedOn && canOpenWhileRunning(session, runs);
   // without hooks, nothing tells whether it still runs there
   const unsure = openable && !session?.presence;
   const [askingOpen, setAskingOpen] = useState(false);
   // a session Pinrail never ran: its Terminal view says why it has no
   // terminal or Stop here, and offers to open or resume it where it can
   const outside: Outside | null =
-    runsLoading || !onPage || !prefs.labs.runtime || !session || movedOn
+    runsLoading || !onPage || !session || movedOn
       ? null
       : openable
         ? "open"

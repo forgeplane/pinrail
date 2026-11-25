@@ -1,4 +1,4 @@
-//! The core links to the terminal host while `/labs/runtime` is on, and
+//! The core links to the terminal host as its server starts, and
 //! lets it be when it is turned off: the host and its agents keep running.
 //! Through the link it starts agents as runs, ends a run when its agent
 //! exits, and on every connect brings the runs in line with the host's
@@ -33,19 +33,16 @@ async fn status_becomes(app: &Pinrail, state: &str) -> Value {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_core_links_to_the_host_while_the_runtime_is_on() {
+async fn the_core_links_to_the_host_as_it_starts() {
     let dir = tempfile::tempdir().unwrap();
     let registration = host(dir.path());
     let mut config = Config::new(dir.path().join("data"), 0);
     config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
     let app = Arc::new(Pinrail::open(config).unwrap());
-    runtime::watch(app.clone());
-    // off by default
+    // no link before the server starts one
     assert_eq!(app.runtime().status(), json!({"enabled": false}));
 
-    app.settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
+    runtime::watch(app.clone());
     let status = status_becomes(&app, "ready").await;
     assert!(status["instance"].is_string());
     let link = app.runtime().host().unwrap();
@@ -53,20 +50,6 @@ async fn the_core_links_to_the_host_while_the_runtime_is_on() {
         link.call("host.info", json!({})).await.unwrap()["terminals"],
         0
     );
-
-    // turning it off disconnects, and the host keeps running
-    app.settings()
-        .change(&json!({"labs": {"runtime": false}}))
-        .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while app.runtime().status() != json!({"enabled": false}) {
-        assert!(Instant::now() < deadline);
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    let still = tokio::task::spawn_blocking(move || Client::connect(&registration).is_ok())
-        .await
-        .unwrap();
-    assert!(still);
 }
 
 struct Setup {
@@ -97,10 +80,6 @@ impl Setup {
 
     async fn turn_on(&self) {
         runtime::watch(self.app.clone());
-        self.app
-            .settings()
-            .change(&json!({"labs": {"runtime": true}}))
-            .unwrap();
         status_becomes(&self.app, "ready").await;
     }
 

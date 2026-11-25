@@ -127,17 +127,8 @@ describe("the notifications section", () => {
 });
 
 describe("quitting with agents running", () => {
-  test("is chosen in General while agents run in Pinrail", async () => {
+  test("is chosen in General", async () => {
     await open("general");
-    await expect.element(page.getByRole("heading", { name: "General" })).toBeVisible();
-    expect(page.getByRole("radiogroup", { name: "Quitting with agents running" }).query()).toBeNull();
-    cleanup();
-
-    core.reset();
-    const runtime = { ...served, labs: { runtime: true } } as ServerSettings;
-    core.answer("settings", runtime);
-    core.answer("patchSettings", (body: unknown) => ({ ...runtime, ...(body as object) }));
-    await render(<SettingsDialog open section="general" onSection={() => {}} onClose={() => {}} />);
     const choices = page.getByRole("radiogroup", { name: "Quitting with agents running" });
     await expect.element(choices.getByRole("radio", { name: "Ask" })).toBeChecked();
     await choices.getByRole("radio", { name: "Stop them" }).click();

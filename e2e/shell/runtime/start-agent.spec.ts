@@ -9,12 +9,8 @@ import { core, sessionId } from "../helpers";
 let n = 0;
 const fresh = () => `s-start-${Date.now()}-${++n}`;
 
-test.beforeEach(async ({ page }) => {
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
-});
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
 });
 
 const AGENTS = [

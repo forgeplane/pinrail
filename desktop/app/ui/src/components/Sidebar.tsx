@@ -20,7 +20,6 @@ import { NavLink, useLocation } from "react-router";
 import { command } from "../lib/commands";
 import { MOD } from "../lib/keys";
 import { useLive } from "../state/live";
-import { useSettings } from "../state/settings";
 import { NEW_SESSION_PATH } from "./NewSession";
 import type { SettingsSection } from "./settings/SettingsDialog";
 import { SidebarSessions } from "./SidebarSessions";
@@ -106,7 +105,6 @@ export function Sidebar({
   // carries the query that page was last left with
   const { pathname } = useLocation();
   const live = useLive();
-  const { settings } = useSettings();
   return (
     <aside className="app-sidebar" aria-label="Workspace">
       <div
@@ -157,8 +155,8 @@ export function Sidebar({
                   ) : null}
                 </NavLink>
               </Tooltip>
-              {/* a new session, under the sessions, while the agent runtime is on */}
-              {key === "sessions" && settings.labs.runtime ? (
+              {/* a new session, under the sessions */}
+              {key === "sessions" ? (
                 <NavLink to={NEW_SESSION_PATH} className={({ isActive }) => `nav-new ${isActive ? "is-active" : ""}`}>
                   <span className="nav-label">
                     <SquarePen size={15} strokeWidth={1.75} />

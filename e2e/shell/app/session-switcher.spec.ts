@@ -79,7 +79,7 @@ test("⌘P lists the sessions that need you first, and opens on the current one"
   await expect(palette(page).getByRole("tab", { name: "Sessions" })).toHaveAttribute("aria-selected", "true");
   await expect
     .poll(() => titles(page))
-    .toEqual(["Release notes", "Anna short", "Session switcherCurrent", "Earlier · 2 idle or stopped"]);
+    .toEqual(["Release notes", "Anna short", "Session switcherCurrent", "Earlier · 2 idle or stopped", "New session"]);
   const options = palette(page).getByRole("option");
   await expect(options.first()).toContainText("Bash · npm test");
   await expect(options.nth(1)).toContainText("Finished");
@@ -99,6 +99,7 @@ test("⌘P lists the sessions that need you first, and opens on the current one"
       "Earlier · 2 idle or stopped",
       "Setup wizard",
       "Host signing",
+      "New session",
     ]);
 
   // Enter goes to the selected session
@@ -110,19 +111,14 @@ test("⌘P lists the sessions that need you first, and opens on the current one"
   await expect(palette(page)).toHaveCount(0);
 });
 
-test("the Sessions list ends with a New session row while the runtime is on", async ({ page }) => {
-  await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: true } } });
-  try {
-    const { current } = await standIn(page);
-    await page.goto(`/#/sessions/claude-code/${current}`);
-    await page.keyboard.press("ControlOrMeta+p");
-    const row = palette(page).getByRole("option", { name: /New session/ });
-    await expect(row).toBeVisible();
-    await row.click();
-    await expect(page).toHaveURL(/\/sessions\/new$/);
-  } finally {
-    await page.request.patch(`${core}/api/v1/settings`, { data: { labs: { runtime: false } } });
-  }
+test("the Sessions list ends with a New session row", async ({ page }) => {
+  const { current } = await standIn(page);
+  await page.goto(`/#/sessions/claude-code/${current}`);
+  await page.keyboard.press("ControlOrMeta+p");
+  const row = palette(page).getByRole("option", { name: /New session/ });
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page).toHaveURL(/\/sessions\/new$/);
 });
 
 test("⌘K lists the sessions that need you above the pending reviews", async ({ page }) => {

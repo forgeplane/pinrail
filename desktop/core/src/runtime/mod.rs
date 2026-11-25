@@ -1,5 +1,5 @@
 //! The agent runtime in the core: the link to the terminal host, kept while
-//! `/labs/runtime` is on. The host itself runs agents and outlives the app;
+//! the server runs. The host itself runs agents and outlives the app;
 //! the core starts it, or adopts the one already running, and reconnects
 //! when the connection drops. The runs are the agents it starts there.
 
@@ -21,10 +21,8 @@ mod tokens;
 pub use runs::{LOCAL, Reconciled, Resume, RunError, Start, TOKEN_VARIABLE};
 pub use tokens::{Admitted, Mismatch, digest};
 
-/// The setting that turns the runtime on.
-pub const SETTING: &str = "/labs/runtime";
-
-/// The link to the host, when the runtime is on, and the runs it starts.
+/// The link to the host, once the server has started it, and the runs it
+/// starts.
 pub struct Runtime {
     #[cfg(unix)]
     link: Mutex<Option<pinrail_host::link::HostLink>>,
@@ -156,10 +154,10 @@ impl Runtime {
     }
 }
 
-/// Starts the link when the runtime is on, and starts or stops it as the
-/// setting changes. Must be called in a runtime.
+/// Starts the link to the host, and follows the setting that lets the CLI
+/// act as the person. Must be called in a runtime.
 pub fn watch(app: Arc<Pinrail>) {
-    apply(&app);
+    connect(&app);
     cli_control(&app);
     let mut notices = app.events().subscribe();
     tokio::spawn(async move {
@@ -173,9 +171,6 @@ pub fn watch(app: Arc<Pinrail>) {
                     .as_ref()
                     .is_some_and(|keys| keys.iter().any(|k| setting.starts_with(k.as_str())))
             };
-            if changed(SETTING) {
-                apply(&app);
-            }
             if changed(crate::person_token::SETTING) {
                 cli_control(&app);
             }
@@ -196,29 +191,20 @@ fn cli_control(app: &Pinrail) {
     }
 }
 
-/// Starts or stops the link to match the setting. Stopping disconnects;
-/// the host and its agents keep running.
-fn apply(app: &Arc<Pinrail>) {
-    let on = app.settings().value(SETTING).as_bool().unwrap_or(false);
+/// Starts the link to the host, which starts the host or adopts the one
+/// running, and follows it.
+fn connect(app: &Arc<Pinrail>) {
     #[cfg(unix)]
     {
         let mut link = app.runtime().link.lock().unwrap_or_else(|e| e.into_inner());
-        match (on, link.is_some()) {
-            (true, false) => {
-                let started = start(app);
-                tokio::spawn(follow(app.clone(), started.clone()));
-                *link = Some(started);
-            }
-            (false, true) => {
-                if let Some(link) = link.take() {
-                    link.stop();
-                }
-            }
-            _ => {}
+        if link.is_none() {
+            let started = start(app);
+            tokio::spawn(follow(app.clone(), started.clone()));
+            *link = Some(started);
         }
     }
     #[cfg(not(unix))]
-    let _ = on;
+    let _ = app;
 }
 
 #[cfg(unix)]

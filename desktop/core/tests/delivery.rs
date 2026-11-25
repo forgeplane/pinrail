@@ -24,10 +24,6 @@ async fn linked() -> App {
     });
     std::mem::forget(hosts);
     runtime::watch(app.state.clone());
-    app.state
-        .settings()
-        .change(&json!({"labs": {"runtime": true}}))
-        .unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     while app.state.runtime().status()["state"] != "ready" {
         assert!(Instant::now() < deadline, "the host did not connect");

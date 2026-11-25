@@ -13,7 +13,6 @@ import { agentOf } from "./AgentIcon";
 import { copyText } from "../lib/clipboard";
 import { canResume, resumeProblem } from "../lib/resume";
 import { sessionLabel } from "../lib/sessions";
-import { useSettings } from "../state/settings";
 import { useToast } from "../state/toasts";
 import { useToggleArchive } from "./ArchiveButton";
 import { Dialog } from "./Dialog";
@@ -36,8 +35,6 @@ export function SessionMenu({
   /** marks it unread where its thread is shown, which keeps it so while it stays shown */
   markUnread?: (() => void) | null;
 }) {
-  const { settings } = useSettings();
-  const runsOn = settings.labs.runtime;
   const toast = useToast();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -48,7 +45,6 @@ export function SessionMenu({
   // its runs, to offer Stop or Resume, once they have loaded
   const [runs, setRuns] = useState<Run[] | null>(null);
   useEffect(() => {
-    if (!runsOn) return;
     let current = true;
     runtime.runs({ session: `${session.agent}/${session.id}` }).then(
       ({ runs }) => current && setRuns(runs),
@@ -57,7 +53,7 @@ export function SessionMenu({
     return () => {
       current = false;
     };
-  }, [runsOn, session.agent, session.id]);
+  }, [session.agent, session.id]);
   // a run moved to another session, as on /clear, still lists this one
   const here = runs?.filter((r) => r.session?.agent === session.agent && r.session.id === session.id) ?? null;
   const live = here?.find((r) => r.state !== "ended" && r.terminal) ?? null;

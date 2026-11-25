@@ -51,21 +51,20 @@ afterEach(() => {
   app.tauri = false;
 });
 
-/** The settings as the core serves them, with the agent runtime on or off. */
-const served = (runtime: boolean) =>
+/** The settings as the core serves them. */
+const served = () =>
   ({
     appearance: { theme: "system", dark_theme: "dark", light_theme: "light", text_size: "default" },
     sidebar: { open: true },
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: "", global_opens: "oldest" },
     port: 4747,
-    labs: { runtime },
   }) as unknown as ServerSettings;
 
 const added = workItem({ title: "Fix the login", number: 7 });
 
-async function open(runtime = true, repo = "acme/app") {
-  core.answer("settings", served(runtime));
+async function open(repo = "acme/app") {
+  core.answer("settings", served());
   core.answer("addItem", added);
   core.answer("item", itemDetail({ title: "Fix the login", number: 7, body: "The redirect loops." }));
   const onAdded = vi.fn<(item: WorkItem, more: boolean, started: boolean) => void>();
@@ -113,7 +112,7 @@ test("the button's menu changes the agent and the folder of the start", async ()
 
 test("in the app, cancelling the folder picker adds nothing and opens no menu", async () => {
   app.tauri = true;
-  await open(true, "acme/web");
+  await open("acme/web");
   await expect.element(page.getByRole("button", { name: "Add and start Claude Code…" })).toBeVisible();
   await userEvent.keyboard("Fix the login");
   await userEvent.keyboard("{Alt>}{Enter}{/Alt}");
@@ -136,10 +135,4 @@ test("the Add more button adds the item and keeps the box open for another", asy
   await userEvent.click(page.getByRole("button", { name: "Add more" }));
   await expect.poll(() => onAdded.mock.calls[0]).toEqual([added, true, false]);
   expect(app.started).toEqual([]);
-});
-
-test("offers no start while the agent runtime is off", async () => {
-  await open(false);
-  await expect.element(page.getByRole("textbox", { name: "What needs to be done?" })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: /Add and start/ })).not.toBeInTheDocument();
 });
