@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { notesDir, prune } from "./whats-new.mjs";
+import { notesDir, prune, released } from "./whats-new.mjs";
 
 function notes(versions) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "whats-new-"));
@@ -40,4 +40,10 @@ test("notes written for a later release are kept and do not count", () => {
   const n = notes(["0.3.0", "0.4.0", "0.5.0", "0.6.0"]);
   assert.deepEqual(prune(n.root, "0.5.0").length, 0);
   assert.ok(n.left().includes("0.6.0.json"));
+});
+
+test("the notes of the app's version and earlier are released, and later ones are not", () => {
+  const n = notes(["0.5.0", "0.6.0", "0.7.0", "0.10.0"]);
+  assert.deepEqual(released(n.root, "0.6.0").sort(), ["0.5.0", "0.6.0"]);
+  assert.deepEqual(released(n.root, "0.9.0").sort(), ["0.5.0", "0.6.0", "0.7.0"]);
 });

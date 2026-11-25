@@ -19,6 +19,18 @@ const compare = (a, b) => {
 export const notesDir = (root) => path.join(root, "desktop", "app", "ui", "src", "whats-new");
 
 /**
+ * The releases up to `version`, the app's own, that have notes. Their
+ * pictures show the app as it was released, and stay as they are.
+ */
+export function released(root, version) {
+  return fs
+    .readdirSync(notesDir(root))
+    .filter((f) => /^\d+\.\d+\.\d+\.json$/.test(f))
+    .map((f) => f.slice(0, -".json".length))
+    .filter((v) => compare(v, version) <= 0);
+}
+
+/**
  * Removes the notes and pictures of every release but the newest `keep`
  * up to `version`, and returns the paths it removed, relative to `root`.
  * Notes for a release after `version` are left alone.

@@ -15,7 +15,9 @@
 // website/src/assets/screenshots when the scene marks it `site: true`, for
 // the landing pages, where Astro optimizes it, and into
 // desktop/app/ui/src/whats-new/<version>/ as WebP, about a third of the
-// size of the PNG, when a release's What's new card uses it as its image.
+// size of the PNG, when a release's What's new card uses it as its image
+// and the release is still to come: a released one's pictures stay as
+// they were.
 // A shot that none of them uses fails the run. With --out, every shot
 // goes into that folder instead.
 //
@@ -30,6 +32,7 @@ import { chromium } from "@playwright/test";
 import { NOW, root, startApp } from "./app.mjs";
 import { seed } from "./seed.mjs";
 import { scenes } from "./scenes.mjs";
+import { released } from "../../scripts/whats-new.mjs";
 
 /**
  * What only a browser shows, or only this run knows, made to read as the
@@ -81,11 +84,16 @@ function docsShots(dir = path.join(root, "docs")) {
 }
 const inDocs = docsShots();
 
-/** Maps each image that What's new shows to the folder of every release whose card uses it. */
-function whatsNewShots(dir = path.join(root, "desktop", "app", "ui", "src", "whats-new")) {
+const appVersion = JSON.parse(fs.readFileSync(path.join(root, "desktop", "app", "package.json"), "utf8")).version;
+const whatsNewDir = path.join(root, "desktop", "app", "ui", "src", "whats-new");
+const releasedNotes = new Set(released(root, appVersion));
+
+/** Maps each image that What's new shows to the folder of every release whose card uses it: the releases still to come, or with `done` the released ones. */
+function whatsNewShots(dir = whatsNewDir, { done = false } = {}) {
   const where = new Map();
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     const release = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"));
+    if (releasedNotes.has(release.version) !== done) continue;
     for (const card of release.cards) {
       if (card.image) where.set(card.image, [...(where.get(card.image) ?? []), path.join(dir, release.version)]);
     }
@@ -93,6 +101,7 @@ function whatsNewShots(dir = path.join(root, "desktop", "app", "ui", "src", "wha
   return where;
 }
 const inWhatsNew = whatsNewShots();
+const inReleasedWhatsNew = whatsNewShots(whatsNewDir, { done: true });
 const only = flag("--only");
 const chosen = scenes.filter((s) => !only || s.name.startsWith(only));
 if (!chosen.length) throw new Error(`no scene starts with ${only}`);
@@ -195,6 +204,8 @@ try {
       // landing pages, which show the one for the reader's theme
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
         if (!elsewhere && !inDocs.has(name) && !inWhatsNew.has(name) && !site) {
+          // only a released What's new card shows it, whose picture stays
+          if (inReleasedWhatsNew.has(name)) return;
           throw new Error(`${name} is shown by no docs page or What's new card, and not marked site: true`);
         }
         const folders = elsewhere
@@ -248,6 +259,10 @@ if (failed) process.exit(1);
 // and this one did not goes, and the record is this run's
 if (!only && !elsewhere) {
   const before = fs.existsSync(record) ? JSON.parse(fs.readFileSync(record, "utf8")) : [];
-  for (const file of before) if (!made.has(file)) fs.rmSync(path.join(root, file), { force: true });
+  // a released What's new picture is no longer made, and stays
+  const notes = path.relative(root, whatsNewDir);
+  const isReleased = (file) => releasedNotes.has(path.relative(notes, path.dirname(file)));
+  for (const file of before)
+    if (!made.has(file) && !isReleased(file)) fs.rmSync(path.join(root, file), { force: true });
   fs.writeFileSync(record, JSON.stringify([...made].sort(), null, 2) + "\n");
 }
