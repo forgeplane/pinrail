@@ -1,9 +1,9 @@
 ---
 title: The CLI
-description: "The pinrail command, in use: asking questions, submitting a review, waiting for the decision, and everything around it."
+description: "The pinrail command, in use: asking questions, reporting progress, work items, submitting a review, and running agents."
 ---
 
-`pinrail` is the command an agent uses to ask a person before it acts. It sends questions or a review to the Pinrail app on your machine, waits while you answer, and prints the answer: as markdown for an agent to read, or as JSON for a script to branch on.
+`pinrail` is the command an agent uses to work with you through the Pinrail app. With it, an agent asks questions and submits reviews, reports what it is doing in its [session](/docs/concepts/sessions/), and adds, takes and closes work items. When it asks, the command waits while you answer and prints the answer: as markdown for an agent to read, or as JSON for a script to branch on. [Supported agents](/docs/agents/supported/) lists what Pinrail does for each agent.
 
 ```sh
 pinrail submit code-review --title "Dedup tickets on save — round 1" \
@@ -141,7 +141,7 @@ A note is about the session. What the agent found or decided about a [work item]
 
 Send a note for what the person would want to read later in the session: a summary at the end of a stage, a decision taken without asking, or what an investigation found. A note never waits in the inbox, does not start or end a stage, and is not the session's latest status.
 
-The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
+The command finds the agent and its [session](/docs/concepts/sessions/#how-pinrail-knows-the-session) as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
 ### The current stage
 
@@ -159,7 +159,7 @@ Sent. No stage is open. Before new work, start one with pinrail status --start.
 
 ### Messages from the person
 
-The person reaches an agent through the work items its session holds. A comment the person adds to such an item, or the person putting it on hold, is a message to the session. A message waits until the agent next runs `pinrail status`, of any kind, which prints every waiting message, oldest first, and marks it delivered. Each message is printed once:
+The person writes to an agent from its session's thread in the app, and through the work items its session holds: a comment the person adds to such an item, or the person putting it on hold, is a message to the session too. When Pinrail runs the agent, it types a message from the thread into the agent's terminal as a prompt. Every other message waits until the agent next runs `pinrail status`, of any kind, which prints every waiting message, oldest first, and marks it delivered. Each message is printed once:
 
 ```text
 Message from Sam, sent 2026-11-02 10:04:
@@ -183,7 +183,7 @@ pinrail items done PIN-42 --comment "Fixed in core/src/cache.rs, commit 3f2a1c."
 
 `items add` adds one item, or with `--file` a whole breakdown of items that name each other by a `ref` of their own. After adding one item, it lists the items most like it, so that the agent can check that none already covers it. `items edit` changes an item's title, description, status, parent, dependencies, link, repository or files, and claims or releases it. `items list` lists the items that are open or in progress. `--ready` keeps the ones an agent can start, `--search` those with the given words in their title or description or with the given number or key, `--status` those of the given statuses, and `--parent` an item's sub-items; with `--tree` it shows them at every depth, indented. `items search` finds the items, open and closed, that are about what its words describe, best match first: it matches the words in any of their forms in each item's title, description and comments, and the items that several phrasings find come first, as in `pinrail items search "slow session" "thread takes long to open"`. `items show` takes several items at once, and `--brief` prints only what each asks: its key, title, status, parent and description.
 
-While a session holds one item, the reviews and questions it sends belong to it. A session that holds several must say which: `--item` on `submit` and `ask` names an item, once per item, and `--no-item` sends it for none of them. Without either, Pinrail refuses it and names the items the session holds. The line `submit` and `ask` print on stderr names the items the review went under, or says it went under none. A command that Pinrail refuses, such as a dependency that would make two items wait for each other, or `done` while a review of the item still waits, exits with `2` and says why.
+While a session holds one item, the reviews and questions it sends belong to it. A session that holds several must say which: `--item` on `submit` and `ask` names an item, once per item, and `--no-item` sends it for none of them. Without either, Pinrail refuses it and names the items the session holds. The line `submit` and `ask` print on stderr names the items the review went under, or says it went under none. A command that Pinrail refuses exits with `2` and says why. Pinrail refuses a dependency that would make two items wait for each other, `done` while a review of the item still waits, and a claim of an item while an item it depends on is still open, which names the items to work on first. It also refuses a breakdown given with `--file` in which an item has a field it does not know, such as `description` in place of `body`, and adds none of the items.
 
 ## Submitting a review
 
@@ -293,6 +293,31 @@ pinrail wait "$id"
 
 Waiting survives the app restarting. `wait` polls the app and retries when the connection drops, so if the app restarts, the wait resumes a few seconds later and the review is not lost.
 
+## Running agents
+
+The `pinrail` command also starts and follows agents in Pinrail's [terminal host](/docs/concepts/terminal-host/), as the app does.
+
+```sh
+pinrail start claude-code --task "Fix the login redirect"
+pinrail runs --live
+pinrail output run_01J… --wait-for "test result" --timeout 300
+pinrail attach run_01J…
+pinrail stop run_01J…
+```
+
+| Command | What it does |
+|---|---|
+| `pinrail start <agent>` | Starts an agent in a folder, the current one unless `--folder` names another, and prints its run and its session. `--task` gives its first prompt, `--attach` attaches this terminal once it has started, and arguments after `--` go to the agent. The agent keeps running when the command ends, and when the app quits. |
+| `pinrail runs` | Lists the agents Pinrail started, latest first. `--live` keeps those that still run. |
+| `pinrail output <run>` | Prints the last lines the agent's terminal showed: 20, or as many as `--lines` says, up to 500. With `--wait-for <text>`, it waits until the output contains the text. It exits with `4` when `--timeout` runs out, 60 seconds unless you set it, and with `1` when the agent has exited without showing the text. |
+| `pinrail attach <run or session>` | Draws the agent's screen in this terminal. You watch until you press a key, which takes control: your keys then go to the agent, and its terminal takes this one's size. <kbd>Ctrl+&#92;</kbd> and then <kbd>d</kbd> detaches, and the agent keeps running. |
+| `pinrail stop <run>` | Stops the agent, after giving it 2 seconds to exit. `--force` stops it at once. |
+| `pinrail host status` | Prints the terminal host's state and its terminals as JSON, for diagnosis. |
+
+:::caution[These commands act as you]
+Starting, stopping and reading an agent are things only you do in the app, so these six commands need the app's token. They work only while the setting [`runtime.cli_control`](/docs/reference/settings/) is on, and their error says so when it is off. With the setting on, any program that you run, including an agent, can act as you. See [Who can act as you](/docs/concepts/trust/#who-can-act-as-you).
+:::
+
 ## Exit codes
 
 | Code | Meaning |
@@ -301,7 +326,7 @@ Waiting survives the app restarting. `wait` polls the app and retries when the c
 | `1` | Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again. |
 | `2` | The app refused the request, for example a payload the plugin's schema rejects, or a folder that `plugins check` would not install. Why is on stderr. It lists each refused field with its reason, or, with `--json`, gives the app's JSON answer. |
 | `3` | The review was withdrawn by the agent, or expired, before anyone decided. |
-| `4` | `--timeout` ran out. The review is still pending. |
+| `4` | `--timeout` ran out. The review is still pending, or the agent's terminal has not shown the text that `output --wait-for` waits for. |
 | `5` | The person discarded the review: stop the work it was gating, and do not ask again. |
 
 :::caution[Exit code 5 means stop]
@@ -330,7 +355,9 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
 | `pinrail status <text>` | Say what the agent is doing in its session's thread, and receive the person's messages: `--start` for a new stage of work, which names the session, `--done` when it has finished, and `--note` for a message in Markdown, with files. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
-| `pinrail items <command>` | Add, take, change and close [work items](/docs/using/work-items/): `add`, `list`, `next`, `show`, `edit`, `comment` and `done`. See [Work items](#work-items). |
+| `pinrail items <command>` | Add, take, change and close [work items](/docs/using/work-items/): `add`, `list`, `search`, `next`, `show`, `edit`, `comment` and `done`. See [Work items](#work-items). |
+| `pinrail start`, `runs`, `output`, `attach`, `stop`, `host status` | Start, list, read, attach to and stop the agents Pinrail runs. See [Running agents](#running-agents). |
+| `pinrail hook <agent> <event>` | Reports what an agent's hook says about its session. The hooks that **Report status** installs run it, and you never need to. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
 | `pinrail list` | The pending reviews of the project you are in, newest first; `--all` for every review. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |

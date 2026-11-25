@@ -311,8 +311,9 @@ enum Command {
     ///     pinrail items show --brief PIN-41 PIN-42
     ///     pinrail items search "theme loader" "load themes at start"
     ///
-    /// While a session holds items, the reviews and questions it sends
-    /// belong to all of them, unless --item names the ones they are for.
+    /// While a session holds one item, the reviews and questions it sends
+    /// belong to it. A session that holds several names the ones each is
+    /// for with --item, or sends it for none with --no-item.
     #[command(verbatim_doc_comment)]
     Items(items::ItemsArgs),
     /// Start an agent in Pinrail's terminal host, and print its run and
