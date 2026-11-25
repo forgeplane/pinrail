@@ -292,6 +292,22 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   const focusedReview = focusedRow?.subject.kind === "review" ? focusedRow.subject.review : null;
   useSlashSearch(search);
 
+  // E marks the focused notification done or not done, unless it waits.
+  // It is the list's while a work item or a session is open beside it, in
+  // place of the item panel's E and the thread's; a review keeps its keys.
+  useWindowKey(
+    (event) => {
+      if (event.key !== "e" && event.key !== "E") return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || modalOpen()) return;
+      if (isTyping(event.target)) return;
+      if (openId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (focusedRow && !focusedRow.waiting) setDone(focusedRow);
+    },
+    { capture: true },
+  );
+
   useWindowKey((event) => {
     // the inbox's keys are not for a dialog in front of it
     if (modalOpen()) return;
@@ -305,14 +321,6 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
       return;
     }
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    // E marks the focused notification done or not done, unless it waits
-    if ((event.key === "e" || event.key === "E") && !event.shiftKey && !isTyping(event.target)) {
-      if (focusedRow && !focusedRow.waiting) {
-        event.preventDefault();
-        setDone(focusedRow);
-      }
-      return;
-    }
     // U marks the focused notification read or unread, and ⇧U the list read
     if ((event.key === "u" || event.key === "U") && !isTyping(event.target)) {
       if (event.shiftKey) {

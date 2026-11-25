@@ -340,6 +340,16 @@ describe("the inbox", () => {
     await expect.element(page.getByRole("complementary", { name: "Session" })).toBeInTheDocument();
   });
 
+  test("E marks the update done while its work item is open beside the list", async () => {
+    core.answer("item", itemDetail({ title: "Load themes", number: 1 }));
+    await open([update(1, "Load themes")]);
+    await row("Load themes").click();
+    await expect.element(page.getByTestId("item-panel")).toHaveAttribute("aria-label", "ACME-1 Load themes");
+    await userEvent.keyboard("e");
+    expect(core.calls("setNotificationDone").at(-1)).toEqual([1, true]);
+    expect(page.getByRole("textbox", { name: "Description" }).elements()).toHaveLength(0);
+  });
+
   test("a row has no mute button and M does nothing: the work item's panel mutes and unmutes", async () => {
     await open([update(1, "Load themes")]);
     await expect.element(page.getByRole("button", { name: "Mark as done: Load themes" })).toBeInTheDocument();
