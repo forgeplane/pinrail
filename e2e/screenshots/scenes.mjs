@@ -723,6 +723,11 @@ export const scenes = [
         await page.mouse.move(5, 570);
         await settle(page, 1200);
         await shot("run-agents-card");
+        // the app remembers the hidden details, which the scenes after
+        // this one show: the summary takes the keys from the terminal
+        await views.getByRole("tab", { name: "Summary" }).click();
+        await page.keyboard.press("Meta+Shift+B");
+        await details.waitFor();
       });
     },
   },
