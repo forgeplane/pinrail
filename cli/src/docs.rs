@@ -427,8 +427,14 @@ fn sentence(text: &str) -> String {
     out
 }
 
-/// `--wait,` becomes `` `--wait`, ``; any other word is left as it is.
+/// `--wait,` becomes `` `--wait`, ``, and Markdown that the help shows
+/// as text, such as `![…](attachment:NAME)`, is set as code too, so the
+/// page does not render it; any other word is left as it is.
 fn code_flag(word: &str) -> String {
+    if word.starts_with("![") {
+        let end = word.rfind(')').map_or(word.len(), |i| i + 1);
+        return format!("`{}`{}", &word[..end], &word[end..]);
+    }
     let flag = word.trim_end_matches([',', ';', '.', ')', ':']);
     if flag.len() > 2 && flag.starts_with("--") {
         format!("`{flag}`{}", &word[flag.len()..])
@@ -448,6 +454,16 @@ mod tests {
 
     use super::render;
     use crate::Cli;
+
+    #[test]
+    fn markdown_syntax_in_help_is_shown_as_code() {
+        let page = render(&Cli::command());
+        assert!(
+            page.contains("`![…](attachment:NAME)`"),
+            "the image syntax renders as an image"
+        );
+        assert!(!page.contains(" ![…](attachment:NAME)"));
+    }
 
     #[test]
     fn the_page_has_every_command_and_flag() {
