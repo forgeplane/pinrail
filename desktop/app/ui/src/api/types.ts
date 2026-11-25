@@ -253,6 +253,8 @@ export type Presence = {
   /** when a turn last ended done or failed, and when the person last saw the session */
   finished_at: string | null;
   seen_at: string | null;
+  /** the last report */
+  updated_at: string;
   attention: Attention;
 };
 

@@ -251,3 +251,27 @@ describe("a question opened in its session's thread", () => {
     await expect.element(page.getByTestId("question-set")).toBeInViewport();
   });
 });
+
+describe("the line above the message box", () => {
+  test("says the agent works while a review waits on the person", async () => {
+    const now = new Date().toISOString();
+    await open([], {
+      id: "s-1",
+      attention: "needs_you",
+      waiting: { questions: 0, reviews: 1 },
+      presence: {
+        state: "working",
+        wait: null,
+        stop_reason: null,
+        since: now,
+        turn: 2,
+        turn_started: now,
+        finished_at: null,
+        seen_at: null,
+        updated_at: now,
+        attention: "needs_you",
+      },
+    });
+    await expect.element(page.getByTestId("turn-working")).toBeVisible();
+  });
+});

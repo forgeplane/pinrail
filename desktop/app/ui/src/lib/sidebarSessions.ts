@@ -82,6 +82,18 @@ export function stateOf(session: Session): State {
   return "idle";
 }
 
+/** How long a working agent may go without a report before it is no
+ *  longer known to work, as the core counts it. */
+const STALE_MS = 30 * 60_000;
+
+/** Whether the session's agent works, as its last report says: also while
+ *  a question or a review waits on the person, which its state shows
+ *  first. */
+export function agentWorks(session: Session, now = Date.now()): boolean {
+  const p = session.presence;
+  return p?.state === "working" && now - Date.parse(p.updated_at) <= STALE_MS;
+}
+
 /** Why a session stopped, as its header says it. */
 const STOPPED: Record<string, string> = {
   ended: "session ended",

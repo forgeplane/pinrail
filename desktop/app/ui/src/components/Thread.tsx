@@ -29,7 +29,7 @@ import { runtime } from "../api/runtime";
 import { MuteToggle } from "./MuteToggle";
 import { sessionGrid } from "./session/startRun";
 import { canOpenWhileRunning, canResume, resumeProblem } from "../lib/resume";
-import { stateOf } from "../lib/sidebarSessions";
+import { agentWorks } from "../lib/sidebarSessions";
 import { isStopKey } from "../lib/terminalKeys";
 import { TerminalPane } from "./terminal/TerminalPane";
 import { finder, type Finder, type Found } from "../lib/findText";
@@ -347,7 +347,7 @@ export function Thread({
   const [askingStop, setAskingStop] = useState(false);
   const sessionNow = useLatest(session);
   // asked when Stop is pressed
-  const working = () => !!sessionNow.current && stateOf(sessionNow.current) === "working";
+  const working = () => !!sessionNow.current && agentWorks(sessionNow.current);
   useWindowKey(
     (event) => {
       if (!isStopKey(event, isMac) || modalOpen()) return;
@@ -486,8 +486,8 @@ export function Thread({
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
   // the agent at work, as its hooks report it, which the thread says at
-  // its end
-  const agentWorking = !!session?.presence && session.attention === "working";
+  // its end, also while something waits on the person
+  const agentWorking = !!session && agentWorks(session);
   const agentName = agentOf(agent)?.label ?? agent ?? "The agent";
   // a review opened from here names the session in its breadcrumb
   // the same objects from one render to the next, for the memoized entries
