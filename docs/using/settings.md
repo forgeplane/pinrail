@@ -14,7 +14,7 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 | Setting | What it does |
 |---|---|
 | **Opening a review** | *Beside the list* opens a review from the inbox or the history, or a session from the Sessions page, in a panel next to the list, which stays in view. *As a page* opens it on a page of its own. |
-| **Mark read updates as done** | When the inbox marks an update you have read as done, which takes it out of the list. *On return* marks it done the next time you return to the inbox or bring its window back, and *After a day* and *After a week* mark it done that long after its last change. A question or review that waits on you is never marked done this way. **Show done** in the Filter menu lists the done updates. |
+| **Mark read updates as done** | When the inbox marks an update you have read as done, which takes it out of the list. *On return* marks it done the next time you return to the inbox or bring its window back, and *After a day* and *After a week*, the default, mark it done that long after its last change. A question or review that waits on you is never marked done this way. **Show done** in the Filter menu lists the done updates. |
 
 ### Startup
 
@@ -88,7 +88,9 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 ## Terminal
 
-These settings apply to agents that run in Pinrail.
+These settings apply to the terminal of an agent that runs in Pinrail. See [The Summary and Terminal views](/docs/using/sessions/#the-summary-and-terminal-views).
+
+![Settings, Terminal: the renderer, Option as Meta, the screen reader, clipboard writes, and the view a session opens in.](screenshot:settings-terminal)
 
 | Setting | What it does |
 |---|---|
@@ -110,7 +112,9 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 ## Agents
 
-![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents)
+![Settings, Agents: the switch that updates agents automatically, three connected agents with their skill and hooks, and Codex ready to connect.](screenshot:settings-agents)
+
+[Supported agents](/docs/agents/supported/) lists what Pinrail does for each agent, and what it installs for it.
 
 | Setting | What it does |
 |---|---|
@@ -122,7 +126,7 @@ The skill tells an agent how to submit a review and read your decision, and how 
 
 Pinrail lists the agents it knows and finds each one by its configuration folder, such as `~/.claude` for Claude Code. The list shows the connected agents first, then the agents found but not connected, each in alphabetical order. The agents not found on this computer are in a folded list below them. It writes the skill to the agent's global skills folder, such as `~/.claude/skills/pinrail`, as a `SKILL.md` file and the guide to building a plugin in a `references` folder. A plugin that ships a skill of its own, such as the change map, has it in a `plugins` folder beside them, and `SKILL.md` names those plugins and tells the agent to read a plugin's skill before it submits to that plugin. The agent finds the other plugins with `pinrail plugins`. Installing, updating or removing a plugin rewrites the connected agents' skills. Pinrail marks the skill as its own, and it never changes or removes a `pinrail` skill that you wrote yourself: connecting such an agent adds only Pinrail's hooks. Some agents also read other agents' skills: OpenCode, Goose, Amp and Augment CLI read Claude Code's, and Grok CLI reads Claude Code's and Cursor's. Pinrail installs the skill in their own folders all the same, such as `~/.grok/skills/pinrail`, so they have it even without the other agents.
 
-The hooks let Pinrail show when an agent works, waits for you or finishes, and show its turns, prompts and replies in its session. Pinrail adds them beside your own hooks in the agent's settings file, such as `~/.claude/settings.json`, and removes only its own. Pi takes an extension file and OpenCode a plugin instead. Codex runs a hook only once you have trusted it, so Pinrail trusts its hooks when it connects Codex. If Pinrail cannot read the file, it leaves the file as it is and connects the skill alone.
+The hooks let Pinrail show when an agent works, waits for you or finishes, and show its turns, prompts and replies in its session. Pinrail adds them beside your own hooks in the agent's settings file, such as `~/.claude/settings.json`, and removes only its own. Pi takes an extension file and OpenCode a plugin instead. Codex runs a hook only once you have trusted it, so Pinrail trusts its hooks when it connects Codex. For Codex, connecting also writes a rule to `~/.codex/rules/pinrail.rules`, which runs the `pinrail` command outside Codex's sandbox, so that the command reaches the app. If Pinrail cannot read the file, it leaves the file as it is and connects the skill alone.
 
 ## Plugins
 
@@ -152,7 +156,7 @@ The *Install* field at the top installs a new plugin, and *Reload* reads every p
 
 | Setting | What it does |
 |---|---|
-| **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder*, or *Show in the file manager* on Linux, opens it. |
+| **Data directory** | Where your sessions, work items, reviews and settings are stored. *Show in Finder*, or *Show in the file manager* on Linux, opens it. |
 | **Server** | The address of Pinrail's server. *Copy URL* copies it. |
 | **Port** | The port Pinrail's server listens on, `4747` by default, from 1024 to 65535. The change takes effect after a restart, and the `pinrail` command follows it on its own. |
 | **Keep reviews for** | *Forever*, 30 days, 90 days or a year. Ended reviews older than this are deleted from your history, with the files they carried. |
@@ -185,12 +189,16 @@ Checking downloads a small file from GitHub, where Pinrail's releases are publis
 
 ## Where settings are stored
 
-Settings are stored in `settings.json` in your data directory. You can read the file, back it up and edit it by hand, even while Pinrail is running. Pinrail applies an edit as soon as the file is saved. A value that the app would not accept, such as `0` for the days to keep history, is ignored, and the setting keeps its default. If the file is not valid JSON, Pinrail keeps its current settings, or uses the defaults when it is starting. Before it next saves a setting, it moves the invalid file to `settings.json.bad`, so your edit is not lost. A script can read and change settings through the local API, which checks every change the same way the app does:
+Settings are stored in `settings.json` in your data directory. You can read the file, back it up and edit it by hand, even while Pinrail is running. Pinrail applies an edit as soon as the file is saved. A value that the app would not accept, such as `0` for the days to keep history, is ignored, and the setting keeps its default. If the file is not valid JSON, Pinrail keeps its current settings, or uses the defaults when it is starting. Before it next saves a setting, it moves the invalid file to `settings.json.bad`, so your edit is not lost.
+
+A script can read the settings through the local API:
 
 ```sh
 curl http://127.0.0.1:4747/api/v1/settings
-curl -X PATCH http://127.0.0.1:4747/api/v1/settings \
-  -H 'content-type: application/json' -d '{"appearance": {"theme": "dark"}}'
 ```
+
+Changing a setting through the API is something only the app does, with a token that only its window holds. To change a setting from a script, edit `settings.json`. See [Who can act as you](/docs/concepts/trust/#who-can-act-as-you).
+
+Some settings have no switch in the app and are set only in the file. One of them is `runtime.cli_control`, which lets the `pinrail` command start, stop and attach to agents. With it on, any program that you run, including an agent, can act as you.
 
 Every setting, with its key, type and default, is in the [Settings reference](/docs/reference/settings/).

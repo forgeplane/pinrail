@@ -40,19 +40,47 @@ const freePort = () =>
 
 /** The agents Settings › Agents lists, as the desktop app reports them. */
 const AGENTS = [
-  ["claude", "Claude Code", true, ".claude/skills", "connected"],
-  ["codex", "Codex", true, ".codex/skills", "absent"],
-  ["cursor", "Cursor", true, ".cursor/skills", "connected"],
-  ["antigravity", "Antigravity CLI", false, ".gemini/config/skills", "absent"],
-  ["opencode", "OpenCode", true, ".config/opencode/skills", "connected", ["Claude Code"]],
-  ["grok", "Grok CLI", false, ".grok/skills", "absent", ["Claude Code", "Cursor"]],
-].map(([id, name, found, skills, state, also_reads = []]) => ({
+  ["claude", "Claude Code", true, ".claude/skills", "connected", [], ["hooks", ".claude/settings.json"]],
+  ["codex", "Codex", true, ".codex/skills", "absent", [], ["hooks", ".codex/hooks.json"]],
+  ["cursor", "Cursor", true, ".cursor/skills", "connected", [], ["hooks", ".cursor/hooks.json"]],
+  [
+    "antigravity",
+    "Antigravity CLI",
+    false,
+    ".gemini/config/skills",
+    "absent",
+    [],
+    ["hooks", ".gemini/config/hooks.json"],
+  ],
+  [
+    "opencode",
+    "OpenCode",
+    true,
+    ".config/opencode/skills",
+    "connected",
+    ["Claude Code"],
+    ["plugin", ".config/opencode/cli.json"],
+  ],
+  [
+    "grok",
+    "Grok CLI",
+    false,
+    ".grok/skills",
+    "absent",
+    ["Claude Code", "Cursor"],
+    ["hooks", ".grok/hooks/pinrail.json"],
+  ],
+].map(([id, name, found, skills, state, also_reads, [kind, file]]) => ({
   id,
   name,
   found,
   skill: `/Users/you/${skills}/pinrail/SKILL.md`,
   state,
+  skill_state: state,
   also_reads,
+  // what connecting installs for the agent's status, and that Pinrail starts it
+  integration: { kind, file: `/Users/you/${file}`, state: state === "connected" ? "current" : "absent" },
+  starts: true,
 }));
 
 /** Writes a note on a code review proposal, opening the field when a verdict did not. */
@@ -1269,7 +1297,8 @@ export const scenes = [
         .first()
         .waitFor();
       await settle(page, 500);
-      await shot("settings-agents");
+      // the settings dialog alone, without the app behind it
+      await shot("settings-agents", page.getByRole("dialog", { name: "Settings", exact: true }));
     },
   },
   {
@@ -1494,6 +1523,7 @@ export const scenes = [
   ...[
     ["general", "General"],
     ["notifications", "Notifications"],
+    ["terminal", "Terminal"],
     ["plugins", "Plugins"],
   ].map(([section, label]) => ({
     name: `settings-${section}`,
@@ -1503,7 +1533,8 @@ export const scenes = [
       await page.keyboard.press("Meta+,");
       await settingsSection(page, label).click();
       await settle(page, 500);
-      await shot(`settings-${section}`);
+      // the settings dialog alone, without the app behind it
+      await shot(`settings-${section}`, page.getByRole("dialog", { name: "Settings", exact: true }));
     },
   })),
   {

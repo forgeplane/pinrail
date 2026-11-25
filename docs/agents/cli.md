@@ -357,7 +357,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail items <command>` | Add, take, change and close [work items](/docs/using/work-items/): `add`, `list`, `search`, `next`, `show`, `edit`, `comment` and `done`. See [Work items](#work-items). |
 | `pinrail start`, `runs`, `output`, `attach`, `stop`, `host status` | Start, list, read, attach to and stop the agents Pinrail runs. See [Running agents](#running-agents). |
-| `pinrail hook <agent> <event>` | Reports what an agent's hook says about its session. The hooks that **Report status** installs run it, and you never need to. |
+| `pinrail hook <agent> <event>` | Reports what an agent's hook says about its session. The hooks that Pinrail installs when you connect an agent run it, and you never need to. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
 | `pinrail list` | The pending reviews of the project you are in, newest first; `--all` for every review. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |

@@ -52,8 +52,8 @@ A session that Pinrail starts shows at once. A session in your own terminal show
 
 Pinrail learns what an agent is doing from two sources.
 
-- **The agent's hooks.** Turn on **Report status** for the agent in [Settings › Agents](/docs/using/settings/#agents), and Pinrail installs hooks that report each turn. This works for a session in your own terminal too.
-- **The agent's terminal.** Some agents, such as Claude Code, report their state in the terminal they run in. Pinrail reads these reports for a session that it runs, also while **Report status** is off.
+- **The agent's hooks.** Connect the agent in [Settings › Agents](/docs/using/settings/#agents), and Pinrail installs hooks that report each turn. This works for a session in your own terminal too.
+- **The agent's terminal.** Some agents, such as Claude Code, report their state in the terminal they run in. Pinrail reads these reports for a session that it runs, also when the agent is not connected.
 
 A session with neither source shows no state of its own. It shows only what waits on you in it.
 

@@ -46,7 +46,7 @@ struct GroupNote {
 const GROUP_NOTES: &[GroupNote] = &[
     GroupNote {
         title: "Sessions and questions",
-        about: "What an agent sends from its session: questions that wait for the person's answers, and statuses and notes on its work. An agent runs `ask` and `status`, and the hooks that **Report status** installs run `hook`.",
+        about: "What an agent sends from its session: questions that wait for the person's answers, and statuses and notes on its work. An agent runs `ask` and `status`, and the hooks that Pinrail installs when you connect an agent run `hook`.",
         see: &[
             ("Sessions", "/docs/concepts/sessions/"),
             ("Asking questions", "/docs/agents/cli/#asking-questions"),
