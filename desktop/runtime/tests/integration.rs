@@ -187,6 +187,32 @@ fn a_missing_file_is_created_with_the_hooks() {
     assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
 }
 
+#[cfg(unix)]
+#[test]
+fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
+    let dir = tempfile::tempdir().unwrap();
+    let dotfiles = dir.path().join("dotfiles");
+    std::fs::create_dir_all(&dotfiles).unwrap();
+    std::fs::write(dotfiles.join("settings.json"), "{\"model\": \"opus\"}\n").unwrap();
+    let claude = dir.path().join("claude");
+    std::fs::create_dir_all(&claude).unwrap();
+    std::os::unix::fs::symlink(dotfiles.join("settings.json"), claude.join("settings.json"))
+        .unwrap();
+    let plan = Integration {
+        file: claude.join("settings.json"),
+        ..plan()
+    };
+
+    assert_eq!(apply(&plan, true).unwrap(), HookState::Current);
+    let link = std::fs::symlink_metadata(&plan.file).unwrap();
+    assert!(link.file_type().is_symlink(), "the link became a file");
+    let target = std::fs::read_to_string(dotfiles.join("settings.json")).unwrap();
+    assert!(
+        target.contains("hooks") && target.contains("opus"),
+        "{target}"
+    );
+}
+
 fn agy_plan() -> Integration {
     adapter("antigravity")
         .unwrap()

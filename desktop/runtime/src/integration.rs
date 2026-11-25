@@ -619,6 +619,8 @@ fn read(file: &std::path::Path) -> Result<Value, String> {
 /// Writes `settings` to `file` through a temporary file beside it, which
 /// replaces the file whole, after keeping a backup of the original once.
 fn write(file: &std::path::Path, settings: &Value) -> Result<(), String> {
+    // a link, as a dotfiles folder makes, stays one: its file is written
+    let file = &std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
     let fail = |e: std::io::Error| format!("writing {}: {e}", file.display());
     let mut backup = file.as_os_str().to_owned();
     backup.push(".pinrail-backup");
