@@ -257,9 +257,19 @@ fn front_matter(text: &str) -> Option<impl Iterator<Item = &str>> {
 /// The files of Pinrail's own that go with the skill for an agent, such as
 /// Codex's rule for the `pinrail` command, as this computer's environment
 /// places them.
+/// The environment variable `key`, which can move an agent's folders, such
+/// as `XDG_CONFIG_HOME`. A test sees none, so that it never reaches the
+/// person's own folders.
+fn env(key: &str) -> Option<String> {
+    if cfg!(test) {
+        return None;
+    }
+    std::env::var(key).ok()
+}
+
 fn skill_files(home: &Path, id: &str) -> Vec<pinrail_runtime::integration::OwnFile> {
     pinrail_runtime::adapter(id)
-        .map(|agent| agent.skill_files(home, &|key| std::env::var(key).ok()))
+        .map(|agent| agent.skill_files(home, &env))
         .unwrap_or_default()
 }
 
@@ -315,7 +325,7 @@ pub fn status(home: &Path, skill: &Skill) -> Vec<AgentStatus> {
 /// Where an agent keeps its hooks and the hooks Pinrail installs there, as
 /// this computer's environment places them.
 fn integration(home: &Path, id: &str) -> Option<pinrail_runtime::integration::Integration> {
-    pinrail_runtime::adapter(id)?.integration(home, &|key| std::env::var(key).ok())
+    pinrail_runtime::adapter(id)?.integration(home, &env)
 }
 
 /// Installs Pinrail's status hooks in an installed agent's settings, or
