@@ -160,7 +160,10 @@ export default defineConfig({
             "docs/using/privacy",
           ],
         },
-        { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
+        {
+          label: "For agents",
+          items: ["docs/agents/supported", "docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"],
+        },
         {
           label: "Plugins",
           items: [

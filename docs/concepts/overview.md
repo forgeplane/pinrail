@@ -11,7 +11,7 @@ Pinrail is a desktop app for working with coding agents. It runs them, tracks th
 
 | Part | What it is |
 |---|---|
-| **Agent** | A coding agent, such as Claude Code, Codex or OpenCode. Pinrail works with any agent that can run a command. |
+| **Agent** | A coding agent, such as Claude Code, Codex or OpenCode. Pinrail works with any agent that can run a command. See [Supported agents](/docs/agents/supported/). |
 | **Session** | One run of an agent, such as a Claude Code conversation. Pinrail shows each session's state and a thread of what the agent sent you. See [Sessions](/docs/concepts/sessions/). |
 | **Work item** | A task that you and your agents share, with sub-items and dependencies. An agent takes the next item that is ready and records its progress on it. See [Work items](/docs/concepts/work-items/). |
 | **Inbox** | The list of notifications. It shows what waits on you first, and the updates from your agents below it. See [The inbox](/docs/using/inbox/). |

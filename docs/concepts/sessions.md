@@ -16,7 +16,7 @@ An agent runs in Pinrail or in your own terminal, and its session differs in wha
 | **Stopping the agent** | **Stop** in the session's header stops the agent. | You stop the agent in its own terminal. |
 | **Your messages** | Pinrail types them into the agent's terminal. | The agent receives them the next time it runs `pinrail status`. |
 
-Pinrail runs an agent in its [terminal host](/docs/concepts/terminal-host/), a separate program that keeps the agent running while the app is closed. Pinrail starts and resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and Antigravity CLI.
+Pinrail runs an agent in its [terminal host](/docs/concepts/terminal-host/), a separate program that keeps the agent running while the app is closed. Pinrail starts and resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and Antigravity CLI. [Supported agents](/docs/agents/supported/) lists what each one supports.
 
 Pinrail only watches a session in your own terminal. It shows what the agent reports and sends, and you answer the agent's questions and reviews in the app. Once such a session has stopped, you can resume it in Pinrail, which then runs it.
 
