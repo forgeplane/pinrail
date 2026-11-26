@@ -35,7 +35,7 @@ test("Agents fits its width, whatever an agent's message says", async ({ page })
     });
     const agents = [
       agent("claude-code", "Claude Code", ".claude/skills"),
-      agent("antigravity", "Antigravity CLI", ".gemini/config/skills"),
+      agent("antigravity", "Antigravity CLI", ".gemini/antigravity-cli/skills"),
     ];
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {
       invoke: async (command: string) => {

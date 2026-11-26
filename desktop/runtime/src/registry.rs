@@ -99,7 +99,7 @@ const AGENTS: &[AgentSpec] = &[
         session_var: Some("ANTIGRAVITY_CONVERSATION_ID"),
         folders: Some(Folders {
             config: ".gemini",
-            skills: ".gemini/config/skills",
+            skills: ".gemini/antigravity-cli/skills",
             also_reads: &[],
         }),
     },

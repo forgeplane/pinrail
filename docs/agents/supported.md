@@ -112,7 +112,7 @@ Each section lists what **Connect** installs for the agent. The paths are the ag
 
 ### Antigravity CLI
 
-- **Skill:** `~/.gemini/config/skills/pinrail`.
+- **Skill:** `~/.gemini/antigravity-cli/skills/pinrail`.
 - **Hooks:** a hook named `pinrail` in `~/.gemini/config/hooks.json`.
 - Antigravity CLI reports a conversation at its first prompt, and reports nothing when you resume one until the next prompt.
 - Pinrail starts Antigravity CLI only once it is connected.

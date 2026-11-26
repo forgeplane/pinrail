@@ -88,6 +88,11 @@ impl Agent for Antigravity {
         })
     }
 
+    /// Earlier versions of Pinrail wrote the skill under `~/.gemini/config/skills`.
+    fn legacy_skill_paths(&self, home: &Path) -> Vec<std::path::PathBuf> {
+        vec![home.join(".gemini/config/skills/pinrail/SKILL.md")]
+    }
+
     /// A hook named `pinrail` in agy's global hooks file,
     /// `~/.gemini/config/hooks.json`, beside the person's own: for the
     /// start of a conversation, each model call, each tool call that ends,
@@ -195,18 +200,72 @@ mod tests {
             &[&["--sandbox"]],
         );
     }
-    use crate::connection::testing::{Case, connects_and_removes, no_shell};
+    use crate::connection::testing::{
+        Case, assert_skill_present, connect, connects_and_removes, env, home_with, no_shell, skill,
+    };
 
     #[test]
     fn it_is_connected_and_removed_with_its_named_hook() {
         let case = Case {
             config: ".gemini",
-            skills: ".gemini/config/skills",
+            skills: ".gemini/antigravity-cli/skills",
             reporting: Some(".gemini/config/hooks.json"),
             theirs: Some(
                 r#"{"mine": {"PreInvocation": [{"command": "my-own-start", "type": "command"}]}}"#,
             ),
         };
         connects_and_removes(&Antigravity, &case, &no_shell);
+    }
+
+    #[test]
+    fn connecting_removes_pinrails_skill_from_the_old_folder_first() {
+        let home = home_with(&[".gemini"]);
+        let home = home.path();
+        let old = home.join(".gemini/config/skills/pinrail");
+        for (rel, bytes) in skill("older") {
+            let file = old.join(rel);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, bytes).unwrap();
+        }
+
+        connect(&Antigravity, home, &no_shell).unwrap();
+
+        assert!(!old.exists(), "the old pinrail skill folder is removed");
+        assert!(
+            old.parent().unwrap().is_dir(),
+            "the old skills folder itself stays"
+        );
+        assert_skill_present(&Antigravity, home);
+    }
+
+    #[test]
+    fn connecting_leaves_the_persons_own_skill_in_the_old_folder_alone() {
+        let home = home_with(&[".gemini"]);
+        let home = home.path();
+        let old = home.join(".gemini/config/skills/pinrail/SKILL.md");
+        std::fs::create_dir_all(old.parent().unwrap()).unwrap();
+        let theirs = "---\nname: pinrail\n---\nMy own skill.\n";
+        std::fs::write(&old, theirs).unwrap();
+
+        connect(&Antigravity, home, &no_shell).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&old).unwrap(), theirs);
+        assert_skill_present(&Antigravity, home);
+    }
+
+    #[test]
+    fn disconnecting_also_removes_pinrails_skill_from_the_old_folder() {
+        let home = home_with(&[".gemini"]);
+        let home = home.path();
+        let old = home.join(".gemini/config/skills/pinrail");
+        for (rel, bytes) in skill("older") {
+            let file = old.join(rel);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, bytes).unwrap();
+        }
+
+        Antigravity.disconnect(home, &env).unwrap();
+
+        assert!(!old.exists());
     }
 }

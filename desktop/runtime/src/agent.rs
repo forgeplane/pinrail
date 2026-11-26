@@ -69,6 +69,13 @@ pub trait Agent: Send + Sync {
         ))
     }
 
+    /// Earlier places where Pinrail wrote the skill for this agent, before
+    /// it moved to `skill_path`. Connecting removes Pinrail's own skill from
+    /// them first, leaving a skill of the person's own alone.
+    fn legacy_skill_paths(&self, _home: &Path) -> Vec<std::path::PathBuf> {
+        Vec::new()
+    }
+
     /// Whether the agent is installed under `home`: its configuration
     /// folder is there.
     fn found(&self, home: &Path) -> bool {
@@ -127,6 +134,11 @@ pub trait Agent: Send + Sync {
             let config = self.spec().folders.as_ref().map_or("", |f| f.config);
             return Err(format!("{label} is not installed: ~/{config} is not there"));
         }
+        for old in self.legacy_skill_paths(home) {
+            if fs_text(&old).is_some_and(|text| crate::connection::managed(&text)) {
+                crate::connection::remove_skill(&old)?;
+            }
+        }
         let theirs = crate::connection::state_of(&path, skill.sha) == SkillState::Theirs;
         if !theirs {
             // the files that go with it first, so the skill counts as
@@ -168,6 +180,11 @@ pub trait Agent: Send + Sync {
                 if file.state() != HookState::Unreadable {
                     file.apply(false)?;
                 }
+            }
+        }
+        for old in self.legacy_skill_paths(home) {
+            if fs_text(&old).is_some_and(|text| crate::connection::managed(&text)) {
+                crate::connection::remove_skill(&old)?;
             }
         }
         if let Some(plan) = self.integration(home, env)

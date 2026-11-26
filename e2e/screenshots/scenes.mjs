@@ -51,7 +51,7 @@ const AGENTS = [
     "antigravity",
     "Antigravity CLI",
     false,
-    ".gemini/config/skills",
+    ".gemini/antigravity-cli/skills",
     "absent",
     [],
     ["hooks", ".gemini/config/hooks.json"],
