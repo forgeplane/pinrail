@@ -50,7 +50,9 @@ fn every_part_of_the_library_has_its_licence_in_the_notices() {
         if !object.ends_with(".o") {
             continue;
         }
-        let name = object.trim_end_matches(".o");
+        // GNU ar lists a member with the path Zig built it at, such as
+        // .zig-cache/o/<hash>/base64.o
+        let name = object.rsplit('/').next().unwrap().trim_end_matches(".o");
         let Some((_, heading)) = OBJECTS
             .iter()
             .find(|(start, _)| name == *start || name.starts_with(&format!("{start}-")))
