@@ -361,10 +361,17 @@ jobs:
       # check that a release removes What's new notes the app no longer ships
       - name: What's new pruning
         run: node --test scripts/whats-new.test.mjs
+      # with the packages of the plugins that have a build, which some tests
+      # import and a cached view/ leaves uninstalled
       - name: Plugin tests
         working-directory: plugins
         run: |
           npm ci
+          for dir in */; do
+            if [ -f "$dir/package.json" ] && [ -f "$dir/manifest.json" ]; then
+              (cd "$dir" && npm ci)
+            fi
+          done
           npx playwright install --with-deps chromium
           npm test
       # the docs' example plugin, one per framework: built and tested, then
