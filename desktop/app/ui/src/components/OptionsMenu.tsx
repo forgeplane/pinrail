@@ -202,7 +202,7 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
     );
   };
   const submenu = (key: string, text: string, value: string, all: MenuOption[], searchable = false) => (
-    <div className="menu-sub" onMouseEnter={() => hover(key)}>
+    <div key={key} className="menu-sub" onMouseEnter={() => hover(key)}>
       <button
         type="button"
         role="menuitem"
