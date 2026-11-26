@@ -22,6 +22,17 @@ const inlineStyles = {
   },
 };
 
+/** Resolves a Vite `?url` import, such as the icon font, to the file,
+ *  which esbuild copies into dist/ and imports as its URL. */
+const urlImports = {
+  name: "url-imports",
+  setup(b) {
+    b.onResolve({ filter: /\?url$/ }, (args) => ({
+      path: join(args.resolveDir, args.path.slice(0, -"?url".length)),
+    }));
+  },
+};
+
 export async function buildBench({ quiet = false } = {}) {
   rmSync(dist, { recursive: true, force: true });
   await build({
@@ -34,7 +45,9 @@ export async function buildBench({ quiet = false } = {}) {
     sourcemap: true,
     outdir: dist,
     logLevel: quiet ? "warning" : "info",
-    plugins: [inlineStyles],
+    plugins: [inlineStyles, urlImports],
+    loader: { ".woff2": "file" },
+    publicPath: "/dist",
     // as a production build of the app has it
     define: { "import.meta.env": "{}" },
   });
