@@ -1,7 +1,9 @@
 //! Which process is an agent's: each adapter recognises its own, by default
 //! by the names of the agent's binaries.
 
-use pinrail_runtime::process::{Process, ancestor, arguments, process};
+use pinrail_runtime::process::Process;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use pinrail_runtime::process::{ancestor, arguments, process};
 use pinrail_runtime::{adapter, runs_as};
 
 fn named(name: &str) -> Process {
