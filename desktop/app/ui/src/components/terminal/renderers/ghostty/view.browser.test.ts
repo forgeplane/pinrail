@@ -82,6 +82,14 @@ test("streaming output is drawn at most every 33 ms, and all of it", async () =>
     drawn++;
     lastDrawn = performance.now();
   });
+  // the frames the browser gives, which parse the output
+  let frames = 0;
+  let counting = true;
+  const tick = () => {
+    frames++;
+    if (counting) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
   // a line every 10 ms, or as often as the machine's timers allow
   const started = performance.now();
   const lines = 40;
@@ -90,11 +98,14 @@ test("streaming output is drawn at most every 33 ms, and all of it", async () =>
     view.write(new TextEncoder().encode(`line ${line}\r\n`), () => (lastParsed = performance.now()));
     await new Promise((r) => setTimeout(r, 10));
   }
+  const streamed = frames;
   await new Promise((r) => setTimeout(r, 200));
+  counting = false;
   // drawn while the lines arrived: at least half as often as the lines
-  // came, or as the 33 ms interval allows, whichever is less
+  // came, the browser gave frames, or the 33 ms interval allows, whichever
+  // is least
   const slots = Math.floor((lastParsed - started) / OUTPUT_INTERVAL_MS);
-  expect(drawn).toBeGreaterThanOrEqual(Math.floor(Math.min(lines, slots) / 2));
+  expect(drawn).toBeGreaterThanOrEqual(Math.floor(Math.min(lines, streamed, slots) / 2));
   // at most one draw every 33 ms while the lines arrived
   expect(drawn).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / OUTPUT_INTERVAL_MS) + 1);
   // the last line was drawn
