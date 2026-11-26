@@ -334,6 +334,7 @@ fn overall(agent: &dyn Agent, home: &Path, skill: &Skill) -> State {
 
 /// A command that runs `line` in the person's login shell, from their home
 /// folder, so that it finds the programs a terminal finds.
+#[cfg(not(test))]
 fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
     #[cfg(not(windows))]
     let mut command = {
@@ -348,6 +349,22 @@ fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
         command
     };
     command.current_dir(home);
+    command
+}
+
+/// In tests, an agent's app server that lists no hooks, in place of the
+/// one in the person's login shell: the tests do not depend on, or change,
+/// the agents installed on the machine.
+#[cfg(test)]
+fn in_login_shell(_home: &Path, _line: &str) -> std::process::Command {
+    let mut command = std::process::Command::new("sh");
+    command.args([
+        "-c",
+        r#"while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  if [ -n "$id" ]; then echo "{\"id\":$id,\"result\":{\"data\":[]}}"; fi
+done"#,
+    ]);
     command
 }
 
