@@ -11,8 +11,20 @@ import { SettingsProvider } from "../state/settings";
 import { ToastProvider } from "../state/toasts";
 import { TopBarProvider } from "../state/topbar";
 
-// React checks that its updates in a test are wrapped in act()
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+// React checks that its updates are wrapped in act() only while the flag
+// is on: on for rendering and unmounting, which act() completes, and off
+// for the updates the app makes on its own in the browser, such as after a
+// fetch, which the tests wait for as a person would
+const flag = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+
+async function inAct(work: () => void) {
+  flag.IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    await act(async () => work());
+  } finally {
+    flag.IS_REACT_ACT_ENVIRONMENT = false;
+  }
+}
 
 const mounted = new Set<() => void>();
 
@@ -33,9 +45,11 @@ export async function render(ui: ReactNode, { route = "/", bare = false } = {}) 
       </TopBarProvider>
     </LiveProvider>
   );
-  await act(async () => root.render(<MemoryRouter initialEntries={[route]}>{tree}</MemoryRouter>));
+  await inAct(() => root.render(<MemoryRouter initialEntries={[route]}>{tree}</MemoryRouter>));
   const unmount = () => {
+    flag.IS_REACT_ACT_ENVIRONMENT = true;
     act(() => root.unmount());
+    flag.IS_REACT_ACT_ENVIRONMENT = false;
     container.remove();
     mounted.delete(unmount);
   };
