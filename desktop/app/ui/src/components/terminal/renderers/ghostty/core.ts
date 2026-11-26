@@ -184,6 +184,15 @@ export class GhosttyCore {
   private utf8Desc = 0;
   private utf8 = 0;
   private utf8Capacity = 0;
+  /** The input buffer that writes reuse, grown up to `INPUT_LIMIT`. */
+  private input = 0;
+  private inputCapacity = 0;
+  /** Whether a write is in libghostty-vt, so that one made meanwhile
+   *  does not reuse the input buffer. */
+  private writing = false;
+  /** Room for the structures that scrolling, the scrollbar, the mouse
+   *  encoder and points pass in and out. */
+  private work = 0;
   private rows: GhosttyRow[] = [];
   private disposed = false;
   private keyboardLayoutMap: GhosttyKeyboardLayoutMap | undefined;
@@ -264,6 +273,7 @@ export class GhosttyCore {
     this.utf8Desc = this.rt.alloc(this.rt.layout("GhosttyBuffer").size);
     this.growUtf8(UTF8_INITIAL);
     this.query = this.rt.alloc(64);
+    this.work = this.rt.alloc(WORK_SIZE);
     const q = this.rt.memoryDataView();
     const c = this.k.cell;
     const keys = [c.style, c.selected, c.utf8, c.bg];
@@ -314,10 +324,31 @@ export class GhosttyCore {
   write(data: Uint8Array): void {
     this.ensureActive();
     if (data.length === 0) return;
-    const pointer = this.rt.alloc(data.length);
+    // a write up to the limit goes through the input buffer; a larger
+    // one, such as a replay, through memory of its own, freed after
+    const reuse = data.length <= INPUT_LIMIT && !this.writing;
+    if (reuse && data.length > this.inputCapacity) {
+      if (this.input) this.rt.free(this.input, this.inputCapacity);
+      this.inputCapacity = Math.min(INPUT_LIMIT, Math.max(data.length, this.inputCapacity * 2, INPUT_INITIAL));
+      this.input = this.rt.alloc(this.inputCapacity);
+    }
+    const pointer = reuse ? this.input : this.rt.alloc(data.length);
+    // after any growth of memory, which detaches the old view
     this.rt.bytes(pointer, data.length).set(data);
-    this.rt.call("ghostty_terminal_vt_write", this.terminal, pointer, data.length);
-    this.rt.free(pointer, data.length);
+    this.writing = true;
+    try {
+      this.rt.call("ghostty_terminal_vt_write", this.terminal, pointer, data.length);
+    } finally {
+      this.writing = false;
+      if (!reuse) this.rt.free(pointer, data.length);
+    }
+  }
+
+  /** The work area, cleared for a structure of `size` bytes. */
+  private workArea(size: number): number {
+    if (size > WORK_SIZE) throw new Error(`libghostty-vt structure of ${size} bytes is larger than the work area`);
+    this.rt.memoryBytes().fill(0, this.work, this.work + size);
+    return this.work;
   }
 
   /** Clears the terminal and replays VT without answering the queries in it. */
@@ -430,13 +461,11 @@ export class GhosttyCore {
   }
 
   private scrollViewport(tag: number, delta = 0): void {
-    const size = this.rt.layout("GhosttyTerminalScrollViewport").size;
-    const p = this.rt.alloc(size);
+    const p = this.workArea(this.rt.layout("GhosttyTerminalScrollViewport").size);
     const v = this.rt.memoryDataView();
     v.setUint32(p, tag, true);
     v.setInt32(p + this.rt.field("GhosttyTerminalScrollViewport", "value").offset, delta, true);
     this.rt.call("ghostty_terminal_scroll_viewport", this.terminal, p);
-    this.rt.free(p, size);
   }
 
   scroll(deltaRows: number): void {
@@ -491,16 +520,14 @@ export class GhosttyCore {
    *  row is among them. */
   scrollbar(): { total: number; offset: number; length: number } {
     this.ensureActive();
-    const p = this.rt.alloc(24);
+    const p = this.workArea(24);
     this.rt.call("ghostty_terminal_get", this.terminal, this.k.data.scrollbar, p);
     const v = this.rt.memoryDataView();
-    const out = {
+    return {
       total: Number(v.getBigUint64(p, true)),
       offset: Number(v.getBigUint64(p + 8, true)),
       length: Number(v.getBigUint64(p + 16, true)),
     };
-    this.rt.free(p, 24);
-    return out;
   }
 
   isViewportActive(): boolean {
@@ -614,7 +641,7 @@ export class GhosttyCore {
     this.ensureActive();
     this.rt.call("ghostty_mouse_encoder_set_from_terminal", this.mouseEncoder, this.terminal);
     const { size: sizeBytes } = this.rt.layout("GhosttyMouseEncoderSize");
-    const size = this.rt.alloc(sizeBytes);
+    const size = this.workArea(sizeBytes);
     const v = this.rt.memoryDataView();
     const set = (name: string, value: number) =>
       v.setUint32(size + this.rt.field("GhosttyMouseEncoderSize", name).offset, Math.max(0, Math.round(value)), true);
@@ -624,7 +651,6 @@ export class GhosttyCore {
     set("cell_width", input.cellWidth);
     set("cell_height", input.cellHeight);
     this.rt.call("ghostty_mouse_encoder_set", this.mouseEncoder, this.k.mouse.size, size);
-    this.rt.free(size, sizeBytes);
     this.rt.bytes(this.scratch, 1)[0] = input.anyButtonPressed ? 1 : 0;
     this.rt.call("ghostty_mouse_encoder_set", this.mouseEncoder, this.k.mouse.anyButton, this.scratch);
     this.rt.bytes(this.scratch, 1)[0] = 1;
@@ -637,11 +663,10 @@ export class GhosttyCore {
     if (input.button === null) this.rt.call("ghostty_mouse_event_clear_button", this.mouseEvent);
     else this.rt.call("ghostty_mouse_event_set_button", this.mouseEvent, input.button);
     this.rt.call("ghostty_mouse_event_set_mods", this.mouseEvent, input.mods);
-    const pos = this.rt.alloc(8);
+    const pos = this.workArea(8);
     this.rt.memoryDataView().setFloat32(pos, input.x, true);
     this.rt.memoryDataView().setFloat32(pos + 4, input.y, true);
     this.rt.call("ghostty_mouse_event_set_position", this.mouseEvent, pos);
-    this.rt.free(pos, 8);
     return this.encodeOutput((buf, len, written) =>
       this.rt.call("ghostty_mouse_encoder_encode", this.mouseEncoder, this.mouseEvent, buf, len, written),
     );
@@ -846,12 +871,11 @@ export class GhosttyCore {
 
   /** A grid reference's cell in the viewport, or null when out of view. */
   private inViewport(ref: number): { x: number; y: number } | null {
-    const out = this.rt.alloc(8);
+    const out = this.workArea(8);
     const ok =
       this.rt.call("ghostty_terminal_point_from_grid_ref", this.terminal, ref, this.k.point.viewport, out) === SUCCESS;
     const v = this.rt.memoryDataView();
     const point = ok ? { x: v.getUint16(out, true), y: v.getUint32(out + 4, true) } : null;
-    this.rt.free(out, 8);
     return point && point.y < this.size().rows ? point : null;
   }
 
@@ -1117,6 +1141,8 @@ export class GhosttyCore {
     if (this.utf8Desc) rt.free(this.utf8Desc, rt.layout("GhosttyBuffer").size);
     if (this.utf8) rt.free(this.utf8, this.utf8Capacity);
     if (this.query) rt.free(this.query, 64);
+    if (this.work) rt.free(this.work, WORK_SIZE);
+    if (this.input) rt.free(this.input, this.inputCapacity);
     if (this.scratch) rt.free(this.scratch, 32);
   }
 
@@ -1188,6 +1214,13 @@ export class GhosttyCore {
 function clamp16(n: number): number {
   return Math.max(1, Math.min(65_535, Math.floor(n)));
 }
+
+/** The input buffer's first size, and the largest write it takes: the
+ *  window's writes are pieces of up to 64 KiB. */
+const INPUT_INITIAL = 4096;
+const INPUT_LIMIT = 256 * 1024;
+/** The bytes of the work area. */
+const WORK_SIZE = 64;
 
 /** How many values the cell query reads. */
 const QUERY_KEYS = 4;

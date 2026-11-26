@@ -110,6 +110,20 @@ test("each cell has its own colours, from the palette, as RGB or the default", a
   core.dispose();
 });
 
+test("writes of every size reach the screen whole, as the input buffer grows", async () => {
+  const { core } = await terminal();
+  const last = () => core.screenLines().filter(Boolean).at(-1);
+  // a small write, then larger ones that grow the buffer, then one past
+  // its limit, then small ones again
+  for (const size of [10, 5_000, 70_000, 300_000, 20]) {
+    const line = `${size}:`.padEnd(70, "x");
+    const lines = Math.max(1, Math.floor(size / 72));
+    core.write(bytes(Array.from({ length: lines }, () => line).join("\r\n") + "\r\n"));
+    expect(last(), `after a write of about ${size} bytes`).toBe(line);
+  }
+  core.dispose();
+});
+
 test("a snapshot that cannot be decoded leaves a blank terminal that works", async () => {
   const { core, replies } = await terminal();
   core.write(bytes("before the restore"));
