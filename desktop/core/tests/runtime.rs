@@ -864,6 +864,86 @@ async fn grok_waiting_on_its_folder_trust_question_shows_as_needing_the_person()
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_transient_auth_wait_on_startup_leaves_no_inbox_notification() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("antigravity", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+
+    // Antigravity emits "Sign in required" before its cached credentials load,
+    // then clears it to idle ~1s later.
+    common::record(
+        &folder,
+        "state=blocked:kind=auth:app=antigravity:msg=U2lnbiBpbiByZXF1aXJlZA==",
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        db.presence(&session.0, &session.1)
+            .unwrap()
+            .is_none_or(|p| p.state != "needs_input"),
+        "transient auth wait should be held during the grace window"
+    );
+
+    common::record(&folder, "state=idle:app=antigravity").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
+    assert!(
+        db.notification_of(
+            0,
+            Some(&pinrail_core::db::EventSubject::Session(session.1.clone()))
+        )
+        .unwrap()
+        .is_none(),
+        "no inbox notification should be created for a transient auth wait"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_lasting_auth_wait_shows_as_needing_the_person_after_the_grace_window() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("antigravity", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+
+    common::record(
+        &folder,
+        "state=blocked:kind=auth:app=antigravity:msg=U2lnbiBpbiByZXF1aXJlZA==",
+    )
+    .await;
+    let waiting = presence_becomes(&db, &session, |p| p.state == "needs_input").await;
+    assert_eq!(waiting.wait_kind.as_deref(), Some("auth"));
+    assert_eq!(waiting.wait_summary.as_deref(), Some("Sign in required"));
+
+    let notice = db
+        .notification_of(
+            0,
+            Some(&pinrail_core::db::EventSubject::Session(session.1.clone())),
+        )
+        .unwrap()
+        .expect("a lasting auth wait should create an inbox notification");
+    assert_eq!(notice.reason, "input_requested");
+    assert!(notice.waiting);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn cursor_asking_a_permission_in_its_notification_shows_as_waiting() {
     let setup = Setup::new();
     setup.turn_on().await;

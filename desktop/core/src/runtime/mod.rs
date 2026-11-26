@@ -228,6 +228,127 @@ fn start(app: &Pinrail) -> pinrail_host::link::HostLink {
     HostLink::start(connector, &format!("pinrail-core/{}", crate::VERSION))
 }
 
+/// How long a `blocked` / `auth` program status is held before it is
+/// reported: agents such as Antigravity emit a transient "Sign in required"
+/// status while checking cached credentials on startup, then clear it to
+/// `idle` a second later.
+#[cfg(unix)]
+const AUTH_WAIT_HOLD: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Holds `blocked` / `auth` program statuses per terminal for a short grace
+/// window so a transient startup auth check that clears to `idle` or
+/// `working` never flashes `needs_input`, creates an inbox entry, or fires a
+/// desktop notification.
+#[cfg(unix)]
+struct PendingAuth {
+    hold_for: std::time::Duration,
+    by_terminal: std::collections::HashMap<String, (tokio::time::Instant, Value)>,
+}
+
+#[cfg(unix)]
+impl PendingAuth {
+    fn new(hold_for: std::time::Duration) -> Self {
+        Self {
+            hold_for,
+            by_terminal: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Decides whether `params` should be recorded immediately (`Some`) or
+    /// held (`None`). Any non-auth top-level status for the same terminal
+    /// cancels a held auth wait; child records (`id` set) leave it alone.
+    fn handle(&mut self, params: Value, now: tokio::time::Instant) -> Option<Value> {
+        if params["id"].as_str().is_some_and(|id| !id.is_empty()) {
+            return Some(params);
+        }
+        let Some(terminal) = params["terminal"].as_str() else {
+            return Some(params);
+        };
+        if params["state"].as_str() == Some("blocked") && params["kind"].as_str() == Some("auth") {
+            // Keep the first deadline so repeated emissions cannot starve it.
+            self.by_terminal
+                .entry(terminal.to_string())
+                .and_modify(|(_, held)| *held = params.clone())
+                .or_insert((now + self.hold_for, params));
+            return None;
+        }
+        self.by_terminal.remove(terminal);
+        Some(params)
+    }
+
+    fn cancel(&mut self, terminal: &str) {
+        self.by_terminal.remove(terminal);
+    }
+
+    fn clear(&mut self) {
+        self.by_terminal.clear();
+    }
+
+    fn next(&self) -> Option<tokio::time::Instant> {
+        self.by_terminal.values().map(|(at, _)| *at).min()
+    }
+
+    fn take_due(&mut self, now: tokio::time::Instant) -> Vec<Value> {
+        let mut ready = Vec::new();
+        self.by_terminal.retain(|_, (at, params)| {
+            if *at <= now {
+                ready.push(params.clone());
+                false
+            } else {
+                true
+            }
+        });
+        ready
+    }
+}
+
+/// Records one `program_status` event from the host.
+#[cfg(unix)]
+fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
+    let now = chrono::Utc::now();
+    match app.runtime().program_status(params, now) {
+        Ok(Some((agent, session, mut report))) => {
+            let keep_texts = app
+                .settings()
+                .value("/runtime/record_turns")
+                .as_bool()
+                .unwrap_or(true);
+            // what a lost hook report would have said
+            let (prompt, texts) = app.runtime().from_transcript(&agent, &session, &mut report);
+            if let Some(prompt) = &prompt {
+                if let Err(error) = app
+                    .reviews()
+                    .report(&agent, &session, prompt, keep_texts, now)
+                {
+                    eprintln!("pinrail: recording a prompt from the transcript failed: {error:?}");
+                }
+                if let crate::db::ReportEvent::Prompt { prompt: Some(text) } = &prompt.event {
+                    let _ = app.runtime().confirm(&agent, &session, text, false);
+                }
+            }
+            if let Err(error) =
+                app.reviews()
+                    .report(&agent, &session, &report, keep_texts && texts, now)
+            {
+                eprintln!("pinrail: recording a program status failed: {error:?}");
+            }
+            // the work confirms the message just typed
+            if report.event == crate::db::ReportEvent::Working
+                && let Err(error) = app.runtime().confirm_by_work(&agent, &session)
+            {
+                eprintln!("pinrail: confirming a typed message failed: {error}");
+            }
+            // an agent that went idle takes the next message
+            let app = app.clone();
+            tokio::spawn(async move {
+                let _ = app.runtime().deliver(&agent, &session).await;
+            });
+        }
+        Ok(None) => {}
+        Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),
+    }
+}
+
 /// Follows the host until the link stops: reconciles the runs with the
 /// host's terminals on every connect, ends the run of a terminal that
 /// exits, and forgets the tokens of runs that ended long enough ago.
@@ -245,10 +366,13 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
     let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
     // typed messages unconfirmed after 10 seconds, held ones after 30 minutes
     let mut messages = tokio::time::interval(std::time::Duration::from_secs(2));
+    let mut pending_auth = PendingAuth::new(AUTH_WAIT_HOLD);
     loop {
+        let next_auth = pending_auth.next();
         tokio::select! {
             event = events.recv() => match event {
                 Ok(HostEvent::Connected { terminals, .. }) => {
+                    pending_auth.clear();
                     reconcile(&app, &link, &terminals).await;
                     // the agents this host finds, for the Start an agent
                     // dialog; a connect can be seen twice, as a ready
@@ -256,50 +380,8 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                     check_startable_later(app.clone(), just_before());
                 }
                 Ok(HostEvent::Event { method, params }) if method == "program_status" => {
-                    let now = chrono::Utc::now();
-                    match app.runtime().program_status(&params, now) {
-                        Ok(Some((agent, session, mut report))) => {
-                            let keep_texts = app
-                                .settings()
-                                .value("/runtime/record_turns")
-                                .as_bool()
-                                .unwrap_or(true);
-                            // what a lost hook report would have said
-                            let (prompt, texts) =
-                                app.runtime().from_transcript(&agent, &session, &mut report);
-                            if let Some(prompt) = &prompt {
-                                if let Err(error) =
-                                    app.reviews().report(&agent, &session, prompt, keep_texts, now)
-                                {
-                                    eprintln!("pinrail: recording a prompt from the transcript failed: {error:?}");
-                                }
-                                if let crate::db::ReportEvent::Prompt { prompt: Some(text) } = &prompt.event {
-                                    let _ = app.runtime().confirm(&agent, &session, text, false);
-                                }
-                            }
-                            if let Err(error) = app.reviews().report(
-                                &agent,
-                                &session,
-                                &report,
-                                keep_texts && texts,
-                                now,
-                            ) {
-                                eprintln!("pinrail: recording a program status failed: {error:?}");
-                            }
-                            // the work confirms the message just typed
-                            if report.event == crate::db::ReportEvent::Working
-                                && let Err(error) = app.runtime().confirm_by_work(&agent, &session)
-                            {
-                                eprintln!("pinrail: confirming a typed message failed: {error}");
-                            }
-                            // an agent that went idle takes the next message
-                            let app = app.clone();
-                            tokio::spawn(async move {
-                                let _ = app.runtime().deliver(&agent, &session).await;
-                            });
-                        }
-                        Ok(None) => {}
-                        Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),
+                    if let Some(params) = pending_auth.handle(params, tokio::time::Instant::now()) {
+                        record_program_status(&app, &params);
                     }
                 }
                 Ok(HostEvent::Event { method, params }) if method == "notify" => {
@@ -317,6 +399,9 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                     }
                 }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
+                    if let Some(terminal) = params["terminal"].as_str() {
+                        pending_auth.cancel(terminal);
+                    }
                     match app.runtime().exited(&params) {
                         Ok(Some(run)) => {
                             report_exit(&app, &run);
@@ -329,9 +414,22 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                 }
                 Ok(_) => {}
                 // events were missed: the host's list says where things are
-                Err(RecvError::Lagged(_)) => reconcile_listed(&app, &link).await,
+                Err(RecvError::Lagged(_)) => {
+                    pending_auth.clear();
+                    reconcile_listed(&app, &link).await;
+                }
                 Err(RecvError::Closed) => break,
             },
+            _ = async {
+                match next_auth {
+                    Some(at) => tokio::time::sleep_until(at).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                for params in pending_auth.take_due(tokio::time::Instant::now()) {
+                    record_program_status(&app, &params);
+                }
+            }
             changed = state.changed() => {
                 if changed.is_err() || *state.borrow() == HostState::Offline {
                     break;
@@ -608,5 +706,88 @@ mod host_beside_tests {
             found("/usr/lib/pinrail", &[]),
             PathBuf::from("/usr/lib/pinrail/pinrail-host")
         );
+    }
+}
+
+#[cfg(all(test, unix))]
+mod pending_auth_tests {
+    use super::PendingAuth;
+    use serde_json::json;
+    use std::time::Duration;
+    use tokio::time::Instant;
+
+    #[test]
+    fn holds_auth_until_grace_window_elapses_and_does_not_starve_on_repeats() {
+        let mut pending = PendingAuth::new(Duration::from_secs(2));
+        let t0 = Instant::now();
+        let first =
+            json!({"terminal": "t-1", "state": "blocked", "kind": "auth", "msg": "Sign in"});
+        let second = json!({"terminal": "t-1", "state": "blocked", "kind": "auth", "msg": "Sign in required"});
+
+        assert_eq!(pending.handle(first, t0), None);
+        assert_eq!(pending.next(), Some(t0 + Duration::from_secs(2)));
+        assert!(pending.take_due(t0 + Duration::from_secs(1)).is_empty());
+
+        // A repeat updates the payload without pushing back the original deadline.
+        assert_eq!(
+            pending.handle(second.clone(), t0 + Duration::from_secs(1)),
+            None
+        );
+        assert_eq!(pending.next(), Some(t0 + Duration::from_secs(2)));
+
+        assert_eq!(pending.take_due(t0 + Duration::from_secs(2)), vec![second]);
+        assert_eq!(pending.next(), None);
+    }
+
+    #[test]
+    fn any_non_auth_top_level_status_cancels_the_held_auth_wait() {
+        let mut pending = PendingAuth::new(Duration::from_secs(2));
+        let t0 = Instant::now();
+        let auth = json!({"terminal": "t-1", "state": "blocked", "kind": "auth"});
+
+        for next in [
+            json!({"terminal": "t-1", "state": "idle"}),
+            json!({"terminal": "t-1", "state": "clear"}),
+            json!({"terminal": "t-1", "state": "blocked", "kind": "permission"}),
+        ] {
+            assert_eq!(pending.handle(auth.clone(), t0), None);
+            assert_eq!(
+                pending.handle(next.clone(), t0 + Duration::from_millis(500)),
+                Some(next)
+            );
+            assert_eq!(pending.next(), None);
+        }
+    }
+
+    #[test]
+    fn child_records_neither_hold_nor_cancel_the_parent_auth_wait() {
+        let mut pending = PendingAuth::new(Duration::from_secs(2));
+        let t0 = Instant::now();
+        let auth = json!({"terminal": "t-1", "state": "blocked", "kind": "auth"});
+        let child_idle = json!({"terminal": "t-1", "state": "idle", "id": "sub-1"});
+        let child_auth =
+            json!({"terminal": "t-1", "state": "blocked", "kind": "auth", "id": "sub-1"});
+
+        assert_eq!(pending.handle(child_auth.clone(), t0), Some(child_auth));
+        assert_eq!(pending.next(), None);
+
+        assert_eq!(pending.handle(auth.clone(), t0), None);
+        assert_eq!(
+            pending.handle(child_idle.clone(), t0 + Duration::from_millis(200)),
+            Some(child_idle)
+        );
+        assert_eq!(pending.take_due(t0 + Duration::from_secs(2)), vec![auth]);
+    }
+
+    #[test]
+    fn cancel_drops_the_held_auth_wait_for_that_terminal() {
+        let mut pending = PendingAuth::new(Duration::from_secs(2));
+        let t0 = Instant::now();
+        let auth = json!({"terminal": "t-1", "state": "blocked", "kind": "auth"});
+
+        assert_eq!(pending.handle(auth, t0), None);
+        pending.cancel("t-1");
+        assert_eq!(pending.next(), None);
+        assert!(pending.take_due(t0 + Duration::from_secs(5)).is_empty());
     }
 }
