@@ -17,7 +17,8 @@ const fields = (path) =>
 const built = existsSync(join(app, "ui/public/ghostty/BUILD_INFO"));
 
 describe.skipIf(!built)("libghostty-vt for the window, once built", () => {
-  const info = fields(join(app, "ui/public/ghostty/BUILD_INFO"));
+  // a skipped describe still runs its body, without the file
+  const info = built ? fields(join(app, "ui/public/ghostty/BUILD_INFO")) : {};
   const lock = fields(join(app, "../screen/ghostty.lock"));
 
   test("is built from the release the host pins", () => {
