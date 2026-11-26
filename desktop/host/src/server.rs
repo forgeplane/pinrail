@@ -23,7 +23,7 @@ use crate::log::Log;
 use crate::outbox::Outbox;
 use crate::paths::Paths;
 use crate::probe::Probe;
-use crate::pty::SpawnError;
+use crate::pty::{Exit, SpawnError};
 use crate::records::Records;
 use crate::registration::Registration;
 use crate::terminal::{self, AttachError, Reason, SignalError, Terminal};
@@ -161,6 +161,10 @@ struct Shared {
     stop: Notify,
     ping_every: Duration,
     terminals: Mutex<BTreeMap<String, Terminal>>,
+    /// The exits holders reported for terminals not in `terminals` yet: a
+    /// program can end before the spawn that started it adds its terminal.
+    /// Kept under the lock of `terminals`.
+    early_exits: Mutex<BTreeMap<String, Exit>>,
     context: terminal::Context,
     probe: Probe,
     /// The holders that keep the terminals' PTYs open.
@@ -205,6 +209,7 @@ async fn run(
         stop: Notify::new(),
         ping_every,
         terminals: Mutex::new(BTreeMap::new()),
+        early_exits: Mutex::new(BTreeMap::new()),
         probe: Probe::default(),
         context: terminal::Context {
             events: Arc::new(Events::default().logging_to(Log::open(&paths.log()))),
@@ -248,8 +253,15 @@ async fn run(
     tokio::spawn(async move {
         while let Some((_, terminal, exit)) = exited.recv().await {
             let terminals = exits_to.terminals.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(terminal) = terminals.get(&terminal) {
-                terminal.exited(exit);
+            match terminals.get(&terminal) {
+                Some(terminal) => terminal.exited(exit),
+                None => {
+                    exits_to
+                        .early_exits
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .insert(terminal, exit);
+                }
             }
         }
     });
@@ -744,6 +756,21 @@ fn reply(id: Value, outcome: Result<Value, Failure>) -> Value {
 }
 
 impl Shared {
+    /// Adds a spawned terminal, with the exit its holder reported before
+    /// it was added, if any.
+    fn add_terminal(&self, id: String, terminal: Terminal) {
+        let mut terminals = self.terminals.lock().unwrap_or_else(|e| e.into_inner());
+        let early = self
+            .early_exits
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&id);
+        if let Some(exit) = early {
+            terminal.exited(exit);
+        }
+        terminals.insert(id, terminal);
+    }
+
     /// Stops every live terminal as the host shuts down, and waits until
     /// they have ended.
     /// Hands every live terminal over to the next host, which finds the
@@ -997,11 +1024,7 @@ fn spawn(params: &Value, shared: &Shared) -> Result<Value, Failure> {
     )
     .map_err(|e| Failure("spawn_failed", e.to_string()))?;
     let info = terminal.info();
-    shared
-        .terminals
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(id.clone(), terminal);
+    shared.add_terminal(id.clone(), terminal);
     shared.context.events.emit(
         "spawned",
         json!({"terminal": id, "pid": pid, "labels": labels, "cols": cols, "rows": rows}),

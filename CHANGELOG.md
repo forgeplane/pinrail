@@ -310,6 +310,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show a terminal as ended on Linux when its program exits as soon as it
+  starts.
 - Open a work item's files, and the files of its comments, with their
   default program when you click them.
 - Show Claude Code's reply and the next prompt in a session's summary when
