@@ -34,6 +34,8 @@ struct Queued {
     frame: Frame,
     class: Class,
     size: usize,
+    /// The bytes of the payload already written, in parts of [`CHUNK`].
+    sent: usize,
 }
 
 struct Unread {
@@ -65,8 +67,10 @@ impl Waiting {
 
     /// The next frame to write: channel 0's, or else the next terminal
     /// channel's after the one that wrote last, cut to [`CHUNK`] bytes of
-    /// DATA. With it, the queued frame it ends, whose bounds to release.
-    fn next(&mut self) -> (Frame, Option<Queued>) {
+    /// DATA, encoded for the wire: a part is encoded from where the last
+    /// one ended, with no copy of the rest. With it, the class and size of
+    /// the queued frame it ends, whose bounds to release.
+    fn next(&mut self) -> (Vec<u8>, Option<(Class, usize)>) {
         let channel = if self.channels.contains_key(&frame::CONTROL_CHANNEL) {
             frame::CONTROL_CHANNEL
         } else {
@@ -81,21 +85,24 @@ impl Waiting {
         let head = queue.front_mut().expect("a frame waits");
         if channel != frame::CONTROL_CHANNEL
             && head.frame.kind == kind::DATA
-            && head.frame.payload.len() > CHUNK
+            && head.frame.payload.len() - head.sent > CHUNK
         {
-            let rest = head.frame.payload.split_off(CHUNK);
-            let part = Frame {
-                channel,
-                kind: kind::DATA,
-                payload: std::mem::replace(&mut head.frame.payload, rest),
-            };
-            return (part, None);
+            let part = &head.frame.payload[head.sent..head.sent + CHUNK];
+            head.sent += CHUNK;
+            return (frame::encode(channel, kind::DATA, part), None);
         }
         let queued = queue.pop_front().expect("a frame waits");
         if queue.is_empty() {
             self.channels.remove(&channel);
         }
-        (queued.frame.clone(), Some(queued))
+        let Queued {
+            frame,
+            class,
+            size,
+            sent,
+        } = queued;
+        let bytes = frame::encode(frame.channel, frame.kind, &frame.payload[sent..]);
+        (bytes, Some((class, size)))
     }
 }
 
@@ -132,14 +139,14 @@ impl Outbox {
                 while let Ok(queued) = receiver.try_recv() {
                     waiting.push(queued);
                 }
-                let (frame, done) = waiting.next();
-                if frame::write(&mut writer, &frame).await.is_err() {
+                let (bytes, done) = waiting.next();
+                if frame::write_encoded(&mut writer, &bytes).await.is_err() {
                     break;
                 }
-                let Some(done) = done else { continue };
-                match done.class {
-                    Class::Event => counts.events.fetch_sub(done.size, Ordering::Relaxed),
-                    Class::Reply => counts.replies.fetch_sub(done.size, Ordering::Relaxed),
+                let Some((class, size)) = done else { continue };
+                match class {
+                    Class::Event => counts.events.fetch_sub(size, Ordering::Relaxed),
+                    Class::Reply => counts.replies.fetch_sub(size, Ordering::Relaxed),
                     Class::Other => 0,
                 };
             }
@@ -149,7 +156,14 @@ impl Outbox {
 
     fn send(&self, frame: Frame, class: Class) -> bool {
         let size = frame.payload.len();
-        self.queue.send(Queued { frame, class, size }).is_ok()
+        self.queue
+            .send(Queued {
+                frame,
+                class,
+                size,
+                sent: 0,
+            })
+            .is_ok()
     }
 
     /// Whether the connection's writer has gone.
@@ -192,5 +206,63 @@ impl Outbox {
     /// Resolves when the unread replies passed their bound.
     pub async fn overflowed(&self) {
         self.unread.overflowed.notified().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn data(channel: u32, payload: Vec<u8>) -> Queued {
+        let size = payload.len();
+        Queued {
+            frame: Frame {
+                channel,
+                kind: kind::DATA,
+                payload,
+            },
+            class: Class::Other,
+            size,
+            sent: 0,
+        }
+    }
+
+    /// The channel and payload of an encoded frame.
+    fn decoded(bytes: &[u8]) -> (u32, Vec<u8>) {
+        let channel = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let length = u32::from_le_bytes(bytes[5..9].try_into().unwrap()) as usize;
+        assert_eq!(bytes.len(), 9 + length);
+        (channel, bytes[9..].to_vec())
+    }
+
+    #[test]
+    fn a_large_frame_goes_out_in_parts_that_take_turns_with_other_channels() {
+        let big: Vec<u8> = (0..40 * 1024).map(|i| (i % 251) as u8).collect();
+        let mut waiting = Waiting::default();
+        waiting.push(data(1, big.clone()));
+        waiting.push(data(2, b"other".to_vec()));
+        let mut sent = Vec::new();
+        while !waiting.is_empty() {
+            let (bytes, done) = waiting.next();
+            let (channel, payload) = decoded(&bytes);
+            sent.push((channel, payload.len(), done.is_some()));
+        }
+        assert_eq!(
+            sent,
+            [
+                (1, CHUNK, false),
+                (2, 5, true),
+                (1, CHUNK, false),
+                (1, 8 * 1024, true),
+            ]
+        );
+        // the parts join into the frame as queued
+        let mut waiting = Waiting::default();
+        waiting.push(data(1, big.clone()));
+        let mut joined = Vec::new();
+        while !waiting.is_empty() {
+            joined.extend(decoded(&waiting.next().0).1);
+        }
+        assert_eq!(joined, big);
     }
 }

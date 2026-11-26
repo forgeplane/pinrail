@@ -47,13 +47,19 @@ impl Frame {
 
     /// The frame as it goes on the wire.
     pub fn encode(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(HEADER + self.payload.len());
-        bytes.extend(self.channel.to_le_bytes());
-        bytes.push(self.kind);
-        bytes.extend((self.payload.len() as u32).to_le_bytes());
-        bytes.extend(&self.payload);
-        bytes
+        encode(self.channel, self.kind, &self.payload)
     }
+}
+
+/// A frame of `payload` as it goes on the wire, such as a part of a larger
+/// frame's payload.
+pub fn encode(channel: u32, kind: u8, payload: &[u8]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(HEADER + payload.len());
+    bytes.extend(channel.to_le_bytes());
+    bytes.push(kind);
+    bytes.extend((payload.len() as u32).to_le_bytes());
+    bytes.extend(payload);
+    bytes
 }
 
 fn header(bytes: [u8; HEADER]) -> io::Result<(u32, u8, usize)> {
@@ -143,7 +149,12 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
 }
 
 pub async fn write<W: AsyncWrite + Unpin>(writer: &mut W, frame: &Frame) -> io::Result<()> {
-    writer.write_all(&frame.encode()).await?;
+    write_encoded(writer, &frame.encode()).await
+}
+
+/// Writes a frame [`encode`] made.
+pub async fn write_encoded<W: AsyncWrite + Unpin>(writer: &mut W, bytes: &[u8]) -> io::Result<()> {
+    writer.write_all(bytes).await?;
     writer.flush().await
 }
 

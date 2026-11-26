@@ -13,6 +13,8 @@
 //! - Output to viewers, through the PTY, the host and its frames, as a
 //!   viewer that returns credit reads it: one viewer, and three of the same
 //!   terminal.
+//! - Output through the viewers' frames and outboxes alone, in this
+//!   process and to a sink: one viewer, and three.
 //! - Attach with the binary snapshot of 10,000 lines: from the request to
 //!   the snapshot's end.
 //! - First paint of 5,000 lines with a full-screen program on the
@@ -101,6 +103,20 @@ const MEASURES: &[Measure] = &[
     },
     Measure {
         name: "viewer_throughput_tui_3_viewers",
+        unit: "MB/s",
+        budget: None,
+        higher_is_better: true,
+        margin: 0.0,
+    },
+    Measure {
+        name: "outbox_throughput_tui",
+        unit: "MB/s",
+        budget: None,
+        higher_is_better: true,
+        margin: 0.0,
+    },
+    Measure {
+        name: "outbox_throughput_tui_3_viewers",
         unit: "MB/s",
         budget: None,
         higher_is_better: true,
@@ -605,6 +621,52 @@ fn viewer_throughput(bytes: &[u8], viewers: usize) -> f64 {
     )
 }
 
+/// MB/s of `bytes`, given in reads of 16 KiB, through the frames of
+/// `viewers` viewers of one terminal and each viewer's outbox, which
+/// writes to a sink: the host's own work from the query filter's output
+/// to the socket, without the PTY, the socket or the reader. Each viewer
+/// has all the credit it needs.
+fn outbox_throughput(bytes: &[u8], viewers: usize) -> f64 {
+    use pinrail_host::outbox::Outbox;
+    use pinrail_host::viewers::Viewers;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    best_of_three(
+        || {
+            runtime.block_on(async {
+                let paint = |_: usize| Some(Vec::new());
+                let size = (COLS, ROWS);
+                let mut all = Viewers::default();
+                let mut writers = Vec::new();
+                for channel in 1..=viewers as u32 {
+                    let (out, writer) = Outbox::new(tokio::io::sink());
+                    writers.push(writer);
+                    let id = (1, channel);
+                    all.add(id, out, size, Vec::new());
+                    all.resume(id, &paint, size);
+                    all.credit(id, u32::MAX, &paint, size);
+                    all.credit(id, u32::MAX, &paint, size);
+                }
+                let started = Instant::now();
+                for (n, chunk) in bytes.chunks(CHUNK).enumerate() {
+                    all.output(chunk, started + Duration::from_millis(n as u64));
+                }
+                all.send_gathered();
+                // the outboxes end once every frame is written
+                drop(all);
+                for writer in writers {
+                    writer.await.expect("a writer");
+                }
+                bytes.len() as f64 / started.elapsed().as_secs_f64() / 1e6
+            })
+        },
+        true,
+    )
+}
+
 /// A shell line that prints `lines` lines of about 100 columns, with a
 /// colour on each, then `done`.
 fn history_script(lines: usize, done: &str) -> String {
@@ -781,6 +843,14 @@ fn main() {
     results.insert(
         "viewer_throughput_tui_3_viewers".into(),
         json!(viewer_throughput(tui_8mb, 3)),
+    );
+    results.insert(
+        "outbox_throughput_tui".into(),
+        json!(outbox_throughput(tui_bytes.as_bytes(), 1)),
+    );
+    results.insert(
+        "outbox_throughput_tui_3_viewers".into(),
+        json!(outbox_throughput(tui_bytes.as_bytes(), 3)),
     );
     results.insert("attach_binary_10k_lines".into(), json!(attach_binary()));
     results.insert(
