@@ -174,9 +174,13 @@ class GhosttyView implements TerminalView, BenchHooks {
   }
 
   private newQueue() {
+    const titles = this.titles;
     return new WriteQueue(this.core, {
       draw: () => this.drawOutput(),
-      title: (title) => this.titles.forEach((l) => l(title)),
+      // read only while someone listens for the title
+      get title() {
+        return titles.size ? (title: string) => titles.forEach((l) => l(title)) : undefined;
+      },
     });
   }
 

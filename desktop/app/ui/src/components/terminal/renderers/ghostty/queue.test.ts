@@ -18,21 +18,41 @@ function rig({ perPiece = 1, sync = () => false }: { perPiece?: number; sync?: (
   const frames: (() => void)[] = [];
   const timers: { at: number; run: () => void }[] = [];
   const clock: Clock = {
-    frame: (run) => frames.push(run),
-    later: (run, ms) => timers.push({ at: time + ms, run }),
+    frame: (run) => {
+      frames.push(run);
+      return () => {
+        const i = frames.indexOf(run);
+        if (i >= 0) frames.splice(i, 1);
+      };
+    },
+    later: (run, ms) => {
+      const timer = { at: time + ms, run };
+      timers.push(timer);
+      return () => {
+        const i = timers.indexOf(timer);
+        if (i >= 0) timers.splice(i, 1);
+      };
+    },
     now: () => time,
   };
   const pieces: number[] = [];
   let title = "";
   let pwd = "";
+  const reads = { title: 0, pwd: 0 };
   const parser: Parser = {
     write: (bytes) => {
       pieces.push(bytes.length);
       time += perPiece;
     },
     isSynchronizedOutput: sync,
-    title: () => title,
-    pwd: () => pwd,
+    title: () => {
+      reads.title++;
+      return title;
+    },
+    pwd: () => {
+      reads.pwd++;
+      return pwd;
+    },
   };
   const seen: string[] = [];
   const queue = new WriteQueue(
@@ -44,6 +64,8 @@ function rig({ perPiece = 1, sync = () => false }: { perPiece?: number; sync?: (
     queue,
     pieces,
     seen,
+    reads,
+    waitingCallbacks: () => frames.length + timers.length,
     setTitle: (t: string) => (title = t),
     setPwd: (p: string) => (pwd = p),
     /** Runs the next frame; false when none is waiting. */
@@ -97,6 +119,45 @@ describe("the write queue", () => {
     setPwd("file://host/work");
     frame();
     expect(seen).toEqual(["title:vim", "draw", "pwd:file://host/work", "draw"]);
+  });
+
+  test("reads the title and the folder once a run of parsing, not once a piece", () => {
+    const { queue, pieces, reads, frame } = rig();
+    queue.write(new Uint8Array(PIECE * 4), () => {});
+    frame();
+    expect(pieces.length).toBe(4);
+    expect(reads).toEqual({ title: 1, pwd: 1 });
+  });
+
+  test("reads no title or folder that nobody listens for", () => {
+    let pwdReads = 0;
+    const parser: Parser = {
+      write: () => {},
+      isSynchronizedOutput: () => false,
+      title: () => "",
+      pwd: () => {
+        pwdReads++;
+        return "";
+      },
+    };
+    const queue = new WriteQueue(
+      parser,
+      { draw: () => {} },
+      { frame: (run) => (run(), () => {}), later: () => () => {}, now: () => 0 },
+    );
+    queue.write(new Uint8Array(10), () => {});
+    expect(pwdReads).toBe(0);
+  });
+
+  test("cancels the timer once the frame parses, and the frame once the timer does", () => {
+    const { queue, frame, advance, waitingCallbacks } = rig();
+    queue.write(new Uint8Array(10), () => {});
+    expect(waitingCallbacks()).toBe(2);
+    frame();
+    expect(waitingCallbacks()).toBe(0);
+    queue.write(new Uint8Array(10), () => {});
+    advance(FRAME_WAIT_MS);
+    expect(waitingCallbacks()).toBe(0);
   });
 
   test("holds drawing while the program holds its output, for at most 150 ms", () => {

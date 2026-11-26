@@ -3,7 +3,8 @@
 // and each write's bytes are credited back once they are parsed, as the
 // core's flow control expects. While the program holds
 // its output in synchronized mode (2026), drawing waits for it, for at most
-// 150 ms. A changed title or working folder is reported once. The echo
+// 150 ms. A changed title or working folder is reported once, read after
+// each run of parsing and only when someone listens for it. The echo
 // of what the person typed is parsed and drawn at once, without waiting
 // for a frame, when nothing else waits. WebKit gives a covered or
 // minimized window no frames, so output also parses on a timer when no
@@ -21,6 +22,8 @@ export interface Parser {
 export interface QueueEvents {
   /** The screen changed and can be drawn. */
   draw(): void;
+  /** Reports a new title; the queue reads the title only while this is
+   *  set, which may change. */
   title?(title: string): void;
   pwd?(pwd: string): void;
 }
@@ -28,8 +31,10 @@ export interface QueueEvents {
 /** How the queue waits for the next frame, and tells the time; a test
  *  gives its own. */
 export interface Clock {
-  frame(run: () => void): void;
-  later(run: () => void, ms: number): void;
+  /** Runs `run` on the next frame, unless the returned function cancels it. */
+  frame(run: () => void): () => void;
+  /** Runs `run` after `ms`, unless the returned function cancels it. */
+  later(run: () => void, ms: number): () => void;
   now(): number;
 }
 
@@ -47,17 +52,27 @@ export const ECHO_MS = 250;
 export const ECHO_BYTES = 16 * 1024;
 
 const browserClock: Clock = {
-  frame: (run) => requestAnimationFrame(() => run()),
-  later: (run, ms) => setTimeout(run, ms),
+  frame: (run) => {
+    const id = requestAnimationFrame(() => run());
+    return () => cancelAnimationFrame(id);
+  },
+  later: (run, ms) => {
+    const id = setTimeout(run, ms);
+    return () => clearTimeout(id);
+  },
   now: () => performance.now(),
 };
 
 type Pending = { bytes: Uint8Array; at: number; consumed: () => void };
 
 export class WriteQueue {
+  /** The writes waiting, from `first` on: the parsed ones before it are
+   *  dropped in batches, rather than one shift at a time. */
   private pending: Pending[] = [];
-  /** The pending frame or timer, whichever runs first; null when none. */
-  private scheduled: object | null = null;
+  private first = 0;
+  /** Cancels the pending frame and timer, whichever has not run; null
+   *  when none waits. */
+  private scheduled: (() => void) | null = null;
   /** When the program began holding its output, if it does. */
   private syncSince: number | null = null;
   private syncTimer = false;
@@ -93,6 +108,11 @@ export class WriteQueue {
     this.schedule();
   }
 
+  /** How many writes wait. */
+  private get count(): number {
+    return this.pending.length - this.first;
+  }
+
   /** The person typed: the output that follows soon after, a little of
    *  it, is likely the echo, and is parsed and drawn at once. */
   typed(): void {
@@ -103,12 +123,14 @@ export class WriteQueue {
   /** Output to parse at once: soon after a key, within the echo's bytes,
    *  and with nothing waiting before it. */
   private isEcho(bytes: Uint8Array): boolean {
-    return this.pending.length === 0 && this.clock.now() < this.echoUntil && bytes.length <= this.echoBytes;
+    return this.count === 0 && this.clock.now() < this.echoUntil && bytes.length <= this.echoBytes;
   }
 
   /** Bytes still waiting to be parsed. */
   get waiting(): number {
-    return this.pending.reduce((n, p) => n + p.bytes.length - p.at, 0);
+    let n = 0;
+    for (let i = this.first; i < this.pending.length; i++) n += this.pending[i]!.bytes.length - this.pending[i]!.at;
+    return n;
   }
 
   /** Drops what waits. With `credit`, as when a snapshot replaces the
@@ -117,55 +139,76 @@ export class WriteQueue {
    *  gone. */
   stop({ credit = false }: { credit?: boolean } = {}): void {
     this.stopped = true;
-    const dropped = this.pending;
+    this.scheduled?.();
+    this.scheduled = null;
+    const dropped = this.pending.slice(this.first);
     this.pending = [];
+    this.first = 0;
     if (credit) for (const p of dropped) p.consumed();
   }
 
+  /** Parses on the next frame, or after `FRAME_WAIT_MS` when no frame
+   *  comes; the other is cancelled. */
   private schedule() {
     if (this.scheduled || this.stopped) return;
-    const token = {};
-    this.scheduled = token;
-    const go = () => {
-      if (this.scheduled !== token) return;
+    let cancelFrame = () => {};
+    let cancelTimer = () => {};
+    const go = (other: () => void) => {
+      other();
       this.scheduled = null;
       this.run();
     };
-    this.clock.frame(go);
-    this.clock.later(go, FRAME_WAIT_MS);
+    cancelFrame = this.clock.frame(() => go(cancelTimer));
+    cancelTimer = this.clock.later(() => go(cancelFrame), FRAME_WAIT_MS);
+    this.scheduled = () => {
+      cancelFrame();
+      cancelTimer();
+    };
   }
 
   private run() {
     if (this.stopped) return;
     const started = this.clock.now();
     let parsed = false;
-    while (this.pending.length && this.clock.now() - started < FRAME_BUDGET_MS) {
-      const head = this.pending[0];
+    while (this.count && this.clock.now() - started < FRAME_BUDGET_MS) {
+      const head = this.pending[this.first]!;
       const end = Math.min(head.bytes.length, head.at + PIECE);
       this.parser.write(head.bytes.subarray(head.at, end));
       head.at = end;
       parsed = true;
       if (head.at === head.bytes.length) {
-        this.pending.shift();
+        this.first++;
         head.consumed();
       }
-      this.report();
     }
-    if (this.pending.length) this.schedule();
+    if (this.count === 0) {
+      this.pending = [];
+      this.first = 0;
+    } else if (this.first > 64) {
+      this.pending = this.pending.slice(this.first);
+      this.first = 0;
+    }
+    if (parsed) this.report();
+    if (this.count) this.schedule();
     if (parsed) this.drawWhenReady();
   }
 
-  /** A changed title or working folder. */
+  /** A changed title or working folder, each read only when someone
+   *  listens for it. */
   private report() {
-    const title = this.parser.title();
-    if (title !== this.lastTitle) {
-      this.lastTitle = title;
-      this.events.title?.(title);
+    if (this.events.title) {
+      const title = this.parser.title();
+      if (title !== this.lastTitle) {
+        this.lastTitle = title;
+        this.events.title(title);
+      }
     }
-    const pwd = this.parser.pwd();
-    if (pwd !== this.lastPwd) {
-      this.lastPwd = pwd;
-      this.events.pwd?.(pwd);
+    if (this.events.pwd) {
+      const pwd = this.parser.pwd();
+      if (pwd !== this.lastPwd) {
+        this.lastPwd = pwd;
+        this.events.pwd(pwd);
+      }
     }
   }
 
