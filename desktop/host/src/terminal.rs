@@ -918,18 +918,24 @@ impl Actor {
             let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
             state.master.as_ref().and_then(pty::foreground_group)
         };
-        let leader = group.and_then(leader::read);
+        let Some((pid, name)) = group.and_then(|pid| Some((pid, leader::name(pid)?))) else {
+            return;
+        };
         // another process or another program: arguments and folder alone
-        // do not count, and may not be readable yet right after an exec
-        let key = |l: &Option<Leader>| l.as_ref().map(|l| (l.pid, l.name.clone()));
-        if leader.is_some() && key(&leader) != key(&self.foreground) {
-            self.foreground = leader.clone();
-            if let Some(leader) = leader {
-                let mut params = leader.to_json();
-                params["terminal"] = json!(self.id);
-                self.context.events.emit("foreground", params);
-            }
+        // do not count, and may not be readable yet right after an exec, so
+        // they are read only for a new one
+        if self
+            .foreground
+            .as_ref()
+            .is_some_and(|l| l.pid == pid && l.name == name)
+        {
+            return;
         }
+        let leader = leader::with_details(pid, name);
+        let mut params = leader.to_json();
+        params["terminal"] = json!(self.id);
+        self.foreground = Some(leader);
+        self.context.events.emit("foreground", params);
     }
 
     /// Tells a program that asked for focus reports whether the terminal

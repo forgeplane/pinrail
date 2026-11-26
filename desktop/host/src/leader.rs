@@ -23,15 +23,20 @@ impl Leader {
     }
 }
 
-/// The leader `pid`, if it runs.
-pub fn read(pid: u32) -> Option<Leader> {
-    let name = pinrail_runtime::process::process(pid)?.name;
-    Some(Leader {
+/// The name of the process `pid`, if it runs: one call, where its
+/// arguments and folder take three more.
+pub fn name(pid: u32) -> Option<String> {
+    Some(pinrail_runtime::process::process(pid)?.name)
+}
+
+/// The leader `pid` named `name`, with its arguments and folder.
+pub fn with_details(pid: u32, name: String) -> Leader {
+    Leader {
         pid,
         name,
         args: args(pid).unwrap_or_default(),
         cwd: cwd(pid),
-    })
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -160,7 +165,8 @@ mod tests {
 
     #[test]
     fn this_process_reads_as_itself() {
-        let me = read(std::process::id()).unwrap();
+        let pid = std::process::id();
+        let me = with_details(pid, name(pid).unwrap());
         assert!(!me.name.is_empty());
         assert!(!me.args.is_empty());
         let cwd = std::env::current_dir().unwrap().canonicalize().unwrap();
