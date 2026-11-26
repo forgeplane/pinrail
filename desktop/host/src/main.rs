@@ -50,6 +50,9 @@ Options:
                          no terminals and no host (default: 30)
   --ping-every <seconds> With serve: how often a controller hears from an
                          idle host (default: 15)
+  --holder-idle-exit <seconds>
+                         With serve: the --idle-exit of the holders it
+                         starts (default: 30)
 ";
 
     struct Args {
@@ -57,6 +60,7 @@ Options:
         data_dir: PathBuf,
         idle_exit: Duration,
         ping_every: Duration,
+        holder_idle_exit: Duration,
         daemonize: bool,
         handshake: Option<PathBuf>,
     }
@@ -67,6 +71,7 @@ Options:
         let mut data_dir = None;
         let mut idle_exit = None;
         let mut ping_every = server::PING_EVERY;
+        let mut holder_idle_exit = pinrail_host::holder::ALONE_EXIT;
         let mut daemonize = false;
         let mut handshake = None;
         while let Some(arg) = args.next() {
@@ -90,6 +95,13 @@ Options:
                         .filter(|&s| s > 0)
                         .ok_or("--ping-every needs a number of seconds")?;
                     ping_every = Duration::from_secs(seconds);
+                }
+                "--holder-idle-exit" => {
+                    let seconds: u64 = args
+                        .next()
+                        .and_then(|s| s.parse().ok())
+                        .ok_or("--holder-idle-exit needs a number of seconds")?;
+                    holder_idle_exit = Duration::from_secs(seconds);
                 }
                 "--daemonize" => daemonize = true,
                 "--handshake" => {
@@ -117,6 +129,7 @@ Options:
             data_dir: data_dir.unwrap_or_else(paths::default_data_dir),
             idle_exit,
             ping_every,
+            holder_idle_exit,
             daemonize,
             handshake,
         })
@@ -181,9 +194,10 @@ Options:
             data_dir: args.data_dir,
             idle_exit: args.idle_exit,
             ping_every: args.ping_every,
-            holder: pinrail_host::holders::Start::Process(
-                std::env::current_exe().unwrap_or_else(|_| "pinrail-host".into()),
-            ),
+            holder: pinrail_host::holders::Start::Process {
+                binary: std::env::current_exe().unwrap_or_else(|_| "pinrail-host".into()),
+                idle_exit: args.holder_idle_exit,
+            },
         }) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => fail(&error.to_string()),

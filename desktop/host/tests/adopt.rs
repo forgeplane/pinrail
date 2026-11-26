@@ -104,7 +104,8 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &old).unwrap();
     let parent = |pid: u64| pinrail_runtime::process::process(pid as u32).map(|p| p.parent);
 
-    let mut first = common::serve_of(&old, &folders, &[]);
+    // its holder exits a second after its last terminal, not 30 seconds
+    let mut first = common::serve_of(&old, &folders, &["--holder-idle-exit", "1"]);
     let mut client = connect(&first);
     let spawned = client
         .call(
@@ -148,7 +149,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     wait_for(&mut client, &before, "got:hello");
 
     // and exits once that terminal has ended, while the host runs on
-    let deadline = Instant::now() + pinrail_host::holder::ALONE_EXIT + Duration::from_secs(15);
+    let deadline = Instant::now() + Duration::from_secs(15);
     while pinrail_runtime::process::process(old_holder).is_some() {
         assert!(Instant::now() < deadline, "the old holder kept running");
         std::thread::sleep(Duration::from_millis(200));

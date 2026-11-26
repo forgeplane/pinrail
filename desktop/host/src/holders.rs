@@ -32,8 +32,12 @@ const ANSWER_WITHIN: Duration = Duration::from_secs(10);
 #[derive(Debug, Clone)]
 pub enum Start {
     /// `<binary> hold`, in a session of its own, so that it outlives the
+    /// host, and exits `idle_exit` after it has neither terminals nor a
     /// host.
-    Process(PathBuf),
+    Process {
+        binary: PathBuf,
+        idle_exit: Duration,
+    },
     /// On a thread of this process, for a host that runs inside a test:
     /// its programs end with the process.
     Thread,
@@ -128,7 +132,7 @@ impl Holders {
         };
         match &self.start {
             Start::Thread => pid == std::process::id(),
-            Start::Process(binary) => {
+            Start::Process { binary, .. } => {
                 let binary = binary.canonicalize().ok();
                 binary.is_some()
                     && crate::sys::executable_of(pid).and_then(|exe| exe.canonicalize().ok())
@@ -222,7 +226,7 @@ impl Holders {
                 std::thread::spawn(move || listening.run(Duration::MAX, None));
                 Ok(instance)
             }
-            Start::Process(binary) => start_process(binary, &self.paths),
+            Start::Process { binary, idle_exit } => start_process(binary, *idle_exit, &self.paths),
         }
     }
 
@@ -394,12 +398,22 @@ fn read(
 /// holder is responsible for itself, and so for the programs in its
 /// terminals, as a terminal app is for its shells.
 #[cfg(target_os = "macos")]
-fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<String> {
+fn start_process(
+    binary: &std::path::Path,
+    idle_exit: Duration,
+    paths: &Paths,
+) -> std::io::Result<String> {
     use std::io::BufRead;
     let data_dir = paths.host_dir.parent().unwrap_or(&paths.host_dir);
     let (pid, stdout) = crate::sys::spawn_responsible(
         binary,
-        &["hold".as_ref(), "--data-dir".as_ref(), data_dir.as_os_str()],
+        &[
+            "hold".as_ref(),
+            "--data-dir".as_ref(),
+            data_dir.as_os_str(),
+            "--idle-exit".as_ref(),
+            idle_exit.as_secs().to_string().as_ref(),
+        ],
     )?;
     // reaped by this host while it runs, by init once it has gone
     std::thread::spawn(move || crate::sys::wait(pid));
@@ -412,7 +426,11 @@ fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<Str
 /// host's process group, and reads the instance id it prints.
 #[cfg(not(target_os = "macos"))]
 #[allow(unsafe_code)]
-fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<String> {
+fn start_process(
+    binary: &std::path::Path,
+    idle_exit: Duration,
+    paths: &Paths,
+) -> std::io::Result<String> {
     use std::io::BufRead;
     use std::os::unix::process::CommandExt;
     let data_dir = paths.host_dir.parent().unwrap_or(&paths.host_dir);
@@ -421,6 +439,8 @@ fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<Str
         .arg("hold")
         .arg("--data-dir")
         .arg(data_dir)
+        .arg("--idle-exit")
+        .arg(idle_exit.as_secs().to_string())
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null());
