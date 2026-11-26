@@ -227,6 +227,7 @@ jobs:
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ steps.zig.outputs.version }}
+          use-cache: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with: # zizmor: ignore[cache-poisoning]
           # The name the CI workflow saves under, keyed by the runner image
