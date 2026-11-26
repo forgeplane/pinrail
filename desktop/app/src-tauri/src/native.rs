@@ -750,6 +750,11 @@ pub fn watch(app: AppHandle) {
 fn notify(app: &AppHandle, announce: &serde_json::Value) {
     let title = announce["title"].as_str().unwrap_or("Pinrail").to_string();
     let body = announce["body"].as_str().unwrap_or_default().to_string();
+    // the fallback below has no tags, which only macOS and Linux use
+    #[cfg_attr(
+        not(any(target_os = "macos", target_os = "linux")),
+        allow(unused_variables)
+    )]
     let tag = announce["tag"].as_str().map(str::to_string);
     let sound = announce["sound"].as_bool().unwrap_or(true);
     #[cfg(target_os = "macos")]

@@ -1242,6 +1242,7 @@ mod tests {
         assert!(!tmp.path().join("out").exists());
     }
 
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     /// A plugin folder with a skill, named `name`.
@@ -1357,6 +1358,7 @@ mod tests {
         assert_eq!(linked.skill.as_ref().unwrap().1, ["SKILL.md", "notes.md"]);
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_saved_attachment_is_a_new_file_of_the_persons() {
         let dir = tempfile::tempdir().unwrap();
