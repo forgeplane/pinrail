@@ -748,7 +748,7 @@ async fn archive(
     state.reviews().archive_session(&agent, &id, true)?;
     #[cfg(unix)]
     if let Err(error) = state.runtime().stop_session(&agent, &id).await {
-        eprintln!("pinrail: stopping the run of session {id} failed: {error}");
+        tracing::warn!("stopping the run of session {id} failed: {error}");
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -798,7 +798,7 @@ async fn delete_session(
 ) -> Result<StatusCode, ApiError> {
     #[cfg(unix)]
     if let Err(error) = state.runtime().stop_session(&agent, &id).await {
-        eprintln!("pinrail: stopping the run of session {id} failed: {error}");
+        tracing::warn!("stopping the run of session {id} failed: {error}");
     }
     state.reviews().delete_session(&agent, &id)?;
     state.session_files().remove(&agent, &id);

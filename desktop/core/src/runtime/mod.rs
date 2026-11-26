@@ -188,7 +188,7 @@ fn cli_control(app: &Pinrail) {
         .as_bool()
         .unwrap_or(false);
     if let Err(error) = crate::person_token::sync(app.config(), on) {
-        eprintln!("pinrail: writing the person token for the CLI failed: {error}");
+        tracing::warn!("writing the person token for the CLI failed: {error}");
     }
 }
 
@@ -320,7 +320,7 @@ fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
                     .reviews()
                     .report(&agent, &session, prompt, keep_texts, now)
                 {
-                    eprintln!("pinrail: recording a prompt from the transcript failed: {error:?}");
+                    tracing::warn!("recording a prompt from the transcript failed: {error:?}");
                 }
                 if let crate::db::ReportEvent::Prompt { prompt: Some(text) } = &prompt.event {
                     let _ = app.runtime().confirm(&agent, &session, text, false);
@@ -330,13 +330,13 @@ fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
                 app.reviews()
                     .report(&agent, &session, &report, keep_texts && texts, now)
             {
-                eprintln!("pinrail: recording a program status failed: {error:?}");
+                tracing::warn!("recording a program status failed: {error:?}");
             }
             // the work confirms the message just typed
             if report.event == crate::db::ReportEvent::Working
                 && let Err(error) = app.runtime().confirm_by_work(&agent, &session)
             {
-                eprintln!("pinrail: confirming a typed message failed: {error}");
+                tracing::warn!("confirming a typed message failed: {error}");
             }
             // an agent that went idle takes the next message
             let app = app.clone();
@@ -345,7 +345,7 @@ fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
             });
         }
         Ok(None) => {}
-        Err(error) => eprintln!("pinrail: reading a program status failed: {error}"),
+        Err(error) => tracing::warn!("reading a program status failed: {error}"),
     }
 }
 
@@ -391,11 +391,11 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                             if let Err(error) =
                                 app.reviews().report(&agent, &session, &report, false, now)
                             {
-                                eprintln!("pinrail: recording a notification failed: {error:?}");
+                                tracing::warn!("recording a notification failed: {error:?}");
                             }
                         }
                         Ok(None) => {}
-                        Err(error) => eprintln!("pinrail: reading a notification failed: {error}"),
+                        Err(error) => tracing::warn!("reading a notification failed: {error}"),
                     }
                 }
                 Ok(HostEvent::Event { method, params }) if method == "exited" => {
@@ -409,7 +409,7 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                             deliver_later(&app, &run);
                         }
                         Ok(None) => {}
-                        Err(error) => eprintln!("pinrail: ending a run failed: {error}"),
+                        Err(error) => tracing::warn!("ending a run failed: {error}"),
                     }
                 }
                 Ok(_) => {}
@@ -437,12 +437,12 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
             }
             _ = messages.tick() => {
                 if let Err(error) = app.runtime().sweep_messages() {
-                    eprintln!("pinrail: sweeping the messages failed: {error}");
+                    tracing::warn!("sweeping the messages failed: {error}");
                 }
             }
             _ = sweep.tick() => {
                 if let Err(error) = app.runtime().forget_tokens() {
-                    eprintln!("pinrail: forgetting run tokens failed: {error}");
+                    tracing::warn!("forgetting run tokens failed: {error}");
                 }
             }
         }
@@ -486,7 +486,7 @@ async fn reconcile(app: &Pinrail, link: &pinrail_host::link::HostLink, terminals
     let reconciled = match app.runtime().reconcile(terminals) {
         Ok(reconciled) => reconciled,
         Err(error) => {
-            eprintln!("pinrail: reconciling the runs failed: {error}");
+            tracing::warn!("reconciling the runs failed: {error}");
             return;
         }
     };
@@ -542,7 +542,7 @@ fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
         source: crate::db::Source::Host,
     };
     if let Err(error) = app.reviews().report(agent, session, &report, false, now) {
-        eprintln!("pinrail: marking session {session} stopped failed: {error:?}");
+        tracing::warn!("marking session {session} stopped failed: {error:?}");
     }
 }
 

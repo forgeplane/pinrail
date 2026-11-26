@@ -211,7 +211,7 @@ impl Pinrail {
         // what waits is in the inbox, whatever the notifications missed
         let notifications = crate::notifications::Notifications::new(db.clone(), events.bus());
         if let Err(error) = notifications.reconcile() {
-            eprintln!("pinrail: the notifications could not be reconciled: {error}");
+            tracing::warn!("the notifications could not be reconciled: {error}");
         }
         let themes = Themes::open(&config.themes_dir(), db.clone(), events.bus())?;
         let plugins = PluginService::new(
@@ -328,8 +328,8 @@ fn update_official(db: &Db, registry: &Registry) {
         };
         let (id, version) = (entry.id(), entry.version.clone());
         match crate::plugins::install::install_offered(db, registry, &id, Some(&version)) {
-            Ok(_) => eprintln!("pinrail: {id} updated from {} to {version}", plugin.version),
-            Err(error) => eprintln!("pinrail: {id} not updated to {version}: {error}"),
+            Ok(_) => tracing::info!("{id} updated from {} to {version}", plugin.version),
+            Err(error) => tracing::warn!("{id} not updated to {version}: {error}"),
         }
     }
 }
@@ -434,7 +434,7 @@ fn inbox_hidden(db: &Db, settings: &crate::settings::SettingsReader) {
         })
         .unwrap_or_default();
     if let Err(error) = db.set_inbox_rules(&hidden, &muted) {
-        eprintln!("pinrail: the inbox settings could not be applied: {error}");
+        tracing::warn!("the inbox settings could not be applied: {error}");
     }
 }
 

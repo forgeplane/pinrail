@@ -142,6 +142,11 @@ impl Config {
         format!("http://{}", self.bind_addr())
     }
 
+    /// The core's log, `core.log`.
+    pub fn log_path(&self) -> PathBuf {
+        self.data_dir.join("core.log")
+    }
+
     pub fn db_path(&self) -> PathBuf {
         self.data_dir.join("pinrail.db")
     }

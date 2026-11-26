@@ -67,7 +67,7 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
         )?;
         tx.commit()?;
         if !fresh {
-            eprintln!("pinrail: database migrated: {version}_{name}");
+            tracing::info!("database migrated: {version}_{name}");
         }
     }
     Ok(())

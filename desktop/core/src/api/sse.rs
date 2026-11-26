@@ -53,7 +53,7 @@ async fn events(
     // everything again, and the stream goes on from the newest event
     let resync = match after {
         Some(after) => state.events().missed_since(after).unwrap_or_else(|error| {
-            eprintln!("pinrail: the oldest event could not be read: {error}");
+            tracing::warn!("the oldest event could not be read: {error}");
             None
         }),
         None => None,
@@ -78,7 +78,7 @@ async fn events(
                 let page = match state.events().after(cursor?, CATCH_UP_PAGE) {
                     Ok(page) => page,
                     Err(error) => {
-                        eprintln!("pinrail: the events to catch up on could not be read: {error}");
+                        tracing::warn!("the events to catch up on could not be read: {error}");
                         failed.store(true, Ordering::SeqCst);
                         return None;
                     }

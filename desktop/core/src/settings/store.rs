@@ -648,8 +648,8 @@ impl Store {
         if inner.broken {
             let aside = self.path.with_extension("json.bad");
             std::fs::rename(&self.path, &aside)?;
-            eprintln!(
-                "pinrail: {} is not valid JSON; kept as {}",
+            tracing::warn!(
+                "{} is not valid JSON; kept as {}",
                 self.path.display(),
                 aside.display()
             );
@@ -727,8 +727,8 @@ fn drop_refused(file: &mut Value, path: &Path) {
         let (parent, key) = v.path.rsplit_once('/').unwrap_or(("", &v.path));
         if let Some(Value::Object(map)) = file.pointer_mut(parent) {
             map.remove(key);
-            eprintln!(
-                "pinrail: {}: {} {}; using the default",
+            tracing::warn!(
+                "{}: {} {}; using the default",
                 path.display(),
                 v.path,
                 v.message

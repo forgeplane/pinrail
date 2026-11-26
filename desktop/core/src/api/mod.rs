@@ -104,6 +104,7 @@ fn router_with(state: ApiState) -> Router {
     #[cfg(unix)]
     let router = router.merge(runs::routes()).merge(terminals::routes());
     router
+        .layer(axum::middleware::from_fn(log_requests))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             telemetry::count_cli,
@@ -127,6 +128,42 @@ fn router_with(state: ApiState) -> Router {
             HeaderValue::from_static("nosniff"),
         ))
         .with_state(state)
+}
+
+/// Runs a request as an activity and logs it: each request at `debug`,
+/// and one that takes `SLOW` or more at `warn`, with what held it up. The
+/// route is logged as its template, without the ids or names it was
+/// given. A long poll, which waits by design, is never slow.
+async fn log_requests(
+    path: Option<axum::extract::MatchedPath>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let route = path.map_or_else(|| "(no route)".to_string(), |p| p.as_str().to_string());
+    let name = format!("{} {route}", request.method());
+    let (response, report) = crate::activity::run(name.clone(), next.run(request)).await;
+    let status = response.status().as_u16();
+    if report.took >= crate::activity::SLOW && !route.ends_with("/wait") {
+        tracing::warn!(
+            "slow request: {name} answered {status} and {}",
+            report.describe()
+        );
+    } else {
+        tracing::debug!("{name} answered {status} and {}", report.describe());
+    }
+    response
+}
+
+/// Runs one step of the sweep as an activity, and logs it when it takes
+/// `SLOW` or more, or fails.
+fn sweep_step<T, E: std::fmt::Display>(name: &str, step: impl FnOnce() -> Result<T, E>) {
+    let (result, report) = crate::activity::run_sync(format!("sweep: {name}"), step);
+    if let Err(error) = result {
+        tracing::warn!("sweep: {name} failed: {error}");
+    }
+    if report.took >= crate::activity::SLOW {
+        tracing::warn!("slow sweep: {name} {}", report.describe());
+    }
 }
 
 /// The agent runtime: whether it is on, and the terminal host's state.
@@ -173,6 +210,7 @@ pub async fn serve(
 ) -> std::io::Result<()> {
     let state = ApiState::new(app);
     let listener = tokio::net::TcpListener::from_std(listener)?;
+    crate::activity::watch_runtime(tokio::runtime::Handle::current());
     // the link to the terminal host
     crate::runtime::watch(state.app.clone());
     server_info::write(state.app.config(), state.started_at)?;
@@ -188,56 +226,42 @@ pub async fn serve(
             let mut tick = tokio::time::interval(Duration::from_secs(30));
             loop {
                 tick.tick().await;
-                if let Err(error) = app.reviews().sweep_expired() {
-                    eprintln!("pinrail: expiry sweep failed: {error}");
-                }
+                sweep_step("expired reviews", || app.reviews().sweep_expired());
                 // what waits is in the inbox, whatever the notifications missed
-                if let Err(error) = app.notifications().reconcile() {
-                    eprintln!("pinrail: the notifications could not be reconciled: {error}");
-                }
+                sweep_step("notifications reconciled", || {
+                    app.notifications().reconcile()
+                });
                 let keep_days = app
                     .settings()
                     .value("/history/keep_days")
                     .as_u64()
                     .and_then(|d| u32::try_from(d).ok());
-                if let Err(error) = app.reviews().sweep_history(keep_days) {
-                    eprintln!("pinrail: history sweep failed: {error}");
-                }
-                if let Err(error) = app.reviews().sweep_hidden_sessions() {
-                    eprintln!("pinrail: hidden sessions sweep failed: {error}");
-                }
+                sweep_step("history", || app.reviews().sweep_history(keep_days));
+                sweep_step("hidden sessions", || app.reviews().sweep_hidden_sessions());
                 // the window marks read updates done on return; the week
                 // still applies to the ones it never returns to
                 let read_for = match app.settings().value("/inbox/done_read").as_str() {
                     Some("day") => chrono::Duration::days(1),
                     _ => chrono::Duration::days(7),
                 };
-                if let Err(error) = app.notifications().sweep(chrono::Utc::now(), read_for) {
-                    eprintln!("pinrail: notifications sweep failed: {error}");
-                }
+                sweep_step("notifications", || {
+                    app.notifications().sweep(chrono::Utc::now(), read_for)
+                });
                 // the files of sessions deleted some other way than by the person
-                if let Err(error) = app.session_files().sweep() {
-                    eprintln!("pinrail: session files sweep failed: {error}");
-                }
-                if let Err(error) = app.events().sweep(chrono::Utc::now()) {
-                    eprintln!("pinrail: events sweep failed: {error}");
-                }
+                sweep_step("session files", || app.session_files().sweep());
+                sweep_step("events", || app.events().sweep(chrono::Utc::now()));
                 // what no hook reports: an agent gone, an interrupt
-                if let Some(home) = crate::config::home_dir()
-                    && let Err(error) = app.reviews().check_presence(&home, chrono::Utc::now())
-                {
-                    eprintln!("pinrail: presence check failed: {error}");
+                if let Some(home) = crate::config::home_dir() {
+                    sweep_step("presence", || {
+                        app.reviews().check_presence(&home, chrono::Utc::now())
+                    });
                 }
                 // after the history: what a swept review carried is free to go
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
-                if let Err(error) = app.attachments().sweep(hour_ago) {
-                    eprintln!("pinrail: attachments sweep failed: {error}");
-                }
+                sweep_step("attachments", || app.attachments().sweep(hour_ago));
                 // the bundles no line refers to, such as one an update or
                 // the history replaced
-                if let Err(error) = app.bundles().sweep(hour_ago) {
-                    eprintln!("pinrail: bundles sweep failed: {error}");
-                }
+                sweep_step("bundles", || app.bundles().sweep(hour_ago));
             }
         })
     };
@@ -249,13 +273,13 @@ pub async fn serve(
             loop {
                 tick.tick().await;
                 if let Err(error) = app.settings().reload() {
-                    eprintln!("pinrail: settings change not announced: {error}");
+                    tracing::warn!("settings change not announced: {error}");
                 }
                 if let Err(error) = app.themes().reload() {
-                    eprintln!("pinrail: theme change not announced: {error}");
+                    tracing::warn!("theme change not announced: {error}");
                 }
                 if let Err(error) = app.plugins().reload_if_links_changed() {
-                    eprintln!("pinrail: a linked plugin's change was not read: {error}");
+                    tracing::warn!("a linked plugin's change was not read: {error}");
                 }
             }
         })
@@ -355,4 +379,49 @@ pub(crate) fn parse_body(bytes: &[u8]) -> Result<serde_json::Value, Error> {
         return Ok(serde_json::Value::Object(Default::default()));
     }
     serde_json::from_slice(bytes).map_err(|_| Error::invalid("", "body is not valid JSON"))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn a_slow_request_is_logged_with_its_route_and_status() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("core.log");
+        crate::log::init(&path);
+        let router = axum::Router::new()
+            .route(
+                "/api/v1/slow/{id}",
+                axum::routing::get(|| async {
+                    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                }),
+            )
+            .route("/api/v1/quick", axum::routing::get(|| async {}))
+            .route(
+                "/api/v1/reviews/{id}/wait",
+                axum::routing::get(|| async {
+                    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                }),
+            )
+            .layer(axum::middleware::from_fn(super::log_requests));
+        for uri in [
+            "/api/v1/slow/42",
+            "/api/v1/quick",
+            "/api/v1/reviews/r_1/wait",
+        ] {
+            let request = Request::get(uri).body(Body::empty()).unwrap();
+            router.clone().oneshot(request).await.unwrap();
+        }
+        let log = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            log.contains("slow request: GET /api/v1/slow/{id} answered 200 and took 6"),
+            "{log}"
+        );
+        // the level is info, so a quick request is not logged
+        assert!(!log.contains("/api/v1/quick"), "{log}");
+        assert!(!log.contains("/wait"), "{log}");
+    }
 }

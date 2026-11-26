@@ -108,7 +108,7 @@ async fn stored_bundle(
     let body = match read {
         Ok(body) if format!("{:x}", Sha256::digest(&body)) == file.sha256 => body,
         _ => {
-            eprintln!("pinrail: bundle {hash}: {path} no longer matches its listing");
+            tracing::error!("bundle {hash}: {path} no longer matches its listing");
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };

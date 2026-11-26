@@ -131,6 +131,7 @@ pub fn run(options: Options) -> i32 {
             return 1;
         }
     };
+    pinrail_core::log::init(&config.log_path());
     runtime.block_on(async {
         let state = match Pinrail::open(config) {
             Ok(state) => Arc::new(state),

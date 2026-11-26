@@ -142,7 +142,7 @@ fn type_first_task(state: &Arc<Pinrail>, request: &crate::runtime::Start, run: &
         .send_message(agent, session, &task, Some(&local_id), "type")
     {
         Ok(_) => super::reviews::deliver_later(state, agent, session),
-        Err(error) => eprintln!("pinrail: sending the first task failed: {error:?}"),
+        Err(error) => tracing::warn!("sending the first task failed: {error:?}"),
     }
 }
 

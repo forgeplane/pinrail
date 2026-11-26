@@ -7,6 +7,7 @@
 //! decision; a revised submission is a new round of the same review. Nothing
 //! is edited after it is written: status is derived from what exists.
 
+pub mod activity;
 pub mod agent_history;
 pub mod announce;
 pub mod api;
@@ -22,6 +23,7 @@ pub mod events;
 pub mod folders;
 pub mod id;
 pub mod items;
+pub mod log;
 pub mod notifications;
 pub use pinrail_format::markdown;
 pub mod person_token;

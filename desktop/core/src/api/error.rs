@@ -40,7 +40,7 @@ fn status(error: &Error) -> StatusCode {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         if status(&self.0) == StatusCode::INTERNAL_SERVER_ERROR {
-            eprintln!("pinrail: {}", self.0);
+            tracing::error!("{}", self.0);
         }
         (status(&self.0), Json(self.0.to_json())).into_response()
     }

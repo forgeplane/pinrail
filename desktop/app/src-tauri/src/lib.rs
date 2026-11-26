@@ -779,6 +779,7 @@ pub fn run() {
                 }
             };
             let data_dir = config.data_dir.clone();
+            pinrail_core::log::init(&config.log_path());
             let state: Arc<Pinrail> = match Pinrail::open(config) {
                 Ok(state) => Arc::new(state),
                 Err(pinrail_core::Error::InUse(_)) => {

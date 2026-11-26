@@ -123,7 +123,7 @@ pub(super) fn post(url: &str, debug: bool, body: &impl Serialize) -> Sent {
         Err(_) => return Sent::Refused,
     };
     if debug {
-        eprintln!("pinrail: telemetry, not sent to {url}: {body}");
+        tracing::info!("telemetry, not sent to {url}: {body}");
         return Sent::Stored;
     }
     let agent: ureq::Agent = ureq::Agent::config_builder()

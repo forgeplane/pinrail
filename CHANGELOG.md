@@ -13,6 +13,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
+- Pinrail writes a log to `core.log` in its data folder, with requests that
+  take half a second or more. Set `PINRAIL_LOG=debug` to log every request.
 - Give each agent arguments for every start and resume from Pinrail, such
   as `--model opus`, in Settings › Agents. They may turn the agent's
   permission checks off, which its card then warns about.

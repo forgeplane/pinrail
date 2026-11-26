@@ -53,7 +53,7 @@ pub use sessions::{
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
 
 use rusqlite::{Connection, OpenFlags};
 
@@ -71,14 +71,63 @@ pub struct Db {
     readers: Vec<Mutex<Connection>>,
     /// the reader to try first, so reads spread over them
     next: AtomicUsize,
+    /// the request or job that holds `conn`, for the log of slow requests
+    holder: Mutex<Option<Arc<str>>>,
+}
+
+/// The write connection, held until it is dropped.
+pub(crate) struct Write<'a> {
+    conn: MutexGuard<'a, Connection>,
+    holder: &'a Mutex<Option<Arc<str>>>,
+}
+
+impl std::ops::Deref for Write<'_> {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        &self.conn
+    }
+}
+
+impl std::ops::DerefMut for Write<'_> {
+    fn deref_mut(&mut self) -> &mut Connection {
+        &mut self.conn
+    }
+}
+
+impl Drop for Write<'_> {
+    fn drop(&mut self) {
+        *self.holder.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    }
 }
 
 impl Db {
     /// The connection. A panic while it was held leaves the lock poisoned;
     /// it is taken anyway, since SQLite rolls back the transaction that was
     /// open, so one failed request does not fail every one after it.
-    fn conn(&self) -> MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap_or_else(PoisonError::into_inner)
+    /// The request or job that waits for it counts the wait, and what held
+    /// the connection meanwhile.
+    fn conn(&self) -> Write<'_> {
+        let conn = match self.conn.try_lock() {
+            Ok(conn) => conn,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => {
+                let holder = self.holder().clone();
+                let started = std::time::Instant::now();
+                let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
+                crate::activity::waited_for_write(started.elapsed(), holder);
+                conn
+            }
+        };
+        *self.holder() =
+            Some(crate::activity::current().unwrap_or_else(|| "work outside a request".into()));
+        Write {
+            conn,
+            holder: &self.holder,
+        }
+    }
+
+    fn holder(&self) -> MutexGuard<'_, Option<Arc<str>>> {
+        self.holder.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// A connection to read through: a free read-only connection, else
@@ -86,7 +135,7 @@ impl Db {
     /// holds up no other read.
     fn read(&self) -> MutexGuard<'_, Connection> {
         if self.readers.is_empty() {
-            return self.conn();
+            return self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         }
         let start = self.next.fetch_add(1, Ordering::Relaxed);
         for k in 0..self.readers.len() {
@@ -137,6 +186,7 @@ impl Db {
             conn: Mutex::new(conn),
             readers: Vec::new(),
             next: AtomicUsize::new(0),
+            holder: Mutex::new(None),
         })
     }
 }
@@ -166,6 +216,34 @@ mod tests {
             let _ = tx.send(read(&db));
         });
         rx.recv_timeout(std::time::Duration::from_secs(1)) == Ok(true)
+    }
+
+    #[test]
+    fn a_wait_for_the_write_connection_names_what_held_it() {
+        use crate::activity::run_sync;
+        let dir = tempfile::tempdir().unwrap();
+        let db = std::sync::Arc::new(Db::open(&dir.path().join("pinrail.db")).unwrap());
+        let (held, release) = std::sync::mpsc::channel();
+        let holder = {
+            let db = db.clone();
+            std::thread::spawn(move || {
+                run_sync("sweep: presence", || {
+                    let _write = db.conn();
+                    held.send(()).unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                });
+            })
+        };
+        release.recv().unwrap();
+        let (_, report) = run_sync("POST /api/v1/projects", || drop(db.conn()));
+        holder.join().unwrap();
+        assert!(
+            report.db_wait >= std::time::Duration::from_millis(200),
+            "{report:?}"
+        );
+        assert_eq!(report.held_by.as_deref(), Some("sweep: presence"));
+        // once it is free, nothing holds it
+        assert_eq!(*db.holder(), None);
     }
 
     #[test]
