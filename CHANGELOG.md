@@ -306,6 +306,10 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Apply Pinrail Host's Developer Tools and privacy permissions on macOS to
+  the programs that agents run in Pinrail. Each program counted as an app
+  of its own, so newly built programs waited for the macOS first-launch
+  check and privacy prompts did not name Pinrail Host.
 - Move to the last page of the inbox when the current page empties, for
   example after its updates are marked done. The inbox said that all was
   caught up, and the updates on the earlier pages could not be reached.

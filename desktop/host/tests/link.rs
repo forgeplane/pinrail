@@ -125,6 +125,15 @@ async fn after_a_dropped_connection_the_link_gets_the_events_it_missed() {
     let link = HostLink::start(launcher(&folders), "pinrail-core/test");
     let mut events = link.events();
     let (instance, _) = connected(&mut events).await;
+    // a holder runs before the other controller comes: its spawn then
+    // takes far less than the second the link waits before it reconnects,
+    // whatever starting a holder takes, such as the first-launch check
+    link.call(
+        "terminal.spawn",
+        json!({"argv": ["sleep", "30"], "cwd": "/", "cols": 80, "rows": 24}),
+    )
+    .await
+    .unwrap();
 
     // another controller takes the host for a while and starts a terminal
     let registration = registration(&folders);

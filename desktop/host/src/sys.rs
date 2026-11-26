@@ -281,3 +281,172 @@ pub fn raise_open_files(most: u64) -> u64 {
         limit.rlim_cur as u64
     }
 }
+
+/// `POSIX_SPAWN_SETSID` of macOS's `<sys/spawn.h>`, which libc does not
+/// export: the child starts a session of its own.
+#[cfg(all(feature = "server", target_os = "macos"))]
+const POSIX_SPAWN_SETSID: libc::c_short = 0x0400;
+
+/// `POSIX_SPAWN_CLOEXEC_DEFAULT`: the child inherits only the descriptors
+/// the spawn's file actions give it.
+#[cfg(all(feature = "server", target_os = "macos"))]
+const POSIX_SPAWN_CLOEXEC_DEFAULT: libc::c_short = 0x4000;
+
+/// Starts `program` with `args` in a session of its own, with `/dev/null`
+/// for its input and errors, and answers its pid and the read end of its
+/// output. macOS holds the child responsible for itself, as for an app
+/// that launchd starts, so that the programs it starts in turn are its
+/// responsibility: its Developer Tools and privacy permissions apply to
+/// them. Without that, a child of a process that left launchd's job, as
+/// `serve --daemonize` does, and each program below it count as
+/// responsible for themselves, and no permission given to Pinrail Host
+/// reaches them.
+#[cfg(all(feature = "server", target_os = "macos"))]
+pub fn spawn_responsible(
+    program: &std::path::Path,
+    args: &[&std::ffi::OsStr],
+) -> std::io::Result<(u32, std::fs::File)> {
+    use std::ffi::CString;
+    use std::os::fd::FromRawFd;
+    use std::os::unix::ffi::OsStrExt;
+
+    let error = std::io::Error::last_os_error;
+    let c = |s: &std::ffi::OsStr| {
+        CString::new(s.as_bytes()).map_err(|_| std::io::Error::other("a NUL in an argument"))
+    };
+    let path = c(program.as_os_str())?;
+    let mut argv = vec![path.clone()];
+    for arg in args {
+        argv.push(c(arg)?);
+    }
+    let mut argv_ptrs: Vec<*mut libc::c_char> = argv.iter().map(|a| a.as_ptr() as *mut _).collect();
+    argv_ptrs.push(std::ptr::null_mut());
+    let null = c"/dev/null";
+
+    let mut fds = [0; 2];
+    // SAFETY: fds has room for the two descriptors pipe writes.
+    if unsafe { libc::pipe(fds.as_mut_ptr()) } == -1 {
+        return Err(error());
+    }
+    // neither end reaches a program another thread starts meanwhile
+    for fd in fds {
+        // SAFETY: fd is one of the two just opened.
+        if unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == -1 {
+            let failed = error();
+            // SAFETY: both are open and owned here only.
+            unsafe {
+                libc::close(fds[0]);
+                libc::close(fds[1]);
+            }
+            return Err(failed);
+        }
+    }
+    // SAFETY: both descriptors were just opened and are owned here only.
+    let (read, write) = unsafe {
+        (
+            std::fs::File::from_raw_fd(fds[0]),
+            std::os::fd::OwnedFd::from_raw_fd(fds[1]),
+        )
+    };
+    use std::os::fd::AsRawFd;
+
+    // SAFETY: the attributes and file actions are initialised before use
+    // and destroyed on every path; every pointer passed lives until
+    // posix_spawn returns.
+    unsafe {
+        let mut actions: libc::posix_spawn_file_actions_t = std::mem::zeroed();
+        let mut attr: libc::posix_spawnattr_t = std::mem::zeroed();
+        // these return the error rather than set errno
+        let code = libc::posix_spawn_file_actions_init(&mut actions);
+        if code != 0 {
+            return Err(std::io::Error::from_raw_os_error(code));
+        }
+        let code = libc::posix_spawnattr_init(&mut attr);
+        if code != 0 {
+            libc::posix_spawn_file_actions_destroy(&mut actions);
+            return Err(std::io::Error::from_raw_os_error(code));
+        }
+        let result = (|| {
+            let ok = |code: libc::c_int| {
+                if code == 0 {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::from_raw_os_error(code))
+                }
+            };
+            ok(libc::posix_spawn_file_actions_addopen(
+                &mut actions,
+                0,
+                null.as_ptr(),
+                libc::O_RDONLY,
+                0,
+            ))?;
+            ok(libc::posix_spawn_file_actions_adddup2(
+                &mut actions,
+                write.as_raw_fd(),
+                1,
+            ))?;
+            ok(libc::posix_spawn_file_actions_addopen(
+                &mut actions,
+                2,
+                null.as_ptr(),
+                libc::O_WRONLY,
+                0,
+            ))?;
+            // the signals at their defaults and none blocked, as a child of
+            // Rust's Command starts: the host ignores SIGPIPE
+            let mut defaults: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut defaults);
+            libc::sigaddset(&mut defaults, libc::SIGPIPE);
+            ok(libc::posix_spawnattr_setsigdefault(&mut attr, &defaults))?;
+            let mut none: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut none);
+            ok(libc::posix_spawnattr_setsigmask(&mut attr, &none))?;
+            ok(libc::posix_spawnattr_setflags(
+                &mut attr,
+                POSIX_SPAWN_SETSID
+                    | POSIX_SPAWN_CLOEXEC_DEFAULT
+                    | libc::POSIX_SPAWN_SETSIGDEF as libc::c_short
+                    | libc::POSIX_SPAWN_SETSIGMASK as libc::c_short,
+            ))?;
+            // a private call of libSystem, as terminal apps make: when it
+            // is missing or fails, the child still starts, and only the
+            // permissions differ
+            let disclaim = libc::dlsym(
+                libc::RTLD_DEFAULT,
+                c"responsibility_spawnattrs_setdisclaim".as_ptr(),
+            );
+            if !disclaim.is_null() {
+                let disclaim: extern "C" fn(
+                    *mut libc::posix_spawnattr_t,
+                    libc::c_int,
+                ) -> libc::c_int = std::mem::transmute(disclaim);
+                let _ = disclaim(&mut attr, 1);
+            }
+            let mut pid: libc::pid_t = 0;
+            ok(libc::posix_spawn(
+                &mut pid,
+                path.as_ptr(),
+                &actions,
+                &attr,
+                argv_ptrs.as_ptr(),
+                *libc::_NSGetEnviron() as *const *mut libc::c_char,
+            ))?;
+            Ok(pid as u32)
+        })();
+        libc::posix_spawn_file_actions_destroy(&mut actions);
+        libc::posix_spawnattr_destroy(&mut attr);
+        drop(write);
+        result.map(|pid| (pid, read))
+    }
+}
+
+/// Waits until the child `pid` exits, and reaps it.
+#[cfg(all(feature = "server", target_os = "macos"))]
+pub fn wait(pid: u32) {
+    let mut status = 0;
+    // SAFETY: waits for this child only; EINTR is retried.
+    while unsafe { libc::waitpid(pid as libc::pid_t, &mut status, 0) } == -1
+        && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted
+    {}
+}

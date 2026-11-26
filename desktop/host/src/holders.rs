@@ -390,7 +390,27 @@ fn read(
 }
 
 /// Starts `<binary> hold` in a session of its own, detached from the
+/// host's process group, and reads the instance id it prints. On macOS the
+/// holder is responsible for itself, and so for the programs in its
+/// terminals, as a terminal app is for its shells.
+#[cfg(target_os = "macos")]
+fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<String> {
+    use std::io::BufRead;
+    let data_dir = paths.host_dir.parent().unwrap_or(&paths.host_dir);
+    let (pid, stdout) = crate::sys::spawn_responsible(
+        binary,
+        &["hold".as_ref(), "--data-dir".as_ref(), data_dir.as_os_str()],
+    )?;
+    // reaped by this host while it runs, by init once it has gone
+    std::thread::spawn(move || crate::sys::wait(pid));
+    let mut line = String::new();
+    std::io::BufReader::new(stdout).read_line(&mut line)?;
+    started(line)
+}
+
+/// Starts `<binary> hold` in a session of its own, detached from the
 /// host's process group, and reads the instance id it prints.
+#[cfg(not(target_os = "macos"))]
 #[allow(unsafe_code)]
 fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<String> {
     use std::io::BufRead;
@@ -414,14 +434,17 @@ fn start_process(binary: &std::path::Path, paths: &Paths) -> std::io::Result<Str
         });
     }
     let mut child = command.spawn()?;
-    let mut line = String::new();
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| std::io::Error::other("no output from the holder"))?;
-    std::io::BufReader::new(stdout).read_line(&mut line)?;
+    let stdout = child.stdout.take();
     // reaped by this host while it runs, by init once it has gone
     std::thread::spawn(move || child.wait());
+    let stdout = stdout.ok_or_else(|| std::io::Error::other("no output from the holder"))?;
+    let mut line = String::new();
+    std::io::BufReader::new(stdout).read_line(&mut line)?;
+    started(line)
+}
+
+/// The instance id a starting holder printed.
+fn started(line: String) -> std::io::Result<String> {
     let instance = line.trim().to_string();
     if instance.is_empty() {
         return Err(std::io::Error::other("the holder did not start"));

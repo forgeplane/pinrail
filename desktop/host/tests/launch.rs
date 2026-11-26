@@ -104,6 +104,59 @@ fn a_host_started_by_launchd_leaves_the_core_s_process_tree() {
     assert!(!String::from_utf8_lossy(&jobs.stdout).contains("dev.pinrail.host."));
     // in the same test, as another job would show in launchd's list
     a_host_bundle_runs_from_the_executable_in_its_copy();
+    the_programs_in_its_terminals_are_their_holder_s_responsibility();
+}
+
+/// The process macOS holds responsible for `pid`, whose Developer Tools
+/// and privacy permissions apply to it.
+#[cfg(target_os = "macos")]
+#[allow(unsafe_code)]
+fn responsible_for(pid: u32) -> u32 {
+    // SAFETY: the name is a valid C string, and the symbol, when found, is
+    // libSystem's `pid_t responsibility_get_pid_responsible_for_pid(pid_t)`.
+    unsafe {
+        let symbol = libc::dlsym(
+            libc::RTLD_DEFAULT,
+            c"responsibility_get_pid_responsible_for_pid".as_ptr(),
+        );
+        assert!(!symbol.is_null(), "macOS has no responsibility lookup");
+        let lookup: extern "C" fn(libc::pid_t) -> libc::pid_t = std::mem::transmute(symbol);
+        lookup(pid as libc::pid_t) as u32
+    }
+}
+
+/// Starts a host through launchd and a program in one of its terminals:
+/// macOS holds the terminal's holder responsible for the program, as a
+/// terminal app is for its shell, so that Pinrail Host in Developer Tools
+/// and its privacy permissions cover what agents run.
+#[cfg(target_os = "macos")]
+fn the_programs_in_its_terminals_are_their_holder_s_responsibility() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    let (registration, _) = launcher(&data, Method::Launchd).ensure(&|_| {}).unwrap();
+    let started = Started(registration.clone());
+    let mut client = Client::connect(&registration).unwrap();
+    let spawned = client
+        .call(
+            "terminal.spawn",
+            json!({
+                "argv": ["sleep", "60"],
+                "cwd": "/",
+                "env": {"PATH": "/usr/bin:/bin"},
+                "session_env": {},
+                "cols": 80,
+                "rows": 24,
+                "labels": {"run": "run_1", "agent": "test"},
+                "env_base": "host",
+            }),
+        )
+        .unwrap();
+    let program = spawned["pid"].as_u64().unwrap() as u32;
+    let holder = parent_of(program);
+    assert_eq!(responsible_for(holder), holder);
+    assert_eq!(responsible_for(program), holder);
+    drop(client);
+    drop(started);
 }
 
 /// Starts a host from `Pinrail Host.app` through launchd, and checks that
