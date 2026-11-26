@@ -142,7 +142,10 @@ fn cache_dir() -> PathBuf {
 fn unpacked(cache: &Path, (url, sha256): &(String, String), version: &str) -> PathBuf {
     let file = url.rsplit('/').next().unwrap();
     let folder = cache.join(file.strip_suffix(".tar.gz").unwrap());
-    if folder.exists() {
+    // written once the folder is complete: a cache that keeps folders but
+    // drops their files, as CI's Rust cache does, leaves a folder without it
+    let unpacked = folder.join(".pinrail-unpacked");
+    if unpacked.exists() {
         return folder;
     }
     let tarball = match env::var_os("PINRAIL_GHOSTTY_SRC") {
@@ -173,9 +176,11 @@ fn unpacked(cache: &Path, (url, sha256): &(String, String), version: &str) -> Pa
         .arg("-C")
         .arg(&partial));
     let inner = partial.join(folder.file_name().unwrap());
-    if fs::rename(&inner, &folder).is_err() && !folder.exists() {
+    let _ = fs::remove_dir_all(&folder);
+    if fs::rename(&inner, &folder).is_err() && !unpacked.exists() {
         panic!("could not move {} into place", inner.display());
     }
+    fs::write(&unpacked, "").unwrap();
     let _ = fs::remove_dir_all(&partial);
     folder
 }
@@ -279,7 +284,11 @@ fn build(zig: &str, source: &Path, deps: &Path, prefix: &Path, target: &str) {
         command.arg(format!("-Dtarget={zig_target}"));
     }
     run(&mut command);
-    if fs::rename(&installed, prefix).is_err() && !prefix.exists() {
+    // a folder left without the library, as a cache can leave it
+    let _ = fs::remove_dir_all(prefix);
+    if fs::rename(&installed, prefix).is_err()
+        && !prefix.join("lib").join("libghostty-vt.a").exists()
+    {
         panic!("could not move {} into place", installed.display());
     }
     let _ = fs::remove_dir_all(&work);
