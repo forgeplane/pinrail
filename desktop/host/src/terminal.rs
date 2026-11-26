@@ -77,7 +77,7 @@ pub fn feed_output(
 ) {
     let mut rest = bytes;
     // output on the primary screen, most of it, is not searched
-    if screen.modes().alternate_screen
+    if screen.alternate_screen()
         && let Some(at) = leaves_alternate_at(rest)
     {
         screen.feed(&rest[..at], replies, signals);

@@ -65,6 +65,10 @@ pub trait Screen: Send {
     /// The modes that decide how the person's input is encoded.
     fn modes(&self) -> InputModes;
 
+    /// Whether the alternate screen is shown: one of the modes, read
+    /// alone, as output is fed.
+    fn alternate_screen(&self) -> bool;
+
     /// The title the program set, if any.
     fn title(&self) -> Option<String>;
 

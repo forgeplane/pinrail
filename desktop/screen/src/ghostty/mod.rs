@@ -319,11 +319,6 @@ impl Terminal {
         unsafe { ffi::ghostty_terminal_set(self.raw, option, value) };
     }
 
-    /// Whether the program shows the alternate screen.
-    pub fn alternate_screen(&self) -> bool {
-        self.get::<i32>(ffi::DATA_ACTIVE_SCREEN) == ffi::SCREEN_ALTERNATE
-    }
-
     fn plain(&self, selection: Option<&ffi::Selection>) -> String {
         let bytes = self.format(ffi::FORMAT_PLAIN, selection, ffi::EXTRAS_NONE, false);
         String::from_utf8_lossy(&bytes).into_owned()
@@ -621,6 +616,10 @@ impl Screen for Terminal {
             kitty_keyboard: self.get(ffi::DATA_KITTY_KEYBOARD_FLAGS),
             alternate_screen: self.alternate_screen(),
         }
+    }
+
+    fn alternate_screen(&self) -> bool {
+        self.get::<i32>(ffi::DATA_ACTIVE_SCREEN) == ffi::SCREEN_ALTERNATE
     }
 
     fn title(&self) -> Option<String> {
