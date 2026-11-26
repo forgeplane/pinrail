@@ -22,7 +22,8 @@ export const MEASURES = [
   ["stream_longest_frame_ms", (r) => find(r, "stream", "synthetic/tui.bin")?.frames?.max, "ms", 17],
   ["idle_frames_per_s", (r) => drawnPerSecond(find(r, "idle")), "frames/s", 0],
   ["input_p95_ms", (r) => find(r, "input", null, { load: undefined })?.latency?.p95, "ms", 5],
-  ["input_loaded_p95_ms", (r) => find(r, "input", null, { load: "1" })?.latency?.p95, "ms", 8],
+  // under load, an echo can wait a frame behind the other terminal's draw
+  ["input_loaded_p95_ms", (r) => find(r, "input", null, { load: "1" })?.latency?.p95, "ms", 17],
   ["attach_ms", (r) => find(r, "attach", null, { snapshot: undefined })?.attachMs, "ms", 20],
   ["attach_styled_ms", (r) => find(r, "attach", null, { snapshot: "history-5000-styled" })?.attachMs, "ms", 30],
   ["switch_max_ms", (r) => find(r, "switch")?.switchMs?.max, "ms", 17],
