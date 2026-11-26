@@ -79,6 +79,12 @@ async function screen(
   };
 }
 
+// Up to 0.2 % of the pixels may differ: the fallback fonts of glyphs the
+// test font lacks, such as ❯ and ✻, differ between Linux images, and
+// WebKit anti-aliases a few edges differently on x86-64 and ARM64. A
+// wrong glyph, colour or position changes more than that.
+const SCREEN = { comparatorName: "pixelmatch", comparatorOptions: { allowedMismatchedPixelRatio: 0.002 } } as const;
+
 const sgr = (codes: string, text: string) => `\x1b[${codes}m${text}\x1b[0m`;
 
 test("colours and text styles", async () => {
@@ -94,7 +100,7 @@ test("colours and text styles", async () => {
     "plain text with punctuation: -> => != == {} [] () <> ;:,. 0123456789",
   ];
   const { host, dispose } = await screen(80, 10, lines.join("\r\n"));
-  await expect.element(page.elementLocator(host)).toMatchScreenshot("styles");
+  await expect.element(page.elementLocator(host)).toMatchScreenshot("styles", SCREEN);
   dispose();
 });
 
@@ -108,7 +114,7 @@ test("box drawing, blocks, Braille and Powerline", async () => {
     `${sgr("44;30", " main ")}${sgr("34;42", "")}${sgr("42;30", " src ")}${sgr("32", "")} ${sgr("45", " round ")}`,
   ];
   const { host, dispose } = await screen(48, 7, lines.join("\r\n"));
-  await expect.element(page.elementLocator(host)).toMatchScreenshot("glyphs");
+  await expect.element(page.elementLocator(host)).toMatchScreenshot("glyphs", SCREEN);
   dispose();
 });
 
@@ -127,7 +133,7 @@ test("a selection, find matches and the cursor", async () => {
       { r: 120, g: 90, b: 0 },
     );
   });
-  await expect.element(page.elementLocator(host)).toMatchScreenshot("selection");
+  await expect.element(page.elementLocator(host)).toMatchScreenshot("selection", SCREEN);
   dispose();
 });
 
@@ -143,6 +149,6 @@ test("the last screen of a Claude Code session", async () => {
       }
     }
   });
-  await expect.element(page.elementLocator(host)).toMatchScreenshot("claude-code");
+  await expect.element(page.elementLocator(host)).toMatchScreenshot("claude-code", SCREEN);
   dispose();
 });
