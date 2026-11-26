@@ -161,6 +161,7 @@ class GhosttyView implements TerminalView, BenchHooks {
         this.redraw();
         this.selectionChanged();
       },
+      scrolled: () => this.schedule(),
       showLink: (spans) => {
         this.renderer.setLink(spans);
         this.schedule();

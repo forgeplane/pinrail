@@ -343,23 +343,16 @@ export class CanvasRenderer {
   }
 
   /** Copies the longest band of changed rows that the canvas already shows
-   *  some rows lower, as when output scrolls up, so that only the new rows
-   *  are drawn. Only where a row is a whole number of device pixels tall,
-   *  so that the copy lands on the same pixels a drawing would. */
+   *  some rows higher or lower, as when output or the wheel scrolls, so
+   *  that only the new rows are drawn. Only where a row is a whole number
+   *  of device pixels tall, so that the copy lands on the same pixels a
+   *  drawing would. */
   private copyMoved(changed: ReadonlyMap<number, string>) {
     const h = this.metrics.height;
     if (changed.size < 2 || !Number.isInteger(h * this.ratio)) return;
-    let best = { from: 0, to: 0, by: 0 };
-    for (const [y, key] of changed) {
-      if (this.keys[y] === key) continue;
-      const by = this.keys.indexOf(key, y + 1) - y;
-      if (by <= 0) continue;
-      let end = y + 1;
-      while (end + by < this.rows && changed.get(end) === this.keys[end + by] && changed.has(end)) end++;
-      if (end - y > best.to - best.from) best = { from: y, to: end, by };
-    }
+    const best = movedBand(this.keys, changed, this.rows);
+    if (!best) return;
     const count = best.to - best.from;
-    if (count < 2) return;
     const px = h * this.ratio;
     this.context.drawImage(
       this.canvas,
@@ -728,4 +721,67 @@ export function onNextFrame(draw: () => void) {
     asked.clear();
     for (const run of now) run();
   });
+}
+
+/** A band of rows to copy: rows `from` to `to`, not included, are drawn
+ *  from the rows `by` lower, or higher when `by` is negative. */
+export interface MovedBand {
+  from: number;
+  to: number;
+  by: number;
+}
+
+/** A key that more rows show than this, such as an empty row's, says
+ *  nothing about how far the rows moved. */
+const COMMON_KEY = 4;
+
+/** The longest band of two or more changed rows whose new keys the canvas
+ *  already shows, all moved by the same number of rows, or null. `keys`
+ *  holds what each row of the canvas shows, and `changed` the new key of
+ *  each changed row. A move by one row, the usual scroll of output or of
+ *  a wheel step, is tried first, then the moves that the changed rows'
+ *  keys point to, the most common first. */
+export function movedBand(
+  keys: readonly string[],
+  changed: ReadonlyMap<number, string>,
+  rows: number,
+): MovedBand | null {
+  const shown = new Map<string, number[]>();
+  keys.forEach((key, y) => {
+    const at = shown.get(key);
+    if (!at) shown.set(key, [y]);
+    else if (at.length <= COMMON_KEY) at.push(y);
+  });
+  const votes = new Map<number, number>([
+    [1, 0],
+    [-1, 0],
+  ]);
+  for (const [y, key] of changed) {
+    if (keys[y] === key) continue;
+    const at = shown.get(key);
+    if (!at || at.length > COMMON_KEY) continue;
+    for (const from of at) if (from !== y) votes.set(from - y, (votes.get(from - y) ?? 0) + 1);
+  }
+  const tried = [
+    1,
+    -1,
+    ...[...votes]
+      .filter(([by]) => by !== 1 && by !== -1)
+      .sort((a, b) => b[1] - a[1])
+      .map(([by]) => by),
+  ];
+  let best: MovedBand | null = null;
+  for (const by of tried.slice(0, 6)) {
+    let from = -1;
+    for (let y = Math.max(0, -by); y <= Math.min(rows, rows - by); y++) {
+      const key = y < rows - Math.max(0, by) ? changed.get(y) : undefined;
+      const moved = key !== undefined && key === keys[y + by];
+      if (moved && from < 0) from = y;
+      if (!moved && from >= 0) {
+        if (y - from >= 2 && (!best || y - from > best.to - best.from)) best = { from, to: y, by };
+        from = -1;
+      }
+    }
+  }
+  return best;
 }

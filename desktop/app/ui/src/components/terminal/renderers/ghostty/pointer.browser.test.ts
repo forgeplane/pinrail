@@ -39,13 +39,23 @@ async function rig(options: Partial<PointerOptions> = {}) {
   draw();
   const sent: [string, string][] = [];
   const links: string[] = [];
+  let redraws = 0;
+  let scrolls = 0;
   let shown: readonly LinkSpan[] = [];
   const pointer = new Pointer(renderer.canvas, core, {
     mac: true,
     cell: () => renderer.cell,
     rows: () => snapshot.rowData,
     emit: (bytes, kind) => sent.push([kind, text(bytes)]),
-    redraw: draw,
+    redraw: () => {
+      redraws++;
+      draw();
+    },
+    scrolled: () => {
+      scrolls++;
+      snapshot = core.snapshot();
+      renderer.draw(snapshot, true);
+    },
     showLink: (spans) => {
       shown = spans;
       renderer.setLink(spans);
@@ -75,7 +85,8 @@ async function rig(options: Partial<PointerOptions> = {}) {
     fire("pointermove", ...to, { buttons: 1, ...init });
     fire("pointerup", ...to, { detail: 1, ...init });
   };
-  return { core, renderer, sent, links, shown: () => shown, write, fire, drag };
+  const counts = () => ({ redraws, scrolls });
+  return { core, renderer, sent, links, shown: () => shown, write, fire, drag, counts };
 }
 
 test("a drag selects cells, and the selection stays through new output", async () => {
@@ -142,7 +153,7 @@ test("clicks go to a program that asks for the mouse, unless Shift is held", asy
 });
 
 test("the wheel scrolls the scrollback, or sends arrows on the alternate screen", async () => {
-  const { core, renderer, sent, write } = await rig();
+  const { core, renderer, sent, write, counts } = await rig();
   write(Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\r\n"));
   const wheel = (deltaY: number) =>
     renderer.canvas.dispatchEvent(new WheelEvent("wheel", { deltaY, deltaMode: 1, bubbles: true, cancelable: true }));
@@ -150,6 +161,8 @@ test("the wheel scrolls the scrollback, or sends arrows on the alternate screen"
   wheel(-3);
   expect(core.scrollbar().offset).toBe(bottom - 3);
   expect(sent).toEqual([]);
+  // a scroll draws the rows that moved, and leaves the selection alone
+  expect(counts()).toEqual({ redraws: 0, scrolls: 1 });
   write("\x1b[?1049h");
   wheel(2);
   expect(sent).toEqual([

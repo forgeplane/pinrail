@@ -37,9 +37,11 @@ export interface PointerOptions {
   /** The visible rows, as last drawn. */
   rows(): readonly GhosttyRow[];
   emit(bytes: Uint8Array, kind: InputKind): void;
-  /** Draws the terminal again, every row, after the selection or the
-   *  viewport changed. */
+  /** Draws the terminal again, every row, after the selection changed. */
   redraw(): void;
+  /** Draws the terminal on the next frame after the wheel moved the
+   *  viewport. The rows that moved are copied rather than drawn. */
+  scrolled(): void;
   /** Underlines the link under the pointer, or none. */
   showLink(spans: readonly LinkSpan[]): void;
   onLink(uri: string, event: MouseEvent): void;
@@ -320,7 +322,7 @@ export class Pointer {
       return;
     }
     this.target.scroll(step.rows);
-    this.options.redraw();
+    this.options.scrolled();
   }
 
   /** The link under a cell: an OSC 8 link, or a plain URL. */

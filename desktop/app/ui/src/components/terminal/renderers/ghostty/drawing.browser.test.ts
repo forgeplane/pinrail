@@ -74,7 +74,10 @@ const STEPS: Step[] = [
   ["clears the screen", "\x1b[2J\x1b[H$ ls\r\n"],
   ["fills the history", lines(40, 100)],
   // the wheel moves the viewport into the history and back
-  ...([-5, -9, 3, 11] as const).map((rows): Step => [`scrolls the view by ${rows} rows`, (core) => core.scroll(rows)]),
+  ...([-5, -1, -1, -9, 1, 3, 11] as const).map((rows): Step => [
+    `scrolls the view by ${rows} rows`,
+    (core) => core.scroll(rows),
+  ]),
 ];
 
 async function compare(ratio: number) {

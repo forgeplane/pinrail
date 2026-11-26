@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { cellKind, splitRuns } from "./renderer";
+import { cellKind, movedBand, splitRuns } from "./renderer";
 import type { GhosttyCell } from "./types";
 
 const white = { r: 255, g: 255, b: 255 };
@@ -66,5 +66,38 @@ describe("the runs of a row", () => {
 
   test("draw no text for an invisible cell", () => {
     expect(cellKind(cell("x", { invisible: true }))).toBe("blank");
+  });
+});
+
+describe("the band of rows that moved", () => {
+  /** The band from what the canvas shows to what it should show, every
+   *  row changed, as after a scroll. */
+  const band = (shown: string[], now: string[]) => movedBand(shown, new Map(now.entries()), shown.length);
+
+  test("is found when output scrolls up a row", () => {
+    expect(band(["a", "b", "c", "d"], ["b", "c", "d", "e"])).toEqual({ from: 0, to: 3, by: 1 });
+  });
+
+  test("is found when the wheel scrolls back a row", () => {
+    expect(band(["b", "c", "d", "e"], ["a", "b", "c", "d"])).toEqual({ from: 1, to: 4, by: -1 });
+  });
+
+  test("is found for a move of several rows either way", () => {
+    expect(band(["a", "b", "c", "d", "e", "f"], ["d", "e", "f", "x", "y", "z"])).toEqual({ from: 0, to: 3, by: 3 });
+    expect(band(["d", "e", "f", "x", "y", "z"], ["a", "b", "c", "d", "e", "f"])).toEqual({ from: 3, to: 6, by: -3 });
+  });
+
+  test("keeps the longest band, past rows that many rows show", () => {
+    const blank = "";
+    expect(band(["a", blank, blank, "b", "c", "d"], [blank, blank, "b", "c", "d", "e"])).toEqual({
+      from: 0,
+      to: 5,
+      by: 1,
+    });
+  });
+
+  test("is none when no rows moved together", () => {
+    expect(band(["a", "b", "c"], ["x", "y", "z"])).toBeNull();
+    expect(band(["a", "b", "c"], ["b", "x", "y"])).toBeNull();
   });
 });
