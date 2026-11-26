@@ -8,6 +8,17 @@
 //! - CPU of the host with 10 idle agents: at most 1 % of one core.
 //! - First paint of 5,000 lines: at most 10 ms.
 //!
+//! These have no budget, and are compared with the baseline only:
+//!
+//! - Output to viewers, through the PTY, the host and its frames, as a
+//!   viewer that returns credit reads it: one viewer, and three of the same
+//!   terminal.
+//! - Attach with the binary snapshot of 10,000 lines: from the request to
+//!   the snapshot's end.
+//! - First paint of 5,000 lines with a full-screen program on the
+//!   alternate screen.
+//! - The host's resident memory with 10 terminals of 10,000 lines each.
+//!
 //! It prints the results as JSON and exits with 1 when a budget fails.
 //! With `--baseline <file>`, it also fails when a result is more than 15 %
 //! worse than the baseline's, beyond a small margin for the measures whose
@@ -39,7 +50,8 @@ const TOLERANCE: f64 = 0.15;
 struct Measure {
     name: &'static str,
     unit: &'static str,
-    budget: f64,
+    /// None for a measure compared with the baseline only.
+    budget: Option<f64>,
     higher_is_better: bool,
     margin: f64,
 }
@@ -48,37 +60,74 @@ const MEASURES: &[Measure] = &[
     Measure {
         name: "throughput_tui",
         unit: "MB/s",
-        budget: 250.0,
+        budget: Some(250.0),
         higher_is_better: true,
         margin: 0.0,
     },
     Measure {
         name: "throughput_plain",
         unit: "MB/s",
-        budget: 500.0,
+        budget: Some(500.0),
         higher_is_better: true,
         margin: 0.0,
     },
     Measure {
         name: "memory_10k_lines",
         unit: "MiB",
-        budget: 15.0,
+        budget: Some(15.0),
         higher_is_better: false,
         margin: 0.0,
     },
     Measure {
         name: "idle_cpu_10_agents",
         unit: "% of a core",
-        budget: 1.0,
+        budget: Some(1.0),
         higher_is_better: false,
         margin: 0.5,
     },
     Measure {
         name: "first_paint_5k_lines",
         unit: "ms",
-        budget: 10.0,
+        budget: Some(10.0),
         higher_is_better: false,
         margin: 1.0,
+    },
+    Measure {
+        name: "viewer_throughput_tui",
+        unit: "MB/s",
+        budget: None,
+        higher_is_better: true,
+        margin: 0.0,
+    },
+    Measure {
+        name: "viewer_throughput_tui_3_viewers",
+        unit: "MB/s",
+        budget: None,
+        higher_is_better: true,
+        margin: 0.0,
+    },
+    Measure {
+        name: "attach_binary_10k_lines",
+        unit: "ms",
+        budget: None,
+        higher_is_better: false,
+        margin: 5.0,
+    },
+    Measure {
+        name: "first_paint_alt_screen_5k_lines",
+        unit: "ms",
+        budget: None,
+        higher_is_better: false,
+        margin: 1.0,
+    },
+    Measure {
+        name: "host_memory_10_terminals",
+        unit: "MiB",
+        budget: None,
+        higher_is_better: false,
+        // resident memory includes what the allocator keeps, which varies
+        // by tens of MiB from run to run
+        margin: 40.0,
     },
 ];
 
@@ -308,10 +357,16 @@ fn cpu_seconds() -> f64 {
     seconds(usage.ru_utime) + seconds(usage.ru_stime)
 }
 
-/// The host's CPU over 5 seconds while it runs 10 terminals whose programs
-/// wait. The host runs in this process, so its CPU is the process's.
-fn idle_cpu() -> f64 {
-    use pinrail_host::client::Client;
+/// A host serving in this process, its programs through a holder on a
+/// thread, so that its CPU and memory are the process's. The folder holds
+/// its data until it is dropped.
+struct Host {
+    _dir: tempfile::TempDir,
+    data_dir: std::path::PathBuf,
+    registration: pinrail_host::registration::Registration,
+}
+
+fn start_host() -> Host {
     use pinrail_host::registration::Registration;
     let dir = tempfile::Builder::new()
         .prefix("ph")
@@ -334,7 +389,19 @@ fn idle_cpu() -> f64 {
         assert!(Instant::now() < deadline, "the host did not start");
         std::thread::sleep(Duration::from_millis(20));
     };
-    let mut client = Client::connect(&registration).expect("a connection to the host");
+    Host {
+        _dir: dir,
+        data_dir,
+        registration,
+    }
+}
+
+/// The host's CPU over 5 seconds while it runs 10 terminals whose programs
+/// wait. The host runs in this process, so its CPU is the process's.
+fn idle_cpu() -> f64 {
+    use pinrail_host::client::Client;
+    let host = start_host();
+    let mut client = Client::connect(&host.registration).expect("a connection to the host");
     let mut terminals = Vec::new();
     for _ in 0..10 {
         let spawned = client
@@ -365,6 +432,283 @@ fn idle_cpu() -> f64 {
     result
 }
 
+/// The host's one connection, spoken as the core speaks it: calls are
+/// answered on channel 0, each attach is a channel of its own, and each
+/// DATA frame read is credited back at once. A second connection would
+/// replace the first.
+struct Connection {
+    stream: std::os::unix::net::UnixStream,
+    next_id: u64,
+}
+
+impl Connection {
+    fn open(host: &Host) -> Self {
+        let stream = std::os::unix::net::UnixStream::connect(&host.registration.socket)
+            .expect("a connection to the host");
+        let mut connection = Self { stream, next_id: 0 };
+        connection.call("hello", json!({"secret": host.registration.secret}));
+        connection
+    }
+
+    fn send(&mut self, frame: &pinrail_host::frame::Frame) {
+        pinrail_host::frame::write_blocking(&mut self.stream, frame).expect("a frame sent");
+    }
+
+    /// Reads the next frame, crediting it when it is DATA on a terminal
+    /// channel.
+    fn read(&mut self) -> pinrail_host::frame::Frame {
+        use pinrail_host::frame::{self, Frame, kind};
+        let frame = frame::read_blocking(&mut self.stream)
+            .expect("a frame")
+            .expect("an open connection");
+        if frame.kind == kind::DATA && frame.channel != 0 {
+            self.send(&Frame {
+                channel: frame.channel,
+                kind: kind::CREDIT,
+                payload: (frame.payload.len() as u32).to_le_bytes().to_vec(),
+            });
+        }
+        frame
+    }
+
+    fn call(&mut self, method: &str, params: Value) -> Value {
+        let id = self.next_id;
+        self.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        self.send(&pinrail_host::frame::Frame::json(&message));
+        loop {
+            let frame = self.read();
+            if frame.channel == 0
+                && let Ok(reply) = serde_json::from_slice::<Value>(&frame.payload)
+                && reply["id"] == id
+            {
+                return reply;
+            }
+        }
+    }
+
+    /// Attaches to `terminal` with `formats`, and answers the channel.
+    fn attach(&mut self, terminal: &str, history: u32, formats: &[&str]) -> u32 {
+        let reply = self.call(
+            "terminal.attach",
+            json!({"terminal": terminal, "mode": "observe", "cols": COLS, "rows": ROWS,
+                   "history": history, "formats": formats}),
+        );
+        reply["result"]["channel"].as_u64().expect("a channel") as u32
+    }
+
+    /// Detaches the viewer of `channel`.
+    fn detach(&mut self, channel: u32) {
+        self.send(&pinrail_host::frame::Frame {
+            channel,
+            kind: pinrail_host::frame::kind::CLOSE,
+            payload: Vec::new(),
+        });
+    }
+
+    fn spawn(&mut self, host: &Host, script: &str) -> String {
+        let reply = self.call(
+            "terminal.spawn",
+            json!({"argv": ["sh", "-c", script], "cwd": host.data_dir, "cols": COLS, "rows": ROWS,
+                   "env_base": "host"}),
+        );
+        reply["result"]["terminal"]
+            .as_str()
+            .expect("a terminal")
+            .to_string()
+    }
+
+    /// Waits until the terminal's screen shows `text`.
+    fn wait_for(&mut self, terminal: &str, text: &str) {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            let reply = self.call("terminal.text", json!({"terminal": terminal, "lines": 0}));
+            if reply["result"]["text"]
+                .as_str()
+                .unwrap_or("")
+                .contains(text)
+            {
+                return;
+            }
+            assert!(Instant::now() < deadline, "no {text}");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn stop(&mut self, terminals: &[&str]) {
+        for terminal in terminals {
+            self.call(
+                "terminal.stop",
+                json!({"terminal": terminal, "grace_ms": 0}),
+            );
+        }
+    }
+}
+
+/// How many throughput runs started, for each run's own go file.
+static RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The marker a program prints after its output, found in the DATA a
+/// viewer reads.
+const END: &[u8] = b"END-OF-BENCH-OUTPUT";
+
+/// MB/s of `bytes`, written by `cat` to a terminal, as `viewers` viewers
+/// read it, each a channel of the connection: from the start until each
+/// has read the marker after it.
+fn viewer_throughput(bytes: &[u8], viewers: usize) -> f64 {
+    let host = start_host();
+    let file = host.data_dir.join("output.bin");
+    std::fs::write(&file, bytes).expect("the output file");
+    let mut connection = Connection::open(&host);
+    best_of_three(
+        || {
+            // waits for a go, so that every viewer is attached first
+            let run = RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let go = host.data_dir.join(format!("go-{run}"));
+            let script = format!(
+                "while [ ! -e '{go}' ]; do sleep 0.01; done; cat '{file}'; printf '%s\\n' '{end}'; sleep 600",
+                go = go.display(),
+                file = file.display(),
+                end = String::from_utf8_lossy(END),
+            );
+            let terminal = connection.spawn(&host, &script);
+            let mut tails: std::collections::BTreeMap<u32, Vec<u8>> = (0..viewers)
+                .map(|_| (connection.attach(&terminal, 0, &["vt"]), Vec::new()))
+                .collect();
+            let channels: Vec<u32> = tails.keys().copied().collect();
+            let started = Instant::now();
+            std::fs::write(&go, b"").expect("the go file");
+            while !tails.is_empty() {
+                let frame = connection.read();
+                if frame.kind != pinrail_host::frame::kind::DATA {
+                    continue;
+                }
+                let Some(tail) = tails.get_mut(&frame.channel) else {
+                    continue;
+                };
+                tail.extend_from_slice(&frame.payload);
+                if tail.windows(END.len()).any(|w| w == END) {
+                    tails.remove(&frame.channel);
+                } else {
+                    let keep = tail.len().saturating_sub(END.len());
+                    tail.drain(..keep);
+                }
+            }
+            let seconds = started.elapsed().as_secs_f64();
+            for channel in channels {
+                connection.detach(channel);
+            }
+            connection.stop(&[&terminal]);
+            bytes.len() as f64 / seconds / 1e6
+        },
+        true,
+    )
+}
+
+/// A shell line that prints `lines` lines of about 100 columns, with a
+/// colour on each, then `done`.
+fn history_script(lines: usize, done: &str) -> String {
+    format!(
+        "seq 1 {lines} | awk '{{printf \"\\033[3%dmline %d of a long history, with text to make each line about as long as agents write them\\033[0m\\n\", $1 % 8, $1}}'; echo {done}; sleep 600"
+    )
+}
+
+/// Milliseconds from an attach that asks for the binary snapshot, of a
+/// terminal holding 10,000 lines, to the snapshot's end.
+fn attach_binary() -> f64 {
+    let host = start_host();
+    let mut connection = Connection::open(&host);
+    let terminal = connection.spawn(&host, &history_script(10_000, "history-done"));
+    connection.wait_for(&terminal, "history-done");
+    let format = format!("ghostty-bin;vt-{}", pinrail_screen::ghostty::version());
+    let result = best_of_three(
+        || {
+            let started = Instant::now();
+            let channel = connection.attach(&terminal, 10_000, &[&format, "vt"]);
+            loop {
+                let frame = connection.read();
+                if frame.channel == channel
+                    && frame.kind == pinrail_host::frame::kind::META
+                    && serde_json::from_slice::<Value>(&frame.payload)
+                        .is_ok_and(|m| m["type"] == "snapshot_end")
+                {
+                    break;
+                }
+            }
+            let took = started.elapsed().as_secs_f64() * 1_000.0;
+            connection.detach(channel);
+            took
+        },
+        false,
+    );
+    connection.stop(&[&terminal]);
+    result
+}
+
+/// First paint of 5,000 lines of history with a full-screen program on
+/// the alternate screen, which a paint shows over the primary one.
+fn first_paint_alt_screen() -> f64 {
+    let mut screen = filled(5_000);
+    let (mut replies, mut signals) = (Vec::new(), Vec::new());
+    let mut full = String::from("\x1b[?1049h\x1b[H");
+    let mut r = Rng(11);
+    for _ in 0..ROWS {
+        let mut line = String::new();
+        styled_line(&mut r, &mut line);
+        full.push_str(line.trim_end());
+        full.push_str("\r\n");
+    }
+    screen.feed(full.as_bytes(), &mut replies, &mut signals);
+    best_of_three(
+        || {
+            let started = Instant::now();
+            std::hint::black_box(screen.first_paint(5_000));
+            started.elapsed().as_secs_f64() * 1_000.0
+        },
+        false,
+    )
+}
+
+/// This process's resident memory, in bytes.
+fn resident_bytes() -> f64 {
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .expect("ps");
+    let kib: f64 = String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .parse()
+        .expect("a resident size");
+    kib * 1024.0
+}
+
+/// MiB the host's process grows by with 10 terminals that each hold
+/// 10,000 lines.
+fn host_memory() -> f64 {
+    let host = start_host();
+    let mut connection = Connection::open(&host);
+    // a terminal first, so that the host's own start is not counted
+    let first = connection.spawn(&host, "echo ready; sleep 600");
+    connection.wait_for(&first, "ready");
+    std::thread::sleep(Duration::from_millis(500));
+    let before = resident_bytes();
+    let terminals: Vec<String> = (0..10)
+        .map(|i| connection.spawn(&host, &history_script(10_000, &format!("filled-{i}"))))
+        .collect();
+    for (i, terminal) in terminals.iter().enumerate() {
+        connection.wait_for(terminal, &format!("filled-{i}"));
+    }
+    std::thread::sleep(Duration::from_millis(500));
+    let grown = (resident_bytes() - before) / (1024.0 * 1024.0);
+    let all: Vec<&str> = terminals
+        .iter()
+        .chain([&first])
+        .map(String::as_str)
+        .collect();
+    connection.stop(&all);
+    grown
+}
+
 /// What failed: a budget, or the baseline by more than the tolerance.
 fn check(
     results: &serde_json::Map<String, Value>,
@@ -383,10 +727,12 @@ fn check(
                 value <= limit
             }
         };
-        if budgets && !within(measure.budget) {
+        if let Some(budget) = measure.budget.filter(|_| budgets)
+            && !within(budget)
+        {
             failures.push(format!(
-                "{}: {value:.2} {} misses the budget of {} {}",
-                measure.name, measure.unit, measure.budget, measure.unit
+                "{}: {value:.2} {} misses the budget of {budget} {}",
+                measure.name, measure.unit, measure.unit
             ));
         }
         if let Some(base) = baseline.and_then(|b| b[measure.name].as_f64()) {
@@ -427,6 +773,21 @@ fn main() {
     results.insert("memory_10k_lines".into(), json!(memory()));
     results.insert("first_paint_5k_lines".into(), json!(first_paint()));
     results.insert("idle_cpu_10_agents".into(), json!(idle_cpu()));
+    let tui_8mb = &tui_bytes.as_bytes()[..8 << 20];
+    results.insert(
+        "viewer_throughput_tui".into(),
+        json!(viewer_throughput(tui_8mb, 1)),
+    );
+    results.insert(
+        "viewer_throughput_tui_3_viewers".into(),
+        json!(viewer_throughput(tui_8mb, 3)),
+    );
+    results.insert("attach_binary_10k_lines".into(), json!(attach_binary()));
+    results.insert(
+        "first_paint_alt_screen_5k_lines".into(),
+        json!(first_paint_alt_screen()),
+    );
+    results.insert("host_memory_10_terminals".into(), json!(host_memory()));
 
     let baseline: Option<Value> = baseline.map(|path| {
         let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
