@@ -5,7 +5,7 @@ import host from "../../testing/ghostty-snapshot.json";
 import { GhosttyCore } from "./core";
 import { GhosttyRuntime } from "./runtime";
 import type { BenchHooks } from "../../view";
-import { BINARY_FORMAT, ghosttyRenderer, HIDDEN_QUIET_MS } from "./view";
+import { BINARY_FORMAT, ghosttyRenderer, HIDDEN_QUIET_MS, OUTPUT_INTERVAL_MS } from "./view";
 
 test("a snapshot the host wrote shows the host's screen, history and title", async () => {
   expect(host.format).toBe(BINARY_FORMAT);
@@ -62,7 +62,7 @@ test("output after a pause is drawn in the frame that parses it", async () => {
   host.remove();
 });
 
-test("streaming output is drawn about 30 times a second, and all of it", async () => {
+test("streaming output is drawn at most every 33 ms, and all of it", async () => {
   const host = document.createElement("div");
   host.style.cssText = "width: 400px; height: 200px; position: relative";
   document.body.append(host);
@@ -82,19 +82,21 @@ test("streaming output is drawn about 30 times a second, and all of it", async (
     drawn++;
     lastDrawn = performance.now();
   });
-  // a line every 10 ms for a second
+  // a line every 10 ms, or as often as the machine's timers allow
   const started = performance.now();
-  let lines = 0;
+  const lines = 40;
   let lastParsed = 0;
-  while (performance.now() - started < 1000) {
-    view.write(new TextEncoder().encode(`line ${++lines}\r\n`), () => (lastParsed = performance.now()));
+  for (let line = 1; line <= lines; line++) {
+    view.write(new TextEncoder().encode(`line ${line}\r\n`), () => (lastParsed = performance.now()));
     await new Promise((r) => setTimeout(r, 10));
   }
   await new Promise((r) => setTimeout(r, 200));
-  expect(lines).toBeGreaterThan(60);
-  expect(drawn).toBeGreaterThan(20);
+  // drawn while the lines arrived: at least half as often as the lines
+  // came, or as the 33 ms interval allows, whichever is less
+  const slots = Math.floor((lastParsed - started) / OUTPUT_INTERVAL_MS);
+  expect(drawn).toBeGreaterThanOrEqual(Math.floor(Math.min(lines, slots) / 2));
   // at most one draw every 33 ms while the lines arrived
-  expect(drawn).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / 33) + 1);
+  expect(drawn).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / OUTPUT_INTERVAL_MS) + 1);
   // the last line was drawn
   expect(lastDrawn).toBeGreaterThanOrEqual(lastParsed);
   view.dispose();

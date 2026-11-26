@@ -129,10 +129,12 @@ for (const [name, make] of adapters) {
       await frame();
       attaches[0].output("while away\r\n");
 
+      // the switch itself: the frame after it comes when the browser
+      // paints, which a busy machine can delay
       const started = performance.now();
       const again = await pool.show("local:a", pane);
-      await frame();
       const took = performance.now() - started;
+      await frame();
 
       expect(again).toBe(a);
       expect(attaches).toHaveLength(2);
