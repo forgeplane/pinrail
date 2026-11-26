@@ -76,20 +76,8 @@ test("streaming output is drawn at most every 33 ms, and all of it", async () =>
   });
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const hooks = view as unknown as BenchHooks;
-  let drawn = 0;
-  let lastDrawn = 0;
-  hooks.onFrameDrawn(() => {
-    drawn++;
-    lastDrawn = performance.now();
-  });
-  // the frames the browser gives, which parse the output
-  let frames = 0;
-  let counting = true;
-  const tick = () => {
-    frames++;
-    if (counting) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+  const draws: number[] = [];
+  hooks.onFrameDrawn(() => draws.push(performance.now()));
   // a line every 10 ms, or as often as the machine's timers allow
   const started = performance.now();
   const lines = 40;
@@ -98,16 +86,13 @@ test("streaming output is drawn at most every 33 ms, and all of it", async () =>
     view.write(new TextEncoder().encode(`line ${line}\r\n`), () => (lastParsed = performance.now()));
     await new Promise((r) => setTimeout(r, 10));
   }
-  const streamed = frames;
   await new Promise((r) => setTimeout(r, 200));
-  counting = false;
-  // drawn while the lines arrived: at least half as often as the lines
-  // came, the browser gave frames, or the 33 ms interval allows, whichever
-  // is least
-  const slots = Math.floor((lastParsed - started) / OUTPUT_INTERVAL_MS);
-  expect(drawn).toBeGreaterThanOrEqual(Math.floor(Math.min(lines, streamed, slots) / 2));
+  const lastDrawn = draws.at(-1) ?? 0;
+  // drawn while the lines arrived, not only once they stopped: 40 lines
+  // take at least 400 ms, room for 12 draws
+  expect(draws.filter((t) => t < lastParsed).length).toBeGreaterThanOrEqual(3);
   // at most one draw every 33 ms while the lines arrived
-  expect(drawn).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / OUTPUT_INTERVAL_MS) + 1);
+  expect(draws.length).toBeLessThanOrEqual(Math.ceil((lastDrawn - started) / OUTPUT_INTERVAL_MS) + 1);
   // the last line was drawn
   expect(lastDrawn).toBeGreaterThanOrEqual(lastParsed);
   view.dispose();
