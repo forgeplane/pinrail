@@ -306,6 +306,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Open a work item's files, and the files of its comments, with their
+  default program when you click them.
 - Show Claude Code's reply and the next prompt in a session's summary when
   its hook report is lost, such as when Claude Code cancels a slow hook.
 - Apply Pinrail Host's Developer Tools and privacy permissions on macOS to

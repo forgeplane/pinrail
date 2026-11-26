@@ -9,11 +9,22 @@ import { itemDetail } from "../testing/items";
 import { cleanup, render } from "../testing/render";
 import { ItemPanel } from "./ItemPanel";
 
-vi.mock("../api/client", async (real) => (await import("../testing/core")).fakeClient(await real()));
+const app = vi.hoisted(() => ({ tauri: false, invoked: [] as [string, unknown][] }));
+vi.mock("../api/client", async (real) => ({
+  ...(await import("../testing/core")).fakeClient(await real()),
+  inTauri: () => app.tauri,
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: async (command: string, args: unknown) => {
+    app.invoked.push([command, args]);
+  },
+}));
 
 afterEach(() => {
   cleanup();
   core.reset();
+  app.tauri = false;
+  app.invoked = [];
 });
 
 /** The panel of `item`, which the fake core keeps and changes as the real
@@ -93,6 +104,35 @@ describe("the item panel", () => {
     await userEvent.keyboard("{ControlOrMeta>}{Enter}{/ControlOrMeta}");
     await expect.poll(() => core.calls("commentItem")).toEqual([["ACME-11", "Looks right to me", {}]]);
     await expect.element(box).toHaveValue("");
+  });
+
+  test("in the app, a comment's file opens with a click, from the list and from the text", async () => {
+    app.tauri = true;
+    const file = { name: "run.sh", sha256: "ab", size: 12, media_type: "text/x-sh" };
+    await open(
+      itemDetail({
+        title: "Files on a comment",
+        number: 14,
+        timeline: [
+          {
+            type: "comment",
+            id: "c1",
+            body: "See [the script](attachment:run.sh).",
+            author: "claude-code",
+            session: null,
+            created_at: "2026-11-19T09:00:00Z",
+            edited_at: null,
+            files: [file],
+          },
+        ],
+      }),
+    );
+    const comment = page.getByTestId("item-comment");
+    await userEvent.click(comment.getByRole("link", { name: "run.sh" }));
+    const opened = () => app.invoked.filter(([command]) => command === "open_item_file");
+    await expect.poll(opened).toEqual([["open_item_file", { key: "ACME-14", name: "run.sh" }]]);
+    await userEvent.click(comment.getByRole("link", { name: "the script" }));
+    await expect.poll(() => opened().length).toBe(2);
   });
 
   test("an item that is gone says so", async () => {

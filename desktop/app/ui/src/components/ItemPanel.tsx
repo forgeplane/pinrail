@@ -36,7 +36,7 @@ import { ComposeField } from "./ComposeField";
 import { AttachButton } from "./AttachButton";
 import { useAttach, type Attached } from "../lib/attach";
 import { Activity } from "./ItemActivity";
-import { Markdown, useFileUrl } from "./ItemMarkdown";
+import { ItemFileLink, Markdown, useFileUrl, useOpenItemFile } from "./ItemMarkdown";
 import { CancelItemDialog, openSubItems } from "./CancelItemDialog";
 import { HoldItemDialog, stoppedByHold } from "./HoldItemDialog";
 import { ItemQuickStart } from "./ItemQuickStart";
@@ -90,6 +90,7 @@ export function ItemPanel({
   // the work in progress a hold would stop, while the person is asked
   const [holding, setHolding] = useState<WorkItem[] | null>(null);
   const fileUrl = useFileUrl(item?.key);
+  const openFile = useOpenItemFile(item?.key, fileUrl);
 
   // the notices that can change the item, its sub-items or its reviews
   const itemNotices = useNoticeCount(aboutItems);
@@ -366,7 +367,7 @@ export function ItemPanel({
             }}
           />
         ) : item.body.trim() ? (
-          <Markdown text={item.body} files={item.files} fileUrl={fileUrl} />
+          <Markdown text={item.body} files={item.files} fileUrl={fileUrl} onOpenFile={(name) => void openFile(name)} />
         ) : (
           <p className="dim">No description yet.</p>
         )}
@@ -374,9 +375,9 @@ export function ItemPanel({
           <ul className="item-files">
             {item.files.map((f) => (
               <li key={f.name}>
-                <a href={fileUrl(f.name) ?? "#"} target="_blank" rel="noreferrer">
+                <ItemFileLink name={f.name} fileUrl={fileUrl} onOpen={(name) => void openFile(name)}>
                   <FileText size={12} /> {f.name}
-                </a>
+                </ItemFileLink>
                 <button
                   type="button"
                   className="item-file-remove"
@@ -554,6 +555,7 @@ export function ItemPanel({
               repo={item.repo}
               files={item.files}
               fileUrl={fileUrl}
+              onOpenFile={(name) => void openFile(name)}
               onEdit={async (body) => {
                 try {
                   await api.editComment(item.key, entry.id, body);
@@ -854,6 +856,7 @@ function CommentCard({
   repo,
   files,
   fileUrl,
+  onOpenFile,
   onEdit,
   onDelete,
 }: {
@@ -861,6 +864,7 @@ function CommentCard({
   repo: string;
   files: { name: string; media_type: string }[];
   fileUrl: (n: string) => string | null;
+  onOpenFile: (name: string) => void;
   onEdit: (body: string) => Promise<boolean>;
   onDelete: () => Promise<void>;
 }) {
@@ -890,15 +894,15 @@ function CommentCard({
       {editing ? (
         <CommentEdit body={comment.body} repo={repo} onSave={onEdit} onDone={() => setEditing(false)} />
       ) : (
-        <Markdown text={comment.body} files={[...files, ...comment.files]} fileUrl={fileUrl} />
+        <Markdown text={comment.body} files={[...files, ...comment.files]} fileUrl={fileUrl} onOpenFile={onOpenFile} />
       )}
       {comment.files.length ? (
         <ul className="item-files">
           {comment.files.map((f) => (
             <li key={f.name}>
-              <a href={fileUrl(f.name) ?? "#"} target="_blank" rel="noreferrer">
+              <ItemFileLink name={f.name} fileUrl={fileUrl} onOpen={onOpenFile}>
                 <FileText size={12} /> {f.name}
-              </a>
+              </ItemFileLink>
             </li>
           ))}
         </ul>

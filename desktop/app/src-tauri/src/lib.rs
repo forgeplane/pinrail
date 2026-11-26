@@ -510,6 +510,72 @@ async fn save_note_attachment(
     save_as(app, from, name).await
 }
 
+/// Opens one of a work item's files, or a file of one of its comments, with
+/// the system's default program for it. The program opens a copy, saved
+/// under the file's own name in a folder for the item in the system's
+/// temporary folder, the folder `pinrail items show` saves to.
+#[tauri::command]
+async fn open_item_file(
+    app: AppHandle,
+    native: State<'_, Native>,
+    key: String,
+    name: String,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let state = native.state.clone();
+    let item = pinrail_core::items::ItemRef::parse(&key)?;
+    let file = state
+        .items()
+        .file(&item, None, &name)
+        .map_err(|e| e.to_string())?;
+    let from = state.attachments().path(&file.sha256);
+    let dir = item_files_dir(&key);
+    let copy = tauri::async_runtime::spawn_blocking(move || {
+        copy_to_open(&from, &dir, &name).map_err(|e| format!("copying {name}: {e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    app.opener()
+        .open_path(copy.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// The folder for the copies of an item's files, named by its key.
+fn item_files_dir(key: &str) -> PathBuf {
+    // a key is letters, digits and a hyphen
+    let folder: String = key
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    std::env::temp_dir()
+        .join("pinrail")
+        .join("items")
+        .join(folder)
+}
+
+/// Copies a stored file to `dir` under `name`, replacing an older copy, and
+/// answers where the copy is.
+fn copy_to_open(from: &Path, dir: &Path, name: &str) -> std::io::Result<PathBuf> {
+    // a name is a file's name, never a path out of the folder
+    if name.is_empty()
+        || name.starts_with('.')
+        || Path::new(name).file_name() != Some(name.as_ref())
+    {
+        return Err(std::io::Error::other(format!(
+            "{name:?} is not a plain file name"
+        )));
+    }
+    std::fs::create_dir_all(dir)?;
+    let target = dir.join(name);
+    // written beside it, then moved in place, so a program never reads half
+    let part = dir.join(format!(".{name}.{}.part", std::process::id()));
+    let copied = save_copy(from, &part).and_then(|()| std::fs::rename(&part, &target));
+    if copied.is_err() {
+        let _ = std::fs::remove_file(&part);
+    }
+    copied.map(|()| target)
+}
+
 /// Asks where to save `name`, then saves a copy of the stored file there.
 /// Answers where it went, or nothing when the person cancelled.
 async fn save_as(app: AppHandle, from: PathBuf, name: String) -> Result<Option<String>, String> {
@@ -895,6 +961,7 @@ pub fn run() {
             open_notices,
             save_attachment,
             save_note_attachment,
+            open_item_file,
             update_status,
             check_for_updates,
             restart_to_update,
@@ -1144,6 +1211,34 @@ mod tests {
             Some("https://pinrail.dev/blog/")
         );
         assert_eq!(super::help_link("feedback"), None);
+    }
+
+    #[test]
+    fn an_item_file_is_copied_under_its_name_for_opening() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stored = tmp.path().join("blob");
+        std::fs::write(&stored, "echo one").unwrap();
+        let dir = tmp.path().join("items").join("PIN-7");
+        let copy = super::copy_to_open(&stored, &dir, "run.sh").unwrap();
+        assert_eq!(copy, dir.join("run.sh"));
+        assert_eq!(std::fs::read_to_string(&copy).unwrap(), "echo one");
+        // a later copy replaces it
+        std::fs::write(&stored, "echo two").unwrap();
+        super::copy_to_open(&stored, &dir, "run.sh").unwrap();
+        assert_eq!(std::fs::read_to_string(&copy).unwrap(), "echo two");
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn an_item_file_name_cannot_leave_its_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let stored = tmp.path().join("blob");
+        std::fs::write(&stored, "x").unwrap();
+        let dir = tmp.path().join("items");
+        for name in ["../out", ".hidden", "", "a/b"] {
+            assert!(super::copy_to_open(&stored, &dir, name).is_err(), "{name}");
+        }
+        assert!(!tmp.path().join("out").exists());
     }
 
     use std::os::unix::fs::PermissionsExt;

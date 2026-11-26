@@ -38,7 +38,7 @@ import { useNow } from "../../lib/useNow";
 import { type Entry, type FromSession, type Round } from "../../lib/sessions";
 import { useToast } from "../../state/toasts";
 import { ItemChip, ItemChips } from "../ItemChip";
-import { Markdown, useFileUrl } from "../ItemMarkdown";
+import { ItemFileLink, Markdown, useFileUrl, useOpenItemFile } from "../ItemMarkdown";
 import { ItemStatusIcon, STATUS_LABEL } from "../ItemStatusIcon";
 import { AgentIcon } from "../AgentIcon";
 import { OutcomeBadge, SummaryCounts } from "../Badges";
@@ -237,6 +237,7 @@ export const ItemEventLine = memo(
  *  and the comment's Markdown as the item's panel shows it. */
 export const CommentMessage = memo(function CommentMessage({ comment }: { comment: SessionComment }) {
   const fileUrl = useFileUrl(comment.item.key);
+  const openFile = useOpenItemFile(comment.item.key, fileUrl);
   return (
     <div className="thread-note thread-comment msg" data-testid="thread-comment">
       <span className="msg-avatar">
@@ -249,14 +250,19 @@ export const CommentMessage = memo(function CommentMessage({ comment }: { commen
             {age(comment.created_at)} ago
           </span>
         </div>
-        <Markdown text={comment.body} files={comment.files} fileUrl={fileUrl} />
+        <Markdown
+          text={comment.body}
+          files={comment.files}
+          fileUrl={fileUrl}
+          onOpenFile={(name) => void openFile(name)}
+        />
         {comment.files.length ? (
           <ul className="item-files">
             {comment.files.map((f) => (
               <li key={f.name}>
-                <a href={fileUrl(f.name) ?? "#"} target="_blank" rel="noreferrer">
+                <ItemFileLink name={f.name} fileUrl={fileUrl} onOpen={(name) => void openFile(name)}>
                   <Paperclip size={12} /> {f.name}
-                </a>
+                </ItemFileLink>
               </li>
             ))}
           </ul>
