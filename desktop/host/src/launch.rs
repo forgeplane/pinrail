@@ -827,8 +827,23 @@ mod tests {
             folder.join("pinrail-host")
         };
         fs::create_dir_all(executable.parent().unwrap()).unwrap();
-        fs::copy("/bin/sleep", &executable).unwrap();
+        // this test binary, which runs from a copy: a copy of a system
+        // program such as /bin/sleep loses Apple's signature, and macOS
+        // kills it as it starts
+        fs::copy(std::env::current_exe().unwrap(), &executable).unwrap();
         executable
+    }
+
+    /// No check: a copy of this binary runs it, with `PINRAIL_TEST_WAIT`
+    /// set, as a program that waits that many seconds.
+    #[test]
+    fn waits_when_asked() {
+        if let Some(seconds) = std::env::var("PINRAIL_TEST_WAIT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+        {
+            std::thread::sleep(Duration::from_secs(seconds));
+        }
     }
 
     /// Dates a copy's folder an hour back, as one made long ago.
@@ -848,8 +863,34 @@ mod tests {
         }
     }
 
+    /// Runs `executable`, and waits until the system lists it among the
+    /// running processes, as `remove_unused_copies` reads them: under load,
+    /// a program just started may not be listed yet.
     fn run(executable: &Path) -> Running {
-        Running(Command::new(executable).arg("60").spawn().unwrap())
+        let running = Running(
+            Command::new(executable)
+                .args(["--exact", "launch::tests::waits_when_asked", "--nocapture"])
+                .env("PINRAIL_TEST_WAIT", "60")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let real = executable.canonicalize().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while !crate::sys::running_executables()
+            .unwrap_or_default()
+            .iter()
+            .any(|exe| exe == &real)
+        {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "{} is not listed as running",
+                real.display()
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        running
     }
 
     #[test]
