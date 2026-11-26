@@ -257,16 +257,17 @@ export class GhosttyCore {
     this.mouseEncoder = this.newHandle("ghostty_mouse_encoder_new");
     this.mouseEvent = this.newHandle("ghostty_mouse_event_new");
 
-    // The cell query: STYLE, SELECTED, GRAPHEMES_UTF8, then the two colours,
-    // last because a colour the cell does not have stops the query.
+    // The cell query: STYLE, SELECTED, GRAPHEMES_UTF8, then the background,
+    // last because a colour the cell does not have stops the query. The
+    // foreground is read from the style.
     this.style = this.rt.alloc(this.rt.layout("GhosttyStyle").size);
     this.utf8Desc = this.rt.alloc(this.rt.layout("GhosttyBuffer").size);
     this.growUtf8(UTF8_INITIAL);
     this.query = this.rt.alloc(64);
     const q = this.rt.memoryDataView();
     const c = this.k.cell;
-    const keys = [c.style, c.selected, c.utf8, c.bg, c.fg];
-    const values = [this.style, this.scratch + 16, this.utf8Desc, this.scratch + 20, this.scratch + 24];
+    const keys = [c.style, c.selected, c.utf8, c.bg];
+    const values = [this.style, this.scratch + 16, this.utf8Desc, this.scratch + 20];
     keys.forEach((key, i) => {
       q.setUint32(this.query + i * 4, key, true);
       q.setUint32(this.query + 20 + i * 4, values[i]!, true);
@@ -1009,7 +1010,7 @@ export class GhosttyCore {
       v.setUint32(this.utf8Desc, this.utf8, true);
       v.setUint32(this.utf8Desc + 4, this.utf8Capacity, true);
       v.setUint32(this.utf8Desc + 8, 0, true);
-      let result = getMulti(cellsIterator, 5, this.query, this.query + 20, written);
+      let result = getMulti(cellsIterator, QUERY_KEYS, this.query, this.query + 20, written);
       v = rt.memoryDataView();
       let n = v.getUint32(written, true);
       if (n === 2 && result === OUT_OF_SPACE) {
@@ -1019,7 +1020,7 @@ export class GhosttyCore {
         v.setUint32(this.utf8Desc, this.utf8, true);
         v.setUint32(this.utf8Desc + 4, this.utf8Capacity, true);
         v.setUint32(this.utf8Desc + 8, 0, true);
-        result = getMulti(cellsIterator, 5, this.query, this.query + 20, written);
+        result = getMulti(cellsIterator, QUERY_KEYS, this.query, this.query + 20, written);
         v = rt.memoryDataView();
         n = v.getUint32(written, true);
       }
@@ -1029,12 +1030,19 @@ export class GhosttyCore {
       // most cells hold one ASCII character, which needs no decoder
       const first = textLen === 1 ? rt.memoryBytes()[this.utf8] : 0x80;
       const text = !textLen ? "" : first < 0x80 ? ASCII[first]! : decoder.decode(rt.bytes(this.utf8, textLen));
-      let background = n >= 4 ? readColor(v, this.scratch + 20) : defaultBg;
+      let background = n === QUERY_KEYS ? readColor(v, this.scratch + 20) : defaultBg;
+      // GhosttyStyle.fg_color: a tag, then its value
       let foreground: GhosttyColor;
-      if (n === 5) foreground = readColor(v, this.scratch + 24);
-      else if (cellGet(cellsIterator, this.k.cell.fg, this.scratch + 24) === SUCCESS)
-        foreground = readColor(rt.memoryDataView(), this.scratch + 24);
-      else foreground = defaultFg;
+      switch (v.getUint8(this.style)) {
+        case 2:
+          foreground = readColor(v, this.style + 1);
+          break;
+        case 1:
+          foreground = paletteColor(this.readPalette(), v.getUint8(this.style + 1));
+          break;
+        default:
+          foreground = defaultFg;
+      }
       let wide = 0;
       // A wrap spacer in the final column can follow a spacer tail.
       if (!text && (cells.at(-1)?.text.length || cells.length === cols - 1)) {
@@ -1179,6 +1187,13 @@ export class GhosttyCore {
 
 function clamp16(n: number): number {
   return Math.max(1, Math.min(65_535, Math.floor(n)));
+}
+
+/** How many values the cell query reads. */
+const QUERY_KEYS = 4;
+
+function paletteColor(palette: Uint8Array, index: number): GhosttyColor {
+  return { r: palette[index * 3]!, g: palette[index * 3 + 1]!, b: palette[index * 3 + 2]! };
 }
 
 function readColor(v: DataView, p: number): GhosttyColor {

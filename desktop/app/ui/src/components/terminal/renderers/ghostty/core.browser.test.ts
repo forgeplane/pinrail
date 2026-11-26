@@ -90,6 +90,26 @@ test("a program copies to the clipboard with OSC 52, and cannot read it", async 
   core.dispose();
 });
 
+test("each cell has its own colours, from the palette, as RGB or the default", async () => {
+  const { core } = await terminal();
+  core.write(
+    bytes(
+      // palette colour 1 set to a known red, then: palette, RGB, default,
+      // inverse, and an erase that leaves cells with only a background
+      "\x1b]4;1;rgb:c8/10/20\x1b\\" +
+        "\x1b[31mp\x1b[0m\x1b[38;2;1;2;3mr\x1b[0md\x1b[7;38;2;9;8;7mi\x1b[0m" +
+        "\x1b[48;2;40;50;60m\x1b[K\x1b[0m",
+    ),
+  );
+  const cells = core.snapshot().rowData[0]!.cells;
+  expect(cells[0]).toMatchObject({ text: "p", foreground: { r: 200, g: 16, b: 32 }, background: theme.background });
+  expect(cells[1]).toMatchObject({ text: "r", foreground: { r: 1, g: 2, b: 3 } });
+  expect(cells[2]).toMatchObject({ text: "d", foreground: theme.foreground });
+  expect(cells[3]).toMatchObject({ text: "i", foreground: theme.background, background: { r: 9, g: 8, b: 7 } });
+  expect(cells[10]).toMatchObject({ text: "", foreground: theme.foreground, background: { r: 40, g: 50, b: 60 } });
+  core.dispose();
+});
+
 test("a snapshot that cannot be decoded leaves a blank terminal that works", async () => {
   const { core, replies } = await terminal();
   core.write(bytes("before the restore"));
