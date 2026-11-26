@@ -183,13 +183,17 @@ export class CanvasRenderer {
   /** Find's matches in view, a mask of columns per row. */
   private matches = new Map<number, Uint8Array>();
   private findColour: GhosttyColor = { r: 120, g: 90, b: 0 };
+  /** The matches `matches` was made from. */
+  private matchSpans: readonly LinkSpan[] = [];
   /** the legible colour of each text colour on each background seen */
   private legibleColours = new Map<number, GhosttyColor>();
   /** Whether each font, by its CSS, draws the batched characters at the
    *  cell's width, so that a string of them lands on the grid. */
   private even = new Map<string, boolean>();
-  /** The cursor as last placed, to tell whether it moved. */
+  /** The cursor as last placed, to tell whether it moved, and its
+   *  element's place and colour as last set. */
   private cursorKey = "";
+  private cursorPlace = "";
   /** The CSS of the font's regular, bold, italic and bold italic faces. */
   private faces: string[];
   /** The canvas's font and fill colour as last set, so that each is set
@@ -280,6 +284,9 @@ export class CanvasRenderer {
   resize(cols: number, rows: number, force = false) {
     const ratio = window.devicePixelRatio || 1;
     if (!force && cols === this.cols && rows === this.rows && ratio === this.ratio) return;
+    // the cached glyphs are drawn at the cell's size and the pixel ratio,
+    // which a new grid alone does not change
+    if (force || ratio !== this.ratio) this.glyphs.clear();
     this.cols = cols;
     this.rows = rows;
     this.ratio = ratio;
@@ -292,7 +299,6 @@ export class CanvasRenderer {
     this.context.textBaseline = "alphabetic";
     this.penFont = "";
     this.penFill = -1;
-    this.glyphs.clear();
     this.drawn = 0;
   }
 
@@ -304,6 +310,9 @@ export class CanvasRenderer {
 
   /** Highlights find's matches in view in the find colour. */
   setMatches(spans: readonly LinkSpan[], colour?: GhosttyColor) {
+    // the same matches as drawn already, as on each frame while find is open
+    if ((!colour || same(colour, this.findColour)) && sameSpans(spans, this.matchSpans)) return;
+    this.matchSpans = spans;
     if (colour) this.findColour = colour;
     for (const row of this.matches.keys()) this.stale.add(row);
     this.matches = new Map();
@@ -731,9 +740,15 @@ export class CanvasRenderer {
     // GhosttyCursorStyle: bar 0, block 1, underline 2, hollow block 3
     const style = ["bar", "block", "underline", "block"][snapshot.cursorStyle] ?? "block";
     const hollow = !focused || snapshot.cursorStyle === 3;
-    el.className = `ghostty-cursor is-${style}${hollow ? " is-hollow" : ""}${
+    const className = `ghostty-cursor is-${style}${hollow ? " is-hollow" : ""}${
       snapshot.cursorBlinking && focused ? " is-blinking" : ""
     }`;
+    // set only what changed: each assignment to a style restarts the
+    // element's style work, even with the same value
+    if (el.className !== className) el.className = className;
+    const place = `${snapshot.cursorX * w}|${snapshot.cursorY * h}|${w}|${h}|${css(snapshot.cursor)}`;
+    if (place === this.cursorPlace) return;
+    this.cursorPlace = place;
     el.style.left = `${snapshot.cursorX * w}px`;
     el.style.top = `${snapshot.cursorY * h}px`;
     el.style.width = `${w}px`;
@@ -770,6 +785,15 @@ export function onNextFrame(draw: () => void) {
     asked.clear();
     for (const run of now) run();
   });
+}
+
+/** Whether two lists of spans are the same spans in the same order. */
+function sameSpans(a: readonly LinkSpan[], b: readonly LinkSpan[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]!.row !== b[i]!.row || a[i]!.start !== b[i]!.start || a[i]!.end !== b[i]!.end) return false;
+  }
+  return true;
 }
 
 /** A band of rows to copy: rows `from` to `to`, not included, are drawn

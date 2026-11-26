@@ -78,6 +78,8 @@ export class TerminalStream {
   /** Messages are handled one after another: a snapshot is restored
    *  before the output that follows it is written. */
   private queue: Promise<void> = Promise.resolve();
+  /** How many messages wait in `queue`. */
+  private waiting = 0;
   private snapshot: { format: string; chunks: Uint8Array[]; bytes: number } | null = null;
   /** The stream offset after the last output written, for a resume. */
   private offset: number | null = null;
@@ -169,7 +171,23 @@ export class TerminalStream {
     this.socket = socket;
     socket.onmessage = (event) => {
       const data = event.data;
-      this.queue = this.queue.then(() => this.message(data)).catch(() => {});
+      // output with nothing before it to wait for is written at once,
+      // without a promise for it
+      if (this.waiting === 0 && typeof data !== "string") {
+        try {
+          if (this.binary(data)) return;
+        } catch {
+          // as a message that fails in the queue: dropped
+          return;
+        }
+      }
+      this.waiting++;
+      this.queue = this.queue
+        .then(() => this.message(data))
+        .catch(() => {})
+        .then(() => {
+          this.waiting--;
+        });
     };
     // the close waits for the messages before it, so the exit is told
     // before the stream says it closed
@@ -201,21 +219,31 @@ export class TerminalStream {
 
   private async message(data: unknown) {
     if (typeof data === "string") return this.control_(JSON.parse(data) as Record<string, unknown>);
+    this.binary(data);
+  }
+
+  /** Handles a binary message: a piece of a snapshot, or output. Answers
+   *  whether it was one. The views are of the message's own buffer, which
+   *  nothing else writes to. */
+  private binary(data: unknown): boolean {
     const bytes = new Uint8Array(data as ArrayBuffer);
     if (bytes[0] === SNAPSHOT && this.snapshot) {
-      const chunk = bytes.slice(1);
+      const chunk = bytes.subarray(1);
       this.snapshot.chunks.push(chunk);
       this.snapshot.bytes += chunk.length;
+      return true;
     } else if (bytes[0] === OUTPUT && bytes.length >= 9) {
       const at = Number(new DataView(bytes.buffer, bytes.byteOffset + 1, 8).getBigUint64(0, true));
-      const output = bytes.slice(9);
+      const output = bytes.subarray(9);
       this.offset = at + output.length;
       // credit goes back on the connection that sent the bytes, not a later one
       const socket = this.socket;
       this.options.view.write(output, () => {
         if (this.socket === socket) this.returnCredit(output.length);
       });
+      return true;
     }
+    return false;
   }
 
   private async control_(message: Record<string, unknown>) {

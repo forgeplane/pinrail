@@ -106,6 +106,8 @@ export class Keyboard {
   private handled = false;
   private rightOption = false;
   private cleanup: (() => void)[] = [];
+  /** Where the input was last placed, in CSS pixels. */
+  private at = { left: NaN, top: NaN, height: NaN };
 
   constructor(
     host: HTMLElement,
@@ -221,6 +223,8 @@ export class Keyboard {
   /** Puts the textarea over the cursor's cell, where an input method's
    *  candidates and marked text then show. */
   moveTo(left: number, top: number, height: number) {
+    if (left === this.at.left && top === this.at.top && height === this.at.height) return;
+    this.at = { left, top, height };
     this.input.style.left = `${left}px`;
     this.input.style.top = `${top}px`;
     this.input.style.height = `${height}px`;

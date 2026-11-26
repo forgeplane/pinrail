@@ -190,7 +190,8 @@ const RECORD = 0x23fa;
 /** The code point of a one-character cell, or null. */
 function single(text: string): number | null {
   const cp = text.codePointAt(0);
-  if (cp === undefined || text.length !== String.fromCodePoint(cp).length) return null;
+  // one code point: one UTF-16 unit, or two for one past U+FFFF
+  if (cp === undefined || text.length !== (cp > 0xffff ? 2 : 1)) return null;
   return cp;
 }
 

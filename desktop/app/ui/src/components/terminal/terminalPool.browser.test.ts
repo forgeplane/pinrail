@@ -238,6 +238,27 @@ test("a theme change reaches the attached terminals and the host", async () => {
   pool.clear();
 });
 
+test("a change to another setting sets the theme and the font of no terminal again", async () => {
+  const { pool, pane } = rig(referenceRenderer);
+  const a = await pool.show("local:a", pane);
+  await expect.poll(() => a.state.stream).toBe("live");
+  const set: string[] = [];
+  a.view.setTheme = () => set.push("theme");
+  a.view.setFont = () => set.push("font");
+  const readers: boolean[] = [];
+  a.view.setScreenReader = (on) => readers.push(on);
+  const deps = (pool as unknown as { deps: PoolDeps }).deps;
+  const look = deps.appearance();
+  deps.appearance = () => ({ ...look, screenReader: true });
+  pool.restyle();
+  await expect.poll(() => readers).toEqual([true]);
+  expect(set).toEqual([]);
+  deps.appearance = () => ({ ...look, font: { ...look.font, size: 15 } });
+  pool.restyle();
+  await expect.poll(() => set).toEqual(["font"]);
+  pool.clear();
+});
+
 test("a change to Option as Meta or clipboard writes reaches the attached terminals", async () => {
   const { pool, pane } = rig(referenceRenderer);
   const a = await pool.show("local:a", pane);

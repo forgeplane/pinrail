@@ -119,9 +119,12 @@ export class PooledTerminal {
    *  host answers the program's colour queries with them. */
   restyle(look: Appearance) {
     if (!this.view) return;
+    const was = this.look;
     this.look = look;
-    this.view.setTheme(look.theme);
-    this.view.setFont(look.font);
+    // a theme or a font set again draws every row and measures the grid,
+    // so only one that changed is set, not when only another setting did
+    if (!was || JSON.stringify(was.theme) !== JSON.stringify(look.theme)) this.view.setTheme(look.theme);
+    if (!was || JSON.stringify(was.font) !== JSON.stringify(look.font)) this.view.setFont(look.font);
     this.view.setScreenReader(look.screenReader ?? false);
     this.view.setInputOptions({ optionAsMeta: look.optionAsMeta, clipboardWrite: look.clipboardWrite });
     this.sendFacts();

@@ -40,6 +40,31 @@ async function draw(output: string) {
 
 const lit = ({ rgb }: { rgb: number[] }) => rgb.some((c) => c > 60);
 
+test("the same find matches set again leave nothing to draw", async () => {
+  const host = document.createElement("div");
+  host.style.position = "relative";
+  document.body.append(host);
+  const renderer = new CanvasRenderer(host, font, { r: 60, g: 60, b: 120 });
+  const { width, height } = renderer.cell;
+  const core = GhosttyCore.create(await GhosttyRuntime.instantiate(), 20, 4, width, height, theme, () => {});
+  core.write(new TextEncoder().encode("one match\r\nand another match"));
+  let snapshot = core.snapshot();
+  const spans = () => [
+    { row: 0, start: 4, end: 9 },
+    { row: 1, start: 12, end: 17 },
+  ];
+  renderer.setMatches(spans());
+  renderer.draw(snapshot, true);
+  snapshot = core.snapshot();
+  renderer.setMatches(spans());
+  expect(renderer.changes(snapshot, true)).toBe(false);
+  renderer.setMatches([{ row: 0, start: 4, end: 9 }]);
+  expect(renderer.changes(snapshot, true)).toBe(true);
+  core.dispose();
+  renderer.dispose();
+  host.remove();
+});
+
 test("text is drawn in its colour in its own cell", async () => {
   const { pixels, dispose } = await draw("\x1b[31mX\x1b[0m");
   // red, though its edges blend into the black
