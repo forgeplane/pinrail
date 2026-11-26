@@ -1,9 +1,9 @@
 # The terminal host's performance budgets, on every change to the host or
 # the screen it parses with. CI's runners are not the reference machines,
-# so a run compares with the baseline of the last push to main on the same
-# runner type, and fails on a result more than 15 % worse; the absolute
-# budgets are checked on the reference machines before each release. A push
-# to main whose run passes becomes the next baseline.
+# so a run compares with the baseline of the last push to main on a runner
+# with the same CPU model, and fails on a result more than 15 % worse; the
+# absolute budgets are checked on the reference machines before each
+# release. A push to main whose run passes becomes the next baseline.
 name: bench-host
 
 on:
@@ -52,13 +52,20 @@ jobs:
           shared-key: bench-host-${{ runner.os }}-${{ runner.arch }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: desktop
-      # the newest baseline main saved for this runner type, if any
+      # runners of one label have different CPUs, so a run compares with a
+      # baseline from the same CPU model
+      - name: CPU model
+        id: cpu
+        run: |
+          model=$(lscpu | sed -n 's/^Model name: *//p' | head -n 1)
+          echo "model=$(printf '%s' "${model:-unknown}" | tr -cs 'A-Za-z0-9' '-')" >> "$GITHUB_OUTPUT"
+      # the newest baseline main saved for this CPU model, if any
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: baseline
         with:
           path: bench-host-baseline.json
-          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
-          restore-keys: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-
+          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-${{ github.sha }}
+          restore-keys: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-
       # cargo bench runs the bench in desktop/host, so the paths are absolute
       - name: Benchmark
         working-directory: desktop
@@ -67,7 +74,7 @@ jobs:
           if [ -f "$GITHUB_WORKSPACE/bench-host-baseline.json" ]; then
             args+=(--baseline "$GITHUB_WORKSPACE/bench-host-baseline.json")
           else
-            echo "No baseline yet for this runner type: this run only records one."
+            echo "No baseline yet for this CPU model: this run only records one."
           fi
           cargo bench -q --locked -p pinrail-host --bench host -- "${args[@]}"
       # a passing run on main is the next baseline
@@ -78,4 +85,4 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           path: bench-host-baseline.json
-          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-${{ github.sha }}

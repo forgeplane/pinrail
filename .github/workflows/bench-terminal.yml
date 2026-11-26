@@ -1,10 +1,10 @@
 # The window's terminal renderers against the performance budgets, on every
 # change to the renderers, the benchmark, the screen or the host. CI's
 # runners are not the reference machines, so a run compares with the
-# baseline of the last push to main on the same runner type, and fails on a
-# measure more than 15 % and its margin worse (baseline.mjs); the absolute
-# budgets are checked on the reference machines before each release. A push
-# to main whose run passes becomes the next baseline.
+# baseline of the last push to main on a runner with the same CPU model,
+# and fails on a measure more than 15 % and its margin worse (baseline.mjs);
+# the absolute budgets are checked on the reference machines before each
+# release. A push to main whose run passes becomes the next baseline.
 name: bench-terminal
 
 on:
@@ -75,13 +75,20 @@ jobs:
           npm ci
           npx playwright install --with-deps webkit
           npm run ghostty:wasm
-      # the newest baseline main saved for this runner type, if any
+      # runners of one label have different CPUs, so a run compares with a
+      # baseline from the same CPU model
+      - name: CPU model
+        id: cpu
+        run: |
+          model=$(lscpu | sed -n 's/^Model name: *//p' | head -n 1)
+          echo "model=$(printf '%s' "${model:-unknown}" | tr -cs 'A-Za-z0-9' '-')" >> "$GITHUB_OUTPUT"
+      # the newest baseline main saved for this CPU model, if any
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: baseline
         with:
           path: bench-terminal-baseline.json
-          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
-          restore-keys: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-
+          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-${{ github.sha }}
+          restore-keys: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-
       # every case but the replays and screenshots, which measure no budget,
       # best of three
       - name: Benchmark
@@ -92,7 +99,7 @@ jobs:
           if [ -f ../../bench-terminal-baseline.json ]; then
             args+=(--baseline ../../bench-terminal-baseline.json)
           else
-            echo "No baseline yet for this runner type: this run only records one."
+            echo "No baseline yet for this CPU model: this run only records one."
           fi
           node ui/bench/terminal/run.mjs "${args[@]}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -109,4 +116,4 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           path: bench-terminal-baseline.json
-          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          key: bench-terminal-baseline-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.model }}-${{ github.sha }}
