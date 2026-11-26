@@ -15,6 +15,9 @@ version=$(field version)
 tag=$(field tag)
 commit=$(field commit)
 want_zig=$(field zig)
+# for speed: parsing is up to a quarter faster than with ReleaseSmall, for a
+# file 40 % larger that the app loads from disk; Zig turns on SIMD for wasm
+optimize=ReleaseFast
 
 # builds into the cache, with Zig at the version the pin names
 build() {
@@ -47,7 +50,7 @@ build() {
     ZIG_GLOBAL_CACHE_DIR="$work/cache" "$zig" build \
       --prefix "$work/out" \
       --system "$work/libghostty-vt-$version-deps" \
-      -Doptimize=ReleaseSmall \
+      -Doptimize="$optimize" \
       -Dtarget=wasm32-freestanding \
       -Demit-xcframework=false \
       -Dstrip=true
@@ -61,7 +64,7 @@ tag = "$tag"
 commit = "$commit"
 zig = "$zig_version"
 target = "wasm32-freestanding"
-optimize = "ReleaseSmall"
+optimize = "$optimize"
 sha256 = "$sum"
 INFO
 }
@@ -70,8 +73,9 @@ out="$root/desktop/app/ui/public/ghostty"
 cache="$root/desktop/target/ghostty/$version/wasm"
 info_of() { sed -n "s/^$2 = \"\(.*\)\"$/\1/p" "$1/BUILD_INFO" 2>/dev/null | head -n 1; }
 
-# a build of the pinned release, kept until the pin changes
+# a build of the pinned release, kept until the pin or the optimize mode changes
 if [ "$(info_of "$cache" tag)" != "$tag" ] || [ "$(info_of "$cache" commit)" != "$commit" ] ||
+  [ "$(info_of "$cache" optimize)" != "$optimize" ] ||
   [ "$(shasum -a 256 "$cache/ghostty-vt.wasm" 2>/dev/null | cut -d ' ' -f 1)" != "$(info_of "$cache" sha256)" ]; then
   echo "ghostty:wasm: building libghostty-vt $version as WebAssembly, once for this release"
   build
