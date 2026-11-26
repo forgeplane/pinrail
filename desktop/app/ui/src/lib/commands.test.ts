@@ -25,7 +25,8 @@ describe("the commands", () => {
       COMMANDS.filter((c) => c.matches?.(press(key, mods))).map((c) => c.id);
     // ⌘ on macOS, Ctrl elsewhere
     const mod = isMac ? { metaKey: true } : { ctrlKey: true };
-    expect(by("3", mod)).toEqual(["go-items"]);
+    expect(by("2", mod)).toEqual(["go-items"]);
+    expect(by("3", mod)).toEqual(["go-sessions"]);
     expect(by("I", mod)).toEqual(["go-inbox"]);
     expect(by("C", { ...mod, shiftKey: true })).toEqual(["add-item"]);
     expect(by("n", mod)).toEqual(["start-agent"]);

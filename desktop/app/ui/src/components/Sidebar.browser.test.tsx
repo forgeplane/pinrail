@@ -36,6 +36,14 @@ const link = (label: string) =>
   page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: new RegExp(`^${label}\\b`) });
 
 describe("the sidebar's links", () => {
+  test("come in the order Inbox, New session, Work items, Sessions, Projects", async () => {
+    await render(<Shown />, { route: "/" });
+    const links = page.getByRole("navigation", { name: "Main" }).getByRole("link");
+    await expect.element(link("Projects")).toBeVisible();
+    const labels = links.elements().map((a) => a.querySelector(".nav-label")?.textContent?.trim());
+    expect(labels).toEqual(["Inbox", "New session", "Work items", "Sessions", "Projects"]);
+  });
+
   test("Sessions marks the Sessions page", async () => {
     await render(<Shown />, { route: "/sessions" });
     await expect.element(link("Sessions")).toHaveClass(/is-active/);

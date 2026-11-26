@@ -208,6 +208,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Changed
 
+- Move **New session** under **Inbox** in the sidebar, and **Work items**
+  above **Sessions**. ⌘2 now opens Work items and ⌘3 opens Sessions.
 - On the Work items page, the arrow that shows or hides an item's
   sub-items now sits next to the item's status icon.
 - A message to an agent that Pinrail started now waits until the agent has

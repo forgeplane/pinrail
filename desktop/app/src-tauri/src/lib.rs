@@ -1039,8 +1039,8 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "go-inbox", "Inbox", true, Some("CmdOrCtrl+I"))?,
-            &MenuItem::with_id(app, "go-sessions", "Sessions", true, Some("CmdOrCtrl+2"))?,
-            &MenuItem::with_id(app, "go-items", "Work Items", true, Some("CmdOrCtrl+3"))?,
+            &MenuItem::with_id(app, "go-items", "Work Items", true, Some("CmdOrCtrl+2"))?,
+            &MenuItem::with_id(app, "go-sessions", "Sessions", true, Some("CmdOrCtrl+3"))?,
             &MenuItem::with_id(app, "go-projects", "Projects", true, Some("CmdOrCtrl+4"))?,
             &MenuItem::with_id(
                 app,

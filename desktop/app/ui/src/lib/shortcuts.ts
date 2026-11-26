@@ -28,8 +28,8 @@ export const SHORTCUTS: Shortcut[] = [
       [MOD, "I"],
     ],
   },
-  { section: "General", what: "Sessions", keys: [[MOD, "2"]] },
-  { section: "General", what: "Work items", keys: [[MOD, "3"]] },
+  { section: "General", what: "Work items", keys: [[MOD, "2"]] },
+  { section: "General", what: "Sessions", keys: [[MOD, "3"]] },
   { section: "General", what: "Projects", keys: [[MOD, "4"]] },
   {
     section: "General",

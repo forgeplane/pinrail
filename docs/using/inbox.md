@@ -183,7 +183,7 @@ Press <kbd>?</kbd> anywhere in the app to see the keys, in sections: those of th
 | <kbd>⌘K</kbd> | Search everything |
 | <kbd>⌘P</kbd> | Go to a session |
 | <kbd>⌘1</kbd> or <kbd>⌘I</kbd> | Inbox |
-| <kbd>⌘2</kbd> / <kbd>⌘3</kbd> / <kbd>⌘4</kbd> | Sessions / Work items / Projects |
+| <kbd>⌘2</kbd> / <kbd>⌘3</kbd> / <kbd>⌘4</kbd> | Work items / Sessions / Projects |
 | <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | The inbox's History tab / Plugins |
 | <kbd>⌘,</kbd> | Settings |
 | <kbd>⌘⇧L</kbd> | Switch theme |

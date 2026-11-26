@@ -32,15 +32,15 @@ import { useResizableWidth } from "../lib/useResizableWidth";
 // entry of its own; their keys come from the commands table.
 const NAV = [
   { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, keys: command("go-inbox").keys![0] },
-  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, keys: command("go-sessions").keys![0] },
   { key: "history", label: "History", to: "/?tab=history", Icon: History, keys: command("go-history").keys![0] },
   { key: "items", label: "Work items", to: "/items", Icon: ListChecks, keys: command("go-items").keys![0] },
+  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, keys: command("go-sessions").keys![0] },
   { key: "projects", label: "Projects", to: "/projects", Icon: LayoutGrid, keys: command("go-projects").keys![0] },
 ];
 const SIDEBAR = NAV.filter((n) => n.key !== "history");
 
 /** Where the History tab is, which the commands go to too. */
-export const HISTORY_PATH = NAV[2].to;
+export const HISTORY_PATH = NAV[1].to;
 
 /** The sidebar's width, remembered on this machine, and its bounds. */
 const SIDEBAR_WIDTH = "pinrail.sidebar.width";
@@ -155,8 +155,8 @@ export function Sidebar({
                   ) : null}
                 </NavLink>
               </Tooltip>
-              {/* a new session, under the sessions */}
-              {key === "sessions" ? (
+              {/* a new session, under the inbox */}
+              {key === "inbox" ? (
                 <NavLink to={NEW_SESSION_PATH} className={({ isActive }) => `nav-new ${isActive ? "is-active" : ""}`}>
                   <span className="nav-label">
                     <SquarePen size={15} strokeWidth={1.75} />
