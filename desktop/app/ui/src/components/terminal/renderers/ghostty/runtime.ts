@@ -83,6 +83,12 @@ function trampoline(params: number): Uint8Array<ArrayBuffer> {
 }
 
 let compiled: Promise<WebAssembly.Module> | null = null;
+/** The trampoline modules, compiled once per window, by their number of
+ *  arguments. */
+const trampolines = new Map<number, WebAssembly.Module>();
+/** The library's types, read once per compiled library: each instance of
+ *  it reports the same. */
+const typesOf = new WeakMap<WebAssembly.Module, TypeJson>();
 
 /** The library, compiled once per window. It fails when the window cannot
  *  run WebAssembly, or its CSP forbids compiling it. */
@@ -119,25 +125,30 @@ export class GhosttyRuntime {
   private bellFunctionIndex = 0;
   private clipboardFunctionIndex = 0;
 
-  private constructor(instance: WebAssembly.Instance) {
+  private constructor(module: WebAssembly.Module, instance: WebAssembly.Instance) {
     this.exports = instance.exports;
     const memory = instance.exports.memory;
     if (!(memory instanceof WebAssembly.Memory)) throw new Error("libghostty-vt did not export its memory");
     this.memory = memory;
     this.memoryView = new DataView(memory.buffer);
     this.memoryU8 = new Uint8Array(memory.buffer);
-    const pointer = this.call("ghostty_type_json");
-    let end = pointer;
-    while (this.memoryU8[end] !== 0) end += 1;
-    const json = JSON.parse(textDecoder.decode(this.memoryU8.subarray(pointer, end))) as TypeJson;
+    let json = typesOf.get(module);
+    if (!json) {
+      const pointer = this.call("ghostty_type_json");
+      let end = pointer;
+      while (this.memoryU8[end] !== 0) end += 1;
+      json = JSON.parse(textDecoder.decode(this.memoryU8.subarray(pointer, end))) as TypeJson;
+      typesOf.set(module, json);
+    }
     this.types = json.types;
     this.version = json.library_version;
   }
 
   /** A new instance of the compiled library, with its own memory. */
   static async instantiate(): Promise<GhosttyRuntime> {
-    const instance = await WebAssembly.instantiate(await compileGhostty(), {});
-    const runtime = new GhosttyRuntime(instance);
+    const module = await compileGhostty();
+    const instance = await WebAssembly.instantiate(module, {});
+    const runtime = new GhosttyRuntime(module, instance);
     if (!runtime.version.startsWith("1.0.")) throw new Error(`expected libghostty-vt 1.0, got ${runtime.version}`);
     runtime.installTrampolines();
     return runtime;
@@ -336,7 +347,12 @@ export class GhosttyRuntime {
    *  returns its index. */
   private addToTable(params: number, callback: (...args: number[]) => void): number {
     // small enough to compile at once, which the main thread allows
-    const instance = new WebAssembly.Instance(new WebAssembly.Module(trampoline(params)), { env: { callback } });
+    let module = trampolines.get(params);
+    if (!module) {
+      module = new WebAssembly.Module(trampoline(params));
+      trampolines.set(params, module);
+    }
+    const instance = new WebAssembly.Instance(module, { env: { callback } });
     const fn = instance.exports.callback;
     const table = this.exports.__indirect_function_table;
     if (typeof fn !== "function" || !(table instanceof WebAssembly.Table)) {

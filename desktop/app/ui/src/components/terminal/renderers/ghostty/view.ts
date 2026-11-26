@@ -25,7 +25,7 @@ import { Keyboard } from "./keyboard";
 import { Mirror, MirrorElements } from "./mirror";
 import { Pointer } from "./pointer";
 import { ECHO_MS, WriteQueue } from "./queue";
-import { CanvasRenderer, onNextFrame, type Font } from "./renderer";
+import { CanvasRenderer, measureCell, onNextFrame, type Font } from "./renderer";
 import { compileGhostty, GhosttyRuntime } from "./runtime";
 import type { GhosttyColor, GhosttySnapshot, GhosttyTheme } from "./types";
 
@@ -460,4 +460,6 @@ export const ghosttyRenderer: TerminalRenderer = {
     await compileGhostty();
   },
   create: () => new GhosttyView(),
+  // as a view measures it
+  cell: (font) => measureCell(fontOf(font)),
 };

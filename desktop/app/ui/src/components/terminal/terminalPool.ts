@@ -239,9 +239,14 @@ export class TerminalPool {
   }
 
   /** The grid a terminal shown in an area of `width` × `height` pixels
-   *  will fit, measured by the renderer itself in a hidden view. */
+   *  will fit: from the renderer's cell in the font, or measured by the
+   *  renderer itself in a hidden view. */
   async gridFor(width: number, height: number): Promise<Grid> {
     const renderer = await this.deps.renderer();
+    const cell = renderer.cell?.(this.deps.appearance().font);
+    if (cell) {
+      return { cols: Math.max(1, Math.floor(width / cell.width)), rows: Math.max(1, Math.floor(height / cell.height)) };
+    }
     const element = document.createElement("div");
     element.style.cssText = `position: fixed; left: -10000px; top: 0; width: ${width}px; height: ${height}px; visibility: hidden`;
     document.body.append(element);

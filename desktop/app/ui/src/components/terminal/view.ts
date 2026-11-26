@@ -113,6 +113,9 @@ export interface TerminalRenderer {
   /** Loads code or wasm once; rejects when the renderer cannot run here. */
   load(): Promise<void>;
   create(): TerminalView;
+  /** The size of a cell in `font`, in CSS pixels, when the renderer can
+   *  tell it without making a view. */
+  cell?(font: TerminalFont): { width: number; height: number };
 }
 
 /** The registered renderers, by id. Each loads its adapter's module only

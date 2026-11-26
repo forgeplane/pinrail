@@ -143,6 +143,29 @@ for (const [name, make] of adapters) {
       pool.clear();
     });
 
+    test("the grid for an area is the one a view in that area measures", async () => {
+      const renderer = await make();
+      const { pool } = rig(renderer);
+      const appearance = {
+        theme: { foreground: "#ededef", background: "#18191b", cursor: "#ededef" },
+        font: { family: "monospace", size: 13 },
+      };
+      for (const [width, height] of [
+        [1000, 600],
+        [333, 211],
+      ]) {
+        const host = document.createElement("div");
+        host.style.cssText = `position: fixed; left: 0; top: 0; width: ${width}px; height: ${height}px`;
+        document.body.append(host);
+        const view = renderer.create();
+        await view.mount(host, { cols: 80, rows: 24, scrollback: 0, ...appearance });
+        const { cols, rows } = view.measure();
+        view.dispose();
+        host.remove();
+        expect(await pool.gridFor(width, height)).toEqual({ cols, rows });
+      }
+    });
+
     test("keeps three terminals attached and reattaches the fourth one back", async () => {
       const { pool, attaches, pane } = rig(await make());
       for (const t of ["local:a", "local:b", "local:c", "local:d"]) {
