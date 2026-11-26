@@ -48,8 +48,9 @@ build() {
   # resolved, as Zig's relative paths break across /var and /private/var
   work=$(cd "$(mktemp -d)" && pwd -P)
   trap 'rm -rf "$work"' EXIT
-  tar -xzf "$dir/libghostty-vt-$version.tar.gz" -C "$work"
-  tar -xzf "$dir/libghostty-vt-$version-deps.tar.gz" -C "$work"
+  # on standard input, as GNU tar takes a path like D:/a for a remote host
+  tar -xzf - -C "$work" <"$dir/libghostty-vt-$version.tar.gz"
+  tar -xzf - -C "$work" <"$dir/libghostty-vt-$version-deps.tar.gz"
   (
     cd "$work/libghostty-vt-$version"
     ZIG_GLOBAL_CACHE_DIR="$work/cache" "$zig" build \
