@@ -163,7 +163,9 @@ impl Client {
         }
     }
 
-    /// The server's address, such as `http://127.0.0.1:4747`.
+    /// The server's address, such as `http://127.0.0.1:4747`, for attaching
+    /// to a terminal, which only Unix supports.
+    #[cfg(unix)]
     pub fn base(&self) -> &str {
         &self.base
     }
