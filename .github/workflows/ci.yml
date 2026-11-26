@@ -190,6 +190,14 @@ jobs:
         run: |
           npx playwright install --with-deps webkit
           npm run test:browser
+      # the actual and diff images of failed screen comparisons, and the
+      # page at each failure
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure() && runner.os != 'Windows'
+        with:
+          name: browser-test-attachments-${{ matrix.os }}
+          path: desktop/app/.vitest/attachments
+          if-no-files-found: ignore
       - name: clippy
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked
