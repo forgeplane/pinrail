@@ -10,6 +10,11 @@ set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 lock="$root/desktop/screen/ghostty.lock"
+# the SHA-256 of a file: sha256sum where there is one, as on Linux and in
+# Git for Windows, else shasum, as on macOS
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d ' ' -f 1
+}
 field() { sed -n "s/^$1 = \"\(.*\)\"$/\1/p" "$lock" | head -n 1; }
 version=$(field version)
 tag=$(field tag)
@@ -57,7 +62,7 @@ build() {
   )
   mkdir -p "$cache"
   cp "$work/out/bin/ghostty-vt.wasm" "$cache/ghostty-vt.wasm"
-  sum=$(shasum -a 256 "$cache/ghostty-vt.wasm" | cut -d ' ' -f 1)
+  sum=$(sha256 "$cache/ghostty-vt.wasm")
   cat > "$cache/BUILD_INFO" <<INFO
 # libghostty-vt as WebAssembly, written by scripts/ghostty-wasm.sh
 tag = "$tag"
@@ -76,7 +81,7 @@ info_of() { sed -n "s/^$2 = \"\(.*\)\"$/\1/p" "$1/BUILD_INFO" 2>/dev/null | head
 # a build of the pinned release, kept until the pin or the optimize mode changes
 if [ "$(info_of "$cache" tag)" != "$tag" ] || [ "$(info_of "$cache" commit)" != "$commit" ] ||
   [ "$(info_of "$cache" optimize)" != "$optimize" ] ||
-  [ "$(shasum -a 256 "$cache/ghostty-vt.wasm" 2>/dev/null | cut -d ' ' -f 1)" != "$(info_of "$cache" sha256)" ]; then
+  [ "$(sha256 "$cache/ghostty-vt.wasm" 2>/dev/null)" != "$(info_of "$cache" sha256)" ]; then
   echo "ghostty:wasm: building libghostty-vt $version as WebAssembly, once for this release"
   build
 fi
