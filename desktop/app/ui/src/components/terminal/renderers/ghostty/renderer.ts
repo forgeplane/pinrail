@@ -96,6 +96,13 @@ function fontOf(cell: Pick<GhosttyCell, "bold" | "italic">, font: Font) {
   return `${cell.italic ? "italic " : ""}${cell.bold ? "bold " : ""}${font.size}px ${font.family}`;
 }
 
+/** The CSS of a font's four faces, by `faceOf`. */
+function facesOf(font: Font): string[] {
+  return [0, 1, 2, 3].map((face) => fontOf({ bold: (face & 1) !== 0, italic: (face & 2) !== 0 }, font));
+}
+
+const faceOf = (cell: Pick<GhosttyCell, "bold" | "italic">) => (cell.bold ? 1 : 0) | (cell.italic ? 2 : 0);
+
 /** Measures the cell of a font: the advance of its glyphs, the line
  *  height, and the baseline. */
 export function measureCell(font: Font): CellMetrics {
@@ -183,6 +190,14 @@ export class CanvasRenderer {
   private even = new Map<string, boolean>();
   /** The cursor as last placed, to tell whether it moved. */
   private cursorKey = "";
+  /** The CSS of the font's regular, bold, italic and bold italic faces. */
+  private faces: string[];
+  /** The canvas's font and fill colour as last set, so that each is set
+   *  only when it changes: none after a resize, which resets them. */
+  private penFont = "";
+  private penFill = -1;
+  /** The width of each wide or other glyph drawn by the font, by face. */
+  private widths = new Map<string, number>();
 
   /** With `reference`, for tests only, the renderer draws in the plainest
    *  way: every row of every snapshot, in full. Its pixels are what any
@@ -202,6 +217,7 @@ export class CanvasRenderer {
     host.append(this.canvas, this.cursor);
     this.context = this.canvas.getContext("2d", { alpha: false })!;
     this.metrics = measureCell(font);
+    this.faces = facesOf(font);
     warmFallbacks(font);
     // a terminal out of sight draws nothing
     if (typeof IntersectionObserver !== "undefined") {
@@ -249,8 +265,10 @@ export class CanvasRenderer {
   setFont(font: Font) {
     this.font = font;
     this.metrics = measureCell(font);
+    this.faces = facesOf(font);
     warmFallbacks(font);
     this.glyphs.clear();
+    this.widths.clear();
     this.resize(this.cols, this.rows, true);
   }
 
@@ -272,6 +290,8 @@ export class CanvasRenderer {
     this.canvas.height = Math.round(rows * height * ratio);
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.context.textBaseline = "alphabetic";
+    this.penFont = "";
+    this.penFill = -1;
     this.glyphs.clear();
     this.drawn = 0;
   }
@@ -434,7 +454,7 @@ export class CanvasRenderer {
     const { width: w, height: h, baseline } = this.metrics;
     const top = y * h;
     // the backgrounds, a fill per run of one colour
-    ctx.fillStyle = css(snapshot.background);
+    this.useFill(snapshot.background);
     // to the canvas's last device pixel, so that a row drawn again is
     // drawn the same: a fill that ended inside a pixel would blend into it
     // once more each time
@@ -449,7 +469,7 @@ export class CanvasRenderer {
       let end = x + 1;
       while (end < cells.length && same(backgroundOf(end), bg)) end++;
       if (!same(bg, snapshot.background)) {
-        ctx.fillStyle = css(bg);
+        this.useFill(bg);
         const { x: bx, y: by, w: bw, h: bh } = this.box(x, end, top);
         ctx.fillRect(bx, by, bw, bh);
       }
@@ -470,9 +490,9 @@ export class CanvasRenderer {
       }
       if (run.kind !== "text") flush();
       if (run.kind === "text") {
-        const font = fontOf(first, this.font);
-        const colour = css(first.foreground);
-        // the reference draws every glyph alone
+        const font = this.faces[faceOf(first)]!;
+        // the reference draws every glyph alone; a bold or italic glyph
+        // can reach into the next cell, which a string draws differently
         const even = !this.reference && !first.bold && !first.italic && this.isEven(font);
         for (let x = run.start; x < run.end; x++) {
           const text = cells[x].text;
@@ -483,27 +503,28 @@ export class CanvasRenderer {
               continue;
             }
             flush();
-            ctx.font = font;
-            ctx.fillStyle = colour;
+            this.useFont(font);
+            this.useFill(first.foreground);
             batch = { start: x, text, cell: cells[x], spaces: 0 };
             continue;
           }
           // each other glyph in its own cell, as WebKit has no letter spacing
           flush();
-          ctx.font = font;
-          ctx.fillStyle = colour;
+          this.useFont(font);
+          this.useFill(first.foreground);
           ctx.fillText(text, x * w, top + baseline);
         }
       } else if (run.kind === "glyph") {
         // a wide or other glyph, centred in its cells by the font, and
         // squeezed into them if it is wider
         const span = spanOf(cells, run.start);
-        ctx.font = fontOf(first, this.font);
-        ctx.fillStyle = css(first.foreground);
-        const width = ctx.measureText(first.text).width;
+        const font = this.faces[faceOf(first)]!;
+        this.useFont(font);
+        this.useFill(first.foreground);
+        const width = this.widthOf(font, first.text);
         ctx.fillText(first.text, run.start * w + Math.max(0, (span * w - width) / 2), top + baseline, span * w);
       } else if (run.kind === "drawn") {
-        ctx.fillStyle = css(first.foreground);
+        this.useFill(first.foreground);
         drawGlyph(ctx, first.text, this.box(run.start, run.start + 1, top));
       } else if (run.kind === "cached") {
         const span = spanOf(cells, run.start);
@@ -548,11 +569,39 @@ export class CanvasRenderer {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  /** Sets the canvas's font, unless it is the font set already. */
+  private useFont(font: string) {
+    if (this.penFont === font) return;
+    this.context.font = font;
+    this.penFont = font;
+  }
+
+  /** Sets the canvas's fill colour, unless it is the colour set already. */
+  private useFill(colour: GhosttyColor) {
+    const key = (colour.r << 16) | (colour.g << 8) | colour.b;
+    if (this.penFill === key) return;
+    this.context.fillStyle = css(colour);
+    this.penFill = key;
+  }
+
+  /** The width of `text` in `font`, measured once. */
+  private widthOf(font: string, text: string): number {
+    const key = `${font}|${text}`;
+    let width = this.widths.get(key);
+    if (width === undefined) {
+      this.useFont(font);
+      width = this.context.measureText(text).width;
+      if (this.widths.size >= CACHE_LIMIT) this.widths.clear();
+      this.widths.set(key, width);
+    }
+    return width;
+  }
+
   /** Whether `font` gives each batched character the cell's width. */
   private isEven(font: string): boolean {
     let even = this.even.get(font);
     if (even === undefined) {
-      this.context.font = font;
+      this.useFont(font);
       const width = this.context.measureText(SAMPLE).width;
       even = Math.abs(width - SAMPLE.length * this.metrics.width) < 0.5;
       this.even.set(font, even);
@@ -637,11 +686,11 @@ export class CanvasRenderer {
     const { x, y, w, h } = box;
     // on device pixels, as the cell's edges are
     const snap = (v: number) => Math.round(v * this.ratio) / this.ratio;
-    ctx.fillStyle = css(cell.foreground);
+    this.useFill(cell.foreground);
     if (cell.strikethrough) ctx.fillRect(x, snap(y + h / 2), w, line);
     if (cell.overline) ctx.fillRect(x, y, w, line);
     if (!cell.underline) return;
-    ctx.fillStyle = css(cell.underlineColor ?? cell.foreground);
+    this.useFill(cell.underlineColor ?? cell.foreground);
     ctx.strokeStyle = ctx.fillStyle;
     const under = snap(Math.min(y + h - line, y + this.metrics.baseline + line * 2));
     switch (cell.underline) {
