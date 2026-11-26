@@ -59,12 +59,13 @@ jobs:
           path: bench-host-baseline.json
           key: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
           restore-keys: bench-host-baseline-${{ runner.os }}-${{ runner.arch }}-
+      # cargo bench runs the bench in desktop/host, so the paths are absolute
       - name: Benchmark
         working-directory: desktop
         run: |
-          args=(--skip-budgets --write-baseline ../bench-host-results.json)
-          if [ -f ../bench-host-baseline.json ]; then
-            args+=(--baseline ../bench-host-baseline.json)
+          args=(--skip-budgets --write-baseline "$GITHUB_WORKSPACE/bench-host-results.json")
+          if [ -f "$GITHUB_WORKSPACE/bench-host-baseline.json" ]; then
+            args+=(--baseline "$GITHUB_WORKSPACE/bench-host-baseline.json")
           else
             echo "No baseline yet for this runner type: this run only records one."
           fi
