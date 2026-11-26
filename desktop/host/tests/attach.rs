@@ -628,9 +628,34 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
     let (&long_channel, &snapshot) = bytes.iter().max_by_key(|(_, n)| **n).unwrap();
     let before_tick = at_tick.unwrap().get(&long_channel).copied().unwrap_or(0);
     assert!(snapshot > 256 * 1024, "the snapshot was {snapshot} bytes");
-    // the quiet terminal's output took its turn early in the snapshot
+    // the quiet terminal's output took its turn early in the snapshot: what
+    // the socket held before it, which is about 200 KiB on Linux and a few
+    // KiB on macOS, and less than 128 KiB more
+    let held = send_buffer(&stream);
     assert!(
-        before_tick < 128 * 1024,
-        "{before_tick} of the snapshot's {snapshot} bytes came before the tick"
+        before_tick < held + 128 * 1024,
+        "{before_tick} of the snapshot's {snapshot} bytes came before the tick, \
+         with {held} bytes in the socket"
     );
+}
+
+/// The send buffer of a Unix socket, the most it holds that its reader has
+/// not read yet. The host's end of a connection has the same default.
+#[allow(unsafe_code)]
+fn send_buffer(stream: &UnixStream) -> usize {
+    use std::os::fd::AsRawFd;
+    let mut size: libc::c_int = 0;
+    let mut length = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+    // SAFETY: the out-pointers point to an int and its length.
+    let result = unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_SNDBUF,
+            (&mut size as *mut libc::c_int).cast(),
+            &mut length,
+        )
+    };
+    assert_eq!(result, 0, "getsockopt SO_SNDBUF");
+    size as usize
 }
