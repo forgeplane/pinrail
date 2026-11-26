@@ -5,8 +5,8 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::agent::{
-    Agent, Env, Hint, HintStatus, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan, push_task,
-    resumable_id, spec,
+    Agent, Env, Hint, HintStatus, PASTE_AND_ENTER, StartPlan, StartRequest, SubmitPlan,
+    TranscriptTurn, push_task, resumable_id, spec,
 };
 use crate::hooks::{HookEvent, HookReport, TurnEnd, WaitKind, common, start_source, summary, text};
 use crate::integration::{HookEntry, Integration, Kind, Layout};
@@ -226,6 +226,95 @@ impl Agent for ClaudeCode {
     fn own_flags(&self) -> &'static [&'static str] {
         &["--session-id", "--resume", "-r", "--continue", "-c"]
     }
+
+    fn transcript_turn(&self, transcript: &Path) -> Option<TranscriptTurn> {
+        last_turn(&tail(transcript, TRANSCRIPT_TAIL)?)
+    }
+}
+
+/// The most of a transcript's end read for its latest turn: the reply is
+/// among the last lines, and the prompt before a turn's tool calls.
+const TRANSCRIPT_TAIL: u64 = 8 * 1024 * 1024;
+
+/// The last `max` bytes of the file at `path`, from the first whole line.
+fn tail(path: &Path, max: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path).ok()?;
+    let length = file.metadata().ok()?.len();
+    let from = length.saturating_sub(max);
+    file.seek(SeekFrom::Start(from)).ok()?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).ok()?;
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    // a line cut by the start of the read is no line
+    Some(match (from > 0, text.find('\n')) {
+        (true, Some(at)) => text[at + 1..].to_string(),
+        _ => text,
+    })
+}
+
+/// The latest turn of Claude Code's transcript lines: the turn of the last
+/// entry of the main conversation that names a prompt, the person's prompt
+/// when the lines hold it, and the text of the agent's last message after
+/// it. Subagents' entries, meta entries and tool results are not the
+/// person's or the agent's words.
+fn last_turn(lines: &str) -> Option<TranscriptTurn> {
+    let mut turn: Option<TranscriptTurn> = None;
+    for entry in lines
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+    {
+        if entry.get("isSidechain").and_then(Value::as_bool) == Some(true) {
+            continue;
+        }
+        let content = &entry["message"]["content"];
+        match entry.get("type").and_then(Value::as_str) {
+            Some("user") => {
+                let Some(id) = text(&entry, "promptId") else {
+                    continue;
+                };
+                let human = entry["origin"]["kind"].as_str() == Some("human")
+                    && entry.get("isMeta").and_then(Value::as_bool) != Some(true);
+                if human {
+                    turn = Some(TranscriptTurn {
+                        agent_turn: Some(id),
+                        prompt: words(content),
+                        prompted_at: text(&entry, "timestamp"),
+                        reply: None,
+                    });
+                } else if turn.as_ref().and_then(|t| t.agent_turn.as_deref()) != Some(id.as_str()) {
+                    // a turn whose prompt is before the part read
+                    turn = Some(TranscriptTurn {
+                        agent_turn: Some(id),
+                        ..TranscriptTurn::default()
+                    });
+                }
+            }
+            Some("assistant") => {
+                if let (Some(turn), Some(said)) = (turn.as_mut(), words(content)) {
+                    turn.reply = Some(said);
+                }
+            }
+            _ => {}
+        }
+    }
+    turn
+}
+
+/// The text of a message's content: a string, or its text blocks joined.
+fn words(content: &Value) -> Option<String> {
+    let text = match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter(|b| b["type"].as_str() == Some("text"))
+            .filter_map(|b| b["text"].as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n"),
+        _ => return None,
+    };
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 /// Claude Code's configuration folder: `CLAUDE_CONFIG_DIR`, or `~/.claude`.
@@ -256,6 +345,91 @@ fn status_hint(file: &Value, session: &str) -> Option<Hint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn line(entry: Value) -> String {
+        format!("{entry}\n")
+    }
+
+    fn prompt(id: &str, content: Value) -> String {
+        line(
+            serde_json::json!({"type": "user", "promptId": id, "origin": {"kind": "human"},
+            "isSidechain": false, "timestamp": "2026-11-25T17:44:06.242Z",
+            "message": {"role": "user", "content": content}}),
+        )
+    }
+
+    fn said(content: Value) -> String {
+        line(
+            serde_json::json!({"type": "assistant", "isSidechain": false,
+            "message": {"role": "assistant", "content": content}}),
+        )
+    }
+
+    #[test]
+    fn its_transcript_gives_the_last_turn_with_its_prompt_and_last_reply() {
+        let lines = [
+            prompt("p1", serde_json::json!("First")),
+            said(serde_json::json!([{"type": "text", "text": "First reply"}])),
+            prompt(
+                "p2",
+                serde_json::json!([{"type": "image", "source": {}}, {"type": "text", "text": "Look at this"}]),
+            ),
+            // what Claude Code adds to a prompt, and a subagent's words
+            line(serde_json::json!({"type": "user", "promptId": "p2", "isMeta": true,
+                "message": {"content": [{"type": "text", "text": "[Image #1]"}]}})),
+            line(serde_json::json!({"type": "assistant", "isSidechain": true,
+                "message": {"content": [{"type": "text", "text": "A subagent's answer"}]}})),
+            said(serde_json::json!([{"type": "thinking", "thinking": ""}, {"type": "tool_use", "id": "t"}])),
+            line(serde_json::json!({"type": "user", "promptId": "p2",
+                "message": {"content": [{"type": "tool_result", "tool_use_id": "t"}]}})),
+            said(serde_json::json!([{"type": "text", "text": "Checked it."}])),
+            said(serde_json::json!([{"type": "text", "text": "It looks right."}])),
+        ]
+        .concat();
+        assert_eq!(
+            last_turn(&lines),
+            Some(TranscriptTurn {
+                agent_turn: Some("p2".into()),
+                prompt: Some("Look at this".into()),
+                prompted_at: Some("2026-11-25T17:44:06.242Z".into()),
+                reply: Some("It looks right.".into()),
+            })
+        );
+    }
+
+    #[test]
+    fn a_turn_whose_prompt_was_not_read_is_named_by_its_tool_results() {
+        let lines = [
+            line(serde_json::json!({"type": "user", "promptId": "p9",
+                "message": {"content": [{"type": "tool_result", "tool_use_id": "t"}]}})),
+            said(serde_json::json!([{"type": "text", "text": "Done."}])),
+        ]
+        .concat();
+        let turn = last_turn(&lines).unwrap();
+        assert_eq!(turn.agent_turn.as_deref(), Some("p9"));
+        assert_eq!(turn.prompt, None);
+        assert_eq!(turn.reply.as_deref(), Some("Done."));
+    }
+
+    #[test]
+    fn the_end_of_a_long_transcript_starts_at_a_whole_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.jsonl");
+        let body = [
+            prompt("p1", serde_json::json!("x".repeat(200))),
+            prompt("p2", serde_json::json!("Second")),
+            said(serde_json::json!([{"type": "text", "text": "Reply"}])),
+        ]
+        .concat();
+        std::fs::write(&path, &body).unwrap();
+        // the read starts inside the first prompt, which is dropped
+        let turn = last_turn(&tail(&path, body.len() as u64 - 50).unwrap()).unwrap();
+        assert_eq!(turn.prompt.as_deref(), Some("Second"));
+        assert_eq!(
+            ClaudeCode.transcript_turn(&path).unwrap().reply.as_deref(),
+            Some("Reply")
+        );
+    }
 
     #[test]
     fn it_knows_the_flags_that_turn_its_checks_off() {

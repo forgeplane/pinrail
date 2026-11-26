@@ -226,6 +226,14 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    /// The latest turn the agent's own transcript at `transcript` holds,
+    /// for the core to take what a hook's report would have given when the
+    /// report was lost. `None` for an agent whose transcript Pinrail does not
+    /// read, and for a transcript it cannot.
+    fn transcript_turn(&self, _transcript: &Path) -> Option<TranscriptTurn> {
+        None
+    }
+
     /// Whether the agent can start a new session in the same process without
     /// a session start, so that a prompt under a new id is the first sign
     /// of it, as Cursor's /clear is. The run then moves to that session.
@@ -285,6 +293,19 @@ pub fn with_read_folder(agent: &dyn Agent, mut argv: Vec<String>, folder: &str) 
         argv.splice(1..1, args);
     }
     argv
+}
+
+/// The latest turn of an agent's transcript.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TranscriptTurn {
+    /// The agent's own id for the turn, as its hooks report it.
+    pub agent_turn: Option<String>,
+    /// The person's prompt, when the transcript's part that was read holds it.
+    pub prompt: Option<String>,
+    /// When the person sent the prompt, as the transcript records it.
+    pub prompted_at: Option<String>,
+    /// The agent's last message of the turn, if it wrote one.
+    pub reply: Option<String>,
 }
 
 /// A new session Pinrail is asked to start.

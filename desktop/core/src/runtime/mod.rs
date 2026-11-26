@@ -17,6 +17,7 @@ mod delivery;
 #[cfg(unix)]
 mod runs;
 mod tokens;
+mod transcript;
 #[cfg(unix)]
 pub use runs::{LOCAL, Reconciled, Resume, RunError, Start, TOKEN_VARIABLE};
 pub use tokens::{Admitted, Mismatch, digest};
@@ -257,10 +258,32 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
                 Ok(HostEvent::Event { method, params }) if method == "program_status" => {
                     let now = chrono::Utc::now();
                     match app.runtime().program_status(&params, now) {
-                        Ok(Some((agent, session, report))) => {
-                            if let Err(error) =
-                                app.reviews().report(&agent, &session, &report, false, now)
-                            {
+                        Ok(Some((agent, session, mut report))) => {
+                            let keep_texts = app
+                                .settings()
+                                .value("/runtime/record_turns")
+                                .as_bool()
+                                .unwrap_or(true);
+                            // what a lost hook report would have said
+                            let (prompt, texts) =
+                                app.runtime().from_transcript(&agent, &session, &mut report);
+                            if let Some(prompt) = &prompt {
+                                if let Err(error) =
+                                    app.reviews().report(&agent, &session, prompt, keep_texts, now)
+                                {
+                                    eprintln!("pinrail: recording a prompt from the transcript failed: {error:?}");
+                                }
+                                if let crate::db::ReportEvent::Prompt { prompt: Some(text) } = &prompt.event {
+                                    let _ = app.runtime().confirm(&agent, &session, text, false);
+                                }
+                            }
+                            if let Err(error) = app.reviews().report(
+                                &agent,
+                                &session,
+                                &report,
+                                keep_texts && texts,
+                                now,
+                            ) {
                                 eprintln!("pinrail: recording a program status failed: {error:?}");
                             }
                             // the work confirms the message just typed

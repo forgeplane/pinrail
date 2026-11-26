@@ -36,8 +36,8 @@ pub use notifications::{
 };
 pub use plugins::InstallRecord;
 pub use presence::{
-    ActiveSession, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report, ReportEvent,
-    Source, StoredState, Transition, TurnReply, TurnRow,
+    ActiveSession, LatestTurn, Next, PROMPT_CHARS, PresenceRow, REPLY_CHARS, Recorded, Report,
+    ReportEvent, Source, StoredState, Transition, TurnReply, TurnRow,
 };
 pub use projects::{Change, Details, NotChanged, ProjectRef, ProjectRow, RepoRow};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};

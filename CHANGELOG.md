@@ -306,6 +306,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show Claude Code's reply and the next prompt in a session's summary when
+  its hook report is lost, such as when Claude Code cancels a slow hook.
 - Apply Pinrail Host's Developer Tools and privacy permissions on macOS to
   the programs that agents run in Pinrail. Each program counted as an app
   of its own, so newly built programs waited for the macOS first-launch

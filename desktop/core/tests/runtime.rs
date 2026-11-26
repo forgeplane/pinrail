@@ -508,6 +508,184 @@ fn hook(app: &Pinrail, (agent, session): &(String, String), event: pinrail_core:
         .unwrap();
 }
 
+/// A hook's report of the session's transcript and the agent's turn id,
+/// as Claude Code's prompt hook sends them.
+fn hook_in_transcript(
+    app: &Pinrail,
+    (agent, session): &(String, String),
+    event: pinrail_core::db::ReportEvent,
+    transcript: &std::path::Path,
+    agent_turn: &str,
+) {
+    let now = chrono::Utc::now();
+    let report = pinrail_core::db::Report {
+        event,
+        at: now,
+        process: None,
+        origin: Default::default(),
+        transcript_path: Some(transcript.to_string_lossy().into_owned()),
+        agent_turn: Some(agent_turn.to_string()),
+        cut: false,
+        source: pinrail_core::db::Source::Hook,
+    };
+    app.reviews()
+        .report(agent, session, &report, true, now)
+        .unwrap();
+}
+
+/// Claude Code's transcript lines for a person's prompt and the agent's
+/// reply to it, with a tool call between them.
+fn claude_turn(prompt_id: &str, prompt: &str, reply: &str) -> String {
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    [
+        serde_json::json!({"type": "user", "promptId": prompt_id, "origin": {"kind": "human"},
+            "isSidechain": false, "timestamp": now, "message": {"role": "user", "content": prompt}}),
+        serde_json::json!({"type": "assistant", "isSidechain": false, "timestamp": now,
+            "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}]}}),
+        serde_json::json!({"type": "user", "promptId": prompt_id, "isSidechain": false, "timestamp": now,
+            "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}}),
+        serde_json::json!({"type": "assistant", "isSidechain": false, "timestamp": now,
+            "message": {"role": "assistant", "content": [{"type": "text", "text": reply}]}}),
+    ]
+    .iter()
+    .map(|line| format!("{line}\n"))
+    .collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_turn_whose_stop_hook_was_lost_takes_its_reply_from_the_transcript() {
+    use pinrail_core::db::ReportEvent;
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+    let transcript = setup.folder("claude").join("transcript.jsonl");
+
+    // the prompt hook reports the turn and the transcript
+    std::fs::write(
+        &transcript,
+        claude_turn("p1", "Check the release notes", ""),
+    )
+    .unwrap();
+    hook_in_transcript(
+        &setup.app,
+        &session,
+        ReportEvent::Prompt {
+            prompt: Some("Check the release notes".into()),
+        },
+        &transcript,
+        "p1",
+    );
+    // the agent replies, its Stop hook times out, and only the terminal
+    // says the turn is done
+    std::fs::write(
+        &transcript,
+        claude_turn(
+            "p1",
+            "Check the release notes",
+            "The notes cover every change.",
+        ),
+    )
+    .unwrap();
+    common::record(&folder, "state=done:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
+
+    let turns = db.turns(&session.0, &session.1).unwrap();
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].end_kind.as_deref(), Some("done"));
+    assert_eq!(
+        turns[0].replies.last().map(|r| r.text.as_str()),
+        Some("The notes cover every change.")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_prompt_whose_hook_was_lost_starts_its_turn_from_the_transcript() {
+    use pinrail_core::db::ReportEvent;
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+    let transcript = setup.folder("claude").join("transcript.jsonl");
+
+    // a first turn the hooks report in full
+    let first = claude_turn("p1", "Check the release notes", "They are complete.");
+    std::fs::write(&transcript, &first).unwrap();
+    hook_in_transcript(
+        &setup.app,
+        &session,
+        ReportEvent::Prompt {
+            prompt: Some("Check the release notes".into()),
+        },
+        &transcript,
+        "p1",
+    );
+    hook(
+        &setup.app,
+        &session,
+        ReportEvent::TurnEnded {
+            end: "done".into(),
+            reply: Some("They are complete.".into()),
+        },
+    );
+
+    // the next prompt's hook times out: the terminal's work is the first
+    // sign of the turn, and the transcript holds its prompt
+    std::fs::write(
+        &transcript,
+        first + &claude_turn("p2", "Now tag the release", ""),
+    )
+    .unwrap();
+    common::record(&folder, "state=working:app=claude-code").await;
+    let turns = {
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            let turns = db.turns(&session.0, &session.1).unwrap();
+            if turns.len() == 2 || std::time::Instant::now() > deadline {
+                break turns;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    };
+    assert_eq!(turns.len(), 2, "{turns:?}");
+    assert_eq!(turns[1].prompt.as_deref(), Some("Now tag the release"));
+    assert_eq!(turns[1].agent_turn.as_deref(), Some("p2"));
+    assert_eq!(turns[1].ended_at, None);
+
+    // a hook that was only slow reports the same prompt after the terminal:
+    // the turn is the one the transcript started
+    hook_in_transcript(
+        &setup.app,
+        &session,
+        ReportEvent::Prompt {
+            prompt: Some("Now tag the release".into()),
+        },
+        &transcript,
+        "p2",
+    );
+    let turns = db.turns(&session.0, &session.1).unwrap();
+    assert_eq!(turns.len(), 2, "{turns:?}");
+    assert_eq!(turns[1].ended_at, None);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() {
     use pinrail_core::db::ReportEvent;

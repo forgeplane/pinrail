@@ -123,6 +123,17 @@ pub struct ActiveSession {
     pub since: DateTime<Utc>,
 }
 
+/// A session's latest turn, as the core compares it with the agent's
+/// transcript.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LatestTurn {
+    /// The agent's own id for the turn.
+    pub agent_turn: Option<String>,
+    pub ended: bool,
+    /// The agent's transcript of the session, when a hook gave it.
+    pub transcript: Option<String>,
+}
+
 /// A turn of a session, with its texts when they were kept.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnRow {
@@ -591,6 +602,27 @@ impl Db {
     }
 
     /// The session's turns, oldest first, with their texts.
+    /// The session's latest turn, with the agent's transcript of the
+    /// session when a hook gave it. `None` for a session with no turn.
+    pub fn latest_turn(&self, agent: &str, id: &str) -> rusqlite::Result<Option<LatestTurn>> {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT t.agent_turn, t.ended_at IS NOT NULL, s.transcript_path
+             FROM session_turns t JOIN sessions s ON s.agent = t.agent AND s.id = t.session
+             WHERE t.agent = ?1 AND t.session = ?2
+             ORDER BY t.started_at DESC, t.turn DESC LIMIT 1",
+            params![agent, id],
+            |r| {
+                Ok(LatestTurn {
+                    agent_turn: r.get(0)?,
+                    ended: r.get(1)?,
+                    transcript: r.get(2)?,
+                })
+            },
+        )
+        .optional()
+    }
+
     pub fn turns(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<TurnRow>> {
         let time = |s: String| crate::reviews::parse_datetime(&s).unwrap_or_default();
         let conn = self.read();
@@ -763,6 +795,22 @@ fn record_turns(
     late: bool,
 ) -> rusqlite::Result<Option<(i64, Option<String>)>> {
     let changed = match &report.event {
+        // a prompt whose turn the session has, as one the core took from the
+        // transcript before its slow hook came, is that turn
+        ReportEvent::Prompt { .. }
+            if report.agent_turn.is_some()
+                && conn
+                    .query_row(
+                        "SELECT 1 FROM session_turns
+                         WHERE agent = ?1 AND session = ?2 AND agent_turn = ?3",
+                        params![agent, id, report.agent_turn],
+                        |_| Ok(()),
+                    )
+                    .optional()?
+                    .is_some() =>
+        {
+            None
+        }
         ReportEvent::Prompt { prompt } => {
             conn.execute(
                 "UPDATE session_turns SET ended_at = ?3, end_kind = 'interrupted'
