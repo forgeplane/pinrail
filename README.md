@@ -12,9 +12,9 @@ questions, permissions and reviews, into one inbox.
 
 Pinrail works with any agent that can run a command. It also starts and
 resumes Claude Code, Codex, OpenCode, Copilot CLI, Cursor, Grok CLI, Pi and
-Antigravity CLI, and shows their status. It runs on macOS and Linux, and
-Windows support is coming. Pinrail is in early development, so expect rough
-edges and changes between releases.
+Antigravity CLI, and shows their status. It runs on macOS, Linux and
+Windows. Pinrail is in early development, so expect rough edges and changes
+between releases.
 
 ## What it does
 

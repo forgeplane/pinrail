@@ -24,11 +24,11 @@ Download it from [the download page](/download/), which has every system and for
 | macOS 13 or later | [pinrail-app-universal.dmg](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-universal.dmg). Open it and drag Pinrail to Applications. |
 | Linux, x86-64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.AppImage) for any distribution (`chmod +x` it, then run it), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.deb) (`sudo apt install ./pinrail-app-amd64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-x86_64.rpm) (`sudo dnf install ./pinrail-app-x86_64.rpm`). |
 | Linux, ARM64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.AppImage), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-arm64.deb) (`sudo apt install ./pinrail-app-arm64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.rpm) (`sudo dnf install ./pinrail-app-aarch64.rpm`). |
-| Windows | Coming soon. |
+| Windows 10 or 11 | [pinrail-app-x64.exe](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-x64.exe), or on ARM64 [pinrail-app-arm64.exe](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-arm64.exe). Run it: it installs Pinrail for your account alone, with no administrator rights. The installer is not signed yet, so SmartScreen asks first: choose *More info*, then *Run anyway*. |
 
-Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. It also starts the terminal host. The host runs from its own copy of the program, in the `host/bin` folder of Pinrail's data directory, and the app starts it through `launchd` on macOS and as a unit of your `systemd` user manager on Linux, so that it does not end with the app. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
+Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. It also starts the terminal host. The host runs from its own copy of the program, in the `host/bin` folder of Pinrail's data directory, and the app starts it through `launchd` on macOS, as a unit of your `systemd` user manager on Linux, and as a process of its own on Windows, so that it does not end with the app. Closing the window keeps the app running in the menu bar, or in the system tray on Linux and Windows, so agents can still ask while the window is closed.
 
-The macOS app and the AppImage update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. With the AppImage, Pinrail updates the copy of the command it installed the next time it starts. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
+The macOS app, the AppImage and the Windows app update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. With the AppImage and on Windows, Pinrail updates the copy of the command it installed the next time it starts. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
 
 An update ends no agent. The updated app starts the terminal host of the new version, which takes over the terminals of the agents that run, and the agents that you start afterwards run under the new host.
 
@@ -60,6 +60,7 @@ Agents and scripts reach Pinrail with the `pinrail` command, which the setup ins
 | The macOS app | `~/.local/bin/pinrail`, a link to the command inside the app. It updates with the app. |
 | The AppImage | `~/.local/bin/pinrail`, a copy that Pinrail updates the next time it starts. |
 | The `.deb` or `.rpm` | `/usr/bin/pinrail`. The package installs it. |
+| The Windows app | `~\.local\bin\pinrail.exe`, a copy that Pinrail updates the next time it starts. The setup adds the folder to your user `PATH`. |
 
 ### When a terminal cannot find the command
 
@@ -70,6 +71,8 @@ A terminal finds `pinrail` only when `~/.local/bin` is on your `PATH`. When it i
 - **Add it to ~/.zshrc** adds the line to your shell's profile file for you. The button names the file of your shell: `~/.zshrc` for zsh, `~/.bash_profile` or `~/.bashrc` for bash, and `config.fish` for fish. Open a new terminal afterwards. The terminals that are already open do not find the command yet.
 - **Copy the line** copies it, so that you can add it yourself. Use this when your shell is another one, and the button to add the line does not show, or when Pinrail could not change the file. In that case the screen says why under the line.
 - **Check again** looks once more, after you changed the `PATH` yourself.
+
+On Windows the `PATH` is a setting of your account, not a line in a file. The setup adds `~\.local\bin` to it, and when it could not, the step offers **Add it to your PATH**, and a PowerShell line that does the same. Open a new terminal afterwards.
 
 When the step reads *Another one runs first*, a different `pinrail` is earlier on your `PATH`, for example one that you built from source. Put `~/.local/bin` earlier on the `PATH`, or remove the other one.
 
