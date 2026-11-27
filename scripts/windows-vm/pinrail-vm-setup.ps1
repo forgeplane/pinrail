@@ -176,12 +176,34 @@ Install-Package 'Git.Git'
 Install-Package 'GitHub.cli'
 Install-Package 'Microsoft.PowerShell'
 Install-Package 'jdx.mise'
-# The C++ build tools and the Windows SDK, which Rust uses to link programs.
+# The C++ build tools and the Windows SDK, which Rust uses to link programs,
+# and Clang, which the ring crate needs on ARM64.
 Install-Package 'Microsoft.VisualStudio.2022.BuildTools' @('--override', ('--wait --quiet --norestart --nocache ' +
     '--add Microsoft.VisualStudio.Workload.VCTools ' +
     '--add Microsoft.VisualStudio.Component.VC.Tools.ARM64 ' +
-    '--add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended')) 90
+    '--add Microsoft.VisualStudio.Component.Windows11SDK.26100 ' +
+    '--add Microsoft.VisualStudio.Component.VC.Llvm.Clang --includeRecommended')) 90
 Install-Package 'Rustlang.Rustup'
+
+Step 'clang' {
+    # Clang from the build tools, which the ring crate's build needs for
+    # ARM64 Windows, on the account's PATH, where cc-rs looks for it. The
+    # component is added to an installation made before it was listed above.
+    $tools = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
+    $installer = Start-Process "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" -Wait -PassThru `
+        -ArgumentList "modify --installPath `"$tools`" --add Microsoft.VisualStudio.Component.VC.Llvm.Clang --quiet --norestart --nocache"
+    if ($installer.ExitCode -notin 0, 3010) { throw "the Visual Studio Installer exited with $($installer.ExitCode)" }
+    # the processor's: a process emulated as x64 on ARM64, as Windows
+    # PowerShell is when Git Bash starts it, is told x64 by every other source
+    $arm64 = (Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture -eq 12
+    $arch = if ($arm64) { 'ARM64' } else { 'x64' }
+    $bin = "$tools\VC\Tools\Llvm\$arch\bin"
+    if (-not (Test-Path "$bin\clang.exe")) { throw "$bin has no clang.exe" }
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if (($userPath -split ';') -notcontains $bin) {
+        [Environment]::SetEnvironmentVariable('Path', "$userPath;$bin", 'User')
+    }
+}
 Refresh-Path
 
 Step 'ssh-server' {
