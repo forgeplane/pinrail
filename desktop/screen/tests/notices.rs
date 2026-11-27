@@ -43,16 +43,28 @@ fn headings() -> Vec<&'static str> {
 #[test]
 fn every_part_of_the_library_has_its_licence_in_the_notices() {
     let archive = env!("PINRAIL_GHOSTTY_ARCHIVE");
-    let listed = Command::new("ar").arg("t").arg(archive).output().unwrap();
+    // Windows has no ar; Zig, which built the library, brings one
+    let mut ar = match cfg!(windows) {
+        true => Command::new(std::env::var("ZIG").unwrap_or_else(|_| "zig".into())),
+        false => Command::new("ar"),
+    };
+    if cfg!(windows) {
+        ar.arg("ar");
+    }
+    let listed = ar.arg("t").arg(archive).output().unwrap();
     assert!(listed.status.success(), "ar t {archive}");
     let headings = headings();
     for object in String::from_utf8(listed.stdout).unwrap().lines() {
-        if !object.ends_with(".o") {
+        // objects are .obj files in an MSVC library
+        let Some(name) = object
+            .strip_suffix(".o")
+            .or_else(|| object.strip_suffix(".obj"))
+        else {
             continue;
-        }
+        };
         // GNU ar lists a member with the path Zig built it at, such as
         // .zig-cache/o/<hash>/base64.o
-        let name = object.rsplit('/').next().unwrap().trim_end_matches(".o");
+        let name = name.rsplit(['/', '\\']).next().unwrap();
         let Some((_, heading)) = OBJECTS
             .iter()
             .find(|(start, _)| name == *start || name.starts_with(&format!("{start}-")))

@@ -6,8 +6,6 @@
 //! profile, under the target folder's `ghostty/<version>`. The build itself
 //! runs offline: Zig takes its packages from the dependency tarball.
 //!
-//! It builds nothing on Windows, where the terminal host does not run.
-//!
 //! - `PINRAIL_GHOSTTY_STUB=1` builds nothing and links nothing, for a type
 //!   check or clippy on a machine without Zig.
 //! - `PINRAIL_GHOSTTY_SRC=<folder>` takes the tarballs from a folder, such
@@ -79,8 +77,7 @@ fn main() {
     ] {
         println!("cargo:rerun-if-env-changed={var}");
     }
-    // the terminal host runs agents in PTYs, so only on Unix
-    if env::var_os("CARGO_FEATURE_GHOSTTY").is_none() || env::var_os("CARGO_CFG_UNIX").is_none() {
+    if env::var_os("CARGO_FEATURE_GHOSTTY").is_none() {
         return;
     }
     if env::var("PINRAIL_GHOSTTY_STUB").is_ok_and(|v| v == "1") {
@@ -92,32 +89,29 @@ fn main() {
     let target = env::var("TARGET").unwrap();
     let cache = cache_dir().join(&lock.version);
     fs::create_dir_all(&cache).unwrap();
+    let (library, link_name) = static_library(&target);
 
     let prefix = cache.join(&target);
-    if !prefix.join("lib").join("libghostty-vt.a").exists() {
+    if !prefix.join("lib").join(library).exists() {
         let zig = zig(&lock);
         let source = unpacked(&cache, &lock.source, &lock.version);
         let deps = unpacked(&cache, &lock.deps, &lock.version);
-        build(&zig, &source, &deps, &prefix, &target);
+        build(&zig, &source, &deps, &prefix, &target, library);
     }
     // a folder with the static archive alone: beside the shared library,
     // the macOS linker takes the shared one
     let archive = prefix.join("static");
-    if !archive.join("libghostty-vt.a").exists() {
+    if !archive.join(library).exists() {
         fs::create_dir_all(&archive).unwrap();
-        fs::copy(
-            prefix.join("lib").join("libghostty-vt.a"),
-            archive.join("libghostty-vt.a"),
-        )
-        .unwrap();
+        fs::copy(prefix.join("lib").join(library), archive.join(library)).unwrap();
     }
     // for the test that checks every part of it is in the notices
     println!(
         "cargo:rustc-env=PINRAIL_GHOSTTY_ARCHIVE={}",
-        archive.join("libghostty-vt.a").display()
+        archive.join(library).display()
     );
     println!("cargo:rustc-link-search=native={}", archive.display());
-    println!("cargo:rustc-link-lib=static=ghostty-vt");
+    println!("cargo:rustc-link-lib=static={link_name}");
     println!("cargo:rustc-cfg=ghostty_built");
 }
 
@@ -215,9 +209,21 @@ fn sha256_of(file: &Path) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-/// Zig's name for a Rust target, or `None` for the machine's own.
+/// The static library's file name and the name it is linked by: on Windows
+/// (MSVC) it has a name of its own.
+fn static_library(target: &str) -> (&'static str, &'static str) {
+    if target.contains("-windows-") {
+        ("ghostty-vt-static.lib", "ghostty-vt-static")
+    } else {
+        ("libghostty-vt.a", "ghostty-vt")
+    }
+}
+
+/// Zig's name for a Rust target, or `None` for the machine's own. Windows
+/// is always named, so that Zig builds for MSVC's ABI, which Rust links
+/// with, and not its own default.
 fn zig_target(target: &str) -> Option<&'static str> {
-    if env::var("HOST").ok().as_deref() == Some(target) {
+    if env::var("HOST").ok().as_deref() == Some(target) && !target.contains("-windows-") {
         return None;
     }
     Some(match target {
@@ -227,6 +233,8 @@ fn zig_target(target: &str) -> Option<&'static str> {
         "aarch64-unknown-linux-gnu" => "aarch64-linux-gnu",
         "x86_64-unknown-linux-musl" => "x86_64-linux-musl",
         "aarch64-unknown-linux-musl" => "aarch64-linux-musl",
+        "x86_64-pc-windows-msvc" => "x86_64-windows-msvc",
+        "aarch64-pc-windows-msvc" => "aarch64-windows-msvc",
         other => panic!("libghostty-vt: no Zig target is known for {other}"),
     })
 }
@@ -255,21 +263,34 @@ fn zig(lock: &Lock) -> String {
     zig
 }
 
-/// Builds the static library into `prefix`, offline, with an empty Zig
-/// cache of its own: Zig 0.17 can crash on a cache that already holds an
-/// archive of a package.
-fn build(zig: &str, source: &Path, deps: &Path, prefix: &Path, target: &str) {
+/// Builds the static library into `prefix`, offline, with empty Zig
+/// caches of its own: Zig 0.17 can crash on a cache that already holds an
+/// archive of a package. The local cache is given as an absolute path: on
+/// Windows, Zig starts the tools it builds there by a path relative to the
+/// source folder, from another folder, and does not find them.
+fn build(zig: &str, source: &Path, deps: &Path, prefix: &Path, target: &str, library: &str) {
     let work = prefix.with_extension("building");
     let _ = fs::remove_dir_all(&work);
     let zig_cache = work.join("zig-cache");
+    let local_cache = work.join("local-cache");
     let installed = work.join("prefix");
     fs::create_dir_all(&zig_cache).unwrap();
-    let mut command = Command::new(zig);
+    // On Windows, the executable itself, not a launcher such as mise's
+    // shim, which needs a PATH the build below does not give it
+    let program = match cfg!(windows) {
+        true => zig_exe(zig)
+            .or_else(|| which(zig))
+            .unwrap_or_else(|| panic!("`{zig}` is not on the PATH")),
+        false => PathBuf::from(zig),
+    };
+    let mut command = Command::new(&program);
     command
         .current_dir(source)
         .env("ZIG_GLOBAL_CACHE_DIR", &zig_cache)
         .env_remove("ZIG_LOCAL_CACHE_DIR")
         .arg("build")
+        .arg("--cache-dir")
+        .arg(&local_cache)
         .arg("--prefix")
         .arg(&installed)
         .arg("--system")
@@ -283,12 +304,22 @@ fn build(zig: &str, source: &Path, deps: &Path, prefix: &Path, target: &str) {
     if let Some(zig_target) = zig_target(target) {
         command.arg(format!("-Dtarget={zig_target}"));
     }
+    // Zig on Windows can fail to start its helpers when PATH holds folder
+    // junctions, as some installers make: it needs only Windows and its own
+    // folder. Adapted from herdr-core's crates/ghostty-vt/build.rs.
+    if cfg!(windows) {
+        let root = PathBuf::from(env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
+        let path = env::join_paths([
+            program.parent().unwrap().to_path_buf(),
+            root.join("System32"),
+            root,
+        ]);
+        command.env("PATH", path.unwrap());
+    }
     run(&mut command);
     // a folder left without the library, as a cache can leave it
     let _ = fs::remove_dir_all(prefix);
-    if fs::rename(&installed, prefix).is_err()
-        && !prefix.join("lib").join("libghostty-vt.a").exists()
-    {
+    if fs::rename(&installed, prefix).is_err() && !prefix.join("lib").join(library).exists() {
         panic!("could not move {} into place", installed.display());
     }
     let _ = fs::remove_dir_all(&work);
@@ -301,4 +332,27 @@ fn run(command: &mut Command) {
     if !status.success() {
         panic!("{command:?} failed with {status}");
     }
+}
+
+/// The executable `zig` runs as, which `zig env` names.
+fn zig_exe(zig: &str) -> Option<PathBuf> {
+    let output = Command::new(zig).arg("env").output().ok()?;
+    let text = String::from_utf8(output.stdout).ok()?;
+    // ZON: `.zig_exe = "C:\\...\\zig.exe",`
+    let line = text
+        .lines()
+        .find(|l| l.trim_start().starts_with(".zig_exe"))?;
+    let quoted = line.split_once('"')?.1.rsplit_once('"')?.0;
+    Some(PathBuf::from(quoted.replace("\\\\", "\\"))).filter(|p| p.is_file())
+}
+
+/// A program's full path, as a shell would find it.
+fn which(program: &str) -> Option<PathBuf> {
+    let program = Path::new(program);
+    if program.components().count() > 1 {
+        return Some(program.to_path_buf());
+    }
+    env::split_paths(&env::var_os("PATH")?)
+        .flat_map(|dir| [dir.join(program), dir.join(program).with_extension("exe")])
+        .find(|p| p.is_file())
 }
