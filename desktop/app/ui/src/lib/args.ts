@@ -4,8 +4,7 @@
 // Windows, as a Windows program splits its command line, where a
 // backslash is a folder's separator, as in `--add-dir C:\code\app`.
 
-/** Whether the window runs on Windows. */
-const onWindows = /Win/i.test(typeof navigator === "undefined" ? "" : navigator.platform);
+import { onWindows } from "./platform";
 
 /** The words of `text`; an unclosed quote runs to the end. */
 export function splitArgs(text: string, windows = onWindows): string[] {

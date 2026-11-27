@@ -433,6 +433,11 @@ fn cli_status_now(home: &Path) -> cli_install::Status {
         status.profile = Some(profile.file);
         status.profile_line = Some(profile.line.to_string());
     }
+    // the PATH is the user's registry value, which a PowerShell line sets
+    #[cfg(windows)]
+    if let Some(dir) = status.link.parent() {
+        status.profile_line = Some(cli_install::powershell_path_line(dir));
+    }
     status
 }
 
@@ -452,10 +457,20 @@ async fn cli_status() -> Result<cli_install::Status, String> {
 async fn add_cli_to_path() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
-        let profile = shell_profile_of(&home).ok_or(
-            "Pinrail does not know where your shell keeps its PATH; add the line yourself",
-        )?;
-        shell_profile::add(&profile)?;
+        #[cfg(windows)]
+        {
+            let link = cli_install::link_path(&home);
+            if let Some(dir) = link.parent() {
+                cli_install::add_to_user_path(dir)?;
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let profile = shell_profile_of(&home).ok_or(
+                "Pinrail does not know where your shell keeps its PATH; add the line yourself",
+            )?;
+            shell_profile::add(&profile)?;
+        }
         Ok(cli_status_now(&home))
     })
     .await

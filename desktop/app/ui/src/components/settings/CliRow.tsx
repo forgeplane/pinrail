@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { inTauri } from "../../api/client";
 import { SettingsRow } from "./layout";
 import { folder, tilde } from "../../lib/cliPaths";
+import { onWindows } from "../../lib/platform";
 
 export type CliStatus = {
   /** link on macOS, package for a .deb or .rpm, copy from an AppImage */
@@ -125,9 +126,18 @@ export function CliRow({ open }: { open: boolean }) {
   else if (!status.installed && status.occupied_by)
     note = `${link} is already ${status.occupied_by}; installing replaces ${status.mode === "copy" ? "a link or an older copy" : "a link"}, never another file`;
   else if (added)
-    note = (
+    note = onWindows ? (
+      <span>Added {folder(link)} to your PATH. Open a new terminal to use it</span>
+    ) : (
       <span>
         Added {folder(link)} to your PATH in <span className="mono">{added}</span>. Open a new terminal to use it
+      </span>
+    );
+  else if (status.installed && status.dir_on_path === false && onWindows)
+    note = (
+      <span>
+        {folder(link)} is not on your PATH. Add it from here, or run <span className="mono">{status.profile_line}</span>{" "}
+        in PowerShell
       </span>
     );
   else if (status.installed && status.dir_on_path === false)
@@ -144,20 +154,23 @@ export function CliRow({ open }: { open: boolean }) {
         A new terminal runs <span className="mono">{short(status.runs)}</span> first, which is not this one
       </span>
     );
-  // the line can be added from here for a shell Pinrail knows
+  // the line can be added from here for a shell Pinrail knows, and on
+  // Windows to the user's PATH in the registry
   const profile = !added && status.installed && status.dir_on_path === false && status.profile;
-  const add = profile ? (
-    <button
-      type="button"
-      className="chrome-button"
-      onClick={async () => {
-        if (await addToPath()) setAdded(short(profile));
-      }}
-      disabled={busy}
-    >
-      Add it to {short(profile)}
-    </button>
-  ) : null;
+  const target = profile ? short(profile) : onWindows ? "your PATH" : null;
+  const add =
+    !added && status.installed && status.dir_on_path === false && target ? (
+      <button
+        type="button"
+        className="chrome-button"
+        onClick={async () => {
+          if (await addToPath()) setAdded(target);
+        }}
+        disabled={busy}
+      >
+        Add it to {target}
+      </button>
+    ) : null;
 
   if (status.mode === "package")
     return (

@@ -588,6 +588,18 @@ fn expand_variables(text: &str) -> String {
     out
 }
 
+/// A PowerShell line that puts `dir` at the end of the user's PATH, for
+/// someone to run when Pinrail could not: the value in the registry, which
+/// a new terminal reads, not the running shell's.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn powershell_path_line(dir: &Path) -> String {
+    let dir = dir.display().to_string().replace('\'', "''");
+    format!(
+        "[Environment]::SetEnvironmentVariable('Path', \
+         [Environment]::GetEnvironmentVariable('Path', 'User') + ';{dir}', 'User')"
+    )
+}
+
 /// Puts `dir` at the end of the user's PATH, if it is not there, keeping the
 /// `%VARIABLES%` the value already has, then tells running programs, such as
 /// Explorer, that the environment changed, so that a terminal opened next
@@ -685,6 +697,15 @@ fn parse_shell(text: &str) -> Option<ShellView> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_powershell_line_sets_the_users_path_with_the_folder_quoted() {
+        assert_eq!(
+            super::powershell_path_line(Path::new(r"C:\Users\o'neil\.local\bin")),
+            "[Environment]::SetEnvironmentVariable('Path', \
+             [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Users\\o''neil\\.local\\bin', 'User')"
+        );
+    }
+
     use super::*;
 
     #[test]
