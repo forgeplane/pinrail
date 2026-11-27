@@ -2,25 +2,29 @@
 //! program when a host that knows the secret asks, hands over the master
 //! descriptor, reports the exit without reaping, and gives the
 //! descriptors to the next host that connects, so a program outlives the
-//! host that started it.
-#![cfg(unix)]
+//! host that started it. On Windows it keeps the pseudo consoles, and
+//! what it hands over is each console's input and output and its job.
 
 mod common;
 
-use std::io::{BufRead, BufReader, Read, Write};
-use std::os::fd::OwnedFd;
-use std::os::unix::net::UnixStream;
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
-use pinrail_host::fdpass;
+use pinrail_host::fdpass::{self, Owned};
+use pinrail_host::net::{self, Stream};
 use pinrail_host::paths::Paths;
+use pinrail_host::pty;
 use pinrail_host::registration::Registration;
 use serde_json::{Value, json};
 
 use common::{Folders, command, folders};
 
 const SECRET: &str = "holder-test-secret";
+
+/// How many descriptors the host gets of a terminal: the PTY's master, or
+/// on Windows the console's input, its output and its job.
+const OF_A_TERMINAL: usize = if cfg!(windows) { 3 } else { 1 };
 
 /// A holder of the test's folders, and its socket, with a registration
 /// that holds the secret a host would.
@@ -37,9 +41,15 @@ impl Drop for Holder {
 }
 
 fn holder(folders: &Folders, idle_exit: u64) -> Holder {
-    // this user's id, as the owner of a folder the test made
-    let uid = std::os::unix::fs::MetadataExt::uid(&std::fs::metadata(&folders.runtime).unwrap());
-    let paths = Paths::with_runtime_dir(&folders.data, Some(&folders.runtime), uid);
+    #[cfg(unix)]
+    let paths = {
+        // this user's id, as the owner of a folder the test made
+        let uid =
+            std::os::unix::fs::MetadataExt::uid(&std::fs::metadata(&folders.runtime).unwrap());
+        Paths::with_runtime_dir(&folders.data, Some(&folders.runtime), uid)
+    };
+    #[cfg(windows)]
+    let paths = Paths::new(&folders.data);
     std::fs::create_dir_all(&paths.host_dir).unwrap();
     Registration {
         pid: std::process::id(),
@@ -71,14 +81,14 @@ fn holder(folders: &Folders, idle_exit: u64) -> Holder {
 }
 
 /// A connection that has presented `secret`, and the holder's answer.
-fn connect(holder: &Holder, secret: &str) -> (UnixStream, Value) {
-    let stream = UnixStream::connect(&holder.socket).unwrap();
+fn connect(holder: &Holder, secret: &str) -> (Stream, Value) {
+    let stream = net::connect(&holder.socket).unwrap();
     fdpass::send(&stream, &json!({"secret": secret, "protocol": 1}), &[]).unwrap();
     let (answer, _) = fdpass::recv(&stream).unwrap().unwrap();
     (stream, answer)
 }
 
-fn request(stream: &UnixStream, value: Value, fds: &[i32]) -> (Value, Vec<OwnedFd>) {
+fn request(stream: &Stream, value: Value, fds: &[fdpass::Raw]) -> (Value, Vec<Owned>) {
     fdpass::send(stream, &value, fds).unwrap();
     loop {
         let (answer, fds) = fdpass::recv(stream).unwrap().unwrap();
@@ -88,28 +98,36 @@ fn request(stream: &UnixStream, value: Value, fds: &[i32]) -> (Value, Vec<OwnedF
     }
 }
 
-/// Reads from a PTY master until `wanted` appears.
-fn read_until(master: &OwnedFd, wanted: &str) {
-    let mut file = std::fs::File::from(master.try_clone().unwrap());
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let mut seen = Vec::new();
-    let mut buf = [0u8; 1024];
-    while !String::from_utf8_lossy(&seen).contains(wanted) {
-        assert!(
-            Instant::now() < deadline,
-            "{:?}",
-            String::from_utf8_lossy(&seen)
-        );
-        match file.read(&mut buf) {
-            Ok(n) if n > 0 => seen.extend(&buf[..n]),
-            _ => std::thread::sleep(Duration::from_millis(20)),
-        }
-    }
+/// The host's side of a terminal, from the first of the descriptors a
+/// holder sent.
+fn terminal(fds: &mut dyn Iterator<Item = Owned>) -> pty::Master {
+    pty::master_from(0, fds, (80, 24)).unwrap()
 }
 
 fn spawn_request(folders: &Folders, terminal: &str, script: &str) -> Value {
-    json!({"op": "spawn", "id": 1, "terminal": terminal, "argv": ["sh", "-c", script],
-           "cwd": folders.runtime, "env": {"PATH": "/usr/bin:/bin"}, "cols": 80, "rows": 24})
+    json!({"op": "spawn", "id": 1, "terminal": terminal, "argv": common::shell(script),
+           "cwd": folders.runtime, "env": {"PATH": common::path()}, "cols": 80, "rows": 24})
+}
+
+/// Whether the process `pid` is still there for its parent to reap, as a
+/// zombie once it has exited.
+#[cfg(unix)]
+fn exists(pid: u32) -> bool {
+    common::alive(pid)
+}
+
+/// Whether a handle keeps the process `pid`, which keeps its id its own
+/// after it has exited: it can be opened as long as one does.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn exists(pid: u32) -> bool {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    // SAFETY: takes no pointers; the handle is closed at once.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        !handle.is_null() && CloseHandle(handle) != 0
+    }
 }
 
 #[test]
@@ -120,7 +138,7 @@ fn a_program_outlives_the_host_that_started_it() {
     assert_eq!(hello["protocol"], 1);
     assert!(hello["instance"].is_string());
 
-    let ring = tempfile::tempfile().unwrap();
+    let ring = Owned::from(tempfile::tempfile().unwrap());
     let (spawned, fds) = request(
         &first,
         spawn_request(
@@ -128,14 +146,15 @@ fn a_program_outlives_the_host_that_started_it() {
             "t_1",
             "echo ready; read line; echo got:$line; read again; exit 7",
         ),
-        &[std::os::fd::AsRawFd::as_raw_fd(&ring)],
+        &[fdpass::raw(&ring)],
     );
     assert!(spawned["pid"].as_u64().unwrap() > 0, "{spawned}");
-    assert_eq!(fds.len(), 1);
-    read_until(&fds[0], "ready");
+    assert_eq!(fds.len(), OF_A_TERMINAL);
+    let master = terminal(&mut fds.into_iter());
+    common::read_until(&master, "ready");
 
     // the host goes away; the program does not
-    drop(fds);
+    drop(master);
     drop(first);
     std::thread::sleep(Duration::from_millis(300));
     let (second, _) = connect(&holder, SECRET);
@@ -143,27 +162,22 @@ fn a_program_outlives_the_host_that_started_it() {
     assert_eq!(listed["terminals"][0]["terminal"], "t_1");
     assert_eq!(listed["terminals"][0]["ring"], true);
     assert!(listed["terminals"][0].get("exit").is_none());
-    assert_eq!(fds.len(), 2, "the master and the ring");
-    let mut master = std::fs::File::from(fds[0].try_clone().unwrap());
-    master.write_all(b"hello\n").unwrap();
-    read_until(&fds[0], "got:hello");
+    assert_eq!(fds.len(), OF_A_TERMINAL + 1, "the master and the ring");
+    let mut fds = fds.into_iter();
+    let master = terminal(&mut fds);
+    common::type_into(&master, b"hello\n");
+    common::read_until(&master, "got:hello");
 
     // the exit is reported, and the program stays unreaped until forgotten;
     // the PTY is read meanwhile, as the host does, since a program's exit
     // waits for its terminal's output to be read on macOS
-    master.write_all(b"bye\n").unwrap();
-    let drain = fds[0].try_clone().unwrap();
+    common::type_into(&master, b"bye\n");
+    let drain = master.try_clone().unwrap();
     std::thread::spawn(move || {
-        let mut drain = std::fs::File::from(drain);
-        let mut buf = [0u8; 1024];
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while Instant::now() < deadline {
-            if !matches!(drain.read(&mut buf), Ok(n) if n > 0) {
-                std::thread::sleep(Duration::from_millis(20));
-            }
-        }
+        let (_waker, wake) = pty::wake_pair().unwrap();
+        pty::read_loop(drain, wake, |_| true);
     });
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     let event = loop {
         let (message, _) = fdpass::recv(&second).unwrap().unwrap();
         if message["event"] == "exited" {
@@ -175,14 +189,6 @@ fn a_program_outlives_the_host_that_started_it() {
     assert_eq!(event["code"], 7);
     let pid = listed["terminals"][0]["pid"].as_u64().unwrap() as u32;
     // a pid exists until its process is reaped, as a zombie meanwhile
-    let exists = |pid: u32| {
-        std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .stderr(Stdio::null())
-            .status()
-            .unwrap()
-            .success()
-    };
     assert!(exists(pid), "reaped before forget");
     let (forgot, _) = request(
         &second,
@@ -244,7 +250,7 @@ fn a_spawn_that_cannot_happen_says_why() {
 fn a_holder_with_nothing_to_hold_exits() {
     let folders = folders();
     let mut holder = holder(&folders, 1);
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     loop {
         if let Some(status) = holder.child.try_wait().unwrap() {
             assert!(status.success());

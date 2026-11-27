@@ -1,7 +1,6 @@
 //! The query filter removes from the viewers' stream every query the
 //! host's screen answered, however the output is split into chunks, and
 //! passes everything else unchanged.
-#![cfg(unix)]
 
 use pinrail_host::filter::QueryFilter;
 use pinrail_screen::{ColorScheme, DisplayFacts, Options, Rgb, Screen, Signal};

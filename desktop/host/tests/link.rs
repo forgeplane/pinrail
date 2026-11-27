@@ -1,7 +1,6 @@
 //! The core's link to the host: it starts or adopts the host, reconnects
 //! when the connection drops, starts a new host when the host is gone, and
 //! resumes the events of the same host where it left off.
-#![cfg(unix)]
 
 mod common;
 
@@ -42,7 +41,7 @@ fn launcher(folders: &Folders) -> Connector {
 /// The next `Connected` event.
 async fn connected(events: &mut broadcast::Receiver<HostEvent>) -> (String, Value) {
     loop {
-        match tokio::time::timeout(Duration::from_secs(20), events.recv())
+        match tokio::time::timeout(common::within(20), events.recv())
             .await
             .expect("connected in time")
             .unwrap()
@@ -59,7 +58,7 @@ async fn connected(events: &mut broadcast::Receiver<HostEvent>) -> (String, Valu
 /// The next host event called `method`.
 async fn event(events: &mut broadcast::Receiver<HostEvent>, method: &str) -> Value {
     loop {
-        match tokio::time::timeout(Duration::from_secs(10), events.recv())
+        match tokio::time::timeout(common::within(10), events.recv())
             .await
             .unwrap_or_else(|_| panic!("no {method}"))
             .unwrap()
@@ -80,11 +79,11 @@ struct StopHost(PathBuf);
 impl Drop for StopHost {
     fn drop(&mut self) {
         if let Some(registration) = Registration::read(&self.0.join("host/host.json")) {
-            let _ = std::process::Command::new("kill")
-                .arg("-9")
-                .arg(registration.pid.to_string())
-                .status();
+            common::kill(registration.pid);
         }
+        // and the holders, which would start a host again for the programs
+        // they keep
+        common::kill_holders(&self.0.join("host/holders"));
     }
 }
 
@@ -107,10 +106,7 @@ async fn the_link_starts_a_host_and_starts_a_new_one_when_it_is_gone() {
 
     // the host dies: calls fail as offline, and a new host is started
     let pid = registration(&folders).pid;
-    std::process::Command::new("kill")
-        .args(["-9", &pid.to_string()])
-        .status()
-        .unwrap();
+    common::kill(pid);
     let (second, _) = connected(&mut events).await;
     assert_ne!(second, first);
     assert_ne!(registration(&folders).pid, pid);
@@ -130,7 +126,7 @@ async fn after_a_dropped_connection_the_link_gets_the_events_it_missed() {
     // whatever starting a holder takes, such as the first-launch check
     link.call(
         "terminal.spawn",
-        json!({"argv": ["sleep", "30"], "cwd": "/", "cols": 80, "rows": 24}),
+        json!({"argv": common::sleep(30), "cwd": "/", "cols": 80, "rows": 24}),
     )
     .await
     .unwrap();
@@ -142,7 +138,7 @@ async fn after_a_dropped_connection_the_link_gets_the_events_it_missed() {
         other
             .call(
                 "terminal.spawn",
-                json!({"argv": ["sh", "-c", "exit 3"], "cwd": "/", "cols": 80, "rows": 24}),
+                json!({"argv": common::shell("exit 3"), "cwd": "/", "cols": 80, "rows": 24}),
             )
             .unwrap()
     });
@@ -173,7 +169,7 @@ async fn a_terminal_channel_through_the_link_gets_its_frames() {
     let spawned = link
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo hello there; sleep 30"], "cwd": "/",
+            json!({"argv": common::shell("echo hello there; sleep 30"), "cwd": "/",
                    "cols": 80, "rows": 24}),
         )
         .await
@@ -184,7 +180,7 @@ async fn a_terminal_channel_through_the_link_gets_its_frames() {
         .await
         .unwrap();
     assert_eq!(channel.format, "vt");
-    let first = tokio::time::timeout(Duration::from_secs(5), channel.frames.recv())
+    let first = tokio::time::timeout(common::within(5), channel.frames.recv())
         .await
         .unwrap()
         .unwrap();
@@ -236,13 +232,13 @@ async fn a_link_that_cannot_reach_its_host_keeps_trying_and_calls_fail_as_offlin
 
 /// A host that answers `hello` and the subscription, then closes the
 /// connection, `times` times.
-async fn host_that_drops(listener: tokio::net::UnixListener, times: usize) {
+async fn host_that_drops(mut listener: pinrail_host::net::AsyncListener, times: usize) {
     use pinrail_host::frame::{self, Frame};
     for _ in 0..times {
-        let Ok((stream, _)) = listener.accept().await else {
+        let Ok(stream) = listener.accept().await else {
             return;
         };
-        let (mut reader, mut writer) = stream.into_split();
+        let (mut reader, mut writer) = pinrail_host::net::split(stream);
         let _hello = frame::read(&mut reader).await;
         let hello = json!({"jsonrpc": "2.0", "id": 0,
                            "result": {"generation": pinrail_host::GENERATION, "instance": "i1"}});
@@ -264,12 +260,20 @@ async fn host_that_drops(listener: tokio::net::UnixListener, times: usize) {
 
 #[tokio::test]
 async fn each_reconnect_after_a_ready_connection_starts_the_backoff_again() {
+    #[cfg(unix)]
     let dir = tempfile::Builder::new()
         .prefix("pl")
         .tempdir_in("/tmp")
         .unwrap();
+    #[cfg(unix)]
     let socket = dir.path().join("host.sock");
-    let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+    // a pipe needs no folder, only a name of the test's own
+    #[cfg(windows)]
+    let socket = PathBuf::from(format!(
+        r"\\.\pipe\pinrail-link-test-{}",
+        pinrail_host::random_hex(4)
+    ));
+    let listener = pinrail_host::net::AsyncListener::bind(&socket).unwrap();
     tokio::spawn(host_that_drops(listener, 3));
     let link = HostLink::start(
         Connector::Socket {

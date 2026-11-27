@@ -40,6 +40,249 @@ pub fn folders() -> Folders {
     }
 }
 
+/// How long a test waits for what a program does: `seconds`, and five
+/// times as long on Windows, where Git's shell takes seconds to start and
+/// to start each program, and more while other tests run.
+pub fn within(seconds: u64) -> Duration {
+    Duration::from_secs(if cfg!(windows) { seconds * 5 } else { seconds })
+}
+
+/// The folders of the programs the tests run, as a `PATH`: on Windows,
+/// the POSIX tools Git for Windows brings, then Windows' own.
+pub fn path() -> String {
+    if cfg!(windows) {
+        let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+        format!(r"{};{root}\System32", posix_tools().display())
+    } else {
+        "/usr/bin:/bin".to_string()
+    }
+}
+
+/// Where Git for Windows keeps `sh` and the tools the tests' scripts use.
+fn posix_tools() -> PathBuf {
+    let programs =
+        std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
+    PathBuf::from(programs).join(r"Git\usr\bin")
+}
+
+/// The arguments of a POSIX shell that runs `script`. On Windows it is
+/// Git for Windows' `sh`, named by its path, with its tools' folder put on
+/// the script's `PATH` first: whatever environment the terminal starts
+/// with, the script finds `sleep`, `stty` and the rest.
+pub fn shell(script: &str) -> Vec<String> {
+    if cfg!(windows) {
+        let sh = posix_tools().join("sh.exe");
+        vec![
+            sh.to_string_lossy().into_owned(),
+            "-c".to_string(),
+            format!("PATH=/usr/bin:$PATH; {script}"),
+        ]
+    } else {
+        ["sh", "-c", script].map(String::from).to_vec()
+    }
+}
+
+/// The arguments of a program that runs for `seconds` and does nothing
+/// else: `sleep`, or on Windows a `ping` of this computer, once a second.
+/// Git for Windows has a `sleep`, but every program of its kind takes one
+/// of the 128 consoles their runtime shares, which the many terminals of
+/// one test would use up for all the others.
+pub fn sleep(seconds: u32) -> Vec<String> {
+    if cfg!(windows) {
+        let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+        vec![
+            format!(r"{root}\System32\ping.exe"),
+            "-n".to_string(),
+            (seconds + 1).to_string(),
+            "127.0.0.1".to_string(),
+        ]
+    } else {
+        vec!["sleep".to_string(), seconds.to_string()]
+    }
+}
+
+/// Whether the process `pid` exists: on Unix, until it is reaped.
+#[cfg(unix)]
+pub fn alive(pid: u32) -> bool {
+    Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+/// Whether the process `pid` runs.
+#[cfg(windows)]
+pub fn alive(pid: u32) -> bool {
+    pinrail_runtime::process::process(pid).is_some()
+}
+
+/// Kills the process `pid`.
+#[cfg(unix)]
+pub fn kill(pid: u32) {
+    let _ = Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .stderr(Stdio::null())
+        .status();
+}
+
+/// Kills the process `pid`.
+#[cfg(windows)]
+pub fn kill(pid: u32) {
+    if let Some(process) = pinrail_runtime::process::process(pid) {
+        pinrail_runtime::process::stop(pid, &process.started, true);
+    }
+}
+
+/// A copy of the host's binary in `dir`, which stands for another build,
+/// with the ConPTY it loads from beside it on Windows.
+pub fn host_copy(dir: &std::path::Path) -> PathBuf {
+    let binary = std::path::Path::new(env!("CARGO_BIN_EXE_pinrail-host"));
+    let copy = dir.join(binary.file_name().unwrap());
+    std::fs::copy(binary, &copy).unwrap();
+    let conpty = binary.with_file_name("conpty");
+    if cfg!(windows) && conpty.is_dir() {
+        copy_folder(&conpty, &dir.join("conpty"));
+    }
+    copy
+}
+
+fn copy_folder(from: &std::path::Path, to: &std::path::Path) {
+    std::fs::create_dir(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let copy = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_folder(&entry.path(), &copy);
+        } else {
+            std::fs::copy(entry.path(), &copy).unwrap();
+        }
+    }
+}
+
+/// A program started in a terminal without a host or a holder: the test
+/// is its parent, and does for it what a holder would.
+pub struct Local {
+    pub spawned: pinrail_host::pty::Spawned,
+    /// Waits until the program has exited, and leaves it unreaped.
+    pub wait: Box<dyn FnOnce() -> pinrail_host::pty::Exit + Send>,
+    /// Lets the program go, once nothing signals it any more.
+    pub forget: Box<dyn FnOnce() + Send>,
+}
+
+impl std::fmt::Debug for Local {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.spawned.fmt(f)
+    }
+}
+
+#[cfg(unix)]
+pub fn spawn_local(
+    argv: &[String],
+    cwd: &std::path::Path,
+    env: &std::collections::BTreeMap<String, String>,
+    (cols, rows): (u16, u16),
+) -> Result<Local, pinrail_host::pty::SpawnError> {
+    use pinrail_host::pty;
+    let spawned = pty::spawn(argv, cwd, env, cols, rows)?;
+    let pid = spawned.pid;
+    Ok(Local {
+        spawned,
+        wait: Box::new(move || pty::wait_exit(pid).unwrap_or(pty::Exit::Code(-1))),
+        forget: Box::new(move || pty::reap(pid)),
+    })
+}
+
+/// On Windows the test keeps the pseudo console, as a holder does: it
+/// resizes and closes it when the terminal asks, and closes it once the
+/// program has exited, so that the output ends.
+#[cfg(windows)]
+pub fn spawn_local(
+    argv: &[String],
+    cwd: &std::path::Path,
+    env: &std::collections::BTreeMap<String, String>,
+    (cols, rows): (u16, u16),
+) -> Result<Local, pinrail_host::pty::SpawnError> {
+    use pinrail_host::pty;
+    let holding = std::sync::Arc::new(pty::Holding::spawn(argv, cwd, env, cols, rows)?);
+    let pid = holding.pid;
+    let master = pty::master_from(pid, &mut holding.for_host()?.into_iter(), (cols, rows))
+        .expect("the console's input, its output and the job");
+    let asked = holding.clone();
+    pty::set_control(
+        &master,
+        Box::new(move |request| match request["op"].as_str() {
+            Some("resize") => {
+                let size = |key: &str| request[key].as_u64().unwrap() as u16;
+                asked.resize(size("cols"), size("rows")).unwrap();
+            }
+            Some("close") => asked.close(),
+            other => panic!("the terminal asked its holder for {other:?}"),
+        }),
+    );
+    let waiter = holding.exit_waiter()?;
+    let (waited, forgotten) = (holding.clone(), holding.clone());
+    Ok(Local {
+        spawned: pty::Spawned {
+            pid,
+            started: holding.started.clone(),
+            master,
+        },
+        wait: Box::new(move || {
+            let exit = waiter().unwrap_or(pty::Exit::Code(-1));
+            waited.exited();
+            exit
+        }),
+        forget: Box::new(move || forgotten.close()),
+    })
+}
+
+/// Reads a terminal's output until `wanted` appears in it.
+#[cfg(unix)]
+pub fn read_until(master: &pinrail_host::pty::Master, wanted: &str) {
+    use std::io::Read;
+    let mut file = std::fs::File::from(master.try_clone().unwrap());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut seen = Vec::new();
+    let mut buf = [0u8; 1024];
+    while !String::from_utf8_lossy(&seen).contains(wanted) {
+        assert!(
+            Instant::now() < deadline,
+            "{:?}",
+            String::from_utf8_lossy(&seen)
+        );
+        match file.read(&mut buf) {
+            Ok(n) if n > 0 => seen.extend(&buf[..n]),
+            _ => std::thread::sleep(Duration::from_millis(20)),
+        }
+    }
+}
+
+/// Reads a terminal's output until `wanted` appears in it.
+#[cfg(windows)]
+pub fn read_until(master: &pinrail_host::pty::Master, wanted: &str) {
+    let (mut waker, wake) = pinrail_host::pty::wake_pair().unwrap();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(10));
+        waker.wake();
+    });
+    let mut seen = Vec::new();
+    pinrail_host::pty::read_loop(master.clone(), wake, |bytes| {
+        seen.extend(bytes);
+        !String::from_utf8_lossy(&seen).contains(wanted)
+    });
+    let seen = String::from_utf8_lossy(&seen);
+    assert!(seen.contains(wanted), "{seen:?}");
+}
+
+/// Types `bytes` into a terminal.
+pub fn type_into(master: &pinrail_host::pty::Master, bytes: &[u8]) {
+    let (input, typed) = std::sync::mpsc::channel();
+    input.send(bytes.to_vec()).unwrap();
+    drop(input);
+    pinrail_host::pty::write_loop(master.try_clone().unwrap(), typed);
+}
+
 pub fn command(folders: &Folders, args: &[&str]) -> Command {
     command_of(
         std::path::Path::new(env!("CARGO_BIN_EXE_pinrail-host")),
@@ -51,6 +294,11 @@ pub fn command(folders: &Folders, args: &[&str]) -> Command {
 /// A command of the host at `binary`, such as a copy that stands for
 /// another build.
 pub fn command_of(binary: &std::path::Path, folders: &Folders, args: &[&str]) -> Command {
+    // On Windows a process inherits what its parent can hand down, which
+    // would be the test's own output: the host, its holder and each
+    // terminal's console would keep it open, and whatever runs the test
+    // would wait for them once the test is done.
+    pinrail_host::keep_own_output_from_children();
     let mut command = Command::new(binary);
     command
         .args(args)
@@ -115,10 +363,7 @@ pub fn kill_holders(dir: &std::path::Path) {
             .ok()
             .and_then(|s| s.trim().parse::<u32>().ok())
         {
-            let _ = Command::new("kill")
-                .args(["-9", &pid.to_string()])
-                .stderr(Stdio::null())
-                .status();
+            kill(pid);
         }
     }
 }
@@ -139,7 +384,12 @@ pub fn serve(folders: &Folders, extra: &[&str]) -> Host {
 pub fn serve_of(binary: &std::path::Path, folders: &Folders, extra: &[&str]) -> Host {
     let mut args = vec!["serve"];
     args.extend(extra);
-    let mut child = command_of(binary, folders, &args)
+    started(command_of(binary, folders, &args), folders)
+}
+
+/// The host `serve` starts, once it has registered.
+pub fn started(mut serve: Command, folders: &Folders) -> Host {
+    let mut child = serve
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()

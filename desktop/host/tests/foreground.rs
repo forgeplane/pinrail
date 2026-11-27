@@ -1,6 +1,5 @@
 //! The host reports which program holds a terminal, and tells the
 //! person's input from a viewer's replies.
-#![cfg(unix)]
 
 mod common;
 
@@ -9,17 +8,23 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
 use pinrail_host::client::Client;
 use pinrail_host::events::Events;
 use pinrail_host::frame::Frame;
 use pinrail_host::outbox::Outbox;
-use pinrail_host::pty;
 use pinrail_host::records::Records;
 use pinrail_host::terminal::{self, Context, Input, Terminal};
 use serde_json::{Value, json};
 
+#[cfg(unix)]
 use common::{folders, serve};
 
+// A program that becomes another by `exec`, in the same process. Windows
+// has no `exec`: there the program in front changes when a shell starts
+// one, which `windows.rs` tests with its own shell,
+// `the_program_in_front_of_a_shell_is_reported`.
+#[cfg(unix)]
 #[test]
 fn the_program_that_holds_the_terminal_is_reported_when_it_changes() {
     let folders = folders();
@@ -31,7 +36,7 @@ fn the_program_that_holds_the_terminal_is_reported_when_it_changes() {
         .call(
             "terminal.spawn",
             json!({
-                "argv": ["sh", "-c", "sleep 1.2; exec sleep 5"],
+                "argv": common::shell("sleep 1.2; exec sleep 5"),
                 "cwd": cwd,
                 "cols": 80,
                 "rows": 24,
@@ -105,20 +110,18 @@ fn terminal(
         screens: dir.path().join("screens"),
         controlled: Arc::new(AtomicBool::new(false)),
     };
-    let env: BTreeMap<String, String> = [("PATH".to_string(), "/usr/bin:/bin".to_string())].into();
-    let argv = ["sh", "-c", script].map(String::from);
-    let spawned = pty::spawn(&argv, dir.path(), &env, 80, 24).unwrap();
+    let env: BTreeMap<String, String> = [("PATH".to_string(), common::path())].into();
+    let local = common::spawn_local(&common::shell(script), dir.path(), &env, (80, 24)).unwrap();
     let screen = terminal::screen(80, 24, 100).unwrap();
-    let pid = spawned.pid;
     let terminal = Terminal::start(
         "t_test".to_string(),
-        spawned,
+        local.spawned,
         json!({}),
         (80, 24),
         screen,
         context,
         pinrail_host::terminal::Holding {
-            forget: Box::new(move || pty::reap(pid)),
+            forget: local.forget,
             ring: None,
             held: Vec::new(),
         },
@@ -126,7 +129,8 @@ fn terminal(
     .unwrap();
     // the program is this process's child, not a holder's
     let report = terminal.exit_reporter();
-    std::thread::spawn(move || report(pty::wait_exit(pid).unwrap_or(pty::Exit::Code(-1))));
+    let wait = local.wait;
+    std::thread::spawn(move || report(wait()));
     (terminal, rx, dir)
 }
 
@@ -143,7 +147,7 @@ fn methods(rx: &mut tokio::sync::mpsc::UnboundedReceiver<Frame>) -> Vec<Value> {
 }
 
 async fn screen_shows(terminal: &Terminal, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     loop {
         let screen = terminal.text_request(0).await.unwrap();
         if screen.contains(text) || Instant::now() > deadline {
@@ -229,7 +233,7 @@ async fn nothing_reaches_a_program_once_it_is_asked_to_stop() {
 
 /// The terminal's text once it has ended.
 async fn ended_text(terminal: &Terminal) -> String {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     while terminal.info().ended_at.is_none() {
         assert!(Instant::now() < deadline, "the program did not end");
         tokio::time::sleep(Duration::from_millis(20)).await;

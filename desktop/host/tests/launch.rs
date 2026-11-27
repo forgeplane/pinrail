@@ -1,7 +1,8 @@
 //! The core starts the host so that it outlives the app: from a versioned
 //! copy, outside the core's process tree, with the core's environment, and
 //! adopts the one already running rather than starting a second.
-#![cfg(unix)]
+
+mod common;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -20,10 +21,13 @@ impl Drop for Started {
             let _ = client.call("host.stop", json!({}));
         }
         // in case the call failed, quietly: a host that stopped is gone
+        #[cfg(unix)]
         let _ = Command::new("kill")
             .arg(self.0.pid.to_string())
             .stderr(std::process::Stdio::null())
             .status();
+        #[cfg(windows)]
+        common::kill(self.0.pid);
     }
 }
 
@@ -38,6 +42,7 @@ fn launcher(data_dir: &Path, method: Method) -> Launcher {
     }
 }
 
+#[cfg(unix)]
 fn parent_of(pid: u32) -> u32 {
     let output = Command::new("ps")
         .args(["-o", "ppid=", "-p", &pid.to_string()])
@@ -65,7 +70,11 @@ fn starts_outside_the_core(method: Method) {
         .map(|e| e.unwrap().path())
         .collect();
     assert_eq!(copies.len(), 1);
-    // and is no child of the core
+    // and is no child of the core. Windows keeps no tree of processes for
+    // a host to leave: a process outlives the one that started it, and
+    // what would end the host with the app is the app's console or job,
+    // which the host is started without.
+    #[cfg(unix)]
     assert_ne!(parent_of(registration.pid), std::process::id());
     // with the environment it was given
     let client = Client::connect(&registration).unwrap();
@@ -142,7 +151,7 @@ fn the_programs_in_its_terminals_are_their_holder_s_responsibility() {
             json!({
                 "argv": ["sleep", "60"],
                 "cwd": "/",
-                "env": {"PATH": "/usr/bin:/bin"},
+                "env": {"PATH": common::path()},
                 "session_env": {},
                 "cols": 80,
                 "rows": 24,
@@ -210,9 +219,9 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo ready; exec sleep 600"],
+            json!({"argv": common::shell("echo ready; exec sleep 600"),
                    "cwd": root.path(), "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                   "env": {"PATH": common::path()}, "env_base": "host"}),
         )
         .unwrap();
     let terminal = spawned["terminal"].as_str().unwrap().to_string();
@@ -262,8 +271,7 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
 /// A copy of the host binary in `dir` that is another build: the same
 /// program with other bytes, as an older release would be.
 fn another_build(dir: &Path) -> PathBuf {
-    let copy = dir.join("pinrail-host");
-    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &copy).unwrap();
+    let copy = common::host_copy(dir);
     if cfg!(target_os = "macos") {
         // signed again under another identifier, which changes its bytes
         let status = Command::new("codesign")
@@ -302,7 +310,11 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     let old_build = old.build.clone().unwrap();
     let old_binary = std::fs::read_dir(data.join("host/bin"))
         .unwrap()
-        .map(|e| e.unwrap().path().join("pinrail-host"))
+        .map(|e| {
+            e.unwrap()
+                .path()
+                .join(old_launcher.bundled.file_name().unwrap())
+        })
         .next()
         .unwrap();
 
@@ -311,18 +323,27 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     let racer = {
         let (data, old_binary, pid) = (data.clone(), old_binary.clone(), old.pid);
         std::thread::spawn(move || {
-            while Command::new("kill")
-                .args(["-0", &pid.to_string()])
-                .stderr(std::process::Stdio::null())
-                .status()
-                .is_ok_and(|s| s.success())
-            {
+            while common::alive(pid) {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
+            #[cfg(unix)]
             Command::new(&old_binary)
                 .args(["serve", "--daemonize", "--data-dir"])
                 .arg(&data)
                 .status()
+                .unwrap();
+            // a holder on Windows starts its host as a process of its own,
+            // which runs until it is replaced or finds another host running
+            #[cfg(windows)]
+            Command::new(&old_binary)
+                .args(["serve", "--data-dir"])
+                .arg(&data)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+                .wait()
                 .unwrap();
         })
     };

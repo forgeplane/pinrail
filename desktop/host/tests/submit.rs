@@ -1,7 +1,6 @@
 //! `terminal.submit` types a message into the program: after a starting
 //! program goes quiet, inside a paste its text cannot end, then the submit
 //! keys once the output settles, with the person's keys held meanwhile.
-#![cfg(unix)]
 
 mod common;
 
@@ -12,7 +11,6 @@ use std::time::{Duration, Instant};
 
 use pinrail_host::client::{CallError, Client};
 use pinrail_host::events::Events;
-use pinrail_host::pty;
 use pinrail_host::records::Records;
 use pinrail_host::terminal::{self, Context, Input, Submit, SubmitError, Terminal};
 use serde_json::{Value, json};
@@ -33,7 +31,7 @@ fn spawn(client: &mut Client, folders: &Folders, script: &str) -> (String, u64) 
         .call(
             "terminal.spawn",
             json!({
-                "argv": ["sh", "-c", script],
+                "argv": common::shell(script),
                 "cwd": folders.runtime,
                 "cols": 120,
                 "rows": 24,
@@ -48,7 +46,7 @@ fn spawn(client: &mut Client, folders: &Folders, script: &str) -> (String, u64) 
 }
 
 fn screen_shows(client: &mut Client, id: &str, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     loop {
         let screen = client
             .call("terminal.text", json!({"terminal": id, "lines": 0}))
@@ -115,6 +113,13 @@ fn the_keys_that_clear_the_input_come_first_and_the_paste_once_it_settles() {
          printf '\\r\\ngot: clear=[%s] early=[%s] rest=[%s]\\r\\n' \"$c\" \"$e\" \"$r\"; sleep 5";
     let (id, pid) = spawn(&mut client, &folders, script);
     screen_shows(&mut client, &id, "ready");
+    // the paste waits longer on Windows, where the program takes longer
+    // than that tenth of a second to start each of its commands
+    let (settle_ms, max_ms) = if cfg!(windows) {
+        (3_000, 10_000)
+    } else {
+        (300, 2_000)
+    };
     client
         .call(
             "terminal.submit",
@@ -123,8 +128,8 @@ fn the_keys_that_clear_the_input_come_first_and_the_paste_once_it_settles() {
                 "text": "hi",
                 "bracketed": true,
                 "clear": "\u{15}",
-                "settle_ms": 300,
-                "max_ms": 2000,
+                "settle_ms": settle_ms,
+                "max_ms": max_ms,
                 "startup_quiet_ms": 0,
                 "submit": "\r",
                 "expect_pid": pid,
@@ -158,6 +163,16 @@ fn a_starting_program_is_left_to_go_quiet_first() {
             "i=0; while [ $i -lt 20 ]; do echo drawing; sleep 0.05; i=$((i+1)); done;",
         ),
     );
+    // Git's shell on Windows takes seconds to start, quiet all the while,
+    // and can pause between two lines for longer than a program that
+    // draws does: there the message is sent once the program has started
+    // to draw, and waits for a longer quiet
+    let quiet_ms = if cfg!(windows) {
+        screen_shows(&mut client, &id, "drawing");
+        1_500
+    } else {
+        300
+    };
     let started = Instant::now();
     client
         .call(
@@ -168,7 +183,7 @@ fn a_starting_program_is_left_to_go_quiet_first() {
                 "bracketed": false,
                 "settle_ms": 0,
                 "max_ms": 0,
-                "startup_quiet_ms": 300,
+                "startup_quiet_ms": quiet_ms,
             }),
         )
         .unwrap();
@@ -177,6 +192,9 @@ fn a_starting_program_is_left_to_go_quiet_first() {
         "{:?}",
         started.elapsed()
     );
+    // it had drawn everything by then: `ready` follows the last line
+    let screen = screen_shows(&mut client, &id, "");
+    assert!(screen.contains("ready"), "{screen}");
     let screen = screen_shows(&mut client, &id, "got:");
     assert!(screen.contains("got: o k \\r"), "{screen}");
 }
@@ -197,7 +215,7 @@ fn a_message_is_refused_when_another_program_holds_the_terminal_or_it_ended() {
     assert_eq!(code(wrong), "not_foreground");
 
     let (ended, _) = spawn(&mut client, &folders, "exit 0");
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     loop {
         let list: Value = client.call("terminal.list", json!({})).unwrap();
         if list
@@ -229,20 +247,18 @@ fn terminal(script: &str) -> (Terminal, tempfile::TempDir) {
         screens: dir.path().join("screens"),
         controlled: Arc::new(AtomicBool::new(false)),
     };
-    let env: BTreeMap<String, String> = [("PATH".to_string(), "/usr/bin:/bin".to_string())].into();
-    let argv = ["sh", "-c", script].map(String::from);
-    let spawned = pty::spawn(&argv, dir.path(), &env, 120, 24).unwrap();
+    let env: BTreeMap<String, String> = [("PATH".to_string(), common::path())].into();
+    let local = common::spawn_local(&common::shell(script), dir.path(), &env, (120, 24)).unwrap();
     let screen = terminal::screen(120, 24, 100).unwrap();
-    let pid = spawned.pid;
     let terminal = Terminal::start(
         "t_test".to_string(),
-        spawned,
+        local.spawned,
         json!({}),
         (120, 24),
         screen,
         context,
         pinrail_host::terminal::Holding {
-            forget: Box::new(move || pty::reap(pid)),
+            forget: local.forget,
             ring: None,
             held: Vec::new(),
         },
@@ -250,12 +266,13 @@ fn terminal(script: &str) -> (Terminal, tempfile::TempDir) {
     .unwrap();
     // the program is this process's child, not a holder's
     let report = terminal.exit_reporter();
-    std::thread::spawn(move || report(pty::wait_exit(pid).unwrap_or(pty::Exit::Code(-1))));
+    let wait = local.wait;
+    std::thread::spawn(move || report(wait()));
     (terminal, dir)
 }
 
 async fn shows(terminal: &Terminal, text: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     loop {
         let screen = terminal.text_request(0).await.unwrap();
         if screen.contains(text) || Instant::now() > deadline {

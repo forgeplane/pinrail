@@ -1,16 +1,15 @@
 //! Terminal channels: a viewer attaches, gets a snapshot and then the
 //! output, within the credit it returns, takes control with its first key,
 //! and resumes after a reconnect with only what it missed.
-#![cfg(unix)]
 
 mod common;
 
 use std::collections::{BTreeMap, VecDeque};
-use std::os::unix::net::UnixStream;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use pinrail_host::frame::{self, Frame, kind};
+use pinrail_host::net::{self, Stream};
 use pinrail_screen::{Options, Screen, TextRange};
 use serde_json::{Value, json};
 
@@ -18,7 +17,7 @@ use common::{Folders, folders, serve};
 
 /// A controller connection, with the frames of each channel kept apart.
 struct Connection {
-    stream: UnixStream,
+    stream: Stream,
     frames: mpsc::Receiver<Frame>,
     channels: BTreeMap<u32, VecDeque<Frame>>,
     next_id: u64,
@@ -26,7 +25,7 @@ struct Connection {
 
 impl Connection {
     fn open(host: &common::Host) -> Self {
-        let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+        let mut stream = net::connect(&host.registration.socket).unwrap();
         let hello = json!({"jsonrpc": "2.0", "id": 0, "method": "hello",
                            "params": {"secret": host.registration.secret}});
         frame::write_blocking(&mut stream, &Frame::json(&hello)).unwrap();
@@ -70,7 +69,7 @@ impl Connection {
 
     fn reply(&mut self, id: u64) -> Value {
         let frame = self
-            .pump(Duration::from_secs(10), |f| {
+            .pump(common::within(10), |f| {
                 f.channel == 0
                     && serde_json::from_slice::<Value>(&f.payload).is_ok_and(|m| m["id"] == id)
             })
@@ -107,7 +106,7 @@ impl Connection {
         {
             return Some(frame);
         }
-        self.pump(Duration::from_secs(10), |f| f.channel == channel)
+        self.pump(common::within(10), |f| f.channel == channel)
     }
 
     /// Frames on a channel until a META frame of `kind_name`, which is
@@ -147,7 +146,7 @@ impl Connection {
 fn spawn(connection: &mut Connection, folders: &Folders, script: &str) -> String {
     let reply = connection.call(
         "terminal.spawn",
-        json!({"argv": ["sh", "-c", script], "cwd": folders.runtime, "cols": 60, "rows": 12,
+        json!({"argv": common::shell(script), "cwd": folders.runtime, "cols": 60, "rows": 12,
                "env_base": "host"}),
     );
     reply["result"]["terminal"].as_str().unwrap().to_string()
@@ -179,7 +178,11 @@ fn screen(bytes: &[u8], cols: u16, rows: u16) -> String {
 }
 
 fn wait_for_text(connection: &mut Connection, terminal: &str, text: &str) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    wait_for_text_within(connection, terminal, text, common::within(10));
+}
+
+fn wait_for_text_within(connection: &mut Connection, terminal: &str, text: &str, within: Duration) {
+    let deadline = Instant::now() + within;
     loop {
         let reply = connection.call("terminal.text", json!({"terminal": terminal, "lines": 0}));
         if reply["result"]["text"]
@@ -331,16 +334,21 @@ fn a_viewer_that_returns_no_credit_is_resynchronized_when_it_does() {
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut connection = Connection::open(&host);
+    // more than the 4 MiB a viewer may be behind; half as much on Windows,
+    // where a pseudo console passes some 6,000 lines a second
+    let lines = if cfg!(windows) { 160_000 } else { 300_000 };
     let terminal = spawn(
         &mut connection,
         &folders,
-        "echo ready; read x; awk 'BEGIN { for (i = 0; i < 300000; i++) print \"line \" i \" of a lot of output\" }'; echo done; sleep 30",
+        &format!(
+            "echo ready; read x; awk 'BEGIN {{ for (i = 0; i < {lines}; i++) print \"line \" i \" of a lot of output\" }}'; echo done; sleep 30"
+        ),
     );
     wait_for_text(&mut connection, &terminal, "ready");
     let (channel, _) = attach(&mut connection, &terminal, json!({}));
     connection.until_meta(channel, "snapshot_end");
     connection.send(channel, kind::DATA, b"\r".to_vec());
-    wait_for_text(&mut connection, &terminal, "done");
+    wait_for_text_within(&mut connection, &terminal, "done", common::within(30));
     // only the first 256 KiB went out
     let mut received = 0;
     while let Some(frame) = connection.pump(Duration::from_millis(300), |f| f.channel == channel) {
@@ -440,14 +448,18 @@ fn a_viewer_that_attaches_inside_a_long_sequence_gets_its_snapshot_at_its_end() 
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut connection = Connection::open(&host);
-    // an image sequence longer than a snapshot can replay, left open
+    // an image sequence longer than a snapshot can replay, left open; the
+    // backslash that ends it is written as \134, since Git's shell on
+    // Windows reads two backslashes in its arguments as one
     let terminal = spawn(
         &mut connection,
         &folders,
-        "echo ready; printf '\\033_Gf=100;'; head -c 100000 /dev/zero | tr '\\0' A; read x; printf '\\033\\\\after\\n'; sleep 30",
+        "echo ready; printf '\\033_Gf=100;'; head -c 100000 /dev/zero | tr '\\0' A; read x; printf '\\033\\134after\\n'; sleep 30",
     );
     wait_for_text(&mut connection, &terminal, "ready");
-    std::thread::sleep(Duration::from_millis(500));
+    // until the sequence has begun, which on Windows waits for two more
+    // programs to start
+    std::thread::sleep(common::within(1) / 2);
     let (channel, format) = attach(&mut connection, &terminal, json!({}));
     assert_eq!(format, "vt");
     // nothing while the sequence is open
@@ -519,6 +531,11 @@ fn a_viewer_that_attaches_inside_a_sequence_gets_it_once() {
     connection.call("terminal.stop", json!({"terminal": terminal}));
 }
 
+// A pseudo console does not pass a program's colour query on: the host
+// never sees it, so it has nothing to answer with a viewer's colours, and
+// the program gets no answer at all. The viewer's colours still reach the
+// screen, which `filter.rs` tests on every system.
+#[cfg(unix)]
 #[test]
 fn the_colours_a_viewer_sent_as_an_observer_apply_once_it_takes_control() {
     let folders = folders();
@@ -545,7 +562,7 @@ fn the_colours_a_viewer_sent_as_an_observer_apply_once_it_takes_control() {
     );
     connection.send(channel, kind::CONTROL, b"\"take\"".to_vec());
     let text = {
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + common::within(10);
         loop {
             let reply = connection.call("terminal.text", json!({"terminal": terminal, "lines": 0}));
             let text = reply["result"]["text"].as_str().unwrap_or("").to_string();
@@ -574,7 +591,7 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
 
     // a second connection, which reads nothing until the long terminal's
     // snapshot and the quiet terminal's output are both queued
-    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let mut stream = net::connect(&host.registration.socket).unwrap();
     let mut call = |id: u64, method: &str, params: Value| {
         let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         frame::write_blocking(&mut stream, &Frame::json(&message)).unwrap();
@@ -593,7 +610,7 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
     let mut bytes: BTreeMap<u32, usize> = BTreeMap::new();
     let mut at_tick: Option<BTreeMap<u32, usize>> = None;
     let mut ended = false;
-    let deadline = Instant::now() + Duration::from_secs(20);
+    let deadline = Instant::now() + common::within(20);
     while !(ended && at_tick.is_some()) {
         assert!(
             Instant::now() < deadline,
@@ -639,10 +656,19 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
     );
 }
 
+/// The buffer of a pipe, the most it holds that its reader has not read
+/// yet.
+#[cfg(windows)]
+fn send_buffer(_: &Stream) -> usize {
+    // what the host's pipes are made with, each way
+    64 * 1024
+}
+
 /// The send buffer of a Unix socket, the most it holds that its reader has
 /// not read yet. The host's end of a connection has the same default.
+#[cfg(unix)]
 #[allow(unsafe_code)]
-fn send_buffer(stream: &UnixStream) -> usize {
+fn send_buffer(stream: &Stream) -> usize {
     use std::os::fd::AsRawFd;
     let mut size: libc::c_int = 0;
     let mut length = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
