@@ -429,9 +429,71 @@ pub fn skips_checks<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str
 }
 
 /// The arguments in `line`, split as a shell would: by spaces, with
-/// quotes and backslashes keeping one argument whole.
+/// quotes and backslashes keeping one argument whole. On Windows, as a
+/// Windows program splits its command line, where a backslash is a
+/// folder's separator, as in `--add-dir C:\code\app`.
 pub fn split_args(line: &str) -> Result<Vec<String>, String> {
+    if cfg!(windows) {
+        return windows_split(line);
+    }
     shlex::split(line).ok_or_else(|| "has a quote that is not closed".to_string())
+}
+
+/// `line` split by the rules of Windows programs (Microsoft's C runtime):
+/// spaces and tabs part the arguments outside double quotes; backslashes
+/// are themselves, but before a `"`, where each pair is one backslash and
+/// an odd one makes the `"` a character; and `""` inside quotes is one `"`.
+fn windows_split(line: &str) -> Result<Vec<String>, String> {
+    let mut args = Vec::new();
+    let mut arg = String::new();
+    let (mut quoted, mut started) = (false, false);
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                let mut slashes = 1;
+                while chars.peek() == Some(&'\\') {
+                    chars.next();
+                    slashes += 1;
+                }
+                if chars.peek() == Some(&'"') {
+                    arg.extend(std::iter::repeat_n('\\', slashes / 2));
+                    if slashes % 2 == 1 {
+                        chars.next();
+                        arg.push('"');
+                    }
+                } else {
+                    arg.extend(std::iter::repeat_n('\\', slashes));
+                }
+                started = true;
+            }
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                chars.next();
+                arg.push('"');
+            }
+            '"' => {
+                quoted = !quoted;
+                started = true;
+            }
+            ' ' | '\t' if !quoted => {
+                if started {
+                    args.push(std::mem::take(&mut arg));
+                    started = false;
+                }
+            }
+            c => {
+                arg.push(c);
+                started = true;
+            }
+        }
+    }
+    if quoted {
+        return Err("has a quote that is not closed".to_string());
+    }
+    if started {
+        args.push(arg);
+    }
+    Ok(args)
 }
 
 /// The first of `args` that gives again a flag Pinrail sets itself for the
@@ -554,6 +616,27 @@ pub(crate) mod testing {
         for given in checked {
             assert_eq!(skips_checks(agent, &args(given)), None, "{id}: {given:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod windows_split_tests {
+    use super::windows_split;
+
+    #[test]
+    fn a_windows_command_line_keeps_folders_whole() {
+        let args = windows_split(r#"--add-dir C:\code\app --model "opus 4" """#).unwrap();
+        assert_eq!(
+            args,
+            [r"--add-dir", r"C:\code\app", "--model", "opus 4", ""]
+        );
+        // a backslash before a quote, and quotes inside an argument
+        assert_eq!(
+            windows_split(r#"a\"b "c\\" "say ""hi""" d\\\"e"#).unwrap(),
+            [r#"a"b"#, r"c\", r#"say "hi""#, r#"d\"e"#]
+        );
+        assert_eq!(windows_split("  ").unwrap(), Vec::<String>::new());
+        assert!(windows_split(r#"--name "open"#).is_err());
     }
 }
 
