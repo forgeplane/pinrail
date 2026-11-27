@@ -96,6 +96,9 @@ pub(crate) fn is_scratch(folder: &Path) -> bool {
     .iter()
     .any(|scratch| folder.starts_with(scratch))
         || folder.starts_with(std::env::temp_dir())
+        // Windows' own, beside the person's
+        || std::env::var_os("SystemRoot")
+            .is_some_and(|root| folder.starts_with(std::path::Path::new(&root).join("Temp")))
 }
 
 /// The entries of `dir` that `wanted` keeps, each with when it last

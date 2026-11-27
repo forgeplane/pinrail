@@ -61,8 +61,12 @@ pub fn project_of(url: &str) -> Option<String> {
     let path = if let Some((_, rest)) = url.split_once("://") {
         // scheme://[user@]host[:port]/path
         rest.split_once('/').map(|(_, path)| path)?
-    } else if url.starts_with('/') || url.starts_with('.') || url.starts_with('~') {
-        url.rsplit('/').next()?
+    } else if url.starts_with('/')
+        || url.starts_with('.')
+        || url.starts_with('~')
+        || windows_path(url)
+    {
+        url.rsplit(['/', '\\']).next()?
     } else if let Some((_, path)) = url.split_once(':') {
         // [user@]host:path
         path
@@ -71,6 +75,17 @@ pub fn project_of(url: &str) -> Option<String> {
     };
     let path = path.trim_matches('/');
     (!path.is_empty()).then(|| path.to_string())
+}
+
+/// Whether `url` is a Windows path, `C:\…`, `C:/…` or `\\server\…`,
+/// which git takes for a local remote, not for `host:path`.
+fn windows_path(url: &str) -> bool {
+    let bytes = url.as_bytes();
+    url.starts_with("\\\\")
+        || bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/')
 }
 
 #[cfg(test)]
@@ -91,6 +106,9 @@ mod tests {
             ("https://token@gitlab.com/group/api.git", "group/api"),
             ("/srv/git/api.git", "api"),
             ("../api", "api"),
+            (r"C:\srv\git\api.git", "api"),
+            ("C:/srv/git/api.git", "api"),
+            (r"\\server\git\api.git", "api"),
         ] {
             assert_eq!(project_of(url).as_deref(), Some(project), "{url}");
         }

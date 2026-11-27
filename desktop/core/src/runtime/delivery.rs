@@ -75,14 +75,19 @@ fn attached_path(line: &str) -> bool {
         .strip_prefix('\'')
         .and_then(|l| l.strip_suffix('\''))
         .unwrap_or(line);
+    // on Windows, `C:\…\sessions\…` with either separator
+    let path = path.replace('\\', "/");
     let Some((_, tail)) = path.rsplit_once("/sessions/") else {
         return false;
     };
     let parts: Vec<&str> = tail.split('/').collect();
-    path.starts_with('/')
-        && parts.len() == 4
-        && parts[2] == "files"
-        && parts.iter().all(|p| !p.is_empty())
+    let bytes = path.as_bytes();
+    let absolute = path.starts_with('/')
+        || bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && bytes[2] == b'/';
+    absolute && parts.len() == 4 && parts[2] == "files" && parts.iter().all(|p| !p.is_empty())
 }
 
 impl super::Runtime {
@@ -383,7 +388,7 @@ impl super::Runtime {
 
 #[cfg(test)]
 mod tests {
-    use super::confirms;
+    use super::{attached_path, confirms};
 
     #[test]
     fn a_prompt_confirms_the_same_text_or_a_longer_one_that_starts_with_it() {
@@ -397,6 +402,20 @@ mod tests {
         assert!(!confirms("Use v3.", "Use v2.", false));
         assert!(!confirms("Use", "Use v2.", false));
         assert!(!confirms("anything", "   ", false));
+    }
+
+    #[test]
+    fn the_path_of_a_file_attached_on_windows_is_recognised() {
+        for line in [
+            r"C:\Users\p\AppData\Local\Pinrail\sessions\claude-code\ses_1\files\image.png",
+            r"'C:\Users\p\AppData\Local\Pinrail\sessions\claude-code\ses_1\files\my notes.md'",
+            "C:/Users/p/AppData/Local/Pinrail/sessions/claude-code/ses_1/files/image.png",
+        ] {
+            assert!(attached_path(line), "{line}");
+        }
+        assert!(!attached_path(
+            r"sessions\claude-code\ses_1\files\image.png"
+        ));
     }
 
     #[test]
