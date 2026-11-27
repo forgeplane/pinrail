@@ -321,6 +321,13 @@ mod tests {
         }
     }
 
+    /// A path as it stands inside a JSON string, with Windows's
+    /// backslashes escaped.
+    fn json_text(path: &str) -> String {
+        let quoted = serde_json::to_string(path).unwrap();
+        quoted[1..quoted.len() - 1].to_string()
+    }
+
     #[test]
     fn claude_code_names_the_folder_in_a_line_of_its_newest_session() {
         let home = Home::new();
@@ -329,6 +336,7 @@ mod tests {
         // the folder's name loses what the path had: my-api or my/api
         // the first lines of a session name no folder
         let session = |cwd: &str| {
+            let cwd = json_text(cwd);
             format!(
                 "{{\"type\":\"mode\",\"sessionId\":\"s1\"}}\n\
                  {{\"type\":\"permissionMode\",\"sessionId\":\"s1\"}}\n\
@@ -358,6 +366,7 @@ mod tests {
         let api = home.project("api");
         let web = home.project("web");
         let meta = |cwd: &str| {
+            let cwd = json_text(cwd);
             format!(
                 "{{\"timestamp\":\"2026-11-20T10:00:00Z\",\"type\":\"session_meta\",\"payload\":{{\"id\":\"x\",\"cwd\":\"{cwd}\",\"cli_version\":\"0.98.0\"}}}}\n{{\"type\":\"event\"}}\n"
             )
@@ -386,7 +395,8 @@ mod tests {
         let home = Home::new();
         let api = home.project("api");
         let line = format!(
-            "{{\"type\":\"session\",\"version\":3,\"id\":\"x\",\"timestamp\":\"2026-11-20T15:16:35Z\",\"cwd\":\"{api}\"}}\n"
+            "{{\"type\":\"session\",\"version\":3,\"id\":\"x\",\"timestamp\":\"2026-11-20T15:16:35Z\",\"cwd\":\"{}\"}}\n",
+            json_text(&api)
         );
         home.file(
             ".pi/agent/sessions/--code-api--/2026-11-20T15-16-35-039Z_x.jsonl",
@@ -447,7 +457,7 @@ mod tests {
         let at = Utc::now().timestamp_millis() - 60_000;
         home.file(
             ".local/share/opencode/storage/project/abc.json",
-            &format!("{{\"id\":\"abc\",\"worktree\":\"{api}\",\"vcs\":\"git\",\"time\":{{\"created\":1,\"updated\":{at}}}}}"),
+            &format!("{{\"id\":\"abc\",\"worktree\":\"{}\",\"vcs\":\"git\",\"time\":{{\"created\":1,\"updated\":{at}}}}}", json_text(&api)),
             1,
         );
         assert_eq!(home.recent(8), [(api, "opencode")]);
@@ -458,7 +468,8 @@ mod tests {
         let home = Home::new();
         let api = home.project("api");
         let web = home.project("web");
-        let cwd = |folder: &str| format!("{{\"type\":\"user\",\"cwd\":\"{folder}\"}}\n");
+        let cwd =
+            |folder: &str| format!("{{\"type\":\"user\",\"cwd\":\"{}\"}}\n", json_text(folder));
         home.file(".claude/projects/-api/a.jsonl", &cwd(&api), 50);
         home.file(".claude/projects/-web/a.jsonl", &cwd(&web), 30);
         home.file(".claude/projects/-gone/a.jsonl", &cwd("/no/such/folder"), 1);
