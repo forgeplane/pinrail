@@ -18,6 +18,8 @@ mod native;
 mod notify_linux;
 #[cfg(target_os = "macos")]
 mod notify_mac;
+#[cfg(windows)]
+mod notify_windows;
 mod quit;
 mod shell_profile;
 mod startup;
@@ -178,15 +180,50 @@ async fn request_notifications(app: AppHandle) -> Option<notify_mac::Status> {
     notification_status(app).await
 }
 
-#[cfg(not(target_os = "macos"))]
+/// What Windows will do with the app's toasts, in macOS's terms: allowed
+/// or not, as banners. Windows asks no one, so there is nothing to request.
+#[cfg(windows)]
+#[derive(serde::Serialize)]
+struct WindowsNotifications {
+    authorization: &'static str,
+    alert_style: &'static str,
+    alerts: bool,
+    sound: bool,
+    badge: bool,
+    shows: bool,
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn notification_status(app: AppHandle) -> Option<WindowsNotifications> {
+    let allowed = tauri::async_runtime::spawn_blocking(move || notify_windows::allowed(&app))
+        .await
+        .ok()??;
+    Some(WindowsNotifications {
+        authorization: if allowed { "authorized" } else { "denied" },
+        alert_style: "banner",
+        alerts: allowed,
+        sound: true,
+        badge: false,
+        shows: allowed,
+    })
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn request_notifications(app: AppHandle) -> Option<WindowsNotifications> {
+    notification_status(app).await
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 async fn request_notifications() -> Option<()> {
     None
 }
 
-/// Elsewhere the system has no say the app can read: the plugin's
+/// On Linux the system has no say the app can read: the desktop's
 /// notification is all there is, and the shell shows no status row.
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 async fn notification_status() -> Option<()> {
     None
@@ -202,7 +239,18 @@ fn open_notification_settings(app: AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Windows' Settings, at the notifications page, where the app has its
+/// switch.
+#[cfg(windows)]
+#[tauri::command]
+fn open_notification_settings(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url("ms-settings:notifications", None::<&str>)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn open_notification_settings() -> Result<(), String> {
     Err("this system has no notification settings page for the app".into())

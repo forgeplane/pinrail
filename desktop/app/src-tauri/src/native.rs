@@ -785,9 +785,9 @@ pub fn watch(app: AppHandle) {
 fn notify(app: &AppHandle, announce: &serde_json::Value) {
     let title = announce["title"].as_str().unwrap_or("Pinrail").to_string();
     let body = announce["body"].as_str().unwrap_or_default().to_string();
-    // the fallback below has no tags, which only macOS and Linux use
+    // the fallback below has no tags, which macOS, Linux and Windows use
     #[cfg_attr(
-        not(any(target_os = "macos", target_os = "linux")),
+        not(any(target_os = "macos", target_os = "linux", windows)),
         allow(unused_variables)
     )]
     let tag = announce["tag"].as_str().map(str::to_string);
@@ -802,6 +802,11 @@ fn notify(app: &AppHandle, announce: &serde_json::Value) {
     #[cfg(target_os = "linux")]
     {
         crate::notify_linux::notify(app, &title, &body, tag, sound);
+        return;
+    }
+    #[cfg(windows)]
+    {
+        crate::notify_windows::notify(app, &title, &body, tag, sound);
         return;
     }
     #[allow(unreachable_code)]
@@ -836,6 +841,8 @@ fn close_notification(app: &AppHandle, review_id: &str) {
     }
     #[cfg(target_os = "linux")]
     crate::notify_linux::close(review_id);
+    #[cfg(windows)]
+    crate::notify_windows::close(app, review_id);
 }
 
 #[cfg(test)]

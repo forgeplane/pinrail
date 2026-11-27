@@ -173,7 +173,8 @@ async function runNotifications(): Promise<Outcome> {
   if (status?.authorization === "not_determined")
     status = await invoke<NotificationStatus | null>("request_notifications");
   // the person's own answer is not a failure
-  if (status?.authorization === "denied") return { state: "skipped", text: "Not allowed in System Settings" };
+  if (status?.authorization === "denied")
+    return { state: "skipped", text: onWindows ? "Turned off in Windows' settings" : "Not allowed in System Settings" };
   return { state: "done", text: "On" };
 }
 

@@ -59,7 +59,8 @@ windows-registry = "0.5"
 windows-sys = { version = "0.61", features = ["Win32_System_DataExchange", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 # the paths of files dropped on the window, from WebView2, at wry's versions
 webview2-com = "0.38"
-windows = "0.61"
+# and toasts, which Windows' own notifications are
+windows = { version = "0.61", features = ["Data_Xml_Dom", "Foundation", "UI_Notifications"] }
 
 [target.'cfg(unix)'.dependencies]
 # the user's id, to find their login shell when SHELL is not set
