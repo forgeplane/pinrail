@@ -122,6 +122,14 @@ export function CliRow({ open }: { open: boolean }) {
 
   let note: ReactNode = undefined;
   if (error) note = error;
+  // on Windows, the line to run by hand, as Pinrail could not change the PATH
+  else if (status.warning && status.user_path && status.dir_on_path === false)
+    note = (
+      <span>
+        Installed, but {status.warning}. Add it from here, or run <span className="mono">{status.profile_line}</span> in
+        PowerShell
+      </span>
+    );
   else if (status.warning) note = `Installed, but ${status.warning}`;
   else if (status.outdated) note = `${link} is a copy from another version of Pinrail; installing replaces it`;
   else if (!status.installed && status.occupied_by)
