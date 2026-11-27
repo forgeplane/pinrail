@@ -1779,7 +1779,7 @@ async fn an_agent_starts_and_resumes_with_the_person_s_arguments() {
     let app = linked().await;
     app.state
         .settings()
-        .change(&json!({"agents": {"args": {"claude-code": "--model opus --append-system-prompt 'Be brief'"}}}))
+        .change(&json!({"agents": {"args": {"claude-code": "--model opus --append-system-prompt \"Be brief\""}}}))
         .unwrap();
     let given = "--model\nopus\n--append-system-prompt\nBe brief\n";
 
