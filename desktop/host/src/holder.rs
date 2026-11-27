@@ -293,6 +293,11 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
         };
         answer["id"] = id;
         let state = lock(state);
+        // an answer for this connection's host, not for one that replaced
+        // it meanwhile, whose own requests have the same ids
+        if state.connection != mine {
+            break;
+        }
         let raw: Vec<fdpass::Raw> = out.iter().map(fdpass::raw).collect();
         send_on(&state, &answer, &raw);
     }

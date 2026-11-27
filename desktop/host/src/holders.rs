@@ -52,6 +52,9 @@ type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<(Value, Vec<Owned>)>>>>;
 struct Link {
     instance: String,
     stream: Stream,
+    /// Held for each message sent: requests go from many threads, and a
+    /// message written in parts must not have another's between them.
+    sending: Mutex<()>,
     pending: Pending,
     next_id: AtomicU64,
     /// Cleared when the holder goes away.
@@ -68,6 +71,12 @@ impl Link {
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
     }
 
+    /// Sends one message whole.
+    fn send(&self, value: &Value, fds: &[fdpass::Raw]) -> std::io::Result<()> {
+        let _whole = self.sending.lock().unwrap_or_else(|e| e.into_inner());
+        fdpass::send(&self.stream, value, fds)
+    }
+
     /// Sends a request, and waits for its answer.
     fn request(
         &self,
@@ -81,7 +90,7 @@ impl Link {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert(id, tx);
-        fdpass::send(&self.stream, &request, fds)?;
+        self.send(&request, fds)?;
         rx.recv_timeout(ANSWER_WITHIN)
             .map_err(|_| std::io::Error::other("the holder did not answer"))
     }
@@ -97,7 +106,7 @@ impl Link {
             };
             request["terminal"] = json!(terminal);
             request["id"] = json!(link.next_id.fetch_add(1, Ordering::Relaxed));
-            let _ = fdpass::send(&link.stream, &request, &[]);
+            let _ = link.send(&request, &[]);
         })
     }
 }
@@ -179,6 +188,7 @@ impl Holders {
         let link = Arc::new(Link {
             instance: instance.to_string(),
             stream: stream.try_clone()?,
+            sending: Mutex::new(()),
             pending: Pending::default(),
             next_id: AtomicU64::new(1),
             alive: Arc::new(AtomicBool::new(true)),
@@ -373,8 +383,7 @@ impl Holders {
             return;
         };
         let id = link.next_id.fetch_add(1, Ordering::Relaxed);
-        let _ = fdpass::send(
-            &link.stream,
+        let _ = link.send(
             &json!({"op": "forget", "id": id, "terminal": terminal}),
             &[],
         );
@@ -526,4 +535,77 @@ fn started(line: String) -> std::io::Result<String> {
         return Err(std::io::Error::other("the holder did not start"));
     }
     Ok(instance)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Two connected ends of the host's kind of stream.
+    fn pair() -> (Stream, Stream, Option<tempfile::TempDir>) {
+        #[cfg(unix)]
+        let (path, dir) = {
+            let dir = tempfile::tempdir().unwrap();
+            (dir.path().join("s"), Some(dir))
+        };
+        #[cfg(windows)]
+        let (path, dir) = (
+            PathBuf::from(format!(
+                r"\\.\pipe\pinrail-link-test-{}",
+                crate::random_hex(4)
+            )),
+            None,
+        );
+        let listener = crate::net::listen(&path).unwrap();
+        let ours = crate::net::connect(&path).unwrap();
+        let (theirs, _) = listener.accept().unwrap();
+        (ours, theirs, dir)
+    }
+
+    #[test]
+    fn requests_sent_at_once_from_many_threads_reach_the_holder_whole() {
+        const THREADS: usize = 4;
+        const EACH: usize = 6;
+        // larger than a pipe's or a socket's buffer, so a write is cut up
+        const PAD: usize = 1 << 20;
+        let (ours, theirs, _dir) = pair();
+        let link = Arc::new(Link {
+            instance: "h".into(),
+            stream: ours,
+            sending: Mutex::new(()),
+            pending: Pending::default(),
+            next_id: AtomicU64::new(1),
+            alive: Arc::new(AtomicBool::new(true)),
+            own: true,
+            terminals: AtomicUsize::new(0),
+        });
+        let reader = std::thread::spawn(move || {
+            let mut whole = 0;
+            while whole < THREADS * EACH {
+                match fdpass::recv(&theirs) {
+                    Ok(Some((request, _)))
+                        if request["pad"].as_str().map(str::len) == Some(PAD) =>
+                    {
+                        whole += 1;
+                    }
+                    _ => break,
+                }
+            }
+            whole
+        });
+        let senders: Vec<_> = (0..THREADS)
+            .map(|i| {
+                let control = link.control(&format!("t{i}"));
+                std::thread::spawn(move || {
+                    for _ in 0..EACH {
+                        control(json!({"op": "resize", "pad": "x".repeat(PAD)}));
+                    }
+                })
+            })
+            .collect();
+        for sender in senders {
+            sender.join().unwrap();
+        }
+        assert_eq!(reader.join().unwrap(), THREADS * EACH);
+    }
 }
