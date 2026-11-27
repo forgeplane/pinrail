@@ -43,15 +43,24 @@ ureq = { version = "3", default-features = false, features = ["json"] }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# to keep the CLI's own output out of the server it starts, and the
-# terminal's size and the browser on Windows
+# to keep the CLI's own output out of the server it starts, the console
+# and the socket that pinrail attach waits on, the terminal's size and the
+# browser on Windows
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
   "Win32_Foundation",
+  "Win32_Networking_WinSock",
+  "Win32_Storage_FileSystem",
   "Win32_System_Console",
+  "Win32_System_IO",
+  "Win32_System_Threading",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ] }
+
+# a pseudo console for the attach test, and the program it starts
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security", "Win32_System_Pipes"] }
 
 # attachments are hashed with SHA-256, which is slow unoptimised
 [profile.dev.package.sha2]

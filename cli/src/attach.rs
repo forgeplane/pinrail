@@ -7,10 +7,11 @@
 //! crates/herdr-core/src/attach.rs and the `console` module of
 //! crates/herdr-core/src/platform/unix.rs; changed by Pinrail: it speaks the
 //! core's attach WebSocket, detaches on a two-key chord, and polls the
-//! socket and the keyboard in one loop.
+//! socket and the keyboard in one loop. The Windows console is adapted
+//! from the `console` module of crates/herdr-core/src/platform/windows.rs
+//! at the same commit, changed to wait on the socket too.
 
 use std::io::ErrorKind;
-use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
@@ -359,10 +360,17 @@ enum Ended {
 
 type Socket = WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
 
-fn stream_fd(socket: &Socket) -> i32 {
+fn stream_fd(socket: &Socket) -> console::Fd {
     match socket.get_ref() {
-        tungstenite::stream::MaybeTlsStream::Plain(stream) => stream.as_raw_fd(),
-        _ => -1,
+        #[cfg(unix)]
+        tungstenite::stream::MaybeTlsStream::Plain(stream) => {
+            std::os::fd::AsRawFd::as_raw_fd(stream)
+        }
+        #[cfg(windows)]
+        tungstenite::stream::MaybeTlsStream::Plain(stream) => {
+            std::os::windows::io::AsRawSocket::as_raw_socket(stream)
+        }
+        _ => console::NO_FD,
     }
 }
 
@@ -517,6 +525,7 @@ fn closed_reason(code: Option<CloseCode>) -> String {
 
 /// The person's terminal: raw mode, unbuffered output, and waiting on the
 /// keyboard and the socket together.
+#[cfg(unix)]
 #[allow(unsafe_code)]
 mod console {
     use std::fs::File;
@@ -525,6 +534,10 @@ mod console {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     static TERMINATED: AtomicBool = AtomicBool::new(false);
+
+    /// The socket's descriptor.
+    pub type Fd = i32;
+    pub const NO_FD: Fd = -1;
 
     extern "C" fn on_signal(_: libc::c_int) {
         TERMINATED.store(true, Ordering::SeqCst);
@@ -597,7 +610,7 @@ mod console {
 
     /// Waits up to `ms` for the keyboard or the socket `fd`. Returns what
     /// the keyboard gave, and whether the socket has something to read.
-    pub fn wait(fd: i32, ms: i32) -> (Keys, bool) {
+    pub fn wait(fd: Fd, ms: i32) -> (Keys, bool) {
         let mut fds = [
             libc::pollfd {
                 fd: 0,
@@ -629,6 +642,222 @@ mod console {
             Keys::Closed
         };
         (keys, socket)
+    }
+}
+
+/// The person's console on Windows: keys as VT bytes in and VT sequences
+/// out, nothing cooked, and waiting on the keyboard and the socket
+/// together.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+mod console {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use windows_sys::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
+    use windows_sys::Win32::Networking::WinSock::{
+        FD_CLOSE, FD_READ, WSACreateEvent, WSAEventSelect, WSAResetEvent,
+    };
+    use windows_sys::Win32::Storage::FileSystem::{ReadFile, WriteFile};
+    use windows_sys::Win32::System::Console::{
+        DISABLE_NEWLINE_AUTO_RETURN, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
+        ENABLE_VIRTUAL_TERMINAL_INPUT, ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleCP,
+        GetConsoleMode, GetConsoleOutputCP, GetStdHandle, INPUT_RECORD, KEY_EVENT,
+        PeekConsoleInputW, ReadConsoleInputW, STD_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+        SetConsoleCP, SetConsoleCtrlHandler, SetConsoleMode, SetConsoleOutputCP,
+    };
+    use windows_sys::Win32::System::Threading::WaitForMultipleObjects;
+    use windows_sys::core::BOOL;
+
+    static TERMINATED: AtomicBool = AtomicBool::new(false);
+
+    /// The socket.
+    pub type Fd = u64;
+    pub const NO_FD: Fd = u64::MAX;
+
+    unsafe extern "system" fn on_ctrl(_: u32) -> BOOL {
+        TERMINATED.store(true, Ordering::SeqCst);
+        1
+    }
+
+    /// Ctrl+Break, closing the window or signing out only set a flag: the
+    /// loop sees it within one wait and leaves through the normal cleanup,
+    /// so the console is given back. Ctrl+C, in raw mode, is a key the agent
+    /// gets.
+    pub fn catch_termination() {
+        // SAFETY: the handler only stores to an atomic.
+        unsafe { SetConsoleCtrlHandler(Some(on_ctrl), 1) };
+    }
+
+    pub fn terminated() -> bool {
+        TERMINATED.load(Ordering::SeqCst)
+    }
+
+    fn std(which: STD_HANDLE) -> HANDLE {
+        // SAFETY: the process's own standard handles, which it does not close.
+        unsafe { GetStdHandle(which) }
+    }
+
+    /// The console's modes and code pages, restored when dropped.
+    pub struct RawMode(Option<(u32, u32, u32, u32)>);
+
+    impl RawMode {
+        pub fn enter() -> RawMode {
+            // SAFETY: each call takes a standard handle and plain integers.
+            unsafe {
+                let (mut input, mut output) = (0u32, 0u32);
+                if GetConsoleMode(std(STD_INPUT_HANDLE), &mut input) == 0
+                    || GetConsoleMode(std(STD_OUTPUT_HANDLE), &mut output) == 0
+                {
+                    return RawMode(None);
+                }
+                let (cp_out, cp_in) = (GetConsoleOutputCP(), GetConsoleCP());
+                let raw = (input
+                    & !(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT))
+                    | ENABLE_VIRTUAL_TERMINAL_INPUT;
+                SetConsoleMode(std(STD_INPUT_HANDLE), raw);
+                SetConsoleMode(
+                    std(STD_OUTPUT_HANDLE),
+                    output | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN,
+                );
+                // keys are read, and output written, as UTF-8 bytes
+                SetConsoleOutputCP(65001);
+                SetConsoleCP(65001);
+                RawMode(Some((input, output, cp_out, cp_in)))
+            }
+        }
+    }
+
+    impl Drop for RawMode {
+        fn drop(&mut self) {
+            if let Some((input, output, cp_out, cp_in)) = self.0 {
+                // SAFETY: as in `enter`.
+                unsafe {
+                    SetConsoleMode(std(STD_INPUT_HANDLE), input);
+                    SetConsoleMode(std(STD_OUTPUT_HANDLE), output);
+                    SetConsoleOutputCP(cp_out);
+                    SetConsoleCP(cp_in);
+                }
+            }
+        }
+    }
+
+    /// Writes to standard output at once, as bytes: the console takes them
+    /// as UTF-8, a character cut between two writes included.
+    pub fn out(mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            let mut written = 0u32;
+            let len = bytes.len().min(u32::MAX as usize) as u32;
+            // SAFETY: the buffer is valid for `len` bytes.
+            let ok = unsafe {
+                WriteFile(
+                    std(STD_OUTPUT_HANDLE),
+                    bytes.as_ptr(),
+                    len,
+                    &mut written,
+                    std::ptr::null_mut(),
+                )
+            };
+            if ok == 0 || written == 0 {
+                return;
+            }
+            bytes = &bytes[written as usize..];
+        }
+    }
+
+    pub fn window_size() -> (u16, u16) {
+        crate::runs::terminal_size().unwrap_or((80, 24))
+    }
+
+    /// What the keyboard gave.
+    pub enum Keys {
+        Some(Vec<u8>),
+        None,
+        Closed,
+    }
+
+    /// The event the socket sets when it has something to read, made once.
+    fn socket_event(socket: Fd) -> Option<HANDLE> {
+        static EVENT: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+        let event = *EVENT.get_or_init(|| {
+            if socket == NO_FD {
+                return None;
+            }
+            // SAFETY: a new event, kept for the life of the process, which
+            // the socket sets; selecting events keeps the socket
+            // non-blocking, as the relay has it.
+            unsafe {
+                let event = WSACreateEvent();
+                if event == 0 {
+                    return None;
+                }
+                (WSAEventSelect(socket as usize, event, (FD_READ | FD_CLOSE) as i32) == 0)
+                    .then_some(event as usize)
+            }
+        });
+        event.map(|e| e as HANDLE)
+    }
+
+    /// Waits up to `ms` for the keyboard or the socket. Returns what the
+    /// keyboard gave, and whether the socket may have something to read.
+    /// Console events that are not keys, such as focus or a resize, wake the
+    /// wait without bytes: they are taken off and skipped.
+    pub fn wait(socket: Fd, ms: i32) -> (Keys, bool) {
+        let input = std(STD_INPUT_HANDLE);
+        let Some(event) = socket_event(socket) else {
+            return (Keys::None, true);
+        };
+        // SAFETY: both handles are open for the wait.
+        let woke =
+            unsafe { WaitForMultipleObjects(2, [input, event].as_ptr(), 0, ms.max(0) as u32) };
+        if woke == WAIT_OBJECT_0 + 1 {
+            // reset before reading, so what arrives meanwhile sets it again
+            // SAFETY: the event is open.
+            unsafe { WSAResetEvent(event as isize) };
+            return (Keys::None, true);
+        }
+        if woke != WAIT_OBJECT_0 {
+            // a timeout: the WebSocket may hold data it has buffered
+            return (Keys::None, true);
+        }
+        (read_keys(input), true)
+    }
+
+    fn read_keys(input: HANDLE) -> Keys {
+        // SAFETY: the records are plain data the calls fill within their
+        // count; the buffer is valid for its length.
+        unsafe {
+            let mut events: [INPUT_RECORD; 32] = std::mem::zeroed();
+            let mut n = 0u32;
+            if PeekConsoleInputW(input, events.as_mut_ptr(), events.len() as u32, &mut n) == 0 {
+                return Keys::Closed;
+            }
+            // Shift, Ctrl, Alt, Windows or a lock key alone types nothing,
+            // and ReadFile would wait for a key that does
+            let modifier = |vk: u16| matches!(vk, 0x10..=0x12 | 0x14 | 0x5B | 0x5C | 0x90 | 0x91 | 0xA0..=0xA5);
+            let key = events[..n as usize].iter().any(|e| {
+                e.EventType == KEY_EVENT as u16
+                    && e.Event.KeyEvent.bKeyDown != 0
+                    && !modifier(e.Event.KeyEvent.wVirtualKeyCode)
+            });
+            if !key {
+                ReadConsoleInputW(input, events.as_mut_ptr(), n, &mut n);
+                return Keys::None;
+            }
+            let mut buf = [0u8; 8192];
+            let mut got = 0u32;
+            if ReadFile(
+                input,
+                buf.as_mut_ptr(),
+                buf.len() as u32,
+                &mut got,
+                std::ptr::null_mut(),
+            ) == 0
+                || got == 0
+            {
+                return Keys::Closed;
+            }
+            Keys::Some(buf[..got as usize].to_vec())
+        }
     }
 }
 

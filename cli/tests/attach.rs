@@ -1,14 +1,12 @@
 //! `pinrail attach` in a pseudo-terminal, against a mock core that answers
 //! the run and ticket requests and serves the attach WebSocket: the
 //! snapshot and the output are drawn, credit is returned, keys go to the
-//! agent, and Ctrl-\ then d detaches without reaching it.
-#![cfg(unix)]
+//! agent, and Ctrl-\ then d detaches without reaching it. On Windows the
+//! terminal is a pseudo console, as Windows Terminal gives a program.
 #![allow(unsafe_code)]
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::os::fd::{FromRawFd, OwnedFd};
-use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -118,9 +116,35 @@ fn stream_timeout(socket: &tungstenite::WebSocket<TcpStream>) {
         .unwrap();
 }
 
-/// A pseudo-terminal: the side the test reads and writes, and the side
+/// `pinrail attach run_1` on a terminal of the test's own: what it draws
+/// arrives on `output`, and `input` is typed into it.
+struct Attached {
+    output: mpsc::Receiver<Vec<u8>>,
+    input: Box<dyn Write>,
+    /// Waits for the command to end; whether it succeeded.
+    wait: Box<dyn FnOnce() -> bool>,
+}
+
+/// Reads `reader` on a thread of its own, into a channel.
+fn pump(mut reader: impl Read + Send + 'static) -> mpsc::Receiver<Vec<u8>> {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = reader.read(&mut buf) {
+            if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                break;
+            }
+        }
+    });
+    rx
+}
+
+/// On a pseudo-terminal: the side the test reads and writes, and the side
 /// the CLI runs on.
-fn pty() -> (std::fs::File, OwnedFd) {
+#[cfg(unix)]
+fn attach(url: &str, data: &std::path::Path) -> Attached {
+    use std::os::fd::{FromRawFd, OwnedFd};
+    use std::process::{Command, Stdio};
     let (mut leader, mut follower) = (0, 0);
     // SAFETY: openpty writes two descriptors, which the test then owns.
     let ok = unsafe {
@@ -134,18 +158,163 @@ fn pty() -> (std::fs::File, OwnedFd) {
     };
     assert_eq!(ok, 0);
     // SAFETY: both descriptors are new and owned by nothing else.
-    unsafe {
+    let (terminal, follower) = unsafe {
         (
             std::fs::File::from_raw_fd(leader),
             OwnedFd::from_raw_fd(follower),
         )
+    };
+    let child = Command::new(env!("CARGO_BIN_EXE_pinrail"))
+        .arg("attach")
+        .arg("run_1")
+        .env("PINRAIL_URL", url)
+        .env("PINRAIL_DATA_DIR", data)
+        .env_remove("PINRAIL_JSON")
+        .stdin(Stdio::from(follower.try_clone().unwrap()))
+        .stdout(Stdio::from(follower.try_clone().unwrap()))
+        .stderr(Stdio::from(follower))
+        .spawn()
+        .unwrap();
+    Attached {
+        output: pump(terminal.try_clone().unwrap()),
+        input: Box::new(terminal),
+        wait: Box::new(move || child.wait_with_output().unwrap().status.success()),
+    }
+}
+
+/// On a pseudo console: the pipes the test reads and writes, and the
+/// console the CLI runs on.
+#[cfg(windows)]
+fn attach(url: &str, data: &std::path::Path) -> Attached {
+    use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
+    use windows_sys::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Console::{
+        COORD, ClosePseudoConsole, CreatePseudoConsole, HPCON,
+    };
+    use windows_sys::Win32::System::Pipes::CreatePipe;
+    use windows_sys::Win32::System::Threading::{
+        CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
+        EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, INFINITE,
+        InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION, STARTF_USESTDHANDLES,
+        STARTUPINFOEXW, UpdateProcThreadAttribute, WaitForSingleObject,
+    };
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    // SAFETY: each call gets valid, live arguments; every handle made is
+    // owned by a value that closes it, the console by the waiter.
+    unsafe {
+        let (mut in_read, mut in_write, mut out_read, mut out_write): (
+            HANDLE,
+            HANDLE,
+            HANDLE,
+            HANDLE,
+        ) = (
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        assert_ne!(
+            CreatePipe(&mut in_read, &mut in_write, std::ptr::null(), 0),
+            0
+        );
+        assert_ne!(
+            CreatePipe(&mut out_read, &mut out_write, std::ptr::null(), 0),
+            0
+        );
+        let mut console: HPCON = 0;
+        assert_eq!(
+            CreatePseudoConsole(COORD { X: 80, Y: 24 }, in_read, out_write, 0, &mut console),
+            0
+        );
+        let mut needed = 0usize;
+        InitializeProcThreadAttributeList(std::ptr::null_mut(), 1, 0, &mut needed);
+        let mut attributes = vec![0u8; needed];
+        let list = attributes.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
+        assert_ne!(
+            InitializeProcThreadAttributeList(list, 1, 0, &mut needed),
+            0
+        );
+        assert_ne!(
+            UpdateProcThreadAttribute(
+                list,
+                0,
+                PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE as usize,
+                console as *const std::ffi::c_void,
+                size_of::<HPCON>(),
+                std::ptr::null_mut(),
+                std::ptr::null(),
+            ),
+            0
+        );
+        let mut startup: STARTUPINFOEXW = std::mem::zeroed();
+        startup.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
+        startup.lpAttributeList = list;
+        startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startup.StartupInfo.hStdInput = INVALID_HANDLE_VALUE;
+        startup.StartupInfo.hStdOutput = INVALID_HANDLE_VALUE;
+        startup.StartupInfo.hStdError = INVALID_HANDLE_VALUE;
+        let mut env: Vec<(String, String)> = std::env::vars()
+            .filter(|(k, _)| {
+                !["PINRAIL_URL", "PINRAIL_DATA_DIR", "PINRAIL_JSON"]
+                    .contains(&k.to_uppercase().as_str())
+            })
+            .collect();
+        env.push(("PINRAIL_URL".into(), url.into()));
+        env.push(("PINRAIL_DATA_DIR".into(), data.display().to_string()));
+        env.sort_by_key(|(k, _)| k.to_uppercase());
+        let mut block: Vec<u16> = Vec::new();
+        for (k, v) in env {
+            block.extend(format!("{k}={v}").encode_utf16());
+            block.push(0);
+        }
+        block.push(0);
+        let mut line = wide(&format!(
+            "\"{}\" attach run_1",
+            env!("CARGO_BIN_EXE_pinrail")
+        ));
+        let mut info: PROCESS_INFORMATION = std::mem::zeroed();
+        let created = CreateProcessW(
+            std::ptr::null(),
+            line.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            block.as_mut_ptr().cast(),
+            std::ptr::null(),
+            &startup.StartupInfo,
+            &mut info,
+        );
+        DeleteProcThreadAttributeList(list);
+        assert_ne!(created, 0, "{}", std::io::Error::last_os_error());
+        // the console holds its own ends now
+        drop((
+            OwnedHandle::from_raw_handle(in_read as RawHandle),
+            OwnedHandle::from_raw_handle(out_write as RawHandle),
+            OwnedHandle::from_raw_handle(info.hThread as RawHandle),
+        ));
+        let process = OwnedHandle::from_raw_handle(info.hProcess as RawHandle);
+        Attached {
+            output: pump(std::fs::File::from_raw_handle(out_read as RawHandle)),
+            input: Box::new(std::fs::File::from_raw_handle(in_write as RawHandle)),
+            wait: Box::new(move || {
+                use std::os::windows::io::AsRawHandle;
+                let h = process.as_raw_handle() as HANDLE;
+                WaitForSingleObject(h, INFINITE);
+                let mut code = 1u32;
+                GetExitCodeProcess(h, &mut code);
+                // the console goes once its program has, which ends the output
+                ClosePseudoConsole(console);
+                code == 0
+            }),
+        }
     }
 }
 
 /// Reads what the CLI draws until it contains `wanted`.
-fn read_until(terminal: &mut std::fs::File, seen: &mut Vec<u8>, wanted: &[u8]) {
+fn read_until(output: &mpsc::Receiver<Vec<u8>>, seen: &mut Vec<u8>, wanted: &[u8]) {
     let deadline = Instant::now() + Duration::from_secs(10);
-    let mut buf = [0u8; 4096];
     while !seen.windows(wanted.len()).any(|w| w == wanted) {
         assert!(
             Instant::now() < deadline,
@@ -153,9 +322,8 @@ fn read_until(terminal: &mut std::fs::File, seen: &mut Vec<u8>, wanted: &[u8]) {
             String::from_utf8_lossy(wanted),
             String::from_utf8_lossy(seen)
         );
-        match terminal.read(&mut buf) {
-            Ok(0) | Err(_) => std::thread::sleep(Duration::from_millis(10)),
-            Ok(n) => seen.extend(&buf[..n]),
+        if let Ok(bytes) = output.recv_timeout(Duration::from_millis(50)) {
+            seen.extend(bytes);
         }
     }
 }
@@ -170,44 +338,29 @@ fn attach_draws_the_terminal_sends_keys_and_detaches_on_ctrl_backslash_then_d() 
     std::fs::create_dir_all(&data).unwrap();
     std::fs::write(data.join("person-token"), "tok").unwrap();
 
-    let (mut terminal, follower) = pty();
-    let child = Command::new(env!("CARGO_BIN_EXE_pinrail"))
-        .arg("attach")
-        .arg("run_1")
-        .env("PINRAIL_URL", &url)
-        .env("PINRAIL_DATA_DIR", &data)
-        .env_remove("PINRAIL_JSON")
-        .stdin(Stdio::from(follower.try_clone().unwrap()))
-        .stdout(Stdio::from(follower.try_clone().unwrap()))
-        .stderr(Stdio::from(follower))
-        .spawn()
-        .unwrap();
-    // SAFETY: the descriptor stays open while the test uses it.
-    unsafe {
-        let flags = libc::fcntl(std::os::fd::AsRawFd::as_raw_fd(&terminal), libc::F_GETFL);
-        libc::fcntl(
-            std::os::fd::AsRawFd::as_raw_fd(&terminal),
-            libc::F_SETFL,
-            flags | libc::O_NONBLOCK,
-        );
-    }
-
+    let Attached {
+        output,
+        mut input,
+        wait,
+    } = attach(&url, &data);
     let mut seen = Vec::new();
-    // it asks this terminal for its colours, then draws the screen
-    read_until(&mut terminal, &mut seen, b"\x1b[c");
-    terminal
+    // it asks this terminal for its colours, then draws the screen; a
+    // pseudo console answers the attributes query itself, and is not asked
+    if cfg!(unix) {
+        read_until(&output, &mut seen, b"\x1b[c");
+    }
+    input
         .write_all(b"\x1b]11;rgb:1010/2020/3030\x1b\\\x1b[?62;22c")
         .unwrap();
-    read_until(&mut terminal, &mut seen, b"SCREEN then output");
-    terminal.write_all(b"ls\r").unwrap();
+    read_until(&output, &mut seen, b"SCREEN then output");
+    input.write_all(b"ls\r").unwrap();
     std::thread::sleep(Duration::from_millis(300));
-    terminal.write_all(b"\x1c").unwrap();
+    input.write_all(b"\x1c").unwrap();
     std::thread::sleep(Duration::from_millis(200));
-    terminal.write_all(b"d").unwrap();
-    read_until(&mut terminal, &mut seen, b"[detached from run_1");
+    input.write_all(b"d").unwrap();
+    read_until(&output, &mut seen, b"[detached from run_1");
 
-    let output = child.wait_with_output().unwrap();
-    assert!(output.status.success());
+    assert!(wait());
     let heard = heard.recv_timeout(Duration::from_secs(10)).unwrap();
     assert!(heard.query.contains("ticket=tk"), "{}", heard.query);
     assert!(heard.query.contains("formats=vt"), "{}", heard.query);
@@ -215,9 +368,16 @@ fn attach_draws_the_terminal_sends_keys_and_detaches_on_ctrl_backslash_then_d() 
     assert_eq!(heard.input, b"ls\r");
     // credit for the snapshot and the output
     assert_eq!(heard.credit, ("SCREEN".len() + " then output".len()) as u64);
-    let facts = heard.texts.iter().find(|t| t["t"] == "facts").unwrap();
-    assert_eq!(facts["bg"], "#102030");
-    // the person's terminal is reset on the way out
-    assert!(seen.windows(8).any(|w| w == b"\x1b[?1004l"));
+    // the colours the terminal answered with; Windows' own pseudo console
+    // drops an OSC reply typed into it, so there they may not come at all
+    let facts = heard.texts.iter().find(|t| t["t"] == "facts");
+    if cfg!(unix) || facts.is_some() {
+        assert_eq!(facts.unwrap()["bg"], "#102030");
+    }
+    // the person's terminal is reset on the way out, which a pseudo console
+    // draws rather than passes on
+    if cfg!(unix) {
+        assert!(seen.windows(8).any(|w| w == b"\x1b[?1004l"));
+    }
     let _ = std::fs::remove_dir_all(&data);
 }
