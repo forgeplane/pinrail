@@ -598,6 +598,9 @@ struct Inner {
     job: OwnedHandle,
     size: Mutex<(u16, u16)>,
     control: Mutex<Option<Control>>,
+    /// Whether the program at the root is a shell that runs a command, read
+    /// once: its arguments do not change.
+    launcher: std::sync::OnceLock<bool>,
 }
 
 /// The host's side of a terminal: the console's input and output, the job,
@@ -626,6 +629,7 @@ pub fn master_from(
         job,
         size: Mutex::new(size),
         control: Mutex::new(None),
+        launcher: std::sync::OnceLock::new(),
     })))
 }
 
@@ -678,7 +682,11 @@ pub fn signal(master: &Master, _pid: u32, signal: i32) -> io::Result<()> {
 
 /// The program in front: a pseudo console has no foreground process group.
 /// What stands in for one: the newest live program a known shell at the
-/// root started itself; otherwise the program at the root.
+/// root started itself; otherwise the program at the root. A shell that
+/// runs a command, as cmd runs a batch file an agent is installed as, is
+/// a launcher, not a shell a person types into: what it starts stays
+/// behind it, as on Unix, where a shell without job control keeps its
+/// programs in its own process group.
 pub fn foreground_group(master: &Master) -> Option<u32> {
     // SAFETY: the job handle is open.
     let procs = unsafe { job_processes(raw(&master.0.job)) };
@@ -686,7 +694,25 @@ pub fn foreground_group(master: &Master) -> Option<u32> {
     if !procs.iter().any(|p| p.pid == root) {
         return None;
     }
+    let launcher = *master.0.launcher.get_or_init(|| {
+        pinrail_runtime::process::arguments(root).is_some_and(|args| runs_a_command(&args))
+    });
+    if launcher {
+        return Some(root);
+    }
     Some(newest_child(root, &procs).unwrap_or(root))
+}
+
+/// Whether a shell's arguments give it a command to run: `cmd /c`,
+/// `powershell -Command` or `-File`, `sh -c`.
+fn runs_a_command(args: &[String]) -> bool {
+    args.iter().skip(1).any(|arg| {
+        let arg = arg.to_ascii_lowercase();
+        matches!(
+            arg.as_str(),
+            "/c" | "-c" | "-command" | "-file" | "-f" | "-encodedcommand" | "-e"
+        )
+    })
 }
 
 /// A process in a terminal's job.
@@ -934,6 +960,23 @@ mod tests {
             plain(Path::new(r"\\?\UNC\server\share")),
             Path::new(r"\\?\UNC\server\share")
         );
+    }
+
+    #[test]
+    fn a_shell_given_a_command_is_a_launcher() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(runs_a_command(&args(&[
+            "cmd.exe", "/e:ON", "/v:OFF", "/d", "/c", "x.cmd"
+        ])));
+        assert!(runs_a_command(&args(&[
+            "pwsh",
+            "-NoProfile",
+            "-Command",
+            "x"
+        ])));
+        assert!(runs_a_command(&args(&["sh", "-c", "x"])));
+        assert!(!runs_a_command(&args(&["cmd", "/d", "/q"])));
+        assert!(!runs_a_command(&args(&["pwsh", "-NoLogo"])));
     }
 
     #[test]
