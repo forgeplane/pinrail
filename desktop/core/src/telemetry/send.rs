@@ -72,6 +72,14 @@ impl Context {
 fn os_version() -> &'static str {
     static VERSION: OnceLock<String> = OnceLock::new();
     VERSION.get_or_init(|| {
+        // the kernel's version on Windows, such as 10.0.26100
+        #[cfg(windows)]
+        let found = windows_registry::LOCAL_MACHINE
+            .open(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+            .and_then(|key| key.get_string("CurrentBuildNumber"))
+            .ok()
+            .map(|build| format!("10.0.{build}"));
+        #[cfg(not(windows))]
         let found = if cfg!(target_os = "macos") {
             std::process::Command::new("sw_vers")
                 .arg("-productVersion")

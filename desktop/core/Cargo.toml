@@ -44,6 +44,10 @@ ureq = "3"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
 
+# the system's version, for usage data
+[target.'cfg(windows)'.dependencies]
+windows-registry = "0.5"
+
 [dev-dependencies]
 # the host's server, run in a test's thread
 pinrail-host = { path = "../host" }

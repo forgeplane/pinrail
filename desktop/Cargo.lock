@@ -3441,6 +3441,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "windows-registry",
  "zip 9.8.2",
 ]
 
