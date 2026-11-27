@@ -170,12 +170,32 @@ jobs:
               desktop/target/release/bundle/appimage/*.AppImage
               desktop/target/release/bundle/deb/*.deb
               desktop/target/release/bundle/rpm/*.rpm
+          # a per-user NSIS installer, with the CLI, the host and ConPTY;
+          # not signed yet, so SmartScreen warns on the first run
+          - name: windows
+            runner: windows-latest
+            triple: x86_64-pc-windows-msvc
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.windows.conf.json
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/nsis/*.exe
+          - name: windows-arm
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.windows.conf.json
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/nsis/*.exe
     runs-on: ${{ matrix.runner }}
     # The universal macOS build compiles twice, about 20 minutes, then
     # waits in Apple's notary queue, which can take most of an hour. Two
     # hours leaves room for both, and a stuck notarization still fails
     # well before the default six.
     timeout-minutes: 120
+    # the steps are written for a Unix shell, which is Git Bash on Windows
+    defaults:
+      run:
+        shell: bash
     env:
       # a step cannot read a secret in its condition, only an environment
       # value: this says whether this run has what it takes to sign
@@ -228,6 +248,15 @@ jobs:
         with:
           version: ${{ steps.zig.outputs.version }}
           use-cache: false
+      # ring, which rustls uses, builds its assembly with Clang on Windows
+      # on ARM64, where MSVC's compiler cannot
+      - name: Clang (Windows on ARM64)
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        run: |
+          if ! command -v clang > /dev/null; then
+            choco install llvm --no-progress -y
+            echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
+          fi
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with: # zizmor: ignore[cache-poisoning]
           # The name the CI workflow saves under, keyed by the runner image
@@ -365,7 +394,8 @@ jobs:
           # names them the same: pinrail-app-universal.dmg, pinrail-app-amd64.AppImage,
           # pinrail-app-amd64.deb, pinrail-app-x86_64.rpm, and on ARM64
           # pinrail-app-aarch64.AppImage, pinrail-app-arm64.deb and
-          # pinrail-app-aarch64.rpm
+          # pinrail-app-aarch64.rpm; on Windows pinrail-app-x64.exe and
+          # pinrail-app-arm64.exe
           releaseAssetNamePattern: "pinrail-app-[arch][ext]"
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
@@ -458,23 +488,29 @@ jobs:
           COPYFILE_DISABLE: 1
         run: |
           set -eu
+          staging=$(mktemp -d)
+          mkdir -p cli-dist
+          cp LICENSE NOTICE desktop/app/notices/THIRD_PARTY_NOTICES.txt "$staging/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp "desktop/app/src-tauri/binaries/pinrail-cli-$TRIPLE.exe" "$staging/pinrail.exe"
+            "$staging/pinrail.exe" --version
+            (cd "$staging" && 7z a -tzip "$OLDPWD/cli-dist/pinrail-cli-$TRIPLE.zip" . > /dev/null)
+            exit 0
+          fi
           if [ "$RUNNER_OS" = macOS ]; then
             app=$(find desktop/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
             binary="$app/Contents/MacOS/pinrail-cli"
           else
             binary="desktop/app/src-tauri/binaries/pinrail-$TRIPLE"
           fi
-          staging=$(mktemp -d)
           cp "$binary" "$staging/pinrail"
-          cp LICENSE NOTICE desktop/app/notices/THIRD_PARTY_NOTICES.txt "$staging/"
           "$staging/pinrail" --version
-          mkdir -p cli-dist
           tar -czf "cli-dist/pinrail-cli-$TRIPLE.tar.gz" -C "$staging" .
       - name: Upload the CLI
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" cli-dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" cli-dist/* --repo "$GITHUB_REPOSITORY" --clobber
       # Attestations are refused to a private repository on the free plan,
       # so they wait for the repository to be public rather than failing a
       # signed, notarized build over a signature nobody can check yet.
@@ -491,7 +527,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
       - name: Wait before attesting again
         if: steps.attest.outcome == 'failure'
         run: sleep 30
@@ -503,7 +539,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
       - name: Wait before the last try
         if: steps.attest-again.outcome == 'failure'
         run: sleep 90
@@ -513,7 +549,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
 
   checksums:
     # always(), as for the build: a test job skipped because main's CI ran
@@ -535,7 +571,8 @@ jobs:
           # a signature. Every build adds to one file, so a lost entry shows here.
           jq -e '. as $j
             | ($j.version | length > 0)
-            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64", "linux-aarch64" ]
+            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64", "linux-aarch64",
+                   "windows-x86_64", "windows-aarch64" ]
                  | all(. as $p | ($j.platforms[$p].signature // "" | length > 0)
                                  and ($j.platforms[$p].url // "" | length > 0)))
           ' latest.json > /dev/null || { echo "latest.json is missing a platform or a signature:"; cat latest.json; exit 1; }
