@@ -133,9 +133,12 @@ fn take_lock(paths: &Paths) -> Result<File, Error> {
     match file.try_lock() {
         Ok(()) => {}
         Err(TryLockError::WouldBlock) => {
+            // Windows lets no one else read a locked file: there the
+            // running host's registration says which process it is
             let pid = fs::read_to_string(paths.lock())
                 .ok()
-                .and_then(|s| s.trim().parse().ok());
+                .and_then(|s| s.trim().parse().ok())
+                .or_else(|| Registration::read(&paths.registration()).map(|r| r.pid));
             return Err(Error::Running(pid));
         }
         Err(TryLockError::Error(error)) => return Err(error.into()),
