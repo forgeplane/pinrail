@@ -39,7 +39,14 @@ pub fn of(folder: &Path) -> Option<Checkout> {
 }
 
 fn git(folder: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git")
+    let mut command = Command::new("git");
+    // the app reads checkouts, and has no console for git to show
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    let out = command
         .arg("-C")
         .arg(folder)
         .args(args)

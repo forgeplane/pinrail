@@ -332,11 +332,22 @@ fn same_contents(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Starts `command` without a console window of its own on Windows, which
+/// the app, having no console, would otherwise open for a console program.
+pub(crate) fn without_window(command: &mut Command) -> &mut Command {
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    command
+}
+
 /// Whether `path` is some version of the pinrail CLI: it says `pinrail <version>`
 /// when asked. Anything that does not answer in time is not.
 fn is_pinrail_cli(path: &Path) -> bool {
     let Ok(mut child) = spawn(
-        Command::new(path)
+        without_window(&mut Command::new(path))
             .arg("--version")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

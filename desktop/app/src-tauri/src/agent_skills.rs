@@ -346,6 +346,7 @@ fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
     let mut command = {
         let mut command = std::process::Command::new("cmd");
         command.args(["/C", line]);
+        crate::cli_install::without_window(&mut command);
         command
     };
     command.current_dir(home);

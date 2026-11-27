@@ -56,7 +56,7 @@ notify-rust = "4.18"
 [target.'cfg(windows)'.dependencies]
 # the user's PATH in the registry, and the message that tells programs it changed
 windows-registry = "0.5"
-windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(unix)'.dependencies]
 # the user's id, to find their login shell when SHELL is not set
