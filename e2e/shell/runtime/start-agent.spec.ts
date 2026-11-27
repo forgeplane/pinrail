@@ -174,6 +174,8 @@ test("the page shows a tip, the next one on request", async ({ page }) => {
 });
 
 test("a typed folder is used as it is, and a flag that turns permission checks off is refused", async ({ page }) => {
+  // the core refuses the flag as it starts a run, which only Unix does
+  test.skip(process.platform === "win32", "agents run in Pinrail only on Unix");
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
   await page.goto("/#/sessions/new");
   await folderPicker(page).click();

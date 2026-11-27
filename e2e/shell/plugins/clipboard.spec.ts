@@ -77,6 +77,7 @@ async function reviewWithImage(request: import("@playwright/test").APIRequestCon
 
 test("a view that declares the clipboard copies its text and an image of its review, with a toast for each", async ({
   page,
+  browserName,
 }) => {
   await linkPlugin(page.request, copier("copier", ["clipboard"]), "copier");
   const id = await reviewWithImage(page.request, "copier");
@@ -92,6 +93,8 @@ test("a view that declares the clipboard copies its text and an image of its rev
   await frame.getByRole("button", { name: "Copy the image" }).click();
   await expect(frame.locator("#out")).toHaveText("copied");
   await expect(toast(page, "Copied card.png")).toBeVisible();
+  // headless WebKit on Linux keeps no image on its clipboard to read back
+  if (browserName === "webkit" && process.platform === "linux") return;
   const types = await page.evaluate(async () => (await navigator.clipboard.read()).flatMap((item) => item.types));
   expect(types).toContain("image/png");
 });
