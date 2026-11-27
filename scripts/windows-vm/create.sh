@@ -141,7 +141,9 @@ bundle="$HOME/Library/Containers/com.utmapp.UTM/Data/Documents/$name.utm"
 # UTM's scripting cannot put a disc in a CD drive, so the discs are added to
 # the VM's configuration while UTM is closed. The Windows ISO is an APFS
 # clone, which takes no extra space.
-osascript -e 'tell application "UTM" to quit'
+# UTM 5 can refuse to quit when asked, reporting "User cancelled", so it
+# is stopped with a signal then. No VM is running, as checked above.
+osascript -e 'tell application "UTM" to quit' 2>/dev/null || pkill -x UTM
 while pgrep -xq UTM; do sleep 1; done
 cp -c "$iso" "$bundle/Data/windows.iso" 2>/dev/null || cp "$iso" "$bundle/Data/windows.iso"
 cp "$setup_iso" "$bundle/Data/setup.iso"

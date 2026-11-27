@@ -135,7 +135,9 @@ bundle="$HOME/Library/Containers/com.utmapp.UTM/Data/Documents/$name.utm"
 # UTM's scripting cannot import a raw disk or put a disc in a CD drive, so
 # both are added to the VM's configuration while UTM is closed. The disk is a
 # sparse file: it takes space only as the VM writes to it.
-osascript -e 'tell application "UTM" to quit'
+# UTM 5 can refuse to quit when asked, reporting "User cancelled", so it
+# is stopped with a signal then. No VM is running, as checked above.
+osascript -e 'tell application "UTM" to quit' 2>/dev/null || pkill -x UTM
 while pgrep -xq UTM; do sleep 1; done
 echo "Unpacking the disk"
 tar -xJf "$cache/$image" -C "$bundle/Data" disk.raw
