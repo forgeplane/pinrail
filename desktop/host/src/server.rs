@@ -752,7 +752,10 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             let found = tokio::task::block_in_place(|| {
                 let mut env = shared.probe.get(false).vars;
                 if let Some(path) = path {
-                    env.retain(|(k, _)| k != "PATH");
+                    // Windows' own is spelt `Path`, and takes them as one
+                    env.retain(|(k, _)| {
+                        !(k == "PATH" || cfg!(windows) && k.eq_ignore_ascii_case("PATH"))
+                    });
                     env.push(("PATH".to_string(), path));
                 }
                 crate::programs::find(&names, &env)
