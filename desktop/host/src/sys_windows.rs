@@ -106,12 +106,16 @@ pub fn keep_own_output_from_children() {
 /// Starts `command` detached from this process: without a console, in a
 /// process group of its own, and outside this process's job when the job
 /// lets it out, so that it outlives an app that ends its job when it quits.
-/// Its standard input and errors go nowhere.
+/// Its standard input and errors go nowhere, and it gets none of this
+/// process's standard streams: what it inherited it would keep open for as
+/// long as it runs, and whatever reads this process's output would wait
+/// for it.
 pub fn spawn_detached(mut command: std::process::Command) -> std::io::Result<std::process::Child> {
     use std::os::windows::process::CommandExt;
     use windows_sys::Win32::System::Threading::{
         CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS,
     };
+    keep_own_output_from_children();
     command
         .stdin(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
