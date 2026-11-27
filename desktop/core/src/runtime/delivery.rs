@@ -71,10 +71,12 @@ fn without_attachments(text: &str) -> String {
 /// Whether a line is only the path of a file attached to a session.
 fn attached_path(line: &str) -> bool {
     let line = line.trim();
-    let path = line
-        .strip_prefix('\'')
-        .and_then(|l| l.strip_suffix('\''))
-        .unwrap_or(line);
+    // a path quoted for a shell, with each ' in it written '\'', which
+    // must not leave a \ for the separators below
+    let path = match line.strip_prefix('\'').and_then(|l| l.strip_suffix('\'')) {
+        Some(quoted) => quoted.replace("'\\''", "'"),
+        None => line.to_string(),
+    };
     // on Windows, `C:\…\sessions\…` with either separator
     let path = path.replace('\\', "/");
     let Some((_, tail)) = path.rsplit_once("/sessions/") else {
@@ -402,6 +404,17 @@ mod tests {
         assert!(!confirms("Use v3.", "Use v2.", false));
         assert!(!confirms("Use", "Use v2.", false));
         assert!(!confirms("anything", "   ", false));
+    }
+
+    #[test]
+    fn the_path_of_a_file_with_an_apostrophe_is_recognised() {
+        // as the window quotes it for a shell: ' as '\''
+        for line in [
+            r"'/My Data/sessions/codex/ses_2/files/it'\''s.md'",
+            r"'C:\Users\p\AppData\Local\dev.pinrail.desktop\sessions\codex\ses_2\files\it'\''s.md'",
+        ] {
+            assert!(attached_path(line), "{line}");
+        }
     }
 
     #[test]
