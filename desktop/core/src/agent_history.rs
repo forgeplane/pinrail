@@ -298,7 +298,20 @@ mod tests {
         }
         fn aged(&self, path: &Path, minutes: u64) {
             let at = self.now - Duration::from_secs(minutes * 60);
-            std::fs::File::open(path).unwrap().set_modified(at).unwrap();
+            let mut options = std::fs::File::options();
+            options.read(true);
+            // Windows changes the time through a handle that may write the
+            // attributes, and opens a folder only with backup semantics
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                const FILE_WRITE_ATTRIBUTES: u32 = 0x100;
+                const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+                options
+                    .access_mode(FILE_WRITE_ATTRIBUTES)
+                    .custom_flags(FILE_FLAG_BACKUP_SEMANTICS);
+            }
+            options.open(path).unwrap().set_modified(at).unwrap();
         }
         fn recent(&self, limit: usize) -> Vec<(String, &'static str)> {
             recent_where(self.path(), limit, &|_| true)

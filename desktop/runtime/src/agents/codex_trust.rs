@@ -220,13 +220,29 @@ mod tests {
             .unwrap()
     }
 
-    fn listed() -> Value {
+    /// The hooks file the fixture names, as Codex writes its path on Unix.
+    const FIXTURE_FILE: &str = "/Users/you/.codex/hooks.json";
+
+    /// The fixture, naming the plan's hooks file as this system writes its
+    /// path.
+    fn fixture() -> String {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/codex-app-server/hooks-list.json"
         );
-        serde_json::from_str::<Value>(&std::fs::read_to_string(path).unwrap()).unwrap()["result"]
-            .clone()
+        let file = plan().file.display().to_string().replace('\\', "\\\\");
+        std::fs::read_to_string(path)
+            .unwrap()
+            .replace(FIXTURE_FILE, &file)
+    }
+
+    fn listed() -> Value {
+        serde_json::from_str::<Value>(&fixture()).unwrap()["result"].clone()
+    }
+
+    /// The key Codex gives one of the plan's handlers.
+    fn key(handler: &str) -> String {
+        format!("{}:{handler}", plan().file.display())
     }
 
     #[test]
@@ -234,9 +250,9 @@ mod tests {
         let hashes = untrusted(&listed(), &plan());
         // seven of Pinrail's, and not the person's own SessionStart hook
         assert_eq!(hashes.len(), 7);
-        assert!(!hashes.contains_key("/Users/you/.codex/hooks.json:session_start:0:0"));
+        assert!(!hashes.contains_key(&key("session_start:0:0")));
         assert_eq!(
-            hashes["/Users/you/.codex/hooks.json:session_start:1:0"],
+            hashes[&key("session_start:1:0")],
             json!({"trusted_hash": "sha256:372fa435cd287901b7cd307bdab1750ab43bcd7330e9178603bb6e72516aa179"})
         );
     }
@@ -263,7 +279,11 @@ mod tests {
     fn trust_writes_codex_s_hashes_through_its_app_server() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("write.json");
-        assert_eq!(trust(&plan(), fake_app_server(&out)), Ok(7));
+        let list = dir.path().join("hooks-list.json");
+        std::fs::write(&list, fixture()).unwrap();
+        let mut server = fake_app_server(&out);
+        server.env("LIST", &list);
+        assert_eq!(trust(&plan(), server), Ok(7));
         let written: Value = serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
         let edit = &written["params"]["edits"][0];
         assert_eq!(edit["keyPath"], "hooks.state");
