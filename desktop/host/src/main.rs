@@ -1,18 +1,10 @@
 //! `pinrail-host`: runs the terminals of the agents Pinrail starts, in a
 //! process that outlives the app.
 
-#[cfg(unix)]
 fn main() -> std::process::ExitCode {
     cli::main()
 }
 
-#[cfg(not(unix))]
-fn main() -> std::process::ExitCode {
-    eprintln!("pinrail-host runs only on macOS and Linux");
-    std::process::ExitCode::FAILURE
-}
-
-#[cfg(unix)]
 mod cli {
     use std::path::PathBuf;
     use std::process::ExitCode;
@@ -20,6 +12,7 @@ mod cli {
 
     use pinrail_host::client::Client;
     use pinrail_host::frame::{self, Frame};
+    #[cfg(unix)]
     use pinrail_host::launch;
     use pinrail_host::paths::{self, Paths};
     use pinrail_host::registration::Registration;
@@ -136,6 +129,7 @@ Options:
     }
 
     pub fn main() -> ExitCode {
+        pinrail_host::keep_own_output_from_children();
         let args = match parse() {
             Ok(args) => args,
             Err(message) => {
@@ -175,6 +169,18 @@ Options:
     /// Takes the environment the core sends, then leaves the core's
     /// process tree, as `--handshake` and `--daemonize` ask, while the
     /// process still has one thread.
+    #[cfg(windows)]
+    fn detach(args: &Args) -> std::io::Result<()> {
+        // the launcher starts the host detached, with its environment
+        if args.daemonize || args.handshake.is_some() {
+            return Err(std::io::Error::other(
+                "--daemonize and --handshake are for macOS and Linux",
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
     fn detach(args: &Args) -> std::io::Result<()> {
         let stream = match &args.handshake {
             Some(socket) => Some(launch::receive_env(socket)?),

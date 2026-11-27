@@ -10,9 +10,7 @@
 //! update, keeps the terminals it has, and the host closes its connection
 //! when the last of them ends, which lets that holder exit.
 
-use crate::net::Stream;
 use std::collections::{BTreeMap, HashMap};
-use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
@@ -20,10 +18,11 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use crate::fdpass;
+use crate::fdpass::{self, Owned};
 use crate::holder;
+use crate::net::Stream;
 use crate::paths::Paths;
-use crate::pty::{Exit, SpawnError, Spawned};
+use crate::pty::{self, Exit, SpawnError, Spawned};
 
 /// How long a holder has to answer a request.
 const ANSWER_WITHIN: Duration = Duration::from_secs(10);
@@ -47,7 +46,7 @@ pub enum Start {
 /// terminal and the exit.
 pub type Exited = (String, String, Exit);
 
-type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<(Value, Vec<OwnedFd>)>>>>;
+type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<(Value, Vec<Owned>)>>>>;
 
 /// A connection to one holder.
 struct Link {
@@ -70,7 +69,11 @@ impl Link {
     }
 
     /// Sends a request, and waits for its answer.
-    fn request(&self, mut request: Value, fds: &[i32]) -> std::io::Result<(Value, Vec<OwnedFd>)> {
+    fn request(
+        &self,
+        mut request: Value,
+        fds: &[fdpass::Raw],
+    ) -> std::io::Result<(Value, Vec<Owned>)> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         request["id"] = json!(id);
         let (tx, rx) = mpsc::channel();
@@ -82,6 +85,21 @@ impl Link {
         rx.recv_timeout(ANSWER_WITHIN)
             .map_err(|_| std::io::Error::other("the holder did not answer"))
     }
+
+    /// How a terminal's master reaches this holder, for what the host
+    /// cannot do to the terminal itself: a request about `terminal`, sent
+    /// without waiting for its answer.
+    fn control(self: &Arc<Self>, terminal: &str) -> pty::Control {
+        let (link, terminal) = (Arc::downgrade(self), terminal.to_string());
+        Box::new(move |mut request: Value| {
+            let Some(link) = link.upgrade() else {
+                return;
+            };
+            request["terminal"] = json!(terminal);
+            request["id"] = json!(link.next_id.fetch_add(1, Ordering::Relaxed));
+            let _ = fdpass::send(&link.stream, &request, &[]);
+        })
+    }
 }
 
 /// A terminal a holder keeps, as a host that starts takes it back.
@@ -89,7 +107,7 @@ pub struct Kept {
     pub holder: String,
     pub terminal: String,
     pub spawned: Spawned,
-    pub ring: Option<OwnedFd>,
+    pub ring: Option<Owned>,
     /// How the program ended, if it has.
     pub exit: Option<Exit>,
 }
@@ -239,11 +257,10 @@ impl Holders {
         cwd: &str,
         env: &BTreeMap<String, String>,
         (cols, rows): (u16, u16),
-        ring: Option<&OwnedFd>,
+        ring: Option<&Owned>,
     ) -> Result<(String, Spawned), SpawnError> {
-        use std::os::fd::AsRawFd;
         let link = self.holder()?;
-        let fds: Vec<i32> = ring.map(AsRawFd::as_raw_fd).into_iter().collect();
+        let fds: Vec<fdpass::Raw> = ring.map(fdpass::raw).into_iter().collect();
         let (answer, fds) = link.request(
             json!({"op": "spawn", "terminal": terminal, "argv": argv, "cwd": cwd,
                    "env": env, "cols": cols, "rows": rows}),
@@ -266,15 +283,15 @@ impl Holders {
             }
             None => {}
         }
-        let master = fds
-            .into_iter()
-            .next()
+        let pid = answer["pid"].as_u64().unwrap_or_default() as u32;
+        let master = pty::master_from(pid, &mut fds.into_iter(), (cols, rows))
             .ok_or_else(|| std::io::Error::other("the holder sent no descriptor"))?;
+        pty::set_control(&master, link.control(terminal));
         link.terminals.fetch_add(1, Ordering::Relaxed);
         Ok((
             link.instance.clone(),
             Spawned {
-                pid: answer["pid"].as_u64().unwrap_or_default() as u32,
+                pid,
                 started: answer["started"].as_str().map(str::to_string),
                 master,
             },
@@ -296,7 +313,19 @@ impl Holders {
             };
             let mut fds = fds.into_iter();
             for entry in listed["terminals"].as_array().into_iter().flatten() {
-                let Some(master) = fds.next() else { break };
+                let pid = entry["pid"].as_u64().unwrap_or_default() as u32;
+                let size = |key: &str, default: u16| {
+                    entry[key]
+                        .as_u64()
+                        .and_then(|n| u16::try_from(n).ok())
+                        .unwrap_or(default)
+                };
+                let size = (size("cols", 80), size("rows", 24));
+                let Some(master) = pty::master_from(pid, &mut fds, size) else {
+                    break;
+                };
+                let terminal = entry["terminal"].as_str().unwrap_or_default();
+                pty::set_control(&master, link.control(terminal));
                 let ring = if entry["ring"] == true {
                     fds.next()
                 } else {
@@ -316,7 +345,7 @@ impl Holders {
                     holder: instance.clone(),
                     terminal: entry["terminal"].as_str().unwrap_or_default().to_string(),
                     spawned: Spawned {
-                        pid: entry["pid"].as_u64().unwrap_or_default() as u32,
+                        pid,
                         started: entry["started"].as_str().map(str::to_string),
                         master,
                     },
@@ -424,7 +453,7 @@ fn start_process(
 
 /// Starts `<binary> hold` in a session of its own, detached from the
 /// host's process group, and reads the instance id it prints.
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 #[allow(unsafe_code)]
 fn start_process(
     binary: &std::path::Path,
@@ -456,6 +485,33 @@ fn start_process(
     let mut child = command.spawn()?;
     let stdout = child.stdout.take();
     // reaped by this host while it runs, by init once it has gone
+    std::thread::spawn(move || child.wait());
+    let stdout = stdout.ok_or_else(|| std::io::Error::other("no output from the holder"))?;
+    let mut line = String::new();
+    std::io::BufReader::new(stdout).read_line(&mut line)?;
+    started(line)
+}
+
+/// Starts `<binary> hold`, detached from the host, and reads the instance
+/// id it prints.
+#[cfg(windows)]
+fn start_process(
+    binary: &std::path::Path,
+    idle_exit: Duration,
+    paths: &Paths,
+) -> std::io::Result<String> {
+    use std::io::BufRead;
+    let data_dir = paths.host_dir.parent().unwrap_or(&paths.host_dir);
+    let mut command = std::process::Command::new(binary);
+    command
+        .arg("hold")
+        .arg("--data-dir")
+        .arg(data_dir)
+        .arg("--idle-exit")
+        .arg(idle_exit.as_secs().to_string())
+        .stdout(std::process::Stdio::piped());
+    let mut child = crate::sys::spawn_detached(command)?;
+    let stdout = child.stdout.take();
     std::thread::spawn(move || child.wait());
     let stdout = stdout.ok_or_else(|| std::io::Error::other("no output from the holder"))?;
     let mut line = String::new();

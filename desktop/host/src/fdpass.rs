@@ -12,6 +12,15 @@ use std::os::unix::net::UnixStream;
 
 use serde_json::Value;
 
+/// What a message carries, owned.
+pub type Owned = OwnedFd;
+/// What a message is given to carry.
+pub type Raw = RawFd;
+
+pub fn raw(owned: &Owned) -> Raw {
+    owned.as_raw_fd()
+}
+
 /// The most descriptors one message carries: two per terminal, for the
 /// 64 terminals a host runs, with room to spare.
 pub const MAX_FDS: usize = 160;

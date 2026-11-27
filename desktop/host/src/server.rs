@@ -5,14 +5,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
 use crate::environment;
@@ -124,13 +122,14 @@ pub fn serve(config: Config) -> Result<(), Error> {
 /// Takes `host.lock` and writes this process's id into it. The system
 /// releases the lock when the process ends, however it ends.
 fn take_lock(paths: &Paths) -> Result<File, Error> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(paths.lock())?;
-    fs::set_permissions(paths.lock(), fs::Permissions::from_mode(0o600))?;
+    let mut file = crate::private(
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false),
+    )
+    .open(paths.lock())?;
     match file.try_lock() {
         Ok(()) => {}
         Err(TryLockError::WouldBlock) => {
@@ -262,8 +261,7 @@ async fn run(
             }
         }
     });
-    let mut terminate = signal(SignalKind::terminate())?;
-    let mut interrupt = signal(SignalKind::interrupt())?;
+    let mut stops = Stops::new()?;
     let mut tick = tokio::time::interval(idle_exit.min(Duration::from_secs(1)));
     let mut next_connection = 0u64;
     let reason = loop {
@@ -275,8 +273,7 @@ async fn run(
                 }
             }
             () = shared.stop.notified() => break "host.stop",
-            _ = terminate.recv() => break "SIGTERM",
-            _ = interrupt.recv() => break "SIGINT",
+            reason = stops.recv() => break reason,
             _ = tick.tick() => {
                 shared.prune();
                 let idle = *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner());
@@ -291,6 +288,57 @@ async fn run(
     // the writer is at most a second behind, and stops with the host
     let _ = shared.context.records.write();
     Ok(reason.to_string())
+}
+
+/// What stops the host from outside: SIGTERM and SIGINT on Unix; on
+/// Windows, Ctrl+C and Ctrl+Break, for a host run in a console.
+struct Stops {
+    #[cfg(unix)]
+    terminate: tokio::signal::unix::Signal,
+    #[cfg(unix)]
+    interrupt: tokio::signal::unix::Signal,
+    #[cfg(windows)]
+    interrupt: tokio::signal::windows::CtrlC,
+    #[cfg(windows)]
+    brk: tokio::signal::windows::CtrlBreak,
+}
+
+impl Stops {
+    fn new() -> io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use tokio::signal::unix::{SignalKind, signal};
+            Ok(Stops {
+                terminate: signal(SignalKind::terminate())?,
+                interrupt: signal(SignalKind::interrupt())?,
+            })
+        }
+        #[cfg(windows)]
+        {
+            Ok(Stops {
+                interrupt: tokio::signal::windows::ctrl_c()?,
+                brk: tokio::signal::windows::ctrl_break()?,
+            })
+        }
+    }
+
+    /// The next one, by name.
+    async fn recv(&mut self) -> &'static str {
+        #[cfg(unix)]
+        {
+            tokio::select! {
+                _ = self.terminate.recv() => "SIGTERM",
+                _ = self.interrupt.recv() => "SIGINT",
+            }
+        }
+        #[cfg(windows)]
+        {
+            tokio::select! {
+                _ = self.interrupt.recv() => "Ctrl+C",
+                _ = self.brk.recv() => "Ctrl+Break",
+            }
+        }
+    }
 }
 
 /// Takes back the terminals the holders keep. A terminal with a record
@@ -314,7 +362,7 @@ fn adopt(shared: &Arc<Shared>) {
             .get(&id)
             .filter(|r| r["ended_at"].is_null());
         let Some(record) = record else {
-            let _ = crate::pty::signal_group(spawned.pid, libc::SIGKILL);
+            let _ = crate::pty::signal(&spawned.master, spawned.pid, crate::pty::SIGKILL);
             shared.holders.forget(&holder, &id);
             continue;
         };

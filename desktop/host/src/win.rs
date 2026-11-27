@@ -14,8 +14,8 @@ use std::ptr::{null, null_mut};
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, LocalFree};
 use windows_sys::Win32::Security::Authorization::ConvertSidToStringSidW;
 use windows_sys::Win32::Security::{
-    GetLengthSid, GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TOKEN_USER, TokenElevation,
-    TokenUser,
+    GetLengthSid, GetTokenInformation, SECURITY_ATTRIBUTES, TOKEN_ELEVATION, TOKEN_QUERY,
+    TOKEN_USER, TokenElevation, TokenUser,
 };
 use windows_sys::Win32::System::Threading::{
     CreateEventW, GetCurrentProcess, OpenProcess, OpenProcessToken,
@@ -152,4 +152,41 @@ pub fn elevated() -> bool {
     // SAFETY: the token was opened above.
     unsafe { CloseHandle(token) };
     ok != 0 && elevation.TokenIsElevated != 0
+}
+
+/// Who may open the host's pipes: this user and the system. The
+/// integrity label keeps processes of a lower level out, so that an
+/// unelevated program cannot drive an elevated host. Adapted from
+/// herdr-core's `pipe_security` (crates/herdr-core/src/platform/windows.rs).
+pub fn pipe_security() -> io::Result<*mut SECURITY_ATTRIBUTES> {
+    use windows_sys::Win32::Security::Authorization::{
+        ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+    };
+    static MADE: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    if let Some(sa) = MADE.get() {
+        return Ok(*sa as *mut SECURITY_ATTRIBUTES);
+    }
+    let user = sid_text(&current_user()?);
+    if user.is_empty() {
+        return Err(io::Error::other("this user's SID cannot be read"));
+    }
+    let level = if elevated() { "HI" } else { "ME" };
+    let sddl = wide(format!("D:P(A;;GA;;;SY)(A;;GA;;;{user})S:(ML;;NRNW;;;{level})").as_ref());
+    let mut descriptor = null_mut();
+    // SAFETY: the SDDL is NUL-terminated; the descriptor is kept for
+    // the life of the process.
+    check(unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            SDDL_REVISION_1,
+            &mut descriptor,
+            null_mut(),
+        )
+    })?;
+    let attributes = Box::leak(Box::new(SECURITY_ATTRIBUTES {
+        nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor,
+        bInheritHandle: 0,
+    }));
+    Ok(*MADE.get_or_init(|| attributes as *mut _ as usize) as *mut SECURITY_ATTRIBUTES)
 }

@@ -1,18 +1,27 @@
 //! Starting the host so that it outlives the app: from a versioned copy of
 //! the bundled binary, through launchd on macOS or `systemd-run` on Linux,
-//! and otherwise as a process detached into its own session. The core
+//! and otherwise as a process detached into its own session; on Windows,
+//! as a process detached from the app's console and job. The core
 //! calls [`Launcher::ensure`]; the host's side of the launchd handshake is
 //! [`receive_env`] and [`report_detached`].
 
-use std::fs::{self, DirBuilder};
-use std::io::{self, BufRead, BufReader, Write};
+use std::fs;
+#[cfg(unix)]
+use std::fs::DirBuilder;
+use std::io;
+#[cfg(unix)]
+use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+#[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use serde_json::{Value, json};
+#[cfg(unix)]
+use serde_json::Value;
+use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::client::Client;
@@ -79,7 +88,9 @@ pub struct Launcher {
 impl Launcher {
     /// The launch methods of this system, best first.
     pub fn methods() -> Vec<Method> {
-        if cfg!(target_os = "macos") {
+        if cfg!(windows) {
+            vec![Method::Detached]
+        } else if cfg!(target_os = "macos") {
             vec![Method::Launchd, Method::Detached]
         } else {
             vec![Method::SystemdRun, Method::Detached]
@@ -132,8 +143,14 @@ impl Launcher {
         let copy = install(&self.bundled, &self.data_dir)?;
         for &method in &self.methods {
             let launched = match method {
+                #[cfg(unix)]
                 Method::Launchd => launchd(&copy, paths, &self.data_dir, &self.env),
+                #[cfg(unix)]
                 Method::SystemdRun => systemd_run(&copy, paths, &self.data_dir, &self.env),
+                #[cfg(windows)]
+                Method::Launchd | Method::SystemdRun => {
+                    Err(io::Error::from(io::ErrorKind::Unsupported))
+                }
                 Method::Detached => detached(&copy, &self.data_dir, &self.env),
             };
             match launched {
@@ -217,7 +234,14 @@ fn replace(registration: &Registration, formats: &[String]) -> Result<(), Error>
 /// `formats` command prints them; `vt`, which every host reads, when it
 /// cannot say.
 fn formats_of(copy: &Path) -> Vec<String> {
-    std::process::Command::new(copy)
+    let mut command = Command::new(copy);
+    // the app has no console, so Windows would open a window for one
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    command
         .arg("formats")
         .output()
         .ok()
@@ -245,26 +269,30 @@ pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
         Some(bundle) => root
             .join(bundle.file_name().unwrap_or_default())
             .join(bundled.strip_prefix(bundle).unwrap_or(bundled)),
-        None => root.join("pinrail-host"),
+        None => root.join(BINARY),
     };
     let copy = inside(&folder);
     if copy.is_file() {
         return Ok(copy);
     }
-    DirBuilder::new().recursive(true).mode(0o700).create(&bin)?;
+    private_dir(&bin, true)?;
     // written beside, then renamed into place, so a copy is never half
     let staging = bin.join(format!(".{sha8}.{}", crate::random_hex(4)));
-    DirBuilder::new().mode(0o700).create(&staging)?;
+    private_dir(&staging, false)?;
     let written = match bundle {
         Some(bundle) => copy_tree(
             bundle,
             &staging.join(bundle.file_name().unwrap_or_default()),
         ),
-        None => {
-            let staged = inside(&staging);
-            fs::write(&staged, &bytes)
-                .and_then(|()| fs::set_permissions(&staged, fs::Permissions::from_mode(0o700)))
-        }
+        None => write_binary(&inside(&staging), &bytes).and_then(|()| {
+            // on Windows, the ConPTY the host loads from beside it
+            let conpty = bundled.with_file_name("conpty");
+            if cfg!(windows) && conpty.is_dir() {
+                copy_tree(&conpty, &staging.join("conpty"))
+            } else {
+                Ok(())
+            }
+        }),
     };
     if let Err(error) = written {
         let _ = fs::remove_dir_all(&staging);
@@ -282,6 +310,41 @@ pub fn install(bundled: &Path, data_dir: &Path) -> io::Result<PathBuf> {
             Err(error)
         }
     }
+}
+
+/// The host's executable, as a copy of it is named.
+const BINARY: &str = if cfg!(windows) {
+    "pinrail-host.exe"
+} else {
+    "pinrail-host"
+};
+
+/// Creates `dir`, readable by its owner only on Unix; on Windows the data
+/// folder's own permissions, which are the person's, apply.
+fn private_dir(dir: &Path, recursive: bool) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        DirBuilder::new()
+            .recursive(recursive)
+            .mode(0o700)
+            .create(dir)
+    }
+    #[cfg(windows)]
+    {
+        if recursive {
+            fs::create_dir_all(dir)
+        } else {
+            fs::create_dir(dir)
+        }
+    }
+}
+
+/// Writes a copy of the host's executable, which only its owner may run.
+fn write_binary(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    fs::write(path, bytes)?;
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    Ok(())
 }
 
 /// How long a copy is kept after it was made, whether or not a process
@@ -399,7 +462,7 @@ fn bundle_of(binary: &Path) -> Option<&Path> {
 /// the person alone: executables stay executable, and links are refused,
 /// since a bundle the app carries has none.
 fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
-    DirBuilder::new().mode(0o700).create(to)?;
+    private_dir(to, false)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let (source, dest) = (entry.path(), to.join(entry.file_name()));
@@ -407,10 +470,13 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
         if kind.is_dir() {
             copy_tree(&source, &dest)?;
         } else if kind.is_file() {
-            let executable = entry.metadata()?.permissions().mode() & 0o100 != 0;
             fs::write(&dest, fs::read(&source)?)?;
-            let mode = if executable { 0o700 } else { 0o600 };
-            fs::set_permissions(&dest, fs::Permissions::from_mode(mode))?;
+            #[cfg(unix)]
+            {
+                let executable = entry.metadata()?.permissions().mode() & 0o100 != 0;
+                let mode = if executable { 0o700 } else { 0o600 };
+                fs::set_permissions(&dest, fs::Permissions::from_mode(mode))?;
+            }
         } else {
             return Err(io::Error::other(format!(
                 "{} is neither a file nor a folder",
@@ -421,8 +487,27 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Starts `serve` detached from the app: without its console, in a process
+/// group of its own and, when the app's job allows it, outside the job, so
+/// that it outlives the app. The host is not waited for; `launch` waits
+/// until it answers.
+#[cfg(windows)]
+fn detached(copy: &Path, data_dir: &Path, env: &[(String, String)]) -> io::Result<()> {
+    let mut command = Command::new(copy);
+    command
+        .args(["serve", "--data-dir"])
+        .arg(data_dir)
+        .env_clear()
+        .envs(env.iter().map(|(k, v)| (k, v)))
+        .stdout(Stdio::null());
+    let mut child = crate::sys::spawn_detached(command)?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
+}
+
 /// Starts `serve --daemonize` as a child, which forks into its own session
 /// and exits, so the host is no longer the app's child.
+#[cfg(unix)]
 fn detached(copy: &Path, data_dir: &Path, env: &[(String, String)]) -> io::Result<()> {
     let status = Command::new(copy)
         .args(["serve", "--daemonize", "--data-dir"])
@@ -442,9 +527,11 @@ fn detached(copy: &Path, data_dir: &Path, env: &[(String, String)]) -> io::Resul
     }
 }
 
+#[cfg(unix)]
 /// The launchd job's label.
 const LABEL_PREFIX: &str = "dev.pinrail.host";
 
+#[cfg(unix)]
 /// Starts the host as a one-shot launchd job in the user's GUI domain, so
 /// that it has its own coalition and survives the app. The job's process
 /// receives the environment over a socket, so that no value is written
@@ -465,6 +552,7 @@ fn launchd(
     result
 }
 
+#[cfg(unix)]
 fn launchd_in(
     copy: &Path,
     folder: &Path,
@@ -485,6 +573,7 @@ fn launchd_in(
     started
 }
 
+#[cfg(unix)]
 fn launchctl(args: &[&str]) -> io::Result<()> {
     let output = Command::new("/bin/launchctl")
         .args(args)
@@ -501,6 +590,7 @@ fn launchctl(args: &[&str]) -> io::Result<()> {
     }
 }
 
+#[cfg(unix)]
 /// A launchd job that runs once, when kickstarted, and whose process group
 /// launchd leaves alone when the job's process exits.
 fn job_description(label: &str, copy: &Path, data_dir: &Path, socket: &Path) -> String {
@@ -541,12 +631,14 @@ fn job_description(label: &str, copy: &Path, data_dir: &Path, socket: &Path) -> 
     )
 }
 
+#[cfg(unix)]
 fn xml_escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
 
+#[cfg(unix)]
 /// The core's side of the handshake: sends the environment to the
 /// launched process and waits until it reports that it detached.
 fn hand_over(listener: &UnixListener, env: &[(String, String)]) -> io::Result<()> {
@@ -583,6 +675,7 @@ fn hand_over(listener: &UnixListener, env: &[(String, String)]) -> io::Result<()
     }
 }
 
+#[cfg(unix)]
 /// The host's side of the handshake: connects to the core's socket and
 /// takes the environment it sends as its own. Call it while the process
 /// has one thread.
@@ -608,6 +701,7 @@ pub fn receive_env(socket: &Path) -> io::Result<UnixStream> {
     Ok(stream)
 }
 
+#[cfg(unix)]
 /// Leaves the caller's process tree, as `serve --daemonize` does: forks,
 /// the parent exits, and the child goes on in a new session. Call it while
 /// the process has one thread.
@@ -615,12 +709,14 @@ pub fn daemonize() -> io::Result<()> {
     crate::sys::daemonize()
 }
 
+#[cfg(unix)]
 /// Tells the core that this process detached, from the process that
 /// detached.
 pub fn report_detached(mut stream: UnixStream) -> io::Result<()> {
     writeln!(stream, "{}", json!({ "detached": std::process::id() }))
 }
 
+#[cfg(unix)]
 /// Starts the host as a transient unit of the user's systemd manager, so
 /// that it lives outside the app's scope. The environment goes in a 0600
 /// file that `EnvironmentFile` names, never on the command line.
@@ -655,6 +751,7 @@ fn systemd_run(
     result
 }
 
+#[cfg(unix)]
 /// The version of systemd that `systemd-run --version` reports, which
 /// must be 239 or later.
 fn systemd_version() -> io::Result<u32> {
@@ -667,10 +764,12 @@ fn systemd_version() -> io::Result<u32> {
         .ok_or_else(|| io::Error::other("systemd-run is missing or older than 239"))
 }
 
+#[cfg(unix)]
 fn parse_systemd_version(text: &str) -> Option<u32> {
     text.split_whitespace().nth(1)?.parse().ok()
 }
 
+#[cfg(unix)]
 /// `systemd-run`'s arguments for a version: `--service-type=exec` from
 /// 240, `OOMPolicy` from 243.
 fn systemd_run_args(
@@ -706,6 +805,7 @@ fn systemd_run_args(
     args
 }
 
+#[cfg(unix)]
 /// An `EnvironmentFile`: a quoted assignment per line. A variable whose
 /// name is not a shell name, or whose value spans lines, is left out.
 fn environment_file(env: &[(String, String)]) -> String {
@@ -723,6 +823,7 @@ fn environment_file(env: &[(String, String)]) -> String {
         .collect()
 }
 
+#[cfg(unix)]
 fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
     let mut file = fs::OpenOptions::new()
@@ -744,7 +845,7 @@ mod tests {
         fs::write(&bundled, b"binary one").unwrap();
         let data = dir.path().join("data");
         let first = install(&bundled, &data).unwrap();
-        assert_eq!(first.file_name().unwrap(), "pinrail-host");
+        assert_eq!(first.file_name().unwrap(), BINARY);
         let folder = first
             .parent()
             .unwrap()
@@ -754,8 +855,11 @@ mod tests {
             .unwrap();
         assert!(folder.starts_with(&format!("{}-", env!("CARGO_PKG_VERSION"))));
         assert_eq!(fs::read(&first).unwrap(), b"binary one");
-        let mode = fs::metadata(&first).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode, 0o700);
+        #[cfg(unix)]
+        {
+            let mode = fs::metadata(&first).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700);
+        }
         assert_eq!(install(&bundled, &data).unwrap(), first);
         // a new build goes to a new folder, and the old copy stays
         fs::write(&bundled, b"binary two").unwrap();
@@ -824,7 +928,7 @@ mod tests {
         let executable = if bundle {
             folder.join("Pinrail Host.app/Contents/MacOS/pinrail-host")
         } else {
-            folder.join("pinrail-host")
+            folder.join(BINARY)
         };
         fs::create_dir_all(executable.parent().unwrap()).unwrap();
         // this test binary, which runs from a copy: a copy of a system
@@ -848,7 +952,16 @@ mod tests {
 
     /// Dates a copy's folder an hour back, as one made long ago.
     fn made_long_ago(bin: &Path, name: &str) {
-        let folder = fs::File::open(bin.join(name)).unwrap();
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        // Windows opens a folder only with backup semantics, and changes
+        // its times only with write access
+        #[cfg(windows)]
+        std::os::windows::fs::OpenOptionsExt::custom_flags(
+            options.write(true),
+            windows_sys::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS,
+        );
+        let folder = options.open(bin.join(name)).unwrap();
         let hour_ago = std::time::SystemTime::now() - Duration::from_secs(3600);
         folder.set_modified(hour_ago).unwrap();
     }
@@ -968,6 +1081,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn systemd_run_s_arguments_follow_its_version() {
         let args = |version| {
@@ -1005,6 +1119,7 @@ mod tests {
         assert!(args(239).contains(&"--service-type=simple".to_string()));
     }
 
+    #[cfg(unix)]
     #[test]
     fn systemd_s_version_is_read_from_its_first_line() {
         assert_eq!(
@@ -1014,6 +1129,7 @@ mod tests {
         assert_eq!(parse_systemd_version(""), None);
     }
 
+    #[cfg(unix)]
     #[test]
     fn the_environment_file_quotes_values_and_skips_what_it_cannot_hold() {
         let env = [
@@ -1029,6 +1145,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn the_job_description_runs_once_and_abandons_its_process_group() {
         let job = job_description(

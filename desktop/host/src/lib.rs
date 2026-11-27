@@ -2,24 +2,24 @@
 //! the app. The core finds it through its registration, connects to its
 //! socket and speaks the framed protocol of [`frame`] with it.
 //!
-//! On Windows, the connections and the registration are there; the
-//! terminals themselves still run only on Unix.
+//! Agents run in PTYs on Unix and on pseudo consoles (ConPTY) on Windows.
 
 pub mod client;
 pub mod environment;
 pub mod events;
 #[cfg(unix)]
 pub mod fdpass;
+#[cfg(windows)]
+#[path = "fdpass_windows.rs"]
+pub mod fdpass;
 pub mod filter;
 pub mod frame;
-#[cfg(all(unix, feature = "server"))]
+#[cfg(feature = "server")]
 pub mod holder;
-#[cfg(all(unix, feature = "server"))]
+#[cfg(feature = "server")]
 pub mod holders;
-#[cfg(unix)]
 pub mod launch;
 pub mod leader;
-#[cfg(unix)]
 pub mod link;
 pub mod log;
 pub mod net;
@@ -30,20 +30,22 @@ pub mod programs;
 pub mod protocol;
 #[cfg(unix)]
 pub mod pty;
+#[cfg(windows)]
+#[path = "pty_windows.rs"]
+pub mod pty;
+mod pty_common;
 pub mod records;
 pub mod registration;
-#[cfg(unix)]
 pub mod ring;
-#[cfg(all(unix, feature = "server"))]
+#[cfg(feature = "server")]
 pub mod server;
 #[cfg(unix)]
 mod sys;
 #[cfg(windows)]
 #[path = "sys_windows.rs"]
 mod sys;
-#[cfg(all(unix, feature = "server"))]
+#[cfg(feature = "server")]
 pub mod terminal;
-#[cfg(unix)]
 pub mod viewers;
 #[cfg(windows)]
 mod win;
@@ -70,6 +72,13 @@ pub fn random_hex(bytes: usize) -> String {
 }
 
 pub use sys::boot_id;
+
+/// On Windows, keeps this process's standard streams from the processes
+/// it starts; Unix closes them on exec already.
+pub fn keep_own_output_from_children() {
+    #[cfg(windows)]
+    sys::keep_own_output_from_children();
+}
 
 /// `options` with the file readable by its owner only, as the host keeps
 /// its registration, records and log.

@@ -100,7 +100,6 @@ mod imp {
         ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, ERROR_PIPE_NOT_CONNECTED, GENERIC_READ,
         GENERIC_WRITE, GetLastError, HANDLE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
     };
-    use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileW, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, OPEN_EXISTING,
         PIPE_ACCESS_DUPLEX, ReadFile, SECURITY_IDENTIFICATION, SECURITY_SQOS_PRESENT, WriteFile,
@@ -387,43 +386,6 @@ mod imp {
         Err(io::Error::from(io::ErrorKind::TimedOut))
     }
 
-    /// Who may open the host's pipes: this user and the system. The
-    /// integrity label keeps processes of a lower level out, so that an
-    /// unelevated program cannot drive an elevated host. Adapted from
-    /// herdr-core's `pipe_security` (crates/herdr-core/src/platform/windows.rs).
-    fn security() -> io::Result<*mut SECURITY_ATTRIBUTES> {
-        use windows_sys::Win32::Security::Authorization::{
-            ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
-        };
-        static MADE: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-        if let Some(sa) = MADE.get() {
-            return Ok(*sa as *mut SECURITY_ATTRIBUTES);
-        }
-        let user = crate::win::sid_text(&crate::win::current_user()?);
-        if user.is_empty() {
-            return Err(io::Error::other("this user's SID cannot be read"));
-        }
-        let level = if crate::win::elevated() { "HI" } else { "ME" };
-        let sddl = wide(format!("D:P(A;;GA;;;SY)(A;;GA;;;{user})S:(ML;;NRNW;;;{level})").as_ref());
-        let mut descriptor = null_mut();
-        // SAFETY: the SDDL is NUL-terminated; the descriptor is kept for
-        // the life of the process.
-        check(unsafe {
-            ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                sddl.as_ptr(),
-                SDDL_REVISION_1,
-                &mut descriptor,
-                null_mut(),
-            )
-        })?;
-        let attributes = Box::leak(Box::new(SECURITY_ATTRIBUTES {
-            nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
-            lpSecurityDescriptor: descriptor,
-            bInheritHandle: 0,
-        }));
-        Ok(*MADE.get_or_init(|| attributes as *mut _ as usize) as *mut SECURITY_ATTRIBUTES)
-    }
-
     /// A new instance of the pipe `name`. The first fails when the name is
     /// taken, so a pipe is never shared with whoever took it.
     fn instance(name: &[u16], first: bool) -> io::Result<Pipe> {
@@ -446,7 +408,7 @@ mod imp {
                 64 * 1024,
                 64 * 1024,
                 0,
-                security()?,
+                crate::win::pipe_security()?,
             )
         };
         if h == INVALID_HANDLE_VALUE {
@@ -662,7 +624,10 @@ mod imp {
                 .reject_remote_clients(true);
             // SAFETY: the security attributes live for the life of the
             // process.
-            unsafe { options.create_with_security_attributes_raw(name, security()?.cast()) }
+            unsafe {
+                options
+                    .create_with_security_attributes_raw(name, crate::win::pipe_security()?.cast())
+            }
         }
 
         pub async fn accept(&mut self) -> io::Result<AsyncStream> {

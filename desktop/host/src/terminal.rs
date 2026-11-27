@@ -2,9 +2,7 @@
 //! owns the screen and applies everything in one order, a writer thread
 //! that writes to the PTY, and a waiter thread that sees the program exit.
 
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::os::fd::OwnedFd;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,7 +18,7 @@ use crate::filter::QueryFilter;
 use crate::frame::{Frame, kind};
 use crate::leader::{self, Leader};
 use crate::outbox::Outbox;
-use crate::pty::{self, Exit, Ready, Spawned};
+use crate::pty::{self, Exit, Spawned};
 use crate::records::Records;
 use crate::viewers::{self, AttachRequest, ViewerId, Viewers};
 
@@ -181,10 +179,10 @@ impl Reason {
 /// The signals the protocol names.
 pub fn signal_number(name: &str) -> Option<i32> {
     match name {
-        "INT" => Some(libc::SIGINT),
-        "HUP" => Some(libc::SIGHUP),
-        "TERM" => Some(libc::SIGTERM),
-        "KILL" => Some(libc::SIGKILL),
+        "INT" => Some(pty::SIGINT),
+        "HUP" => Some(pty::SIGHUP),
+        "TERM" => Some(pty::SIGTERM),
+        "KILL" => Some(pty::SIGKILL),
         _ => None,
     }
 }
@@ -315,7 +313,7 @@ enum Command {
 struct State {
     info: Info,
     /// The master, for the foreground group; closed when the terminal ends.
-    master: Option<OwnedFd>,
+    master: Option<pty::Master>,
     /// Set by a stop, so the exit is reported with its reason.
     stopping: Option<Reason>,
     /// When the person last typed, pasted or clicked in the terminal.
@@ -399,24 +397,29 @@ impl Terminal {
             last_input_at: None,
             exit_reported: false,
         }));
-        let (wake_read, wake_write) = io::pipe()?;
+        let (waker, wake) = pty::wake_pair()?;
         let (output_tx, output_rx) = mpsc::channel(QUEUED_CHUNKS);
         let (commands, commands_rx) = mpsc::unbounded_channel();
         let (input_tx, input_rx) = std::sync::mpsc::channel::<Vec<u8>>();
-        let reader_master = File::from(spawned.master.try_clone()?);
-        let writer_master = File::from(spawned.master);
+        let reader_master = spawned.master.try_clone()?;
+        let writer_master = spawned.master;
         std::thread::Builder::new()
             .name("pty-reader".to_string())
-            .spawn(move || read_pty(reader_master, wake_read, output_tx))?;
+            .spawn(move || {
+                pty::read_loop(reader_master, wake, |bytes| {
+                    output_tx.blocking_send(Output::Bytes(bytes)).is_ok()
+                });
+                let _ = output_tx.blocking_send(Output::Done);
+            })?;
         std::thread::Builder::new()
             .name("pty-writer".to_string())
-            .spawn(move || write_pty(writer_master, input_rx))?;
+            .spawn(move || pty::write_loop(writer_master, input_rx))?;
         tokio::spawn(actor(Actor {
             id,
             screen,
             state: state.clone(),
             input: Some(input_tx),
-            wake: Some(wake_write),
+            wake: Some(waker),
             output: output_rx,
             commands: commands_rx,
             context,
@@ -535,9 +538,9 @@ impl Terminal {
                 let _ = tokio::time::timeout(KEEP_WITHIN, done).await;
             }
             for (signal, wait) in [
-                (libc::SIGHUP, AFTER_HANGUP),
-                (libc::SIGTERM, grace),
-                (libc::SIGKILL, Duration::ZERO),
+                (pty::SIGHUP, AFTER_HANGUP),
+                (pty::SIGTERM, grace),
+                (pty::SIGKILL, Duration::ZERO),
             ] {
                 {
                     let state = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -654,14 +657,7 @@ fn send(state: &State, signal: i32) -> Result<(), SignalError> {
     let Some(master) = &state.master else {
         return Err(SignalError::Exited);
     };
-    let pid = state.info.pid;
-    pty::signal_group(pid, signal).map_err(SignalError::Io)?;
-    if let Some(foreground) = pty::foreground_group(master)
-        && foreground != pid
-    {
-        let _ = pty::signal_group(foreground, signal);
-    }
-    Ok(())
+    pty::signal(master, state.info.pid, signal).map_err(SignalError::Io)
 }
 
 struct Actor {
@@ -671,7 +667,7 @@ struct Actor {
     /// To the writer thread; dropped when the terminal ends.
     input: Option<std::sync::mpsc::Sender<Vec<u8>>>,
     /// Written to stop the reader; dropped when the terminal ends.
-    wake: Option<io::PipeWriter>,
+    wake: Option<pty::Waker>,
     output: mpsc::Receiver<Output>,
     commands: mpsc::UnboundedReceiver<Command>,
     context: Context,
@@ -783,7 +779,7 @@ async fn actor(mut actor: Actor) {
                 Some(Command::HandOver { file, formats, reply }) => {
                     // the reader stops; what it read still counts
                     if let Some(mut wake) = actor.wake.take() {
-                        let _ = wake.write_all(b"x");
+                        wake.wake();
                     }
                     while !reader_done {
                         match actor.output.recv().await {
@@ -1485,7 +1481,7 @@ impl Actor {
         }
         self.held.clear();
         if let Some(mut wake) = self.wake.take() {
-            let _ = wake.write_all(b"x");
+            wake.wake();
         }
         self.input = None;
         let _ = keep_screen(
@@ -1552,64 +1548,15 @@ const FINAL_HISTORY: usize = 500;
 
 /// Writes a terminal's final screen, readable by its owner only.
 fn keep_screen(folder: &Path, id: &str, paint: &[u8]) -> io::Result<()> {
-    use std::os::unix::fs::OpenOptionsExt;
     std::fs::create_dir_all(folder)?;
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(folder.join(format!("{id}.snap")))?;
+    let mut file = crate::private(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true),
+    )
+    .open(folder.join(format!("{id}.snap")))?;
     file.write_all(paint)
-}
-
-/// Reads the PTY until it ends or the wake descriptor is written. Reads
-/// first, and waits in `poll` only when a read would block.
-fn read_pty(mut master: File, wake: io::PipeReader, output: mpsc::Sender<Output>) {
-    let mut buf = vec![0u8; CHUNK];
-    loop {
-        match master.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                if output
-                    .blocking_send(Output::Bytes(buf[..n].to_vec()))
-                    .is_err()
-                {
-                    return;
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                match pty::wait_readable(&master, &wake) {
-                    Ok(Ready::Master) => {}
-                    Ok(Ready::Wake) | Err(_) => break,
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-            // EIO once every slave descriptor is closed
-            Err(_) => break,
-        }
-    }
-    let _ = output.blocking_send(Output::Done);
-}
-
-/// Writes every input to the PTY in order, waiting when it is full, until
-/// the terminal ends.
-fn write_pty(mut master: File, input: std::sync::mpsc::Receiver<Vec<u8>>) {
-    for bytes in input {
-        let mut rest = &bytes[..];
-        while !rest.is_empty() {
-            match master.write(rest) {
-                Ok(n) => rest = &rest[n..],
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                    if pty::wait_writable(&master).is_err() {
-                        return;
-                    }
-                }
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => return,
-            }
-        }
-    }
 }
 
 /// A new screen for a terminal of this size.

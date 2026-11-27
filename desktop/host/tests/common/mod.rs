@@ -17,10 +17,15 @@ pub struct Folders {
 }
 
 pub fn folders() -> Folders {
-    // short, so that the socket path fits
+    // short, so that the socket path fits; pipes have no such limit
+    let parent = if cfg!(windows) {
+        std::env::temp_dir()
+    } else {
+        PathBuf::from("/tmp")
+    };
     let root = tempfile::Builder::new()
         .prefix("ph")
-        .tempdir_in("/tmp")
+        .tempdir_in(parent)
         .unwrap();
     let data = root.path().join("data");
     let runtime = root.path().join("run");
@@ -80,7 +85,30 @@ impl Drop for Host {
     }
 }
 
+/// Kills the holders whose locks are in `dir`, by the pids they wrote. On
+/// Windows a lock cannot be read while it is held, so there they are found
+/// by their data folder, and the hosts a holder started go with them.
+#[cfg(windows)]
+pub fn kill_holders(dir: &std::path::Path) {
+    // `<data>/host/holders`, as it is when the host has made a holder
+    let Some(data) = dir.is_dir().then(|| dir.parent()?.parent()).flatten() else {
+        return;
+    };
+    let script = format!(
+        "Get-CimInstance Win32_Process -Filter \"Name='pinrail-host.exe'\" | \
+         Where-Object {{ $_.CommandLine -like '*{}*' }} | \
+         ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}",
+        data.display()
+    );
+    let _ = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
 /// Kills the holders whose locks are in `dir`, by the pids they wrote.
+#[cfg(unix)]
 pub fn kill_holders(dir: &std::path::Path) {
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         if let Some(pid) = std::fs::read_to_string(entry.path())

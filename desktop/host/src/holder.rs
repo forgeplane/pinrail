@@ -11,22 +11,25 @@
 //! event. The holder observes an exit without reaping the program, and
 //! reaps it only on `forget`, so that the host's signals cannot reach
 //! another process given the same id.
+//!
+//! On Windows, where a pseudo console cannot be handed to another process,
+//! the holder keeps it and gives the host its input and output pipes and
+//! its job; two more requests, `resize` and `close`, act on the console
+//! for the host.
 
-use crate::net::{Listener, Stream};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::os::fd::{AsRawFd, OwnedFd};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::fdpass;
+use crate::fdpass::{self, Owned};
+use crate::net::{Listener, Stream};
 use crate::paths::Paths;
-use crate::pty::{self, Exit, SpawnError};
+use crate::pty::{self, Exit, Holding, SpawnError};
 use crate::registration::Registration;
 
 /// The holder's protocol. It is frozen: a release that needs another
@@ -44,10 +47,8 @@ pub const ALONE_EXIT: Duration = Duration::from_secs(30);
 
 /// A terminal the holder keeps.
 struct Held {
-    pid: u32,
-    started: Option<String>,
-    master: OwnedFd,
-    ring: Option<OwnedFd>,
+    holding: Holding,
+    ring: Option<Owned>,
     exit: Option<Exit>,
 }
 
@@ -175,8 +176,24 @@ fn retry_after(starts: u32) -> Duration {
     doubled.min(HOST_RETRY_MAX)
 }
 
+/// Starts `<binary> serve` for `data_dir`, detached from this holder, and
+/// does not wait for it.
+#[cfg(windows)]
+fn start_host(binary: &Path, data_dir: &Path) {
+    let mut command = std::process::Command::new(binary);
+    command
+        .arg("serve")
+        .arg("--data-dir")
+        .arg(data_dir)
+        .stdout(std::process::Stdio::null());
+    if let Ok(mut child) = crate::sys::spawn_detached(command) {
+        std::thread::spawn(move || child.wait());
+    }
+}
+
 /// Starts `<binary> serve` for `data_dir` in a session of its own, with
 /// nothing on its standard streams, and does not wait for it.
+#[cfg(unix)]
 #[allow(unsafe_code)]
 fn start_host(binary: &Path, data_dir: &Path) {
     use std::os::unix::process::CommandExt;
@@ -219,13 +236,9 @@ pub fn hold(data_dir: &Path, alone_exit: Duration) -> io::Result<()> {
 }
 
 fn take_lock(path: &Path) -> io::Result<File> {
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path)?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    let mut file = OpenOptions::new();
+    file.read(true).write(true).create(true).truncate(false);
+    let file = crate::private(&mut file).open(path)?;
     file.try_lock().map_err(io::Error::other)?;
     // the holder's process, for status and for tests to clean up
     use std::io::Write;
@@ -269,6 +282,10 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
             Some("spawn") => spawn(state, &request, fds.next()),
             Some("list") => list(state),
             Some("forget") => forget(state, &request),
+            #[cfg(windows)]
+            Some("resize") => resize(state, &request),
+            #[cfg(windows)]
+            Some("close") => close(state, &request),
             _ => (
                 json!({"error": "invalid", "message": "unknown op"}),
                 Vec::new(),
@@ -276,7 +293,7 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
         };
         answer["id"] = id;
         let state = lock(state);
-        let raw: Vec<i32> = out.iter().map(AsRawFd::as_raw_fd).collect();
+        let raw: Vec<fdpass::Raw> = out.iter().map(fdpass::raw).collect();
         send_on(&state, &answer, &raw);
     }
     let mut state = lock(state);
@@ -311,7 +328,7 @@ fn handshake(stream: &Stream, registration: &Path, instance: &str) -> bool {
     .is_ok()
 }
 
-fn send_on(state: &State, value: &Value, fds: &[i32]) {
+fn send_on(state: &State, value: &Value, fds: &[fdpass::Raw]) {
     if let Some(host) = &state.host {
         let _ = fdpass::send(host, value, fds);
     }
@@ -328,8 +345,8 @@ fn exited(terminal: &str, exit: Exit) -> Value {
 
 /// `spawn {terminal, argv, cwd, env, cols, rows}` with the ring's
 /// descriptor: answers with the pid and start time, and the master's
-/// descriptor.
-fn spawn(state: &Shared, request: &Value, ring: Option<OwnedFd>) -> (Value, Vec<OwnedFd>) {
+/// descriptor, or on Windows the console's input and output and the job.
+fn spawn(state: &Shared, request: &Value, ring: Option<Owned>) -> (Value, Vec<Owned>) {
     let Some(terminal) = request["terminal"].as_str().map(str::to_string) else {
         return (
             json!({"error": "invalid", "message": "no terminal"}),
@@ -365,7 +382,7 @@ fn spawn(state: &Shared, request: &Value, ring: Option<OwnedFd>) -> (Value, Vec<
             .unwrap_or(80)
     };
     let cwd = PathBuf::from(request["cwd"].as_str().unwrap_or_default());
-    let spawned = match pty::spawn(&argv, &cwd, &env, size("cols"), size("rows")) {
+    let spawned = match Holding::spawn(&argv, &cwd, &env, size("cols"), size("rows")) {
         Ok(spawned) => spawned,
         Err(SpawnError::FolderMissing) => {
             return (
@@ -386,9 +403,10 @@ fn spawn(state: &Shared, request: &Value, ring: Option<OwnedFd>) -> (Value, Vec<
             );
         }
     };
-    let master = match spawned.master.try_clone() {
-        Ok(fd) => fd,
-        Err(error) => {
+    let (for_host, waiter) = match (spawned.for_host(), spawned.exit_waiter()) {
+        (Ok(for_host), Ok(waiter)) => (for_host, waiter),
+        (Err(error), _) | (_, Err(error)) => {
+            spawned.forget(false);
             return (
                 json!({"error": "spawn_failed", "message": error.to_string()}),
                 Vec::new(),
@@ -400,27 +418,26 @@ fn spawn(state: &Shared, request: &Value, ring: Option<OwnedFd>) -> (Value, Vec<
     lock(state).terminals.insert(
         terminal.clone(),
         Held {
-            pid,
-            started: spawned.started,
-            master: spawned.master,
+            holding: spawned,
             ring,
             exit: None,
         },
     );
     let state = state.clone();
-    std::thread::spawn(move || watch_exit(&state, &terminal, pid));
-    (answer, vec![master])
+    std::thread::spawn(move || watch_exit(&state, &terminal, pid, waiter));
+    (answer, for_host)
 }
 
 /// Waits for the program to exit, leaves it unreaped, and tells the host.
-fn watch_exit(state: &Shared, terminal: &str, pid: u32) {
-    let Ok(exit) = pty::wait_exit(pid) else {
+fn watch_exit(state: &Shared, terminal: &str, pid: u32, waiter: impl FnOnce() -> io::Result<Exit>) {
+    let Ok(exit) = waiter() else {
         return;
     };
     let mut state = lock(state);
     match state.terminals.get_mut(terminal) {
-        Some(held) if held.pid == pid => {
+        Some(held) if held.holding.pid == pid => {
             held.exit = Some(exit);
+            held.holding.exited();
             send_on(&state, &exited(terminal, exit), &[]);
         }
         // forgotten before it exited: nothing will signal it now
@@ -428,21 +445,23 @@ fn watch_exit(state: &Shared, terminal: &str, pid: u32) {
     }
 }
 
-/// `list`: every terminal, with duplicates of its master and ring
-/// descriptors, in that order.
-fn list(state: &Shared) -> (Value, Vec<OwnedFd>) {
+/// `list`: every terminal, with duplicates of what the host gets of it
+/// and of its ring descriptor, in that order, and its size.
+fn list(state: &Shared) -> (Value, Vec<Owned>) {
     let state = lock(state);
     let mut terminals = Vec::new();
     let mut fds = Vec::new();
     for (id, held) in &state.terminals {
         let (Ok(master), ring) = (
-            held.master.try_clone(),
+            held.holding.for_host(),
             held.ring.as_ref().and_then(|r| r.try_clone().ok()),
         ) else {
             continue;
         };
-        let mut entry = json!({"terminal": id, "pid": held.pid, "started": held.started,
-                               "ring": ring.is_some()});
+        let (cols, rows) = held.holding.size();
+        let mut entry = json!({"terminal": id, "pid": held.holding.pid,
+                               "started": held.holding.started,
+                               "ring": ring.is_some(), "cols": cols, "rows": rows});
         if let Some(exit) = held.exit {
             entry["exit"] = match exit {
                 Exit::Code(code) => json!({"code": code}),
@@ -450,7 +469,7 @@ fn list(state: &Shared) -> (Value, Vec<OwnedFd>) {
             };
         }
         terminals.push(entry);
-        fds.push(master);
+        fds.extend(master);
         fds.extend(ring);
     }
     (json!({"terminals": terminals}), fds)
@@ -458,15 +477,51 @@ fn list(state: &Shared) -> (Value, Vec<OwnedFd>) {
 
 /// `forget {terminal}`: closes the terminal's descriptors, and reaps the
 /// program if it has exited.
-fn forget(state: &Shared, request: &Value) -> (Value, Vec<OwnedFd>) {
+fn forget(state: &Shared, request: &Value) -> (Value, Vec<Owned>) {
     let terminal = request["terminal"].as_str().unwrap_or_default();
     let mut state = lock(state);
-    if let Some(held) = state.terminals.remove(terminal)
-        && held.exit.is_some()
-    {
-        pty::reap(held.pid);
+    if let Some(held) = state.terminals.remove(terminal) {
+        held.holding.forget(held.exit.is_some());
     }
     (json!({"ok": true}), Vec::new())
+}
+
+/// `resize {terminal, cols, rows}`: resizes the pseudo console.
+#[cfg(windows)]
+fn resize(state: &Shared, request: &Value) -> (Value, Vec<Owned>) {
+    let size = |key: &str| {
+        request[key]
+            .as_u64()
+            .and_then(|n| u16::try_from(n).ok())
+            .filter(|&n| n > 0)
+    };
+    let terminal = request["terminal"].as_str().unwrap_or_default();
+    let state = lock(state);
+    let answer = match (state.terminals.get(terminal), size("cols"), size("rows")) {
+        (Some(held), Some(cols), Some(rows)) => match held.holding.resize(cols, rows) {
+            Ok(()) => json!({"ok": true}),
+            Err(error) => json!({"error": "resize_failed", "message": error.to_string()}),
+        },
+        (None, ..) => json!({"error": "not_found", "message": "no such terminal"}),
+        _ => json!({"error": "invalid", "message": "no size"}),
+    };
+    (answer, Vec::new())
+}
+
+/// `close {terminal}`: closes the pseudo console, which tells its programs
+/// that their console is gone, as a hangup does on Unix.
+#[cfg(windows)]
+fn close(state: &Shared, request: &Value) -> (Value, Vec<Owned>) {
+    let terminal = request["terminal"].as_str().unwrap_or_default();
+    let state = lock(state);
+    let answer = match state.terminals.get(terminal) {
+        Some(held) => {
+            held.holding.close();
+            json!({"ok": true})
+        }
+        None => json!({"error": "not_found", "message": "no such terminal"}),
+    };
+    (answer, Vec::new())
 }
 
 #[cfg(test)]
