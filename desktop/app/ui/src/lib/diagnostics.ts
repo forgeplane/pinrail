@@ -11,6 +11,8 @@ export type CliState = {
   installed: boolean;
   outdated: boolean;
   dir_on_path: boolean | null;
+  /** the PATH is the user's registry value: the Windows app */
+  user_path?: boolean;
 };
 
 const INSTALLS: Record<CliState["mode"], string> = {
@@ -44,7 +46,9 @@ export function describeDiagnostics({
 }): string {
   const lines: string[] = [];
   lines.push(`Pinrail: ${info?.version ?? "unknown"}`);
-  lines.push(`Installed as: ${cli ? INSTALLS[cli.mode] : "not known (not the app)"}`);
+  // Windows' installer copies the command, as the AppImage does
+  const install = cli?.mode === "copy" && cli.user_path ? "Windows installer" : cli && INSTALLS[cli.mode];
+  lines.push(`Installed as: ${install ?? "not known (not the app)"}`);
   if (cli) lines.push(`Command-line tool: ${cliLine(cli)}`);
   if (info) {
     lines.push(`Running since: ${info.started_at}`);
