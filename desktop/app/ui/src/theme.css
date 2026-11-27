@@ -3806,6 +3806,12 @@ body.is-resizing iframe {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* the rows of the page before, dimmed while the page asked for loads; a
+   page that comes at once is not dimmed at all */
+.inbox-rows.is-loading {
+  opacity: 0.5;
+  transition: opacity 150ms 150ms;
+}
 /* the inbox's sections: Waiting on you, then the Updates */
 .inbox-section {
   display: flex;

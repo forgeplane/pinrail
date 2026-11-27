@@ -205,6 +205,7 @@ The `pinrail` command ships inside the app and carries the app's version.
   it shows a permission, with **Open the terminal** to answer it.
 - Clicking an image attached to a note or a question opens it in a pop-up.
   The arrow keys move between the images.
+- Dim the inbox's rows while the next page loads.
 
 ### Changed
 

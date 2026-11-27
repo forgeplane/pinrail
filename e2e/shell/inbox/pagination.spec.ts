@@ -111,3 +111,37 @@ test("Waiting on you holds every pending review, 50 a page, and Enter opens the 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`${href!.replace(/^#/, "")}$`));
 });
+
+test("while the next page loads, the rows of the page before are dimmed and marked busy", async ({ page }) => {
+  await clearInbox(page.request);
+  for (let i = 1; i <= 30; i++) {
+    await createReview(page.request, {
+      title: `Busy inbox ${String(i).padStart(2, "0")}`,
+      origin: { repo: "acme/api", workflow: "paging" },
+    });
+  }
+  await page.goto("/#/?tab=waiting&per=25");
+  const rows = page.getByTestId("review-row");
+  const list = page.locator(".inbox-rows");
+  await expect(rows).toHaveCount(25);
+  await expect(list).toHaveAttribute("aria-busy", "false");
+
+  // the second page's answer, held until the test lets it go
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/v1\/notifications\?.*offset=25/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(page.getByTestId("pager-range")).toHaveText("26–30 of 30");
+  // the first page's rows, shown as the page before
+  await expect(rows).toHaveCount(25);
+  await expect(list).toHaveAttribute("aria-busy", "true");
+  await expect(list).toHaveCSS("opacity", "0.5");
+
+  release();
+  await expect(rows).toHaveCount(5);
+  await expect(list).toHaveAttribute("aria-busy", "false");
+  await expect(list).toHaveCSS("opacity", "1");
+});

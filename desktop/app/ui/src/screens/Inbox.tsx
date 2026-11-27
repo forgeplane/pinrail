@@ -109,11 +109,17 @@ function useDoneOnReturn(): boolean {
 const aboutNotifications = (notice: { notification?: unknown; kind: string }) =>
   !!notice.notification || notice.kind === "notification_changed" || notice.kind === "resync";
 
-/** A list of notifications from the core, read again when one changes. */
-function useNotifications(query: NotificationQuery | null): NotificationList | null {
+/** A list of notifications from the core, read again when one changes, and
+ *  whether it is the list `query` asks for: not while another page or other
+ *  filters load, when the list is still the one before. */
+function useNotifications(query: NotificationQuery | null): { list: NotificationList | null; current: boolean } {
   const changed = useNoticeCount(aboutNotifications);
   const key = JSON.stringify(query);
-  return useLoad(() => (query ? api.notifications(query) : Promise.resolve(null)), [key, changed]).data;
+  const loaded = useLoad(
+    async () => ({ key, list: query ? await api.notifications(query) : null }),
+    [key, changed],
+  ).data;
+  return { list: loaded?.list ?? null, current: loaded?.key === key };
 }
 
 /** The All, Waiting on you and Unread tabs: the notifications the core keeps
@@ -155,8 +161,11 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
   // All: what waits, whole, above a page of the updates; the other tabs: a
   // page of their own list
   const pagedTab: NotificationTab = tab === "all" ? "updates" : tab;
-  const waiting = useNotifications(tab === "all" ? { ...filters, tab: "waiting", limit: WAITING_SHOWN } : null);
-  const paged = useNotifications({ ...filters, tab: pagedTab, limit: size, offset: (page - 1) * size });
+  const waiting = useNotifications(tab === "all" ? { ...filters, tab: "waiting", limit: WAITING_SHOWN } : null).list;
+  const pagedLoad = useNotifications({ ...filters, tab: pagedTab, limit: size, offset: (page - 1) * size });
+  const paged = pagedLoad.list;
+  // the rows of the page before, while the page asked for loads
+  const behind = !!paged && !pagedLoad.current;
   const counts: InboxCounts | undefined = paged?.counts;
 
   const waitingRows = useMemo(() => waiting?.notifications ?? [], [waiting]);
@@ -485,7 +494,11 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
               </section>
             ) : null}
             {pagedRows.length ? (
-              <section className="inbox-section" aria-label="Updates">
+              <section
+                className={`inbox-section inbox-rows ${behind ? "is-loading" : ""}`}
+                aria-label="Updates"
+                aria-busy={behind}
+              >
                 <h2 className="inbox-section-title">
                   Updates <span>{paged?.total ?? pagedRows.length}</span>
                   {counts && counts.unread > 0 ? (
@@ -497,7 +510,9 @@ function Notifications({ tab }: { tab: Exclude<InboxTab, "history"> }) {
             ) : null}
           </>
         ) : (
-          <div className="inbox-list">{pagedRows.map((n, i) => row(n, i))}</div>
+          <div className={`inbox-list inbox-rows ${behind ? "is-loading" : ""}`} aria-busy={behind}>
+            {pagedRows.map((n, i) => row(n, i))}
+          </div>
         )}
         <Pager
           label="Inbox"
