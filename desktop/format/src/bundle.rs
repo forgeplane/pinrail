@@ -228,7 +228,34 @@ pub fn normalized(raw: &str) -> Result<String, String> {
     {
         return Err(format!("{raw}: a path with an empty, . or .. part"));
     }
+    if let Some(part) = path.split('/').find(|part| !portable(part)) {
+        return Err(format!(
+            "{raw}: {part:?} is not a name a file can have on every system"
+        ));
+    }
     Ok(path)
+}
+
+/// Whether Windows takes `part` as the file it says, as macOS and Linux
+/// do: no `:`, which names a stream of a file there, or other character it
+/// refuses; no device name, such as `con` or `nul.txt`; and no dot or
+/// space at the end, which it drops. A bundle installs on every system.
+fn portable(part: &str) -> bool {
+    const DEVICES: [&str; 22] = [
+        "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
+        "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+    ];
+    let stem = part
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end()
+        .to_lowercase();
+    !part
+        .chars()
+        .any(|c| c.is_control() || r#":*?"<>|"#.contains(c))
+        && !part.ends_with(['.', ' '])
+        && !DEVICES.contains(&stem.as_str())
 }
 
 fn walk(
@@ -460,6 +487,16 @@ mod tests {
             "/view/a.js",
             "view//a.js",
             "view\\a.js",
+            // what Windows reads as a stream, a device, or another name
+            "view/a.js:hidden",
+            "view/C:x",
+            "view/con",
+            "view/NUL.txt",
+            "view/lpt1",
+            "view/a.js.",
+            "view/a.js ",
+            "view/a?.js",
+            "view/a\u{1}.js",
         ] {
             let refused = listing(&[(bad, "x")], Taken::AsBundle).unwrap_err();
             assert!(refused.starts_with(bad), "{bad}: {refused}");
