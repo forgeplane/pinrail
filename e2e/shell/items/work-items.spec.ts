@@ -1397,7 +1397,7 @@ test("the filters are kept when the person leaves the page and comes back", asyn
   // and with the page's shortcut
   await nav.getByRole("link", { name: /Projects/ }).click();
   await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+3");
+  await page.keyboard.press("ControlOrMeta+2");
   await expect(page).toHaveURL(/status=done/);
   await expect(rows(page)).toHaveCount(1);
 });

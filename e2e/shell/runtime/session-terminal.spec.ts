@@ -120,7 +120,12 @@ test("Settings › Terminal names the renderer the open terminal uses", async ({
   await page.goto(`/#/sessions/claude-code/${await sessionId(page.request, "claude-code", session)}?view=terminal`);
   // the renderer loads after the surface shows, and Settings names it once loaded
   await terminalReady(page);
-  await page.keyboard.press("ControlOrMeta+,");
+  // from the sidebar: off macOS the focused terminal keeps Ctrl+, for its
+  // program
+  await page
+    .getByRole("complementary", { name: "Workspace" })
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
   await settingsSection(page, "Terminal").click();
   await expect(settingsDialog(page)).toContainText(/In use: (libghostty|xterm\.js)\./);
 });

@@ -63,7 +63,9 @@ async function reviewWithImage(request: import("@playwright/test").APIRequestCon
   const created = await request.post(`${core}/api/v1/reviews`, {
     data: {
       plugin,
-      title: `Copying from ${plugin}`,
+      // a title of its own: the same submission while one is pending
+      // answers that one, such as the other browser's
+      title: `Copying from ${plugin} ${crypto.randomUUID()}`,
       requested_by: "spec",
       payload: { card: { $attachment: "card.png" } },
       attachments: { "card.png": { sha256, size: PNG.length, media_type: "image/png" } },

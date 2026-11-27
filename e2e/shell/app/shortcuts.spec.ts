@@ -62,12 +62,12 @@ test("Esc leaves a page's search field, so the page's keys work again", async ({
   await expect(sessions).not.toBeFocused();
 });
 
-test("⌘1 to ⌘4 go to the Inbox, Sessions, Work items and Projects pages", async ({ page }) => {
+test("⌘1 to ⌘4 go to the Inbox, Work items, Sessions and Projects pages", async ({ page }) => {
   await page.goto("/#/projects");
   await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+3");
-  await expect(page).toHaveURL(/#\/items$/);
   await page.keyboard.press("ControlOrMeta+2");
+  await expect(page).toHaveURL(/#\/items$/);
+  await page.keyboard.press("ControlOrMeta+3");
   await expect(page).toHaveURL(/#\/sessions$/);
   await page.keyboard.press("ControlOrMeta+4");
   await expect(page).toHaveURL(/#\/projects$/);
@@ -75,5 +75,5 @@ test("⌘1 to ⌘4 go to the Inbox, Sessions, Work items and Projects pages", as
   await expect(page).toHaveURL(/#\/$/);
   // the sidebar's links say their keys
   await page.getByRole("link", { name: /^Work items/ }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("3");
+  await expect(page.getByRole("tooltip")).toContainText("2");
 });

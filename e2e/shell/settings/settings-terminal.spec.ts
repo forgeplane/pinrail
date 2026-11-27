@@ -20,7 +20,8 @@ test("the Terminal section changes the terminal's settings and the session views
   await page.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
   await request.patch(`${core}/api/v1/settings`, { data: defaults });
   await page.goto("/#/");
-  await page.keyboard.press("ControlOrMeta+,");
+  // ⌘, as the page says it runs on macOS
+  await page.keyboard.press("Meta+,");
   await settingsSection(page, "Terminal").click();
   const dialog = settingsDialog(page);
   // before any terminal is opened, it says what Automatic does

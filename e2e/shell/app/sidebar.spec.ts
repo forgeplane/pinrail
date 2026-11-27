@@ -197,6 +197,8 @@ test("a quick second ⌘B is not undone by the reload the first one caused", asy
 });
 
 test("the app's own text cannot be selected, as in a desktop app, but fields and messages can", async ({ page }) => {
+  // a review that waits on the person, for the Inbox's count
+  const review = await createReview(page.request, { title: "Copy my title", payload });
   await page.goto("/");
   const selectable = (locator: Locator) =>
     locator.first().evaluate((el) => getComputedStyle(el).webkitUserSelect || getComputedStyle(el).userSelect);
@@ -206,7 +208,6 @@ test("the app's own text cannot be selected, as in a desktop app, but fields and
   expect(await selectable(page.locator("input[type=search]"))).not.toBe("none");
 
   // a review's title and id are there to be copied
-  const review = await createReview(page.request, { title: "Copy my title", payload });
   await page.goto(`/#/reviews/${review.id}`);
   await expect(page.getByTestId("review-title")).toHaveText("Copy my title");
   expect(await selectable(page.getByTestId("review-title"))).not.toBe("none");

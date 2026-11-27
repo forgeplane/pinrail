@@ -70,14 +70,16 @@ test("a new release shows its cards once, one at a time, and a card opens what i
   await page.keyboard.press("ArrowLeft");
   await expect(card).toHaveText(cards[1].title);
 
-  // the last card's button closes the dialog and opens what the card is about
-  for (let i = 1; i < cards.length - 1; i++) await page.keyboard.press("ArrowRight");
-  const last = cards[cards.length - 1];
-  await expect(card).toHaveText(last.title);
-  await dialog.getByRole("button", { name: last.action!.label }).click();
+  // a card's button closes the dialog and opens what the card is about:
+  // the last card that has one, since a card may have none
+  const at = cards.map((c) => !!c.action).lastIndexOf(true);
+  for (let i = 1; i < at; i++) await page.keyboard.press("ArrowRight");
+  const { title, action } = cards[at];
+  await expect(card).toHaveText(title);
+  await dialog.getByRole("button", { name: action!.label }).click();
   await expect(dialog).toHaveCount(0);
-  if (last.action!.settings) await expect(settingsDialog(page)).toBeVisible();
-  else await expect(page).toHaveURL(new RegExp(`#${last.action!.to}`));
+  if (action!.settings) await expect(settingsDialog(page)).toBeVisible();
+  else await expect(page).toHaveURL(new RegExp(`#${action!.to}`));
   await expect.poll(() => seenNow(page)).toBe(newest);
 
   // once seen, the dialog does not appear again
