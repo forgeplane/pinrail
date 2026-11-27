@@ -111,7 +111,10 @@ fn a_shell_that_prints_without_end_is_cut_off() {
     std::fs::write(&shell, "#!/bin/sh\nyes x\n").unwrap();
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let outcome = probe::probe(Some(shell.to_str().unwrap()), Duration::from_secs(5));
+    // the time allowed is not what is tested here, so it is long: macOS
+    // checks a script the first time it runs, and with other tests running
+    // that alone has taken close to three seconds before the first byte
+    let outcome = probe::probe(Some(shell.to_str().unwrap()), Duration::from_secs(60));
     assert!(outcome.failure.unwrap().contains("1 MiB"));
 }
 

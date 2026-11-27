@@ -157,10 +157,10 @@ fn run(shell: Option<&str>, timeout: Duration) -> Result<Vars, String> {
     let group = child.id();
     let mut stdout = child.stdout.take().expect("piped");
     let deadline = Instant::now() + timeout;
-    let (start_marker, end_marker) = (marker(&start), marker(&end));
+    let mut between = Between::new(marker(&start), marker(&end));
     let mut output = Vec::new();
     let found = loop {
-        if let Some(found) = between(&output, &start_marker, &end_marker) {
+        if let Some(found) = between.of(&output) {
             break Ok(found.to_vec());
         }
         if output.len() > MAX_OUTPUT {
@@ -201,12 +201,60 @@ fn marker(name: &str) -> Vec<u8> {
     marker
 }
 
-/// The bytes between the first `start` and the next `end`, once both
-/// arrived.
-fn between<'a>(output: &'a [u8], start: &[u8], end: &[u8]) -> Option<&'a [u8]> {
-    let from = find(output, start)? + start.len();
-    let to = from + find(&output[from..], end)?;
-    Some(&output[from..to])
+/// Looks for the bytes between the first `start` and the next `end` in
+/// output that grows with every read. It remembers how far it looked, so
+/// each byte is searched once: searching everything again after every read
+/// costs the square of the output, which for a shell that prints a megabyte
+/// took seconds of the time the shell is allowed in an unoptimized build.
+struct Between {
+    start: Vec<u8>,
+    end: Vec<u8>,
+    /// Where the environment begins, once `start` arrived.
+    from: Option<usize>,
+    /// How much of the output held neither marker when last looked at.
+    searched: usize,
+}
+
+impl Between {
+    fn new(start: Vec<u8>, end: Vec<u8>) -> Self {
+        Self {
+            start,
+            end,
+            from: None,
+            searched: 0,
+        }
+    }
+
+    /// The bytes between the markers, once both arrived. `output` is what
+    /// the last call saw with more appended.
+    fn of<'a>(&mut self, output: &'a [u8]) -> Option<&'a [u8]> {
+        let from = match self.from {
+            Some(from) => from,
+            None => {
+                let at = resume(self.searched, &self.start);
+                let Some(found) = find(&output[at..], &self.start) else {
+                    self.searched = output.len();
+                    return None;
+                };
+                let from = at + found + self.start.len();
+                self.from = Some(from);
+                self.searched = from;
+                from
+            }
+        };
+        let at = resume(self.searched, &self.end).max(from);
+        let Some(found) = find(&output[at..], &self.end) else {
+            self.searched = output.len();
+            return None;
+        };
+        Some(&output[from..at + found])
+    }
+}
+
+/// Where to look for `needle` again after `searched` bytes held none: a
+/// little before their end, since a read can stop in the middle of one.
+fn resume(searched: usize, needle: &[u8]) -> usize {
+    searched.saturating_sub(needle.len().saturating_sub(1))
 }
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -236,7 +284,8 @@ mod tests {
         output.extend(b"PATH=/a:/b\0MULTI=one\ntwo\0BROKEN\0");
         output.extend(marker("E"));
         output.extend(b"FAKE=after\0");
-        let vars = parse(between(&output, &marker("S"), &marker("E")).unwrap());
+        let mut between = Between::new(marker("S"), marker("E"));
+        let vars = parse(between.of(&output).unwrap());
         assert_eq!(
             vars,
             [
@@ -244,7 +293,32 @@ mod tests {
                 ("MULTI".to_string(), "one\ntwo".to_string())
             ]
         );
-        assert!(between(b"\0S\0PATH=/a", &marker("S"), &marker("E")).is_none());
+        let mut between = Between::new(marker("S"), marker("E"));
+        assert!(between.of(b"\0S\0PATH=/a").is_none());
+    }
+
+    #[test]
+    fn the_markers_are_found_however_the_output_is_cut_into_reads() {
+        let mut output = b"noise\0".to_vec();
+        output.extend(marker("START"));
+        output.extend(b"PATH=/a:/b\0HOME=/Users/p\0");
+        output.extend(marker("END"));
+        output.extend(b"FAKE=after\0");
+        output.extend(marker("END"));
+        for step in 1..=output.len() {
+            let mut between = Between::new(marker("START"), marker("END"));
+            let mut found = None;
+            let mut arrived = 0;
+            while found.is_none() && arrived < output.len() {
+                arrived = (arrived + step).min(output.len());
+                found = between.of(&output[..arrived]);
+            }
+            assert_eq!(
+                found,
+                Some(&b"PATH=/a:/b\0HOME=/Users/p\0"[..]),
+                "{step} bytes at a time"
+            );
+        }
     }
 
     #[test]
