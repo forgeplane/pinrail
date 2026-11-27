@@ -1,10 +1,11 @@
 # Sets up a fresh Windows VM to build and test Pinrail. Windows starts it at
 # the first sign-in, from the setup disc that create.sh makes.
 #
-# The script registers itself to run again at the next sign-in until it has
-# finished, so a restart part way through resumes it. Each step that has
-# succeeded is recorded and skipped on the next run. It runs in Windows
-# PowerShell 5.1, which every Windows 11 install has.
+# The script registers a task that runs it again, elevated, at the next
+# sign-in until it has finished, so a restart part way through resumes it.
+# Each step that has succeeded is recorded and skipped on the next run, and
+# only one copy runs at a time. It runs in Windows PowerShell 5.1, which
+# every Windows 11 install has, as an administrator.
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -15,6 +16,22 @@ trap {
     Write-Host "The setup stopped: $_" -ForegroundColor Red
     Read-Host 'Press Enter to close'
     exit 1
+}
+
+$admin = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'the setup needs an administrator: run it from PowerShell opened with "Run as administrator"'
+}
+
+# One copy at a time: a second one, as a sign-in can start while the first
+# is still going, would race it through the same installs. A copy that
+# ended without releasing the lock leaves it abandoned, which is taken.
+$Lock = New-Object System.Threading.Mutex($false, 'Global\PinrailVMSetup')
+try { $locked = $Lock.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $locked = $true }
+if (-not $locked) {
+    Write-Host 'The setup is already running in another window.'
+    Start-Sleep 5
+    exit 0
 }
 
 $State = 'C:\ProgramData\PinrailVM'
@@ -33,10 +50,15 @@ if ($PSCommandPath -ne $Self) {
     Get-ChildItem $State -File | ForEach-Object { $_.IsReadOnly = $false }
 }
 
-$RunOnce = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce'
-# A new account has no RunOnce key yet.
-if (-not (Test-Path $RunOnce)) { New-Item -Force $RunOnce | Out-Null }
-Set-ItemProperty $RunOnce 'PinrailVMSetup' "powershell -NoProfile -ExecutionPolicy Bypass -File `"$Self`""
+# Runs the script at the account's next sign-in, elevated. Windows starts
+# RunOnce entries unelevated, and again whenever Explorer restarts.
+$Task = 'PinrailVMSetup'
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$Self`""
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+# as earlier versions of this script registered it
+Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce' 'PinrailVMSetup' -ErrorAction SilentlyContinue
 
 $Failed = @()
 
@@ -123,14 +145,31 @@ Step 'winget' {
 # winget's code for a package that is already installed and up to date.
 $AlreadyInstalled = -1978335189
 
-function Install-Package([string]$Id, [string[]]$Extra = @()) {
-    Step "install-$Id" {
-        winget install --id $Id --exact --source winget --silent --disable-interactivity `
-            --accept-source-agreements --accept-package-agreements @Extra
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $AlreadyInstalled) {
-            throw "winget install $Id exited with $LASTEXITCODE"
+# Installs a package with winget, which can hang on a download: one that
+# takes longer than $Minutes is stopped, with what it started, and tried
+# once more.
+function Invoke-Winget([string]$Id, [string[]]$Extra = @(), [int]$Minutes = 20) {
+    $arguments = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent',
+        '--disable-interactivity', '--accept-source-agreements', '--accept-package-agreements') + $Extra
+    $line = ($arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+    for ($try = 1; $try -le 2; $try++) {
+        $start = New-Object System.Diagnostics.ProcessStartInfo (Get-Command winget).Source, $line
+        $start.UseShellExecute = $false
+        $winget = [System.Diagnostics.Process]::Start($start)
+        if ($winget.WaitForExit($Minutes * 60 * 1000)) {
+            $winget.WaitForExit()
+            $code = $winget.ExitCode
+            if ($code -ne 0 -and $code -ne $AlreadyInstalled) { throw "winget install $Id exited with $code" }
+            return
         }
+        Write-Host "    winget took more than $Minutes minutes; stopping it" -ForegroundColor Yellow
+        taskkill /T /F /PID $winget.Id | Out-Null
     }
+    throw "winget install $Id did not finish in $Minutes minutes, twice"
+}
+
+function Install-Package([string]$Id, [string[]]$Extra = @(), [int]$Minutes = 20) {
+    Step "install-$Id" { Invoke-Winget $Id $Extra $Minutes }
 }
 
 Install-Package 'Git.Git'
@@ -141,7 +180,7 @@ Install-Package 'jdx.mise'
 Install-Package 'Microsoft.VisualStudio.2022.BuildTools' @('--override', ('--wait --quiet --norestart --nocache ' +
     '--add Microsoft.VisualStudio.Workload.VCTools ' +
     '--add Microsoft.VisualStudio.Component.VC.Tools.ARM64 ' +
-    '--add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended'))
+    '--add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended')) 90
 Install-Package 'Rustlang.Rustup'
 Refresh-Path
 
@@ -156,11 +195,7 @@ Step 'ssh-server' {
     }
     # Microsoft's OpenSSH release from GitHub. Windows Update does not offer
     # the built-in OpenSSH server on every build, such as Insider builds.
-    winget install --id Microsoft.OpenSSH.Preview --exact --source winget --silent --disable-interactivity `
-        --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $AlreadyInstalled) {
-        throw "winget install Microsoft.OpenSSH.Preview exited with $LASTEXITCODE"
-    }
+    Invoke-Winget 'Microsoft.OpenSSH.Preview'
     Set-Service sshd -StartupType Automatic
     Start-Service sshd
     if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
@@ -175,6 +210,31 @@ Step 'ssh-server' {
     Copy-Item $keys $adminKeys -Force
     icacls $adminKeys /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F' | Out-Null
     Check-Exit 'icacls'
+}
+
+Step 'ssh-path' {
+    # Windows' OpenSSH gives commands only the machine's PATH, without the
+    # account's own, where Rust, mise and winget's programs are. Git Bash
+    # reads ~/.bashrc for an SSH command, so it adds the account's PATH from
+    # the registry there, as it is at each sign-in.
+    $bashrc = "$env:USERPROFILE\.bashrc"
+    $marker = '# pinrail-vm: the account''s PATH'
+    if ((Test-Path $bashrc) -and (Select-String -Quiet -SimpleMatch $marker $bashrc)) { return }
+    $lines = @(
+        $marker,
+        'if [ -n "$SSH_CONNECTION" ]; then',
+        '    pinrail_vm_path="$(MSYS_NO_PATHCONV=1 reg query ''HKCU\Environment'' /v Path 2>/dev/null | sed -n ''s/^ *Path *REG_[A-Z_]* *//p'' | tr -d ''\r'')"',
+        '    while [[ $pinrail_vm_path =~ %([A-Za-z_][A-Za-z0-9_]*)% ]]; do',
+        '        pinrail_vm_name=${BASH_REMATCH[1]}',
+        '        pinrail_vm_path=${pinrail_vm_path//%$pinrail_vm_name%/${!pinrail_vm_name}}',
+        '    done',
+        '    [ -n "$pinrail_vm_path" ] && PATH="$PATH:$(cygpath -p "$pinrail_vm_path")"',
+        '    unset pinrail_vm_path pinrail_vm_name',
+        'fi',
+        ''
+    )
+    # UTF-8 without a byte order mark and with LF line ends, as bash needs
+    [IO.File]::AppendAllText($bashrc, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding $false))
 }
 
 Step 'rsync' {
@@ -257,7 +317,7 @@ if ($Failed.Count -gt 0) {
     Write-Host "The log is in $State\setup.log. The failed steps run again at the next sign-in,"
     Write-Host "or when you run: powershell -ExecutionPolicy Bypass -File $Self"
 } else {
-    Remove-ItemProperty $RunOnce 'PinrailVMSetup' -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $Task -Confirm:$false
     Write-Host ''
     Write-Host 'The VM is ready.' -ForegroundColor Green
     Write-Host "Pinrail is cloned in $Repo. To start the app in dev mode, open Git Bash and run:"
