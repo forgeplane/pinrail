@@ -51,6 +51,8 @@ export const downloads = {
   appimageArm: `${latest}/pinrail-app-aarch64.AppImage`,
   debArm: `${latest}/pinrail-app-arm64.deb`,
   rpmArm: `${latest}/pinrail-app-aarch64.rpm`,
+  windows: `${latest}/pinrail-app-x64.exe`,
+  windowsArm: `${latest}/pinrail-app-arm64.exe`,
 };
 /** Every download, one system a card. */
 export const downloadPage = "/download/";

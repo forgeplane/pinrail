@@ -4,7 +4,9 @@
 // fits, so there is no flash of the wrong one. On Linux the browser's
 // platform names the architecture, "Linux x86_64" or "Linux aarch64", so an
 // ARM64 machine gets its own build; one that says neither gets x86-64, and
-// 32-bit ARM, which Pinrail does not build for, the download page. Without
+// 32-bit ARM, which Pinrail does not build for, the download page. Windows
+// gets the x64 installer, which also runs on ARM64; a browser there does
+// not say which it is, and the download page has the ARM64 one. Without
 // script the macOS one shows; the download page has every one.
 import AppleIcon from "./AppleIcon.astro";
 import LinuxIcon from "./LinuxIcon.astro";
@@ -15,7 +17,7 @@ import { downloadPage, downloads } from "./index/content";
   <a data-download="mac" class="primary big dl-mac" href={downloads.mac}><AppleIcon />Download for macOS</a>
   <a data-download="linux" class="primary big dl-linux" href={downloads.appimage}><LinuxIcon />Download for Linux</a>
   <a data-download="linux-arm" class="primary big dl-linux-arm" href={downloads.appimageArm}><LinuxIcon />Download for Linux on ARM64</a>
-  <a data-download="windows" class="primary big dl-windows" href={downloadPage} aria-label="Windows is coming soon: see every download"><WindowsIcon />Windows: coming soon</a>
+  <a data-download="windows" class="primary big dl-windows" href={downloads.windows}><WindowsIcon />Download for Windows</a>
   <a data-download="other" class="primary big dl-other" href={downloadPage}>Download</a>
 </span>
 <script is:inline>
@@ -41,5 +43,4 @@ import { downloadPage, downloads } from "./index/content";
   .dl[data-os="linux-arm"] > .dl-linux-arm,
   .dl[data-os="windows"] > .dl-windows,
   .dl[data-os="other"] > .dl-other { display: inline-flex; }
-  .dl-windows { opacity: 0.72; }
 </style>
