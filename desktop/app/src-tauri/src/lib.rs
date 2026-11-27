@@ -1188,7 +1188,7 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
     found
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     #[cfg(target_os = "macos")]
     #[test]
@@ -1358,29 +1358,32 @@ mod tests {
         assert_eq!(linked.skill.as_ref().unwrap().1, ["SKILL.md", "notes.md"]);
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_saved_attachment_is_a_new_file_of_the_persons() {
         let dir = tempfile::tempdir().unwrap();
         let (stored, saved) = (dir.path().join("blob"), dir.path().join("pivot.glb"));
         std::fs::write(&stored, b"glTF").unwrap();
         // as the store keeps its files
-        std::fs::set_permissions(&stored, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let mut read_only = std::fs::metadata(&stored).unwrap().permissions();
+        read_only.set_readonly(true);
+        std::fs::set_permissions(&stored, read_only).unwrap();
 
         super::save_copy(&stored, &saved).unwrap();
-        let mode =
-            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(std::fs::read(&saved).unwrap(), b"glTF");
-        assert_ne!(
-            mode(&saved) & 0o200,
-            0,
-            "the person can write it: {:o}",
-            mode(&saved)
+        assert!(
+            !std::fs::metadata(&saved).unwrap().permissions().readonly(),
+            "the person cannot write it"
         );
         // not the store's read-only mode: the one any file they make gets,
         // which their umask decides
-        let fresh = dir.path().join("fresh");
-        std::fs::File::create(&fresh).unwrap();
-        assert_eq!(mode(&saved), mode(&fresh));
+        #[cfg(unix)]
+        {
+            let mode = |path: &std::path::Path| {
+                std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+            };
+            let fresh = dir.path().join("fresh");
+            std::fs::File::create(&fresh).unwrap();
+            assert_eq!(mode(&saved), mode(&fresh));
+        }
     }
 }
