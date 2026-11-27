@@ -504,8 +504,10 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
                         if let Some(reply) = reply {
                             out.reply(&reply);
                         }
-                        if stops {
-                            let _ = stopping.send(());
+                        // a connection that has ended no longer stops
+                        // the host, so this task does
+                        if stops && stopping.send(()).is_err() {
+                            shared.stop.notify_one();
                         }
                     });
                 }
@@ -531,6 +533,10 @@ async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
             }
         }
     }
+    // a stop answered as the connection ended, which the loop did not
+    // read; one answered later finds this end closed
+    stop_asked.close();
+    stop |= stop_asked.try_recv().is_ok();
     shared.context.events.unsubscribe(id);
     {
         let terminals = shared.terminals.lock().unwrap_or_else(|e| e.into_inner());

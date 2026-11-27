@@ -145,6 +145,34 @@ fn stop_ends_the_host_and_removes_its_registration_and_socket() {
 }
 
 #[test]
+fn a_stop_is_kept_when_its_connection_closes_before_the_host_notes_it() {
+    let folders = folders();
+    let mut host = serve(&folders, &[]);
+    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let hello = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "hello",
+        "params": {
+            "secret": host.registration.secret,
+            "client": "test",
+            "generation": pinrail_host::GENERATION,
+            "features": [],
+        },
+    });
+    frame::write_blocking(&mut stream, &Frame::json(&hello)).unwrap();
+    assert!(frame::read_blocking(&mut stream).unwrap().is_some());
+    // the controller asks the host to stop and closes its side at once,
+    // so the host reads the end of the connection right after the call
+    let stop = json!({"jsonrpc": "2.0", "id": 2, "method": "host.stop", "params": {}});
+    frame::write_blocking(&mut stream, &Frame::json(&stop)).unwrap();
+    stream.shutdown(std::net::Shutdown::Write).unwrap();
+    assert!(exits_within(&mut host, Duration::from_secs(5)));
+    let log = std::fs::read_to_string(folders.data.join("host/host.log")).unwrap();
+    assert!(log.contains("stopped: host.stop"), "{log}");
+}
+
+#[test]
 fn a_host_with_no_controller_exits_when_idle() {
     let folders = folders();
     let mut host = serve(&folders, &["--idle-exit", "1"]);
