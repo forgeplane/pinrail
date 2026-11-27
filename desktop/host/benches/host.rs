@@ -27,9 +27,10 @@
 //! values are too small for a ratio to mean much, and `--write-baseline
 //! <file>` writes this run's results as the baseline. `--skip-budgets`
 //! checks the baseline only, for machines other than the reference ones,
-//! such as CI's. Each result is the best of three runs.
+//! such as CI's, and `--no-fail` reports the failures without exiting with
+//! 1. Each result is the best of three runs.
 //!
-//!     cargo bench -p pinrail-host --bench host -- [--baseline <file>] [--write-baseline <file>] [--skip-budgets]
+//!     cargo bench -p pinrail-host --bench host -- [--baseline <file>] [--write-baseline <file>] [--skip-budgets] [--no-fail]
 
 #[cfg(unix)]
 #[path = "host/unix.rs"]

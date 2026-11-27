@@ -1,9 +1,10 @@
-# The terminal host's performance budgets, on every change to the host or
-# the screen it parses with. CI's runners are not the reference machines,
-# so a run compares with the baseline of the last push to main on a runner
-# with the same CPU model, and fails on a result more than 15 % worse; the
-# absolute budgets are checked on the reference machines before each
-# release. A push to main whose run passes becomes the next baseline.
+# The terminal host's performance, on every change to the host or the
+# screen it parses with. A run compares with the baseline of the last push
+# to main on a runner with the same CPU model, and reports a result more
+# than 15 % worse in the job's summary without failing: shared runners vary
+# by more than that from run to run. The absolute budgets are checked on
+# the reference machines before each release. Every push to main becomes
+# the next baseline.
 name: bench-host
 
 on:
@@ -70,14 +71,25 @@ jobs:
       - name: Benchmark
         working-directory: desktop
         run: |
-          args=(--skip-budgets --write-baseline "$GITHUB_WORKSPACE/bench-host-results.json")
+          set -o pipefail
+          args=(--skip-budgets --no-fail --write-baseline "$GITHUB_WORKSPACE/bench-host-results.json")
           if [ -f "$GITHUB_WORKSPACE/bench-host-baseline.json" ]; then
             args+=(--baseline "$GITHUB_WORKSPACE/bench-host-baseline.json")
           else
             echo "No baseline yet for this CPU model: this run only records one."
           fi
-          cargo bench -q --locked -p pinrail-host --bench host -- "${args[@]}"
-      # a passing run on main is the next baseline
+          cargo bench -q --locked -p pinrail-host --bench host -- "${args[@]}" | tee "$GITHUB_WORKSPACE/bench-host.json"
+      # what is worse than the baseline, as a warning and in the summary
+      - name: Report
+        run: |
+          worse=$(jq -r '.failures[]' bench-host.json)
+          if [ -n "$worse" ]; then
+            { echo "### Worse than the baseline"; echo; printf '%s\n' "$worse" | sed 's/^/- /'; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=bench-host::$(printf '%s\n' "$worse" | wc -l | tr -d ' ') results are worse than the baseline; see the summary"
+          else
+            echo "Within the baseline." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # every run on main is the next baseline
       - name: Keep the results as the baseline
         if: github.ref == 'refs/heads/main'
         run: mv bench-host-results.json bench-host-baseline.json

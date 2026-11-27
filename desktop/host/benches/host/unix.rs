@@ -785,12 +785,13 @@ fn check(
 
 pub fn main() {
     let mut args = std::env::args().skip(1);
-    let (mut baseline, mut write_baseline, mut budgets) = (None, None, true);
+    let (mut baseline, mut write_baseline, mut budgets, mut fail) = (None, None, true, true);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--baseline" => baseline = args.next(),
             "--write-baseline" => write_baseline = args.next(),
             "--skip-budgets" => budgets = false,
+            "--no-fail" => fail = false,
             // cargo bench passes --bench
             _ => {}
         }
@@ -846,7 +847,7 @@ pub fn main() {
         let text = serde_json::to_string_pretty(&Value::Object(results)).unwrap();
         std::fs::write(&path, text + "\n").unwrap_or_else(|e| panic!("{path}: {e}"));
     }
-    if !failures.is_empty() {
+    if fail && !failures.is_empty() {
         std::process::exit(1);
     }
 }

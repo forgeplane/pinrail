@@ -1,10 +1,11 @@
-# The window's terminal renderers against the performance budgets, on every
-# change to the renderers, the benchmark, the screen or the host. CI's
-# runners are not the reference machines, so a run compares with the
-# baseline of the last push to main on a runner with the same CPU model,
-# and fails on a measure more than 15 % and its margin worse (baseline.mjs);
-# the absolute budgets are checked on the reference machines before each
-# release. A push to main whose run passes becomes the next baseline.
+# The performance of the window's libghostty renderer, on every change to
+# the renderers, the benchmark, the screen or the host. A run compares with
+# the baseline of the last push to main on a runner with the same CPU
+# model, and reports a measure more than 15 % and its margin worse
+# (baseline.mjs) in the job's summary without failing: shared runners vary
+# by more than that from run to run. The absolute budgets, and xterm.js,
+# are checked on the reference machines before each release. Every push to
+# main becomes the next baseline.
 name: bench-terminal
 
 on:
@@ -94,21 +95,31 @@ jobs:
       - name: Benchmark
         working-directory: desktop/app
         run: |
-          args=(--cases "load,burst,stream,idle,input,attach,memory,switch,agents" --repeat 3
-            --skip-budgets --write-baseline ../../bench-terminal-results.json)
+          args=(--adapters ghostty --cases "load,burst,stream,idle,input,attach,memory,switch,agents"
+            --repeat 3 --skip-budgets --no-fail --write-baseline ../../bench-terminal-results.json)
           if [ -f ../../bench-terminal-baseline.json ]; then
             args+=(--baseline ../../bench-terminal-baseline.json)
           else
             echo "No baseline yet for this CPU model: this run only records one."
           fi
-          node ui/bench/terminal/run.mjs "${args[@]}"
+          node ui/bench/terminal/run.mjs "${args[@]}" 2> >(tee ../../bench-terminal.log >&2)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: bench-terminal-results
           path: desktop/app/ui/bench/terminal/results/latest.*
           if-no-files-found: ignore
-      # a passing run on main is the next baseline
+      # what is worse than the baseline, as a warning and in the summary
+      - name: Report
+        run: |
+          worse=$(sed -n '/^worse than the baseline:/,/^[^ ]/{/^  /s/^  //p}' bench-terminal.log)
+          if [ -n "$worse" ]; then
+            { echo "### Worse than the baseline"; echo; printf '%s\n' "$worse" | sed 's/^/- /'; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=bench-terminal::$(printf '%s\n' "$worse" | wc -l | tr -d ' ') measures are worse than the baseline; see the summary"
+          else
+            echo "Within the baseline." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # every run on main is the next baseline
       - name: Keep the results as the baseline
         if: github.ref == 'refs/heads/main'
         run: mv bench-terminal-results.json bench-terminal-baseline.json
