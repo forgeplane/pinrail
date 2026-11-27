@@ -9,6 +9,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runScript } from "../scripts/sh.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, "..");
@@ -31,7 +32,10 @@ const locked = process.env.CI ? ["--locked"] : [];
 build("cargo", ["build", "-q", "-p", "pinrail-desktop", ...locked], path.join(root, "desktop"));
 build("cargo", ["build", "-q", ...locked], path.join(root, "cli"));
 build("npm", ["run", "sdk:build", "--silent"], path.join(root, "desktop", "app"));
-build("sh", [path.join(root, "scripts", "ghostty-wasm.sh")], root);
+if (runScript(path.join(root, "scripts", "ghostty-wasm.sh"), [], { cwd: root }) !== 0) {
+  console.error("run-shell: scripts/ghostty-wasm.sh failed");
+  process.exit(1);
+}
 console.log(`run-shell: built in ${seconds()}s`);
 
 const status = run("npx", ["playwright", "test", "-c", "shell.config.ts", ...process.argv.slice(2)], here, {
