@@ -4,6 +4,7 @@
 // had it when it opened.
 
 import { useEffect, useRef, type HTMLAttributes, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useWindowKey } from "../lib/useWindowKey";
 
 const FOCUSABLE =
@@ -87,7 +88,9 @@ export function Dialog({
     }
   };
 
-  return (
+  // on the body, so that no ancestor clips it or confines its fixed
+  // backdrop, as a header with container-type does
+  return createPortal(
     <div className={`app-dialog-backdrop ${backdropClass}`} onMouseDown={closeOnBackdrop ? onClose : undefined}>
       <div
         {...boxProps}
@@ -103,6 +106,7 @@ export function Dialog({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
