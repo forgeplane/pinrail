@@ -3476,6 +3476,8 @@ dependencies = [
  "tempfile",
  "tokio",
  "ureq",
+ "webview2-com",
+ "windows",
  "windows-registry",
  "windows-sys 0.61.2",
 ]

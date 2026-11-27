@@ -21,10 +21,26 @@ export async function copiedFiles(): Promise<string[]> {
   }
 }
 
-/** The paths of the files of the last drag, which only the app can read:
- *  none outside it. */
-export async function draggedFiles(): Promise<string[]> {
+/** WebView2's channel to the app, which only the window on Windows has. */
+interface WebView2 {
+  postMessageWithAdditionalObjects?: (message: string, objects: FileList) => void;
+}
+
+/** The message a drop's files are posted to the app with, as
+ *  src-tauri/src/clipboard_windows.rs reads it. */
+const DROP = "pinrail:dropped-files";
+
+/** The paths of the files of the last drag, `dropped`, which only the app
+ *  can read: none outside it. On Windows the page hands the app the
+ *  dropped files, whose paths it reads; on macOS it reads the drag's own
+ *  pasteboard. */
+export async function draggedFiles(dropped?: FileList): Promise<string[]> {
   if (!inTauri()) return [];
+  const webview = (globalThis as { chrome?: { webview?: WebView2 } }).chrome?.webview;
+  if (webview?.postMessageWithAdditionalObjects) {
+    if (!dropped?.length) return [];
+    webview.postMessageWithAdditionalObjects(DROP, dropped);
+  }
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     return await invoke<string[]>("dragged_files");
@@ -78,7 +94,10 @@ export function allowFileDrop(event: DragEvent) {
 export function dropInto(
   view: Pick<TerminalView, "paste" | "focus">,
   event: DragEvent,
-  { files = draggedFiles, native = inTauri() }: { files?: () => Promise<string[]>; native?: boolean } = {},
+  {
+    files = draggedFiles,
+    native = inTauri(),
+  }: { files?: (dropped?: FileList) => Promise<string[]>; native?: boolean } = {},
 ) {
   const data = event.dataTransfer;
   if (!data?.types.includes("Files")) return;
@@ -86,7 +105,8 @@ export function dropInto(
   event.stopPropagation();
   // what the event carries is read before it ends
   const listed = uriListPaths(data);
-  void (native ? files() : Promise.resolve([])).then((paths) => {
+  const dropped = data.files;
+  void (native ? files(dropped) : Promise.resolve([])).then((paths) => {
     const dropped = paths.length ? paths : listed;
     if (!dropped.length) return;
     view.paste(dropped.map(quotePath).join(" "));

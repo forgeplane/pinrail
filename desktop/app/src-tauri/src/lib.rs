@@ -9,6 +9,8 @@ mod bench;
 mod cli_install;
 #[cfg(target_os = "macos")]
 mod clipboard_mac;
+#[cfg(windows)]
+mod clipboard_windows;
 mod feedback;
 mod headless;
 mod native;
@@ -55,8 +57,15 @@ fn clipboard_files() -> Vec<String> {
     clipboard_mac::copied_files()
 }
 
-/// Elsewhere, no files: a terminal pastes the clipboard's text.
-#[cfg(not(target_os = "macos"))]
+/// The paths of the files copied in Explorer, for a terminal to paste.
+#[cfg(windows)]
+#[tauri::command]
+fn clipboard_files() -> Vec<String> {
+    clipboard_windows::copied_files()
+}
+
+/// On Linux, no files: a terminal reads a paste's URI list.
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn clipboard_files() -> Vec<String> {
     Vec::new()
@@ -70,8 +79,18 @@ fn dragged_files() -> Vec<String> {
     clipboard_mac::dragged_files()
 }
 
-/// Elsewhere, none: a terminal reads a drop's URI list.
-#[cfg(not(target_os = "macos"))]
+/// The paths of the files of the drop the page just posted. Async, so it
+/// waits off the main thread, where WebView2 delivers the post.
+#[cfg(windows)]
+#[tauri::command]
+async fn dragged_files() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(clipboard_windows::dragged_files)
+        .await
+        .unwrap_or_default()
+}
+
+/// On Linux, none: a terminal reads a drop's URI list.
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn dragged_files() -> Vec<String> {
     Vec::new()
@@ -816,6 +835,19 @@ pub fn run() {
                 }
             });
             app.manage(Native::new(state.clone()));
+            // the paths of the files dropped on the window, which the page
+            // cannot read on Windows
+            #[cfg(windows)]
+            if let Some(window) = app.get_webview_window("main") {
+                let listened = window.with_webview(|webview| {
+                    if let Err(error) = clipboard_windows::listen_in(&webview) {
+                        eprintln!("pinrail: dropped files cannot be read: {error}");
+                    }
+                });
+                if let Err(error) = listened {
+                    eprintln!("pinrail: dropped files cannot be read: {error}");
+                }
+            }
             #[cfg(target_os = "macos")]
             if notify_mac::available() {
                 notify_mac::setup(app.handle());
