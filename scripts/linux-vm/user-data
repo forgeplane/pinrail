@@ -1,0 +1,61 @@
+#cloud-config
+# The cloud-init configuration for the first boot of the Debian VM.
+# create.sh replaces the __NAME__ placeholders and puts this file on the
+# seed disc, where cloud-init finds it. The reference for each module is at
+# https://cloudinit.readthedocs.io/en/latest/reference/modules.html
+hostname: pinrail-linux
+# the locale that SSH sessions from a Mac ask for
+locale: en_US.UTF-8
+users:
+  - name: __USER__
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: false
+    plain_text_passwd: '__PASSWORD__'
+__SSH_KEYS__
+ssh_pwauth: false
+
+package_update: true
+packages:
+  # A light desktop for the app's window, signed in automatically
+  - xfce4
+  - xfce4-terminal
+  - lightdm
+  - scrot
+  # UTM's guest agent, which reports the VM's address, and its display agent
+  - qemu-guest-agent
+  - spice-vdagent
+  - openssh-server
+  # The build tools and the libraries Tauri needs, as CI installs them
+  - build-essential
+  - curl
+  - git
+  - pkg-config
+  - file
+  - unzip
+  - xz-utils
+  - libwebkit2gtk-4.1-dev
+  - libgtk-3-dev
+  - libayatana-appindicator3-dev
+  - librsvg2-dev
+  - libxdo-dev
+  - libssl-dev
+  - patchelf
+
+write_files:
+  - path: /etc/lightdm/lightdm.conf.d/50-pinrail-vm.conf
+    content: |
+      [Seat:*]
+      autologin-user=__USER__
+      autologin-session=xfce
+  - path: /usr/local/bin/pinrail-vm-setup
+    permissions: "0755"
+    encoding: b64
+    content: __SETUP_B64__
+
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]
+  - [systemctl, set-default, graphical.target]
+  - [systemctl, start, --no-block, graphical.target]
+  - [su, --login, __USER__, --command, "pinrail-vm-setup > ~/pinrail-vm-setup.log 2>&1"]
