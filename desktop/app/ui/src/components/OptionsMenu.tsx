@@ -13,8 +13,8 @@ import { viewportRect } from "../lib/viewport";
 import { useLatest } from "../lib/useLatest";
 import { useWindowKey } from "../lib/useWindowKey";
 
-/** How long a row the pointer crossed on its way to a submenu waits before
- *  it opens its own, if the pointer stays on it. */
+/** How long the pointer rests on a row it crossed on its way to a submenu
+ *  before the row opens its own. */
 const AIM_DELAY = 300;
 
 /** An option of a submenu. */
@@ -99,8 +99,12 @@ export function useOptionsMenu(anchor: HTMLElement, onClose: () => void) {
   useEffect(() => {
     const onMove = (event: MouseEvent) => {
       trail.current = [...trail.current.slice(-2), { x: event.clientX, y: event.clientY }];
+      if (!waiting.current) return;
       // turned away from the submenu: the row it is over takes over now
-      if (waiting.current && !heading()) settle();
+      if (!heading()) return settle();
+      // still on its way: the row waits from the pointer's last move
+      window.clearTimeout(waiting.current.timer);
+      waiting.current.timer = window.setTimeout(settle, AIM_DELAY);
     };
     window.addEventListener("mousemove", onMove);
     return () => {

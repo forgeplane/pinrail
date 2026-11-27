@@ -813,7 +813,15 @@ test("a submenu stays open while the pointer crosses another row on its way to i
   const crossesAt = start.x + ((over!.y + over!.height / 2 - start.y) / (end.y - start.y)) * (end.x - start.x);
   expect(crossesAt).toBeGreaterThan(over!.x);
   await page.mouse.move(start.x, start.y);
-  await page.mouse.move(end.x, end.y, { steps: 12 });
+  // a slow move, on a clock the test advances: the pointer is over the
+  // Ordering row for longer than a row waits for a pointer that rests on it
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+  for (let step = 1; step <= 12; step++) {
+    await page.mouse.move(start.x + ((end.x - start.x) * step) / 12, start.y + ((end.y - start.y) * step) / 12);
+    await page.clock.runFor(100);
+  }
+  await page.clock.resume();
   await expect(none).toBeVisible();
   await none.click();
   await settingSaved(page.request, (s) => s.items.layout, "list");

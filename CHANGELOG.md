@@ -310,6 +310,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Keep a submenu open while the pointer moves slowly toward it across
+  another row.
 - Copy a line of a session's thread without the time beside it.
 - Show a terminal as ended on Linux when its program exits as soon as it
   starts.
