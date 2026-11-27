@@ -1,6 +1,7 @@
 //! The process that holds a terminal: its foreground process group's
-//! leader, with its name, arguments and folder, read from `/proc` on Linux
-//! and from `proc_pidinfo` and `KERN_PROCARGS2` on macOS.
+//! leader, with its name, arguments and folder, read from `/proc` on Linux,
+//! from `proc_pidinfo` and `KERN_PROCARGS2` on macOS, and on Windows from
+//! the process's command line and, for its folder, its own memory.
 
 // sysctl and proc_pidinfo can only be called with `unsafe`; each call says
 // why it is sound.
@@ -139,12 +140,102 @@ fn cwd(pid: u32) -> Option<String> {
     (end > 0).then(|| String::from_utf8_lossy(&bytes[..end]).into_owned())
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(windows)]
+fn args(pid: u32) -> Option<Vec<String>> {
+    pinrail_runtime::process::arguments(pid)
+}
+
+/// The folder Windows keeps in the process's parameters, which only the
+/// process's memory has: the PEB points to them. A 32-bit process lays
+/// them out otherwise, and is left out.
+#[cfg(windows)]
+fn cwd(pid: u32) -> Option<String> {
+    use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
+    use windows_sys::Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation};
+    use windows_sys::Win32::System::Diagnostics::Debug::ReadProcessMemory;
+    use windows_sys::Win32::System::Threading::{
+        IsWow64Process, OpenProcess, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+        PROCESS_VM_READ,
+    };
+    // where the 64-bit layouts keep what is read: the parameters in the
+    // PEB, and the folder, as a UNICODE_STRING, in the parameters
+    const PARAMETERS_IN_PEB: usize = 0x20;
+    const FOLDER_IN_PARAMETERS: usize = 0x38;
+    // SAFETY: the handle is owned below; each read is of the size of the
+    // buffer it fills, from the other process's memory.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, 0, pid);
+        if handle.is_null() {
+            return None;
+        }
+        let process = OwnedHandle::from_raw_handle(handle as RawHandle);
+        let h = crate::win::raw(&process);
+        let mut wow64 = 0;
+        if IsWow64Process(h, &mut wow64) == 0 || wow64 != 0 {
+            return None;
+        }
+        let mut basic: PROCESS_BASIC_INFORMATION = std::mem::zeroed();
+        if NtQueryInformationProcess(
+            h,
+            ProcessBasicInformation,
+            (&raw mut basic).cast(),
+            size_of::<PROCESS_BASIC_INFORMATION>() as u32,
+            std::ptr::null_mut(),
+        ) != 0
+        {
+            return None;
+        }
+        let read = |at: usize, into: &mut [u8]| {
+            ReadProcessMemory(
+                h,
+                at as *const _,
+                into.as_mut_ptr().cast(),
+                into.len(),
+                std::ptr::null_mut(),
+            ) != 0
+        };
+        let mut word = [0u8; 8];
+        if !read(basic.PebBaseAddress as usize + PARAMETERS_IN_PEB, &mut word) {
+            return None;
+        }
+        let parameters = u64::from_le_bytes(word) as usize;
+        // Length u16, MaximumLength u16, padding, Buffer u64
+        let mut string = [0u8; 16];
+        if !read(parameters + FOLDER_IN_PARAMETERS, &mut string) {
+            return None;
+        }
+        let len = usize::from(u16::from_le_bytes([string[0], string[1]]));
+        let buffer = u64::from_le_bytes(string[8..16].try_into().ok()?) as usize;
+        if len == 0 || len > 32_768 || buffer == 0 {
+            return None;
+        }
+        let mut bytes = vec![0u8; len];
+        if !read(buffer, &mut bytes) {
+            return None;
+        }
+        let units: Vec<u16> = bytes
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_le_bytes(*c))
+            .collect();
+        let folder = String::from_utf16_lossy(&units);
+        // kept with a trailing separator, but for a drive's root
+        let trimmed = folder.trim_end_matches('\\');
+        Some(if trimmed.ends_with(':') {
+            folder
+        } else {
+            trimmed.to_string()
+        })
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 fn args(_: u32) -> Option<Vec<String>> {
     None
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 fn cwd(_: u32) -> Option<String> {
     None
 }
