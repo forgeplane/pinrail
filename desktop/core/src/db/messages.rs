@@ -371,6 +371,17 @@ impl Db {
         Ok(Some((moved, event_id)))
     }
 
+    /// Whether a message other than `except` has been typed into the run.
+    pub fn typed_in_run(&self, run: &str, except: i64) -> rusqlite::Result<bool> {
+        self.read().query_row(
+            "SELECT EXISTS (SELECT 1 FROM session_messages
+             WHERE run_id = ?1 AND id <> ?2 AND route = 'type'
+               AND state IN ('typing', 'typed', 'unconfirmed', 'delivered'))",
+            params![run, except],
+            |r| r.get(0),
+        )
+    }
+
     /// The messages typed into the session's run and not yet confirmed,
     /// oldest first, which its prompt hook may confirm.
     pub fn typed_messages(&self, agent: &str, id: &str) -> rusqlite::Result<Vec<MessageRow>> {

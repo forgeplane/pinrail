@@ -201,6 +201,22 @@ impl super::Runtime {
     /// Types one message into the run's terminal, and moves it on as the
     /// host answers: `typing` until its prompt confirms it, `typed` for an
     /// agent without a prompt hook, or back to waiting with why.
+    /// The text to type for `message`: after Pinrail's note when it is the
+    /// first message typed into a run that started its agent without one,
+    /// as a start with no first task does. The message keeps the person's
+    /// words, which the agent's prompt, without the note, confirms.
+    fn with_note(&self, run: &RunRow, message: &MessageRow) -> Result<String, RunError> {
+        let noted = |argv: &[String]| argv.iter().any(|a| a.contains("<pinrail>"));
+        let needs = run.kind == "start"
+            && !self.db.run_argv(&run.id)?.is_some_and(|argv| noted(&argv))
+            && !self.db.typed_in_run(&run.id, message.id)?;
+        Ok(if needs {
+            crate::preamble::before(&crate::preamble::for_session(), &message.text)
+        } else {
+            message.text.clone()
+        })
+    }
+
     async fn type_one(
         &self,
         agent: &str,
@@ -238,7 +254,7 @@ impl super::Runtime {
         match self
             // typed whenever the agent is idle, whatever the person did in
             // the terminal, which the host cannot read
-            .type_message(&run.id, &typing.text, None, false)
+            .type_message(&run.id, &self.with_note(run, &typing)?, None, false)
             .await
         {
             Ok(()) if confirmed_by_hook => {}

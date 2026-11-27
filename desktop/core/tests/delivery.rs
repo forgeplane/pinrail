@@ -50,6 +50,23 @@ async fn file(path: std::path::PathBuf) -> String {
     }
 }
 
+/// What the stand-in agent heard, once it has heard `text`: a long text
+/// is typed over several reads.
+async fn heard_text(folder: &std::path::Path, text: &str) -> String {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let heard = std::fs::read_to_string(folder.join("heard")).unwrap_or_default();
+        if heard.contains(text) {
+            return heard;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{text:?} was not typed: {heard:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
 /// Starts the stand-in `claude` in a folder of its own, listening for what
 /// is typed, and returns its session and folder.
 async fn hosted(app: &App, name: &str) -> (String, std::path::PathBuf) {
@@ -142,7 +159,7 @@ async fn a_message_to_an_idle_agent_is_typed_and_confirmed_by_its_prompt() {
 
     let sent = send(&app, &session, "Use the v2 endpoint.").await;
     assert_eq!(sent["route"], "type");
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Use the v2 endpoint.").await;
     assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
     let typing = message_becomes(&app, &session, &sent["id"], |m| m["state"] == "typing").await;
     assert_eq!(typing["delivered_at"], Value::Null);
@@ -158,6 +175,65 @@ async fn a_message_to_an_idle_agent_is_typed_and_confirmed_by_its_prompt() {
     let delivered =
         message_becomes(&app, &session, &sent["id"], |m| m["state"] == "delivered").await;
     assert!(delivered["delivered_at"].is_string());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_first_message_to_an_agent_started_without_a_task_has_pinrails_note() {
+    let app = linked().await;
+    let (session, folder) = hosted(&app, "app").await;
+    report(&app, &session, "started", json!({})).await;
+
+    let first = send(&app, &session, "Fix the login.").await;
+    let heard = heard_text(&folder, "Fix the login.").await;
+    let note = heard.find("<pinrail>").expect(&heard);
+    assert!(
+        heard[note..].contains("</pinrail>\n\nFix the login."),
+        "{heard:?}"
+    );
+    // the message keeps the person's words, and the prompt with the note
+    // before them confirms it
+    message_becomes(&app, &session, &first["id"], |m| m["state"] == "typing").await;
+    assert_eq!(first["text"], "Fix the login.");
+    report(
+        &app,
+        &session,
+        "prompt",
+        json!({"detail": {"prompt": heard[note..].trim_end()}}),
+    )
+    .await;
+    message_becomes(&app, &session, &first["id"], |m| m["state"] == "delivered").await;
+    report(&app, &session, "turn_ended", json!({"end": "done"})).await;
+
+    // the agent has read it once
+    std::fs::remove_file(folder.join("heard")).unwrap();
+    send(&app, &session, "Also check the logout.").await;
+    let heard = heard_text(&folder, "Also check the logout.").await;
+    assert!(heard.contains("Also check the logout."), "{heard:?}");
+    assert!(!heard.contains("<pinrail>"), "{heard:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_first_message_to_an_agent_started_with_a_task_has_no_note() {
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("listen"), "").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "task": "fix the login"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    file(folder.join("token")).await;
+    let session = started["session"]["id"].as_str().unwrap().to_string();
+    report(&app, &session, "started", json!({})).await;
+
+    send(&app, &session, "Also check the logout.").await;
+    let heard = heard_text(&folder, "Also check the logout.").await;
+    assert!(heard.contains("Also check the logout."), "{heard:?}");
+    assert!(!heard.contains("<pinrail>"), "{heard:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -182,7 +258,7 @@ async fn a_message_waits_while_the_agent_works_and_is_typed_once_it_is_idle() {
     );
 
     report(&app, &session, "turn_ended", json!({"end": "done"})).await;
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Also check the logout.").await;
     assert!(heard.contains("Also check the logout."), "{heard:?}");
     message_becomes(&app, &session, &sent["id"], |m| m["state"] == "typing").await;
 }
@@ -207,7 +283,7 @@ async fn an_unconfirmed_message_is_retried_only_by_the_person() {
     app.state.runtime().sweep_messages().unwrap();
     message_becomes(&app, &session, &sent["id"], |m| m["state"] == "unconfirmed").await;
 
-    file(folder.join("heard")).await;
+    heard_text(&folder, "Use the v2 endpoint.").await;
     std::fs::remove_file(folder.join("heard")).unwrap();
     let (status, _) = call(
         &app,
@@ -220,7 +296,7 @@ async fn an_unconfirmed_message_is_retried_only_by_the_person() {
     )
     .await;
     assert_eq!(status, StatusCode::ACCEPTED);
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Use the v2 endpoint.").await;
     assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
     message_becomes(&app, &session, &sent["id"], |m| m["state"] == "typing").await;
 }
@@ -297,7 +373,7 @@ async fn a_message_queued_while_the_session_was_stopped_is_typed_once_it_is_resu
     .await;
     assert_eq!(status, StatusCode::CREATED, "{resumed}");
     report(&app, &session, "started", json!({})).await;
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Use the v2 endpoint.").await;
     assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
     let typing = message_becomes(&app, &session, &sent["id"], |m| m["state"] == "typing").await;
     assert_eq!(typing["route"], "type");
@@ -378,7 +454,7 @@ async fn without_hooks_the_terminal_confirms_a_typed_message_and_lets_the_next_t
     let first = send(&app, &session, "Use the v2 endpoint.").await;
     message_becomes(&app, &session, &first["id"], |m| m["state"] == "typing").await;
     // the agent starts work once Enter is pressed, which ends the line
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Use the v2 endpoint.").await;
     assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
     common::record(&folder, "state=working:app=claude-code").await;
     message_becomes(&app, &session, &first["id"], |m| m["state"] == "delivered").await;
@@ -433,7 +509,7 @@ async fn a_message_waits_for_the_agent_to_start_and_can_be_typed_sooner() {
     )
     .await;
     assert_eq!(status, StatusCode::ACCEPTED);
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Use the v2 endpoint.").await;
     assert!(heard.contains("Use the v2 endpoint."), "{heard:?}");
 }
 
@@ -478,7 +554,7 @@ async fn the_first_task_of_an_agent_that_takes_none_is_typed_once_it_is_idle() {
     );
 
     common::record(&folder, "state=idle:app=stand-in").await;
-    let heard = file(folder.join("heard")).await;
+    let heard = heard_text(&folder, "Fix the login.").await;
     assert_eq!(heard.matches("Fix the login.").count(), 1, "{heard:?}");
 
     // typed once: later idle records type nothing more

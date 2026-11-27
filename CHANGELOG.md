@@ -13,9 +13,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Added
 
-- An agent that Pinrail starts with a first message receives a short note
-  before it. The note tells the agent how to read, claim and report on
-  work items. The session's thread shows only your message.
+- An agent that Pinrail starts receives a short note before the first
+  message you send it. The note tells the agent how to read, claim and
+  report on work items. The session's thread shows only your message.
 - Pinrail writes a log to `core.log` in its data folder, with requests that
   take half a second or more. Set `PINRAIL_LOG=debug` to log every request.
 - Give each agent arguments for every start and resume from Pinrail, such

@@ -526,6 +526,19 @@ impl Db {
             .collect()
     }
 
+    /// The command a run started its agent with.
+    pub fn run_argv(&self, id: &str) -> rusqlite::Result<Option<Vec<String>>> {
+        use rusqlite::OptionalExtension;
+        self.conn()
+            .query_row(
+                "SELECT argv FROM run_launches WHERE run_id = ?1",
+                [id],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()
+            .map(|argv| argv.map(|a| serde_json::from_str(&a).unwrap_or_default()))
+    }
+
     /// The first task and the extra arguments a run was started with.
     pub fn run_launch(&self, id: &str) -> rusqlite::Result<Option<RunLaunch>> {
         use rusqlite::OptionalExtension;
