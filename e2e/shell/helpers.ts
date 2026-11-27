@@ -93,7 +93,13 @@ export function onReviewPages() {
 /** Waits until the core has a setting the page changed. The app saves a
  *  change in the background, so a test that ends right after one would
  *  leave the save to land in the next test, which the live updates then
- *  show on its page. */
+ *  show on its page.
+ *
+ *  A test that changes a setting and then changes it back waits after each
+ *  change. The core has the last value from the start, so a single wait at
+ *  the end can pass before the first save arrives. The app sends the second
+ *  save after the answer to the first, and a page that closes between them
+ *  leaves the first value in the core. */
 export async function settingSaved(
   request: APIRequestContext,
   read: (settings: Record<string, any>) => unknown,

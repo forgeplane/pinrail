@@ -21,6 +21,8 @@ for (const end of [66, 76]) {
 
     await page.keyboard.press("ControlOrMeta+b");
     await expect(toggle(page)).toHaveAttribute("aria-label", "Show sidebar");
+    // the first save reaches the core before the second press: see settingSaved
+    await settingSaved(page.request, (s) => s.sidebar.open, false);
     await windowButtonsEndAt(page, end);
     await expect.poll(async () => (await toggle(page).boundingBox())!.x).toBe(end + 4);
 

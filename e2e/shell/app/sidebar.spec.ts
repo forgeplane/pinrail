@@ -105,10 +105,12 @@ test("⌘B hides the sidebar and shows it again", async ({ page }) => {
 
   await page.keyboard.press("ControlOrMeta+b");
   await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
+  // each save reaches the core before the next step, the second one before
+  // the next test reads it, or that test opens with the sidebar the first
+  // press closed
+  await settingSaved(page.request, (s) => s.sidebar.open, false);
   await page.keyboard.press("ControlOrMeta+b");
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
-  // the save of the second press reaches the core before the next test
-  // reads it, or that test opens with the sidebar the first press closed
   await settingSaved(page.request, (s) => s.sidebar.open, true);
 });
 
@@ -116,6 +118,12 @@ test("two ⌘B presses before the app redraws hide the sidebar and show it again
   await page.goto("/#/history");
   const toggle = page.getByRole("button", { name: /^(Hide|Show) sidebar$/ });
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // the saves the core has answered: the app sends the second one after
+  // the answer to the first
+  let answered = 0;
+  page.on("response", (response) => {
+    if (response.request().method() === "PATCH" && new URL(response.url()).pathname === "/api/v1/settings") answered++;
+  });
   // both presses in one task, so the app cannot redraw between them, as
   // happens on a slow machine
   await page.evaluate(() => {
@@ -124,7 +132,9 @@ test("two ⌘B presses before the app redraws hide the sidebar and show it again
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: mac, ctrlKey: !mac, bubbles: true }));
     }
   });
-  await page.waitForTimeout(300);
+  // a test that ended between the two saves would leave the sidebar hidden
+  // for the tests that follow
+  await expect.poll(() => answered).toBe(2);
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
   // and the core keeps it shown: the second change reached it last
   const saved = await (await page.request.get(`${core}/api/v1/settings`)).json();
