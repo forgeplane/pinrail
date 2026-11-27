@@ -187,6 +187,9 @@ async fn output_until(socket: &mut Socket, mut offset: u64, wanted: &str) -> u64
                 }
             }
             Read::Closed(code) => panic!("closed with {code:?} before {wanted:?}"),
+            Read::Text(value) if value["t"] == "resync" => {
+                panic!("resynced at {offset} before {wanted:?}")
+            }
             _ => {}
         }
     }
@@ -282,7 +285,9 @@ async fn an_observer_hears_of_the_controllers_resize_and_gets_a_new_snapshot() {
 async fn a_window_that_returns_no_credit_is_resynced_without_slowing_another() {
     let served = served().await;
     let terminal = served
-        .spawn("read go; head -c 6000000 /dev/zero | tr '\\0' x; printf 'END\\n'; sleep 600")
+        // 6 MB, past what a window that returns no credit may fall behind,
+        // in pieces that a slow machine reads back in time
+        .spawn("read go; for i in 1 2 3 4 5 6; do head -c 1000000 /dev/zero | tr '\\0' x; sleep 0.2; done; printf 'END\\n'; sleep 600")
         .await;
     let mut stalled = served.attach(&terminal).await;
     let mut reading = served.attach(&terminal).await;
