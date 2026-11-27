@@ -937,6 +937,11 @@ pub fn run() {
             }
         })
         .on_window_event(|window, event| {
+            // the tray icon follows the taskbar's colour on Windows
+            #[cfg(windows)]
+            if let WindowEvent::ThemeChanged(_) = event {
+                native::refresh_tray(window.app_handle());
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 // the close button hides the window, unless settings say quit
                 let quit = window
