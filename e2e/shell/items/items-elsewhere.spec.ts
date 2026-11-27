@@ -42,9 +42,11 @@ const panelKey = (page: Page) => page.getByTestId("item-panel").locator(".item-p
 test("a review's chip in its inbox row and its header opens its item", async ({ page, request }) => {
   const repo = fresh("chips");
   const item = await add(request, repo, "Load themes");
-  const sent = await review(request, repo, "Theme loader", [item.key]);
+  // a title of its own: the inbox lists other tests' reviews too
+  const title = `Theme loader ${repo}`;
+  const sent = await review(request, repo, title, [item.key]);
   await page.goto(`/#/?repo=${encodeURIComponent(repo)}`);
-  const row = page.getByTestId("review-row").filter({ hasText: "Theme loader" });
+  const row = page.getByTestId("review-row").filter({ hasText: title });
   const chip = row.getByTestId("item-chip");
   await expect(chip).toContainText(`${item.key}Load themes`);
   // the chip opens the item, not the review
