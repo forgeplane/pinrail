@@ -29,6 +29,10 @@ export const test = base.extend({
   page: async ({ page, playwright }, use) => {
     const request = await playwright.request.newContext({ extraHTTPHeaders: asPerson });
     Object.defineProperty(page, "request", { get: () => request });
+    // every test starts with the sidebar shown, whatever an earlier test on
+    // this core left saved
+    const reset = await request.patch(`${core}/api/v1/settings`, { data: { sidebar: { open: true } } });
+    if (!reset.ok()) throw new Error(`the sidebar could not be shown: ${await reset.text()}`);
     // the app renders after an awaited call and listens for keys from its
     // effects: going to one of its pages waits until it does, so that a
     // key pressed next is not lost
