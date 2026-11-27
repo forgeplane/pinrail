@@ -49,6 +49,16 @@ pub fn send(stream: &UnixStream, value: &Value, fds: &[RawFd]) -> io::Result<()>
     Ok(())
 }
 
+/// Receives a message that must carry nothing: what a peer sends before
+/// it has shown who it is. Descriptors that came anyway are closed.
+pub fn recv_plain(stream: &UnixStream) -> io::Result<Option<Value>> {
+    match recv(stream)? {
+        Some((value, fds)) if fds.is_empty() => Ok(Some(value)),
+        Some(_) => Err(io::Error::other("descriptors where none belong")),
+        None => Ok(None),
+    }
+}
+
 /// Receives a message and the descriptors that came with it, or `None` when
 /// the peer closed the connection.
 pub fn recv(stream: &UnixStream) -> io::Result<Option<(Value, Vec<OwnedFd>)>> {

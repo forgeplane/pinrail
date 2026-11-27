@@ -311,10 +311,11 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
 /// The host proves it is the host: a process of this user that knows the
 /// host secret.
 fn handshake(stream: &Stream, registration: &Path, instance: &str) -> bool {
-    let Ok(Some((hello, _))) = fdpass::recv(stream) else {
+    // who it is first, and nothing it sends is taken before it is known
+    let same_user = crate::net::same_user(stream);
+    let Ok(Some(hello)) = fdpass::recv_plain(stream) else {
         return false;
     };
-    let same_user = crate::net::same_user(stream);
     let secret = Registration::read(registration).map(|r| r.secret);
     let knows = matches!((&secret, hello["secret"].as_str()), (Some(s), Some(given)) if s == given);
     if !same_user || !knows {
@@ -532,6 +533,37 @@ fn close(state: &Shared, request: &Value) -> (Value, Vec<Owned>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A handshake from someone who is not the host, with a handle of this
+    /// process in it: the holder must not take it, and so close it.
+    #[cfg(windows)]
+    #[test]
+    #[allow(unsafe_code)]
+    fn a_handshake_takes_no_handle_from_whoever_connects() {
+        use std::io::Write;
+        use std::os::windows::io::AsRawHandle;
+        let path = std::path::PathBuf::from(format!(
+            r"\\.\pipe\pinrail-handshake-test-{}",
+            crate::random_hex(4)
+        ));
+        let listener = crate::net::listen(&path).unwrap();
+        let client = crate::net::connect(&path).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        let mine = crate::win::event().unwrap();
+        let mut hello = 2u32.to_le_bytes().to_vec();
+        hello.extend(b"{}");
+        hello.extend(1u32.to_le_bytes());
+        hello.extend((mine.as_raw_handle() as u64).to_le_bytes());
+        (&client).write_all(&hello).unwrap();
+        let registration = tempfile::tempdir().unwrap().path().join("none.json");
+        assert!(!handshake(&server, &registration, "i"));
+        let mut flags = 0;
+        // SAFETY: asks about a handle this test still owns.
+        let open = unsafe {
+            windows_sys::Win32::Foundation::GetHandleInformation(crate::win::raw(&mine), &mut flags)
+        };
+        assert_ne!(open, 0, "the handshake closed a handle of this process");
+    }
 
     #[test]
     fn the_wait_between_starts_of_a_host_doubles_up_to_a_minute() {
