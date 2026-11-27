@@ -292,9 +292,10 @@ test("a decision made with pinrail decide says so, and names the agent session t
   const result = await waiter.done;
   expect(result.code, result.stderr).toBe(0);
   const review = JSON.parse(result.stdout);
-  expect(review.session).toBe("s-same");
+  // Pinrail's id of the agent's session, which submitted it and decided
+  expect(review.session).toMatch(/^ses_/);
   expect(review.decision.via).toBe("cli");
-  expect(review.decision.session).toBe("s-same");
+  expect(review.decision.session).toBe(review.session);
   // the agent decided, not the person
   expect(review.decision.decided_by).toBe("claude-code");
   const md = pinrail(["show", id, "--markdown"]).stdout;
