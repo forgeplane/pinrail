@@ -72,6 +72,20 @@ Without such an identity the host is signed ad hoc, and macOS asks for those
 permissions again after each rebuild. Set `HOST_SIGNING_IDENTITY=-` to sign
 it ad hoc on purpose.
 
+On Windows, install these first, along with rustup and mise:
+
+- [Git for Windows](https://gitforwindows.org). Some scripts are POSIX
+  shell scripts. mise runs its tasks with `cmd` on Windows, and those
+  scripts find the `sh` that Git for Windows brings by themselves, so it
+  does not have to be on your `PATH`.
+- The Visual Studio Build Tools, with *Desktop development with C++* and
+  a Windows SDK, which Rust links with. On ARM64, add the *C++ Clang
+  tools for Windows* component too, which the `ring` crate needs.
+
+WebView2, which draws the app's window, comes with Windows 11. The
+terminal host runs agents in Microsoft's ConPTY, which its build downloads
+and checks, and places beside the host.
+
 `mise run setup` performs the same preparation as CI. The tests and the
 linters need it, so run it once after cloning, and again when a
 `package.json` or `package-lock.json` changes.
@@ -171,6 +185,23 @@ The container has no GPU, and it runs Linux for your Mac's processor
 rather than the x86-64 of the release, so check anything that depends on
 those on a real Linux machine.
 
+## Working on Windows from a Mac
+
+On an Apple-silicon Mac with [UTM](https://mac.getutm.app), a Windows 11
+on ARM virtual machine that has everything above installs itself:
+
+```sh
+scripts/windows-vm/create.sh ~/Downloads/Win11_ARM64.iso
+scripts/windows-vm/sync.sh             # copy your working tree to C:\dev\pinrail in the VM
+ssh dev@<address> 'cd /c/dev/pinrail/desktop && cargo nextest run'
+scripts/windows-vm/desktop.sh run 'C:\path\to\Pinrail.exe'
+scripts/windows-vm/desktop.sh shot     # a screenshot of the VM's desktop
+```
+
+`sync.sh` copies what Git would track, so a build in the VM keeps its own
+`target` folder. What runs over SSH has no desktop. `desktop.sh` starts a
+program where the VM's signed-in account sees it, and saves screenshots.
+
 ## Before opening a pull request
 
 Run the linters and the tests. ESLint and Prettier come from the package at
@@ -185,8 +216,8 @@ mise run workflows          # the GitHub workflows, with actionlint and zizmor
 mise run test               # all the test suites
 ```
 
-CI runs the same checks on macOS and Linux, and they must pass before a pull
-request can be merged.
+CI runs the same checks on macOS, Linux and Windows, and they must pass
+before a pull request can be merged.
 
 - **Tests:** add a test that fails without your fix.
 - **Docs:** if your change affects what users see, update the relevant page
