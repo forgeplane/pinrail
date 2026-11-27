@@ -315,6 +315,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Show a long message sent to Claude Code once in the session's thread,
+  without Claude Code's `<pasted_content>` tags.
 - Keep an agent running when Pinrail reconnects to its terminal host just
   as the agent starts.
 - Keep a submenu open while the pointer moves slowly toward it across

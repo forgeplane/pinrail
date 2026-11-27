@@ -181,6 +181,15 @@ fn a_claude_code_subagent_neither_speaks_for_the_session_nor_starts_a_turn() {
 }
 
 #[test]
+fn a_pasted_claude_code_prompt_is_reported_without_its_paste_tags() {
+    let prompt = parse("claude-code", "prompt", "pasted-prompt").unwrap();
+    assert_eq!(
+        prompt.detail.prompt.as_deref(),
+        Some("Fix the login redirect\n\nand add a test")
+    );
+}
+
+#[test]
 fn a_background_task_s_notification_is_work_in_the_turn_not_a_prompt() {
     // Claude Code hands itself a finished background command as a prompt
     assert_eq!(

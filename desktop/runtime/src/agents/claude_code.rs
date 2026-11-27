@@ -56,7 +56,9 @@ impl Agent for ClaudeCode {
                 {
                     HookEvent::Working
                 } else {
-                    detail.prompt = prompt;
+                    detail.prompt = prompt
+                        .map(|p| without_paste_tags(&p))
+                        .filter(|p| !p.is_empty());
                     HookEvent::Prompt
                 }
             }
@@ -278,7 +280,7 @@ fn last_turn(lines: &str) -> Option<TranscriptTurn> {
                 if human {
                     turn = Some(TranscriptTurn {
                         agent_turn: Some(id),
-                        prompt: words(content),
+                        prompt: words(content).map(|p| without_paste_tags(&p)),
                         prompted_at: text(&entry, "timestamp"),
                         reply: None,
                     });
@@ -299,6 +301,52 @@ fn last_turn(lines: &str) -> Option<TranscriptTurn> {
         }
     }
     turn
+}
+
+/// A prompt without the tags Claude Code puts around text pasted into it,
+/// which it also does for a message Pinrail types: a line
+/// `<pasted_content id="…">` and, later, `</pasted_content id="…">` with
+/// the same id of four hex digits. Claude Code does this for a paste of
+/// more than 800 characters or 3 lines, which it shows as `[Pasted text #N]`. The pasted text stays in its place. Only the outermost
+/// pairs are removed, so tags quoted inside a paste stay, and a tag without
+/// its partner is the person's text.
+fn without_paste_tags(text: &str) -> String {
+    let opening = |line: &str| {
+        line.trim()
+            .strip_prefix("<pasted_content id=\"")?
+            .strip_suffix("\">")
+            // Claude Code's ids are four hex digits
+            .filter(|id| id.len() == 4 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+            .map(str::to_string)
+    };
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut kept: Vec<&str> = Vec::with_capacity(lines.len());
+    let mut removed = false;
+    let mut at = 0;
+    while at < lines.len() {
+        let closing = opening(lines[at]).and_then(|id| {
+            let closing = format!("</pasted_content id=\"{id}\">");
+            (at + 1..lines.len()).find(|&end| lines[end].trim() == closing)
+        });
+        match closing {
+            Some(end) => {
+                kept.extend(&lines[at + 1..end]);
+                removed = true;
+                at = end + 1;
+            }
+            None => {
+                kept.push(lines[at]);
+                at += 1;
+            }
+        }
+    }
+    let text = kept.join("\n");
+    // the blank lines Claude Code puts before a paste that begins the prompt
+    if removed {
+        text.trim().to_string()
+    } else {
+        text
+    }
 }
 
 /// The text of a message's content: a string, or its text blocks joined.
@@ -363,6 +411,57 @@ mod tests {
             serde_json::json!({"type": "assistant", "isSidechain": false,
             "message": {"role": "assistant", "content": content}}),
         )
+    }
+
+    #[test]
+    fn a_prompt_that_is_one_paste_is_its_text() {
+        assert_eq!(
+            without_paste_tags(
+                "\n\n<pasted_content id=\"7620\">\nline one\nline two\n</pasted_content id=\"7620\">"
+            ),
+            "line one\nline two"
+        );
+    }
+
+    #[test]
+    fn typed_text_around_a_paste_stays_in_its_place() {
+        let prompt = "look at this\n\n<pasted_content id=\"dccc\">\nFAIL pinrail-host\n</pasted_content id=\"dccc\">\n\nwhat do you think?";
+        assert_eq!(
+            without_paste_tags(prompt),
+            "look at this\n\nFAIL pinrail-host\n\nwhat do you think?"
+        );
+    }
+
+    #[test]
+    fn paste_tags_quoted_inside_a_paste_are_kept() {
+        let prompt = "<pasted_content id=\"00bb\">\nthe prompt was:\n<pasted_content id=\"00aa\">\nhi\n</pasted_content id=\"00aa\">\n</pasted_content id=\"00bb\">";
+        assert_eq!(
+            without_paste_tags(prompt),
+            "the prompt was:\n<pasted_content id=\"00aa\">\nhi\n</pasted_content id=\"00aa\">"
+        );
+    }
+
+    #[test]
+    fn an_opening_paste_tag_without_its_closing_tag_is_kept() {
+        let prompt = "<pasted_content id=\"00aa\">\nhi\n</pasted_content id=\"00bb\">";
+        assert_eq!(without_paste_tags(prompt), prompt);
+    }
+
+    #[test]
+    fn tags_with_an_id_claude_code_does_not_use_are_kept() {
+        let prompt = "<pasted_content id=\"notes\">\nhi\n</pasted_content id=\"notes\">";
+        assert_eq!(without_paste_tags(prompt), prompt);
+    }
+
+    #[test]
+    fn a_pasted_prompt_in_the_transcript_is_its_text() {
+        let lines = prompt(
+            "p1",
+            serde_json::json!(
+                "\n\n<pasted_content id=\"7620\">\nFix it\n</pasted_content id=\"7620\">"
+            ),
+        );
+        assert_eq!(last_turn(&lines).unwrap().prompt.as_deref(), Some("Fix it"));
     }
 
     #[test]
