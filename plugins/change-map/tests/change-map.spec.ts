@@ -465,8 +465,10 @@ test("the header counts what is reviewed, and U goes to the next part or interac
   // U: the first part not reviewed, after the parts the interactions
   await page.keyboard.press("u");
   await expect(f.locator('[data-node="api-client"]')).toHaveAttribute("aria-pressed", "true");
+  // R marks what is selected: each one, once the click has selected it
   for (const id of ["api-client", "tickets-endpoint", "tickets-context", "tickets-table"]) {
     await f.locator(`[data-node="${id}"]`).click();
+    await expect(f.locator(`[data-node="${id}"]`)).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press("r");
   }
   await expect(progress).toHaveText("5 of 10 reviewed");
@@ -475,6 +477,7 @@ test("the header counts what is reviewed, and U goes to the next part or interac
   await expect(f.locator('.cm-link-label[data-edge="save"]')).toHaveAttribute("aria-pressed", "true");
   for (const id of ["save", "post", "create", "lookup", "insert"]) {
     await f.locator(`.cm-link-label[data-edge="${id}"]`).dispatchEvent("click");
+    await expect(f.locator(`.cm-link-label[data-edge="${id}"]`)).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press("r");
   }
   await expect(progress).toHaveText("All 10 reviewed");
