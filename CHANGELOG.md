@@ -311,6 +311,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Keep an agent running when Pinrail reconnects to its terminal host just
+  as the agent starts.
 - Keep a submenu open while the pointer moves slowly toward it across
   another row.
 - Copy a line of a session's thread without the time beside it.

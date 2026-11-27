@@ -177,6 +177,13 @@ impl From<rusqlite::Error> for RunError {
 pub(super) struct Spawns {
     /// The runs being spawned, which reconciling leaves alone.
     running: HashSet<String>,
+    /// How many times the host's terminals were about to be listed for
+    /// reconciling.
+    listings: u64,
+    /// The live runs whose spawn the host answered, each with the number
+    /// of listings begun by then: a list taken before the answer may not
+    /// have the run's terminal.
+    answered: HashMap<String, u64>,
     /// The `exited` events of terminals no run had yet, by terminal.
     exits: HashMap<String, Value>,
     /// The runs started with a `local_id` in the last 10 minutes, by it:
@@ -250,24 +257,31 @@ impl super::Runtime {
         // the session has Pinrail's id from the start; the agent's own id
         // is the one Pinrail chose, or comes with the agent's first report
         let session = crate::id::next_session();
-        let run = self.db.insert_run(
-            &NewRun {
-                id: &id,
-                host: LOCAL,
-                agent: &start.agent,
-                kind: "start",
-                folder: &start.folder,
-                argv: &argv,
-                task: start.task.as_deref(),
-                args: &args,
-                created_by: &start.created_by,
-                token_digest: &super::digest(&token),
-                session: Some(&session),
-                agent_session: plan.session.as_deref(),
-                checkout: checkout.as_ref(),
-            },
-            Utc::now(),
-        )?;
+        let run = {
+            // recorded and marked as being spawned under one lock, so that
+            // reconciling never sees the run without its spawn
+            let mut spawns = self.spawns();
+            let run = self.db.insert_run(
+                &NewRun {
+                    id: &id,
+                    host: LOCAL,
+                    agent: &start.agent,
+                    kind: "start",
+                    folder: &start.folder,
+                    argv: &argv,
+                    task: start.task.as_deref(),
+                    args: &args,
+                    created_by: &start.created_by,
+                    token_digest: &super::digest(&token),
+                    session: Some(&session),
+                    agent_session: plan.session.as_deref(),
+                    checkout: checkout.as_ref(),
+                },
+                Utc::now(),
+            )?;
+            spawns.running.insert(id);
+            run
+        };
         self.spawn(&link, run, &argv, start.cols, start.rows, token)
             .await
     }
@@ -446,6 +460,7 @@ impl super::Runtime {
                 },
                 now,
             )?;
+            spawns.running.insert(id.clone());
             spawns.resuming.insert(key.clone(), id);
             run
         };
@@ -509,9 +524,9 @@ impl super::Runtime {
         }
     }
 
-    /// Asks the host to spawn a run just recorded as `starting`, with the
-    /// token in its environment, and returns the run as the reply leaves
-    /// it.
+    /// Asks the host to spawn a run just recorded as `starting` and marked
+    /// as being spawned, with the token in its environment, and returns
+    /// the run as the reply leaves it.
     async fn spawn(
         &self,
         link: &HostLink,
@@ -531,7 +546,6 @@ impl super::Runtime {
             }
         }
         env.insert(TOKEN_VARIABLE.to_string(), token);
-        self.spawns().running.insert(id.clone());
         let reply = link
             .call(
                 "terminal.spawn",
@@ -547,6 +561,8 @@ impl super::Runtime {
             .await;
         let mut spawns = self.spawns();
         spawns.running.remove(&id);
+        let listings = spawns.listings;
+        spawns.answered.insert(id.clone(), listings);
         match reply {
             Ok(reply) => {
                 // the start adds a session, which can change the preferred agent
@@ -798,12 +814,22 @@ impl super::Runtime {
         )
     }
 
-    /// Brings the runs in line with the terminals the host lists on
-    /// connecting: a starting run the host spawned is running, a run whose
-    /// terminal exited or is gone ends, and a terminal whose `run` label
-    /// names no live run is to be stopped. A run being spawned right now is
-    /// left alone.
-    pub fn reconcile(&self, terminals: &Value) -> Result<Reconciled, RunError> {
+    /// Marks that the host's terminals are about to be listed, for
+    /// [`Self::reconcile`] with that list.
+    pub fn before_listing(&self) -> u64 {
+        let mut spawns = self.spawns();
+        spawns.listings += 1;
+        spawns.listings
+    }
+
+    /// Brings the runs in line with the terminals the host listed after
+    /// `listing`, the mark of [`Self::before_listing`]: a starting run the
+    /// host spawned is running, a run whose terminal exited or is gone
+    /// ends, and a terminal whose `run` label names no live run is to be
+    /// stopped. A run being spawned right now is left alone, and so is one
+    /// whose spawn the host answered after the mark, which the list may
+    /// not have.
+    pub fn reconcile(&self, terminals: &Value, listing: u64) -> Result<Reconciled, RunError> {
         let terminals = terminals.as_array().cloned().unwrap_or_default();
         let by_run: HashMap<&str, &Value> = terminals
             .iter()
@@ -813,7 +839,24 @@ impl super::Runtime {
             .iter()
             .filter_map(|t| Some((t["terminal"].as_str()?, t)))
             .collect();
-        let spawning = self.spawns().running.clone();
+        // the runs and their spawns read under one lock: a run is recorded
+        // and its spawn's answer is recorded under it
+        let (runs, spawning) = {
+            let mut spawns = self.spawns();
+            let runs = self.live_runs()?;
+            spawns
+                .answered
+                .retain(|id, _| runs.iter().any(|run| run.id == *id));
+            let mut spawning = spawns.running.clone();
+            spawning.extend(
+                spawns
+                    .answered
+                    .iter()
+                    .filter(|(_, listings)| **listings >= listing)
+                    .map(|(id, _)| id.clone()),
+            );
+            (runs, spawning)
+        };
         // a host in a new boot of the computer: its agents ended with it
         let boot = pinrail_host::boot_id();
         let restarted = match (&boot, self.db.host_boot(LOCAL)?) {
@@ -822,7 +865,7 @@ impl super::Runtime {
         };
         let mut done = Reconciled::default();
         let mut live: HashSet<String> = HashSet::new();
-        for run in self.live_runs()? {
+        for run in runs {
             if spawning.contains(&run.id) {
                 live.insert(run.id);
                 continue;

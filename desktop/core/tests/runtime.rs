@@ -444,6 +444,70 @@ async fn a_session_resumed_after_a_restart_leaves_the_list() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_run_started_after_the_terminals_were_listed_is_not_reconciled_away() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    let runtime = setup.app.runtime();
+    let listing = runtime.before_listing();
+    let listed = runtime
+        .host()
+        .unwrap()
+        .call("terminal.list", json!({}))
+        .await
+        .unwrap();
+    // the list does not have its terminal
+    let run = runtime.start(&start("claude-code", &folder)).await.unwrap();
+
+    let reconciled = runtime.reconcile(&listed, listing).unwrap();
+    assert!(reconciled.ended.is_empty(), "{:?}", reconciled.ended);
+    assert!(reconciled.orphans.is_empty(), "{:?}", reconciled.orphans);
+    let run = setup.db().run(&run.id).unwrap().unwrap();
+    assert_eq!(run.state, "running");
+    // a list taken since has it
+    let listing = runtime.before_listing();
+    let reconciled = runtime.reconcile(&json!([]), listing).unwrap();
+    assert_eq!(reconciled.ended[0].end_reason.as_deref(), Some("host_lost"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn runs_started_while_the_core_reconciles_stay_live() {
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let runtime = setup.app.runtime();
+    // reconciles over and over, as the core does on each connect
+    let app = setup.app.clone();
+    let reconciling = tokio::spawn(async move {
+        let runtime = app.runtime();
+        loop {
+            let listing = runtime.before_listing();
+            if let Ok(listed) = runtime
+                .host()
+                .unwrap()
+                .call("terminal.list", json!({}))
+                .await
+            {
+                runtime.reconcile(&listed, listing).unwrap();
+            }
+        }
+    });
+    let mut runs = Vec::new();
+    for n in 0..20 {
+        let folder = setup.folder(&format!("app-{n}"));
+        runs.push(runtime.start(&start("claude-code", &folder)).await.unwrap());
+    }
+    reconciling.abort();
+    let _ = reconciling.await;
+
+    let db = setup.db();
+    for run in &runs {
+        let run = db.run(&run.id).unwrap().unwrap();
+        assert_eq!(run.state, "running", "{:?}", run.end_reason);
+        runtime.stop(&run.id, true).await.unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_message_is_typed_into_a_run_and_refused_once_the_run_ended() {
     let setup = Setup::new();
     setup.turn_on().await;

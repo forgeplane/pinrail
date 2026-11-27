@@ -371,9 +371,11 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
         let next_auth = pending_auth.next();
         tokio::select! {
             event = events.recv() => match event {
-                Ok(HostEvent::Connected { terminals, .. }) => {
+                Ok(HostEvent::Connected { .. }) => {
                     pending_auth.clear();
-                    reconcile(&app, &link, &terminals).await;
+                    // listed again: the event's list is as old as the
+                    // connect, and runs may have started since
+                    reconcile_listed(&app, &link).await;
                     // the agents this host finds, for the Start an agent
                     // dialog; a connect can be seen twice, as a ready
                     // link and as its event, and checks once
@@ -474,16 +476,22 @@ fn just_before() -> chrono::DateTime<chrono::Utc> {
 
 #[cfg(unix)]
 async fn reconcile_listed(app: &Pinrail, link: &pinrail_host::link::HostLink) {
+    let listing = app.runtime().before_listing();
     if let Ok(terminals) = link.call("terminal.list", json!({})).await {
-        reconcile(app, link, &terminals).await;
+        reconcile(app, link, &terminals, listing).await;
     }
 }
 
-/// Reconciles the runs with `terminals`, and stops the terminals of runs
-/// Pinrail no longer knows as live.
+/// Reconciles the runs with `terminals`, listed after the mark `listing`,
+/// and stops the terminals of runs Pinrail no longer knows as live.
 #[cfg(unix)]
-async fn reconcile(app: &Pinrail, link: &pinrail_host::link::HostLink, terminals: &Value) {
-    let reconciled = match app.runtime().reconcile(terminals) {
+async fn reconcile(
+    app: &Pinrail,
+    link: &pinrail_host::link::HostLink,
+    terminals: &Value,
+    listing: u64,
+) {
+    let reconciled = match app.runtime().reconcile(terminals, listing) {
         Ok(reconciled) => reconciled,
         Err(error) => {
             tracing::warn!("reconciling the runs failed: {error}");
