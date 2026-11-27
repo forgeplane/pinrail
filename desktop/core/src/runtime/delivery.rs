@@ -409,7 +409,7 @@ mod tests {
         for line in [
             r"C:\Users\p\AppData\Local\Pinrail\sessions\claude-code\ses_1\files\image.png",
             r"'C:\Users\p\AppData\Local\Pinrail\sessions\claude-code\ses_1\files\my notes.md'",
-            "C:/Users/p/AppData/Local/Pinrail/sessions/claude-code/ses_1/files/image.png",
+            "C:/Users/p/AppData/Local/dev.pinrail.desktop/sessions/claude-code/ses_1/files/image.png",
         ] {
             assert!(attached_path(line), "{line}");
         }

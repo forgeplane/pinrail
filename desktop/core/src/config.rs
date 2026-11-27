@@ -70,7 +70,9 @@ fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBu
 impl Config {
     /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
     /// `PINRAIL_SDK_DIR` from the environment. The data dir falls back to
-    /// `%LOCALAPPDATA%\Pinrail` on Windows, and elsewhere to
+    /// `%LOCALAPPDATA%\dev.pinrail.desktop` on Windows, the app's own
+    /// local data folder, apart from the one the installer puts the
+    /// program in, and elsewhere to
     /// `$XDG_DATA_HOME/pinrail`, then `~/.local/share/pinrail`, where the
     /// CLI looks for it too.
     pub fn from_env() -> Self {
@@ -136,7 +138,7 @@ impl Config {
     ) -> Self {
         let set = |v: Option<PathBuf>| v.filter(|v| !v.as_os_str().is_empty());
         let data_dir = set(data_dir)
-            .or_else(|| set(local_app_data).map(|d| d.join("Pinrail")))
+            .or_else(|| set(local_app_data).map(|d| d.join("dev.pinrail.desktop")))
             .or_else(|| xdg_data_home.map(|d| d.join("pinrail")))
             .or_else(|| home.map(|h| h.join(".local/share/pinrail")))
             .unwrap_or_else(|| PathBuf::from("pinrail-data"));
@@ -250,7 +252,7 @@ mod tests {
             Some(r"C:\Users\u".into()),
             None,
         );
-        assert_eq!(c.data_dir, local.join("Pinrail"));
+        assert_eq!(c.data_dir, local.join("dev.pinrail.desktop"));
     }
 
     #[test]

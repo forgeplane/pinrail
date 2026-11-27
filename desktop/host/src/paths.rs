@@ -142,7 +142,7 @@ impl Paths {
 }
 
 /// The data directory the core uses when it is not told one:
-/// `$PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\Pinrail`.
+/// `$PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\dev.pinrail.desktop`.
 #[cfg(windows)]
 pub fn default_data_dir() -> PathBuf {
     let var = |name| {
@@ -151,7 +151,7 @@ pub fn default_data_dir() -> PathBuf {
             .map(PathBuf::from)
     };
     var("PINRAIL_DATA_DIR")
-        .or_else(|| var("LOCALAPPDATA").map(|d| d.join("Pinrail")))
+        .or_else(|| var("LOCALAPPDATA").map(|d| d.join("dev.pinrail.desktop")))
         .unwrap_or_else(|| PathBuf::from("pinrail-data"))
 }
 

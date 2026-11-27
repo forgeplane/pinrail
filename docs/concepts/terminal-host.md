@@ -87,7 +87,7 @@ A host runs as many terminals as its limit of open files allows, about 1,000 on 
 
 ## Where the host keeps its files
 
-The host's files are in the `host` folder of Pinrail's data directory, which is `~/.local/share/pinrail` by default, or `%LOCALAPPDATA%\Pinrail` on Windows.
+The host's files are in the `host` folder of Pinrail's data directory, which is `~/.local/share/pinrail` by default, or `%LOCALAPPDATA%\dev.pinrail.desktop` on Windows.
 
 | File | What it holds |
 |---|---|
