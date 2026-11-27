@@ -84,6 +84,9 @@ pub struct Status {
     pub profile: Option<PathBuf>,
     /// that line, in the shell's syntax
     pub profile_line: Option<String>,
+    /// whether the PATH is the user's value in the registry, as on Windows,
+    /// which Pinrail can add the folder to, rather than a shell's file
+    pub user_path: bool,
 }
 
 /// What went wrong after the last install, kept so that the status check that
@@ -195,6 +198,7 @@ pub fn status(
         warning: None,
         profile: None,
         profile_line: None,
+        user_path: cfg!(windows),
         dir_on_path: shell.map(|s| {
             dir.as_ref()
                 .is_some_and(|d| s.path.iter().any(|p| same_file(p, d)))

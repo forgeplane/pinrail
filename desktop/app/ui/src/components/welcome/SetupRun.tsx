@@ -8,7 +8,6 @@ import { useCopy } from "../../lib/useCopy";
 import { agentOf } from "../AgentIcon";
 import { Mark } from "./Mark";
 import { listed } from "./names";
-import { onWindows } from "../../lib/platform";
 import type { Part } from "./useSetupRun";
 
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
@@ -153,7 +152,7 @@ export function SetupRun({
               {part.state === "failed" ? (
                 <div className="setup-step-fix">
                   {part.fix === "path" ? (
-                    onWindows ? (
+                    part.userPath ? (
                       <p>
                         Pinrail installed it in <code>~\.local\bin</code>. Add the folder to your PATH from here, or run
                         this line in PowerShell, then open a new terminal.

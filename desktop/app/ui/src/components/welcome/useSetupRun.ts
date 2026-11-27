@@ -47,11 +47,13 @@ export type Part = {
   profile?: string;
   /** the PATH line in the shell's syntax */
   line?: string;
+  /** the PATH is the user's value in the registry, as on Windows */
+  userPath?: boolean;
   /** done, with something left for the person: to open a new terminal */
   newTerminal?: boolean;
 };
 
-type Outcome = Pick<Part, "state" | "text" | "reason" | "fix" | "profile" | "line" | "newTerminal">;
+type Outcome = Pick<Part, "state" | "text" | "reason" | "fix" | "profile" | "line" | "userPath" | "newTerminal">;
 
 /** Up to this many agents have a line each; more share one. */
 const AGENT_LINES = 4;
@@ -100,8 +102,9 @@ function commandOutcome(status: CliStatus): Outcome {
         state: "failed",
         text: "Not on your PATH",
         fix: "path",
-        profile: status.profile ? tilde(status.link)(status.profile) : onWindows ? "your PATH" : undefined,
+        profile: status.profile ? tilde(status.link)(status.profile) : status.user_path ? "your PATH" : undefined,
         line: status.profile_line ?? undefined,
+        userPath: status.user_path,
       };
     // the shell could not be asked, or it answered nothing: the command is in place
     return done;
