@@ -40,9 +40,11 @@ impl Paths {
         }
     }
 
-    /// Creates the host's folder. A pipe needs none.
+    /// Creates the host's folder, readable by this user and the system
+    /// only, as are the files made in it. A pipe needs none.
     pub fn create(&self) -> io::Result<()> {
-        std::fs::create_dir_all(&self.host_dir)
+        std::fs::create_dir_all(&self.host_dir)?;
+        crate::win::make_private(&self.host_dir)
     }
 }
 
@@ -246,6 +248,31 @@ mod windows_tests {
             holder.to_string_lossy(),
             format!(r"\\.\pipe\{}holder.0a1b2c3d.sock", paths.socket_prefix)
         );
+    }
+
+    #[test]
+    fn the_host_s_folder_and_its_files_are_this_user_s_alone() {
+        let data = tempfile::tempdir().unwrap();
+        let paths = Paths::new(data.path());
+        paths.create().unwrap();
+        std::fs::write(paths.registration(), "{}").unwrap();
+        let user = crate::win::sid_text(&crate::win::current_user().unwrap());
+        for path in [paths.host_dir.clone(), paths.registration()] {
+            let acl = crate::win::acl_of(&path).unwrap();
+            // protected, so nothing from the folders above applies
+            if path == paths.host_dir {
+                assert!(acl.starts_with("D:P"), "{acl}");
+            }
+            assert!(acl.contains(&user), "{acl}");
+            assert!(acl.contains(";;;SY)"), "{acl}");
+            // no one else: not the users, the authenticated users, everyone
+            // or the administrators
+            for other in [";BU)", ";AU)", ";WD)", ";BA)"] {
+                assert!(!acl.contains(other), "{other} in {acl}");
+            }
+        }
+        // creating it again keeps it so
+        paths.create().unwrap();
     }
 
     #[test]

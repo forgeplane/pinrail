@@ -190,3 +190,112 @@ pub fn pipe_security() -> io::Result<*mut SECURITY_ATTRIBUTES> {
     }));
     Ok(*MADE.get_or_init(|| attributes as *mut _ as usize) as *mut SECURITY_ATTRIBUTES)
 }
+
+/// Makes `path`, a folder, readable and writable by this user and the
+/// system only, and everything made in it after: a protected ACL that
+/// files and folders inside inherit, as mode 0700 is on Unix.
+pub fn make_private(path: &std::path::Path) -> io::Result<()> {
+    use windows_sys::Win32::Security::Authorization::{
+        ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1, SE_FILE_OBJECT,
+        SetNamedSecurityInfoW,
+    };
+    use windows_sys::Win32::Security::{
+        DACL_SECURITY_INFORMATION, GetSecurityDescriptorDacl, PROTECTED_DACL_SECURITY_INFORMATION,
+    };
+    let user = sid_text(&current_user()?);
+    if user.is_empty() {
+        return Err(io::Error::other("this user's SID cannot be read"));
+    }
+    let sddl = wide(format!("D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;{user})").as_ref());
+    let mut descriptor = null_mut();
+    // SAFETY: the SDDL is NUL-terminated; the descriptor is freed below.
+    check(unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            SDDL_REVISION_1,
+            &mut descriptor,
+            null_mut(),
+        )
+    })?;
+    let (mut present, mut dacl, mut defaulted) = (0, null_mut(), 0);
+    // SAFETY: reads the DACL out of the descriptor made above.
+    let found = check(unsafe {
+        GetSecurityDescriptorDacl(descriptor, &mut present, &mut dacl, &mut defaulted)
+    });
+    let name = wide(path.as_os_str());
+    let result = found.and_then(|()| {
+        // SAFETY: the name is NUL-terminated; the DACL lives in the
+        // descriptor until it is freed below.
+        let error = unsafe {
+            SetNamedSecurityInfoW(
+                name.as_ptr(),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                null_mut(),
+                null_mut(),
+                dacl,
+                null_mut(),
+            )
+        };
+        if error == 0 {
+            Ok(())
+        } else {
+            Err(io::Error::from_raw_os_error(error as i32))
+        }
+    });
+    // SAFETY: the descriptor was allocated with LocalAlloc.
+    unsafe { LocalFree(descriptor) };
+    result
+}
+
+/// The access control list of `path` in SDDL, for tests.
+#[cfg(test)]
+pub fn acl_of(path: &std::path::Path) -> io::Result<String> {
+    use windows_sys::Win32::Security::Authorization::{
+        ConvertSecurityDescriptorToStringSecurityDescriptorW, GetNamedSecurityInfoW,
+        SDDL_REVISION_1, SE_FILE_OBJECT,
+    };
+    use windows_sys::Win32::Security::DACL_SECURITY_INFORMATION;
+    let name = wide(path.as_os_str());
+    let mut descriptor = null_mut();
+    // SAFETY: the name is NUL-terminated; the descriptor is freed below.
+    let error = unsafe {
+        GetNamedSecurityInfoW(
+            name.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            &mut descriptor,
+        )
+    };
+    if error != 0 {
+        return Err(io::Error::from_raw_os_error(error as i32));
+    }
+    let mut text = null_mut();
+    // SAFETY: converts the descriptor read above; the text is freed below.
+    let converted = check(unsafe {
+        ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            descriptor,
+            SDDL_REVISION_1,
+            DACL_SECURITY_INFORMATION,
+            &mut text,
+            null_mut(),
+        )
+    });
+    let result = converted.map(|()| {
+        // SAFETY: the text is NUL-terminated.
+        unsafe {
+            let len = (0..).take_while(|&i| *text.add(i) != 0).count();
+            String::from_utf16_lossy(std::slice::from_raw_parts(text, len))
+        }
+    });
+    // SAFETY: both were allocated with LocalAlloc.
+    unsafe {
+        LocalFree(text.cast());
+        LocalFree(descriptor);
+    }
+    result
+}
