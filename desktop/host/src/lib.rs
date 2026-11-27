@@ -73,6 +73,14 @@ pub fn random_hex(bytes: usize) -> String {
 
 pub use sys::boot_id;
 
+/// Makes the folder `dir` its owner's alone on Windows: a protected ACL of
+/// this user and the system, which what is made in it inherits, as mode
+/// 0700 is on Unix, where the caller sets that.
+#[cfg(windows)]
+pub fn make_private(dir: &std::path::Path) -> std::io::Result<()> {
+    win::make_private(dir)
+}
+
 /// On Windows, keeps this process's standard streams from the processes
 /// it starts; Unix closes them on exec already.
 pub fn keep_own_output_from_children() {

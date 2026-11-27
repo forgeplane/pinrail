@@ -245,6 +245,37 @@ fn the_data_directory_is_readable_by_its_owner_only() {
     assert_eq!(mode(&open), 0o700);
 }
 
+/// On Windows the same: the data directory, and the files made in it, such
+/// as the person token, are this user's and the system's alone.
+#[cfg(windows)]
+#[test]
+fn the_data_directory_is_readable_by_its_owner_only() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("data");
+    let mut config = Config::new(&dir, 0);
+    config.person_token = "secret".to_string();
+    Pinrail::open(config.clone()).unwrap();
+    pinrail_core::person_token::sync(&config, true).unwrap();
+    let user = std::env::var("USERNAME").unwrap().to_lowercase();
+    for path in [dir.clone(), dir.join("person-token")] {
+        let output = std::process::Command::new("icacls")
+            .arg(&path)
+            .output()
+            .unwrap();
+        let acl = String::from_utf8_lossy(&output.stdout).to_lowercase();
+        assert!(acl.contains(&format!("\\{user}:")), "{acl}");
+        assert!(acl.contains("nt authority\\system:"), "{acl}");
+        for other in [
+            "builtin\\users",
+            "everyone",
+            "authenticated users",
+            "builtin\\administrators",
+        ] {
+            assert!(!acl.contains(other), "{other} in {acl}");
+        }
+    }
+}
+
 #[test]
 fn a_second_open_of_a_data_directory_in_use_is_refused_and_touches_nothing() {
     let dir = tempfile::tempdir().unwrap();
