@@ -409,12 +409,16 @@ mod tests {
         assert_eq!(home.recent(8), [(api, "pi")]);
     }
 
-    #[cfg(unix)]
     #[test]
     fn grok_names_the_folder_in_the_name_of_its_sessions_folder() {
         let home = Home::new();
         let api = home.project("my api");
-        let encoded = api.replace('/', "%2F").replace(' ', "%20");
+        // what a folder's name cannot hold, on either system
+        let encoded = api
+            .replace('/', "%2F")
+            .replace('\\', "%5C")
+            .replace(':', "%3A")
+            .replace(' ', "%20");
         let dir = home.path().join(".grok/sessions").join(&encoded);
         std::fs::create_dir_all(dir.join("0193-session")).unwrap();
         home.aged(&dir, 5);

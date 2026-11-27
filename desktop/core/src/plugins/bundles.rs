@@ -333,22 +333,20 @@ mod tests {
         assert!(folders(&bundles).is_empty());
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_stored_bundle_is_read_only_and_a_changed_one_is_reported() {
-        use std::os::unix::fs::PermissionsExt;
         let (root, bundles) = store();
         let stored = bundles
             .store(&source(root.path(), "a", "hello", "1.0.0"))
             .unwrap();
         let page = bundles.path(&stored.hash).join("view/index.html");
-        let mode = fs::metadata(&page).unwrap().permissions().mode();
-        assert_eq!(mode & 0o222, 0, "{mode:o} is writable");
+        assert!(fs::metadata(&page).unwrap().permissions().readonly());
         assert!(fs::write(&page, "changed").is_err());
 
         // changed by someone who made it writable first
         let mut permissions = fs::metadata(&page).unwrap().permissions();
-        permissions.set_mode(0o644);
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
         fs::set_permissions(&page, permissions).unwrap();
         fs::write(&page, "<p>changed</p>").unwrap();
         let error = bundles.verify(&stored.hash).unwrap_err().to_string();

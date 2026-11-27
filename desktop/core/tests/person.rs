@@ -250,6 +250,8 @@ async fn the_cli_gets_the_person_token_only_while_cli_control_is_on() {
         let mode = std::fs::metadata(&path).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o600);
     }
+    #[cfg(windows)]
+    common::owner_only(&path).unwrap();
 
     app.state
         .settings()

@@ -475,3 +475,60 @@ pub fn read_rule(folder: &std::path::Path) -> String {
     };
     format!("Read(/{folder}/**)")
 }
+
+/// Makes `path` writable again, as someone changing a stored file behind
+/// the app's back would: mode 0644 on Unix, no read-only attribute on
+/// Windows.
+pub fn make_writable(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    #[cfg(windows)]
+    {
+        let mut permissions = std::fs::metadata(path).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(path, permissions).unwrap();
+    }
+}
+
+/// A symbolic link at `link` to `target`: Windows makes a link to a file
+/// and one to a folder differently.
+pub fn symlink(target: &std::path::Path, link: &std::path::Path) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).unwrap();
+    #[cfg(windows)]
+    if target.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link).unwrap();
+    } else {
+        std::os::windows::fs::symlink_file(target, link).unwrap();
+    }
+}
+
+/// Whether only this user and the system may open `path`, as icacls lists
+/// its ACL on Windows.
+#[cfg(windows)]
+pub fn owner_only(path: &std::path::Path) -> Result<(), String> {
+    let output = std::process::Command::new("icacls")
+        .arg(path)
+        .output()
+        .unwrap();
+    let acl = String::from_utf8_lossy(&output.stdout).to_lowercase();
+    let user = std::env::var("USERNAME").unwrap().to_lowercase();
+    if !acl.contains(&format!("\\{user}:")) || !acl.contains("nt authority\\system:") {
+        return Err(acl);
+    }
+    for other in [
+        "builtin\\users",
+        "everyone",
+        "authenticated users",
+        "builtin\\administrators",
+    ] {
+        if acl.contains(other) {
+            return Err(acl);
+        }
+    }
+    Ok(())
+}

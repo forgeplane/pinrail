@@ -54,3 +54,13 @@ pub fn compile_template(source: &str) -> Result<(), String> {
     env.add_template("decision", source)
         .map_err(|e| e.to_string())
 }
+
+/// A symbolic link at `link` to the file `target`, for the tests: Windows
+/// makes a link to a file apart from one to a folder.
+#[cfg(test)]
+pub(crate) fn file_link(target: impl AsRef<std::path::Path>, link: impl AsRef<std::path::Path>) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(target, link).unwrap();
+}

@@ -509,11 +509,10 @@ mod tests {
         assert!(refused.contains("differ only in case"), "{refused}");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_symbolic_link_is_refused() {
         let dir = folder(PLUGIN);
-        std::os::unix::fs::symlink("/etc/hosts", dir.path().join("view/hosts")).unwrap();
+        crate::file_link("/etc/hosts", dir.path().join("view/hosts"));
         let refused = Listing::of_folder(dir.path(), Taken::FromSource).unwrap_err();
         assert_eq!(
             refused,

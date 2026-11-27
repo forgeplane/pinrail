@@ -1411,16 +1411,14 @@ async fn a_stored_bundle_serves_its_view_and_nothing_else() {
 
 /// A stored file that no longer matches its bundle's listing is not served:
 /// it is not the release the address names.
-#[cfg(unix)]
 #[tokio::test]
 async fn a_changed_bundle_file_is_not_served() {
-    use std::os::unix::fs::PermissionsExt;
     let app = app();
     let root = tempfile::tempdir().unwrap();
     let hello = plugin_copy(root.path(), "hello", "1.0.0");
     let hash = app.state.bundles().store(&hello).unwrap().hash;
     let page = app.state.bundles().path(&hash).join("view/index.html");
-    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    common::make_writable(&page);
     std::fs::write(&page, "<script>changed</script>").unwrap();
 
     let response = bundle_get(&app, &format!("/bundles/{hash}/view/index.html"), &[]).await;
@@ -1466,7 +1464,6 @@ async fn other_websites_cannot_read_a_plugins_files() {
 
 /// A symbolic link in a plugin could point anywhere on the machine, such
 /// as a private key: neither a copy nor a link takes a folder that has one.
-#[cfg(unix)]
 #[tokio::test]
 async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
     let app = app();
@@ -1485,7 +1482,7 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
         let plugin = plugin_copy(root.path(), "hello", "1.0.0");
         let renamed = root.path().join(name);
         std::fs::rename(&plugin, &renamed).unwrap();
-        std::os::unix::fs::symlink(target, renamed.join(link)).unwrap();
+        common::symlink(target, &renamed.join(link));
         for linked in [false, true] {
             let (status, body) = install(&app, &renamed, json!({ "link": linked })).await;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{name}: {body}");
@@ -2631,10 +2628,8 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
 /// An installed bundle: the official list plugin copied under another name
 /// and installed from its folder. A file changed behind the app's back is
 /// flagged on the plugin's row and not served.
-#[cfg(unix)]
 #[tokio::test]
 async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
-    use std::os::unix::fs::PermissionsExt;
     let app = app();
     let source = tempfile::tempdir().unwrap();
     let list = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/list");
@@ -2675,7 +2670,7 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
 
     // changed behind the app's back: no longer served
     let page = stored.join("view/index.html");
-    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    common::make_writable(&page);
     std::fs::write(&page, "<html>changed</html>").unwrap();
     assert_eq!(
         bundle_get(&app, &url, &[]).await.status(),

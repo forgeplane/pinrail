@@ -187,7 +187,6 @@ fn a_missing_file_is_created_with_the_hooks() {
     assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
 }
 
-#[cfg(unix)]
 #[test]
 fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
     let dir = tempfile::tempdir().unwrap();
@@ -196,8 +195,15 @@ fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
     std::fs::write(dotfiles.join("settings.json"), "{\"model\": \"opus\"}\n").unwrap();
     let claude = dir.path().join("claude");
     std::fs::create_dir_all(&claude).unwrap();
+    #[cfg(unix)]
     std::os::unix::fs::symlink(dotfiles.join("settings.json"), claude.join("settings.json"))
         .unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(
+        dotfiles.join("settings.json"),
+        claude.join("settings.json"),
+    )
+    .unwrap();
     let plan = Integration {
         file: claude.join("settings.json"),
         ..plan()
