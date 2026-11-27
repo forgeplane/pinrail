@@ -95,6 +95,10 @@ test("Waiting on you holds every pending review, 50 a page, and Enter opens the 
     previous?.click();
   });
   await expect(range).toHaveText("1–50 of 105");
+  // the pager follows the URL at once and the rows follow the core's answer:
+  // the keys wait for the first page's rows
+  await expect(rows.first()).toContainText("Paging inbox 105");
+  await expect(rows).toHaveCount(50);
 
   // J moves down the rows as drawn, and Enter opens the one that is lit
   // the pointer out of the way: a row under it would take the focus
