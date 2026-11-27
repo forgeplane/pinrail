@@ -194,7 +194,16 @@ pub fn status(
         installed,
         outdated,
         occupied_by,
-        runs: shell.and_then(|s| s.command.clone()),
+        // the installed CLI by its own name, however the PATH spells it:
+        // with other capitals on Windows, where PATHEXT gives `.EXE`, or
+        // through `.`; the window compares the two as text
+        runs: shell.and_then(|s| s.command.clone()).map(|runs| {
+            if same_file(&runs, link) {
+                link.to_path_buf()
+            } else {
+                runs
+            }
+        }),
         warning: None,
         profile: None,
         profile_line: None,
@@ -877,6 +886,50 @@ mod tests {
             status(Mode::Link, Some(&cli), &link, None).dir_on_path,
             None
         );
+    }
+
+    /// The installed CLI in a folder of its own, and that folder.
+    fn installed_file(root: &Path) -> (PathBuf, PathBuf) {
+        let link = link_path(&root.join("home"));
+        let dir = link.parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&link, b"cli").unwrap();
+        (link, dir)
+    }
+
+    #[test]
+    fn the_installed_cli_by_another_spelling_is_the_one_a_terminal_runs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (link, dir) = installed_file(tmp.path());
+        // the same file, as a PATH entry can spell its folder
+        let view = ShellView {
+            path: vec![dir.join(".")],
+            command: Some(dir.join(".").join(link.file_name().unwrap())),
+        };
+        let s = status(Mode::Copy, None, &link, Some(&view));
+        // as the window compares them: as text
+        assert_eq!(text(s.runs.as_deref()), text(Some(&link)));
+        assert_eq!(s.dir_on_path, Some(true));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_cli_found_through_pathext_is_the_installed_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (link, dir) = installed_file(tmp.path());
+        // Windows' PATHEXT has its extensions in capitals
+        let found = find_command(std::slice::from_ref(&dir), ".COM;.EXE;.BAT;.CMD").unwrap();
+        let view = ShellView {
+            path: vec![dir],
+            command: Some(found),
+        };
+        let runs = status(Mode::Copy, None, &link, Some(&view)).runs;
+        assert_eq!(text(runs.as_deref()), text(Some(&link)));
+    }
+
+    /// A path as the window gets it, in JSON.
+    fn text(path: Option<&Path>) -> Option<String> {
+        path.map(|p| p.as_os_str().to_string_lossy().into_owned())
     }
 
     /// A stand-in CLI: a script that answers `--version` the way `pinrail` does.
