@@ -35,6 +35,10 @@ name = "host"
 harness = false
 required-features = ["server"]
 
+# Microsoft's ConPTY beside the binaries, on Windows
+[build-dependencies]
+sha2 = "0.10"
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
