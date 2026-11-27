@@ -64,6 +64,12 @@ fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
     None
 }
 
+/// Whether `bytes` turn focus reporting (mode 1004) on.
+fn asks_for_focus_reports(bytes: &[u8]) -> bool {
+    const ON: &[u8] = b"\x1b[?1004h";
+    bytes.windows(ON.len()).any(|window| window == ON)
+}
+
 /// Feeds program output to `screen`. When the output leaves the alternate
 /// screen, `left` sees the alternate screen as it was just before.
 pub fn feed_output(
@@ -1317,6 +1323,19 @@ impl Actor {
             && let Some(input) = &self.input
         {
             let _ = input.send(replies);
+        }
+        // A pseudo console asks for focus reports itself when it starts,
+        // and passes each program's own request on: the mode is on by
+        // then, so the screen signals no change, and the program waits to
+        // be told all the same.
+        if cfg!(windows)
+            && self.focus_reporting
+            && asks_for_focus_reports(bytes)
+            && !signals
+                .iter()
+                .any(|signal| matches!(signal, Signal::FocusReporting(_)))
+        {
+            self.write_focus();
         }
         for signal in signals {
             self.report(signal);
