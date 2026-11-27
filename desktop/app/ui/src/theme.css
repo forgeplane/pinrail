@@ -183,7 +183,8 @@ code,
   white-space: nowrap;
 }
 /* a session's thread: what the agent and the person wrote can be selected
-   and copied, across entries; its buttons stay controls */
+   and copied, across entries; its buttons stay controls, and the times the
+   app adds stay out of a selection */
 .thread-items {
   user-select: text;
   -webkit-user-select: text;
@@ -191,7 +192,8 @@ code,
 .thread-items button,
 .thread-items [role="button"],
 .thread-items [role="menu"],
-.thread-items [role="menuitem"] {
+.thread-items [role="menuitem"],
+.thread-items .thread-line-time {
   user-select: none;
   -webkit-user-select: none;
 }
