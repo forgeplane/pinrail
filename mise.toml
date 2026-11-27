@@ -15,7 +15,7 @@ run = [
   "cd desktop/app && npm ci && npm run build",
   "cd sdk && npm ci",
   "cd plugins && npm ci",
-  "sh scripts/build-plugins.sh",
+  "node scripts/sh.mjs scripts/build-plugins.sh",
   "cd e2e && npm ci && npx playwright install chromium",
 ]
 
@@ -36,7 +36,7 @@ run = "node {{config_root}}/sdk/bin/pinrail-sdk.mjs dev {{arg(name='plugin')}}"
 [tasks."plugins:build"]
 description = "Build the plugins in plugins/ that have a build of their own, such as markdown: the app embeds their view/"
 dir = "{{config_root}}"
-run = "sh scripts/build-plugins.sh"
+run = "node scripts/sh.mjs scripts/build-plugins.sh"
 
 [tasks."test:plugins"]
 description = "The plugins in plugins/ alone, under the pinrail-sdk harness"
@@ -46,8 +46,12 @@ run = "npm test"
 [tasks."test:examples"]
 description = "The docs' example plugins, each built and tested under the harness, and the same but for their views"
 dir = "{{config_root}}/docs/examples/ship-it"
+# a line each, as on Windows mise runs them with cmd
 run = [
-  "for dir in vanilla react vue svelte; do (cd $dir && npm ci && npm test) || exit 1; done",
+  "cd vanilla && npm ci && npm test",
+  "cd react && npm ci && npm test",
+  "cd vue && npm ci && npm test",
+  "cd svelte && npm ci && npm test",
   "node --test same.test.mjs",
 ]
 
@@ -103,30 +107,7 @@ usage = '''
 flag "--send" help="Send the batches to api.pinrail.dev instead of printing them"
 flag "--fresh" help="Start from an empty data folder"
 '''
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-data="${TMPDIR:-/tmp}/pinrail-telemetry"
-if [ "${usage_fresh:-false}" = "true" ]; then rm -rf "$data"; fi
-mkdir -p "$data"
-# the notice counts as shown, so events are recorded from the start, and
-# the setup is skipped, as on a computer in use
-if [ ! -f "$data/settings.json" ]; then
-  printf '{"telemetry": {"notice_shown": "%s"}, "welcome": {"seen": true}}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$data/settings.json"
-fi
-export PINRAIL_DATA_DIR="$data" PINRAIL_PORT=4848
-export PINRAIL_TELEMETRY_URL=https://api.pinrail.dev/v1/events
-if [ "${usage_send:-false}" = "true" ]; then
-  unset PINRAIL_TELEMETRY_DEBUG
-else
-  export PINRAIL_TELEMETRY_DEBUG=1
-fi
-unset DO_NOT_TRACK PINRAIL_TELEMETRY
-echo "Data in $data. What waits and what was sent:"
-echo "  curl -s http://127.0.0.1:4848/api/v1/telemetry | jq"
-exec npx tauri dev
-'''
+run = "node {{config_root}}/scripts/dev-telemetry.mjs"
 
 [tasks."linux-desktop"]
 description = "The desktop app on Linux in Docker, shown in a browser at http://localhost:6080; needs Docker"
@@ -138,20 +119,21 @@ run = [
 
 [tasks."ghostty:wasm"]
 description = "Build libghostty-vt as WebAssembly for the window's terminal renderer, from the release desktop/screen pins"
-run = "sh {{config_root}}/scripts/ghostty-wasm.sh"
+run = "node {{config_root}}/scripts/sh.mjs {{config_root}}/scripts/ghostty-wasm.sh"
 
 [tasks."ghostty:fetch"]
 description = "Download and check the libghostty-vt tarballs desktop/screen builds, for a build without network"
-run = "sh {{config_root}}/scripts/ghostty-fetch.sh"
+run = "node {{config_root}}/scripts/sh.mjs {{config_root}}/scripts/ghostty-fetch.sh"
 
 [tasks.lint]
 description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, ESLint and Prettier, dependency licences and sources"
+# libghostty-vt is not built for clippy, so lint needs no Zig
+env = { PINRAIL_GHOSTTY_STUB = "1" }
 run = [
   "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
   "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
   "cargo clippy --manifest-path {{config_root}}/cli/Cargo.toml --all-targets -- -D warnings",
-  # libghostty-vt is not built for clippy, so lint needs no Zig
-  "PINRAIL_GHOSTTY_STUB=1 cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
+  "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
   "npm --prefix {{config_root}}/desktop/app test",
   "npm --prefix {{config_root}} run lint",
   "npm --prefix {{config_root}} run format:check",
@@ -169,19 +151,21 @@ dir = "{{config_root}}"
 run = [
   "cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check advisories",
   "cargo deny --manifest-path cli/Cargo.toml --config deny.toml check advisories",
-  "for d in desktop/app sdk; do (cd $d && npm audit --omit=dev --audit-level=high) || exit 1; done",
+  "cd desktop/app && npm audit --omit=dev --audit-level=high",
+  "cd sdk && npm audit --omit=dev --audit-level=high",
 ]
 
 [tasks.links]
 description = "The relative links in the Markdown outside the site; needs lychee"
 dir = "{{config_root}}"
-run = "git ls-files -z '*.md' ':!docs' ':!website' ':!**/fixtures/**' | xargs -0 lychee --offline --no-progress --include-fragments"
+run = "node scripts/links.mjs"
 
 [tasks.workflows]
 description = "The GitHub workflows: actionlint (with shellcheck) and zizmor; needs all three"
 dir = "{{config_root}}"
 run = [
-  "actionlint .github/workflows/*.yml",
+  # with no files named, it finds the repository's workflows itself
+  "actionlint",
   "zizmor --offline .github/workflows",
 ]
 
