@@ -207,21 +207,30 @@ test("a quick second ⌘B is not undone by the reload the first one caused", asy
 });
 
 test("the app's own text cannot be selected, as in a desktop app, but fields and messages can", async ({ page }) => {
-  // a review that waits on the person, for the Inbox's count
-  const review = await createReview(page.request, { title: "Copy my title", payload });
+  // a review that waits on the person, for the Inbox's count, with a title
+  // of its own: a retry submits it again while the first is pending
+  const title = `Copy my title ${Date.now()}`;
+  const review = await createReview(page.request, { title, payload });
   await page.goto("/");
+  // read again until it holds: the count's badge is drawn anew as the counts
+  // load, and a replaced element has no style
   const selectable = (locator: Locator) =>
-    locator.first().evaluate((el) => getComputedStyle(el).webkitUserSelect || getComputedStyle(el).userSelect);
+    expect.poll(() =>
+      locator
+        .first()
+        .evaluate((el) => getComputedStyle(el).webkitUserSelect || getComputedStyle(el).userSelect)
+        .catch(() => ""),
+    );
   await expect(page.getByTestId("inbox-count")).toBeVisible();
-  expect(await selectable(page.getByTestId("inbox-count"))).toBe("none");
-  expect(await selectable(page.locator("h1"))).toBe("none");
-  expect(await selectable(page.locator("input[type=search]"))).not.toBe("none");
+  await selectable(page.getByTestId("inbox-count")).toBe("none");
+  await selectable(page.locator("h1")).toBe("none");
+  await selectable(page.locator("input[type=search]")).toMatch(/^(text|auto)$/);
 
   // a review's title and id are there to be copied
   await page.goto(`/#/reviews/${review.id}`);
-  await expect(page.getByTestId("review-title")).toHaveText("Copy my title");
-  expect(await selectable(page.getByTestId("review-title"))).not.toBe("none");
-  expect(await selectable(page.getByTestId("review-id"))).not.toBe("none");
+  await expect(page.getByTestId("review-title")).toHaveText(title);
+  await selectable(page.getByTestId("review-title")).toMatch(/^(text|auto)$/);
+  await selectable(page.getByTestId("review-id")).toMatch(/^(text|auto)$/);
 });
 
 test("the sidebar's edge resizes it, within its bounds, and the width stays", async ({ page }) => {
