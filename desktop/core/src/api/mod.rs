@@ -10,13 +10,11 @@ mod notifications;
 mod plugins;
 mod projects;
 pub(crate) mod reviews;
-#[cfg(unix)]
 mod runs;
 mod session_files;
 mod settings;
 mod sse;
 mod telemetry;
-#[cfg(unix)]
 mod terminals;
 mod themes;
 
@@ -59,7 +57,6 @@ pub struct ApiState {
     /// When this server started, for `/info` and for `server.json`.
     started_at: DateTime<Utc>,
     /// The tickets that open a terminal's attach socket.
-    #[cfg(unix)]
     tickets: terminals::Tickets,
 }
 
@@ -68,7 +65,6 @@ impl ApiState {
         ApiState {
             app,
             started_at: Utc::now(),
-            #[cfg(unix)]
             tickets: Default::default(),
         }
     }
@@ -101,9 +97,9 @@ fn router_with(state: ApiState) -> Router {
         .merge(settings::routes())
         .merge(themes::routes())
         .merge(telemetry::routes());
-    #[cfg(unix)]
-    let router = router.merge(runs::routes()).merge(terminals::routes());
     router
+        .merge(runs::routes())
+        .merge(terminals::routes())
         .layer(axum::middleware::from_fn(log_requests))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

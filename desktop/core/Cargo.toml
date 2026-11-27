@@ -27,6 +27,7 @@ include_dir = "0.7"
 jsonschema = { version = "0.56", default-features = false }
 mime_guess = "2"
 pinrail-format = { path = "../format" }
+pinrail-host = { path = "../host", default-features = false }
 pinrail-runtime = { path = "../runtime" }
 minijinja = { version = "2", features = ["fuel"] }
 rusqlite = { version = "0.41", features = ["bundled", "functions"] }
@@ -42,14 +43,10 @@ tower-http = { version = "0.6", features = ["cors", "set-header"] }
 ureq = "3"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
-[target.'cfg(unix)'.dependencies]
-pinrail-host = { path = "../host", default-features = false }
-
-[target.'cfg(unix)'.dev-dependencies]
-# the host's server, run in a test's thread
-pinrail-host = { path = "../host" }
 
 [dev-dependencies]
+# the host's server, run in a test's thread
+pinrail-host = { path = "../host" }
 pinrail-runtime = { path = "../runtime", features = ["stand-in"] }
 http-body-util = "0.1"
 tempfile = "3"

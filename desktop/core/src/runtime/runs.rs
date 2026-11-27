@@ -318,27 +318,24 @@ impl super::Runtime {
             .filter_map(|r| r.process)
             .filter(|(pid, started)| crate::presence::alive(*pid, started))
             .collect();
-        #[cfg(unix)]
-        {
-            let send = |force| {
-                for (pid, started) in &lost {
-                    if let Ok(pid) = u32::try_from(*pid) {
-                        pinrail_runtime::process::stop(pid, started, force);
-                    }
+        let send = |force| {
+            for (pid, started) in &lost {
+                if let Ok(pid) = u32::try_from(*pid) {
+                    pinrail_runtime::process::stop(pid, started, force);
                 }
-            };
-            let running = || {
-                lost.iter()
-                    .any(|(pid, started)| crate::presence::alive(*pid, started))
-            };
-            send(false);
-            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
-            while running() && tokio::time::Instant::now() < deadline {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             }
-            if running() {
-                send(true);
-            }
+        };
+        let running = || {
+            lost.iter()
+                .any(|(pid, started)| crate::presence::alive(*pid, started))
+        };
+        send(false);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+        while running() && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        if running() {
+            send(true);
         }
         Ok(lost)
     }

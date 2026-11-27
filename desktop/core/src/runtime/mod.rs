@@ -12,40 +12,28 @@ use crate::Pinrail;
 use crate::db::Db;
 use crate::events::Bus;
 
-#[cfg(unix)]
 mod delivery;
-#[cfg(unix)]
 mod runs;
 mod tokens;
 mod transcript;
-#[cfg(unix)]
 pub use runs::{LOCAL, Reconciled, Resume, RunError, Start, TOKEN_VARIABLE};
 pub use tokens::{Admitted, Mismatch, digest};
 
 /// The link to the host, once the server has started it, and the runs it
 /// starts.
 pub struct Runtime {
-    #[cfg(unix)]
     link: Mutex<Option<pinrail_host::link::HostLink>>,
-    #[cfg(not(unix))]
-    link: Mutex<Option<()>>,
     db: Arc<Db>,
     bus: Bus,
     /// Variables added to every run's environment, from the config.
-    #[cfg_attr(not(unix), allow(dead_code))]
     run_env: BTreeMap<String, String>,
     /// The folder of the files attached to sessions, which every run may
     /// read.
-    #[cfg_attr(not(unix), allow(dead_code))]
     session_files: std::path::PathBuf,
-    #[cfg(unix)]
     spawns: Mutex<runs::Spawns>,
-    #[cfg(unix)]
     startable: Mutex<runs::Startable>,
-    #[cfg(unix)]
     checking_startable: tokio::sync::Mutex<()>,
     /// A background check of the agents waits to begin.
-    #[cfg(unix)]
     startable_waiting: std::sync::atomic::AtomicBool,
 }
 
@@ -68,19 +56,14 @@ impl Runtime {
             bus,
             run_env,
             session_files,
-            #[cfg(unix)]
             spawns: Mutex::default(),
-            #[cfg(unix)]
             startable: Mutex::default(),
-            #[cfg(unix)]
             checking_startable: tokio::sync::Mutex::new(()),
-            #[cfg(unix)]
             startable_waiting: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
     /// The link to the host, while the runtime is on.
-    #[cfg(unix)]
     pub fn host(&self) -> Option<pinrail_host::link::HostLink> {
         self.link.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
@@ -124,33 +107,25 @@ impl Runtime {
 
     /// The host's state, for the window and for tests.
     pub fn status(&self) -> Value {
-        #[cfg(unix)]
-        {
-            use pinrail_host::link::HostState;
-            let Some(link) = self.host() else {
-                return json!({"enabled": false});
-            };
-            match link.state() {
-                HostState::Connecting => json!({"enabled": true, "state": "connecting"}),
-                HostState::Ready { instance } => {
-                    json!({"enabled": true, "state": "ready", "instance": instance})
-                }
-                HostState::Reconnecting {
-                    attempt,
-                    next_in,
-                    reason,
-                } => json!({"enabled": true, "state": "reconnecting", "attempt": attempt,
-                            "next_in": next_in, "reason": reason}),
-                HostState::Incompatible { reason } => {
-                    json!({"enabled": true, "state": "incompatible", "reason": reason})
-                }
-                HostState::Offline => json!({"enabled": true, "state": "offline"}),
+        use pinrail_host::link::HostState;
+        let Some(link) = self.host() else {
+            return json!({"enabled": false});
+        };
+        match link.state() {
+            HostState::Connecting => json!({"enabled": true, "state": "connecting"}),
+            HostState::Ready { instance } => {
+                json!({"enabled": true, "state": "ready", "instance": instance})
             }
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = &self.link;
-            json!({"enabled": false, "unsupported": true})
+            HostState::Reconnecting {
+                attempt,
+                next_in,
+                reason,
+            } => json!({"enabled": true, "state": "reconnecting", "attempt": attempt,
+                        "next_in": next_in, "reason": reason}),
+            HostState::Incompatible { reason } => {
+                json!({"enabled": true, "state": "incompatible", "reason": reason})
+            }
+            HostState::Offline => json!({"enabled": true, "state": "offline"}),
         }
     }
 }
@@ -195,20 +170,14 @@ fn cli_control(app: &Pinrail) {
 /// Starts the link to the host, which starts the host or adopts the one
 /// running, and follows it.
 fn connect(app: &Arc<Pinrail>) {
-    #[cfg(unix)]
-    {
-        let mut link = app.runtime().link.lock().unwrap_or_else(|e| e.into_inner());
-        if link.is_none() {
-            let started = start(app);
-            tokio::spawn(follow(app.clone(), started.clone()));
-            *link = Some(started);
-        }
+    let mut link = app.runtime().link.lock().unwrap_or_else(|e| e.into_inner());
+    if link.is_none() {
+        let started = start(app);
+        tokio::spawn(follow(app.clone(), started.clone()));
+        *link = Some(started);
     }
-    #[cfg(not(unix))]
-    let _ = app;
 }
 
-#[cfg(unix)]
 fn start(app: &Pinrail) -> pinrail_host::link::HostLink {
     use pinrail_host::launch::Launcher;
     use pinrail_host::link::{Connector, HostLink};
@@ -232,20 +201,17 @@ fn start(app: &Pinrail) -> pinrail_host::link::HostLink {
 /// reported: agents such as Antigravity emit a transient "Sign in required"
 /// status while checking cached credentials on startup, then clear it to
 /// `idle` a second later.
-#[cfg(unix)]
 const AUTH_WAIT_HOLD: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Holds `blocked` / `auth` program statuses per terminal for a short grace
 /// window so a transient startup auth check that clears to `idle` or
 /// `working` never flashes `needs_input`, creates an inbox entry, or fires a
 /// desktop notification.
-#[cfg(unix)]
 struct PendingAuth {
     hold_for: std::time::Duration,
     by_terminal: std::collections::HashMap<String, (tokio::time::Instant, Value)>,
 }
 
-#[cfg(unix)]
 impl PendingAuth {
     fn new(hold_for: std::time::Duration) -> Self {
         Self {
@@ -303,7 +269,6 @@ impl PendingAuth {
 }
 
 /// Records one `program_status` event from the host.
-#[cfg(unix)]
 fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
     let now = chrono::Utc::now();
     match app.runtime().program_status(params, now) {
@@ -352,7 +317,6 @@ fn record_program_status(app: &Arc<Pinrail>, params: &Value) {
 /// Follows the host until the link stops: reconciles the runs with the
 /// host's terminals on every connect, ends the run of a terminal that
 /// exits, and forgets the tokens of runs that ended long enough ago.
-#[cfg(unix)]
 async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
     use pinrail_host::link::{HostEvent, HostState};
     use tokio::sync::broadcast::error::RecvError;
@@ -454,7 +418,6 @@ async fn follow(app: Arc<Pinrail>, link: pinrail_host::link::HostLink) {
 /// Asks the host again which agents it finds, in the background, unless
 /// a check began at `since` or later. One check waiting to begin covers
 /// every request made before it begins.
-#[cfg(unix)]
 pub fn check_startable_later(app: Arc<Pinrail>, since: chrono::DateTime<chrono::Utc>) {
     if app
         .runtime()
@@ -469,12 +432,10 @@ pub fn check_startable_later(app: Arc<Pinrail>, since: chrono::DateTime<chrono::
 }
 
 /// A second ago: a check begun since covers a connect seen now.
-#[cfg(unix)]
 fn just_before() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc::now() - chrono::TimeDelta::seconds(1)
 }
 
-#[cfg(unix)]
 async fn reconcile_listed(app: &Pinrail, link: &pinrail_host::link::HostLink) {
     let listing = app.runtime().before_listing();
     if let Ok(terminals) = link.call("terminal.list", json!({})).await {
@@ -484,7 +445,6 @@ async fn reconcile_listed(app: &Pinrail, link: &pinrail_host::link::HostLink) {
 
 /// Reconciles the runs with `terminals`, listed after the mark `listing`,
 /// and stops the terminals of runs Pinrail no longer knows as live.
-#[cfg(unix)]
 async fn reconcile(
     app: &Pinrail,
     link: &pinrail_host::link::HostLink,
@@ -512,7 +472,6 @@ async fn reconcile(
 }
 
 /// Delivers the messages waiting for the run's session in the background.
-#[cfg(unix)]
 fn deliver_later(app: &Arc<Pinrail>, run: &crate::db::RunRow) {
     if let Some((agent, session)) = run.session.clone() {
         let app = app.clone();
@@ -523,7 +482,6 @@ fn deliver_later(app: &Arc<Pinrail>, run: &crate::db::RunRow) {
 }
 
 /// Marks the session of a run whose agent exited as stopped.
-#[cfg(unix)]
 fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
     let reason = match run.end_reason.as_deref() {
         Some("restart") => "restart",
@@ -554,7 +512,6 @@ fn report_exit(app: &Pinrail, run: &crate::db::RunRow) {
     }
 }
 
-#[cfg(any(unix, test))]
 /// The environment the host and the agents it starts get: the app's, and
 /// in a debug build started by `cargo run` (`tauri dev`), the app's without
 /// what cargo, rustup, the Tauri CLI and npm set for that run. Left in,
@@ -591,7 +548,6 @@ fn host_env(vars: impl Iterator<Item = (String, String)>) -> Vec<(String, String
 }
 
 /// The `pinrail-host` the app carries.
-#[cfg(unix)]
 fn bundled_host() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()
@@ -603,7 +559,6 @@ fn bundled_host() -> std::path::PathBuf {
 /// the host is `Pinrail Host.app`: in `Contents/Helpers` of the app's
 /// bundle, or beside a development build's binary. Elsewhere, and when
 /// there is no bundle, it is `pinrail-host` beside the app's binary.
-#[cfg(unix)]
 fn host_beside(
     dir: &std::path::Path,
     exists: &dyn Fn(&std::path::Path) -> bool,
@@ -621,7 +576,7 @@ fn host_beside(
     }
     #[cfg(not(target_os = "macos"))]
     let _ = exists;
-    dir.join("pinrail-host")
+    dir.join(format!("pinrail-host{}", std::env::consts::EXE_SUFFIX))
 }
 
 #[cfg(test)]
@@ -680,7 +635,7 @@ mod host_env_tests {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod host_beside_tests {
     use super::host_beside;
     use std::path::{Path, PathBuf};
@@ -710,14 +665,15 @@ mod host_beside_tests {
 
     #[test]
     fn without_a_bundle_the_host_is_the_binary_beside_the_app() {
+        let binary = format!("pinrail-host{}", std::env::consts::EXE_SUFFIX);
         assert_eq!(
             found("/usr/lib/pinrail", &[]),
-            PathBuf::from("/usr/lib/pinrail/pinrail-host")
+            Path::new("/usr/lib/pinrail").join(binary)
         );
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod pending_auth_tests {
     use super::PendingAuth;
     use serde_json::json;
