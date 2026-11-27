@@ -929,6 +929,7 @@ dependencies = [
  "libc",
  "serde_json",
  "shlex",
+ "windows-sys",
 ]
 
 [[package]]

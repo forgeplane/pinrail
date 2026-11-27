@@ -14,7 +14,8 @@ pub struct Process {
     pub name: String,
     /// When it started, as the platform's raw value: seconds and
     /// microseconds since the epoch on macOS, clock ticks since boot on
-    /// Linux. Compare it only with another value read here.
+    /// Linux, 100 ns intervals since 1601 on Windows. Compare it only with
+    /// another value read here.
     pub started: String,
 }
 
@@ -24,6 +25,18 @@ const MAX_DEPTH: usize = 32;
 /// The process `pid`, if it runs and the platform says.
 pub fn process(pid: u32) -> Option<Process> {
     read(pid)
+}
+
+/// The pid of this process's parent, such as the agent that ran a hook.
+pub fn parent_id() -> Option<u32> {
+    #[cfg(unix)]
+    {
+        Some(std::os::unix::process::parent_id())
+    }
+    #[cfg(not(unix))]
+    {
+        read(std::process::id()).map(|me| me.parent)
+    }
 }
 
 /// Asks the process `pid` to end, or kills it with `force`, if it is still
@@ -197,7 +210,81 @@ fn parse_stat(pid: u32, stat: &str) -> Option<Process> {
     })
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+// the process snapshot gives the parent and the executable's name, and
+// the process's times its creation
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn read(pid: u32) -> Option<Process> {
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    // SAFETY: takes no pointers; the handle is closed below
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return None;
+    }
+    // SAFETY: PROCESSENTRY32W is plain data, for which all zeroes is valid
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut found = None;
+    // SAFETY: `entry` is a valid PROCESSENTRY32W with its size set
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        if entry.th32ProcessID == pid {
+            let file = &entry.szExeFile;
+            let end = file.iter().position(|c| *c == 0).unwrap_or(file.len());
+            found = Some((
+                entry.th32ParentProcessID,
+                String::from_utf16_lossy(&file[..end]),
+            ));
+            break;
+        }
+        // SAFETY: as for Process32FirstW
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: the snapshot is open and closed once
+    unsafe { CloseHandle(snapshot) };
+    let (parent, file) = found?;
+
+    // SAFETY: takes no pointers; the handle is closed below
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    let zero = FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let (mut created, mut exited, mut kernel, mut user) = (zero, zero, zero, zero);
+    // SAFETY: the four out-pointers point to FILETIMEs
+    let read =
+        unsafe { GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) };
+    // SAFETY: the process handle is open and closed once
+    unsafe { CloseHandle(handle) };
+    if read == 0 {
+        return None;
+    }
+    let started = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
+    // named without .exe, as on the other systems
+    let name = match file.len().checked_sub(4) {
+        Some(at) if file[at..].eq_ignore_ascii_case(".exe") => file[..at].to_string(),
+        _ => file,
+    };
+    Some(Process {
+        pid,
+        parent,
+        name,
+        started: started.to_string(),
+    })
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 fn read(_pid: u32) -> Option<Process> {
     None
 }
@@ -216,7 +303,7 @@ mod tests {
         assert_eq!(process.started, "812345");
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", windows))]
     #[test]
     fn this_process_is_found_with_a_start_that_stays_the_same() {
         let me = std::process::id();

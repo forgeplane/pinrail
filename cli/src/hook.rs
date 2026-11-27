@@ -81,17 +81,9 @@ fn report(args: &HookArgs, input: &[u8], at: &str) -> Option<(&'static str, Stri
 /// cannot speak for another process.
 fn named_process(input: &Value) -> Option<process::Process> {
     let pid = u32::try_from(input.get("pid")?.as_u64()?).ok()?;
-    #[cfg(unix)]
-    {
-        (std::os::unix::process::parent_id() == pid)
-            .then(|| process::process(pid))
-            .flatten()
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = pid;
-        None
-    }
+    (process::parent_id()? == pid)
+        .then(|| process::process(pid))
+        .flatten()
 }
 
 /// The agent's own process: from `CLAUDE_PID`, which Claude Code sets for its
@@ -105,15 +97,5 @@ fn agent_process(agent: &dyn pinrail_runtime::Agent) -> Option<process::Process>
     {
         return process::process(pid);
     }
-    #[cfg(unix)]
-    {
-        process::ancestor(std::os::unix::process::parent_id(), &|p| {
-            agent.is_own_process(p)
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = agent;
-        None
-    }
+    process::ancestor(process::parent_id()?, &|p| agent.is_own_process(p))
 }

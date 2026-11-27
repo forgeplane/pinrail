@@ -3517,6 +3517,7 @@ dependencies = [
  "serde_json",
  "shlex",
  "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
