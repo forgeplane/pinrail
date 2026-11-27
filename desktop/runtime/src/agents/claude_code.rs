@@ -275,7 +275,8 @@ fn last_turn(lines: &str) -> Option<TranscriptTurn> {
                 let Some(id) = text(&entry, "promptId") else {
                     continue;
                 };
-                let human = entry["origin"]["kind"].as_str() == Some("human")
+                let origin = entry["origin"]["kind"].as_str();
+                let human = origin == Some("human")
                     && entry.get("isMeta").and_then(Value::as_bool) != Some(true);
                 if human {
                     turn = Some(TranscriptTurn {
@@ -283,11 +284,16 @@ fn last_turn(lines: &str) -> Option<TranscriptTurn> {
                         prompt: words(content).map(|p| without_paste_tags(&p)),
                         prompted_at: text(&entry, "timestamp"),
                         reply: None,
+                        unprompted: false,
                     });
                 } else if turn.as_ref().and_then(|t| t.agent_turn.as_deref()) != Some(id.as_str()) {
-                    // a turn whose prompt is before the part read
+                    // a turn whose prompt is before the part read, or one
+                    // the agent started itself: a tool result has no origin,
+                    // a task notification or another session's message has
                     turn = Some(TranscriptTurn {
                         agent_turn: Some(id),
+                        prompted_at: origin.and(text(&entry, "timestamp")),
+                        unprompted: origin.is_some(),
                         ..TranscriptTurn::default()
                     });
                 }
@@ -492,8 +498,29 @@ mod tests {
                 prompt: Some("Look at this".into()),
                 prompted_at: Some("2026-11-25T17:44:06.242Z".into()),
                 reply: Some("It looks right.".into()),
+                unprompted: false,
             })
         );
+    }
+
+    #[test]
+    fn a_turn_started_by_a_task_notification_is_unprompted() {
+        let lines = [
+            prompt("p1", serde_json::json!("Run the suite in the background")),
+            said(serde_json::json!([{"type": "text", "text": "Started it."}])),
+            line(serde_json::json!({"type": "user", "promptId": "p2",
+                "origin": {"kind": "task-notification"}, "timestamp": "2026-11-27T23:08:16.132Z",
+                "message": {"content": "<task-notification>done</task-notification>"}})),
+        ]
+        .concat();
+        let turn = last_turn(&lines).unwrap();
+        assert_eq!(turn.agent_turn.as_deref(), Some("p2"));
+        assert_eq!(turn.prompt, None);
+        assert_eq!(
+            turn.prompted_at.as_deref(),
+            Some("2026-11-27T23:08:16.132Z")
+        );
+        assert!(turn.unprompted);
     }
 
     #[test]
@@ -507,6 +534,7 @@ mod tests {
         let turn = last_turn(&lines).unwrap();
         assert_eq!(turn.agent_turn.as_deref(), Some("p9"));
         assert_eq!(turn.prompt, None);
+        assert!(!turn.unprompted);
         assert_eq!(turn.reply.as_deref(), Some("Done."));
     }
 

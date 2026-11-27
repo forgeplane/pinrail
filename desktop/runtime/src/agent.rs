@@ -323,6 +323,10 @@ pub struct TranscriptTurn {
     pub prompted_at: Option<String>,
     /// The agent's last message of the turn, if it wrote one.
     pub reply: Option<String>,
+    /// Whether the agent started the turn itself, with no prompt from the
+    /// person: on a background task's notification or another session's
+    /// message. No prompt hook fires for such a turn.
+    pub unprompted: bool,
 }
 
 /// A new session Pinrail is asked to start.

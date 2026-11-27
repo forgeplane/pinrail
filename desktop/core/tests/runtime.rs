@@ -755,6 +755,64 @@ async fn a_prompt_whose_hook_was_lost_starts_its_turn_from_the_transcript() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_turn_started_by_a_task_notification_shows_the_agent_working() {
+    use pinrail_core::db::ReportEvent;
+    let setup = Setup::new();
+    setup.turn_on().await;
+    let folder = setup.folder("app");
+    std::fs::write(folder.join("records"), "").unwrap();
+    let run = setup
+        .app
+        .runtime()
+        .start(&start("claude-code", &folder))
+        .await
+        .unwrap();
+    file(folder.join("token")).await;
+    let session = run.session.clone().unwrap();
+    let db = setup.db();
+    let transcript = setup.folder("claude").join("transcript.jsonl");
+    common::record(&folder, "state=idle:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "idle").await;
+
+    // a turn the hooks report in full, which leaves a task running
+    let first = claude_turn("p1", "Run the suite in the background", "Started it.");
+    std::fs::write(&transcript, &first).unwrap();
+    hook_in_transcript(
+        &setup.app,
+        &session,
+        ReportEvent::Prompt {
+            prompt: Some("Run the suite in the background".into()),
+        },
+        &transcript,
+        "p1",
+    );
+    hook(
+        &setup.app,
+        &session,
+        ReportEvent::TurnEnded {
+            end: "done".into(),
+            reply: Some("Started it.".into()),
+        },
+    );
+
+    // the task ends and Claude Code starts a turn on its notification,
+    // which fires no prompt hook
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let notification = serde_json::json!({"type": "user", "promptId": "p2",
+        "origin": {"kind": "task-notification", "producer": "session-task"},
+        "isSidechain": false, "timestamp": now,
+        "message": {"role": "user", "content": "<task-notification>done</task-notification>"}});
+    std::fs::write(&transcript, format!("{first}{notification}\n")).unwrap();
+    common::record(&folder, "state=working:app=claude-code").await;
+    presence_becomes(&db, &session, |p| p.state == "working").await;
+
+    let turns = db.turns(&session.0, &session.1).unwrap();
+    assert_eq!(turns.len(), 2, "{turns:?}");
+    assert_eq!(turns[1].agent_turn.as_deref(), Some("p2"));
+    assert_eq!(turns[1].prompt, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_hosted_run_takes_its_state_from_its_terminal_once_it_reports_there() {
     use pinrail_core::db::ReportEvent;
     let setup = Setup::new();

@@ -52,8 +52,11 @@ impl Runtime {
                 *reply = turn.reply;
                 (None, reply.is_some())
             }
-            // the agent works on a prompt whose hook never reported it
-            ReportEvent::Working if ended && !same && turn.prompt.is_some() => {
+            // the agent works on a prompt whose hook never reported it, or
+            // on a turn it started itself, for which no hook fires
+            ReportEvent::Working
+                if ended && !same && (turn.prompt.is_some() || turn.unprompted) =>
+            {
                 let at = turn
                     .prompted_at
                     .as_deref()
