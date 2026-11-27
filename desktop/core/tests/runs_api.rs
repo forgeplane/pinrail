@@ -1,7 +1,6 @@
 //! The runs routes: the person starts an agent in a folder, lists and
 //! reads its runs, and stops one. A report sent with a run token speaks
 //! for the run's session only from the run's own agent process.
-#![cfg(unix)]
 
 mod common;
 
@@ -500,7 +499,7 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
             .run_env
-            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+            .insert("PATH".into(), common::path_with(&bin));
     });
     runtime::watch(app.state.clone());
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -672,9 +671,10 @@ async fn recent_folders_include_the_ones_agents_worked_in_before_pinrail_saw_the
     for (name, folder) in [("shop", &shop), ("api", &api)] {
         let sessions = home.path().join(".claude/projects").join(name);
         std::fs::create_dir_all(&sessions).unwrap();
+        // as JSON writes it: a folder on Windows has backslashes to escape
         std::fs::write(
             sessions.join("one.jsonl"),
-            format!("{{\"type\":\"user\",\"cwd\":\"{folder}\"}}\n"),
+            format!("{}\n", json!({"type": "user", "cwd": folder})),
         )
         .unwrap();
     }
@@ -767,7 +767,7 @@ async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
             .run_env
-            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+            .insert("PATH".into(), common::path_with(&bin));
     });
     runtime::watch(app.state.clone());
     let counted = || {

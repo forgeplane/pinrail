@@ -1,7 +1,6 @@
 //! Messages to an agent Pinrail runs: typed into its terminal when it is
 //! idle, held while it works, confirmed when its prompt hook reports the
 //! same text, and sent through the queue when it cannot be typed.
-#![cfg(unix)]
 
 mod common;
 

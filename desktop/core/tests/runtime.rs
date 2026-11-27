@@ -3,7 +3,6 @@
 //! Through the link it starts agents as runs, ends a run when its agent
 //! exits, and on every connect brings the runs in line with the host's
 //! terminals.
-#![cfg(unix)]
 
 mod common;
 
