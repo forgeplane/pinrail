@@ -4,6 +4,12 @@ This plugin is released with the Pinrail app, which carries it among its
 official plugins. Each version names the release of the app that first
 carries it.
 
+## [1.3.0] - Unreleased
+
+### Changed
+
+- Enter leaves a free-text answer, and Shift+Enter starts a new line.
+
 ## [1.2.0] - Pinrail 0.4.1
 
 ### Changed

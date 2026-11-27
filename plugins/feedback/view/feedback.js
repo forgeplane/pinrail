@@ -92,7 +92,7 @@
     const invalid = error ? 'aria-invalid="true"' : "";
     const describedBy = `hint-${q.id}${q.description ? " desc-" + q.id : ""}${error ? " error-" + q.id : ""}`;
     if (q.type === "text")
-      return `<div class="pinrail-compose pinrail-compose-wide answer-box"><textarea id="answer-${q.id}" class="pinrail-compose-input text-answer" data-answer="${q.id}" data-pinrail-dictate rows="3" ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}" placeholder="${esc(q.placeholder || "Your response…")}">${esc(value || "")}</textarea><span class="pinrail-compose-tools"><span data-pinrail-dictate-for="answer-${q.id}"></span></span></div><div class="text-limit">${q.max_length ? `Up to ${q.max_length} characters` : ""}</div>`;
+      return `<div class="pinrail-compose pinrail-compose-wide answer-box"><textarea id="answer-${q.id}" class="pinrail-compose-input text-answer" data-answer="${q.id}" data-pinrail-dictate rows="3" ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}" placeholder="${esc(q.placeholder || "Your response…")}">${esc(value || "")}</textarea><span class="pinrail-compose-keys">Shift+Enter for a new line</span><span class="pinrail-compose-tools"><span data-pinrail-dictate-for="answer-${q.id}"></span></span></div><div class="text-limit">${q.max_length ? `Up to ${q.max_length} characters` : ""}</div>`;
     if (q.type === "checkbox")
       return `<label class="acknowledgment ${value === true ? "is-selected" : ""}"><input id="answer-${q.id}" type="checkbox" data-answer="${q.id}" ${value === true ? "checked" : ""} ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}"><span>${esc(q.checkbox_label || "I confirm")}</span></label>`;
     const options =
@@ -380,7 +380,15 @@
       e.preventDefault();
       e.target.blur();
     }
-    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !composing && e.target.dataset?.comment) {
+    // Enter leaves a comment or a free-text answer, and Shift+Enter starts a new line
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !composing &&
+      (e.target.dataset?.comment || e.target.matches?.("textarea[data-answer]"))
+    ) {
       e.preventDefault();
       e.target.blur();
     }

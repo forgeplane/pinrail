@@ -594,6 +594,18 @@ test("a free-text answer and a comment can be dictated, from a microphone under 
   await expect(first.locator("textarea.question-comment")).toHaveValue("only if the partners agree");
 });
 
+test("Enter leaves a free-text answer, and Shift+Enter starts a new line", async ({ page }) => {
+  const plugin = await mount(page, "02-launch.json");
+  const answer = plugin.frame.locator("textarea.text-answer").first();
+  await answer.click();
+  await answer.pressSequentially("practical");
+  await answer.press("Shift+Enter");
+  await answer.pressSequentially("and specific");
+  await answer.press("Enter");
+  await expect(answer).toHaveValue("practical\nand specific");
+  await expect(answer).not.toBeFocused();
+});
+
 test("without the app's dictation, or read-only, the fields have no microphone", async ({ page }) => {
   const plugin = await mount(page, "02-launch.json");
   await expect(plugin.frame.locator("textarea.text-answer").first()).toBeVisible();
