@@ -57,7 +57,8 @@ test("on the Work items page, a review opens in the item's place and closes back
   // the item's keys do not reach the item behind the review
   await page.getByTestId("item-row").filter({ hasText: "Theme loader" }).hover();
   await page.keyboard.press("d");
-  await settled(page);
+  // any change the key made would be a request to the API
+  await settled(page, (url) => url.pathname.startsWith("/api/"));
   const shown = (await (await request.get(`${core}/api/v1/items/${item.key}`)).json()) as { status: string };
   expect(shown.status).toBe("open");
 
