@@ -14,23 +14,30 @@ import { clearInterval, setInterval } from "node:timers";
 
 const cli = process.env.PINRAIL_CLI || "pinrail";
 
+const windows = process.platform === "win32";
+
 /** Where Pinrail keeps the files attached to its sessions, found as
  *  Pinrail finds its data folder. */
 const sessionFiles = path.join(
   process.env.PINRAIL_DATA_DIR ||
+    (windows && process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "dev.pinrail.desktop") : null) ||
     (process.env.XDG_DATA_HOME ? path.join(process.env.XDG_DATA_HOME, "pinrail") : null) ||
     path.join(os.homedir(), ".local", "share", "pinrail"),
   "sessions",
 );
 
+/** A path as it compares: on Windows either separator, and any case. */
+const comparable = (p) => (windows ? p.replaceAll("/", "\\").toLowerCase() : p);
+
 /** Whether a permission OpenCode asks for is only to read folders inside
  *  Pinrail's session files, which it then needs no answer for. */
 function readsSessionFiles(data) {
   const resources = data.resources ?? [];
+  const inside = comparable(sessionFiles + path.sep);
   return (
     data.action === "external_directory" &&
     resources.length > 0 &&
-    resources.every((resource) => resource.startsWith(sessionFiles + path.sep))
+    resources.every((resource) => comparable(resource).startsWith(inside))
   );
 }
 
