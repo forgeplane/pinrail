@@ -693,29 +693,38 @@ fn wait_with_no_server_says_so_instead_of_calling_the_review_pending() {
 
 #[test]
 fn a_command_with_no_server_says_to_open_the_app() {
-    // the first discovery commands an agent runs, with the app closed
-    let port = TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
-    let url = format!("http://127.0.0.1:{port}");
-    for args in [&["plugins"][..], &["list"], &["show", "r_1"]] {
-        let out = pinrail()
-            .arg("--url")
-            .arg(&url)
-            .args(args)
-            .output()
-            .unwrap();
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        assert_eq!(out.status.code(), Some(1), "{args:?}: {stderr}");
-        assert!(
-            stderr.contains(&format!(
-                "not answering at {url} (from --url or PINRAIL_URL); open the Pinrail app"
-            )),
-            "{args:?}: {stderr}"
-        );
+    // the first discovery commands an agent runs, with the app closed: on
+    // a port bound and let go, which a test running alongside can take in
+    // between, so a port where something answered is tried again
+    'port: for _ in 0..5 {
+        let port = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let url = format!("http://127.0.0.1:{port}");
+        for args in [&["plugins"][..], &["list"], &["show", "r_1"]] {
+            let out = pinrail()
+                .arg("--url")
+                .arg(&url)
+                .args(args)
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            if stderr.contains("the connection to the server") {
+                continue 'port;
+            }
+            assert_eq!(out.status.code(), Some(1), "{args:?}: {stderr}");
+            assert!(
+                stderr.contains(&format!(
+                    "not answering at {url} (from --url or PINRAIL_URL); open the Pinrail app"
+                )),
+                "{args:?}: {stderr}"
+            );
+        }
+        return;
     }
+    panic!("something answered on every port tried");
 }
 
 #[test]
