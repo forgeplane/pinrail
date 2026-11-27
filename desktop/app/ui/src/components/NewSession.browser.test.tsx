@@ -130,6 +130,26 @@ test("a start opens its session at once, before the agent names it", async () =>
   expect(app.started).toEqual([expect.objectContaining({ agent: "antigravity", folder: "/work/api" })]);
 });
 
+test("Enter in the first message starts the session with that message", async () => {
+  app.agents = [agent("antigravity", "Antigravity CLI", false, true)];
+  await render(<NewSession />, { route: "/new" });
+  await expect.element(startButton()).toBeEnabled();
+  await userEvent.click(page.getByRole("textbox", { name: "First message" }));
+  await userEvent.keyboard("Fix the login{Enter}");
+  await expect.poll(() => app.started).toEqual([expect.objectContaining({ task: "Fix the login" })]);
+});
+
+test("Shift+Enter in the first message starts a new line", async () => {
+  app.agents = [agent("antigravity", "Antigravity CLI", false, true)];
+  await render(<NewSession />, { route: "/new" });
+  await expect.element(startButton()).toBeEnabled();
+  const message = page.getByRole("textbox", { name: "First message" });
+  await userEvent.click(message);
+  await userEvent.keyboard("Fix the login{Shift>}{Enter}{/Shift}on Safari");
+  await expect.element(message).toHaveValue("Fix the login\non Safari");
+  expect(app.started).toEqual([]);
+});
+
 test("⌘Enter in the quick add dialog adds the item and starts no session", async () => {
   app.agents = [agent("antigravity", "Antigravity CLI", false, true)];
   core.answer("projects", { projects: [], loose: [{ repo: "acme/app" }] });

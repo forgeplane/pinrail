@@ -300,6 +300,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A session's thread shows what the agent is doing on a line above the
   message box: that it is working, whenever its hooks report so, or that
   it waits for your permission.
+- On the New session page, Enter in the first message starts the session,
+  and Shift+Enter starts a new line.
 
 ### Security
 

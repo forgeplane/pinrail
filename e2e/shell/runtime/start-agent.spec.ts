@@ -156,9 +156,9 @@ test("# in the first message lists the work items, the folder's repository's fir
   await expect(list.getByRole("option").first()).toContainText(key);
   await page.keyboard.press("Enter");
   await expect(message(page)).toHaveValue(`Work on ${key} `);
-  // Enter picked the item; ⌘Enter starts
+  // the first Enter picked the item, and the next one starts
   expect(started).toHaveLength(0);
-  await page.keyboard.press("ControlOrMeta+Enter");
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}`));
   expect(started[0]).toMatchObject({ task: `Work on ${key}` });
 });

@@ -19,7 +19,7 @@ import { ApiError, inTauri } from "../api/client";
 import { defaultAgent, runtime, type RecentFolder, type StartableAgent } from "../api/runtime";
 import { splitArgs } from "../lib/args";
 import { useSettings } from "../state/settings";
-import { combo, hasMod, MOD, modalOpen } from "../lib/keys";
+import { composing, hasMod, modalOpen } from "../lib/keys";
 import { TIPS, tipParts } from "../lib/tips";
 import { useWindowKey } from "../lib/useWindowKey";
 import { AgentIcon } from "./AgentIcon";
@@ -261,6 +261,12 @@ export function NewSession() {
             placeholder="Describe the task, # for a work item, or leave it empty to start without one"
             value={task}
             onChange={(e) => setTask(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter starts the session, and Shift+Enter starts a new line
+              if (e.key !== "Enter" || e.shiftKey || e.altKey || hasMod(e.nativeEvent) || composing(e)) return;
+              e.preventDefault();
+              void start();
+            }}
           />
           {picker}
           {showArgs ? (
@@ -290,7 +296,7 @@ export function NewSession() {
               disabled={!ready}
               onClick={() => void start()}
               aria-label="Start"
-              title={`Start (${combo(MOD, "Enter")})`}
+              title="Start (Enter)"
             >
               <ArrowUp size={16} aria-hidden="true" />
             </button>
