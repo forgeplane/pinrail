@@ -44,9 +44,7 @@ pub fn build(request: &Request) -> BTreeMap<String, String> {
         })
         .cloned()
         .collect();
-    let mut set = |name: &str, value: &str| {
-        env.insert(name.to_string(), value.to_string());
-    };
+    let mut set = |name: &str, value: &str| set_var(&mut env, name, value);
     set("TERM", "xterm-256color");
     set("COLORTERM", "truecolor");
     set("TERM_PROGRAM", "Pinrail");
@@ -58,23 +56,74 @@ pub fn build(request: &Request) -> BTreeMap<String, String> {
     }
     for (name, value) in request.session_env {
         if is_session_variable(name) {
-            env.insert(name.clone(), value.clone());
+            set_var(&mut env, name, value);
         }
     }
-    if let Some(cli) = find_program("pinrail", env.get("PATH").map(String::as_str)) {
-        env.insert(
-            "PINRAIL_CLI".to_string(),
-            cli.to_string_lossy().into_owned(),
-        );
+    if let Some(cli) = find_program("pinrail", var(&env, "PATH")) {
+        set_var(&mut env, "PINRAIL_CLI", &cli.to_string_lossy());
     }
     for (name, value) in request.env {
-        env.insert(name.clone(), value.clone());
+        set_var(&mut env, name, value);
     }
     env
 }
 
+/// Sets a variable. Windows takes names without regard to case, so there
+/// the one it replaces may be spelt otherwise, as `Path` for `PATH`.
+fn set_var(env: &mut BTreeMap<String, String>, name: &str, value: &str) {
+    if cfg!(windows) {
+        env.retain(|key, _| !key.eq_ignore_ascii_case(name));
+    }
+    env.insert(name.to_string(), value.to_string());
+}
+
+/// A variable's value, its name spelt otherwise on Windows.
+pub fn var<'a>(env: &'a BTreeMap<String, String>, name: &str) -> Option<&'a str> {
+    if cfg!(windows) {
+        return env
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str());
+    }
+    env.get(name).map(String::as_str)
+}
+
+/// A program's path, found as Windows finds it: a name with a folder in it
+/// as it is, otherwise the first of that name on `path`, which separates
+/// its folders with `;`, as it is or with an extension from `PATHEXT`.
+#[cfg(windows)]
+pub fn find_program(name: &str, path: Option<&str>) -> Option<PathBuf> {
+    if name.is_empty() {
+        return None;
+    }
+    let exts = std::env::var("PATHEXT")
+        .ok()
+        .filter(|e| !e.is_empty())
+        .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".to_string());
+    let found = |base: PathBuf| -> Option<PathBuf> {
+        if base.extension().is_some() && base.is_file() {
+            return Some(base);
+        }
+        // in lower case, as programs' files are named: PATHEXT spells them
+        // in capitals, and the file is found either way
+        exts.split(';')
+            .filter(|e| !e.is_empty())
+            .map(|e| PathBuf::from(format!("{}{}", base.display(), e.to_lowercase())))
+            .find(|p| p.is_file())
+    };
+    let program = Path::new(name);
+    if program.components().count() > 1 || program.is_absolute() {
+        return found(program.to_path_buf());
+    }
+    path?
+        .split(';')
+        .filter(|dir| !dir.is_empty())
+        .find_map(|dir| found(Path::new(dir).join(name)))
+}
+
 /// A program's path, found as a shell would: a name with a slash as it
 /// is, otherwise the first executable file of that name on `path`.
+#[cfg(unix)]
 pub fn find_program(name: &str, path: Option<&str>) -> Option<PathBuf> {
     if name.is_empty() {
         return None;
@@ -89,6 +138,7 @@ pub fn find_program(name: &str, path: Option<&str>) -> Option<PathBuf> {
         .find(|candidate| executable(candidate))
 }
 
+#[cfg(unix)]
 fn executable(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
     std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
@@ -220,6 +270,29 @@ mod tests {
         assert_eq!(env["TERM"], "dumb");
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn the_pinrail_command_is_found_on_the_agent_s_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cli = dir.path().join("pinrail.exe");
+        std::fs::write(&cli, "").unwrap();
+        let path = format!(r"C:\nonexistent;{}", dir.path().display());
+        // Windows' own spelling of the variable
+        let env = build_with(&[("Path", &path)], &[], &[]);
+        assert_eq!(env["PINRAIL_CLI"], cli.to_str().unwrap());
+        assert!(!build_with(&[("Path", r"C:\nonexistent")], &[], &[]).contains_key("PINRAIL_CLI"));
+        // a variable the request spells otherwise replaces it
+        let env = build_with(&[("Path", &path)], &[("PATH", "C:\\x")], &[]);
+        assert_eq!(var(&env, "path"), Some("C:\\x"));
+        assert_eq!(
+            env.keys()
+                .filter(|k| k.eq_ignore_ascii_case("path"))
+                .count(),
+            1
+        );
+    }
+
+    #[cfg(unix)]
     #[test]
     fn the_pinrail_command_is_found_on_the_agent_s_path() {
         let dir = tempfile::tempdir().unwrap();

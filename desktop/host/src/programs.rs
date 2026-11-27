@@ -15,9 +15,10 @@ const VERSION_WITHIN: Duration = Duration::from_secs(5);
 /// Each of `names`, with its path and version, or `null` for both when it
 /// is not on `env`'s `PATH`.
 pub fn find(names: &[String], env: &[(String, String)]) -> Vec<Value> {
+    // Windows takes names without regard to case: its own is `Path`
     let path = env
         .iter()
-        .find(|(k, _)| k == "PATH")
+        .find(|(k, _)| k == "PATH" || cfg!(windows) && k.eq_ignore_ascii_case("PATH"))
         .map(|(_, v)| v.as_str());
     names
         .iter()
@@ -37,7 +38,14 @@ pub fn find(names: &[String], env: &[(String, String)]) -> Vec<Value> {
 /// with a digit, such as `2.1.325` in `2.1.325 (Claude Code)`.
 fn version(program: &Path, env: &[(String, String)]) -> Option<String> {
     // in a folder of no one's, which a program that writes there harms not
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    // the host has no console, so Windows would open a window for one
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    let mut child = command
         .arg("--version")
         .current_dir(std::env::temp_dir())
         .env_clear()
@@ -76,14 +84,39 @@ fn version_in(text: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
+
+    /// An environment whose `PATH` is `dir`: with the rest of this
+    /// process's on Windows, where cmd, which runs a batch file, needs it.
+    fn path_only(dir: &Path) -> Vec<(String, String)> {
+        let mut env: Vec<(String, String)> = if cfg!(windows) {
+            std::env::vars()
+                .filter(|(k, _)| !k.eq_ignore_ascii_case("PATH"))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        env.push(("PATH".to_string(), dir.to_string_lossy().into_owned()));
+        env
+    }
+
+    /// A batch file `name` in `dir` that runs `script`, for Windows.
+    #[cfg(windows)]
+    fn program(dir: &Path, name: &str, script: &str) {
+        std::fs::write(
+            dir.join(format!("{name}.cmd")),
+            format!("@echo off\r\n{script}\r\n"),
+        )
+        .unwrap();
+    }
 
     /// Links `name` in `dir` to a script that runs `script`. The script is
     /// written once for its content, in a folder that outlives the test:
     /// macOS scans a new executable the first time it runs, which can take
     /// longer than a program has to print its version.
+    #[cfg(unix)]
     fn program(dir: &Path, name: &str, script: &str) {
         use std::hash::{Hash, Hasher};
+        use std::os::unix::fs::PermissionsExt;
         let content = format!("#!/bin/sh\n{script}\n");
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         content.hash(&mut hasher);
@@ -104,28 +137,32 @@ mod tests {
     #[test]
     fn a_program_on_the_path_is_found_with_its_version() {
         let dir = tempfile::tempdir().unwrap();
-        program(dir.path(), "claude", "echo '2.1.325 (Claude Code)'");
-        program(dir.path(), "codex", "echo 'codex-cli 0.98.0'");
-        let env = vec![(
-            "PATH".to_string(),
-            dir.path().to_string_lossy().into_owned(),
-        )];
+        if cfg!(windows) {
+            program(dir.path(), "claude", "echo 2.1.325 (Claude Code)");
+            program(dir.path(), "codex", "echo codex-cli 0.98.0");
+        } else {
+            program(dir.path(), "claude", "echo '2.1.325 (Claude Code)'");
+            program(dir.path(), "codex", "echo 'codex-cli 0.98.0'");
+        }
+        let env = path_only(dir.path());
         let found = find(&["claude".into(), "codex".into()], &env);
         assert_eq!(found[0]["version"], "2.1.325");
         assert_eq!(found[1]["version"], "0.98.0");
+        let file = if cfg!(windows) {
+            "claude.cmd"
+        } else {
+            "claude"
+        };
         assert_eq!(
             found[0]["path"],
-            dir.path().join("claude").to_string_lossy().as_ref()
+            dir.path().join(file).to_string_lossy().as_ref()
         );
     }
 
     #[test]
     fn a_missing_program_has_no_path_and_no_version() {
         let dir = tempfile::tempdir().unwrap();
-        let env = vec![(
-            "PATH".to_string(),
-            dir.path().to_string_lossy().into_owned(),
-        )];
+        let env = path_only(dir.path());
         let found = find(&["claude".into()], &env);
         assert_eq!(
             found[0],
@@ -136,11 +173,12 @@ mod tests {
     #[test]
     fn a_program_that_prints_no_version_is_still_found() {
         let dir = tempfile::tempdir().unwrap();
-        program(dir.path(), "claude", "exit 1");
-        let env = vec![(
-            "PATH".to_string(),
-            dir.path().to_string_lossy().into_owned(),
-        )];
+        program(
+            dir.path(),
+            "claude",
+            if cfg!(windows) { "exit /b 1" } else { "exit 1" },
+        );
+        let env = path_only(dir.path());
         let found = find(&["claude".into()], &env);
         assert!(found[0]["path"].is_string());
         assert!(found[0]["version"].is_null());
@@ -151,18 +189,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let said = dir.path().join("folder");
         // where to write is in the environment, so the script stays the same
-        program(dir.path(), "claude", "pwd -P > \"$SAID\"; echo 1.0");
-        let env = vec![
-            (
-                "PATH".to_string(),
-                dir.path().to_string_lossy().into_owned(),
-            ),
-            ("SAID".to_string(), said.to_string_lossy().into_owned()),
-        ];
+        if cfg!(windows) {
+            program(dir.path(), "claude", "cd > \"%SAID%\"\r\necho 1.0");
+        } else {
+            program(dir.path(), "claude", "pwd -P > \"$SAID\"; echo 1.0");
+        }
+        let mut env = path_only(dir.path());
+        env.push(("SAID".to_string(), said.to_string_lossy().into_owned()));
         find(&["claude".into()], &env);
         let folder = std::fs::read_to_string(&said).unwrap();
         assert_eq!(
-            Path::new(folder.trim()),
+            Path::new(folder.trim()).canonicalize().unwrap(),
             std::env::temp_dir().canonicalize().unwrap()
         );
     }

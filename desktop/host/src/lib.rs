@@ -6,7 +6,6 @@
 //! terminals themselves still run only on Unix.
 
 pub mod client;
-#[cfg(unix)]
 pub mod environment;
 pub mod events;
 #[cfg(unix)]
@@ -27,9 +26,7 @@ pub mod log;
 pub mod net;
 pub mod outbox;
 pub mod paths;
-#[cfg(unix)]
 pub mod probe;
-#[cfg(unix)]
 pub mod programs;
 pub mod protocol;
 #[cfg(unix)]
