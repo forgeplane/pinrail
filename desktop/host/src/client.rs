@@ -2,7 +2,6 @@
 
 use std::fmt;
 use std::io;
-use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use serde_json::{Value, json};
@@ -11,7 +10,7 @@ use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
 use crate::registration::Registration;
 
 pub struct Client {
-    stream: UnixStream,
+    stream: crate::net::Stream,
     next_id: u64,
     /// Notifications that arrived while a call waited for its result.
     notifications: std::collections::VecDeque<Value>,
@@ -52,7 +51,7 @@ impl From<io::Error> for CallError {
 impl Client {
     /// Connects to the host a registration names, and says `hello`.
     pub fn connect(registration: &Registration) -> Result<Self, CallError> {
-        let stream = UnixStream::connect(&registration.socket)?;
+        let stream = crate::net::connect(&registration.socket)?;
         stream.set_read_timeout(Some(Duration::from_secs(15)))?;
         let mut client = Self {
             stream,

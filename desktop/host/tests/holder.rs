@@ -66,7 +66,7 @@ fn holder(folders: &Folders, idle_exit: u64) -> Holder {
     assert_eq!(instance.len(), 8, "{line:?}");
     Holder {
         child,
-        socket: pinrail_host::holder::socket_path(&paths.socket_dir, &instance),
+        socket: paths.holder_socket(&instance),
     }
 }
 

@@ -3,7 +3,6 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
@@ -71,12 +70,9 @@ impl Registration {
     /// file renamed into place, so that a reader never sees half of it.
     pub fn write(&self, path: &Path) -> io::Result<()> {
         let temporary = path.with_extension(format!("json.{}.tmp", std::process::id()));
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(&temporary)?;
+        let mut file = OpenOptions::new();
+        file.write(true).create(true).truncate(true);
+        let mut file = crate::private(&mut file).open(&temporary)?;
         file.write_all(self.to_json().to_string().as_bytes())?;
         file.sync_all()?;
         fs::rename(&temporary, path)
@@ -116,9 +112,12 @@ mod tests {
         let written = registration("boot".to_string(), 42);
         written.write(&path).unwrap();
         assert_eq!(Registration::read(&path), Some(written));
-        use std::os::unix::fs::PermissionsExt;
-        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode, 0o600);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600);
+        }
         // nothing else is left in the folder
         assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }

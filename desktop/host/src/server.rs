@@ -12,7 +12,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use tokio::net::UnixStream;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
@@ -114,7 +113,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
         config.holder,
     ));
     let _ = fs::remove_file(paths.registration());
-    let _ = fs::remove_file(paths.socket());
+    crate::net::remove(&paths.socket());
     match &result {
         Ok(reason) => log.line(&format!("stopped: {reason}")),
         Err(error) => log.line(&format!("failed: {error}")),
@@ -196,9 +195,7 @@ async fn run(
     let socket = paths.socket();
     let (exits, mut exited) = tokio::sync::mpsc::unbounded_channel();
     // the lock is ours, so a socket left here is from a host that ended
-    let _ = fs::remove_file(&socket);
-    let listener = tokio::net::UnixListener::bind(&socket)?;
-    fs::set_permissions(&socket, fs::Permissions::from_mode(0o600))?;
+    let mut listener = crate::net::AsyncListener::bind(&socket)?;
     let shared = Arc::new(Shared {
         secret: crate::random_hex(32),
         instance: crate::random_hex(8),
@@ -272,7 +269,7 @@ async fn run(
     let reason = loop {
         tokio::select! {
             accepted = listener.accept() => {
-                if let Ok((stream, _)) = accepted {
+                if let Ok(stream) = accepted {
                     next_connection += 1;
                     tokio::spawn(connection(stream, next_connection, shared.clone()));
                 }
@@ -434,8 +431,8 @@ pub const PING_EVERY: Duration = Duration::from_secs(15);
 /// One connection: its `hello`, then JSON-RPC calls on channel 0, each
 /// answered by a task of its own, until it closes, is replaced, overflows
 /// or stops the host.
-async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
-    let (reader, writer) = stream.into_split();
+async fn connection(stream: crate::net::AsyncStream, id: u64, shared: Arc<Shared>) {
+    let (reader, writer) = crate::net::split(stream);
     // the loop below reads in a select!, where a read can be dropped
     let mut reader = frame::FrameReader::new(reader);
     let Ok(Ok(Some(first))) = tokio::time::timeout(HELLO_WITHIN, reader.next()).await else {

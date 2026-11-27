@@ -248,7 +248,7 @@ Options:
         else {
             return fail("no host is running");
         };
-        let socket = match std::os::unix::net::UnixStream::connect(&registration.socket) {
+        let socket = match pinrail_host::net::connect(&registration.socket) {
             Ok(socket) => socket,
             Err(error) => return fail(&error.to_string()),
         };

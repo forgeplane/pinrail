@@ -12,12 +12,12 @@
 //! reaps it only on `forget`, so that the host's signals cannot reach
 //! another process given the same id.
 
+use crate::net::{Listener, Stream};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -56,7 +56,7 @@ struct State {
     terminals: BTreeMap<String, Held>,
     /// The connected host, for replies and events, and its connection's
     /// number.
-    host: Option<UnixStream>,
+    host: Option<Stream>,
     connection: u64,
     /// When the last host left, or the holder started.
     alone_since: Option<Instant>,
@@ -68,34 +68,11 @@ fn lock(state: &Shared) -> std::sync::MutexGuard<'_, State> {
     state.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// A holder's socket in `socket_dir`, for its instance id.
-pub fn socket_path(socket_dir: &Path, instance: &str) -> PathBuf {
-    socket_dir.join(format!("holder.{instance}.sock"))
-}
-
-/// The instances of the holders whose sockets are in `socket_dir`.
-pub fn instances(socket_dir: &Path) -> Vec<String> {
-    let Ok(entries) = std::fs::read_dir(socket_dir) else {
-        return Vec::new();
-    };
-    let mut found: Vec<String> = entries
-        .flatten()
-        .filter_map(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            name.strip_prefix("holder.")?
-                .strip_suffix(".sock")
-                .map(str::to_string)
-        })
-        .collect();
-    found.sort();
-    found
-}
-
 /// A holder that listens, ready to run.
 pub struct Listening {
     instance: String,
     socket: PathBuf,
-    listener: UnixListener,
+    listener: Listener,
     registration: PathBuf,
     _lock: File,
 }
@@ -111,10 +88,8 @@ pub fn listen(data_dir: &Path) -> io::Result<Listening> {
     let holders = paths.host_dir.join("holders");
     std::fs::create_dir_all(&holders)?;
     let lock = take_lock(&holders.join(format!("{instance}.lock")))?;
-    let socket = socket_path(&paths.socket_dir, &instance);
-    let _ = std::fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket)?;
-    std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
+    let socket = paths.holder_socket(&instance);
+    let listener = crate::net::listen(&socket)?;
     listener.set_nonblocking(true)?;
     Ok(Listening {
         instance,
@@ -168,7 +143,7 @@ impl Listening {
                         .is_some_and(|since| since.elapsed() >= alone_exit)
             };
             if done {
-                let _ = std::fs::remove_file(&self.socket);
+                crate::net::remove(&self.socket);
                 return Ok(());
             }
             let (live, connected) = {
@@ -261,7 +236,7 @@ fn take_lock(path: &Path) -> io::Result<File> {
 
 /// One host's connection: the handshake, then its requests until it
 /// leaves. A host that connects replaces the one before it.
-fn serve(stream: UnixStream, state: &Shared, registration: &Path, instance: &str) {
+fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
     let _ = stream.set_nonblocking(false);
     if !handshake(&stream, registration, instance) {
         return;
@@ -313,11 +288,11 @@ fn serve(stream: UnixStream, state: &Shared, registration: &Path, instance: &str
 
 /// The host proves it is the host: a process of this user that knows the
 /// host secret.
-fn handshake(stream: &UnixStream, registration: &Path, instance: &str) -> bool {
+fn handshake(stream: &Stream, registration: &Path, instance: &str) -> bool {
     let Ok(Some((hello, _))) = fdpass::recv(stream) else {
         return false;
     };
-    let same_user = fdpass::peer_uid(stream).is_ok_and(|uid| uid == crate::sys::uid());
+    let same_user = crate::net::same_user(stream);
     let secret = Registration::read(registration).map(|r| r.secret);
     let knows = matches!((&secret, hello["secret"].as_str()), (Some(s), Some(given)) if s == given);
     if !same_user || !knows {

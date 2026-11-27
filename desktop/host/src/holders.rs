@@ -10,9 +10,9 @@
 //! update, keeps the terminals it has, and the host closes its connection
 //! when the last of them ends, which lets that holder exit.
 
+use crate::net::Stream;
 use std::collections::{BTreeMap, HashMap};
 use std::os::fd::OwnedFd;
-use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
@@ -52,7 +52,7 @@ type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<(Value, Vec<OwnedFd>)>>>>;
 /// A connection to one holder.
 struct Link {
     instance: String,
-    stream: UnixStream,
+    stream: Stream,
     pending: Pending,
     next_id: AtomicU64,
     /// Cleared when the holder goes away.
@@ -143,8 +143,8 @@ impl Holders {
 
     /// Connects to the holder `instance`.
     fn connect(&self, instance: &str) -> std::io::Result<Arc<Link>> {
-        let socket = holder::socket_path(&self.paths.socket_dir, instance);
-        let stream = UnixStream::connect(&socket)?;
+        let socket = self.paths.holder_socket(instance);
+        let stream = crate::net::connect(&socket)?;
         fdpass::send(
             &stream,
             &json!({"secret": self.secret()?, "protocol": holder::PROTOCOL}),
@@ -190,7 +190,7 @@ impl Holders {
         if let Some(link) = links.values().rev().find(|link| link.own) {
             return Ok(link.clone());
         }
-        for instance in holder::instances(&self.paths.socket_dir) {
+        for instance in self.paths.holder_instances() {
             if links.contains_key(&instance) {
                 continue;
             }
@@ -287,7 +287,7 @@ impl Holders {
     pub fn adopt(&self) -> Vec<Kept> {
         let mut kept = Vec::new();
         let mut links = self.links.lock().unwrap_or_else(|e| e.into_inner());
-        for instance in holder::instances(&self.paths.socket_dir) {
+        for instance in self.paths.holder_instances() {
             let Ok(link) = self.connect(&instance) else {
                 continue;
             };
@@ -364,7 +364,7 @@ impl Holders {
 
 /// Reads a holder's answers and events until it goes away.
 fn read(
-    stream: &UnixStream,
+    stream: &Stream,
     pending: &Pending,
     exits: &tokio::sync::mpsc::UnboundedSender<Exited>,
     instance: &str,
