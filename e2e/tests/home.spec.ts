@@ -18,16 +18,30 @@ function freePort(): Promise<number> {
 }
 
 // Windows sets USERPROFILE and not HOME; Git Bash, which CI runs in, sets
-// HOME too, so this takes it away.
+// HOME too, so this takes it away. The data is in the profile's local app
+// data there, which the test moves into its own profile too.
 test("without HOME, the server keeps its data in the USERPROFILE folder", async () => {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-profile-"));
-  const env: NodeJS.ProcessEnv = { ...process.env, USERPROFILE: profile };
+  const local = path.join(profile, "AppData", "Local");
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    USERPROFILE: profile,
+    LOCALAPPDATA: local,
+    // a terminal host that is never there, as in the shell suite: a real
+    // one would outlive the server and, on Windows, keep the profile from
+    // being removed while its program runs from it
+    PINRAIL_HOST_SOCKET: path.join(profile, "no-host.sock"),
+    PINRAIL_HOST_SECRET: "none",
+  };
   for (const name of ["HOME", "PINRAIL_DATA_DIR", "XDG_DATA_HOME"]) delete env[name];
   const port = await freePort();
   const server = spawn(loadState().desktopBin, ["--headless", "--port", String(port)], { env, stdio: "ignore" });
   const exited = new Promise((resolve) => server.once("exit", resolve));
   try {
-    const info = path.join(profile, ".local", "share", "pinrail", "server.json");
+    const info =
+      process.platform === "win32"
+        ? path.join(local, "dev.pinrail.desktop", "server.json")
+        : path.join(profile, ".local", "share", "pinrail", "server.json");
     await expect.poll(() => fs.existsSync(info), { timeout: 30_000 }).toBe(true);
   } finally {
     server.kill();

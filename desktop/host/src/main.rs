@@ -37,7 +37,8 @@ Commands:
 
 Options:
   --data-dir <dir>       Pinrail's data folder (default: $PINRAIL_DATA_DIR,
-                         else ~/.local/share/pinrail)
+                         else %LOCALAPPDATA%\\dev.pinrail.desktop on
+                         Windows, else ~/.local/share/pinrail)
   --idle-exit <seconds>  With serve: exit after this long with no terminals
                          and no controller (default: 600); with hold: with
                          no terminals and no host (default: 30)
