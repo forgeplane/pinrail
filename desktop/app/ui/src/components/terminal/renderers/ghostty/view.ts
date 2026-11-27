@@ -126,7 +126,8 @@ class GhosttyView implements TerminalView, BenchHooks {
     // drawn at once, so that the screen is current in the frame that
     // shows it again
     this.renderer.onShown(() => {
-      if (this.missed) this.draw();
+      this.renderer.reshown();
+      this.draw();
     });
     // the symbols font arrived for an icon on screen
     this.renderer.onRedraw(() => this.redraw());
@@ -238,7 +239,7 @@ class GhosttyView implements TerminalView, BenchHooks {
   /** Draws the screen, unless the view is out of sight: a pooled view
    *  keeps parsing its output, and draws it once that output has been
    *  quiet for a while, or once it is shown, whichever comes first, so
-   *  that showing a terminal that has gone quiet needs no draw. */
+   *  that showing a terminal that has gone quiet draws only one row. */
   private draw(whileHidden = false) {
     if (this.disposed) return;
     if (!whileHidden && !this.renderer.showing) {

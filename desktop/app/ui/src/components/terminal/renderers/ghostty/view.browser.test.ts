@@ -231,7 +231,7 @@ test("a terminal taken out of the page draws nothing, and draws its screen when 
   host.remove();
 });
 
-test("a hidden terminal draws once its output is quiet, so that showing it needs no draw", async () => {
+test("a hidden terminal draws once its output is quiet", async () => {
   const host = document.createElement("div");
   host.style.cssText = "width: 400px; height: 200px; position: relative";
   document.body.append(host);
@@ -257,6 +257,30 @@ test("a hidden terminal draws once its output is quiet, so that showing it needs
   // once it stops, the screen is drawn once
   await new Promise((r) => setTimeout(r, HIDDEN_QUIET_MS * 3));
   expect(drawn).toBe(1);
+  view.dispose();
+  host.remove();
+});
+
+test("a terminal shown again draws on its canvas, even when nothing changed", async () => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 200px; position: relative";
+  document.body.append(host);
+  const view = ghosttyRenderer.create();
+  await view.mount(host, {
+    cols: 40,
+    rows: 10,
+    scrollback: 100,
+    theme: { foreground: "#e6e6e6", background: "#101010", cursor: "#e6e6e6" },
+    font: { family: "monospace", size: 13 },
+  });
+  await new Promise<void>((r) => view.write(new TextEncoder().encode("one\r\n"), r));
+  await new Promise((r) => setTimeout(r, 200));
+  const hooks = view as unknown as BenchHooks;
+  let drawn = 0;
+  hooks.onFrameDrawn(() => drawn++);
+  // as the window's pool hides a terminal and shows it again
+  host.remove();
+  await new Promise((r) => setTimeout(r, 200));
   document.body.append(host);
   await new Promise((r) => setTimeout(r, 200));
   expect(drawn).toBe(1);

@@ -324,6 +324,15 @@ export class CanvasRenderer {
     }
   }
 
+  /** Draws the first row on the next draw, even when it did not change.
+   *  WebKitGTK shows a canvas put back in the page blank until something
+   *  is drawn on it, so a canvas shown again is drawn on at once. */
+  reshown() {
+    if (this.rows === 0) return;
+    this.keys[0] = "";
+    this.stale.add(0);
+  }
+
   /** Draws every row on the next draw, as after a selection changes. */
   invalidate() {
     this.drawn = 0;
