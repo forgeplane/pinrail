@@ -224,16 +224,20 @@ mod tests {
     const FIXTURE_FILE: &str = "/Users/you/.codex/hooks.json";
 
     /// The fixture, naming the plan's hooks file as this system writes its
-    /// path.
+    /// path, and Pinrail's commands as this system's are.
     fn fixture() -> String {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/codex-app-server/hooks-list.json"
         );
         let file = plan().file.display().to_string().replace('\\', "\\\\");
+        // as JSON writes them, quotes and all
+        let unix = serde_json::to_string(r#""${PINRAIL_CLI:-pinrail}" hook"#).unwrap();
+        let ours = serde_json::to_string(crate::integration::COMMAND_PREFIX).unwrap();
         std::fs::read_to_string(path)
             .unwrap()
             .replace(FIXTURE_FILE, &file)
+            .replace(unix.trim_matches('"'), ours.trim_matches('"'))
     }
 
     fn listed() -> Value {
