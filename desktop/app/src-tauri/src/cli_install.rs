@@ -603,13 +603,25 @@ fn expand_variables(text: &str) -> String {
 
 /// A PowerShell line that puts `dir` at the end of the user's PATH, for
 /// someone to run when Pinrail could not: the value in the registry, which
-/// a new terminal reads, not the running shell's.
+/// a new terminal reads, not the running shell's. It reads and writes the
+/// value as it is stored, so the `%VARIABLES%` in it stay variables, and
+/// then sets and removes a variable through .NET, which tells running
+/// programs, such as Explorer, that the environment changed.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub fn powershell_path_line(dir: &Path) -> String {
+    path_line_for("Path", dir)
+}
+
+/// The line, for the user variable `name`.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn path_line_for(name: &str, dir: &Path) -> String {
     let dir = dir.display().to_string().replace('\'', "''");
     format!(
-        "[Environment]::SetEnvironmentVariable('Path', \
-         [Environment]::GetEnvironmentVariable('Path', 'User') + ';{dir}', 'User')"
+        "$k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment'); \
+         $p = [string]$k.GetValue('{name}', '', 'DoNotExpandEnvironmentNames'); \
+         $k.SetValue('{name}', (@($p.TrimEnd(';'), '{dir}') -ne '') -join ';', 'ExpandString'); \
+         [Environment]::SetEnvironmentVariable('PinrailRefresh', '1', 'User'); \
+         [Environment]::SetEnvironmentVariable('PinrailRefresh', $null, 'User')"
     )
 }
 
@@ -712,14 +724,57 @@ fn parse_shell(text: &str) -> Option<ShellView> {
 mod tests {
     #[test]
     fn the_powershell_line_sets_the_users_path_with_the_folder_quoted() {
-        assert_eq!(
-            super::powershell_path_line(Path::new(r"C:\Users\o'neil\.local\bin")),
-            "[Environment]::SetEnvironmentVariable('Path', \
-             [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Users\\o''neil\\.local\\bin', 'User')"
-        );
+        let line = super::powershell_path_line(Path::new(r"C:\Users\o'neil\.local\bin"));
+        assert!(line.contains(r"'C:\Users\o''neil\.local\bin'"), "{line}");
+        assert!(line.contains("GetValue('Path', ''"), "{line}");
+        assert!(line.contains("SetValue('Path', "), "{line}");
     }
 
     use super::*;
+
+    /// Runs the PowerShell line for the user variable `name`, set to
+    /// `value` first, or unset, and gives what the registry then holds:
+    /// its type and its text, as written.
+    #[cfg(windows)]
+    fn after_the_line(
+        name: &str,
+        value: Option<&str>,
+        dir: &str,
+    ) -> (windows_registry::Type, String) {
+        let env = windows_registry::CURRENT_USER
+            .create("Environment")
+            .unwrap();
+        match value {
+            Some(value) => env.set_expand_string(name, value).unwrap(),
+            None => {
+                let _ = env.remove_value(name);
+            }
+        }
+        let line = path_line_for(name, Path::new(dir));
+        let status = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &line])
+            .status()
+            .unwrap();
+        assert!(status.success(), "{line}");
+        let found = (env.get_type(name).unwrap(), env.get_string(name).unwrap());
+        env.remove_value(name).unwrap();
+        found
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_powershell_line_keeps_the_variables_the_path_names() {
+        let (kind, value) =
+            after_the_line("PinrailTestPath", Some(r"%USERPROFILE%\tools"), r"C:\x");
+        assert_eq!(value, r"%USERPROFILE%\tools;C:\x");
+        assert_eq!(kind, windows_registry::Type::ExpandString);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_powershell_line_starts_a_path_that_was_not_there() {
+        assert_eq!(after_the_line("PinrailTestPath2", None, r"C:\x").1, r"C:\x");
+    }
 
     #[test]
     fn a_registry_path_expands_the_variables_it_can() {
