@@ -263,6 +263,34 @@ fn keep_own_output_from_children() {
     }
 }
 
+/// Opens `url` in the default browser: on Windows through the shell, which
+/// takes the URL as it is, with no command line to quote it on.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+pub fn open_browser(url: &str) -> Result<()> {
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let (verb, target) = (wide("open"), wide(url));
+    // SAFETY: both strings are NUL-terminated and outlive the call.
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    // a value above 32 is success; below, an error code
+    if result as usize <= 32 {
+        bail!("Windows could not open {url} (error {})", result as usize);
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
 pub fn open_browser(url: &str) -> Result<()> {
     let program = if cfg!(target_os = "macos") {
         "open"
