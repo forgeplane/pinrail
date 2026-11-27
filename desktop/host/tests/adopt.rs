@@ -332,6 +332,20 @@ fn a_new_host_shows_the_last_screen_of_a_terminal_that_ended_under_the_last() {
         assert!(Instant::now() < deadline, "the terminal did not end");
         std::thread::sleep(Duration::from_millis(50));
     }
+    // and its record says so: the host writes terminals.json about once a
+    // second, and a killed host writes nothing more
+    let records = folders.data.join("host/terminals.json");
+    while !std::fs::read_to_string(&records)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|all| all.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .any(|r| r["id"] == terminal.as_str() && !r["ended_at"].is_null())
+    {
+        assert!(Instant::now() < deadline, "the record did not say it ended");
+        std::thread::sleep(Duration::from_millis(50));
+    }
 
     let _ = first.child.kill();
     let _ = first.child.wait();
