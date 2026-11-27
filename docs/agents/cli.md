@@ -385,7 +385,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 The CLI talks to the server the Pinrail app runs on your machine, and finds it on its own, in this order:
 
 1. `--url`, or `PINRAIL_URL` in the environment.
-2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
+2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\Pinrail` on Windows, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
 When nothing answers, `submit`, `serve`, `plugins`, `plugins describe` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The CLI runs the command with `sh -c`, or with `cmd /C` on Windows. The app runs its server without a window with `--headless`:

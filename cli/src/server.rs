@@ -37,9 +37,17 @@ fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBu
     set(home).or_else(|| set(profile)).map(PathBuf::from)
 }
 
+/// Where the app keeps its data, as the core decides it:
+/// `PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\Pinrail` on Windows, else
+/// `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR") {
+    if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR").filter(|d| !d.is_empty()) {
         return PathBuf::from(dir);
+    }
+    if cfg!(windows)
+        && let Some(local) = std::env::var_os("LOCALAPPDATA").filter(|d| !d.is_empty())
+    {
+        return PathBuf::from(local).join("Pinrail");
     }
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
