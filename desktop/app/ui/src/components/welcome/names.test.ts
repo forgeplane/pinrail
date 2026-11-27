@@ -12,4 +12,11 @@ describe("shortPath", () => {
     ).toBe("/private/…/scratchpad/rs-a");
     expect(shortPath("/Users/ann/conductor/workspaces/worktreee/minnetonka/packages/web")).toBe("~/…/packages/web");
   });
+
+  it("takes a Windows path with its own separator, and its home folder as ~", () => {
+    expect(shortPath(String.raw`C:\Users\ann\code\pinrail`)).toBe(String.raw`~\code\pinrail`);
+    expect(shortPath(String.raw`D:\work\conductor\workspaces\worktreee\minnetonka\packages\web`)).toBe(
+      String.raw`D:\…\packages\web`,
+    );
+  });
 });

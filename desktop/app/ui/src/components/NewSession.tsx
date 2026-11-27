@@ -67,7 +67,11 @@ function grow(box: HTMLTextAreaElement) {
 }
 
 /** A folder's last part, which names it on its picker. */
-export const baseName = (folder: string) => folder.replace(/\/+$/, "").split("/").pop() || folder;
+export const baseName = (folder: string) =>
+  folder
+    .replace(/[\\/]+$/, "")
+    .split(/[\\/]/)
+    .pop() || folder;
 
 export function NewSession() {
   const navigate = useNavigate();
@@ -411,7 +415,9 @@ function FolderPicker({
   const query = typed.trim().toLowerCase();
   const listed = folders.filter((f) => !query || f.folder.toLowerCase().includes(query));
   // a typed path that is no recent folder can be chosen as it is
-  const asTyped = typed.trim().startsWith("/") && !folders.some((f) => f.folder === typed.trim());
+  // a path from the root: /…, or on Windows C:\… or \\server\…
+  const absolute = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(typed.trim());
+  const asTyped = absolute && !folders.some((f) => f.folder === typed.trim());
   const choices = [...(asTyped ? [typed.trim()] : []), ...listed.filter((f) => f.exists).map((f) => f.folder)];
 
   const chooseFolder = async () => {
