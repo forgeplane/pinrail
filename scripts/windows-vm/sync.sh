@@ -3,9 +3,10 @@
 # that changes made on the Mac can be built and tested there. Only files
 # Git would track are copied: what .gitignore leaves out, such as target/
 # and node_modules/, is neither copied nor deleted, and the VM's own .git is
-# kept. Files deleted here are deleted there. Files are compared by content,
-# and a changed file gets the time of the sync, not the Mac's: an older time
-# would let Cargo take it for built already.
+# kept. The checkouts Claude Code's agents work in, under .claude/worktrees,
+# are left out too. Files deleted here are deleted there. Files are compared
+# by content, and a changed file gets the time of the sync, not the Mac's:
+# an older time would let Cargo take it for built already.
 #
 # Usage: scripts/windows-vm/sync.sh [--dry-run]
 #
@@ -26,5 +27,6 @@ fi
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 rsync -rl --checksum --delete --itemize-changes "$@" \
 	--exclude=/.git \
+	--exclude=/.claude/worktrees \
 	--filter=':- .gitignore' \
 	"$root/" "$user@$host:/c/dev/pinrail/"
