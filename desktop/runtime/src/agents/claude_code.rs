@@ -25,6 +25,18 @@ const OWN_PROMPTS: [&str; 3] = [
     "<cross-session-message ",
 ];
 
+/// A folder as Claude Code matches paths in its rules: on Windows in POSIX
+/// form, `C:\Users\p` as `/c/Users/p`; elsewhere as it is.
+fn posix(folder: &str) -> String {
+    let folder = folder.strip_prefix(r"\\?\").unwrap_or(folder);
+    let bytes = folder.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        let drive = (bytes[0] as char).to_ascii_lowercase();
+        return format!("/{drive}{}", folder[2..].replace('\\', "/"));
+    }
+    folder.to_string()
+}
+
 impl Agent for ClaudeCode {
     fn spec(&self) -> &'static AgentSpec {
         spec("claude-code")
@@ -193,7 +205,7 @@ impl Agent for ClaudeCode {
     /// session, and would let Claude Code edit and run files there too.
     fn read_folder_args(&self, folder: &str) -> Vec<String> {
         // an absolute path in a rule starts with `//`
-        let rule = format!("Read(/{}/**)", folder.trim_end_matches('/'));
+        let rule = format!("Read(/{}/**)", posix(folder).trim_end_matches('/'));
         let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
         vec!["--settings".to_string(), settings.to_string()]
     }

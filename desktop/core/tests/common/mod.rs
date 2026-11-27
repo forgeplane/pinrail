@@ -459,3 +459,19 @@ pub async fn record(folder: &std::path::Path, record: &str) {
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
 }
+
+/// The rule that lets Claude Code read `folder`, as Pinrail gives it: an
+/// absolute path starts with `//`, and on Windows is in POSIX form, as
+/// Claude Code matches paths there, `C:\\Users` as `/c/Users`.
+pub fn read_rule(folder: &std::path::Path) -> String {
+    let folder = folder.to_string_lossy();
+    let folder = match folder.as_bytes() {
+        [drive, b':', ..] if drive.is_ascii_alphabetic() => format!(
+            "/{}{}",
+            (*drive as char).to_ascii_lowercase(),
+            folder[2..].replace('\\', "/")
+        ),
+        _ => folder.into_owned(),
+    };
+    format!("Read(/{folder}/**)")
+}

@@ -976,10 +976,7 @@ async fn resume(app: &App, agent: &str, session: &str) -> (StatusCode, Value) {
 /// The rule that lets Claude Code read the files attached to sessions, as
 /// the stand-in agent writes it in its argv.
 fn files_flag(app: &App) -> String {
-    let rule = format!(
-        "Read(/{}/**)",
-        app.dir.path().join("sessions").to_string_lossy()
-    );
+    let rule = common::read_rule(&app.dir.path().join("sessions"));
     format!(
         "--settings\n{}\n",
         serde_json::json!({ "permissions": { "allow": [rule] } })

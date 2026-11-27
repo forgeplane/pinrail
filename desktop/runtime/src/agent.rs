@@ -640,6 +640,23 @@ mod tests {
     }
 
     #[test]
+    fn claude_code_s_rule_names_a_windows_folder_in_posix_form() {
+        let claude = adapter("claude-code").unwrap();
+        // as Claude Code matches paths on Windows: C:\Users as /c/Users
+        let rule = r#"{"permissions":{"allow":["Read(//c/Users/p/data/sessions/**)"]}}"#;
+        for folder in [
+            r"C:\Users\p\data\sessions",
+            r"\\?\C:\Users\p\data\sessions\",
+        ] {
+            assert_eq!(
+                with_read_folder(claude, argv(&["claude"]), folder),
+                argv(&["claude", "--settings", rule]),
+                "{folder}"
+            );
+        }
+    }
+
+    #[test]
     fn an_agent_that_reads_anywhere_gets_no_flag() {
         let codex = adapter("codex").unwrap();
         let command = argv(&["codex", "resume", "s-1"]);

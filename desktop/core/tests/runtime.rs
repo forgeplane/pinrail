@@ -162,15 +162,7 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     let own = run.agent_session.clone().unwrap();
 
     // and may read the files attached to sessions
-    let rule = format!(
-        "Read(/{}/**)",
-        setup
-            .app
-            .config()
-            .data_dir
-            .join("sessions")
-            .to_string_lossy()
-    );
+    let rule = common::read_rule(&setup.app.config().data_dir.join("sessions"));
     let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
     let argv = file(folder.join("argv")).await;
     assert_eq!(
