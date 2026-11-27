@@ -104,6 +104,7 @@ fn start(agent: &str, folder: &Path) -> Start {
         agent: agent.to_string(),
         folder: folder.to_string_lossy().into_owned(),
         task: Some("fix the login".to_string()),
+        item: None,
         args: vec![],
         agent_args: vec![],
         cols: 80,
@@ -175,7 +176,10 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     let argv = file(folder.join("argv")).await;
     assert_eq!(
         argv,
-        format!("--settings\n{settings}\n--session-id\n{own}\n--\nfix the login\n")
+        format!(
+            "--settings\n{settings}\n--session-id\n{own}\n--\n{}\n",
+            pinrail_core::preamble::before(&pinrail_core::preamble::for_session(), "fix the login")
+        )
     );
     // its hooks and its pinrail commands reach this core, whatever server
     // the computer runs besides

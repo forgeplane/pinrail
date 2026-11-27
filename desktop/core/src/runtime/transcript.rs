@@ -62,7 +62,7 @@ impl Runtime {
                     .unwrap_or(report.at);
                 let prompt = Report {
                     event: ReportEvent::Prompt {
-                        prompt: turn.prompt,
+                        prompt: turn.prompt.map(|p| crate::preamble::without(&p)),
                     },
                     at,
                     agent_turn: turn.agent_turn,

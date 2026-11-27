@@ -1046,8 +1046,11 @@ fn parse_report(body: &Value) -> Result<Report, Error> {
                 )?),
             },
         },
+        // the person's words, without the note Pinrail put before them
         Some("prompt") => ReportEvent::Prompt {
-            prompt: detail("prompt"),
+            prompt: detail("prompt")
+                .map(|p| crate::preamble::without(&p))
+                .filter(|p| !p.is_empty()),
         },
         Some("working") => ReportEvent::Working,
         Some("needs_input") => ReportEvent::NeedsInput {

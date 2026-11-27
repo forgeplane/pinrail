@@ -860,6 +860,60 @@ async fn a_run_keeps_what_it_was_started_with_and_its_last_output() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_started_agent_reads_a_pinrail_note_before_its_first_task() {
+    let app = linked().await;
+    let work = folder(&app, "app");
+    let body = json!({"agent": "claude-code", "folder": work, "task": "fix the login"});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let argv = argv(&work).await;
+    let note = argv.find("<pinrail>").expect(&argv);
+    assert!(argv[note..].contains("pinrail items show"), "{argv}");
+    assert!(
+        argv[note..].contains("</pinrail>\n\nfix the login"),
+        "{argv}"
+    );
+    // the run keeps the task as the person wrote it
+    let id = started["run"]["id"].as_str().unwrap();
+    let (_, run) = call(&app, "GET", &format!("/api/v1/runs/{id}"), None).await;
+    assert_eq!(run["task"], "fix the login", "{run}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_started_on_a_work_item_reads_a_note_that_names_it() {
+    let app = linked().await;
+    let work = folder(&app, "app");
+    let (_, item) = call(
+        &app,
+        "POST",
+        "/api/v1/items",
+        Some(json!({"repo": "forgeplane/app", "title": "Fix the login"})),
+    )
+    .await;
+    let key = item["key"].as_str().unwrap().to_string();
+    let body =
+        json!({"agent": "claude-code", "folder": work, "task": "Fix the login", "item": key});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let argv = argv(&work).await;
+    assert!(argv.contains("<pinrail>"), "{argv}");
+    assert!(
+        argv.contains(&format!("pinrail items done {key}")),
+        "{argv}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_started_without_a_task_is_given_no_note() {
+    let app = linked().await;
+    let work = folder(&app, "app");
+    let body = json!({"agent": "claude-code", "folder": work});
+    let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    assert!(!argv(&work).await.contains("<pinrail>"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_ended_run_gives_its_screen_as_a_paint_with_its_size() {
     let app = linked().await;
     let work = folder(&app, "ends");

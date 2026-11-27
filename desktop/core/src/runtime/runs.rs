@@ -30,6 +30,9 @@ pub struct Start {
     pub folder: String,
     /// The first task, typed in as the agent's first prompt.
     pub task: Option<String>,
+    /// The work item the session is started for, by its key: its note
+    /// goes before the task in place of the session's.
+    pub item: Option<String>,
     /// Extra arguments for this start, which may not turn the agent's
     /// permission checks off.
     pub args: Vec<String>,
@@ -240,9 +243,22 @@ impl super::Runtime {
         }
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let session_id = new_uuid();
+        // the agent reads Pinrail's note before the task; the run keeps
+        // the task as the person wrote it
+        let task = start
+            .task
+            .as_deref()
+            .filter(|t| !t.trim().is_empty())
+            .map(|task| {
+                let note = match &start.item {
+                    Some(key) => crate::preamble::for_item(key),
+                    None => crate::preamble::for_session(),
+                };
+                crate::preamble::before(&note, task)
+            });
         let plan = agent
             .start(&pinrail_runtime::StartRequest {
-                task: start.task.as_deref(),
+                task: task.as_deref(),
                 extra_args: &args,
                 session_id: &session_id,
             })

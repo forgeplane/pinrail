@@ -28,6 +28,7 @@ pub mod notifications;
 pub use pinrail_format::markdown;
 pub mod person_token;
 pub mod plugins;
+pub mod preamble;
 pub mod presence;
 pub mod projects;
 pub mod reviews;

@@ -97,10 +97,11 @@ async fn start(
         }
     };
     // an item that is not there starts nothing
-    if let Some(item) = &item
-        && let Err(error) = state.items().get(item, None)
-    {
-        return ApiError::from(error).into_response();
+    if let Some(item) = &item {
+        match state.items().get(item, None) {
+            Ok(found) => request.item = Some(found.key.to_string()),
+            Err(error) => return ApiError::from(error).into_response(),
+        }
     }
     let local_id = body.get("local_id").and_then(Value::as_str);
     match state.runtime().start_once(local_id, &request).await {
@@ -298,6 +299,7 @@ fn parse_start(body: &Value) -> Result<Start, RunError> {
             .ok_or_else(|| invalid("folder", "is required"))?
             .to_string(),
         task: text("task").map(str::to_string),
+        item: None,
         args,
         agent_args: Vec::new(),
         cols: size(body, "cols", 120)?,

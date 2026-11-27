@@ -218,6 +218,23 @@ async fn hidden_sessions_go_after_seven_days_without_a_report_and_others_stay() 
 }
 
 #[tokio::test]
+async fn a_prompt_is_kept_without_the_pinrail_note_before_it() {
+    let app = app();
+    report(
+        &app,
+        "s-1",
+        "prompt",
+        10,
+        json!({"detail": {"prompt": "<pinrail>\nThis session was started from Pinrail.\n</pinrail>\n\nFix the login"}}),
+    )
+    .await;
+    let turns = db(&app)
+        .turns("claude-code", &common::sid(&app, "claude-code", "s-1"))
+        .unwrap();
+    assert_eq!(turns[0].prompt.as_deref(), Some("Fix the login"));
+}
+
+#[tokio::test]
 async fn a_report_that_fired_before_the_last_still_opens_its_turn() {
     let app = app();
     // the prompt's hook ran late: the tool call after it arrived first
