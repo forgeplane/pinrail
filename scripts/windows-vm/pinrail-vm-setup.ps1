@@ -177,6 +177,37 @@ Step 'ssh-server' {
     Check-Exit 'icacls'
 }
 
+Step 'rsync' {
+    # rsync in Git Bash, which scripts/windows-vm/sync.sh copies the Mac's
+    # checkout with. Git for Windows has none, so MSYS2's, whose runtime Git
+    # Bash shares, goes in Git's usr\bin with the DLLs Git lacks. The
+    # packages are pinned by SHA-256; Windows' tar unpacks zstd.
+    $packages = [ordered]@{
+        'rsync-3.5.2-2'      = 'e27c183d8af0ed250dc7502ba3b4aebe5c32086c4252fe4f16a4cff328c8e803'
+        'libxxhash-0.8.4-1'  = 'ba784ad117626401cd5d3ec0cf70399f9de72a63755f96c28fa2032303f9c330'
+        'libopenssl-4.1.0-1' = '71f093de4a002913f39783b79d18da33b63ce8baf825434218cc1d8bd40304fb'
+        'popt-1.19-1'        = 'b402bd1d03815c5e28b7ab415d8e20f487eff2460ae0271a99674eeb0d77194f'
+    }
+    $work = Join-Path $env:TEMP 'pinrail-vm-rsync'
+    Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force $work | Out-Null
+    foreach ($name in $packages.Keys) {
+        $file = Join-Path $work "$name-x86_64.pkg.tar.zst"
+        Invoke-WebRequest "https://repo.msys2.org/msys/x86_64/$name-x86_64.pkg.tar.zst" -OutFile $file -UseBasicParsing
+        $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne $packages[$name]) { throw "$name has SHA-256 $actual, not $($packages[$name])" }
+        & "$env:SystemRoot\System32\tar.exe" -xf $file -C $work
+        Check-Exit "tar of $name"
+    }
+    $bin = "$env:ProgramFiles\Git\usr\bin"
+    foreach ($file in 'rsync.exe', 'msys-xxhash-0.dll', 'msys-crypto-4.dll', 'msys-popt-0.dll') {
+        Copy-Item (Join-Path $work "usr\bin\$file") $bin -Force
+    }
+    Remove-Item -Recurse -Force $work
+    & "$bin\rsync.exe" --version | Select-Object -First 1
+    Check-Exit 'rsync --version'
+}
+
 Step 'mise-shims' {
     # mise's shims make the project's Node, Zig and nextest available in every
     # shell, including Git Bash.
