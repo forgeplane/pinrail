@@ -17,14 +17,14 @@ afterEach(() => {
 const session = { agent: "claude-code", id: "ses_1" };
 
 /** The box, against a core that saves each file in the session's folder. */
-async function open() {
+async function open(sent: string[] = []) {
   core.answer("items", { items: [] });
   core.answer("saveSessionFile", (_agent: unknown, _id: unknown, file: unknown) => {
     const name = (file as File).name;
     return { name, path: `/data/sessions/claude-code/ses_1/files/${name}` };
   });
   core.answer("sendMessage", { id: 1 });
-  await render(<MessageComposer session={session} repo={null} typed onSent={() => {}} />);
+  await render(<MessageComposer session={session} repo={null} typed sent={sent} onSent={() => {}} />);
 }
 
 const box = () => page.getByRole("textbox", { name: "Message to the agent" });
@@ -105,4 +105,63 @@ test("a file attached after the box is opened again joins the files kept from be
   expect(core.calls("sendMessage")[0][2]).toBe(
     "/data/sessions/claude-code/ses_1/files/first.md\n/data/sessions/claude-code/ses_1/files/second.md",
   );
+});
+
+test("Up and Down recall the messages sent before, then the text being typed", async () => {
+  await open(["Run the tests", "Fix the lint", "Fix the lint", "Commit it"]);
+  await box().click();
+  await userEvent.keyboard("Half typed");
+  // the caret at the end of the text moves to its start before a recall
+  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(box()).toHaveValue("Half typed");
+  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(box()).toHaveValue("Commit it");
+  // a message sent twice in a row is recalled once
+  await userEvent.keyboard("{ArrowUp}{ArrowUp}");
+  await expect.element(box()).toHaveValue("Run the tests");
+  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(box()).toHaveValue("Run the tests");
+  // a message recalled with Up shows with the caret at its start, which
+  // Down moves to its end first
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(box()).toHaveValue("Run the tests");
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(box()).toHaveValue("Fix the lint");
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(box()).toHaveValue("Commit it");
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(box()).toHaveValue("Half typed");
+});
+
+test("in a message of several lines, the arrows reach its start or end before the next message", async () => {
+  await open(["Older", "First line\nsecond line\nthird line"]);
+  await box().click();
+  await userEvent.keyboard("{ArrowUp}");
+  const several = "First line\nsecond line\nthird line";
+  await expect.element(box()).toHaveValue(several);
+  const field = box().element() as HTMLTextAreaElement;
+  // each arrow moves the caret a line until it reaches the start or end of
+  // the message, and only the next one leaves it
+  const walk = async (key: string, to: number) => {
+    for (let i = 0; i < 5 && field.selectionStart !== to; i++) {
+      await userEvent.keyboard(key);
+      await expect.element(box()).toHaveValue(several);
+    }
+    expect(field.selectionStart).toBe(to);
+  };
+  await walk("{ArrowDown}", several.length);
+  await walk("{ArrowUp}", 0);
+  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(box()).toHaveValue("Older");
+});
+
+test("a sent message ends the recall", async () => {
+  await open(["Earlier"]);
+  await box().click();
+  await userEvent.keyboard("{ArrowUp}{Enter}");
+  await expect.poll(() => core.calls("sendMessage").length).toBe(1);
+  expect(core.calls("sendMessage")[0][2]).toBe("Earlier");
+  await expect.element(box()).toHaveValue("");
+  await userEvent.keyboard("{ArrowDown}");
+  await expect.element(box()).toHaveValue("");
 });

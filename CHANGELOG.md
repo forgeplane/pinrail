@@ -28,6 +28,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   selected. With nothing typed, ⌘K also lists the sessions that need you.
 - Resume a session in another folder when its own was moved or deleted,
   with **Choose another folder…**.
+- Press Up in a session's message box to recall the prompts and messages
+  sent earlier in that session, and Down to go back to newer ones.
 - Explain in the Terminal view why a session that Pinrail did not start
   has no terminal or Stop, and how to stop or resume it.
 - Ask what to do with the running agents when you quit Pinrail: leave them

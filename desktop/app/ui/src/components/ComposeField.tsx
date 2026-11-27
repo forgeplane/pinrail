@@ -46,6 +46,9 @@ type Props = {
   send?: SendButton;
   /** Esc, after the dictation is stopped */
   onEscape?: () => void;
+  /** keys before the field's own; a key whose default it prevents is
+   *  not handled again */
+  onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   disabled?: boolean;
   /** focus the text when the field appears */
   autoFocus?: boolean;
@@ -67,6 +70,7 @@ export function ComposeField({
   above,
   send,
   onEscape,
+  onKeyDown: before,
   disabled = false,
   autoFocus = false,
   className = "",
@@ -115,6 +119,8 @@ export function ComposeField({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (composing(e)) return;
+    before?.(e);
+    if (e.defaultPrevented) return;
     const mod = e.metaKey || e.ctrlKey;
     const submits = submitKey === "enter" ? !mod && !e.shiftKey : mod;
     if (e.key === "Enter" && submits && !e.altKey && onSubmit) {

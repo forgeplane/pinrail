@@ -12,6 +12,7 @@ import type { SessionMessage } from "../../api/types";
 import { MessageQueue } from "./messages";
 import { AttachButton } from "../AttachButton";
 import { MessageFileChips, useMessageFiles, withPaths } from "./messageFiles";
+import { useMessageHistory } from "./messageHistory";
 
 /** Where a message typed but not sent is kept, by session, while the
  *  window is open. */
@@ -21,12 +22,14 @@ const draftKey = (session: { agent: string; id: string }) => `pinrail:draft:mess
  *  agent, typed into its terminal as a prompt when Pinrail runs it
  *  (`typed`), and otherwise received with its next status. `#` lists the
  *  work items, those of `repo` first. The messages that still wait on the
- *  agent show at the top of the box. */
+ *  agent show at the top of the box, and Up and Down recall the messages
+ *  sent before. */
 export function MessageComposer({
   session,
   repo,
   typed,
   waiting = [],
+  sent = [],
   onSent,
 }: {
   session: { agent: string; id: string };
@@ -34,6 +37,8 @@ export function MessageComposer({
   typed: boolean;
   /** the messages the agent has not received yet, oldest first */
   waiting?: SessionMessage[];
+  /** the texts of the messages sent to the session, oldest first */
+  sent?: string[];
   onSent: () => void;
 }) {
   const connected = useConnected();
@@ -50,6 +55,7 @@ export function MessageComposer({
   };
   const box = useRef<HTMLTextAreaElement>(null);
   const picker = useItemPicker({ box, value: text, onChange: setText, repo });
+  const history = useMessageHistory({ key, sent, text, setText });
   const [busy, setBusy] = useState(false);
   const attached = useMessageFiles(session, (message) => toast(message));
   const empty = !text.trim() && !attached.files.length;
@@ -62,6 +68,7 @@ export function MessageComposer({
       writeStored(key, null, { session: true });
       setDraft((d) => (d.key === key ? { key, text: "" } : d));
       attached.clear();
+      history.reset();
       onSent();
     } catch (e) {
       toast(errorMessage(e, "The message was not sent."));
@@ -80,6 +87,7 @@ export function MessageComposer({
         placeholder="Message the agent"
         onSubmit={send}
         boxRef={box}
+        onKeyDown={history.onKeyDown}
         above={
           queue || attached.files.length ? (
             <>

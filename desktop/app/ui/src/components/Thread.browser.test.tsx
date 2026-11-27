@@ -2,7 +2,7 @@
 // and renaming in place, its timeline, and what its notices change.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import type { Notice, Review, SessionStatus } from "../api/types";
+import type { Notice, Review, SessionMessage, SessionStatus, SessionTurn } from "../api/types";
 import { core } from "../testing/core";
 import { session } from "../testing/items";
 import { cleanup, render } from "../testing/render";
@@ -273,5 +273,47 @@ describe("the line above the message box", () => {
       },
     });
     await expect.element(page.getByTestId("turn-working")).toBeVisible();
+  });
+});
+
+describe("the message box", () => {
+  const turn = (n: number, prompt: string, cut = false): SessionTurn => ({
+    turn: n,
+    agent_turn: null,
+    started_at: `2026-11-19T09:0${n}:00Z`,
+    ended_at: `2026-11-19T09:0${n}:30Z`,
+    end_kind: "done",
+    prompt,
+    prompt_cut: cut,
+    reply: "Done.",
+    reply_cut: false,
+  });
+  const message = (id: number, text: string, at: string): SessionMessage => ({
+    id,
+    text,
+    sent_by: "person",
+    sent_at: at,
+    delivered_at: at,
+    state: "delivered",
+  });
+
+  test("Up recalls the prompts typed in the terminal and the messages sent, newest first", async () => {
+    core.answer("session", () => ({
+      session: session({ id: "s-1" }),
+      items: [],
+      statuses: [],
+      // the message typed into the terminal starts turn 3 with the same text
+      messages: [message(1, "Commit it", "2026-11-19T09:02:50Z")],
+      turns: [turn(1, "Run the tests"), turn(2, "A".repeat(4000), true), turn(3, "Commit it")],
+    }));
+    core.answer("items", { items: [] });
+    await render(<Thread session={{ agent: "claude-code", id: "s-1" }} />, { route: "/sessions/claude-code/s-1" });
+    const box = page.getByRole("textbox", { name: "Message to the agent" });
+    await box.click();
+    await userEvent.keyboard("{ArrowUp}");
+    await expect.element(box).toHaveValue("Commit it");
+    // a prompt cut short is left out
+    await userEvent.keyboard("{ArrowUp}");
+    await expect.element(box).toHaveValue("Run the tests");
   });
 });

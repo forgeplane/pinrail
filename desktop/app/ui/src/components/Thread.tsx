@@ -61,6 +61,7 @@ import { Tooltip } from "./Tooltip";
 import { ThreadEntries } from "./thread/ThreadEntries";
 import { WaitingLine, WorkingLine } from "./thread/runLines";
 import { IdleComposer, MessageComposer } from "./thread/composers";
+import { sentTexts } from "./thread/messageHistory";
 import { ThreadDetails } from "./thread/ThreadDetails";
 import { useSessionThread } from "./thread/useSessionThread";
 import { useNewestFirst } from "./thread/useNewestFirst";
@@ -507,6 +508,7 @@ export function Thread({
   // the messages the agent has not received yet, oldest first, which the
   // message box shows at its top
   const waitingMessages = useMemo(() => messages.filter(waitsOnAgent), [messages]);
+  const sent = useMemo(() => sentTexts(messages, turns), [messages, turns]);
   const entries = useMemo(
     () => entriesOf(items, statuses, messages, comments, itemEvents, turns, runs),
     [items, statuses, messages, comments, itemEvents, turns, runs],
@@ -938,6 +940,7 @@ export function Thread({
                     repo={session?.repo ?? null}
                     typed={!!live && !!session?.types}
                     waiting={waitingMessages}
+                    sent={sent}
                     onSent={load}
                   />
                 ) : (
