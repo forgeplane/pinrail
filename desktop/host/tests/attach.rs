@@ -533,8 +533,8 @@ fn a_viewer_that_attaches_inside_a_sequence_gets_it_once() {
 
 // A pseudo console does not pass a program's colour query on: the host
 // never sees it, so it has nothing to answer with a viewer's colours, and
-// the program gets no answer at all. The viewer's colours still reach the
-// screen, which `filter.rs` tests on every system.
+// the program gets no answer at all. So the handing over of a viewer's
+// colours is tested on Unix only.
 #[cfg(unix)]
 #[test]
 fn the_colours_a_viewer_sent_as_an_observer_apply_once_it_takes_control() {
@@ -587,7 +587,12 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
         "seq 1 6000 | awk '{printf \"\\033[3%dmline %d of a long history, with text to make each line about as long as agents write them\\033[0m\\n\", $1 % 8, $1}'; sleep 60",
     );
     wait_for_text(&mut setup, &long, "line 6000");
-    let quiet = spawn(&mut setup, &folders, "sleep 2; echo tick; sleep 60");
+    // ticks once told to, by a file the test makes, which it takes away
+    let quiet = spawn(
+        &mut setup,
+        &folders,
+        "while [ ! -e go ]; do sleep 0.1; done; rm go; echo tick; sleep 60",
+    );
 
     // a second connection, which reads nothing until the long terminal's
     // snapshot and the quiet terminal's output are both queued
@@ -604,7 +609,17 @@ fn a_large_snapshot_does_not_hold_back_another_terminal_s_output() {
     call(1, "terminal.attach", attach(&quiet, 0));
     std::thread::sleep(Duration::from_millis(300));
     call(2, "terminal.attach", attach(&long, 6000));
-    std::thread::sleep(Duration::from_millis(2500));
+    // the tick, once both are attached, while the second connection has
+    // not begun to read: its output queues within the snapshot
+    std::thread::sleep(Duration::from_millis(300));
+    let go = folders.runtime.join("go");
+    std::fs::write(&go, "").unwrap();
+    let deadline = Instant::now() + common::within(10);
+    while go.exists() {
+        assert!(Instant::now() < deadline, "the quiet terminal never ticked");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    std::thread::sleep(Duration::from_millis(300));
 
     // DATA bytes per channel, and as they were when the tick came
     let mut bytes: BTreeMap<u32, usize> = BTreeMap::new();

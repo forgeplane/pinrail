@@ -69,6 +69,7 @@ fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
     drop(client);
     let holders = first.holders.clone();
     // the next host must not kill the holders when this one is dropped
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -121,6 +122,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -172,6 +174,7 @@ fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
     // a spawn whose record the host never wrote, as after a crash in the
@@ -211,6 +214,7 @@ fn the_holder_starts_a_host_when_none_comes_back() {
     let _ = first.child.wait();
     drop(client);
     let holders = first.holders.clone();
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -275,6 +279,7 @@ fn hand_over_in(format: &str) {
             .unwrap();
     assert_eq!(header["format"], format);
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -348,6 +353,7 @@ fn a_new_host_shows_the_last_screen_of_a_terminal_that_ended_under_the_last() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 

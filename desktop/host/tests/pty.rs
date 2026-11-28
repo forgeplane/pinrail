@@ -30,11 +30,26 @@ fn sh(script: &str, cwd: &Path, env: &BTreeMap<String, String>) -> Result<Local,
 
 /// Everything the program writes until it exits and its output is read.
 fn output_and_exit(local: Local) -> (String, Exit) {
-    let pid = local.spawned.pid;
-    let waiter = std::thread::spawn(local.wait);
-    let output = read_all(&local.spawned.master, &waiter);
+    let Local {
+        spawned,
+        wait,
+        forget,
+    } = local;
+    let waiter = std::thread::spawn(wait);
+    let output = read_all(&spawned.master, &waiter);
+    // a program that never exits fails the test rather than holding it
+    let deadline = std::time::Instant::now() + common::within(20);
+    while !waiter.is_finished() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the program did not exit"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
     let exit = waiter.join().unwrap();
-    pty::reap(pid);
+    // as the holder lets the program go: reaped on Unix, its console
+    // closed on Windows
+    forget();
     (output, exit)
 }
 
@@ -116,12 +131,12 @@ fn the_program_is_the_session_leader_of_its_own_terminal() {
 fn the_program_gets_exactly_the_folder_and_environment_given() {
     let dir = tempfile::tempdir().unwrap();
     let folder = dir.path().canonicalize().unwrap();
-    // a variable of the test's own process: the person's name on Unix; on
-    // Windows, where the shell makes that up itself, one Cargo sets
+    // a variable of the test's own process, which Cargo sets on every
+    // system, unlike the person's name
     let (pwd, own) = if cfg!(windows) {
         ("pwd -W", "CARGO_PKG_NAME")
     } else {
-        ("pwd", "USER")
+        ("pwd", "CARGO_PKG_NAME")
     };
     assert!(std::env::var_os(own).is_some());
     let spawned = sh(
@@ -200,8 +215,9 @@ fn an_exited_program_stays_unreaped_until_reaped() {
     assert!(pty::wait_exit(pid).is_err());
 }
 
-/// What keeps a program's id its own on Windows is the handle its holder
-/// has to it, which also tells its exit any number of times.
+/// On Windows the handle a holder keeps to its program tells the
+/// program's exit any number of times, as a Unix holder can wait for it
+/// until it reaps it.
 #[cfg(windows)]
 #[test]
 fn an_exited_program_s_code_is_read_as_long_as_it_is_held() {

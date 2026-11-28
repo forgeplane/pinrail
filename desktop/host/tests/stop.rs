@@ -164,7 +164,8 @@ fn a_stop_ends_the_program_s_children_too() {
     let (id, _) = spawn(
         &mut client,
         &folders,
-        "sleep 300 & echo \"child=$!\"; echo ready; wait",
+        // Windows' own id of the child, which Git's sh numbers itself
+        "sleep 300 & echo \"child=$(cat /proc/$!/winpid 2>/dev/null || echo $!)\"; echo ready; wait",
     );
     ready(&mut client, &id);
     let text = client
@@ -178,6 +179,8 @@ fn a_stop_ends_the_program_s_children_too() {
         .unwrap()
         .parse()
         .unwrap();
+    // the child is there to be stopped, or the test proves nothing
+    assert!(common::alive(child as u32), "no child {child} runs");
     client
         .call("terminal.stop", json!({"terminal": id}))
         .unwrap();

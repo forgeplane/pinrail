@@ -12,8 +12,9 @@ use pinrail_host::launch::{Launcher, Method};
 use pinrail_host::registration::Registration;
 use serde_json::json;
 
-/// The started host, stopped when dropped.
-struct Started(Registration);
+/// The started host, stopped when dropped, with the holders it started in
+/// its data folder.
+struct Started(Registration, std::path::PathBuf);
 
 impl Drop for Started {
     fn drop(&mut self) {
@@ -28,6 +29,7 @@ impl Drop for Started {
             .status();
         #[cfg(windows)]
         common::kill(self.0.pid);
+        common::kill_holders(&self.1.join("host/holders"));
     }
 }
 
@@ -61,7 +63,7 @@ fn starts_outside_the_core(method: Method) {
     let logged = std::cell::RefCell::new(Vec::new());
     let log = |line: &str| logged.borrow_mut().push(line.to_string());
     let (registration, how) = launcher(&data, method).ensure(&log).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     assert_eq!(how, Some(method), "{:?}", logged.borrow());
 
     // it runs from the versioned copy, not the bundled binary
@@ -143,7 +145,7 @@ fn the_programs_in_its_terminals_are_their_holder_s_responsibility() {
     let root = tempfile::tempdir().unwrap();
     let data = root.path().join("data");
     let (registration, _) = launcher(&data, Method::Launchd).ensure(&|_| {}).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     let mut client = Client::connect(&registration).unwrap();
     let spawned = client
         .call(
@@ -182,7 +184,7 @@ fn a_host_bundle_runs_from_the_executable_in_its_copy() {
     let mut launcher = launcher(&data, Method::Launchd);
     launcher.bundled = executable;
     let (registration, how) = launcher.ensure(&|_| {}).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     assert_eq!(how, Some(Method::Launchd));
     let output = Command::new("ps")
         .args(["-o", "comm=", "-p", &registration.pid.to_string()])
@@ -214,7 +216,7 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
     let data = root.path().join("data");
     let log = |_: &str| {};
     let (old, _) = launcher(&data, Method::Detached).ensure(&log).unwrap();
-    let old_host = Started(old.clone());
+    let old_host = Started(old.clone(), data.clone());
     let mut client = Client::connect(&old).unwrap();
     let spawned = client
         .call(
@@ -239,7 +241,7 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
     std::fs::write(&path, written.to_string()).unwrap();
 
     let (new, how) = launcher(&data, Method::Detached).ensure(&log).unwrap();
-    let _new_host = Started(new.clone());
+    let _new_host = Started(new.clone(), data.clone());
     assert_eq!(how, Some(Method::Detached));
     assert_ne!(new.pid, old.pid);
     // the old host is gone, and the new one keeps its terminal
@@ -306,7 +308,7 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     let mut old_launcher = launcher(&data, Method::Detached);
     old_launcher.bundled = another_build(&old_dir);
     let (old, _) = old_launcher.ensure(&|_| {}).unwrap();
-    let old_host = Started(old.clone());
+    let old_host = Started(old.clone(), data.clone());
     let old_build = old.build.clone().unwrap();
     let old_binary = std::fs::read_dir(data.join("host/bin"))
         .unwrap()
@@ -350,7 +352,7 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
 
     let (new, _) = launcher(&data, Method::Detached).ensure(&|_| {}).unwrap();
     racer.join().unwrap();
-    let new_host = Started(new.clone());
+    let new_host = Started(new.clone(), data.clone());
     std::mem::forget(old_host);
     let ours = Registration::read(&data.join("host/host.json")).unwrap();
     assert_ne!(new.build.as_deref(), Some(old_build.as_str()));

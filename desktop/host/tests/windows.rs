@@ -143,12 +143,13 @@ fn what_is_typed_reaches_the_program_and_ctrl_c_interrupts_it() {
     wait_for(&mut client, &id, "typed-xterm-256color");
     // a program that runs until it is interrupted
     submit(&mut client, &id, "ping -t 127.0.0.1");
-    wait_for(&mut client, &id, "Reply from 127.0.0.1");
+    wait_for(&mut client, &id, "TTL=");
     client
         .call("terminal.signal", json!({"terminal": id, "signal": "INT"}))
         .unwrap();
-    // ping prints its statistics when it is interrupted, and cmd goes on
-    wait_for(&mut client, &id, "Ping statistics");
+    // ping prints its statistics when it is interrupted, and cmd goes on:
+    // its loss, (0%, in every language Windows speaks
+    wait_for(&mut client, &id, "(0%");
     submit(&mut client, &id, "echo after-%TERM%");
     wait_for(&mut client, &id, "after-xterm-256color");
     client
@@ -170,7 +171,7 @@ fn the_host_answers_while_a_program_leaves_what_is_typed_unread() {
         &["ping", "-n", "60", "127.0.0.1"],
         &folders.runtime,
     );
-    wait_for(&mut client, &id, "Reply from 127.0.0.1");
+    wait_for(&mut client, &id, "TTL=");
     // 1 MB, in pieces a frame carries
     for _ in 0..16 {
         submit(&mut client, &id, &"x".repeat(64 << 10));
@@ -201,7 +202,7 @@ fn a_stop_ends_a_program_and_everything_it_started() {
         &["cmd", "/d", "/c", "ping -n 600 127.0.0.1"],
         &folders.runtime,
     );
-    wait_for(&mut client, &id, "Reply from 127.0.0.1");
+    wait_for(&mut client, &id, "TTL=");
     // ping, which cmd started
     let child = (0..50)
         .find_map(|_| {
@@ -288,6 +289,7 @@ fn a_new_host_adopts_the_programs_of_a_host_that_was_killed() {
     let _ = first.child.wait();
     drop(client);
     let holders = first.holders.clone();
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 

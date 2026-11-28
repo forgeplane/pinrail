@@ -213,7 +213,8 @@ fn an_exit_while_no_host_is_connected_is_reported_to_the_next() {
     );
     drop(fds);
     drop(first);
-    std::thread::sleep(Duration::from_secs(1));
+    // past the program's exit: Git's sh starts slowly on Windows
+    std::thread::sleep(common::within(1));
     let (second, _) = connect(&holder, SECRET);
     let (event, _) = fdpass::recv(&second).unwrap().unwrap();
     assert_eq!(

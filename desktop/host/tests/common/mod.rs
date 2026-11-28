@@ -58,11 +58,30 @@ pub fn path() -> String {
     }
 }
 
-/// Where Git for Windows keeps `sh` and the tools the tests' scripts use.
+/// Where Git for Windows keeps `sh` and the tools the tests' scripts use:
+/// found from git itself, wherever it is installed, as its exec path is
+/// `<Git>\<platform>\libexec\git-core`; else Program Files'.
 fn posix_tools() -> PathBuf {
-    let programs =
-        std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
-    PathBuf::from(programs).join(r"Git\usr\bin")
+    static TOOLS: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    TOOLS
+        .get_or_init(|| {
+            let from_git = Command::new("git")
+                .arg("--exec-path")
+                .output()
+                .ok()
+                .filter(|out| out.status.success())
+                .and_then(|out| {
+                    let exec = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+                    Some(exec.parent()?.parent()?.parent()?.join(r"usr\bin"))
+                })
+                .filter(|tools| tools.join("sh.exe").is_file());
+            from_git.unwrap_or_else(|| {
+                let programs = std::env::var("ProgramFiles")
+                    .unwrap_or_else(|_| r"C:\Program Files".to_string());
+                PathBuf::from(programs).join(r"Git\usr\bin")
+            })
+        })
+        .clone()
 }
 
 /// The arguments of a POSIX shell that runs `script`. On Windows it is
@@ -214,7 +233,9 @@ pub fn spawn_local(
         Box::new(move |request| match request["op"].as_str() {
             Some("resize") => {
                 let size = |key: &str| request[key].as_u64().unwrap() as u16;
-                asked.resize(size("cols"), size("rows")).unwrap();
+                // a console already closed, as a terminal that ended is,
+                // has nothing to resize, as a holder answers then
+                let _ = asked.resize(size("cols"), size("rows"));
             }
             Some("close") => asked.close(),
             other => panic!("the terminal asked its holder for {other:?}"),
@@ -242,7 +263,7 @@ pub fn spawn_local(
 pub fn read_until(master: &pinrail_host::pty::Master, wanted: &str) {
     use std::io::Read;
     let mut file = std::fs::File::from(master.try_clone().unwrap());
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + within(10);
     let mut seen = Vec::new();
     let mut buf = [0u8; 1024];
     while !String::from_utf8_lossy(&seen).contains(wanted) {
@@ -263,7 +284,7 @@ pub fn read_until(master: &pinrail_host::pty::Master, wanted: &str) {
 pub fn read_until(master: &pinrail_host::pty::Master, wanted: &str) {
     let (mut waker, wake) = pinrail_host::pty::wake_pair().unwrap();
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_secs(10));
+        std::thread::sleep(within(10));
         waker.wake();
     });
     let mut seen = Vec::new();
@@ -333,6 +354,17 @@ impl Drop for Host {
     }
 }
 
+/// Kills the holders of a folder when dropped, as a panic leaves them
+/// otherwise: what keeps the holders a host let go of until the next host
+/// takes them.
+pub struct KillsHolders(pub PathBuf);
+
+impl Drop for KillsHolders {
+    fn drop(&mut self) {
+        kill_holders(&self.0);
+    }
+}
+
 /// Kills the holders whose locks are in `dir`, by the pids they wrote. On
 /// Windows a lock cannot be read while it is held, so there they are found
 /// by their data folder, and the hosts a holder started go with them.
@@ -342,14 +374,17 @@ pub fn kill_holders(dir: &std::path::Path) {
     let Some(data) = dir.is_dir().then(|| dir.parent()?.parent()).flatten() else {
         return;
     };
-    let script = format!(
-        "Get-CimInstance Win32_Process -Filter \"Name='pinrail-host.exe'\" | \
-         Where-Object {{ $_.CommandLine -like '*{}*' }} | \
-         ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}",
-        data.display()
-    );
+    // the folder goes in through the environment, matched as it is, so
+    // that no character of it is read as PowerShell or as a wildcard; the
+    // holders are waited for, so that they let go of the folder first
+    let script = "$folder = [WildcardPattern]::Escape($env:PINRAIL_TEST_DATA); \
+         $held = Get-CimInstance Win32_Process -Filter \"Name='pinrail-host.exe'\" | \
+         Where-Object { $_.CommandLine -like \"*$folder*\" }; \
+         $held | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; \
+         $held | ForEach-Object { Wait-Process -Id $_.ProcessId -Timeout 10 -ErrorAction SilentlyContinue }";
     let _ = Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
+        .args(["-NoProfile", "-Command", script])
+        .env("PINRAIL_TEST_DATA", data)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();

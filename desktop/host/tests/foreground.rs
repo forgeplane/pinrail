@@ -209,6 +209,10 @@ async fn a_program_that_asks_for_focus_reports_is_told_the_truth() {
         .unwrap();
 }
 
+// Unix only: on Windows a stop closes the pseudo console, which ends the
+// program at once, so none is left for what is typed after to reach, and
+// the test would pass without testing anything
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
 async fn nothing_reaches_a_program_once_it_is_asked_to_stop() {
     // in line mode the terminal echoes what reaches the program, as it
@@ -241,6 +245,9 @@ async fn ended_text(terminal: &Terminal) -> String {
     terminal.text_request(100).await.unwrap()
 }
 
+// Unix only, for the same reason: a program on Windows cannot write after
+// a stop, so its screen is the one it showed whatever the host does
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_stopped_program_s_screen_is_the_one_it_showed_when_asked_to_stop() {
     // as Claude Code does, it clears its screen as it exits and leaves a line
