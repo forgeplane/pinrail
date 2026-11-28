@@ -30,7 +30,7 @@ on_desktop() {
 	script="$(cat)"
 	printf '%s\n' "$script" | ssh -o BatchMode=yes "$user@$host" 'cat > "$USERPROFILE/pinrail-desktop.ps1"'
 	vm 'rm -f "$USERPROFILE/pinrail-desktop.done"
-schtasks //Create //TN PinrailDesktop //SC ONCE //ST 00:00 //IT //F //TR "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File %USERPROFILE%\pinrail-desktop.ps1" > /dev/null 2>&1 &&
+schtasks //Create //TN PinrailDesktop //SC ONCE //ST 00:00 //IT //F //TR "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%USERPROFILE%\pinrail-desktop.ps1\"" > /dev/null 2>&1 &&
 schtasks //Run //TN PinrailDesktop > /dev/null'
 	if [ "$wait" = wait ]; then
 		for _ in $(seq 60); do
@@ -46,10 +46,21 @@ case "${1:-}" in
 	run)
 		shift
 		[ $# -gt 0 ] || { echo "usage: $0 run <program> [arguments]" >&2; exit 2; }
+		# Start-Process joins its arguments with spaces and quotes none,
+		# so one with a space or a quote goes in double quotes, inside
+		# PowerShell's single ones; the rest as they are, as a program
+		# such as cmd takes no switch in quotes
 		args=""
-		for arg in "${@:2}"; do args+="'${arg//\'/\'\'}',"; done
+		shift_program="$1"
+		shift
+		for arg in "$@"; do
+			case "$arg" in
+				"" | *[[:space:]]* | *\"*) arg="\"${arg//\"/\\\"}\"" ;;
+			esac
+			args+="'${arg//\'/\'\'}',"
+		done
 		on_desktop nowait <<EOF
-Start-Process -FilePath '${1//\'/\'\'}' $([ -n "$args" ] && echo "-ArgumentList ${args%,}")
+Start-Process -FilePath '${shift_program//\'/\'\'}' $([ -n "$args" ] && echo "-ArgumentList ${args%,}")
 EOF
 		;;
 	shot)

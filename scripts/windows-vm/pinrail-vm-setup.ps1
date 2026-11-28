@@ -245,18 +245,23 @@ Step 'ssh-path' {
     $lines = @(
         $marker,
         'if [ -n "$SSH_CONNECTION" ]; then',
-        '    pinrail_vm_path="$(MSYS_NO_PATHCONV=1 reg query ''HKCU\Environment'' /v Path 2>/dev/null | sed -n ''s/^ *Path *REG_[A-Z_]* *//p'' | tr -d ''\r'')"',
+        '    pinrail_vm_path="$(MSYS_NO_PATHCONV=1 reg query ''HKCU\Environment'' /v Path 2>/dev/null | sed -n ''s/^ *Path *REG_[A-Z_]* *//Ip'' | tr -d ''\r'')"',
+        '    # %Variables% in any case, as Windows names them, against bash''s',
         '    while [[ $pinrail_vm_path =~ %([A-Za-z_][A-Za-z0-9_]*)% ]]; do',
         '        pinrail_vm_name=${BASH_REMATCH[1]}',
-        '        pinrail_vm_path=${pinrail_vm_path//%$pinrail_vm_name%/${!pinrail_vm_name}}',
+        '        pinrail_vm_value=$(env | grep -i -m1 "^${pinrail_vm_name}=" | cut -d= -f2-)',
+        '        pinrail_vm_path=${pinrail_vm_path//%$pinrail_vm_name%/$pinrail_vm_value}',
         '    done',
         '    [ -n "$pinrail_vm_path" ] && PATH="$PATH:$(cygpath -p "$pinrail_vm_path")"',
-        '    unset pinrail_vm_path pinrail_vm_name',
+        '    unset pinrail_vm_path pinrail_vm_name pinrail_vm_value',
         'fi',
         ''
     )
-    # UTF-8 without a byte order mark and with LF line ends, as bash needs
-    [IO.File]::AppendAllText($bashrc, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding $false))
+    # UTF-8 without a byte order mark and with LF line ends, as bash needs,
+    # on a line of its own after what the file ends with
+    $text = $lines -join "`n"
+    if ((Test-Path $bashrc) -and -not ((Get-Content -Raw $bashrc) -match "(^|`n)$")) { $text = "`n" + $text }
+    [IO.File]::AppendAllText($bashrc, $text, (New-Object System.Text.UTF8Encoding $false))
 }
 
 Step 'rsync' {
