@@ -260,8 +260,11 @@ mod imp {
         /// down the writing ends this end's writes and leaves its reads,
         /// and the other end learns of it only when the pipe closes.
         pub fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
-            if how == std::net::Shutdown::Write {
+            // both ways ends the writing too, as it does a socket's
+            if how != std::net::Shutdown::Read {
                 self.0.written.store(true, Ordering::Relaxed);
+            }
+            if how == std::net::Shutdown::Write {
                 return Ok(());
             }
             let h = raw(&self.0.handle);
@@ -925,6 +928,22 @@ mod tests {
             .collect();
         let reached: usize = clients.into_iter().map(|c| c.join().unwrap()).sum();
         assert_eq!(reached, THREADS * EACH);
+    }
+
+    #[test]
+    fn a_connection_shut_down_both_ways_takes_no_more_writes() {
+        let path = address("both");
+        let listener = listen(&path).unwrap();
+        // each end: the client's, and the server's
+        for side in ["client", "server"] {
+            let client = connect(&path).unwrap();
+            let (server, _) = listener.accept().unwrap();
+            let mut shut = if side == "client" { &client } else { &server };
+            shut.shutdown(std::net::Shutdown::Both).unwrap();
+            assert!(shut.write_all(b"more").is_err(), "{side}");
+        }
+        drop(listener);
+        remove(&path);
     }
 
     #[test]
