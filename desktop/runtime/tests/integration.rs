@@ -24,6 +24,16 @@ fn own_hooks() -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
+/// The command each hook starts with, as written into the agents' files:
+/// a change to it is a change every installed hook goes through.
+#[test]
+fn the_hook_command_is_the_cli_in_each_system_s_shells() {
+    #[cfg(unix)]
+    assert_eq!(COMMAND_PREFIX, r#""${PINRAIL_CLI:-pinrail}" hook"#);
+    #[cfg(windows)]
+    assert_eq!(COMMAND_PREFIX, "pinrail hook");
+}
+
 #[test]
 fn claude_code_s_hooks_go_in_its_settings_file() {
     let plan = plan();
