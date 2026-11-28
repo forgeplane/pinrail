@@ -135,6 +135,20 @@ fn status_prints_the_registration_without_the_secret() {
     assert!(status.get("secret").is_none());
 }
 
+/// A client that still holds a connection to a host that stopped, as a
+/// core holds one until it reads the end: on Windows the pipe's name lasts
+/// as long as any handle to it, so the next host must not need that name.
+#[test]
+fn the_next_host_starts_while_a_client_of_the_last_one_holds_on() {
+    let folders = folders();
+    let mut host = serve(&folders, &[]);
+    let held = pinrail_host::net::connect(&host.registration.socket).unwrap();
+    assert!(run(&folders, &["stop"]).status.success());
+    assert!(exits_within(&mut host, Duration::from_secs(5)));
+    let _next = serve(&folders, &[]);
+    drop(held);
+}
+
 #[test]
 fn stop_ends_the_host_and_removes_its_registration_and_socket() {
     let folders = folders();

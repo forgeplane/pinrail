@@ -298,7 +298,15 @@ Options:
             }
         });
         let _ = std::io::copy(&mut stdin, &mut writer);
-        let _ = writer.shutdown(std::net::Shutdown::Write);
+        // the end of the input, for the host to read: a socket closes its
+        // writing; a pipe cannot close one way, so on Windows the bridge
+        // lets go of all of it, as the side that wrote is gone
+        let how = if cfg!(windows) {
+            std::net::Shutdown::Both
+        } else {
+            std::net::Shutdown::Write
+        };
+        let _ = writer.shutdown(how);
         let _ = output.join();
         ExitCode::SUCCESS
     }

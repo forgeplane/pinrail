@@ -125,6 +125,8 @@ mod imp {
         stopped: OwnedHandle,
         read_timeout: Mutex<Option<Duration>>,
         server: bool,
+        /// Set once this end has shut down its writing.
+        written: AtomicBool,
     }
 
     impl Pipe {
@@ -136,6 +138,7 @@ mod imp {
                 stopped: event()?,
                 read_timeout: Mutex::new(None),
                 server,
+                written: AtomicBool::new(false),
             })
         }
 
@@ -179,6 +182,9 @@ mod imp {
                         WaitForMultipleObjects(2, [stopped, ov.hEvent].as_ptr(), 0, timeout)
                     };
                     if woke != WAIT_OBJECT_0 + 1 {
+                        // the wait's own error, before the calls below
+                        // replace it
+                        let failed = io::Error::last_os_error();
                         // stopped or timed out: cancel, and wait until the
                         // operation lets go of the buffer
                         let mut n = 0u32;
@@ -194,7 +200,7 @@ mod imp {
                         return match woke {
                             WAIT_OBJECT_0 => Ok(0),
                             WAIT_TIMEOUT => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-                            _ => Err(io::Error::last_os_error()),
+                            _ => Err(failed),
                         };
                     }
                 }
@@ -224,6 +230,9 @@ mod imp {
         }
 
         fn write(&self, buf: &[u8]) -> io::Result<usize> {
+            if self.written.load(Ordering::Relaxed) {
+                return Err(io::Error::from(io::ErrorKind::BrokenPipe));
+            }
             let len = buf.len().min(u32::MAX as usize) as u32;
             // SAFETY: as for `read`.
             let n = self.io(false, |h, ov| unsafe {
@@ -246,9 +255,15 @@ mod imp {
             Ok(self.clone())
         }
 
-        /// Ends the connection both ways, whichever is asked: a pipe
-        /// cannot close one direction. Wakes a read waiting on it.
-        pub fn shutdown(&self, _: std::net::Shutdown) -> io::Result<()> {
+        /// Ends the connection, which wakes a read waiting on it. A pipe
+        /// cannot close one direction for the other end to see: shutting
+        /// down the writing ends this end's writes and leaves its reads,
+        /// and the other end learns of it only when the pipe closes.
+        pub fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
+            if how == std::net::Shutdown::Write {
+                self.0.written.store(true, Ordering::Relaxed);
+                return Ok(());
+            }
             let h = raw(&self.0.handle);
             // SAFETY: the event and the pipe are open; cancelling and
             // disconnecting have no memory preconditions.
@@ -353,10 +368,12 @@ mod imp {
         ))
     }
 
-    /// Connects to the pipe `path`, waiting while every instance is busy.
+    /// Connects to the pipe `path`, waiting up to five seconds while every
+    /// instance is busy.
     pub fn connect(path: &Path) -> io::Result<Stream> {
         let name = wide(path.as_os_str());
-        for _ in 0..50 {
+        let until = std::time::Instant::now() + Duration::from_secs(5);
+        while std::time::Instant::now() < until {
             // SAFETY: the name is NUL-terminated. Identification only: the
             // server cannot act as this user with the connection.
             let h = unsafe {
@@ -379,9 +396,13 @@ mod imp {
             if unsafe { GetLastError() } != ERROR_PIPE_BUSY {
                 return Err(io::Error::last_os_error());
             }
-            // every instance is taken; one frees up when the server accepts
+            // every instance is taken; one frees up when the server accepts.
+            // The wait returns at once while the server is between
+            // instances, so it is not counted on to wait at all.
             // SAFETY: the name is NUL-terminated.
-            unsafe { WaitNamedPipeW(name.as_ptr(), 100) };
+            if unsafe { WaitNamedPipeW(name.as_ptr(), 100) } == 0 {
+                std::thread::sleep(Duration::from_millis(10));
+            }
         }
         Err(io::Error::from(io::ErrorKind::TimedOut))
     }
@@ -420,7 +441,8 @@ mod imp {
     /// An instance waiting for a client, with its operation's state at a
     /// fixed address until the operation is done.
     struct Waiting {
-        pipe: Pipe,
+        /// Taken once a client is connected.
+        pipe: Option<Pipe>,
         ov: Box<OVERLAPPED>,
         _event: OwnedHandle,
         /// Whether a client is connected already.
@@ -433,25 +455,34 @@ mod imp {
 
     impl Waiting {
         fn start(name: &[u16], first: bool) -> io::Result<Self> {
-            let pipe = instance(name, first)?;
+            Self::on(instance(name, first)?)
+        }
+
+        /// Waits for a client on the instance `pipe`.
+        fn on(pipe: Pipe) -> io::Result<Self> {
             let event = event()?;
             // SAFETY: OVERLAPPED is plain data; zero is its initial state.
             let mut ov: Box<OVERLAPPED> = Box::new(unsafe { std::mem::zeroed() });
             ov.hEvent = raw(&event);
-            // SAFETY: the pipe and the OVERLAPPED, boxed, outlive the
-            // operation: `Drop` cancels it and waits.
-            let connected = if unsafe { ConnectNamedPipe(raw(&pipe.handle), &mut *ov) } != 0 {
-                true
-            } else {
+            let connected = loop {
+                // SAFETY: the pipe and the OVERLAPPED, boxed, outlive the
+                // operation: `Drop` cancels it and waits.
+                if unsafe { ConnectNamedPipe(raw(&pipe.handle), &mut *ov) } != 0 {
+                    break true;
+                }
                 // SAFETY: reads this thread's last error.
                 match unsafe { GetLastError() } {
-                    ERROR_PIPE_CONNECTED => true,
-                    ERROR_IO_PENDING => false,
+                    ERROR_PIPE_CONNECTED => break true,
+                    ERROR_IO_PENDING => break false,
+                    // a client came and left before the wait began: the
+                    // instance is let go of, and waits for the next
+                    // SAFETY: the pipe is open.
+                    ERROR_NO_DATA => check(unsafe { DisconnectNamedPipe(raw(&pipe.handle)) })?,
                     error => return Err(io::Error::from_raw_os_error(error as i32)),
                 }
             };
             Ok(Self {
-                pipe,
+                pipe: Some(pipe),
                 ov,
                 _event: event,
                 connected,
@@ -470,8 +501,9 @@ mod imp {
                 _ => return Err(io::Error::last_os_error()),
             }
             let mut n = 0u32;
+            let pipe = self.pipe.as_ref().expect("a pipe until connected");
             // SAFETY: the operation has completed; this reads its result.
-            check(unsafe { GetOverlappedResult(raw(&self.pipe.handle), &*self.ov, &mut n, 0) })?;
+            check(unsafe { GetOverlappedResult(raw(&pipe.handle), &*self.ov, &mut n, 0) })?;
             self.connected = true;
             Ok(true)
         }
@@ -479,9 +511,9 @@ mod imp {
 
     impl Drop for Waiting {
         fn drop(&mut self) {
-            if !self.connected {
+            if let (false, Some(pipe)) = (self.connected, &self.pipe) {
                 let mut n = 0u32;
-                let h = raw(&self.pipe.handle);
+                let h = raw(&pipe.handle);
                 // SAFETY: cancels the operation, then waits until it lets go
                 // of the OVERLAPPED.
                 unsafe {
@@ -533,14 +565,22 @@ mod imp {
                 INFINITE
             };
             let current = waiting.as_mut().expect("an instance waits");
-            if !current.wait(millis)? {
-                return Err(io::Error::from(io::ErrorKind::WouldBlock));
+            match current.wait(millis) {
+                Ok(true) => {}
+                Ok(false) => return Err(io::Error::from(io::ErrorKind::WouldBlock)),
+                Err(error) => {
+                    // that instance is spent: the next accept starts another
+                    *waiting = None;
+                    return Err(error);
+                }
             }
             let mut done = waiting.take().expect("an instance waits");
             // connected: nothing is pending, so the drop has nothing to cancel
-            let pipe = std::mem::replace(&mut done.pipe, instance(&self.name, false)?);
+            let pipe = done.pipe.take().expect("a pipe until connected");
             drop(done);
-            *waiting = Some(Waiting::start(&self.name, false)?);
+            // the next instance; when it cannot be made now, the next
+            // accept tries again
+            *waiting = Waiting::start(&self.name, false).ok();
             Ok((Stream(Arc::new(pipe)), ()))
         }
     }
@@ -673,6 +713,31 @@ mod imp {
     ) {
         tokio::io::split(stream)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// A client that connected and left before the server waited on
+        /// the instance: the instance goes on to take the next one.
+        #[test]
+        fn an_instance_a_client_left_early_takes_the_next() {
+            let path = std::path::PathBuf::from(format!(
+                r"\\.\pipe\pinrail-net-early-{}",
+                crate::random_hex(4)
+            ));
+            let name = wide(path.as_os_str());
+            let pipe = instance(&name, true).unwrap();
+            drop(connect(&path).unwrap());
+            let mut waiting = Waiting::on(pipe).unwrap();
+            let next = std::thread::spawn({
+                let path = path.clone();
+                move || connect(&path).map(|_| ())
+            });
+            assert!(waiting.wait(5_000).unwrap());
+            next.join().unwrap().unwrap();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -724,6 +789,78 @@ mod tests {
         let listener = server.join().unwrap();
         remove(&path);
         drop(listener);
+    }
+
+    #[test]
+    fn clients_that_connect_at_once_each_reach_the_server() {
+        const THREADS: usize = 8;
+        const EACH: usize = 40;
+        let path = address("many");
+        let listener = listen(&path).unwrap();
+        // the server answers each client it gets, for as long as the test
+        // runs: one that a client never reached would wait for it forever
+        std::thread::spawn(move || {
+            loop {
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let _ = (&stream).write_all(b"k");
+                    }
+                    Err(error) => {
+                        eprintln!("the server stopped accepting: {error}");
+                        return;
+                    }
+                }
+            }
+        });
+        let clients: Vec<_> = (0..THREADS)
+            .map(|_| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let mut reached = 0;
+                    for _ in 0..EACH {
+                        let client = match connect(&path) {
+                            Ok(client) => client,
+                            Err(error) => {
+                                eprintln!("a client could not connect: {error}");
+                                continue;
+                            }
+                        };
+                        // macOS refuses a timeout once the server has
+                        // written and closed, which is no failure
+                        let _ = client.set_read_timeout(Some(Duration::from_secs(5)));
+                        let mut buf = [0u8; 1];
+                        match (&client).read_exact(&mut buf) {
+                            Ok(()) => reached += 1,
+                            Err(error) => eprintln!("a client read nothing: {error}"),
+                        }
+                    }
+                    reached
+                })
+            })
+            .collect();
+        let reached: usize = clients.into_iter().map(|c| c.join().unwrap()).sum();
+        assert_eq!(reached, THREADS * EACH);
+    }
+
+    #[test]
+    fn shutting_down_the_writing_leaves_a_read_to_finish() {
+        let path = address("half");
+        let listener = listen(&path).unwrap();
+        let client = connect(&path).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        let reader = client.try_clone().unwrap();
+        let reading = std::thread::spawn(move || {
+            let mut buf = [0u8; 4];
+            (&reader).read_exact(&mut buf).map(|()| buf)
+        });
+        std::thread::sleep(Duration::from_millis(100));
+        client.shutdown(std::net::Shutdown::Write).unwrap();
+        (&server).write_all(b"late").unwrap();
+        assert_eq!(&reading.join().unwrap().unwrap(), b"late");
+        // and the writing is over
+        assert!((&client).write_all(b"more").is_err());
+        drop(listener);
+        remove(&path);
     }
 
     #[test]
