@@ -309,18 +309,122 @@ fn parse_stat(pid: u32, stat: &str) -> Option<Process> {
     })
 }
 
-// the process snapshot gives the parent and the executable's name, and
-// the process's times its creation
+// The process itself is asked for its parent, its executable and its
+// times, which takes microseconds. A snapshot of every process says the
+// first two as well, but takes milliseconds, and more of them the more
+// processes run: the host asks twice a second for each of its terminals,
+// and with 200 of them did nothing else.
 #[cfg(windows)]
 #[allow(unsafe_code)]
 fn read(pid: u32) -> Option<Process> {
-    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, INVALID_HANDLE_VALUE};
+    use windows_sys::Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation};
+    use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, STILL_ACTIVE};
+    use windows_sys::Win32::System::Threading::{
+        GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_BASIC_INFORMATION,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    // SAFETY: takes no pointers; the handle is closed below
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    let zero = FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let (mut created, mut exited, mut kernel, mut user) = (zero, zero, zero, zero);
+    let mut code = 0u32;
+    // SAFETY: PROCESS_BASIC_INFORMATION is plain data, for which all zeroes
+    // is valid
+    let mut basic: PROCESS_BASIC_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: the handle is open; each out-pointer points to a value of the
+    // type and size the call writes
+    let (timed, coded, parented) = unsafe {
+        (
+            GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) != 0,
+            GetExitCodeProcess(handle, &mut code) != 0,
+            NtQueryInformationProcess(
+                handle,
+                ProcessBasicInformation,
+                (&raw mut basic).cast(),
+                std::mem::size_of::<PROCESS_BASIC_INFORMATION>() as u32,
+                std::ptr::null_mut(),
+            ) >= 0,
+        )
+    };
+    let name = if timed && coded {
+        image_name(handle)
+    } else {
+        None
+    };
+    // SAFETY: the process handle is open and closed once
+    unsafe { CloseHandle(handle) };
+    if !timed || !coded {
+        return None;
+    }
+    // A process that ended stays for as long as a handle keeps it, with its
+    // exit code and the time it ended; one that runs has neither, unless
+    // it is to end with the code that says a process is still active.
+    let ended =
+        code != STILL_ACTIVE as u32 || exited.dwLowDateTime != 0 || exited.dwHighDateTime != 0;
+    if ended {
+        return None;
+    }
+    // what the process does not say of itself, the list of them all does:
+    // the system's own few processes have no executable to name
+    let (parent, file) = match (parented, name) {
+        (true, Some(name)) => (basic.InheritedFromUniqueProcessId as u32, name),
+        _ => listed(pid)?,
+    };
+    let started = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
+    // named without .exe, as on the other systems, and in lower case, since
+    // Windows takes `Claude.exe` and `claude.exe` for the same program
+    let file = file.to_lowercase();
+    let name = match file.strip_suffix(".exe") {
+        Some(name) => name.to_string(),
+        None => file,
+    };
+    Some(Process {
+        pid,
+        parent,
+        name,
+        started: started.to_string(),
+    })
+}
+
+/// The name of the executable of the process behind `handle`, without its
+/// folder.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn image_name(handle: windows_sys::Win32::Foundation::HANDLE) -> Option<String> {
+    use windows_sys::Win32::System::Threading::{PROCESS_NAME_WIN32, QueryFullProcessImageNameW};
+    // a path is seldom longer than the first, and never than the second
+    for room in [512usize, 32_768] {
+        let mut path = vec![0u16; room];
+        let mut len = room as u32;
+        // SAFETY: the handle is open, and `path` holds `len` characters
+        let read = unsafe {
+            QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path.as_mut_ptr(), &mut len)
+        };
+        if read != 0 {
+            let path = String::from_utf16_lossy(&path[..len as usize]);
+            let file = path.rsplit(['\\', '/']).next().unwrap_or_default();
+            return (!file.is_empty()).then(|| file.to_string());
+        }
+    }
+    None
+}
+
+/// The parent and the executable's name of the process `pid`, as the
+/// snapshot of every process lists them.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn listed(pid: u32) -> Option<(u32, String)> {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
         TH32CS_SNAPPROCESS,
-    };
-    use windows_sys::Win32::System::Threading::{
-        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
     };
 
     // SAFETY: takes no pointers; the handle is closed below
@@ -349,40 +453,7 @@ fn read(pid: u32) -> Option<Process> {
     }
     // SAFETY: the snapshot is open and closed once
     unsafe { CloseHandle(snapshot) };
-    let (parent, file) = found?;
-
-    // SAFETY: takes no pointers; the handle is closed below
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle.is_null() {
-        return None;
-    }
-    let zero = FILETIME {
-        dwLowDateTime: 0,
-        dwHighDateTime: 0,
-    };
-    let (mut created, mut exited, mut kernel, mut user) = (zero, zero, zero, zero);
-    // SAFETY: the four out-pointers point to FILETIMEs
-    let read =
-        unsafe { GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user) };
-    // SAFETY: the process handle is open and closed once
-    unsafe { CloseHandle(handle) };
-    if read == 0 {
-        return None;
-    }
-    let started = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
-    // named without .exe, as on the other systems, and in lower case, since
-    // Windows takes `Claude.exe` and `claude.exe` for the same program
-    let file = file.to_lowercase();
-    let name = match file.strip_suffix(".exe") {
-        Some(name) => name.to_string(),
-        None => file,
-    };
-    Some(Process {
-        pid,
-        parent,
-        name,
-        started: started.to_string(),
-    })
+    found
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
@@ -442,6 +513,30 @@ mod tests {
         assert!(child.try_wait().unwrap().is_none());
         assert!(stop(pid, &found.started, false));
         assert!(child.wait().unwrap().code() == Some(1));
+    }
+
+    /// The host reads the process in front of each terminal twice a
+    /// second: with 200 terminals, as many processes more for the list
+    /// and a list for each read, its threads did nothing else.
+    #[cfg(windows)]
+    #[test]
+    fn a_process_is_read_without_listing_them_all() {
+        let me = std::process::id();
+        let read_me = read(me).unwrap();
+        let (parent, file) = listed(me).unwrap();
+        assert_eq!(read_me.parent, parent);
+        assert_eq!(format!("{}.exe", read_me.name), file.to_lowercase());
+        let took = |act: &dyn Fn()| {
+            let began = std::time::Instant::now();
+            for _ in 0..200 {
+                act();
+            }
+            began.elapsed()
+        };
+        let reads = took(&|| assert!(read(me).is_some()));
+        let lists = took(&|| assert!(listed(me).is_some()));
+        // some eighty times faster where this was written
+        assert!(reads * 5 < lists, "{reads:?} to read, {lists:?} to list");
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", windows))]
