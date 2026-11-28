@@ -448,18 +448,31 @@ fn a_viewer_that_attaches_inside_a_long_sequence_gets_its_snapshot_at_its_end() 
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut connection = Connection::open(&host);
-    // an image sequence longer than a snapshot can replay, left open; the
-    // backslash that ends it is written as \134, since Git's shell on
-    // Windows reads two backslashes in its arguments as one
+    // an image sequence longer than a snapshot can replay, begun once the
+    // test says so and left open; the backslash that ends it is written as
+    // \134, since Git's shell on Windows reads two backslashes in its
+    // arguments as one
     let terminal = spawn(
         &mut connection,
         &folders,
-        "echo ready; printf '\\033_Gf=100;'; head -c 100000 /dev/zero | tr '\\0' A; read x; printf '\\033\\134after\\n'; sleep 30",
+        "echo ready; while [ ! -e go ]; do sleep 0.1; done; printf '\\033_Gf=100;'; \
+         head -c 100000 /dev/zero | tr '\\0' A; read x; printf '\\033\\134after\\n'; sleep 30",
     );
     wait_for_text(&mut connection, &terminal, "ready");
-    // until the sequence has begun, which on Windows waits for two more
-    // programs to start
-    std::thread::sleep(common::within(1) / 2);
+    // a viewer from before the sequence gets it as the program writes it,
+    // which tells when it is too long for a snapshot to replay, however
+    // long the programs that write it take to start. Not all of it need
+    // come: a pseudo console keeps the last bytes until more follow.
+    let (before, _) = attach(&mut connection, &terminal, json!({}));
+    connection.until_meta(before, "snapshot_end");
+    std::fs::write(folders.runtime.join("go"), "").unwrap();
+    let mut written = 0;
+    while written < 90_000 {
+        let frame = connection.next(before).expect("the sequence");
+        if frame.kind == kind::DATA {
+            written += frame.payload.iter().filter(|&&b| b == b'A').count();
+        }
+    }
     let (channel, format) = attach(&mut connection, &terminal, json!({}));
     assert_eq!(format, "vt");
     // nothing while the sequence is open
