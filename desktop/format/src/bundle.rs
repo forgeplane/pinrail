@@ -81,7 +81,8 @@ impl Listing {
         let mut folded: BTreeMap<String, String> = BTreeMap::new();
         let mut total: u64 = 0;
         for (raw, bytes) in files {
-            let path = normalized(raw)?;
+            // what a source leaves out is not held to portable names
+            let path = shaped(raw)?;
             let top = path.split('/').next().unwrap_or_default();
             if !in_layout(top) {
                 match taken {
@@ -103,6 +104,7 @@ impl Listing {
                     }
                 }
             }
+            portable_path(raw, &path)?;
             // a top-level name of a file only, or of a folder only
             if TOP_FILES.contains(&top) != !path.contains('/') {
                 return Err(format!("{path}: not where the layout puts it"));
@@ -216,6 +218,13 @@ impl Listing {
 /// A path as a bundle records it: relative, `/` between its parts, in
 /// Unicode normalization form C, with no empty, `.` or `..` part.
 pub fn normalized(raw: &str) -> Result<String, String> {
+    let path = shaped(raw)?;
+    portable_path(raw, &path)?;
+    Ok(path)
+}
+
+/// `raw` normalized, without asking whether every system can hold it.
+fn shaped(raw: &str) -> Result<String, String> {
     let path: String = raw.nfc().collect();
     if path.is_empty() || path.starts_with('/') || path.contains('\\') {
         return Err(format!(
@@ -228,12 +237,18 @@ pub fn normalized(raw: &str) -> Result<String, String> {
     {
         return Err(format!("{raw}: a path with an empty, . or .. part"));
     }
-    if let Some(part) = path.split('/').find(|part| !portable(part)) {
-        return Err(format!(
-            "{raw}: {part:?} is not a name a file can have on every system"
-        ));
-    }
     Ok(path)
+}
+
+/// Refuses `path` when a part of it is no name a file can have on every
+/// system.
+fn portable_path(raw: &str, path: &str) -> Result<(), String> {
+    match path.split('/').find(|part| !portable(part)) {
+        Some(part) => Err(format!(
+            "{raw}: {part:?} is not a name a file can have on every system"
+        )),
+        None => Ok(()),
+    }
 }
 
 /// Whether Windows takes `part` as the file it says, as macOS and Linux
@@ -241,9 +256,39 @@ pub fn normalized(raw: &str) -> Result<String, String> {
 /// refuses; no device name, such as `con` or `nul.txt`; and no dot or
 /// space at the end, which it drops. A bundle installs on every system.
 fn portable(part: &str) -> bool {
-    const DEVICES: [&str; 22] = [
-        "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
-        "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+    // with the superscript digits and the console's own, which Windows
+    // reserves too
+    const DEVICES: [&str; 30] = [
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        "com1",
+        "com2",
+        "com3",
+        "com4",
+        "com5",
+        "com6",
+        "com7",
+        "com8",
+        "com9",
+        "lpt1",
+        "lpt2",
+        "lpt3",
+        "lpt4",
+        "lpt5",
+        "lpt6",
+        "lpt7",
+        "lpt8",
+        "lpt9",
+        "com\u{b9}",
+        "com\u{b2}",
+        "com\u{b3}",
+        "lpt\u{b9}",
+        "lpt\u{b2}",
+        "lpt\u{b3}",
+        "conin$",
+        "conout$",
     ];
     let stem = part
         .split('.')
@@ -493,6 +538,10 @@ mod tests {
             "view/con",
             "view/NUL.txt",
             "view/lpt1",
+            "view/com\u{b9}",
+            "view/LPT\u{b3}.txt",
+            "view/CONIN$",
+            "view/conout$.log",
             "view/a.js.",
             "view/a.js ",
             "view/a?.js",
@@ -507,6 +556,22 @@ mod tests {
         )
         .unwrap_err();
         assert!(refused.contains("differ only in case"), "{refused}");
+    }
+
+    /// A source's files outside the layout, or hidden, are left out before
+    /// their names are looked at: a name Windows cannot hold among them is
+    /// no reason to refuse the plugin.
+    #[test]
+    fn a_source_s_file_left_out_is_not_held_to_portable_names() {
+        let files = [
+            ("manifest.json", "{}"),
+            ("notes/a:b.txt", "x"),
+            ("view/.cache/a?.js", "x"),
+            ("view/index.html", "<html>"),
+        ];
+        let listed = listing(&files, Taken::FromSource).unwrap();
+        let paths: Vec<_> = listed.files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, ["manifest.json", "view/index.html"]);
     }
 
     #[test]
