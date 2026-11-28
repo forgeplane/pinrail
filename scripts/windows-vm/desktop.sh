@@ -42,6 +42,22 @@ schtasks //Run //TN PinrailDesktop > /dev/null'
 	fi
 }
 
+# One argument in double quotes, as a Windows program reads it back
+# (CommandLineToArgvW): a quote inside is \", and the backslashes before
+# a quote, or before the closing one, are doubled.
+windows_quoted() {
+	local arg="$1" out="" slashes="" c i
+	for ((i = 0; i < ${#arg}; i++)); do
+		c="${arg:i:1}"
+		case "$c" in
+			\\) slashes+="\\" ;;
+			\") out+="$slashes$slashes\\\""; slashes="" ;;
+			*) out+="$slashes$c"; slashes="" ;;
+		esac
+	done
+	printf '"%s"' "$out$slashes$slashes"
+}
+
 case "${1:-}" in
 	run)
 		shift
@@ -55,7 +71,7 @@ case "${1:-}" in
 		shift
 		for arg in "$@"; do
 			case "$arg" in
-				"" | *[[:space:]]* | *\"*) arg="\"${arg//\"/\\\"}\"" ;;
+				"" | *[[:space:]]* | *\"*) arg="$(windows_quoted "$arg")" ;;
 			esac
 			args+="'${arg//\'/\'\'}',"
 		done

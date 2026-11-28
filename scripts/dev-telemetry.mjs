@@ -24,12 +24,23 @@ if (!fs.existsSync(settings)) {
   fs.writeFileSync(settings, JSON.stringify({ telemetry: { notice_shown: shown }, welcome: { seen: true } }) + "\n");
 }
 
-const env = { ...process.env, PINRAIL_DATA_DIR: data, PINRAIL_PORT: "4848" };
-env.PINRAIL_TELEMETRY_URL = "https://api.pinrail.dev/v1/events";
-if (flag("send")) delete env.PINRAIL_TELEMETRY_DEBUG;
-else env.PINRAIL_TELEMETRY_DEBUG = "1";
-delete env.DO_NOT_TRACK;
-delete env.PINRAIL_TELEMETRY;
+// a copy of process.env holds names as spelt, and Windows takes them in
+// any case: each is removed, or set, whatever its spelling
+const env = { ...process.env };
+const unset = (name) => {
+  for (const key of Object.keys(env)) if (key.toUpperCase() === name) delete env[key];
+};
+const set = (name, value) => {
+  unset(name);
+  env[name] = value;
+};
+set("PINRAIL_DATA_DIR", data);
+set("PINRAIL_PORT", "4848");
+set("PINRAIL_TELEMETRY_URL", "https://api.pinrail.dev/v1/events");
+if (flag("send")) unset("PINRAIL_TELEMETRY_DEBUG");
+else set("PINRAIL_TELEMETRY_DEBUG", "1");
+unset("DO_NOT_TRACK");
+unset("PINRAIL_TELEMETRY");
 
 console.log(`Data in ${data}. What waits and what was sent:`);
 console.log("  curl -s http://127.0.0.1:4848/api/v1/telemetry | jq");
