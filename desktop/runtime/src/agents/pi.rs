@@ -119,13 +119,7 @@ impl Agent for Pi {
         if !matches!(process.name.as_str(), "node" | "bun") {
             return false;
         }
-        crate::process::arguments(process.pid)
-            .and_then(|args| args.into_iter().next())
-            .is_some_and(|first| {
-                Path::new(&first)
-                    .file_name()
-                    .is_some_and(|name| name == "pi")
-            })
+        crate::process::arguments(process.pid).is_some_and(|args| is_pi_command(&args))
     }
 
     /// `pi --session-id <id> [extra args] -- [task]`: Pinrail chooses the
@@ -189,9 +183,41 @@ impl Agent for Pi {
     }
 }
 
+/// Whether a `node` or `bun` process's arguments are Pi's: `pi` first, as
+/// its process title sets them, or, on Windows, its package's script. The
+/// package is npm's @mariozechner/pi-coding-agent.
+fn is_pi_command(args: &[String]) -> bool {
+    args.first()
+        .and_then(|first| Path::new(first).file_name())
+        .is_some_and(|name| name == "pi")
+        || super::runs_package_script(args, "pi-coding-agent")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|a| a.to_string()).collect()
+    }
+
+    #[test]
+    fn pi_is_known_by_its_command_or_its_package_s_script() {
+        assert!(is_pi_command(&args(&["pi", "--session-id", "x"])));
+        // on Windows npm's shim runs node on the package's script, and the
+        // command line keeps node's name first
+        assert!(is_pi_command(&args(&[
+            r"C:\Program Files\nodejs\node.exe",
+            r"C:\Users\me\AppData\Roaming\npm\node_modules\@mariozechner\pi-coding-agent\dist\cli.js",
+            "--session-id",
+            "x",
+        ])));
+        assert!(!is_pi_command(&args(&["node", "server.js"])));
+        assert!(!is_pi_command(&args(&[
+            r"C:\nodejs\node.exe",
+            r"C:\app\pilot\cli.js"
+        ])));
+    }
 
     #[test]
     fn it_knows_the_flags_that_turn_its_checks_off() {

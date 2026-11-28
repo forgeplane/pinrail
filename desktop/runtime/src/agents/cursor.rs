@@ -198,13 +198,29 @@ pub fn is_cursor_command(args: &[String]) -> bool {
         .first()
         .and_then(|first| Path::new(first).file_name())
         .and_then(|name| name.to_str());
-    matches!(invoked, Some("cursor-agent" | "agent"))
+    // on Windows, node on the script in Cursor's install folder
+    (matches!(invoked, Some("cursor-agent" | "agent"))
+        || super::runs_package_script(args, "cursor-agent"))
         && !args.iter().any(|arg| arg == "worker-server")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_is_known_by_its_package_s_script_on_windows() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert!(is_cursor_command(&args(&[
+            r"C:\Program Files\nodejs\node.exe",
+            r"C:\Users\me\AppData\Local\cursor-agent\versions\2025.10.01\index.js",
+        ])));
+        assert!(!is_cursor_command(&args(&[
+            r"C:\nodejs\node.exe",
+            r"C:\Users\me\AppData\Local\cursor-agent\versions\2025.10.01\index.js",
+            "worker-server",
+        ])));
+    }
 
     #[test]
     fn it_knows_the_flags_that_turn_its_checks_off() {

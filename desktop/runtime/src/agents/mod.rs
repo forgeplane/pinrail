@@ -24,3 +24,28 @@ pub use pi::Pi;
 pub(crate) use stand_in::SPEC as STAND_IN;
 #[cfg(feature = "stand-in")]
 pub use stand_in::StandIn;
+
+/// Whether `args` are an interpreter, node or bun, running a script from
+/// the package `package`: as npm's shim on Windows starts an agent, whose
+/// command line keeps the interpreter's name first, a process title
+/// changing only the console's title there. The script's path is read with
+/// either separator, in any case.
+pub(crate) fn runs_package_script(args: &[String], package: &str) -> bool {
+    let name = |path: &str| {
+        let file = path
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or(path)
+            .to_lowercase();
+        file.strip_suffix(".exe")
+            .map(str::to_string)
+            .unwrap_or(file)
+    };
+    let (Some(interpreter), Some(script)) = (args.first(), args.get(1)) else {
+        return false;
+    };
+    matches!(name(interpreter).as_str(), "node" | "bun")
+        && script
+            .split(['/', '\\'])
+            .any(|part| part.eq_ignore_ascii_case(package))
+}
