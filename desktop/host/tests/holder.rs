@@ -233,9 +233,26 @@ fn a_holder_resizes_and_closes_a_console_when_asked() {
     let folders = folders();
     let holder = holder(&folders, 30);
     let (stream, _) = connect(&holder, SECRET);
-    let (spawned, fds) = request(&stream, spawn_request(&folders, "t_1", "sleep 60"), &[]);
-    drop(fds);
+    // an answer or an exit that does not come fails the test
+    stream.set_read_timeout(Some(common::within(10))).unwrap();
+    // a program that never ends unless its console is closed, whatever is
+    // typed, and starts nothing while it waits: a program that starts as
+    // the console closes is not told, and runs on
+    let (spawned, fds) = request(
+        &stream,
+        spawn_request(
+            &folders,
+            "t_1",
+            "echo ready; read line; echo size:$(stty size); while :; do read line; done",
+        ),
+        &[],
+    );
     assert!(spawned["pid"].as_u64().is_some(), "{spawned}");
+    assert_eq!(fds.len(), OF_A_TERMINAL);
+    let master = terminal(&mut fds.into_iter());
+    // the program is on its console by now: one that has yet to attach
+    // is not told that the console closed
+    common::read_until(&master, "ready");
     let resize = |id: u64, params: Value| {
         let mut request = json!({"op": "resize", "id": id});
         request
@@ -250,10 +267,14 @@ fn a_holder_resizes_and_closes_a_console_when_asked() {
         &[],
     );
     assert_eq!(answer["ok"], true, "{answer}");
+    // the program finds its console that large
+    common::type_into(&master, b"\n");
+    common::read_until(&master, "size:30 100");
     let (answer, _) = request(&stream, resize(3, json!({"terminal": "t_1"})), &[]);
     assert_eq!(answer["error"], "invalid", "{answer}");
     // the answer, and the exit of the program, which goes with its
     // console, in whichever order they come
+    let closed = Instant::now();
     fdpass::send(
         &stream,
         &json!({"op": "close", "id": 5, "terminal": "t_1"}),
@@ -262,15 +283,27 @@ fn a_holder_resizes_and_closes_a_console_when_asked() {
     .unwrap();
     let (mut answered, mut exited) = (false, false);
     while !(answered && exited) {
-        let (message, _) = fdpass::recv(&stream).unwrap().unwrap();
+        let (message, _) = fdpass::recv(&stream)
+            .expect("the close was not answered or ended no program")
+            .unwrap();
         if message["event"] == "exited" {
             assert_eq!(message["terminal"], "t_1");
+            // ended, not done
+            assert!(
+                message["code"].as_i64().is_some_and(|code| code != 0),
+                "{message}"
+            );
             exited = true;
         } else if message.get("event").is_none() {
             assert_eq!(message["ok"], true, "{message}");
             answered = true;
         }
     }
+    assert!(
+        closed.elapsed() < common::within(10),
+        "the program ended {:?} after the close",
+        closed.elapsed()
+    );
 }
 
 #[test]
