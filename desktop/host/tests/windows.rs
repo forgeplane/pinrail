@@ -138,18 +138,23 @@ fn what_is_typed_reaches_the_program_and_ctrl_c_interrupts_it() {
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut client = connect(&host);
-    let (id, _) = spawn(&mut client, &["cmd", "/d", "/q"], &folders.runtime);
+    let (id, pid) = spawn(&mut client, &["cmd", "/d", "/q"], &folders.runtime);
     submit(&mut client, &id, "echo typed-%TERM%");
     wait_for(&mut client, &id, "typed-xterm-256color");
     // a program that runs until it is interrupted
     submit(&mut client, &id, "ping -t 127.0.0.1");
     wait_for(&mut client, &id, "TTL=");
+    let ping = child_of(pid as u32);
     client
         .call("terminal.signal", json!({"terminal": id, "signal": "INT"}))
         .unwrap();
-    // ping prints its statistics when it is interrupted, and cmd goes on:
-    // its loss, (0%, in every language Windows speaks
-    wait_for(&mut client, &id, "(0%");
+    // ping ends when it is interrupted, and cmd goes on. What ping prints
+    // then is no sign of it: Windows words it in the person's language.
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while pinrail_runtime::process::process(ping).is_some() {
+        assert!(Instant::now() < deadline, "the interrupt did not end ping");
+        std::thread::sleep(Duration::from_millis(50));
+    }
     submit(&mut client, &id, "echo after-%TERM%");
     wait_for(&mut client, &id, "after-xterm-256color");
     client
@@ -242,13 +247,7 @@ fn a_stop_ends_a_program_and_everything_it_started() {
         &folders.runtime,
     );
     wait_for(&mut client, &id, "TTL=");
-    // ping, which cmd started
-    let child = (0..50)
-        .find_map(|_| {
-            std::thread::sleep(Duration::from_millis(50));
-            running_child_of(pid as u32)
-        })
-        .expect("ping runs under cmd");
+    let child = child_of(pid as u32);
     client
         .call("terminal.stop", json!({"terminal": id, "grace_ms": 1000}))
         .unwrap();
@@ -259,6 +258,16 @@ fn a_stop_ends_a_program_and_everything_it_started() {
         assert!(Instant::now() < deadline, "ping outlived its terminal");
         std::thread::sleep(Duration::from_millis(50));
     }
+}
+
+/// The ping that the cmd `pid` started.
+fn child_of(pid: u32) -> u32 {
+    (0..50)
+        .find_map(|_| {
+            std::thread::sleep(Duration::from_millis(50));
+            running_child_of(pid)
+        })
+        .expect("ping runs under cmd")
 }
 
 /// The ping whose parent is `pid`.
