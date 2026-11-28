@@ -213,9 +213,22 @@ fn an_exit_while_no_host_is_connected_is_reported_to_the_next() {
     );
     drop(fds);
     drop(first);
-    // past the program's exit: Git's sh starts slowly on Windows
-    std::thread::sleep(common::within(1));
+    // until the holder has seen the exit, however long the program takes
+    // to start: only then is the exit one that waits for the next host.
+    // The hosts that ask meanwhile are gone again before the next one.
+    let deadline = Instant::now() + common::within(10);
+    loop {
+        let (asking, _) = connect(&holder, SECRET);
+        let (listed, _) = request(&asking, json!({"op": "list", "id": 2}), &[]);
+        if listed["terminals"][0].get("exit").is_some() {
+            break;
+        }
+        assert!(Instant::now() < deadline, "the program did not exit");
+        drop(asking);
+        std::thread::sleep(Duration::from_millis(50));
+    }
     let (second, _) = connect(&holder, SECRET);
+    second.set_read_timeout(Some(common::within(10))).unwrap();
     let (event, _) = fdpass::recv(&second).unwrap().unwrap();
     assert_eq!(
         event,
