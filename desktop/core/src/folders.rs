@@ -28,7 +28,7 @@ pub fn recent(db: &Db, history: Option<&Path>) -> rusqlite::Result<Vec<Value>> {
         .filter(|(folder, _, _)| {
             let path = Path::new(folder);
             !(crate::agent_history::is_scratch(path)
-                && history.is_some_and(|home| !path.starts_with(home)))
+                && history.is_some_and(|home| !crate::agent_history::under(path, home)))
         })
         .map(|(folder, repo, used_at)| {
             let path = Path::new(&folder);
@@ -54,7 +54,12 @@ pub fn recent(db: &Db, history: Option<&Path>) -> rusqlite::Result<Vec<Value>> {
         .map(|home| crate::agent_history::recent_folders(home, SUGGESTED))
         .unwrap_or_default();
     for used in suggested {
-        if folders.iter().any(|seen| seen["folder"] == used.folder) {
+        let path = Path::new(&used.folder);
+        if folders.iter().any(|seen| {
+            seen["folder"]
+                .as_str()
+                .is_some_and(|seen| crate::agent_history::same_folder(Path::new(seen), path))
+        }) {
             continue;
         }
         folders.push(json!({

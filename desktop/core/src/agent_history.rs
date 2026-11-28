@@ -37,7 +37,7 @@ pub fn recent_folders(home: &Path, limit: usize) -> Vec<Used> {
     // a home folder that is itself in a temporary folder, as a test's is,
     // has its projects there
     recent_where(home, limit, &|folder| {
-        !is_scratch(folder) || folder.starts_with(home)
+        !is_scratch(folder) || under(folder, home)
     })
 }
 
@@ -57,14 +57,17 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
     for (agent, folders) in readers {
         for (folder, at) in folders {
             let path = Path::new(&folder);
-            if !path.is_absolute() || path.parent().is_none() || path == home {
+            if !path.is_absolute() || path.parent().is_none() || same_folder(path, home) {
                 continue;
             }
             if !path.is_dir() || !keep(path) {
                 continue;
             }
             let used_at = DateTime::<Utc>::from(at);
-            match found.iter_mut().find(|used| used.folder == folder) {
+            match found
+                .iter_mut()
+                .find(|used| same_folder(Path::new(&used.folder), path))
+            {
                 Some(used) if used.used_at < used_at => {
                     used.agent = agent;
                     used.used_at = used_at;
@@ -83,6 +86,46 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
     found
 }
 
+/// A folder's path as it compares on Windows: its long form when it is
+/// there to read, as a temporary folder can come as ALICE~1, without the
+/// \\?\ of a long path, in lower case, with \ between its parts.
+#[cfg(windows)]
+fn comparable(path: &Path) -> String {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let text = path.to_string_lossy();
+    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    text.replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_lowercase()
+}
+
+/// Whether two paths name one folder: on Windows in any capitals, with
+/// either separator.
+pub(crate) fn same_folder(a: &Path, b: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        comparable(a) == comparable(b)
+    }
+    #[cfg(not(windows))]
+    {
+        a == b
+    }
+}
+
+/// Whether `folder` is `base` or inside it, compared as [`same_folder`]
+/// compares.
+pub(crate) fn under(folder: &Path, base: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let (folder, base) = (comparable(folder), comparable(base));
+        folder == base || folder.starts_with(&format!("{base}\\"))
+    }
+    #[cfg(not(windows))]
+    {
+        folder.starts_with(base)
+    }
+}
+
 /// Whether `folder` is under a temporary folder, where an agent's work is
 /// a test or a one-off.
 pub(crate) fn is_scratch(folder: &Path) -> bool {
@@ -95,10 +138,10 @@ pub(crate) fn is_scratch(folder: &Path) -> bool {
     ]
     .iter()
     .any(|scratch| folder.starts_with(scratch))
-        || folder.starts_with(std::env::temp_dir())
+        || under(folder, &std::env::temp_dir())
         // Windows' own, beside the person's
         || std::env::var_os("SystemRoot")
-            .is_some_and(|root| folder.starts_with(std::path::Path::new(&root).join("Temp")))
+            .is_some_and(|root| under(folder, &std::path::Path::new(&root).join("Temp")))
 }
 
 /// The entries of `dir` that `wanted` keeps, each with when it last
@@ -266,6 +309,28 @@ fn opencode(data: &Path) -> Vec<(String, SystemTime)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Windows takes a path in any capitals, with either separator, and
+    /// its temporary folder can come in its short form, ALICE~1.
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_folder_is_compared_as_windows_names_it() {
+        let temp = std::env::temp_dir();
+        let shouting = PathBuf::from(temp.display().to_string().to_uppercase()).join("work");
+        assert!(is_scratch(&shouting), "{}", shouting.display());
+        assert!(same_folder(
+            Path::new(r"C:\Code\API"),
+            Path::new("c:/code/api/")
+        ));
+        assert!(under(
+            Path::new(r"C:\USERS\me\code"),
+            Path::new(r"c:\users\me")
+        ));
+        assert!(!under(
+            Path::new(r"C:\Users\meant"),
+            Path::new(r"C:\Users\me")
+        ));
+    }
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
 
