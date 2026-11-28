@@ -127,13 +127,15 @@ fn type_first_task(state: &Arc<Pinrail>, request: &crate::runtime::Start, run: &
     let Some(agent) = pinrail_runtime::adapter(&request.agent) else {
         return;
     };
-    let task = agent
-        .start(&pinrail_runtime::StartRequest {
+    let task = pinrail_runtime::start_plan(
+        agent,
+        &pinrail_runtime::StartRequest {
             task: request.task.as_deref(),
             extra_args: &request.args,
             session_id: "",
-        })
-        .and_then(|plan| plan.type_task);
+        },
+    )
+    .and_then(|plan| plan.type_task);
     let (Some(task), Some((agent, session))) = (task, &run.session) else {
         return;
     };

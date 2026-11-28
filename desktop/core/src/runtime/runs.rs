@@ -256,15 +256,17 @@ impl super::Runtime {
                 };
                 crate::preamble::before(&note, task)
             });
-        let plan = agent
-            .start(&pinrail_runtime::StartRequest {
+        let plan = pinrail_runtime::start_plan(
+            agent,
+            &pinrail_runtime::StartRequest {
                 task: task.as_deref(),
                 extra_args: &args,
                 session_id: &session_id,
-            })
-            .ok_or_else(|| {
-                RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
-            })?;
+            },
+        )
+        .ok_or_else(|| {
+            RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
+        })?;
 
         let argv = self.with_session_files(agent, plan.argv);
         let id = crate::id::next_run();

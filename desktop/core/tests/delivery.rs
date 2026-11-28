@@ -564,3 +564,43 @@ async fn the_first_task_of_an_agent_that_takes_none_is_typed_once_it_is_idle() {
     assert_eq!(heard.matches("Fix the login.").count(), 1, "{heard:?}");
     assert_eq!(thread().await.len(), 1);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_first_task_with_a_line_break_reaches_an_agent_behind_a_batch_file() {
+    // on Windows the stand-in claude is a batch file, as npm installs it,
+    // and cmd cannot carry a line break in an argument
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("records"), "").unwrap();
+    let task = "Fix the login.\nThen the logout.";
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "task": task})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    file(folder.join("token")).await;
+    let argv = file(folder.join("argv")).await;
+    if cfg!(windows) {
+        // typed as the first prompt once the agent is idle
+        assert!(!argv.contains("Fix the login."), "{argv:?}");
+        common::record(&folder, "state=idle:app=claude-code").await;
+        // the agent writes down each line as it comes
+        file(folder.join("heard")).await;
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        let heard = loop {
+            let heard = std::fs::read_to_string(folder.join("heard")).unwrap();
+            if heard.contains("Then the logout.") || std::time::Instant::now() > deadline {
+                break heard;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        };
+        assert!(heard.contains("Fix the login."), "{heard:?}");
+        assert!(heard.contains("Then the logout."), "{heard:?}");
+    } else {
+        assert!(argv.contains(task), "{argv:?}");
+    }
+}

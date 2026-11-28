@@ -395,6 +395,40 @@ pub(crate) fn push_task(argv: &mut Vec<String>, task: Option<&str>) {
     }
 }
 
+/// How to start `agent` for `request`: its own plan, but with a first
+/// task the command could not carry left out of it and typed as the
+/// first prompt instead (see [`fits_command`]).
+pub fn start_plan(agent: &dyn Agent, request: &StartRequest) -> Option<StartPlan> {
+    start_plan_on(agent, request, cfg!(windows))
+}
+
+fn start_plan_on(agent: &dyn Agent, request: &StartRequest, windows: bool) -> Option<StartPlan> {
+    match request.task.filter(|t| !t.trim().is_empty()) {
+        Some(task) if !fits_command(task, windows) => {
+            let mut plan = agent.start(&StartRequest {
+                task: None,
+                ..*request
+            })?;
+            plan.type_task = Some(task.to_string());
+            Some(plan)
+        }
+        _ => agent.start(request),
+    }
+}
+
+/// The longest task, in bytes, that goes in a command on Windows.
+const LONGEST_COMMAND_TASK: usize = 4_000;
+
+/// Whether `task` can go in an agent's command, on Windows or not. An
+/// agent installed with npm is a batch file there, which runs through
+/// cmd: cmd cannot carry a line break in an argument, and takes a line
+/// of 8,191 characters at most, the agent's own arguments included.
+/// Which programs are batch files is known only once the host finds
+/// them, so such a task is never given on Windows.
+fn fits_command(task: &str, windows: bool) -> bool {
+    !windows || !(task.contains(['\r', '\n']) || task.len() > LONGEST_COMMAND_TASK)
+}
+
 /// Whether `id` can be given to an agent as a session id: letters,
 /// digits, `-`, `_` and `.`, not starting with `-`. A session's id comes
 /// from its hooks' reports, so an id that an agent could read as a flag,
@@ -643,6 +677,51 @@ mod windows_split_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_task_cmd_could_not_carry_is_typed_on_windows() {
+        let lines = "first line\nsecond line";
+        let long = "a".repeat(LONGEST_COMMAND_TASK + 1);
+        assert!(fits_command("one line", true));
+        assert!(fits_command(&"a".repeat(LONGEST_COMMAND_TASK), true));
+        assert!(!fits_command(lines, true));
+        assert!(!fits_command("a\r", true));
+        assert!(!fits_command(&long, true));
+        // elsewhere the command takes them all
+        assert!(fits_command(lines, false));
+        assert!(fits_command(&long, false));
+    }
+
+    #[test]
+    fn every_agent_types_a_task_its_command_could_not_carry() {
+        let task = "first line\nsecond line";
+        let request = StartRequest {
+            task: Some(task),
+            extra_args: &[],
+            session_id: "6f1c2a4e-0b7d-4c8e-9f3a-2d5b6c7e8f90",
+        };
+        let mut started = 0;
+        for spec in crate::all() {
+            // the agents Pinrail starts
+            let Some(plan) = adapter(spec.id).and_then(|a| a.start(&request)) else {
+                continue;
+            };
+            let agent = adapter(spec.id).unwrap();
+            started += 1;
+            assert!(plan.argv.iter().any(|a| a.contains('\n')), "{}", spec.id);
+            let plan = start_plan_on(agent, &request, true).unwrap();
+            assert!(
+                !plan.argv.iter().any(|a| a.contains('\n')),
+                "{}: {:?}",
+                spec.id,
+                plan.argv
+            );
+            assert_eq!(plan.type_task.as_deref(), Some(task), "{}", spec.id);
+            // and elsewhere it goes as each agent takes it
+            assert_eq!(start_plan_on(agent, &request, false), agent.start(&request));
+        }
+        assert!(started >= 7, "{started}");
+    }
 
     /// The agents without an adapter, which take the skill alone: their
     /// configuration folders and where the skill goes.
