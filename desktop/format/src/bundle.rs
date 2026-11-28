@@ -47,9 +47,14 @@ pub enum Taken {
     /// A plugin's source folder: what is outside the layout (sources,
     /// `node_modules`, tests, configuration, dot files) is left behind.
     FromSource,
-    /// A bundle as stored or downloaded: anything outside the layout is
-    /// refused.
+    /// A bundle as downloaded or carried, about to be stored: anything
+    /// outside the layout is refused.
     AsBundle,
+    /// A bundle already in the store, read back to compare with its
+    /// listing: as [`Taken::AsBundle`], but its names are not held to what
+    /// every system can hold, which is asked when a bundle is taken in. One
+    /// stored on macOS or Linux before that was asked may hold `aux.js`.
+    Stored,
 }
 
 /// One file of a bundle.
@@ -82,12 +87,12 @@ impl Listing {
         let mut total: u64 = 0;
         for (raw, bytes) in files {
             // what a source leaves out is not held to portable names
-            let path = shaped(raw)?;
+            let path = normalized(raw)?;
             let top = path.split('/').next().unwrap_or_default();
             if !in_layout(top) {
                 match taken {
                     Taken::FromSource => continue,
-                    Taken::AsBundle => {
+                    Taken::AsBundle | Taken::Stored => {
                         return Err(format!("{path}: not part of a bundle's layout"));
                     }
                 }
@@ -97,14 +102,17 @@ impl Listing {
             if path.split('/').any(|part| part.starts_with('.')) {
                 match taken {
                     Taken::FromSource => continue,
-                    Taken::AsBundle => {
+                    Taken::AsBundle | Taken::Stored => {
                         return Err(format!(
                             "{path}: a hidden file, which a bundle does not hold"
                         ));
                     }
                 }
             }
-            portable_path(raw, &path)?;
+            // asked of what comes in, not of what the store already holds
+            if taken != Taken::Stored {
+                portable_path(raw, &path)?;
+            }
             // a top-level name of a file only, or of a folder only
             if TOP_FILES.contains(&top) != !path.contains('/') {
                 return Err(format!("{path}: not where the layout puts it"));
@@ -216,15 +224,11 @@ impl Listing {
 }
 
 /// A path as a bundle records it: relative, `/` between its parts, in
-/// Unicode normalization form C, with no empty, `.` or `..` part.
+/// Unicode normalization form C, with no empty, `.` or `..` part. Whether
+/// every system can hold its names is not asked here but of a bundle taken
+/// in ([`Listing::from_files`]): this finds a file in a stored bundle's
+/// listing, which may be older than that rule.
 pub fn normalized(raw: &str) -> Result<String, String> {
-    let path = shaped(raw)?;
-    portable_path(raw, &path)?;
-    Ok(path)
-}
-
-/// `raw` normalized, without asking whether every system can hold it.
-fn shaped(raw: &str) -> Result<String, String> {
     let path: String = raw.nfc().collect();
     if path.is_empty() || path.starts_with('/') || path.contains('\\') {
         return Err(format!(
@@ -556,6 +560,37 @@ mod tests {
         )
         .unwrap_err();
         assert!(refused.contains("differ only in case"), "{refused}");
+    }
+
+    /// The names only Windows refuses are asked of a bundle taken in, from
+    /// a source or as a bundle. One the store already holds, from before
+    /// that was asked on macOS and Linux, is read back with the names it
+    /// has, and its files are found by them.
+    #[test]
+    fn a_stored_bundle_is_not_held_to_portable_names() {
+        let files = [
+            ("manifest.json", "{}"),
+            ("view/a:b.txt", "x"),
+            ("view/aux.js", "x"),
+            ("view/con.css", "x"),
+            ("view/index.html", "<html>"),
+        ];
+        assert!(listing(&files, Taken::AsBundle).is_err());
+        assert!(listing(&files, Taken::FromSource).is_err());
+        let stored = listing(&files, Taken::Stored).unwrap();
+        assert_eq!(stored.files.len(), 5);
+        assert!(stored.file("view/aux.js").is_some());
+        assert_eq!(normalized("view/aux.js").unwrap(), "view/aux.js");
+        assert_eq!(normalized("view/a:b.txt").unwrap(), "view/a:b.txt");
+
+        // every other rule of a bundle holds for a stored one
+        for bad in ["notes/a.txt", "view/.cache/a.js", "view/../manifest.json"] {
+            let refused = listing(&[(bad, "x")], Taken::Stored).unwrap_err();
+            assert!(refused.starts_with(bad), "{bad}: {refused}");
+        }
+        for bad in ["view/../manifest.json", "/view/a.js", "view\\a.js", ""] {
+            assert!(normalized(bad).is_err(), "{bad}");
+        }
     }
 
     /// A source's files outside the layout, or hidden, are left out before

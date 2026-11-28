@@ -305,6 +305,10 @@ The `pinrail` command ships inside the app and carries the app's version.
   it waits for your permission.
 - On the New session page, Enter in the first message starts the session,
   and Shift+Enter starts a new line.
+- A plugin's files must have names every system can hold, on macOS and
+  Linux too: installing or updating refuses a plugin with a file such as
+  `view/aux.js`, `view/con.css` or `a:b.txt`, which Windows cannot keep.
+  A plugin installed before keeps working as it is.
 
 ### Security
 

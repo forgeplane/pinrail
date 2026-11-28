@@ -1434,6 +1434,58 @@ async fn a_changed_bundle_file_is_not_served() {
     assert!(!String::from_utf8_lossy(&body).contains("changed"));
 }
 
+/// A bundle stored on macOS or Linux before names were held to Windows'
+/// rules still serves the files it has under such names.
+#[cfg(not(windows))]
+#[tokio::test]
+async fn a_bundle_stored_with_a_name_windows_refuses_serves_it() {
+    use pinrail_format::bundle::File;
+    use sha2::{Digest, Sha256};
+    let app = app();
+    let files = [
+        ("manifest.json", r#"{"name": "hello", "version": "1.0.0"}"#),
+        ("view/a:b.txt", "text"),
+        ("view/aux.js", "let a;"),
+        ("view/index.html", "<p>hello</p>"),
+    ];
+    // as an earlier Pinrail stored it: the folder and the row
+    let listing = Listing {
+        files: files
+            .iter()
+            .map(|(path, text)| File {
+                path: path.to_string(),
+                size: text.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(text.as_bytes())),
+            })
+            .collect(),
+    };
+    let hash = listing.hash();
+    let folder = app.state.bundles().path(&hash);
+    std::fs::create_dir_all(folder.join("view")).unwrap();
+    for (path, text) in files {
+        std::fs::write(folder.join(path), text).unwrap();
+    }
+    let record = pinrail_core::db::BundleRecord {
+        hash: hash.clone(),
+        name: "hello".into(),
+        version: "1.0.0".into(),
+        manifest: files[0].1.into(),
+        size: listing.size(),
+        stored_at: String::new(),
+    };
+    db(&app).insert_bundle(&record, &listing.text()).unwrap();
+
+    for (path, text) in [("view/aux.js", "let a;"), ("view/a:b.txt", "text")] {
+        let response = bundle_get(&app, &format!("/bundles/{hash}/{path}"), &[]).await;
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body, text.as_bytes(), "{path}");
+    }
+    // and no name it does not list
+    let response = bundle_get(&app, &format!("/bundles/{hash}/view/nul"), &[]).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
 /// A plugin's files are for its own view, which loads them as a page,
 /// scripts, styles, fonts and images from an opaque origin: another
 /// website cannot read them.
