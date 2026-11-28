@@ -139,8 +139,8 @@ impl Config {
         let set = |v: Option<PathBuf>| v.filter(|v| !v.as_os_str().is_empty());
         let data_dir = set(data_dir)
             .or_else(|| set(local_app_data).map(|d| d.join("dev.pinrail.desktop")))
-            .or_else(|| xdg_data_home.map(|d| d.join("pinrail")))
-            .or_else(|| home.map(|h| h.join(".local/share/pinrail")))
+            .or_else(|| set(xdg_data_home).map(|d| d.join("pinrail")))
+            .or_else(|| set(home).map(|h| h.join(".local/share/pinrail")))
             .unwrap_or_else(|| PathBuf::from("pinrail-data"));
         let port = port.and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
         Self::new(data_dir, port)
@@ -226,6 +226,14 @@ mod tests {
         );
         assert_eq!(c.data_dir, PathBuf::from("/tmp/w"));
         assert_eq!(c.port, DEFAULT_PORT);
+    }
+
+    #[test]
+    fn an_empty_variable_counts_as_unset_as_for_the_cli_and_the_host() {
+        let c = Config::from_vars(None, None, Some("".into()), Some("/home/u".into()), None);
+        assert_eq!(c.data_dir, PathBuf::from("/home/u/.local/share/pinrail"));
+        let c = Config::from_vars(None, None, None, Some("".into()), None);
+        assert_eq!(c.data_dir, PathBuf::from("pinrail-data"));
     }
 
     #[test]
