@@ -819,10 +819,12 @@ fn newest_child(root: u32, procs: &[Proc]) -> Option<u32> {
 /// snapshot of the whole system would cost more for. The list grows for a
 /// job with more than fit at first.
 unsafe fn job_processes(job: HANDLE) -> Vec<Proc> {
-    // JOBOBJECT_BASIC_PROCESS_ID_LIST: two counts, then the ids
+    // JOBOBJECT_BASIC_PROCESS_ID_LIST: two u32 counts, then the ids, each
+    // a ULONG_PTR, from the eighth byte on, on 32 and on 64 bits
+    const HEADER: usize = 8 / size_of::<usize>();
     let mut room = 64usize;
     loop {
-        let mut list = vec![0usize; 1 + room];
+        let mut list = vec![0usize; HEADER + room];
         // SAFETY: the list is plain data the call fills as far as it fits.
         unsafe {
             QueryInformationJobObject(
@@ -833,14 +835,17 @@ unsafe fn job_processes(job: HANDLE) -> Vec<Proc> {
                 null_mut(),
             )
         };
-        // the two u32 counts share the first word
-        let assigned = (list[0] & 0xffff_ffff) as usize;
-        let listed = ((list[0] >> 32) & 0xffff_ffff) as usize;
+        // SAFETY: the list holds at least the 8 bytes of the two counts,
+        // and a usize is aligned for a u32.
+        let (assigned, listed) = unsafe {
+            let counts = list.as_ptr().cast::<u32>();
+            (*counts as usize, *counts.add(1) as usize)
+        };
         if assigned > listed && room < 65_536 {
             room = assigned.max(room * 2);
             continue;
         }
-        return list[1..1 + listed.min(room)]
+        return list[HEADER..HEADER + listed.min(room)]
             .iter()
             .filter_map(|&pid| about(pid as u32))
             .collect();
