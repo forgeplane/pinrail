@@ -491,7 +491,11 @@ jobs:
           ls "$dir"/conpty/*/OpenConsole.exe
           "$dir/pinrail-cli.exe" --version
           data=$(mktemp -d)
-          "$dir/Pinrail.exe" --headless --port 4792 --data-dir "$(cygpath -w "$data")" &
+          # its output in a file, so that the step's own streams close, and
+          # the app stopped however the step ends
+          "$dir/Pinrail.exe" --headless --port 4792 --data-dir "$(cygpath -w "$data")" > "$data.log" 2>&1 &
+          app=$!
+          trap 'kill $app 2> /dev/null || true; cat "$data.log"' EXIT
           for _ in $(seq 1 100); do
             curl -fsS "http://127.0.0.1:4792/api/v1/info" > /dev/null 2>&1 && break
             sleep 0.2
@@ -499,7 +503,6 @@ jobs:
           curl -fsS "http://127.0.0.1:4792/api/v1/info"
           echo
           curl -fsS -o /dev/null "http://127.0.0.1:4792/sdk/v1/pinrail-plugin.js"
-          kill $!
       # The CLI on its own, for machines without the app, such as a plugin's
       # CI running `pinrail plugins check`. On macOS it is the copy inside
       # the app, which the bundle's signing and notarization cover; on Linux,
