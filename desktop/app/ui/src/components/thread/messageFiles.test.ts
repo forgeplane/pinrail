@@ -14,6 +14,14 @@ test("a Windows path is as Windows Terminal drops one: in double quotes only whe
   expect(quotePath(String.raw`C:\Users\me\shot.png`, true)).toBe(String.raw`C:\Users\me\shot.png`);
   expect(quotePath(String.raw`C:\Users\me\My Docs\it's.png`, true)).toBe(String.raw`"C:\Users\me\My Docs\it's.png"`);
   expect(quotePath(String.raw`C:\a&b\x.png`, true)).toBe(String.raw`"C:\a&b\x.png"`);
+  // what PowerShell or cmd would read otherwise: a variable, a delayed
+  // expansion, a wildcard, a block, a comment, a splat
+  for (const name of ["$final", "%TEMP%", "wow!", "[1]", "{a}", "#1", "@a"]) {
+    const path = String.raw`C:\Users\me\report` + name + ".txt";
+    expect(quotePath(path, true)).toBe(`"${path}"`);
+  }
+  // a short name, as a temporary folder can come in
+  expect(quotePath(String.raw`C:\Users\ALICE~1\x.png`, true)).toBe(String.raw`C:\Users\ALICE~1\x.png`);
 });
 
 test("the paths follow the text, one per line, leaving out a file not saved yet", () => {
