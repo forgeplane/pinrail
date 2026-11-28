@@ -3543,14 +3543,31 @@ fn a_review_names_the_top_of_the_checkout_as_its_folder() {
     assert_eq!(folder, top);
 }
 
-/// An ISO time as the command prints it: by this machine's clock, whose
-/// zone a test cannot set on Windows, which ignores `TZ`.
+/// The zone the status tests give the command, as POSIX writes one: 5:45
+/// ahead of UTC, so that a time printed in UTC, or in the zone of the
+/// machine that runs the tests, is caught. Windows ignores `TZ`.
+const ZONE: &str = "NPT-05:45";
+
+/// An ISO time as the command prints it: in [`ZONE`], or on Windows by
+/// this machine's clock, whose zone a test cannot set there.
 fn local(iso: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(iso)
-        .unwrap()
-        .with_timezone(&chrono::Local)
-        .format("%Y-%m-%d %H:%M")
-        .to_string()
+    let time = chrono::DateTime::parse_from_rfc3339(iso).unwrap();
+    if cfg!(windows) {
+        time.with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+    } else {
+        let zone = chrono::FixedOffset::east_opt(5 * 3600 + 45 * 60).unwrap();
+        time.with_timezone(&zone)
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_status_tests_expect_times_in_a_zone_ahead_of_utc() {
+    assert_eq!(local("2026-11-02T10:04:00Z"), "2026-11-02 15:49");
 }
 
 #[test]
@@ -3581,6 +3598,7 @@ fn a_status_prints_the_messages_it_receives_then_acknowledges_them() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
@@ -3628,6 +3646,7 @@ fn status_answers_in_json_and_prints_messages_without_terminal_escapes() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
@@ -3674,6 +3693,7 @@ fn status_prints_the_open_stage_above_the_messages() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
