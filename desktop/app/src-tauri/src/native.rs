@@ -316,6 +316,25 @@ fn tray_image(bytes: &[u8]) -> tauri::Result<tauri::image::Image<'static>> {
     }
 }
 
+/// Redraws the tray icon when the taskbar's colour changes, which Windows
+/// can change apart from the apps' theme, so the window is not told.
+#[cfg(windows)]
+fn watch_taskbar(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut light = light_taskbar();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(30));
+            let now = light_taskbar();
+            if now != light {
+                light = now;
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || refresh_tray(&handle));
+            }
+        }
+    });
+}
+
 /// Whether Windows draws its taskbar light: the system's theme, apart from
 /// the apps'. Dark when the setting cannot be read, as Windows 10's was.
 #[cfg(windows)]
@@ -363,6 +382,8 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .build(app)?;
     watch_tray(app);
+    #[cfg(windows)]
+    watch_taskbar(app);
     refresh_tray(app);
     Ok(tray)
 }
