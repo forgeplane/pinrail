@@ -71,7 +71,6 @@ fn main() {
         let conpty = dir.join("conpty");
         copy_if_changed(&dll, &conpty.join("conpty.dll"));
         for (name, console) in &consoles {
-            fs::create_dir_all(conpty.join(name)).unwrap();
             copy_if_changed(console, &conpty.join(name).join("OpenConsole.exe"));
         }
     }
@@ -148,6 +147,9 @@ fn copy_if_changed(from: &Path, to: &Path) {
     if fs::read(to).ok().as_ref() == Some(&wanted) {
         return;
     }
+    // a clean build has no folder for it yet
+    let folder = to.parent().unwrap();
+    fs::create_dir_all(folder).unwrap_or_else(|e| panic!("making {}: {e}", folder.display()));
     let partial = to.with_extension(format!("partial-{}", std::process::id()));
     fs::write(&partial, &wanted).unwrap_or_else(|e| panic!("writing {}: {e}", partial.display()));
     if let Err(error) = fs::rename(&partial, to) {
