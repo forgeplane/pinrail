@@ -109,8 +109,7 @@ jobs:
       matrix:
         # Linux on x86-64, and on ARM64 once the repository is public,
         # where GitHub's ARM64 runners are free; macos-latest is Apple
-        # silicon. Windows is tested here, though the release does not
-        # build it yet.
+        # silicon. Windows on x64; the release builds ARM64 Windows too.
         os: ${{ fromJSON(github.event.repository.private && '["ubuntu-latest", "macos-latest", "windows-latest"]' || '["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

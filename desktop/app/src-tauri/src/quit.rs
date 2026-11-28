@@ -63,7 +63,6 @@ fn live(app: &AppHandle) -> Option<(String, Vec<serde_json::Value>)> {
         .into_iter()
         .map(|(run, title)| json!({"agent": run.agent, "title": title, "folder": run.folder}))
         .collect();
-    // agents run in Pinrail only on Unix
     Some((on_quit, running))
 }
 
@@ -88,7 +87,6 @@ fn stop_all(app: &AppHandle) {
     }
 }
 
-/// Agents run in Pinrail only on Unix: there are none to stop elsewhere.
 /// Handles an exit request: lets it through, stops the agents first, or
 /// keeps the app open and asks in the window.
 pub fn on_exit_requested(app: &AppHandle, code: Option<i32>, api: &tauri::ExitRequestApi) {

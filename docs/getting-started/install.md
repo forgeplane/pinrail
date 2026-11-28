@@ -127,7 +127,7 @@ An empty list means that the command found the app. If the command cannot reach 
 2. Quit Pinrail with **Stop agents and quit**. With no agent left and the app closed, the terminal host stops by itself within ten minutes. It leaves no `launchd` job and no `systemd` unit behind.
 3. Remove the app: drag it out of Applications on macOS, delete the AppImage, remove the `.deb` or `.rpm` package with your package manager, or on Windows uninstall Pinrail in *Settings › Apps*.
 4. Delete the data directory, `~/.local/share/pinrail` by default, or `%LOCALAPPDATA%\dev.pinrail.desktop` on Windows, where the uninstaller's *Delete the application data* box does it for you. It holds your sessions, work items, reviews and settings, and the copies of the terminal host.
-5. Delete `~/.local/bin/pinrail`, unless the package installed the command, and the line that adds `~/.local/bin` to your `PATH` if the setup added it to your shell's profile.
+5. Delete `~/.local/bin/pinrail`, unless the package installed the command, and the line that adds `~/.local/bin` to your `PATH` if the setup added it to your shell's profile. On Windows, delete `~\.local\bin\pinrail.exe`, and take `~\.local\bin` out of your user `PATH` in *Settings › System › About › Advanced system settings › Environment Variables*.
 
 ## Next
 
