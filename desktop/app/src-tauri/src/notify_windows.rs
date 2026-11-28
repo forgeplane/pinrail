@@ -4,6 +4,11 @@
 //! notify_mac.rs and notify_linux.rs do. The system's switch for the app's
 //! notifications is read as macOS's permission is.
 //!
+//! A review's toast outlives the app in the Action Center, so a click on
+//! it is not left to the app's own handler, which is gone once the app
+//! quit: the toast carries the review's `pinrail://` link, and Windows
+//! opens that, which starts the app or reaches the one running.
+//!
 //! A toast names the app it is from by an AppUserModelID, which Windows
 //! knows from the Start menu shortcut the installer makes. A development
 //! build has none, so it shows its toasts as PowerShell's, as the
@@ -99,15 +104,36 @@ fn escape(text: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-/// The toast's XML: its title and body, silent when asked.
-fn toast_xml(title: &str, body: &str, sound: bool) -> String {
+/// The link that opens a review, as native::route_for_url reads it.
+fn link_of(review_id: &str) -> String {
+    format!("pinrail://reviews/{review_id}")
+}
+
+/// Whether Windows opens `pinrail://` links with this app: an installed
+/// app's installer registered the scheme, and a development build
+/// registers it as it starts.
+fn links_open_here(app: &AppHandle) -> bool {
+    use tauri_plugin_deep_link::DeepLinkExt;
+    let installed = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(installed))
+        .unwrap_or(false);
+    installed || app.deep_link().is_registered("pinrail").unwrap_or(false)
+}
+
+/// The toast's XML: its title and body, silent when asked. With a link, a
+/// click has Windows open the link, whether or not the app still runs.
+fn toast_xml(title: &str, body: &str, sound: bool, link: Option<&str>) -> String {
     let audio = if sound {
         ""
     } else {
         r#"<audio silent="true"/>"#
     };
+    let launch = link
+        .map(|link| format!(r#" activationType="protocol" launch="{}""#, escape(link)))
+        .unwrap_or_default();
     format!(
-        r#"<toast><visual><binding template="ToastGeneric"><text>{}</text><text>{}</text></binding></visual>{audio}</toast>"#,
+        r#"<toast{launch}><visual><binding template="ToastGeneric"><text>{}</text><text>{}</text></binding></visual>{audio}</toast>"#,
         escape(title),
         escape(body)
     )
@@ -128,8 +154,19 @@ fn show(
     review_id: Option<String>,
     sound: bool,
 ) -> windows::core::Result<()> {
+    // a review's toast opens the review by its link wherever Windows
+    // brings the link to this app; elsewhere the handler below does
+    let link = review_id
+        .as_deref()
+        .filter(|_| links_open_here(app))
+        .map(link_of);
     let document = XmlDocument::new()?;
-    document.LoadXml(&HSTRING::from(toast_xml(title, body, sound)))?;
+    document.LoadXml(&HSTRING::from(toast_xml(
+        title,
+        body,
+        sound,
+        link.as_deref(),
+    )))?;
     let toast = ToastNotification::CreateToastNotification(&document)?;
     let key = NEXT.fetch_add(1, Ordering::Relaxed);
     if let Some(id) = &review_id {
@@ -137,11 +174,16 @@ fn show(
         toast.SetGroup(&HSTRING::from(GROUP))?;
     }
     // a click opens the review, or the window for a toast of no review;
-    // Windows calls it on a thread of its own
+    // Windows calls it on a thread of its own. A toast with a link is
+    // opened by Windows, and opening it here as well would open it twice.
     let clicked = app.clone();
+    let linked = link.is_some();
     toast.Activated(&TypedEventHandler::<ToastNotification, IInspectable>::new(
         move |_, _| {
             forget(key);
+            if linked {
+                return Ok(());
+            }
             let opener = clicked.clone();
             let id = review_id.clone();
             let _ = clicked.run_on_main_thread(move || match id {
@@ -211,7 +253,7 @@ mod tests {
 
     #[test]
     fn a_toast_with_control_characters_in_its_text_still_loads() {
-        let xml = super::toast_xml("\u{1b}[31mfailed\u{1b}[0m", "a\0b\u{7}c", true);
+        let xml = super::toast_xml("\u{1b}[31mfailed\u{1b}[0m", "a\0b\u{7}c", true, None);
         let document = super::XmlDocument::new().unwrap();
         document
             .LoadXml(&super::HSTRING::from(xml.as_str()))
@@ -244,7 +286,9 @@ mod tests {
     fn a_toast_is_made_on_a_plain_thread() {
         let made = std::thread::spawn(|| {
             let document = super::XmlDocument::new()?;
-            document.LoadXml(&super::HSTRING::from(super::toast_xml("t", "b", true)))?;
+            document.LoadXml(&super::HSTRING::from(super::toast_xml(
+                "t", "b", true, None,
+            )))?;
             super::ToastNotification::CreateToastNotification(&document).map(|_| ())
         })
         .join()
@@ -254,12 +298,41 @@ mod tests {
 
     #[test]
     fn the_toast_is_its_title_and_body_escaped() {
-        let xml = super::toast_xml("A & B", "<review>", false);
+        let xml = super::toast_xml("A & B", "<review>", false, None);
         assert!(
             xml.contains("<text>A &amp; B</text><text>&lt;review&gt;</text>"),
             "{xml}"
         );
         assert!(xml.contains(r#"<audio silent="true"/>"#));
-        assert!(!super::toast_xml("t", "b", true).contains("audio"));
+        assert!(!super::toast_xml("t", "b", true, None).contains("audio"));
+        assert!(xml.starts_with("<toast><visual>"), "{xml}");
+    }
+
+    /// Windows opens the link of a clicked toast itself, so the click
+    /// works after the app has quit.
+    #[test]
+    fn a_review_s_toast_has_windows_open_the_review_s_link() {
+        let link = super::link_of("rev_1");
+        assert_eq!(
+            crate::native::route_for_url(&link).as_deref(),
+            Some("/reviews/rev_1")
+        );
+        let xml = super::toast_xml("t", "b", true, Some(&link));
+        assert!(
+            xml.starts_with(
+                r#"<toast activationType="protocol" launch="pinrail://reviews/rev_1"><visual>"#
+            ),
+            "{xml}"
+        );
+        let document = super::XmlDocument::new().unwrap();
+        document
+            .LoadXml(&super::HSTRING::from(xml.as_str()))
+            .unwrap_or_else(|e| panic!("{e}: {xml:?}"));
+        // a link is an attribute's value, whatever is in it
+        let odd = super::toast_xml("t", "b", true, Some(r#"pinrail://reviews/a"&<b"#));
+        assert!(
+            odd.contains(r#"launch="pinrail://reviews/a&quot;&amp;&lt;b""#),
+            "{odd}"
+        );
     }
 }
