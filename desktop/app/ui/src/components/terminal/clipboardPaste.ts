@@ -51,11 +51,15 @@ export async function draggedFiles(dropped?: FileList): Promise<string[]> {
 
 /** The paths of a paste's `file:` URLs, as Linux file managers copy files. */
 function uriListPaths(data: DataTransfer): string[] {
-  return data
-    .getData("text/uri-list")
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("file://"))
-    .map((line) => decodeURIComponent(new URL(line).pathname));
+  return (
+    data
+      .getData("text/uri-list")
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("file://"))
+      .map((line) => decodeURIComponent(new URL(line).pathname))
+      // file:///C:/… is the drive C:, not a folder of the root
+      .map((path) => path.replace(/^\/([A-Za-z]:\/)/, "$1"))
+  );
 }
 
 /** Takes a paste from the renderer and pastes it into `view`: always in
@@ -77,7 +81,7 @@ export function pasteInto(
   const listed = uriListPaths(data);
   void (native ? files() : Promise.resolve([])).then((paths) => {
     const copied = paths.length ? paths : listed;
-    if (copied.length) view.paste(copied.map(quotePath).join(" "));
+    if (copied.length) view.paste(copied.map((p) => quotePath(p)).join(" "));
     else if (text) view.paste(text);
     else if (image) view.pressKey({ key: "v", code: "KeyV", ctrlKey: true });
   });
@@ -109,7 +113,7 @@ export function dropInto(
   void (native ? files(dropped) : Promise.resolve([])).then((paths) => {
     const dropped = paths.length ? paths : listed;
     if (!dropped.length) return;
-    view.paste(dropped.map(quotePath).join(" "));
+    view.paste(dropped.map((p) => quotePath(p)).join(" "));
     view.focus();
   });
 }

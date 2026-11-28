@@ -5,9 +5,15 @@ import { withPaths, type MessageFile } from "./messageFiles";
 const file = (path: string | null): MessageFile => ({ key: path ?? "k", name: "f", type: "", path });
 
 test("a path is quoted only when a shell would split or expand it", () => {
-  expect(quotePath("/data/sessions/a/b/files/shot.png")).toBe("/data/sessions/a/b/files/shot.png");
-  expect(quotePath("/Users/me/Application Support/shot.png")).toBe("'/Users/me/Application Support/shot.png'");
-  expect(quotePath("/tmp/it's.png")).toBe("'/tmp/it'\\''s.png'");
+  expect(quotePath("/data/sessions/a/b/files/shot.png", false)).toBe("/data/sessions/a/b/files/shot.png");
+  expect(quotePath("/Users/me/Application Support/shot.png", false)).toBe("'/Users/me/Application Support/shot.png'");
+  expect(quotePath("/tmp/it's.png", false)).toBe("'/tmp/it'\\''s.png'");
+});
+
+test("a Windows path is as Windows Terminal drops one: in double quotes only when it must be", () => {
+  expect(quotePath(String.raw`C:\Users\me\shot.png`, true)).toBe(String.raw`C:\Users\me\shot.png`);
+  expect(quotePath(String.raw`C:\Users\me\My Docs\it's.png`, true)).toBe(String.raw`"C:\Users\me\My Docs\it's.png"`);
+  expect(quotePath(String.raw`C:\a&b\x.png`, true)).toBe(String.raw`"C:\a&b\x.png"`);
 });
 
 test("the paths follow the text, one per line, leaving out a file not saved yet", () => {

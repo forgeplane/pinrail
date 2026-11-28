@@ -75,7 +75,12 @@ fn attached_path(line: &str) -> bool {
     // must not leave a \ for the separators below
     let path = match line.strip_prefix('\'').and_then(|l| l.strip_suffix('\'')) {
         Some(quoted) => quoted.replace("'\\''", "'"),
-        None => line.to_string(),
+        // on Windows, in double quotes, which a path cannot hold inside
+        None => line
+            .strip_prefix('"')
+            .and_then(|l| l.strip_suffix('"'))
+            .unwrap_or(line)
+            .to_string(),
     };
     // on Windows, `C:\…\sessions\…` with either separator
     let path = path.replace('\\', "/");
@@ -412,6 +417,8 @@ mod tests {
         for line in [
             r"'/My Data/sessions/codex/ses_2/files/it'\''s.md'",
             r"'C:\Users\p\AppData\Local\dev.pinrail.desktop\sessions\codex\ses_2\files\it'\''s.md'",
+            // as the window quotes one on Windows
+            r#""C:\Users\p\AppData\Local\dev.pinrail.desktop\sessions\codex\ses_2\files\it's my.md""#,
         ] {
             assert!(attached_path(line), "{line}");
         }

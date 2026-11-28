@@ -1,7 +1,10 @@
 // ⌘V in a terminal: copied files as their paths, text as it is, and an
 // image alone as Ctrl+V for the agent to read from the clipboard.
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { dropInto, pasteInto } from "./clipboardPaste";
+
+// the paths below are a Unix system's, whichever runs the test
+vi.mock("../../lib/platform", () => ({ onWindows: false }));
 import { referenceRenderer } from "./testing/reference";
 import type { ViewOptions } from "./view";
 
@@ -110,6 +113,17 @@ test("files a Linux file manager dropped paste their paths from the URI list", a
   dropInto({ ...view, focus: () => {} }, event, { native: false });
   await settled();
   expect(sent).toEqual(["paste /home/me/a.txt '/home/me/b c.txt'"]);
+});
+
+test("a Windows path in a URI list loses the slash before its drive", async () => {
+  const { sent, view } = recorder();
+  const event = drop((data) => {
+    data.setData("text/uri-list", "file:///C:/Users/me/a.txt");
+    data.items.add(new File(["x"], "a.txt"));
+  });
+  dropInto({ ...view, focus: () => {} }, event, { native: false });
+  await settled();
+  expect(sent).toEqual(["paste C:/Users/me/a.txt"]);
 });
 
 test("a drop of text, not files, is left alone", async () => {
