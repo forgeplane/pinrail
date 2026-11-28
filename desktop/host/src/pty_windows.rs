@@ -143,7 +143,7 @@ fn coord(cols: u16, rows: u16) -> COORD {
 struct PseudoConsole(Mutex<Option<usize>>);
 
 impl PseudoConsole {
-    fn close(self: &Arc<Self>) {
+    fn close(&self) {
         let taken = self.0.lock().unwrap_or_else(|e| e.into_inner()).take();
         if let (Some(hpc), Ok(api)) = (taken, conpty()) {
             std::thread::spawn(move || {
@@ -154,11 +154,12 @@ impl PseudoConsole {
     }
 
     fn resize(&self, cols: u16, rows: u16) -> io::Result<()> {
-        let hpc = *self.0.lock().unwrap_or_else(|e| e.into_inner());
-        let Some(hpc) = hpc else {
+        // held for the call, so that a close cannot come between
+        let hpc = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(hpc) = *hpc else {
             return Err(io::Error::other("the terminal is closed"));
         };
-        // SAFETY: `hpc` is open while the lock says so.
+        // SAFETY: `hpc` is open while the lock is held.
         let result = unsafe { (conpty()?.resize)(hpc as HPCON, coord(cols, rows)) };
         if result != 0 {
             return Err(io::Error::from_raw_os_error(result));
@@ -167,19 +168,43 @@ impl PseudoConsole {
     }
 }
 
+/// A console nothing closed, as when a terminal is dropped on an error:
+/// closed with its last owner, not left open with the process.
+impl Drop for PseudoConsole {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
 // --- Programs ----------------------------------------------------------------
 
 /// The program as Windows starts it: found on the `PATH` with `PATHEXT`,
 /// and a batch file through cmd, as npm installs agents as `.cmd` shims.
-fn command_line(argv: &[String], env: &BTreeMap<String, String>) -> Result<Vec<u16>, SpawnError> {
+fn command_line(
+    argv: &[String],
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+) -> Result<Vec<u16>, SpawnError> {
+    // a NUL would end the line where it is, and cut the rest off
+    if argv.iter().any(|a| a.contains('\0')) {
+        return Err(SpawnError::Io(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "an argument has a NUL in it",
+        )));
+    }
     let name = argv.first().map(String::as_str).unwrap_or_default();
     let var = |key: &str| {
         env.iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(key))
             .map(|(_, v)| v.clone())
     };
-    let found = crate::environment::find_program(name, var("PATH").as_deref())
-        .ok_or_else(|| SpawnError::NotFound(name.to_string()))?;
+    let found = crate::environment::find_program_in(
+        name,
+        var("PATH").as_deref(),
+        var("PATHEXT").as_deref(),
+        Some(cwd),
+    )
+    .ok_or_else(|| SpawnError::NotFound(name.to_string()))?;
     let ext = found
         .extension()
         .map(|e| e.to_string_lossy().to_ascii_lowercase())
@@ -201,14 +226,18 @@ fn command_line(argv: &[String], env: &BTreeMap<String, String>) -> Result<Vec<u
 /// arrives as one literal argument, as Rust's std quotes them. cmd cannot
 /// carry a line break in an argument.
 fn batch_line(script: &Path, args: &[String]) -> io::Result<String> {
-    let mut line = format!("cmd.exe /e:ON /v:OFF /d /c \"\"{}\"", script.display());
+    // cmd from the system's folder, not one a folder searched first has;
+    // the script's own path with its `%` defused too
+    let system = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    let cmd = Path::new(&system).join(r"System32\cmd.exe");
+    let script = script.display().to_string().replace('%', "%%cd:~,%");
+    let mut line = format!("\"{}\" /e:ON /v:OFF /d /c \"\"{script}\"", cmd.display());
     for arg in args {
         if arg.contains(['\r', '\n', '\0']) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "{} is a batch file, which cannot take an argument with a line break",
-                    script.display()
+                    "{script} is a batch file, which cannot take an argument with a line break"
                 ),
             ));
         }
@@ -277,17 +306,34 @@ fn quote(arg: &str) -> String {
 }
 
 /// The environment block: `name=value` strings, each ending in a NUL,
-/// sorted by name without regard to case, as Windows expects.
-fn env_block(env: &BTreeMap<String, String>) -> Vec<u16> {
+/// sorted by name without regard to case, as Windows expects, and a NUL
+/// after them all, a second one when there are none. Windows takes a
+/// name in any case for the same variable, so a name given twice in other
+/// capitals is there once, as it sorts first. A NUL in a name or a value
+/// would end its string early and is refused.
+fn env_block(env: &BTreeMap<String, String>) -> io::Result<Vec<u16>> {
+    if env
+        .iter()
+        .any(|(k, v)| k.contains('\0') || v.contains('\0'))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "an environment variable has a NUL in it",
+        ));
+    }
     let mut pairs: Vec<_> = env.iter().collect();
     pairs.sort_by_key(|(k, _)| k.to_uppercase());
+    pairs.dedup_by_key(|(k, _)| k.to_uppercase());
     let mut block = Vec::new();
-    for (k, v) in pairs {
+    for (k, v) in &pairs {
         block.extend(format!("{k}={v}").encode_utf16());
         block.push(0);
     }
+    if pairs.is_empty() {
+        block.push(0);
+    }
     block.push(0);
-    block
+    Ok(block)
 }
 
 /// `path` without the `\\?\` prefix a canonical path has, which cmd
@@ -407,8 +453,8 @@ impl Holding {
         if !cwd.is_dir() {
             return Err(SpawnError::FolderMissing);
         }
-        let mut line = command_line(argv, env)?;
-        let mut block = env_block(env);
+        let mut line = command_line(argv, env, cwd)?;
+        let mut block = env_block(env)?;
         let folder = wide(plain(cwd).as_os_str());
         // SAFETY: each call below is given valid, live arguments, as noted;
         // every handle made is owned by a value that closes it.
@@ -464,7 +510,8 @@ impl Holding {
 
             let mut needed = 0usize;
             InitializeProcThreadAttributeList(null_mut(), 1, 0, &mut needed);
-            let mut attributes = vec![0u8; needed];
+            // pointer-aligned, as the list holds pointers
+            let mut attributes = vec![0usize; needed.div_ceil(size_of::<usize>())];
             let list = attributes.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
             check(InitializeProcThreadAttributeList(list, 1, 0, &mut needed)).map_err(fail)?;
             let updated = check(UpdateProcThreadAttribute(
@@ -694,9 +741,15 @@ pub fn foreground_group(master: &Master) -> Option<u32> {
     if !procs.iter().any(|p| p.pid == root) {
         return None;
     }
-    let launcher = *master.0.launcher.get_or_init(|| {
-        pinrail_runtime::process::arguments(root).is_some_and(|args| runs_a_command(&args))
-    });
+    // read once the program's arguments can be read: right after it
+    // starts they may not be there yet
+    let launcher = match master.0.launcher.get() {
+        Some(&launcher) => launcher,
+        None => match pinrail_runtime::process::arguments(root) {
+            Some(args) => *master.0.launcher.get_or_init(|| runs_a_command(&args)),
+            None => false,
+        },
+    };
     if launcher {
         return Some(root);
     }
@@ -763,29 +816,34 @@ fn newest_child(root: u32, procs: &[Proc]) -> Option<u32> {
 }
 
 /// The job's live processes, read one by one: a few per terminal, which a
-/// snapshot of the whole system would cost more for.
+/// snapshot of the whole system would cost more for. The list grows for a
+/// job with more than fit at first.
 unsafe fn job_processes(job: HANDLE) -> Vec<Proc> {
-    #[repr(C)]
-    struct Ids {
-        assigned: u32,
-        listed: u32,
-        ids: [usize; 64],
-    }
-    // SAFETY: the list is plain data the call fills as far as it fits.
-    unsafe {
-        let mut list: Ids = std::mem::zeroed();
-        QueryInformationJobObject(
-            job,
-            JobObjectBasicProcessIdList,
-            (&raw mut list).cast(),
-            size_of::<Ids>() as u32,
-            null_mut(),
-        );
-        let n = (list.listed as usize).min(list.ids.len());
-        list.ids[..n]
+    // JOBOBJECT_BASIC_PROCESS_ID_LIST: two counts, then the ids
+    let mut room = 64usize;
+    loop {
+        let mut list = vec![0usize; 1 + room];
+        // SAFETY: the list is plain data the call fills as far as it fits.
+        unsafe {
+            QueryInformationJobObject(
+                job,
+                JobObjectBasicProcessIdList,
+                list.as_mut_ptr().cast(),
+                (list.len() * size_of::<usize>()) as u32,
+                null_mut(),
+            )
+        };
+        // the two u32 counts share the first word
+        let assigned = (list[0] & 0xffff_ffff) as usize;
+        let listed = ((list[0] >> 32) & 0xffff_ffff) as usize;
+        if assigned > listed && room < 65_536 {
+            room = assigned.max(room * 2);
+            continue;
+        }
+        return list[1..1 + listed.min(room)]
             .iter()
             .filter_map(|&pid| about(pid as u32))
-            .collect()
+            .collect();
     }
 }
 
@@ -874,6 +932,11 @@ pub fn read_loop(master: Master, wake: Wake, mut out: impl FnMut(Vec<u8>) -> boo
         return;
     };
     loop {
+        // woken while the console keeps the reads completing at once
+        // SAFETY: waits on an event the reader owns, without blocking.
+        if unsafe { WaitForSingleObject(woken, 0) } == WAIT_OBJECT_0 {
+            return;
+        }
         // SAFETY: OVERLAPPED is plain data; the buffer and `ov` live until
         // the operation completes or is cancelled and waited for.
         let n = unsafe {
@@ -895,7 +958,11 @@ pub fn read_loop(master: Master, wake: Wake, mut out: impl FnMut(Vec<u8>) -> boo
                 if which != WAIT_OBJECT_0 + 1 {
                     CancelIoEx(output, &ov);
                     let mut n = 0u32;
-                    GetOverlappedResult(output, &ov, &mut n, 1);
+                    // what the read got before it was cancelled is output
+                    // too, which the next reader would never see
+                    if GetOverlappedResult(output, &ov, &mut n, 1) != 0 && n > 0 {
+                        let _ = out(buf[..n as usize].to_vec());
+                    }
                     break;
                 }
             }
@@ -928,6 +995,78 @@ pub fn write_loop(master: Master, input: std::sync::mpsc::Receiver<Vec<u8>>) {
 mod tests {
     use super::*;
 
+    fn env(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn an_empty_environment_block_ends_with_two_nuls() {
+        assert_eq!(env_block(&env(&[])).unwrap(), [0, 0]);
+    }
+
+    #[test]
+    fn a_name_twice_in_other_capitals_is_in_the_block_once() {
+        let block = env_block(&env(&[("PATH", r"C:\a"), ("Path", r"C:\b")])).unwrap();
+        let text = String::from_utf16_lossy(&block);
+        assert_eq!(text.matches('=').count(), 1, "{text:?}");
+    }
+
+    #[test]
+    fn a_nul_inside_an_argument_or_a_variable_is_refused() {
+        assert!(env_block(&env(&[("A", "x\0y")])).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        let tool = dir.path().join("tool.exe");
+        std::fs::write(&tool, b"").unwrap();
+        let argv = [tool.display().to_string(), "a\0b".to_string()];
+        assert!(command_line(&argv, &env(&[]), dir.path()).is_err());
+    }
+
+    #[test]
+    fn a_program_named_by_a_relative_path_is_found_in_the_terminal_s_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("hi.cmd"), "@echo hi\r\n").unwrap();
+        let argv = [r".\hi.cmd".to_string()];
+        assert!(command_line(&argv, &env(&[]), dir.path()).is_ok());
+    }
+
+    #[test]
+    fn programs_are_found_with_the_terminal_s_own_pathext() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("tool.pyw"), b"").unwrap();
+        let path = dir.path().display().to_string();
+        let found = command_line(
+            &["tool".to_string()],
+            &env(&[("PATH", &path), ("PATHEXT", ".PYW")]),
+            dir.path(),
+        );
+        assert!(found.is_ok());
+    }
+
+    /// A batch file in a folder whose name has a `%VARIABLE%` in it runs as
+    /// itself, through cmd from the system folder.
+    #[test]
+    fn a_batch_file_s_own_path_is_taken_literally() {
+        use std::os::windows::process::CommandExt;
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("a%USERNAME%b");
+        std::fs::create_dir(&folder).unwrap();
+        let script = folder.join("hi.cmd");
+        std::fs::write(&script, "@echo hi\r\n").unwrap();
+        let line = batch_line(&script, &[]).unwrap();
+        let system = std::env::var("SystemRoot").unwrap();
+        let cmd = format!(r"{system}\System32\cmd.exe");
+        assert!(line.starts_with(&format!("\"{cmd}\"")), "{line}");
+        let rest = line.split_once(' ').unwrap().1;
+        let out = std::process::Command::new(&cmd)
+            .raw_arg(rest)
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "hi", "{line}");
+    }
+
     #[test]
     fn arguments_are_quoted_as_windows_reads_them_back() {
         assert_eq!(quote("plain"), "plain");
@@ -944,9 +1083,12 @@ mod tests {
             &["--model".into(), "a & b %PATH%".into()],
         )
         .unwrap();
+        let system = std::env::var("SystemRoot").unwrap();
         assert_eq!(
             line,
-            r#"cmd.exe /e:ON /v:OFF /d /c ""C:\npm\claude.cmd" --model "a & b %%cd:~,%PATH%%cd:~,%"""#
+            format!(
+                r#""{system}\System32\cmd.exe" /e:ON /v:OFF /d /c ""C:\npm\claude.cmd" --model "a & b %%cd:~,%PATH%%cd:~,%"""#
+            )
         );
         assert!(batch_line(Path::new("x.cmd"), &["two\nlines".into()]).is_err());
     }

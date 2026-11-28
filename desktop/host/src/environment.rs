@@ -93,11 +93,25 @@ pub fn var<'a>(env: &'a BTreeMap<String, String>, name: &str) -> Option<&'a str>
 /// its folders with `;`, as it is or with an extension from `PATHEXT`.
 #[cfg(windows)]
 pub fn find_program(name: &str, path: Option<&str>) -> Option<PathBuf> {
+    find_program_in(name, path, None, None)
+}
+
+/// [`find_program`] for a program a terminal starts: with the terminal's
+/// own `PATHEXT`, and a relative path such as `.\tool.exe` from the
+/// terminal's folder, not this process's.
+#[cfg(windows)]
+pub fn find_program_in(
+    name: &str,
+    path: Option<&str>,
+    pathext: Option<&str>,
+    cwd: Option<&Path>,
+) -> Option<PathBuf> {
     if name.is_empty() {
         return None;
     }
-    let exts = std::env::var("PATHEXT")
-        .ok()
+    let exts = pathext
+        .map(str::to_string)
+        .or_else(|| std::env::var("PATHEXT").ok())
         .filter(|e| !e.is_empty())
         .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".to_string());
     let found = |base: PathBuf| -> Option<PathBuf> {
@@ -113,7 +127,11 @@ pub fn find_program(name: &str, path: Option<&str>) -> Option<PathBuf> {
     };
     let program = Path::new(name);
     if program.components().count() > 1 || program.is_absolute() {
-        return found(program.to_path_buf());
+        let program = match cwd {
+            Some(cwd) if program.is_relative() => cwd.join(program),
+            _ => program.to_path_buf(),
+        };
+        return found(program);
     }
     path?
         .split(';')

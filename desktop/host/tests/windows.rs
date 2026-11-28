@@ -157,6 +157,36 @@ fn what_is_typed_reaches_the_program_and_ctrl_c_interrupts_it() {
     ended(&mut client, &id);
 }
 
+/// Typing into a program that never reads, as an agent busy with a task:
+/// the input waits in the console, and the host goes on answering, Ctrl+C
+/// included.
+#[test]
+fn the_host_answers_while_a_program_leaves_what_is_typed_unread() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = connect(&host);
+    let (id, _) = spawn(&mut client, &["ping", "-n", "60", "127.0.0.1"], &folders.runtime);
+    wait_for(&mut client, &id, "Reply from 127.0.0.1");
+    // 1 MB, in pieces a frame carries
+    for _ in 0..16 {
+        submit(&mut client, &id, &"x".repeat(64 << 10));
+    }
+    let registration = host.registration.clone();
+    let asked = std::thread::spawn(move || {
+        let mut other = Client::connect(&registration).unwrap();
+        other
+            .call("terminal.signal", json!({"terminal": id, "signal": "INT"}))
+            .unwrap();
+        other.call("host.info", json!({})).unwrap()
+    });
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !asked.is_finished() {
+        assert!(Instant::now() < deadline, "the host stopped answering");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    asked.join().unwrap();
+}
+
 #[test]
 fn a_stop_ends_a_program_and_everything_it_started() {
     let folders = folders();
