@@ -215,6 +215,61 @@ pub fn raise_open_files(_most: u64) -> u64 {
 mod tests {
     use super::*;
 
+    /// Puts this process in a new job, which lets its processes out when
+    /// `breakaway`, spawns a program detached, and says whether the
+    /// program is in the job.
+    fn detached_in_a_job(breakaway: bool) -> bool {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, IsProcessInJob,
+            JOB_OBJECT_LIMIT_BREAKAWAY_OK, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JobObjectExtendedLimitInformation, SetInformationJobObject,
+        };
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        // SAFETY: a job of this test's, which this process joins; the
+        // limits are plain data of the size given.
+        let job = unsafe {
+            let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            assert!(!job.is_null());
+            let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            if breakaway {
+                limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+            }
+            assert_ne!(
+                SetInformationJobObject(
+                    job,
+                    JobObjectExtendedLimitInformation,
+                    (&raw const limits).cast(),
+                    size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                ),
+                0
+            );
+            assert_ne!(AssignProcessToJobObject(job, GetCurrentProcess()), 0);
+            job
+        };
+        let mut command = std::process::Command::new("ping");
+        command.args(["-n", "30", "127.0.0.1"]);
+        let mut child = super::spawn_detached(command).unwrap();
+        let mut inside = 0;
+        // SAFETY: the child's handle is open until it is killed below.
+        unsafe { IsProcessInJob(child.as_raw_handle() as _, job, &mut inside) };
+        let _ = child.kill();
+        let _ = child.wait();
+        inside != 0
+    }
+
+    #[test]
+    fn a_detached_program_leaves_a_job_that_lets_it() {
+        assert!(!detached_in_a_job(true));
+    }
+
+    /// A job that keeps its processes in refuses a program that asks to
+    /// leave it, which then starts in the job.
+    #[test]
+    fn a_detached_program_starts_in_a_job_that_keeps_it() {
+        assert!(detached_in_a_job(false));
+    }
+
     #[test]
     fn the_boot_id_stays_the_same_within_a_boot() {
         let id = boot_id().unwrap();
