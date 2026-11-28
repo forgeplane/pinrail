@@ -718,6 +718,91 @@ mod imp {
     mod tests {
         use super::*;
 
+        /// A pipe the host listens on is this user's and the system's
+        /// alone, and kept from processes of a lower integrity level.
+        #[test]
+        fn a_listener_s_pipe_admits_only_this_user_and_the_system() {
+            use windows_sys::Win32::Foundation::LocalFree;
+            use windows_sys::Win32::Security::Authorization::{
+                ConvertSecurityDescriptorToStringSecurityDescriptorW, GetSecurityInfo,
+                SDDL_REVISION_1, SE_KERNEL_OBJECT,
+            };
+            use windows_sys::Win32::Security::{
+                DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION,
+            };
+            let path = std::path::PathBuf::from(format!(
+                r"\\.\pipe\pinrail-net-acl-{}",
+                crate::random_hex(4)
+            ));
+            let listener = listen(&path).unwrap();
+            let waiting = listener.waiting.lock().unwrap();
+            let pipe = waiting.as_ref().unwrap().pipe.as_ref().unwrap();
+            let which = DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION;
+            let mut descriptor = null_mut();
+            // SAFETY: reads the security of a pipe this test made; the
+            // descriptor and its text are freed below.
+            let sddl = unsafe {
+                assert_eq!(
+                    GetSecurityInfo(
+                        raw(&pipe.handle),
+                        SE_KERNEL_OBJECT,
+                        which,
+                        null_mut(),
+                        null_mut(),
+                        null_mut(),
+                        null_mut(),
+                        &mut descriptor,
+                    ),
+                    0
+                );
+                let mut text = null_mut();
+                check(ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                    descriptor,
+                    SDDL_REVISION_1,
+                    which,
+                    &mut text,
+                    null_mut(),
+                ))
+                .unwrap();
+                let len = (0..).take_while(|&i| *text.add(i) != 0).count();
+                let sddl = String::from_utf16_lossy(std::slice::from_raw_parts(text, len));
+                LocalFree(text.cast());
+                LocalFree(descriptor);
+                sddl
+            };
+            let user = crate::win::sid_text(&crate::win::current_user().unwrap());
+            // a protected DACL, no other grant, and an integrity label
+            assert!(sddl.contains("D:P"), "{sddl}");
+            assert!(
+                sddl.contains(";;;SY)") && sddl.contains(&format!(";;;{user})")),
+                "{sddl}"
+            );
+            let grants = sddl.matches("(A;").count();
+            assert_eq!(grants, 2, "{sddl}");
+            // no reading or writing up from a lower level, in either order
+            let label = sddl.split("(ML;;").nth(1).unwrap_or_default();
+            assert!(label.contains("NW") && label.contains("NR"), "{sddl}");
+        }
+
+        /// A second host's listener on a name a host has is refused, as
+        /// the first instance of a pipe must be its own.
+        #[test]
+        fn a_second_listener_on_a_taken_name_is_refused() {
+            let path = std::path::PathBuf::from(format!(
+                r"\\.\pipe\pinrail-net-twice-{}",
+                crate::random_hex(4)
+            ));
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let _first = AsyncListener::bind(&path).unwrap();
+                assert!(AsyncListener::bind(&path).is_err());
+                assert!(listen(&path).is_err());
+            });
+        }
+
         /// A client that connected and left before the server waited on
         /// the instance: the instance goes on to take the next one.
         #[test]

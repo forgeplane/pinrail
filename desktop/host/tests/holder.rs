@@ -225,6 +225,54 @@ fn an_exit_while_no_host_is_connected_is_reported_to_the_next() {
     assert_eq!(listed["terminals"][0]["exit"], json!({"code": 3}));
 }
 
+/// What only the holder can do to a pseudo console on Windows: resize it,
+/// and close it, which ends its program, whose exit it then reports.
+#[cfg(windows)]
+#[test]
+fn a_holder_resizes_and_closes_a_console_when_asked() {
+    let folders = folders();
+    let holder = holder(&folders, 30);
+    let (stream, _) = connect(&holder, SECRET);
+    let (spawned, fds) = request(&stream, spawn_request(&folders, "t_1", "sleep 60"), &[]);
+    drop(fds);
+    assert!(spawned["pid"].as_u64().is_some(), "{spawned}");
+    let resize = |id: u64, params: Value| {
+        let mut request = json!({"op": "resize", "id": id});
+        request
+            .as_object_mut()
+            .unwrap()
+            .extend(params.as_object().unwrap().clone());
+        request
+    };
+    let (answer, _) = request(
+        &stream,
+        resize(2, json!({"terminal": "t_1", "cols": 100, "rows": 30})),
+        &[],
+    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    let (answer, _) = request(&stream, resize(3, json!({"terminal": "t_1"})), &[]);
+    assert_eq!(answer["error"], "invalid", "{answer}");
+    // the answer, and the exit of the program, which goes with its
+    // console, in whichever order they come
+    fdpass::send(
+        &stream,
+        &json!({"op": "close", "id": 5, "terminal": "t_1"}),
+        &[],
+    )
+    .unwrap();
+    let (mut answered, mut exited) = (false, false);
+    while !(answered && exited) {
+        let (message, _) = fdpass::recv(&stream).unwrap().unwrap();
+        if message["event"] == "exited" {
+            assert_eq!(message["terminal"], "t_1");
+            exited = true;
+        } else if message.get("event").is_none() {
+            assert_eq!(message["ok"], true, "{message}");
+            answered = true;
+        }
+    }
+}
+
 #[test]
 fn a_process_without_the_secret_is_refused() {
     let folders = folders();

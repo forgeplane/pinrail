@@ -995,6 +995,32 @@ pub fn write_loop(master: Master, input: std::sync::mpsc::Receiver<Vec<u8>>) {
 mod tests {
     use super::*;
 
+    /// The ConPTY the build puts beside the binary is the one loaded, not
+    /// Windows' own, whose console drops the replies programs send.
+    #[test]
+    fn the_bundled_conpty_is_the_one_loaded() {
+        use windows_sys::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleW};
+        conpty().unwrap();
+        let name = wide(std::ffi::OsStr::new("conpty.dll"));
+        // SAFETY: the name is NUL-terminated; a loaded module's handle is
+        // only read from.
+        let module = unsafe { GetModuleHandleW(name.as_ptr()) };
+        assert!(!module.is_null(), "no conpty.dll is loaded");
+        let mut path = vec![0u16; 32_768];
+        // SAFETY: the buffer holds its length.
+        let len = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) };
+        let loaded = PathBuf::from(String::from_utf16_lossy(&path[..len as usize]));
+        let beside = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join(r"conpty\conpty.dll");
+        assert_eq!(
+            loaded.canonicalize().unwrap(),
+            beside.canonicalize().unwrap()
+        );
+    }
+
     fn env(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
             .iter()

@@ -72,6 +72,20 @@ fn starts_outside_the_core(method: Method) {
         .map(|e| e.unwrap().path())
         .collect();
     assert_eq!(copies.len(), 1);
+    // on Windows with ConPTY beside it, for each architecture, as the host
+    // loads it from there
+    #[cfg(windows)]
+    for file in [
+        r"conpty\conpty.dll",
+        r"conpty\x64\OpenConsole.exe",
+        r"conpty\arm64\OpenConsole.exe",
+    ] {
+        assert!(
+            copies[0].join(file).is_file(),
+            "no {file} in {}",
+            copies[0].display()
+        );
+    }
     // and is no child of the core. Windows keeps no tree of processes for
     // a host to leave: a process outlives the one that started it, and
     // what would end the host with the app is the app's console or job,

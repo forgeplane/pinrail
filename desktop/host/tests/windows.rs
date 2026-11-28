@@ -192,6 +192,45 @@ fn the_host_answers_while_a_program_leaves_what_is_typed_unread() {
     asked.join().unwrap();
 }
 
+/// A batch file, as npm installs an agent, run through cmd on a pseudo
+/// console: each argument reaches it as it was given, whatever cmd would
+/// read in it, and a folder with a space in its name is no trouble.
+#[test]
+fn a_batch_file_gets_its_arguments_as_given() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = connect(&host);
+    let folder = folders.runtime.join("with space");
+    std::fs::create_dir_all(&folder).unwrap();
+    let script = folder.join("args.cmd");
+    // each argument in brackets, read with delayed expansion, so that
+    // nothing in it is parsed again
+    std::fs::write(
+        &script,
+        "@echo off\r\nsetlocal EnableDelayedExpansion\r\n:next\r\n\
+         if [%1]==[] goto :eof\r\nset \"arg=%~1\"\r\necho [!arg!]\r\nshift\r\ngoto next\r\n",
+    )
+    .unwrap();
+    let script = script.display().to_string();
+    let (id, _) = spawn(
+        &mut client,
+        &[
+            &script,
+            "two words",
+            "a&b|c",
+            "100%PATH%",
+            "x^y",
+            "<in>",
+            "end",
+        ],
+        &folders.runtime,
+    );
+    let screen = wait_for(&mut client, &id, "[end]");
+    for expected in ["[two words]", "[a&b|c]", "[100%PATH%]", "[x^y]", "[<in>]"] {
+        assert!(screen.contains(expected), "no {expected} in {screen:?}");
+    }
+}
+
 #[test]
 fn a_stop_ends_a_program_and_everything_it_started() {
     let folders = folders();

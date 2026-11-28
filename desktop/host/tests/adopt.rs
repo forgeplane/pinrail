@@ -45,6 +45,35 @@ fn listed(client: &mut Client) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// A holder that dies, as a crash would end it: the host starts another
+/// holder for the next terminal. The program of the one it kept can go on,
+/// as the host holds its terminal too.
+#[test]
+fn a_host_goes_on_after_its_holder_dies() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = connect(&host);
+    let spawn = |client: &mut Client, script: &str| {
+        client
+            .call(
+                "terminal.spawn",
+                json!({"argv": common::shell(script), "cwd": folders.runtime,
+                       "cols": 80, "rows": 24, "env": {"PATH": common::path()},
+                       "env_base": "host"}),
+            )
+            .unwrap()["terminal"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let first = spawn(&mut client, "echo ready; sleep 300");
+    wait_for(&mut client, &first, "ready");
+    common::kill_holders_only(&host.holders);
+    // the next one starts and runs
+    let second = spawn(&mut client, "echo again");
+    wait_for(&mut client, &second, "again");
+}
+
 /// More terminals than one message from the holder can carry the
 /// descriptors of, as a host with many agents has.
 #[test]

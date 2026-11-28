@@ -370,6 +370,27 @@ impl Drop for KillsHolders {
 /// by their data folder, and the hosts a holder started go with them.
 #[cfg(windows)]
 pub fn kill_holders(dir: &std::path::Path) {
+    kill_of_folder(dir, false);
+}
+
+/// Kills the holders of the data folder whose holders are in `dir`, and
+/// nothing else: not the host, as a crash of its holder leaves it.
+#[cfg(windows)]
+#[allow(dead_code)]
+pub fn kill_holders_only(dir: &std::path::Path) {
+    kill_of_folder(dir, true);
+}
+
+#[cfg(unix)]
+#[allow(dead_code)]
+pub fn kill_holders_only(dir: &std::path::Path) {
+    kill_holders(dir);
+}
+
+/// Kills the host processes of the data folder whose holders are in
+/// `dir`, or only the holders among them.
+#[cfg(windows)]
+fn kill_of_folder(dir: &std::path::Path, only_holders: bool) {
     // `<data>/host/holders`, as it is when the host has made a holder
     let Some(data) = dir.is_dir().then(|| dir.parent()?.parent()).flatten() else {
         return;
@@ -379,12 +400,13 @@ pub fn kill_holders(dir: &std::path::Path) {
     // holders are waited for, so that they let go of the folder first
     let script = "$folder = [WildcardPattern]::Escape($env:PINRAIL_TEST_DATA); \
          $held = Get-CimInstance Win32_Process -Filter \"Name='pinrail-host.exe'\" | \
-         Where-Object { $_.CommandLine -like \"*$folder*\" }; \
+         Where-Object { $_.CommandLine -like \"*$folder*\" -and ($env:PINRAIL_TEST_ONLY -ne '1' -or $_.CommandLine -match ' hold ') }; \
          $held | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; \
          $held | ForEach-Object { Wait-Process -Id $_.ProcessId -Timeout 10 -ErrorAction SilentlyContinue }";
     let _ = Command::new("powershell")
         .args(["-NoProfile", "-Command", script])
         .env("PINRAIL_TEST_DATA", data)
+        .env("PINRAIL_TEST_ONLY", if only_holders { "1" } else { "0" })
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
