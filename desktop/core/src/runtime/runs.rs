@@ -243,19 +243,7 @@ impl super::Runtime {
         }
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let session_id = new_uuid();
-        // the agent reads Pinrail's note before the task; the run keeps
-        // the task as the person wrote it
-        let task = start
-            .task
-            .as_deref()
-            .filter(|t| !t.trim().is_empty())
-            .map(|task| {
-                let note = match &start.item {
-                    Some(key) => crate::preamble::for_item(key),
-                    None => crate::preamble::for_session(),
-                };
-                crate::preamble::before(&note, task)
-            });
+        let task = noted_task(start);
         let plan = pinrail_runtime::start_plan(
             agent,
             &pinrail_runtime::StartRequest {
@@ -1394,6 +1382,17 @@ async fn checkout_of(folder: &str) -> Option<pinrail_runtime::checkout::Checkout
         .await
         .ok()
         .flatten()
+}
+
+/// The first task as the agent gets it: after Pinrail's note. The run
+/// keeps the task as the person wrote it.
+pub(crate) fn noted_task(start: &Start) -> Option<String> {
+    let task = start.task.as_deref().filter(|t| !t.trim().is_empty())?;
+    let note = match &start.item {
+        Some(key) => crate::preamble::for_item(key),
+        None => crate::preamble::for_session(),
+    };
+    Some(crate::preamble::before(&note, task))
 }
 
 #[cfg(test)]

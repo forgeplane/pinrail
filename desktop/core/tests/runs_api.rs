@@ -870,10 +870,11 @@ async fn a_run_keeps_what_it_was_started_with_and_its_last_output() {
 async fn a_started_agent_reads_a_pinrail_note_before_its_first_task() {
     let app = linked().await;
     let work = folder(&app, "app");
+    std::fs::write(format!("{work}/records"), "").unwrap();
     let body = json!({"agent": "claude-code", "folder": work, "task": "fix the login"});
     let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
-    let argv = argv(&work).await;
+    let argv = first_task_in(&work, "fix the login").await;
     let note = argv.find("<pinrail>").expect(&argv);
     assert!(argv[note..].contains("pinrail items show"), "{argv}");
     assert!(
@@ -898,16 +899,21 @@ async fn an_agent_started_on_a_work_item_reads_a_note_that_names_it() {
     )
     .await;
     let key = item["key"].as_str().unwrap().to_string();
+    std::fs::write(format!("{work}/records"), "").unwrap();
     let body =
         json!({"agent": "claude-code", "folder": work, "task": "Fix the login", "item": key});
     let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
-    let argv = argv(&work).await;
+    let argv = first_task_in(&work, "Fix the login").await;
     assert!(argv.contains("<pinrail>"), "{argv}");
-    assert!(
-        argv.contains(&format!("pinrail items done {key}")),
-        "{argv}"
-    );
+    // a task typed into an agent behind a batch file, on Windows, gets the
+    // note of any new session, which tells how to read a key but names none
+    if !cfg!(windows) {
+        assert!(
+            argv.contains(&format!("pinrail items done {key}")),
+            "{argv}"
+        );
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -988,6 +994,28 @@ fn files_flag(app: &App) -> String {
         "--settings\n{}\n",
         serde_json::json!({ "permissions": { "allow": [rule] } })
     )
+}
+
+/// What the stand-in agent got its first task in: its arguments, or on
+/// Windows, where the note's line breaks keep the task off the command
+/// line of the batch file it is, as npm installs agents, what was typed
+/// into it once it was idle, up to `task`. The folder needs a file named
+/// records before the start.
+async fn first_task_in(folder: &str, task: &str) -> String {
+    let argv = argv(folder).await;
+    if !cfg!(windows) {
+        return argv;
+    }
+    let path = std::path::Path::new(folder);
+    common::record(path, "state=idle:app=claude-code").await;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let heard = std::fs::read_to_string(path.join("heard")).unwrap_or_default();
+        if heard.contains(task) || Instant::now() > deadline {
+            return heard;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }
 
 async fn argv(folder: &str) -> String {

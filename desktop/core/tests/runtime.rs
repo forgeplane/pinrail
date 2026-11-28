@@ -165,12 +165,20 @@ async fn a_run_starts_its_agent_with_a_token_and_ends_when_it_exits() {
     let rule = common::read_rule(&setup.app.config().data_dir.join("sessions"));
     let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
     let argv = file(folder.join("argv")).await;
-    assert_eq!(
-        argv,
+    // the task with Pinrail's note before it; on Windows, where the note's
+    // line breaks keep it off the command line of the batch file the
+    // stand-in is, it is typed once the agent is idle instead
+    let task = if cfg!(windows) {
+        String::new()
+    } else {
         format!(
-            "--settings\n{settings}\n--session-id\n{own}\n--\n{}\n",
+            "--\n{}\n",
             pinrail_core::preamble::before(&pinrail_core::preamble::for_session(), "fix the login")
         )
+    };
+    assert_eq!(
+        argv,
+        format!("--settings\n{settings}\n--session-id\n{own}\n{task}")
     );
     // its hooks and its pinrail commands reach this core, whatever server
     // the computer runs besides

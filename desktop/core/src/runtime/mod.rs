@@ -16,6 +16,7 @@ mod delivery;
 mod runs;
 mod tokens;
 mod transcript;
+pub(crate) use runs::noted_task;
 pub use runs::{LOCAL, Reconciled, Resume, RunError, Start, TOKEN_VARIABLE};
 pub use tokens::{Admitted, Mismatch, digest};
 
