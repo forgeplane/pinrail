@@ -18,7 +18,10 @@ const SESSION_VARIABLES: &[&str] = &[
 ];
 
 fn is_session_variable(name: &str) -> bool {
-    SESSION_VARIABLES.contains(&name) || name.starts_with("XDG_SESSION_")
+    SESSION_VARIABLES.iter().any(|known| same_name(known, name))
+        || name
+            .get(..12)
+            .is_some_and(|start| same_name(start, "XDG_SESSION_"))
 }
 
 /// What a spawn asks for.
@@ -236,6 +239,36 @@ mod tests {
             cwd: "/Users/p/code/link-to-app",
             terminal: "t_1",
         })
+    }
+
+    /// Windows gives a variable to the agent under any spelling of its
+    /// name, so one is removed in any case.
+    #[cfg(windows)]
+    #[test]
+    fn another_session_s_variables_are_removed_in_any_case_on_windows() {
+        let env = build_with(
+            &[
+                ("Path", r"C:\Windows"),
+                ("ClaudeCode", "1"),
+                ("pinrail_run_token", "old"),
+                ("Xdg_Session_Id", "3"),
+                ("display", ":0"),
+            ],
+            &[],
+            &[],
+        );
+        let names: Vec<&str> = env.keys().map(String::as_str).collect();
+        for gone in [
+            "claudecode",
+            "pinrail_run_token",
+            "xdg_session_id",
+            "display",
+        ] {
+            assert!(
+                !names.iter().any(|n| n.eq_ignore_ascii_case(gone)),
+                "{gone} in {names:?}"
+            );
+        }
     }
 
     #[test]

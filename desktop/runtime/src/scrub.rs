@@ -44,19 +44,42 @@ const PINRAIL_VARIABLES: &[&str] = &[
 /// Whether a variable is removed before an agent starts: every agent's
 /// markers and session variable, terminal handles, the launching app's
 /// variables, and Pinrail's run variables.
+/// On Windows a name is one in any case, as Windows gives it to the
+/// agent under any spelling.
 pub fn is_scrubbed(name: &str) -> bool {
-    AGENT_VARIABLES.contains(&name)
-        || TERMINAL_HANDLES.contains(&name)
-        || APP_VARIABLES.contains(&name)
-        || PINRAIL_VARIABLES.contains(&name)
+    is_scrubbed_on(name, cfg!(windows))
+}
+
+fn is_scrubbed_on(name: &str, windows: bool) -> bool {
+    let is = |known: &str| {
+        if windows {
+            known.eq_ignore_ascii_case(name)
+        } else {
+            known == name
+        }
+    };
+    let listed = |list: &[&str]| list.iter().any(|known| is(known));
+    listed(AGENT_VARIABLES)
+        || listed(TERMINAL_HANDLES)
+        || listed(APP_VARIABLES)
+        || listed(PINRAIL_VARIABLES)
         || all()
             .iter()
-            .any(|agent| agent.markers.contains(&name) || agent.session_var == Some(name))
+            .any(|agent| listed(agent.markers) || agent.session_var.is_some_and(is))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn on_windows_a_variable_is_scrubbed_in_any_case() {
+        for name in ["ClaudeCode", "pinrail_run_token", "Codex_Thread_Id", "tmux"] {
+            assert!(is_scrubbed_on(name, true), "{name}");
+            assert!(!is_scrubbed_on(name, false), "{name}");
+        }
+        assert!(!is_scrubbed_on("Path", true));
+    }
 
     #[test]
     fn agent_markers_terminal_handles_and_run_variables_are_scrubbed() {
