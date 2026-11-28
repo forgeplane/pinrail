@@ -1489,7 +1489,9 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
         let plugin = plugin_copy(root.path(), "hello", "1.0.0");
         let renamed = root.path().join(name);
         std::fs::rename(&plugin, &renamed).unwrap();
-        common::symlink(target, &renamed.join(link));
+        if !common::symlink(target, &renamed.join(link)) {
+            return;
+        }
         for linked in [false, true] {
             let (status, body) = install(&app, &renamed, json!({ "link": linked })).await;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{name}: {body}");

@@ -955,7 +955,6 @@ test("a drag over a screenshot comments on that area, marked on the image and li
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.88, { steps: 5 });
   await page.mouse.up();
-  await page.screenshot({ path: "/tmp/cm-29.png" });
   await f
     .getByRole("dialog", { name: "Comment on an area of the after image" })
     .getByRole("textbox")
@@ -976,7 +975,6 @@ test("a drag over a screenshot comments on that area, marked on the image and li
   // and the part's badge on the map counts it
   await expect(f.locator('[data-node="ticket-form"] .cm-mark-comment')).toHaveText("1");
   await page.mouse.move(1100, 60);
-  await page.screenshot({ path: "/tmp/cm-28.png" });
 
   const result = (await plugin.handOver()) as { decision: { data: { comments: { target: unknown }[] } } };
   const target = result.decision.data.comments[0].target as { screen: unknown; region: Record<string, number> };

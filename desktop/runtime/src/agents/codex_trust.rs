@@ -195,27 +195,43 @@ impl Server {
 /// An app server in a shell script: after a line of the login shell's
 /// own output, it answers `initialize`, answers `hooks/list` with the
 /// fixture, and keeps the `config/batchWrite` request in `$OUT`.
+/// A fake app server, in Node, which builds Pinrail and runs the same on
+/// every system: it greets as a login shell would, answers `initialize`
+/// and `hooks/list` from the fixture, and keeps the `config/batchWrite`
+/// request in `$OUT`.
+#[cfg(test)]
 pub(crate) const FAKE_SERVER: &str = r#"
-echo "Welcome to the login shell"
-while IFS= read -r line; do
-  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
-  case "$line" in
-*'"method":"initialize"'*) echo "{\"id\":$id,\"result\":{}}" ;;
-*'"method":"hooks/list"'*) tr -d '\n' < "$LIST" | sed "s/\"id\": *[0-9]*/\"id\":$id/"; echo ;;
-*'"method":"config/batchWrite"'*)
-  printf '%s\n' "$line" > "$OUT"
-  echo "{\"id\":$id,\"result\":{\"status\":\"ok\"}}" ;;
-  esac
-done
+const fs = require("fs");
+console.log("Welcome to the login shell");
+let rest = "";
+process.stdin.on("data", (chunk) => {
+  rest += chunk;
+  let at;
+  while ((at = rest.indexOf("\n")) >= 0) {
+    const line = rest.slice(0, at);
+    rest = rest.slice(at + 1);
+    const id = (/"id":(\d+)/.exec(line) || [])[1];
+    if (line.includes('"method":"initialize"')) console.log(`{"id":${id},"result":{}}`);
+    if (line.includes('"method":"hooks/list"')) {
+      const list = JSON.parse(fs.readFileSync(process.env.LIST, "utf8"));
+      list.id = Number(id);
+      console.log(JSON.stringify(list));
+    }
+    if (line.includes('"method":"config/batchWrite"')) {
+      fs.writeFileSync(process.env.OUT, line + "\n");
+      console.log(`{"id":${id},"result":{"status":"ok"}}`);
+    }
+  }
+});
 "#;
 
 /// A command that runs the fake app server, answering `hooks/list` from
 /// the fixture and keeping the `config/batchWrite` request in `out`.
 #[cfg(test)]
 pub(crate) fn fake_app_server(out: &std::path::Path) -> Command {
-    let mut command = Command::new("sh");
+    let mut command = Command::new("node");
     command
-        .args(["-c", FAKE_SERVER])
+        .args(["-e", FAKE_SERVER])
         .env(
             "LIST",
             concat!(

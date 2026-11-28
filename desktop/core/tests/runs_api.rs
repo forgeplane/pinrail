@@ -1707,9 +1707,17 @@ async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
     let app = linked().await;
     let here = folder(&app, "lost");
     let session = stopped_session(&app, &here).await;
-    // the agent of a run whose host Pinrail lost goes on running
+    // the agent of a run whose host Pinrail lost goes on running: on
+    // Windows ping, as sleep is Git's there
+    #[cfg(unix)]
     let mut left = std::process::Command::new("sleep")
         .arg("60")
+        .spawn()
+        .unwrap();
+    #[cfg(windows)]
+    let mut left = std::process::Command::new("ping")
+        .args(["-n", "60", "127.0.0.1"])
+        .stdout(std::process::Stdio::null())
         .spawn()
         .unwrap();
     let pid = left.id();

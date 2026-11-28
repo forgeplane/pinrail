@@ -1101,8 +1101,11 @@ mod tests {
         let linked = with_manifest(root.path(), "linked", manifest(serde_json::json!({})));
         std::fs::create_dir_all(linked.join("templates")).unwrap();
         std::fs::create_dir_all(linked.join("samples")).unwrap();
-        crate::file_link(outside.join("t.j2"), linked.join(TEMPLATE));
-        crate::file_link(outside.join("s.json"), linked.join("samples/s.json"));
+        if !crate::file_link(outside.join("t.j2"), linked.join(TEMPLATE))
+            || !crate::file_link(outside.join("s.json"), linked.join("samples/s.json"))
+        {
+            return;
+        }
         let loaded = Plugin::load(&linked);
         assert!(loaded.error.is_none(), "{:?}", loaded.error);
         assert!(

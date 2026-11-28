@@ -577,7 +577,9 @@ mod tests {
     #[test]
     fn a_symbolic_link_is_refused() {
         let dir = folder(PLUGIN);
-        crate::file_link("/etc/hosts", dir.path().join("view/hosts"));
+        if !crate::file_link("/etc/hosts", dir.path().join("view/hosts")) {
+            return;
+        }
         let refused = Listing::of_folder(dir.path(), Taken::FromSource).unwrap_err();
         assert_eq!(
             refused,

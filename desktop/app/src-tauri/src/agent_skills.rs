@@ -358,13 +358,14 @@ fn in_login_shell(home: &Path, line: &str) -> std::process::Command {
 /// the agents installed on the machine.
 #[cfg(test)]
 fn in_login_shell(_home: &Path, _line: &str) -> std::process::Command {
-    let mut command = std::process::Command::new("sh");
+    // in Node, which builds Pinrail and runs the same on every system
+    let mut command = std::process::Command::new("node");
     command.args([
-        "-c",
-        r#"while IFS= read -r line; do
-  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
-  if [ -n "$id" ]; then echo "{\"id\":$id,\"result\":{\"data\":[]}}"; fi
-done"#,
+        "-e",
+        r#"require("readline").createInterface({ input: process.stdin }).on("line", (line) => {
+  const id = (/"id":(\d+)/.exec(line) || [])[1];
+  if (id) console.log(`{"id":${id},"result":{"data":[]}}`);
+});"#,
     ]);
     command
 }

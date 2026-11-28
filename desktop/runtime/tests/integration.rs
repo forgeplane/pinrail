@@ -198,12 +198,17 @@ fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
     #[cfg(unix)]
     std::os::unix::fs::symlink(dotfiles.join("settings.json"), claude.join("settings.json"))
         .unwrap();
+    // Windows makes links only with Developer Mode on, or for an
+    // administrator: without one the test says so and goes no further
     #[cfg(windows)]
-    std::os::windows::fs::symlink_file(
+    if let Err(error) = std::os::windows::fs::symlink_file(
         dotfiles.join("settings.json"),
         claude.join("settings.json"),
-    )
-    .unwrap();
+    ) {
+        assert_eq!(error.raw_os_error(), Some(1314), "{error}");
+        eprintln!("skipped: making a link needs Developer Mode on Windows");
+        return;
+    }
     let plan = Integration {
         file: claude.join("settings.json"),
         ..plan()

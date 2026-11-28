@@ -58,9 +58,24 @@ pub fn compile_template(source: &str) -> Result<(), String> {
 /// A symbolic link at `link` to the file `target`, for the tests: Windows
 /// makes a link to a file apart from one to a folder.
 #[cfg(test)]
-pub(crate) fn file_link(target: impl AsRef<std::path::Path>, link: impl AsRef<std::path::Path>) {
+/// Whether it was made: Windows makes links only with Developer Mode on, or
+/// for an administrator, and a test without one says so and goes no further.
+#[must_use]
+pub(crate) fn file_link(
+    target: impl AsRef<std::path::Path>,
+    link: impl AsRef<std::path::Path>,
+) -> bool {
     #[cfg(unix)]
-    std::os::unix::fs::symlink(target, link).unwrap();
+    let made = std::os::unix::fs::symlink(target, link);
     #[cfg(windows)]
-    std::os::windows::fs::symlink_file(target, link).unwrap();
+    let made = std::os::windows::fs::symlink_file(target, link);
+    match made {
+        Ok(()) => true,
+        // ERROR_PRIVILEGE_NOT_HELD
+        Err(error) if cfg!(windows) && error.raw_os_error() == Some(1314) => {
+            eprintln!("skipped: making a link needs Developer Mode on Windows");
+            false
+        }
+        Err(error) => panic!("{error}"),
+    }
 }
