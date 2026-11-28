@@ -53,25 +53,34 @@ fn a_host_goes_on_after_its_holder_dies() {
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut client = connect(&host);
+    // a terminal, and the holder that started its program: its parent
     let spawn = |client: &mut Client, script: &str| {
-        client
+        let spawned = client
             .call(
                 "terminal.spawn",
                 json!({"argv": common::shell(script), "cwd": folders.runtime,
                        "cols": 80, "rows": 24, "env": {"PATH": common::path()},
                        "env_base": "host"}),
             )
-            .unwrap()["terminal"]
-            .as_str()
-            .unwrap()
-            .to_string()
+            .unwrap();
+        let pid = spawned["pid"].as_u64().unwrap() as u32;
+        let holder = pinrail_runtime::process::process(pid).unwrap().parent;
+        (spawned["terminal"].as_str().unwrap().to_string(), holder)
     };
-    let first = spawn(&mut client, "echo ready; sleep 300");
+    let (first, old_holder) = spawn(&mut client, "echo ready; sleep 300");
     wait_for(&mut client, &first, "ready");
+    let old = pinrail_runtime::process::process(old_holder).unwrap();
     common::kill_holders_only(&host.holders);
-    // the next one starts and runs
-    let second = spawn(&mut client, "echo again");
+    // the next one starts and runs, whether the host has seen its holder
+    // go by now or learns it from the spawn that fails
+    let (second, new_holder) = spawn(&mut client, "echo again; sleep 300");
     wait_for(&mut client, &second, "again");
+    assert_ne!(new_holder, old_holder, "the holder that died started it");
+    let deadline = Instant::now() + common::within(15);
+    while pinrail_runtime::process::process(old_holder).is_some_and(|p| p.started == old.started) {
+        assert!(Instant::now() < deadline, "the first holder still runs");
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 /// More terminals than one message from the holder can carry the
