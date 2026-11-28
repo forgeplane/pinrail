@@ -209,7 +209,46 @@ pub fn pipe_security() -> io::Result<*mut SECURITY_ATTRIBUTES> {
 /// Makes `path`, a folder, readable and writable by this user and the
 /// system only, and everything made in it after: a protected ACL that
 /// files and folders inside inherit, as mode 0700 is on Unix.
+///
+/// A folder that is so already is left alone, as Unix leaves a closed
+/// folder: setting its ACL again would rewrite the inherited entries of
+/// everything inside it, on every start: some 3 seconds for 20,000 files.
 pub fn make_private(path: &std::path::Path) -> io::Result<()> {
+    let user = sid_text(&current_user()?);
+    if user.is_empty() {
+        return Err(io::Error::other("this user's SID cannot be read"));
+    }
+    if acl_of(path).is_ok_and(|acl| is_private(&acl, &user)) {
+        return Ok(());
+    }
+    set_private(path, &user)
+}
+
+/// Whether `acl`, a folder's DACL in SDDL, is what [`make_private`] sets
+/// for `user`: protected, and granting all to the system and `user` only,
+/// for the folder and all inside it.
+fn is_private(acl: &str, user: &str) -> bool {
+    let Some(rest) = acl.strip_prefix("D:") else {
+        return false;
+    };
+    let (flags, aces) = rest.split_at(rest.find('(').unwrap_or(rest.len()));
+    if !flags.contains('P') {
+        return false;
+    }
+    let mut granted: Vec<&str> = aces
+        .split(')')
+        .filter(|a| !a.is_empty())
+        .map(|a| a.strip_prefix('('))
+        .map(|a| a.and_then(|a| a.strip_prefix("A;OICI;FA;;;")).unwrap_or(""))
+        .collect();
+    granted.sort_unstable();
+    let mut wanted = vec!["SY", user];
+    wanted.sort_unstable();
+    granted == wanted
+}
+
+/// Sets the ACL of [`make_private`] on `path`.
+fn set_private(path: &std::path::Path, user: &str) -> io::Result<()> {
     use windows_sys::Win32::Security::Authorization::{
         ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1, SE_FILE_OBJECT,
         SetNamedSecurityInfoW,
@@ -217,10 +256,6 @@ pub fn make_private(path: &std::path::Path) -> io::Result<()> {
     use windows_sys::Win32::Security::{
         DACL_SECURITY_INFORMATION, GetSecurityDescriptorDacl, PROTECTED_DACL_SECURITY_INFORMATION,
     };
-    let user = sid_text(&current_user()?);
-    if user.is_empty() {
-        return Err(io::Error::other("this user's SID cannot be read"));
-    }
     let sddl = wide(format!("D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;{user})").as_ref());
     let mut descriptor = null_mut();
     // SAFETY: the SDDL is NUL-terminated; the descriptor is freed below.
@@ -263,8 +298,7 @@ pub fn make_private(path: &std::path::Path) -> io::Result<()> {
     result
 }
 
-/// The access control list of `path` in SDDL, for tests.
-#[cfg(test)]
+/// The access control list of `path` in SDDL.
 pub fn acl_of(path: &std::path::Path) -> io::Result<String> {
     use windows_sys::Win32::Security::Authorization::{
         ConvertSecurityDescriptorToStringSecurityDescriptorW, GetNamedSecurityInfoW,
@@ -313,4 +347,86 @@ pub fn acl_of(path: &std::path::Path) -> io::Result<String> {
         LocalFree(descriptor);
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const USER: &str = "S-1-5-21-1-2-3-1001";
+
+    #[test]
+    fn a_folder_is_private_with_the_two_grants_only_and_protected() {
+        let private = format!("D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;{USER})");
+        assert!(is_private(&private, USER));
+        // in either order, as Windows writes them in its own
+        assert!(is_private(
+            &format!("D:P(A;OICI;FA;;;{USER})(A;OICI;FA;;;SY)"),
+            USER
+        ));
+        for open in [
+            // inherited from the folder above, which can change
+            format!("D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;{USER})"),
+            // one more
+            format!("D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;{USER})(A;OICI;0x1200a9;;;WD)"),
+            // another user's
+            "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;S-1-5-21-1-2-3-1002)".to_string(),
+            // not for what is made inside
+            format!("D:PAI(A;;FA;;;SY)(A;;FA;;;{USER})"),
+            // a denial
+            format!("D:PAI(D;OICI;FA;;;SY)(A;OICI;FA;;;{USER})"),
+            // none at all: everyone may
+            "D:NO_ACCESS_CONTROL".to_string(),
+            String::new(),
+        ] {
+            assert!(!is_private(&open, USER), "{open}");
+        }
+    }
+
+    #[test]
+    fn an_already_private_folder_is_left_as_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        make_private(dir.path()).unwrap();
+        let user = sid_text(&current_user().unwrap());
+        let acl = acl_of(dir.path()).unwrap();
+        assert!(is_private(&acl, &user), "{acl}");
+        // a file inside that inherits nothing, written without passing
+        // the folder's on: setting the folder's ACL again would
+        let file = dir.path().join("file");
+        std::fs::write(&file, "").unwrap();
+        set_without_inheriting(&file, &format!("D:(A;;FA;;;{user})"));
+        let before = acl_of(&file).unwrap();
+        assert!(!before.contains("ID;"), "{before}");
+        make_private(dir.path()).unwrap();
+        assert_eq!(acl_of(&file).unwrap(), before);
+    }
+
+    /// Sets the DACL of `path` to `sddl` alone, as SetFileSecurityW does:
+    /// it passes on nothing and takes nothing from the folder.
+    fn set_without_inheriting(path: &std::path::Path, sddl: &str) {
+        use windows_sys::Win32::Security::Authorization::{
+            ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+        };
+        use windows_sys::Win32::Security::{DACL_SECURITY_INFORMATION, SetFileSecurityW};
+        let sddl = wide(sddl.as_ref());
+        let mut descriptor = null_mut();
+        // SAFETY: the SDDL is NUL-terminated; the descriptor is freed below.
+        check(unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl.as_ptr(),
+                SDDL_REVISION_1,
+                &mut descriptor,
+                null_mut(),
+            )
+        })
+        .unwrap();
+        let name = wide(path.as_os_str());
+        // SAFETY: the name is NUL-terminated and the descriptor valid.
+        let set = check(unsafe {
+            SetFileSecurityW(name.as_ptr(), DACL_SECURITY_INFORMATION, descriptor)
+        });
+        // SAFETY: allocated with LocalAlloc.
+        unsafe { LocalFree(descriptor) };
+        set.unwrap();
+    }
 }
