@@ -109,8 +109,7 @@ jobs:
       matrix:
         # Linux on x86-64, and on ARM64 once the repository is public,
         # where GitHub's ARM64 runners are free; macos-latest is Apple
-        # silicon. Windows is tested here, though the release does not
-        # build it yet.
+        # silicon. Windows on x64; the release builds ARM64 Windows too.
         os: ${{ fromJSON(github.event.repository.private && '["ubuntu-latest", "macos-latest", "windows-latest"]' || '["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -146,8 +145,8 @@ jobs:
       - name: Rust toolchain
         run: rustup toolchain install
       # Zig at the version mise.toml pins, which builds libghostty-vt as
-      # WebAssembly for the window's terminal, and for desktop/screen on
-      # Unix, where the terminal host runs
+      # WebAssembly for the window's terminal, and for desktop/screen,
+      # which the terminal host links
       - name: Zig version
         id: zig
         run: echo "version=$(sed -n 's/^zig = "\(.*\)"$/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
@@ -182,18 +181,22 @@ jobs:
       - name: Check libghostty-vt's WebAssembly build
         working-directory: desktop/app
         run: npx vitest run scripts
-      # the terminal renderers' contract, in WebKit, the engine of the
-      # window on macOS and Linux
+      # the terminal renderers' contract, in the engine of the window:
+      # WebKit on macOS and Linux, Chromium on Windows, where the window is
+      # WebView2 (vitest.browser.config.ts picks it)
       - name: Terminal renderer contract
-        if: runner.os != 'Windows'
         working-directory: desktop/app
         run: |
-          npx playwright install --with-deps webkit
+          if [ "$RUNNER_OS" = Windows ]; then
+            npx playwright install --only-shell chromium
+          else
+            npx playwright install --with-deps webkit
+          fi
           npm run test:browser
       # the actual and diff images of failed screen comparisons, and the
       # page at each failure
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: failure() && runner.os != 'Windows'
+        if: failure()
         with:
           name: browser-test-attachments-${{ matrix.os }}
           path: desktop/app/.vitest/attachments

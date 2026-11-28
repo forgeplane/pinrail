@@ -13,6 +13,8 @@ import { QuickAddDialog } from "./QuickAddDialog";
 
 const app = vi.hoisted(() => ({
   agents: [] as StartableAgent[],
+  // what a check made afresh finds, when it differs from the kept list
+  fresh: null as StartableAgent[] | null,
   invoked: [] as [string, unknown][],
   started: [] as unknown[],
 }));
@@ -26,7 +28,7 @@ vi.mock("../api/runtime", async (real) => {
     ...actual,
     runtime: {
       ...actual.runtime,
-      startable: async () => app.agents.map((a) => ({ ...a })),
+      startable: async (fresh = false) => ((fresh && app.fresh) || app.agents).map((a) => ({ ...a })),
       recentFolders: async () => [{ folder: "/work/api", repo: "acme/api", branch: "main", exists: true }],
       // the session is Pinrail's at once; the agent names its own later
       start: async (body: unknown) => {
@@ -50,6 +52,7 @@ afterEach(() => {
   core.reset();
   app.invoked = [];
   app.started = [];
+  app.fresh = null;
 });
 
 function Where() {
@@ -105,6 +108,13 @@ test("an agent whose session Pinrail names starts unconnected, and offers to con
   await userEvent.click(offer.getByRole("button", { name: "Connect Grok CLI" }));
   expect(app.invoked.filter(([command]) => command === "connect_agent")).toEqual([["connect_agent", { id: "grok" }]]);
   await expect.element(offer).not.toBeInTheDocument();
+  await expect.element(startButton()).toBeEnabled();
+});
+
+test("an agent installed since the kept check can be chosen once the fresh one answers", async () => {
+  app.agents = [{ ...agent("grok", "Grok CLI", true, true), installed: false, version: null }];
+  app.fresh = [agent("grok", "Grok CLI", true, true)];
+  await render(<NewSession />);
   await expect.element(startButton()).toBeEnabled();
 });
 

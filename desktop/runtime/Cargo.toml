@@ -18,12 +18,15 @@ shlex = "2"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# reading a process's parent, name and start
+# reading a process's parent, name, start and arguments, and ending it
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
+  "Wdk_System_Threading",
   "Win32_Foundation",
   "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Kernel",
   "Win32_System_Threading",
+  "Win32_UI_Shell",
 ] }
 
 [lints]

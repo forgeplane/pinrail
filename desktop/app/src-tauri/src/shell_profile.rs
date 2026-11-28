@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 
 /// The comment above the line, which says where it came from.
+#[cfg_attr(windows, allow(dead_code))]
 const MARK: &str = "# Added by Pinrail";
 /// The line for zsh and bash.
 const POSIX_LINE: &str = r#"export PATH="$HOME/.local/bin:$PATH""#;
@@ -65,6 +66,7 @@ pub fn profile(
 /// Adds the profile's line at the end of its file, under a comment, and
 /// creates the file when it is missing. The rest of the file and its
 /// permissions stay as they are. False when the line was already there.
+#[cfg_attr(windows, allow(dead_code))]
 pub fn add(profile: &Profile) -> Result<bool, String> {
     // a link, as a dotfiles folder makes, stays one: its file gets the line
     let file = std::fs::canonicalize(&profile.file).unwrap_or_else(|_| profile.file.clone());

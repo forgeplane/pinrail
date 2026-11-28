@@ -1,6 +1,8 @@
 // How shortcuts are shown: the platform's modifier glyph, and whether a
 // keyboard event carries it.
 
+import { onWindows } from "./platform";
+
 export const isMac = /Mac/i.test(typeof navigator === "undefined" ? "" : navigator.platform);
 
 /** "⌘" on macOS, "Ctrl" elsewhere. */
@@ -12,9 +14,9 @@ export const SHIFT = isMac ? "⇧" : "Shift";
 /** A combination written in running text: "⌘⇧L" on macOS, "Ctrl+Shift+L" elsewhere. */
 export const combo = (...keys: string[]) => keys.join(isMac ? "" : "+");
 /** The modifiers a global shortcut needs, as the platform names them. */
-export const GLOBAL_MODIFIERS = isMac ? "⌘, ⌃ or ⌥" : "Ctrl, Alt or Super";
+export const GLOBAL_MODIFIERS = isMac ? "⌘, ⌃ or ⌥" : onWindows ? "Ctrl, Alt or Win" : "Ctrl, Alt or Super";
 /** What showing a file in the system's file browser is called here. */
-export const REVEAL = isMac ? "Show in Finder" : "Show in the file manager";
+export const REVEAL = isMac ? "Show in Finder" : onWindows ? "Show in File Explorer" : "Show in the file manager";
 /** Where the app's icon lives while its window is closed. */
 export const TRAY = isMac ? "the menu bar" : "the tray";
 

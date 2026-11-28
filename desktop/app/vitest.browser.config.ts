@@ -1,10 +1,17 @@
 // The tests that need a real browser: the terminal renderers' contract,
 // which draws on a canvas, measures fonts and runs WebAssembly, and what
-// reads the page's layout, such as find in page. They run in WebKit, the
-// engine of the app's window on macOS and Linux.
+// reads the page's layout, such as find in page. They run in the engine of
+// the app's window: WebKit on macOS and Linux, Chromium on Windows, where
+// the window is WebView2; PINRAIL_TEST_BROWSER names another.
 import path from "node:path";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+
+function browser(): "webkit" | "chromium" | "firefox" {
+  const named = process.env.PINRAIL_TEST_BROWSER;
+  if (named === "webkit" || named === "chromium" || named === "firefox") return named;
+  return process.platform === "win32" ? "chromium" : "webkit";
+}
 
 export default defineConfig({
   // what the app serves, such as libghostty-vt's WebAssembly, which
@@ -29,7 +36,7 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       headless: true,
-      instances: [{ browser: "webkit" }],
+      instances: [{ browser: browser() }],
     },
   },
 });

@@ -14,31 +14,46 @@ import { clearInterval, setInterval } from "node:timers";
 
 const cli = process.env.PINRAIL_CLI || "pinrail";
 
+const windows = process.platform === "win32";
+
 /** Where Pinrail keeps the files attached to its sessions, found as
  *  Pinrail finds its data folder. */
 const sessionFiles = path.join(
   process.env.PINRAIL_DATA_DIR ||
+    (windows && process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "dev.pinrail.desktop") : null) ||
     (process.env.XDG_DATA_HOME ? path.join(process.env.XDG_DATA_HOME, "pinrail") : null) ||
     path.join(os.homedir(), ".local", "share", "pinrail"),
   "sessions",
 );
 
+/** Whether a resource OpenCode names, a folder or `folder/*`, is inside
+ *  Pinrail's session files: resolved first, so that `..` cannot climb out,
+ *  and on Windows without the `\\?\` of a long path, in either case,
+ *  which path.relative ignores there. */
+function insideSessionFiles(resource) {
+  let target = resource.replace(/[\\/]\*$/, "");
+  if (windows) target = target.replace(/^\\\\\?\\/, "");
+  const relative = path.relative(sessionFiles, path.resolve(target));
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
 /** Whether a permission OpenCode asks for is only to read folders inside
  *  Pinrail's session files, which it then needs no answer for. */
 function readsSessionFiles(data) {
   const resources = data.resources ?? [];
-  return (
-    data.action === "external_directory" &&
-    resources.length > 0 &&
-    resources.every((resource) => resource.startsWith(sessionFiles + path.sep))
-  );
+  return data.action === "external_directory" && resources.length > 0 && resources.every(insideSessionFiles);
 }
 
 /** Runs `pinrail hook opencode <event>` with `body`; a report Pinrail misses
  *  must never stop OpenCode. */
 function report(event, body, detached = false) {
   try {
-    const child = spawn(cli, ["hook", "opencode", event], { stdio: ["pipe", "ignore", "ignore"], detached });
+    // without a console window of its own on Windows
+    const child = spawn(cli, ["hook", "opencode", event], {
+      stdio: ["pipe", "ignore", "ignore"],
+      detached,
+      windowsHide: true,
+    });
     child.on("error", () => {});
     child.stdin.on("error", () => {});
     child.stdin.end(JSON.stringify(body));

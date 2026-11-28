@@ -1,10 +1,11 @@
-// What macOS will do with the app's notifications, asked when a screen that
+// What macOS or Windows will do with the app's notifications, asked when a screen that
 // shows it opens and again each time the window comes back (from System
 // Settings, say), and the one way to ask macOS for permission.
 
 import { useCallback, useEffect, useState } from "react";
 import { inTauri } from "../api/client";
 import { isMac } from "../lib/keys";
+import { onWindows } from "../lib/platform";
 
 /** What macOS reports for the app's notifications; null outside the app bundle. */
 export type NotificationStatus = {
@@ -58,6 +59,8 @@ export const describeSystem = ({ known, status }: SystemState) => {
     return isMac
       ? "Through the notification plugin in this development build; macOS reports nothing for it"
       : "Shown by your desktop, which does not report its settings to Pinrail";
+  // Windows has a switch for the app, and nothing more to report
+  if (onWindows) return status.authorization === "denied" ? "Turned off in Windows' notification settings" : "Allowed";
   if (status.authorization === "denied") return "Not allowed in System Settings";
   if (status.authorization === "not_determined")
     return "Not yet allowed; macOS asks when you turn them on, or with the first one";

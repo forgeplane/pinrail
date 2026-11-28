@@ -243,28 +243,18 @@ impl super::Runtime {
         }
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let session_id = new_uuid();
-        // the agent reads Pinrail's note before the task; the run keeps
-        // the task as the person wrote it
-        let task = start
-            .task
-            .as_deref()
-            .filter(|t| !t.trim().is_empty())
-            .map(|task| {
-                let note = match &start.item {
-                    Some(key) => crate::preamble::for_item(key),
-                    None => crate::preamble::for_session(),
-                };
-                crate::preamble::before(&note, task)
-            });
-        let plan = agent
-            .start(&pinrail_runtime::StartRequest {
+        let task = noted_task(start);
+        let plan = pinrail_runtime::start_plan(
+            agent,
+            &pinrail_runtime::StartRequest {
                 task: task.as_deref(),
                 extra_args: &args,
                 session_id: &session_id,
-            })
-            .ok_or_else(|| {
-                RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
-            })?;
+            },
+        )
+        .ok_or_else(|| {
+            RunError::invalid("agent", format!("Pinrail cannot start {}", start.agent))
+        })?;
 
         let argv = self.with_session_files(agent, plan.argv);
         let id = crate::id::next_run();
@@ -318,27 +308,41 @@ impl super::Runtime {
             .filter_map(|r| r.process)
             .filter(|(pid, started)| crate::presence::alive(*pid, started))
             .collect();
-        #[cfg(unix)]
-        {
-            let send = |force| {
-                for (pid, started) in &lost {
-                    if let Ok(pid) = u32::try_from(*pid) {
-                        pinrail_runtime::process::stop(pid, started, force);
-                    }
-                }
-            };
-            let running = || {
+        // the agent a lost run's launcher started, as cmd starts one on
+        // Windows: the session's own process, below one of them
+        let mut lost = lost;
+        if let Some((pid, started)) = self.db.session_process(&key.0, &key.1)?
+            && !lost.contains(&(pid, started.clone()))
+            && crate::presence::alive(pid, &started)
+            && let Ok(agent) = u32::try_from(pid)
+            && let Some(parent) = pinrail_runtime::process::process(agent).map(|p| p.parent)
+            && pinrail_runtime::process::ancestor(parent, &|p| {
                 lost.iter()
-                    .any(|(pid, started)| crate::presence::alive(*pid, started))
-            };
-            send(false);
-            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
-            while running() && tokio::time::Instant::now() < deadline {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    .any(|(l, s)| *l == i64::from(p.pid) && *s == p.started)
+            })
+            .is_some()
+        {
+            lost.push((pid, started));
+        }
+        let lost = lost;
+        let send = |force| {
+            for (pid, started) in &lost {
+                if let Ok(pid) = u32::try_from(*pid) {
+                    pinrail_runtime::process::stop(pid, started, force);
+                }
             }
-            if running() {
-                send(true);
-            }
+        };
+        let running = || {
+            lost.iter()
+                .any(|(pid, started)| crate::presence::alive(*pid, started))
+        };
+        send(false);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+        while running() && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        if running() {
+            send(true);
         }
         Ok(lost)
     }
@@ -1069,7 +1073,15 @@ impl super::Runtime {
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let names: Vec<&str> = agents.iter().map(|a| a.program.as_str()).collect();
         let mut params = json!({ "names": names });
-        if let Some(path) = self.run_env.get("PATH") {
+        // Windows names it Path as often as PATH
+        let path = self.run_env.iter().find(|(name, _)| {
+            if cfg!(windows) {
+                name.eq_ignore_ascii_case("PATH")
+            } else {
+                name.as_str() == "PATH"
+            }
+        });
+        if let Some((_, path)) = path {
             params["path"] = json!(path);
         }
         match link.call("programs.find", params).await {
@@ -1370,6 +1382,17 @@ async fn checkout_of(folder: &str) -> Option<pinrail_runtime::checkout::Checkout
         .await
         .ok()
         .flatten()
+}
+
+/// The first task as the agent gets it: after Pinrail's note. The run
+/// keeps the task as the person wrote it.
+pub(crate) fn noted_task(start: &Start) -> Option<String> {
+    let task = start.task.as_deref().filter(|t| !t.trim().is_empty())?;
+    let note = match &start.item {
+        Some(key) => crate::preamble::for_item(key),
+        None => crate::preamble::for_session(),
+    };
+    Some(crate::preamble::before(&note, task))
 }
 
 #[cfg(test)]

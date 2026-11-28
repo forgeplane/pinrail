@@ -111,6 +111,13 @@ const entries = [
       "libghostty-vt 1.0.0, with simdutf, Highway, Wuffs and uucode, in the terminal host and, as WebAssembly, in the window's terminal",
     ],
   },
+  // the pseudo console the terminal host ships beside it on Windows
+  {
+    name: "MIT License",
+    id: "MIT",
+    text: fs.readFileSync(path.join(root, "licenses", "conpty.txt"), "utf8"),
+    packages: ["Microsoft ConPTY 1.24.260710001, beside the terminal host on Windows"],
+  },
   // code the window's terminal renderer adapts from T3 Code, which says so
   // in each file
   {

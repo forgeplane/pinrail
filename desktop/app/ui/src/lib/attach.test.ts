@@ -2,6 +2,14 @@ import { describe, expect, test } from "vitest";
 import { fileName, freeName, linkedIn, markdownFor } from "./attach";
 
 describe("fileName", () => {
+  test("makes a name Windows cannot hold one it can, as the core does", () => {
+    expect(fileName("Screenshot 12:30:00.png")).toBe("Screenshot-12-30-00.png");
+    expect(fileName('a|b?c*d"e.txt')).toBe("a-b-c-d-e.txt");
+    expect(fileName("report.")).toBe("report");
+    expect(fileName("CON.txt")).toBe("file-CON.txt");
+    expect(fileName("console.txt")).toBe("console.txt");
+  });
+
   test("turns spaces, brackets and slashes into dashes", () => {
     expect(fileName("latency chart (final).png")).toBe("latency-chart-final-.png");
     expect(fileName("a/b\\c[1]<2>.txt")).toBe("a-b-c-1-2-.txt");
@@ -21,6 +29,34 @@ describe("fileName", () => {
   });
   test("is file when nothing is left", () => {
     expect(fileName("...")).toBe("file");
+  });
+
+  /** a cleaned name is one the cleaning leaves alone, and that fits */
+  const holds = (name: string) => {
+    const out = fileName(name);
+    expect(fileName(out)).toBe(out);
+    expect(out.length).toBeLessThanOrEqual(120);
+    expect(out.endsWith(".")).toBe(false);
+    return out;
+  };
+  test("keeps a long name of a device within 120 characters", () => {
+    expect(holds(`CON.${"a".repeat(120)}`).startsWith("file-CON.")).toBe(true);
+    const out = holds(`${"nul.".repeat(40)}.txt`);
+    expect(out.startsWith("file-nul.") && out.endsWith(".txt")).toBe(true);
+    expect(holds(`aux.${"b".repeat(111)}`)).toHaveLength(120);
+  });
+  test("does not end with the dot a name is cut at", () => {
+    expect(holds(`${"a".repeat(119)}.${"b".repeat(25)}`)).toBe("a".repeat(119));
+    expect(holds(`${"a".repeat(118)}...${"b".repeat(25)}`)).toBe("a".repeat(118));
+    holds(`${"a".repeat(115)}.${"b".repeat(25)}.png`);
+  });
+  test("takes a device numbered in superscript for one too", () => {
+    for (const name of ["com¹", "COM².txt", "lpt³.log", "Lpt¹"]) {
+      expect(holds(name)).toBe(`file-${name}`);
+    }
+    expect(holds("com⁴.txt")).toBe("com⁴.txt");
+    expect(holds("com12.txt")).toBe("com12.txt");
+    expect(holds("lpt0")).toBe("file-lpt0");
   });
 });
 

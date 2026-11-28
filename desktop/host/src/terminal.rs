@@ -2,9 +2,7 @@
 //! owns the screen and applies everything in one order, a writer thread
 //! that writes to the PTY, and a waiter thread that sees the program exit.
 
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::os::fd::OwnedFd;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,7 +18,7 @@ use crate::filter::QueryFilter;
 use crate::frame::{Frame, kind};
 use crate::leader::{self, Leader};
 use crate::outbox::Outbox;
-use crate::pty::{self, Exit, Ready, Spawned};
+use crate::pty::{self, Exit, Spawned};
 use crate::records::Records;
 use crate::viewers::{self, AttachRequest, ViewerId, Viewers};
 
@@ -64,6 +62,68 @@ fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
         from = at + 1;
     }
     None
+}
+
+/// Whether `bytes` turn focus reporting (mode 1004) on, read on their own.
+#[cfg(test)]
+fn asks_for_focus_reports(bytes: &[u8]) -> bool {
+    FocusAsks::default().feed(bytes)
+}
+
+/// Finds a program's requests to turn focus reporting (mode 1004) on in
+/// its output: `CSI ? … h` with 1004 among its modes, as in
+/// `\x1b[?1004;2004h`, whole or cut between two reads.
+#[derive(Default)]
+struct FocusAsks {
+    /// An unfinished request at the end of the last read.
+    held: Vec<u8>,
+}
+
+impl FocusAsks {
+    /// The longest request it holds on to.
+    const LONGEST: usize = 64;
+
+    /// Whether `bytes`, after what came before, ask for focus reports.
+    fn feed(&mut self, bytes: &[u8]) -> bool {
+        let mut data = std::mem::take(&mut self.held);
+        data.extend_from_slice(bytes);
+        let mut asked = false;
+        let mut at = 0;
+        while let Some(found) = data[at..].iter().position(|&b| b == 0x1b) {
+            let start = at + found;
+            let rest = &data[start..];
+            // ESC [ ? then digits and ;, then the final byte
+            let params = rest.get(3..).map(|p| {
+                p.iter()
+                    .take_while(|b| b.is_ascii_digit() || **b == b';')
+                    .count()
+            });
+            let complete = rest.len() >= 2 && rest[1] != b'[';
+            match params {
+                _ if complete => at = start + 1,
+                _ if rest.len() >= 3 && rest[2] != b'?' => at = start + 1,
+                Some(n) if rest.len() > 3 + n => {
+                    let modes = &rest[3..3 + n];
+                    if rest[3 + n] == b'h'
+                        && modes.split(|b| *b == b';').any(|mode| mode == b"1004")
+                    {
+                        asked = true;
+                    }
+                    // an escape that cuts the request short starts the
+                    // next sequence, and is read again as one
+                    at = start + 3 + n + usize::from(rest[3 + n] != 0x1b);
+                }
+                // cut off: kept for the next read, if it is short enough
+                _ => {
+                    if rest.len() <= Self::LONGEST {
+                        self.held = rest.to_vec();
+                    }
+                    break;
+                }
+            }
+        }
+        asked
+    }
 }
 
 /// Feeds program output to `screen`. When the output leaves the alternate
@@ -181,10 +241,10 @@ impl Reason {
 /// The signals the protocol names.
 pub fn signal_number(name: &str) -> Option<i32> {
     match name {
-        "INT" => Some(libc::SIGINT),
-        "HUP" => Some(libc::SIGHUP),
-        "TERM" => Some(libc::SIGTERM),
-        "KILL" => Some(libc::SIGKILL),
+        "INT" => Some(pty::SIGINT),
+        "HUP" => Some(pty::SIGHUP),
+        "TERM" => Some(pty::SIGTERM),
+        "KILL" => Some(pty::SIGKILL),
         _ => None,
     }
 }
@@ -315,7 +375,7 @@ enum Command {
 struct State {
     info: Info,
     /// The master, for the foreground group; closed when the terminal ends.
-    master: Option<OwnedFd>,
+    master: Option<pty::Master>,
     /// Set by a stop, so the exit is reported with its reason.
     stopping: Option<Reason>,
     /// When the person last typed, pasted or clicked in the terminal.
@@ -399,24 +459,29 @@ impl Terminal {
             last_input_at: None,
             exit_reported: false,
         }));
-        let (wake_read, wake_write) = io::pipe()?;
+        let (waker, wake) = pty::wake_pair()?;
         let (output_tx, output_rx) = mpsc::channel(QUEUED_CHUNKS);
         let (commands, commands_rx) = mpsc::unbounded_channel();
         let (input_tx, input_rx) = std::sync::mpsc::channel::<Vec<u8>>();
-        let reader_master = File::from(spawned.master.try_clone()?);
-        let writer_master = File::from(spawned.master);
+        let reader_master = spawned.master.try_clone()?;
+        let writer_master = spawned.master;
         std::thread::Builder::new()
             .name("pty-reader".to_string())
-            .spawn(move || read_pty(reader_master, wake_read, output_tx))?;
+            .spawn(move || {
+                pty::read_loop(reader_master, wake, |bytes| {
+                    output_tx.blocking_send(Output::Bytes(bytes)).is_ok()
+                });
+                let _ = output_tx.blocking_send(Output::Done);
+            })?;
         std::thread::Builder::new()
             .name("pty-writer".to_string())
-            .spawn(move || write_pty(writer_master, input_rx))?;
+            .spawn(move || pty::write_loop(writer_master, input_rx))?;
         tokio::spawn(actor(Actor {
             id,
             screen,
             state: state.clone(),
             input: Some(input_tx),
-            wake: Some(wake_write),
+            wake: Some(waker),
             output: output_rx,
             commands: commands_rx,
             context,
@@ -433,6 +498,7 @@ impl Terminal {
             size: (cols, rows),
             ended: false,
             focus_reporting: false,
+            focus_asks: FocusAsks::default(),
             focused: false,
             kept: None,
             left_alternate: None,
@@ -535,9 +601,9 @@ impl Terminal {
                 let _ = tokio::time::timeout(KEEP_WITHIN, done).await;
             }
             for (signal, wait) in [
-                (libc::SIGHUP, AFTER_HANGUP),
-                (libc::SIGTERM, grace),
-                (libc::SIGKILL, Duration::ZERO),
+                (pty::SIGHUP, AFTER_HANGUP),
+                (pty::SIGTERM, grace),
+                (pty::SIGKILL, Duration::ZERO),
             ] {
                 {
                     let state = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -654,14 +720,7 @@ fn send(state: &State, signal: i32) -> Result<(), SignalError> {
     let Some(master) = &state.master else {
         return Err(SignalError::Exited);
     };
-    let pid = state.info.pid;
-    pty::signal_group(pid, signal).map_err(SignalError::Io)?;
-    if let Some(foreground) = pty::foreground_group(master)
-        && foreground != pid
-    {
-        let _ = pty::signal_group(foreground, signal);
-    }
-    Ok(())
+    pty::signal(master, state.info.pid, signal).map_err(SignalError::Io)
 }
 
 struct Actor {
@@ -671,7 +730,7 @@ struct Actor {
     /// To the writer thread; dropped when the terminal ends.
     input: Option<std::sync::mpsc::Sender<Vec<u8>>>,
     /// Written to stop the reader; dropped when the terminal ends.
-    wake: Option<io::PipeWriter>,
+    wake: Option<pty::Waker>,
     output: mpsc::Receiver<Output>,
     commands: mpsc::UnboundedReceiver<Command>,
     context: Context,
@@ -693,6 +752,8 @@ struct Actor {
     for_viewers: Vec<u8>,
     /// Whether the program asked for focus reports (mode 1004).
     focus_reporting: bool,
+    /// The program's requests for focus reports, read across its output.
+    focus_asks: FocusAsks,
     /// Whether a controlling viewer's window is focused and shows the
     /// terminal.
     focused: bool,
@@ -783,7 +844,7 @@ async fn actor(mut actor: Actor) {
                 Some(Command::HandOver { file, formats, reply }) => {
                     // the reader stops; what it read still counts
                     if let Some(mut wake) = actor.wake.take() {
-                        let _ = wake.write_all(b"x");
+                        wake.wake();
                     }
                     while !reader_done {
                         match actor.output.recv().await {
@@ -1322,6 +1383,19 @@ impl Actor {
         {
             let _ = input.send(replies);
         }
+        // A pseudo console asks for focus reports itself when it starts,
+        // and passes each program's own request on: the mode is on by
+        // then, so the screen signals no change, and the program waits to
+        // be told all the same.
+        let asked = cfg!(windows) && self.focus_asks.feed(bytes);
+        if asked
+            && self.focus_reporting
+            && !signals
+                .iter()
+                .any(|signal| matches!(signal, Signal::FocusReporting(_)))
+        {
+            self.write_focus();
+        }
         for signal in signals {
             self.report(signal);
         }
@@ -1485,7 +1559,7 @@ impl Actor {
         }
         self.held.clear();
         if let Some(mut wake) = self.wake.take() {
-            let _ = wake.write_all(b"x");
+            wake.wake();
         }
         self.input = None;
         let _ = keep_screen(
@@ -1552,64 +1626,15 @@ const FINAL_HISTORY: usize = 500;
 
 /// Writes a terminal's final screen, readable by its owner only.
 fn keep_screen(folder: &Path, id: &str, paint: &[u8]) -> io::Result<()> {
-    use std::os::unix::fs::OpenOptionsExt;
     std::fs::create_dir_all(folder)?;
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(folder.join(format!("{id}.snap")))?;
+    let mut file = crate::private(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true),
+    )
+    .open(folder.join(format!("{id}.snap")))?;
     file.write_all(paint)
-}
-
-/// Reads the PTY until it ends or the wake descriptor is written. Reads
-/// first, and waits in `poll` only when a read would block.
-fn read_pty(mut master: File, wake: io::PipeReader, output: mpsc::Sender<Output>) {
-    let mut buf = vec![0u8; CHUNK];
-    loop {
-        match master.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                if output
-                    .blocking_send(Output::Bytes(buf[..n].to_vec()))
-                    .is_err()
-                {
-                    return;
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                match pty::wait_readable(&master, &wake) {
-                    Ok(Ready::Master) => {}
-                    Ok(Ready::Wake) | Err(_) => break,
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-            // EIO once every slave descriptor is closed
-            Err(_) => break,
-        }
-    }
-    let _ = output.blocking_send(Output::Done);
-}
-
-/// Writes every input to the PTY in order, waiting when it is full, until
-/// the terminal ends.
-fn write_pty(mut master: File, input: std::sync::mpsc::Receiver<Vec<u8>>) {
-    for bytes in input {
-        let mut rest = &bytes[..];
-        while !rest.is_empty() {
-            match master.write(rest) {
-                Ok(n) => rest = &rest[n..],
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                    if pty::wait_writable(&master).is_err() {
-                        return;
-                    }
-                }
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => return,
-            }
-        }
-    }
 }
 
 /// A new screen for a terminal of this size.
@@ -1626,6 +1651,46 @@ pub fn screen(cols: u16, rows: u16, scrollback_lines: usize) -> io::Result<Box<d
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn focus_reports_asked_for_among_other_modes_are_seen() {
+        assert!(asks_for_focus_reports(b"\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"x\x1b[?1004;2004hy"));
+        assert!(asks_for_focus_reports(b"\x1b[?1000;1002;1004;1006h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?10041h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?1004l"));
+        assert!(!asks_for_focus_reports(b"\x1b[1004h"));
+    }
+
+    #[test]
+    fn a_focus_request_cut_between_two_reads_is_seen() {
+        for cut in 1..b"\x1b[?1004;2004h".len() {
+            let (first, second) = b"ab\x1b[?1004;2004hcd".split_at(cut + 2);
+            let mut asks = FocusAsks::default();
+            let asked = asks.feed(first) | asks.feed(second);
+            assert!(asked, "cut after {cut}");
+        }
+        // and nothing is held for good from text with no request
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"plain \x1b[1mbold\x1b[0m"));
+        assert!(asks.held.is_empty());
+    }
+
+    #[test]
+    fn a_focus_request_right_after_an_unfinished_one_is_seen() {
+        // the escape that cuts a request short starts the next one
+        assert!(asks_for_focus_reports(b"\x1b[?100\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"\x1b[?\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"\x1b[?1049;\x1b[?2004;1004h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?1004\x1b[?2004h"));
+        // and cut between two reads
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"\x1b[?100\x1b[?10"));
+        assert!(asks.feed(b"04h"));
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"\x1b[?100"));
+        assert!(asks.feed(b"\x1b[?1004h"));
+    }
 
     #[test]
     fn a_standalone_ctrl_c_or_escape_is_an_interrupt() {

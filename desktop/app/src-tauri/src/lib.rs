@@ -9,6 +9,8 @@ mod bench;
 mod cli_install;
 #[cfg(target_os = "macos")]
 mod clipboard_mac;
+#[cfg(windows)]
+mod clipboard_windows;
 mod feedback;
 mod headless;
 mod native;
@@ -16,9 +18,12 @@ mod native;
 mod notify_linux;
 #[cfg(target_os = "macos")]
 mod notify_mac;
+#[cfg(windows)]
+mod notify_windows;
 mod quit;
 mod shell_profile;
 mod startup;
+mod uninstall;
 mod updater;
 mod window_buttons;
 
@@ -55,8 +60,18 @@ fn clipboard_files() -> Vec<String> {
     clipboard_mac::copied_files()
 }
 
-/// Elsewhere, no files: a terminal pastes the clipboard's text.
-#[cfg(not(target_os = "macos"))]
+/// The paths of the files copied in Explorer, for a terminal to paste.
+/// Async, as it can wait a moment for the clipboard.
+#[cfg(windows)]
+#[tauri::command]
+async fn clipboard_files() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(clipboard_windows::copied_files)
+        .await
+        .unwrap_or_default()
+}
+
+/// On Linux, no files: a terminal reads a paste's URI list.
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn clipboard_files() -> Vec<String> {
     Vec::new()
@@ -70,8 +85,21 @@ fn dragged_files() -> Vec<String> {
     clipboard_mac::dragged_files()
 }
 
-/// Elsewhere, none: a terminal reads a drop's URI list.
-#[cfg(not(target_os = "macos"))]
+/// The paths of the files of the drop the page just posted. Async, so it
+/// waits off the main thread, where WebView2 delivers the post.
+#[cfg(windows)]
+#[tauri::command]
+async fn dragged_files(id: Option<u64>) -> Vec<String> {
+    let Some(id) = id else {
+        return Vec::new();
+    };
+    tauri::async_runtime::spawn_blocking(move || clipboard_windows::dragged_files(id))
+        .await
+        .unwrap_or_default()
+}
+
+/// On Linux, none: a terminal reads a drop's URI list.
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn dragged_files() -> Vec<String> {
     Vec::new()
@@ -159,15 +187,50 @@ async fn request_notifications(app: AppHandle) -> Option<notify_mac::Status> {
     notification_status(app).await
 }
 
-#[cfg(not(target_os = "macos"))]
+/// What Windows will do with the app's toasts, in macOS's terms: allowed
+/// or not, as banners. Windows asks no one, so there is nothing to request.
+#[cfg(windows)]
+#[derive(serde::Serialize)]
+struct WindowsNotifications {
+    authorization: &'static str,
+    alert_style: &'static str,
+    alerts: bool,
+    sound: bool,
+    badge: bool,
+    shows: bool,
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn notification_status(app: AppHandle) -> Option<WindowsNotifications> {
+    let allowed = tauri::async_runtime::spawn_blocking(move || notify_windows::allowed(&app))
+        .await
+        .ok()??;
+    Some(WindowsNotifications {
+        authorization: if allowed { "authorized" } else { "denied" },
+        alert_style: "banner",
+        alerts: allowed,
+        sound: true,
+        badge: false,
+        shows: allowed,
+    })
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn request_notifications(app: AppHandle) -> Option<WindowsNotifications> {
+    notification_status(app).await
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 async fn request_notifications() -> Option<()> {
     None
 }
 
-/// Elsewhere the system has no say the app can read: the plugin's
+/// On Linux the system has no say the app can read: the desktop's
 /// notification is all there is, and the shell shows no status row.
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 async fn notification_status() -> Option<()> {
     None
@@ -183,7 +246,18 @@ fn open_notification_settings(app: AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Windows' Settings, at the notifications page, where the app has its
+/// switch.
+#[cfg(windows)]
+#[tauri::command]
+fn open_notification_settings(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url("ms-settings:notifications", None::<&str>)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 #[tauri::command]
 fn open_notification_settings() -> Result<(), String> {
     Err("this system has no notification settings page for the app".into())
@@ -433,6 +507,11 @@ fn cli_status_now(home: &Path) -> cli_install::Status {
         status.profile = Some(profile.file);
         status.profile_line = Some(profile.line.to_string());
     }
+    // the PATH is the user's registry value, which a PowerShell line sets
+    #[cfg(windows)]
+    if let Some(dir) = status.link.parent() {
+        status.profile_line = Some(cli_install::powershell_path_line(dir));
+    }
     status
 }
 
@@ -446,16 +525,38 @@ async fn cli_status() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Puts the CLI's folder on the user's PATH, and records in the data folder
+/// that Pinrail did when it was not there before, for the uninstaller, which
+/// takes off the PATH only what Pinrail put on it.
+#[cfg(windows)]
+fn put_on_user_path(dir: &Path) -> Result<bool, String> {
+    let added = cli_install::add_to_user_path(dir)?;
+    if added && let Err(error) = cli_install::record_path_entry(&Config::from_env().data_dir, dir) {
+        eprintln!("pinrail: cannot record the folder put on the PATH: {error}");
+    }
+    Ok(added)
+}
+
 /// Adds the line that puts `~/.local/bin` on the PATH to the file the
 /// person's shell reads at start, then reports as `cli_status`.
 #[tauri::command]
 async fn add_cli_to_path() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
-        let profile = shell_profile_of(&home).ok_or(
-            "Pinrail does not know where your shell keeps its PATH; add the line yourself",
-        )?;
-        shell_profile::add(&profile)?;
+        #[cfg(windows)]
+        {
+            let link = cli_install::link_path(&home);
+            if let Some(dir) = link.parent() {
+                put_on_user_path(dir)?;
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let profile = shell_profile_of(&home).ok_or(
+                "Pinrail does not know where your shell keeps its PATH; add the line yourself",
+            )?;
+            shell_profile::add(&profile)?;
+        }
         Ok(cli_status_now(&home))
     })
     .await
@@ -619,9 +720,7 @@ async fn install_cli() -> Result<cli_install::Status, String> {
         let link = cli_install::link_path(&home);
         cli_install::install(mode, &bundled, &link)?;
         #[cfg(windows)]
-        let warning = link
-            .parent()
-            .and_then(|dir| cli_install::add_to_user_path(dir).err());
+        let warning = link.parent().and_then(|dir| put_on_user_path(dir).err());
         #[cfg(not(windows))]
         let warning = None;
         cli_install::remember_warning(warning);
@@ -707,6 +806,11 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     repeat_held_keys();
     let args: Vec<String> = std::env::args().collect();
+    // the uninstaller's hook, before it removes the app
+    #[cfg(windows)]
+    if uninstall::asked(&args) {
+        std::process::exit(uninstall::run());
+    }
     match headless::parse(&args) {
         Ok(Some(options)) => std::process::exit(headless::run(options)),
         Ok(None) => {}
@@ -801,6 +905,19 @@ pub fn run() {
                 }
             });
             app.manage(Native::new(state.clone()));
+            // the paths of the files dropped on the window, which the page
+            // cannot read on Windows
+            #[cfg(windows)]
+            if let Some(window) = app.get_webview_window("main") {
+                let listened = window.with_webview(|webview| {
+                    if let Err(error) = clipboard_windows::listen_in(&webview) {
+                        eprintln!("pinrail: dropped files cannot be read: {error}");
+                    }
+                });
+                if let Err(error) = listened {
+                    eprintln!("pinrail: dropped files cannot be read: {error}");
+                }
+            }
             #[cfg(target_os = "macos")]
             if notify_mac::available() {
                 notify_mac::setup(app.handle());
@@ -812,6 +929,16 @@ pub fn run() {
                 .and_then(|menu| app.set_menu(menu))
             {
                 eprintln!("pinrail: the menu could not be set up: {error}");
+            }
+            // Windows draws the menu as a bar under the title bar, above
+            // the app's own bar, so it is hidden there. Its accelerators
+            // never reach it while the web view has the keyboard, which
+            // is nearly always: on Windows the shell's own key handler
+            // runs the commands (ui/src/lib/commands.ts), and the web
+            // view copies and pastes by itself.
+            #[cfg(windows)]
+            if let Err(error) = app.hide_menu() {
+                eprintln!("pinrail: the menu bar could not be hidden: {error}");
             }
             if let Err(error) = native::build_tray(app.handle()) {
                 eprintln!("pinrail: the menu bar icon could not be set up: {error}");
@@ -922,6 +1049,11 @@ pub fn run() {
             }
         })
         .on_window_event(|window, event| {
+            // the tray icon follows the taskbar's colour on Windows
+            #[cfg(windows)]
+            if let WindowEvent::ThemeChanged(_) = event {
+                native::refresh_tray(window.app_handle());
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 // the close button hides the window, unless settings say quit
                 let quit = window
@@ -1188,7 +1320,7 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
     found
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     #[cfg(target_os = "macos")]
     #[test]
@@ -1358,29 +1490,32 @@ mod tests {
         assert_eq!(linked.skill.as_ref().unwrap().1, ["SKILL.md", "notes.md"]);
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_saved_attachment_is_a_new_file_of_the_persons() {
         let dir = tempfile::tempdir().unwrap();
         let (stored, saved) = (dir.path().join("blob"), dir.path().join("pivot.glb"));
         std::fs::write(&stored, b"glTF").unwrap();
         // as the store keeps its files
-        std::fs::set_permissions(&stored, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let mut read_only = std::fs::metadata(&stored).unwrap().permissions();
+        read_only.set_readonly(true);
+        std::fs::set_permissions(&stored, read_only).unwrap();
 
         super::save_copy(&stored, &saved).unwrap();
-        let mode =
-            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(std::fs::read(&saved).unwrap(), b"glTF");
-        assert_ne!(
-            mode(&saved) & 0o200,
-            0,
-            "the person can write it: {:o}",
-            mode(&saved)
+        assert!(
+            !std::fs::metadata(&saved).unwrap().permissions().readonly(),
+            "the person cannot write it"
         );
         // not the store's read-only mode: the one any file they make gets,
         // which their umask decides
-        let fresh = dir.path().join("fresh");
-        std::fs::File::create(&fresh).unwrap();
-        assert_eq!(mode(&saved), mode(&fresh));
+        #[cfg(unix)]
+        {
+            let mode = |path: &std::path::Path| {
+                std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+            };
+            let fresh = dir.path().join("fresh");
+            std::fs::File::create(&fresh).unwrap();
+            assert_eq!(mode(&saved), mode(&fresh));
+        }
     }
 }

@@ -67,7 +67,11 @@ function grow(box: HTMLTextAreaElement) {
 }
 
 /** A folder's last part, which names it on its picker. */
-export const baseName = (folder: string) => folder.replace(/\/+$/, "").split("/").pop() || folder;
+export const baseName = (folder: string) =>
+  folder
+    .replace(/[\\/]+$/, "")
+    .split(/[\\/]/)
+    .pop() || folder;
 
 export function NewSession() {
   const navigate = useNavigate();
@@ -97,15 +101,21 @@ export function NewSession() {
   // the last known lists show at once; fresh ones replace them
   useEffect(() => {
     let current = true;
+    const show = (found: StartableAgent[]) => {
+      knownAgents = found;
+      if (!current) return;
+      setAgents(found);
+      setAgent((chosen) => {
+        if (chosen && found.some((a) => a.id === chosen && a.installed)) return chosen;
+        return defaultAgent(found)?.id ?? null;
+      });
+    };
+    // the kept list at once, then one looked for afresh: an agent
+    // installed since shows without leaving the page
     runtime.startable().then(
       (found) => {
-        knownAgents = found;
-        if (!current) return;
-        setAgents(found);
-        setAgent((chosen) => {
-          if (chosen && found.some((a) => a.id === chosen && a.installed)) return chosen;
-          return defaultAgent(found)?.id ?? null;
-        });
+        show(found);
+        runtime.startable(true).then(show, () => {});
       },
       (e: unknown) => current && setError(refusal(e, undefined)),
     );
@@ -411,7 +421,9 @@ function FolderPicker({
   const query = typed.trim().toLowerCase();
   const listed = folders.filter((f) => !query || f.folder.toLowerCase().includes(query));
   // a typed path that is no recent folder can be chosen as it is
-  const asTyped = typed.trim().startsWith("/") && !folders.some((f) => f.folder === typed.trim());
+  // a path from the root: /…, or on Windows C:\… or \\server\…
+  const absolute = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(typed.trim());
+  const asTyped = absolute && !folders.some((f) => f.folder === typed.trim());
   const choices = [...(asTyped ? [typed.trim()] : []), ...listed.filter((f) => f.exists).map((f) => f.folder)];
 
   const chooseFolder = async () => {

@@ -5,7 +5,6 @@
 
 mod api;
 mod ask;
-#[cfg(unix)]
 mod attach;
 mod attachments;
 mod briefs;
@@ -338,7 +337,6 @@ enum Command {
     /// its terminal takes this one's size. Ctrl-\ then d detaches; the
     /// agent keeps running. Like start, this command acts as you.
     #[command(verbatim_doc_comment)]
-    #[cfg(unix)]
     Attach(attach::AttachArgs),
     /// List the agents Pinrail started, latest first
     Runs(runs::RunsArgs),
@@ -1117,7 +1115,6 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Status(args) => status(&client, args, output),
         Command::Items(args) => items::run(&client, args, output),
         Command::Start(args) => runs::start(&runs::as_person(client)?, args, output),
-        #[cfg(unix)]
         Command::Attach(args) => {
             let client = runs::as_person(client)?;
             let ended = attach::run(&client, &args)?;
@@ -1672,16 +1669,10 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
 }
 
 /// Attaches this terminal to a run that was just started.
-#[cfg(unix)]
 pub(crate) fn attach_to(client: &api::Client, run: String) -> Result<u8> {
     let ended = attach::run(client, &attach::AttachArgs::of(run))?;
     println!("{ended}");
     Ok(0)
-}
-
-#[cfg(not(unix))]
-pub(crate) fn attach_to(_: &api::Client, _: String) -> Result<u8> {
-    anyhow::bail!("attaching to an agent is not supported on this system yet")
 }
 
 /// The full path of `path`, `..` and links resolved, written as a person

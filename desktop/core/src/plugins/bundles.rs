@@ -161,7 +161,9 @@ impl Bundles {
         let Some(listing) = self.listing(hash)? else {
             return Err(Error::NotFound(format!("bundle {hash}")));
         };
-        let found = Listing::of_folder(&self.path(hash), Taken::AsBundle)
+        // with the names it was stored under, which may be ones a bundle
+        // can no longer be taken in with
+        let found = Listing::of_folder(&self.path(hash), Taken::Stored)
             .map_err(|why| Error::Internal(format!("bundle {hash}: {why}")))?;
         if found != *listing {
             return Err(Error::Internal(format!(
@@ -280,6 +282,73 @@ mod tests {
         names
     }
 
+    /// Puts a bundle in the store as an earlier Pinrail did, its folder and
+    /// its row, without the rules a bundle is taken in under today.
+    #[cfg(not(windows))]
+    fn stored_before(bundles: &Bundles, files: &[(&str, &str)]) -> String {
+        use pinrail_format::bundle::File;
+        use sha2::{Digest, Sha256};
+        let mut listed: Vec<File> = files
+            .iter()
+            .map(|(path, text)| File {
+                path: path.to_string(),
+                size: text.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(text.as_bytes())),
+            })
+            .collect();
+        listed.sort_by(|a, b| a.path.cmp(&b.path));
+        let listing = Listing { files: listed };
+        let hash = listing.hash();
+        let files: Vec<(String, Vec<u8>)> = files
+            .iter()
+            .map(|(path, text)| (path.to_string(), text.as_bytes().to_vec()))
+            .collect();
+        write_read_only(&files, &bundles.path(&hash)).unwrap();
+        let record = BundleRecord {
+            hash: hash.clone(),
+            name: "hello".into(),
+            version: "1.0.0".into(),
+            manifest: String::from_utf8_lossy(&files[0].1).into_owned(),
+            size: listing.size(),
+            stored_at: String::new(),
+        };
+        bundles.db.insert_bundle(&record, &listing.text()).unwrap();
+        hash
+    }
+
+    /// Names only Windows refuses were taken on macOS and Linux before
+    /// bundles were held to them: such a bundle, stored then, is still the
+    /// bundle its listing names, and one a source may no longer bring.
+    #[cfg(not(windows))]
+    #[test]
+    fn a_bundle_stored_with_names_windows_refuses_still_verifies() {
+        let (root, bundles) = store();
+        let files = [
+            ("manifest.json", r#"{"name": "hello", "version": "1.0.0"}"#),
+            ("view/a:b.txt", "x"),
+            ("view/aux.js", "let a;"),
+            ("view/con.css", "p {}"),
+            ("view/index.html", "<p>hello</p>"),
+        ];
+        let hash = stored_before(&bundles, &files);
+        bundles.verify(&hash).unwrap();
+
+        // a change to it is still found
+        let script = bundles.path(&hash).join("view/aux.js");
+        let mut permissions = fs::metadata(&script).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        fs::set_permissions(&script, permissions).unwrap();
+        fs::write(&script, "let b;").unwrap();
+        assert!(bundles.verify(&hash).is_err());
+
+        // and a source with such a name is refused, as on every system
+        let from = source(root.path(), "a", "hello", "1.0.0");
+        fs::write(from.join("view/aux.js"), "let a;").unwrap();
+        let refused = bundles.store(&from).unwrap_err().to_string();
+        assert!(refused.contains("aux.js"), "{refused}");
+    }
+
     #[test]
     fn a_bundle_is_stored_once_by_its_hash_with_its_record() {
         let (root, bundles) = store();
@@ -333,22 +402,20 @@ mod tests {
         assert!(folders(&bundles).is_empty());
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_stored_bundle_is_read_only_and_a_changed_one_is_reported() {
-        use std::os::unix::fs::PermissionsExt;
         let (root, bundles) = store();
         let stored = bundles
             .store(&source(root.path(), "a", "hello", "1.0.0"))
             .unwrap();
         let page = bundles.path(&stored.hash).join("view/index.html");
-        let mode = fs::metadata(&page).unwrap().permissions().mode();
-        assert_eq!(mode & 0o222, 0, "{mode:o} is writable");
+        assert!(fs::metadata(&page).unwrap().permissions().readonly());
         assert!(fs::write(&page, "changed").is_err());
 
         // changed by someone who made it writable first
         let mut permissions = fs::metadata(&page).unwrap().permissions();
-        permissions.set_mode(0o644);
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
         fs::set_permissions(&page, permissions).unwrap();
         fs::write(&page, "<p>changed</p>").unwrap();
         let error = bundles.verify(&stored.hash).unwrap_err().to_string();

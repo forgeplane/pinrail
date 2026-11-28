@@ -1,7 +1,6 @@
 //! The runs routes: the person starts an agent in a folder, lists and
 //! reads its runs, and stops one. A report sent with a run token speaks
 //! for the run's session only from the run's own agent process.
-#![cfg(unix)]
 
 mod common;
 
@@ -500,7 +499,7 @@ async fn the_agents_pinrail_can_start_are_listed_with_their_versions() {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
             .run_env
-            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+            .insert("PATH".into(), common::path_with(&bin));
     });
     runtime::watch(app.state.clone());
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -672,9 +671,10 @@ async fn recent_folders_include_the_ones_agents_worked_in_before_pinrail_saw_the
     for (name, folder) in [("shop", &shop), ("api", &api)] {
         let sessions = home.path().join(".claude/projects").join(name);
         std::fs::create_dir_all(&sessions).unwrap();
+        // as JSON writes it: a folder on Windows has backslashes to escape
         std::fs::write(
             sessions.join("one.jsonl"),
-            format!("{{\"type\":\"user\",\"cwd\":\"{folder}\"}}\n"),
+            format!("{}\n", json!({"type": "user", "cwd": folder})),
         )
         .unwrap();
     }
@@ -767,7 +767,7 @@ async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
         config.host_socket = Some((registration.socket.clone(), registration.secret.clone()));
         config
             .run_env
-            .insert("PATH".into(), format!("{}:/usr/bin:/bin", bin.display()));
+            .insert("PATH".into(), common::path_with(&bin));
     });
     runtime::watch(app.state.clone());
     let counted = || {
@@ -817,8 +817,15 @@ async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
     // and so does a request that asks for it
     let (_, _) = call(&app, "GET", "/api/v1/agents/startable?refresh=true", None).await;
     becomes(3).await;
-    checked_after(&app, &second).await;
+    let third = checked_after(&app, &second).await;
     assert_eq!(counted(), 3);
+
+    // and one that waits for a check answers with what it found: an agent
+    // installed since the last check shows at once
+    let (status, body) = call(&app, "GET", "/api/v1/agents/startable?fresh=true", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(counted(), 4, "checked before the answer");
+    assert_ne!(body["checked_at"], third);
 }
 
 /// When the agents were checked, once a check after `before` finished.
@@ -863,10 +870,11 @@ async fn a_run_keeps_what_it_was_started_with_and_its_last_output() {
 async fn a_started_agent_reads_a_pinrail_note_before_its_first_task() {
     let app = linked().await;
     let work = folder(&app, "app");
+    std::fs::write(format!("{work}/records"), "").unwrap();
     let body = json!({"agent": "claude-code", "folder": work, "task": "fix the login"});
     let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
-    let argv = argv(&work).await;
+    let argv = first_task_in(&work, "fix the login").await;
     let note = argv.find("<pinrail>").expect(&argv);
     assert!(argv[note..].contains("pinrail items show"), "{argv}");
     assert!(
@@ -891,16 +899,21 @@ async fn an_agent_started_on_a_work_item_reads_a_note_that_names_it() {
     )
     .await;
     let key = item["key"].as_str().unwrap().to_string();
+    std::fs::write(format!("{work}/records"), "").unwrap();
     let body =
         json!({"agent": "claude-code", "folder": work, "task": "Fix the login", "item": key});
     let (status, started) = call(&app, "POST", "/api/v1/runs", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
-    let argv = argv(&work).await;
+    let argv = first_task_in(&work, "Fix the login").await;
     assert!(argv.contains("<pinrail>"), "{argv}");
-    assert!(
-        argv.contains(&format!("pinrail items done {key}")),
-        "{argv}"
-    );
+    // a task typed into an agent behind a batch file, on Windows, gets the
+    // note of any new session, which tells how to read a key but names none
+    if !cfg!(windows) {
+        assert!(
+            argv.contains(&format!("pinrail items done {key}")),
+            "{argv}"
+        );
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -976,14 +989,33 @@ async fn resume(app: &App, agent: &str, session: &str) -> (StatusCode, Value) {
 /// The rule that lets Claude Code read the files attached to sessions, as
 /// the stand-in agent writes it in its argv.
 fn files_flag(app: &App) -> String {
-    let rule = format!(
-        "Read(/{}/**)",
-        app.dir.path().join("sessions").to_string_lossy()
-    );
+    let rule = common::read_rule(&app.dir.path().join("sessions"));
     format!(
         "--settings\n{}\n",
         serde_json::json!({ "permissions": { "allow": [rule] } })
     )
+}
+
+/// What the stand-in agent got its first task in: its arguments, or on
+/// Windows, where the note's line breaks keep the task off the command
+/// line of the batch file it is, as npm installs agents, what was typed
+/// into it once it was idle, up to `task`. The folder needs a file named
+/// records before the start.
+async fn first_task_in(folder: &str, task: &str) -> String {
+    let argv = argv(folder).await;
+    if !cfg!(windows) {
+        return argv;
+    }
+    let path = std::path::Path::new(folder);
+    common::record(path, "state=idle:app=claude-code").await;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let heard = std::fs::read_to_string(path.join("heard")).unwrap_or_default();
+        if heard.contains(task) || Instant::now() > deadline {
+            return heard;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }
 
 async fn argv(folder: &str) -> String {
@@ -1710,9 +1742,17 @@ async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
     let app = linked().await;
     let here = folder(&app, "lost");
     let session = stopped_session(&app, &here).await;
-    // the agent of a run whose host Pinrail lost goes on running
+    // the agent of a run whose host Pinrail lost goes on running: on
+    // Windows ping, as sleep is Git's there
+    #[cfg(unix)]
     let mut left = std::process::Command::new("sleep")
         .arg("60")
+        .spawn()
+        .unwrap();
+    #[cfg(windows)]
+    let mut left = std::process::Command::new("ping")
+        .args(["-n", "60", "127.0.0.1"])
+        .stdout(std::process::Stdio::null())
         .spawn()
         .unwrap();
     let pid = left.id();
@@ -1778,11 +1818,109 @@ async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn resuming_a_session_lost_with_its_host_stops_an_agent_its_launcher_started() {
+    let app = linked().await;
+    let here = folder(&app, "lost-launched");
+    let session = stopped_session(&app, &here).await;
+    // the run's process is a launcher, as cmd running an npm shim is on
+    // Windows, and the agent the session reported is its child
+    // it prints the child's pid: on Windows PowerShell, as Git's sh would
+    // print an MSYS one
+    #[cfg(windows)]
+    let mut launcher = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "$p = Start-Process ping -ArgumentList '-n','60','127.0.0.1' -PassThru -WindowStyle Hidden; $p.Id; $p.WaitForExit()",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    #[cfg(unix)]
+    let mut launcher = std::process::Command::new("sh")
+        .args(["-c", "sleep 60 & echo $!; wait"])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let launcher_pid = launcher.id();
+    let launcher_started = pinrail_runtime::process::process(launcher_pid)
+        .unwrap()
+        .started;
+    // the first line that is a number
+    let pid: u32 =
+        std::io::BufRead::lines(std::io::BufReader::new(launcher.stdout.take().unwrap()))
+            .map_while(Result::ok)
+            .find_map(|line| line.trim().parse().ok())
+            .unwrap();
+    let started = pinrail_runtime::process::process(pid).unwrap().started;
+    let db = common::db(&app);
+    let now = chrono::Utc::now();
+    db.insert_run(
+        &pinrail_core::db::NewRun {
+            id: "run_lost",
+            host: "local",
+            agent: "claude-code",
+            kind: "resume",
+            folder: &here,
+            argv: &["claude".to_string()],
+            task: None,
+            args: &[],
+            created_by: "app",
+            token_digest: "d-lost",
+            session: Some(&session),
+            agent_session: None,
+            checkout: None,
+        },
+        now,
+    )
+    .unwrap();
+    db.run_spawned(
+        "run_lost",
+        "local:t_lost",
+        Some((launcher_pid as i64, launcher_started.clone())),
+    )
+    .unwrap();
+    db.end_run("run_lost", "host_lost", None, None, now)
+        .unwrap();
+    let agent_session = db
+        .session("claude-code", &session, now)
+        .unwrap()
+        .unwrap()
+        .agent_session
+        .unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{agent_session}/reports"),
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": here}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+
+    let (status, answer) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CREATED, "{answer}");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while pinrail_runtime::process::process(pid).is_some_and(|p| p.started == started) {
+        assert!(
+            Instant::now() < deadline,
+            "the agent left running still runs"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let _ = launcher.kill();
+    let _ = launcher.wait();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_agent_starts_and_resumes_with_the_person_s_arguments() {
     let app = linked().await;
     app.state
         .settings()
-        .change(&json!({"agents": {"args": {"claude-code": "--model opus --append-system-prompt 'Be brief'"}}}))
+        .change(&json!({"agents": {"args": {"claude-code": "--model opus --append-system-prompt \"Be brief\""}}}))
         .unwrap();
     let given = "--model\nopus\n--append-system-prompt\nBe brief\n";
 

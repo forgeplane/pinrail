@@ -86,6 +86,39 @@ export function wheelRows(
   return { rows: whole, pending: total - whole * rowHeight };
 }
 
+/** A press of the primary button: where and when, and its click count. */
+export interface Press {
+  x: number;
+  y: number;
+  time: number;
+  count: number;
+}
+
+/** How long, and how far apart, two presses may be to count as one more
+ *  click, as Windows' defaults have it. */
+const CLICK_MS = 500;
+const CLICK_PX = 4;
+
+/**
+ * The press `e` makes after `last`. WebKit counts the clicks in a pointer
+ * event's `detail`, as the system's settings have it; Chromium, the
+ * window's engine on Windows, leaves it 0, as Pointer Events specify, so
+ * the clicks are counted here: a press soon after the last and near it is
+ * one click more.
+ */
+export function pressOf(
+  last: Press | null,
+  e: Pick<PointerEvent, "clientX" | "clientY" | "timeStamp" | "detail">,
+): Press {
+  const near =
+    last !== null &&
+    e.timeStamp - last.time <= CLICK_MS &&
+    Math.abs(e.clientX - last.x) <= CLICK_PX &&
+    Math.abs(e.clientY - last.y) <= CLICK_PX;
+  const count = e.detail > 0 ? e.detail : near ? last.count + 1 : 1;
+  return { x: e.clientX, y: e.clientY, time: e.timeStamp, count };
+}
+
 /** Rows to scroll each tick of a drag past an edge: more the further the
  *  pointer is past it. */
 export function autoscrollRows(distance: number, rowHeight: number): number {
@@ -109,6 +142,9 @@ export class Pointer {
   private hovered: Cell | null = null;
   private link: Link | null = null;
   private rest = 0;
+  /** The last press of the primary button, and how many clicks it made. */
+  private lastPress: Press | null = null;
+  private clicks = 0;
 
   constructor(
     private readonly element: HTMLElement,
@@ -203,10 +239,12 @@ export class Pointer {
     if (e.button !== 0) return;
     e.preventDefault();
     this.capture(e.pointerId);
-    if (e.detail >= 3) {
+    this.lastPress = pressOf(this.lastPress, e);
+    this.clicks = this.lastPress.count;
+    if (this.clicks >= 3) {
       this.target.selectLine(cell.col, cell.row);
       this.anchor = null;
-    } else if (e.detail === 2) {
+    } else if (this.clicks === 2) {
       this.target.selectWord(cell.col, cell.row);
       this.anchor = null;
     } else if (e.shiftKey && this.anchor) {
@@ -265,7 +303,7 @@ export class Pointer {
       this.report(e, "release", buttonOf(e.button));
       return;
     }
-    if (this.dragging && !this.moved && e.detail <= 1) {
+    if (this.dragging && !this.moved && this.clicks <= 1) {
       // a click without a drag selects nothing
       this.target.clearSelection();
       this.options.redraw();

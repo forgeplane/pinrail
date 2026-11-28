@@ -50,6 +50,20 @@ test("a subagent's session, not the one on screen, reads them without asking too
   expect(replies).toEqual([{ sessionID: "ses_sub", requestID: "per_7", decision: "once" }]);
 });
 
+test.runIf(process.platform === "win32")("on Windows a path reads with either separator, in any case", async () => {
+  const { replies, ask } = opened();
+  ask("per_8", "external_directory", ["\\DATA\\pinrail\\sessions\\opencode\\ses_01\\files\\*"]);
+  await Promise.resolve();
+  expect(replies).toEqual([{ sessionID: "ses_1", requestID: "per_8", decision: "once" }]);
+});
+
+test("a path that climbs out of the sessions folder still asks", async () => {
+  const { replies, ask } = opened();
+  ask("per_9", "external_directory", [`${folder}/../../../../../etc/*`]);
+  await Promise.resolve();
+  expect(replies).toEqual([]);
+});
+
 test("any other folder, a folder beside the sessions one, or another action still asks", async () => {
   const { replies, ask } = opened();
   ask("per_2", "external_directory", ["/Users/me/secrets/*"]);

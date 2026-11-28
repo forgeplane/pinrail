@@ -5,7 +5,8 @@
 //!
 //! The object is created with `memfd_create` on Linux and with `shm_open`
 //! and an immediate unlink on macOS, or as an unlinked temporary file
-//! where neither works. Its first 8 bytes hold the total count of bytes
+//! where neither works; on Windows it is an unnamed file mapping, whose
+//! handle the holder keeps as it keeps a descriptor. Its first 8 bytes hold the total count of bytes
 //! ever written, updated after the bytes themselves, so a host that
 //! crashes in the middle of a write leaves at most its last chunk
 //! incomplete.
@@ -15,8 +16,15 @@
 #![allow(unsafe_code)]
 
 use std::io;
+#[cfg(unix)]
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+/// What keeps the object alive, and is passed to the holder.
+#[cfg(unix)]
+pub type Object = OwnedFd;
+#[cfg(windows)]
+pub type Object = std::os::windows::io::OwnedHandle;
 
 /// The output kept.
 pub const CAPACITY: usize = 1024 * 1024;
@@ -25,7 +33,7 @@ const SIZE: usize = HEADER + CAPACITY;
 
 /// A mapped ring.
 pub struct SharedRing {
-    fd: OwnedFd,
+    fd: Object,
     map: *mut u8,
 }
 
@@ -33,6 +41,55 @@ pub struct SharedRing {
 // `&mut self`; the total is read and written atomically.
 unsafe impl Send for SharedRing {}
 
+#[cfg(windows)]
+impl SharedRing {
+    /// A new, empty ring.
+    pub fn create() -> io::Result<Self> {
+        use std::os::windows::io::{FromRawHandle, RawHandle};
+        use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+        use windows_sys::Win32::System::Memory::{CreateFileMappingW, PAGE_READWRITE};
+        // SAFETY: backed by the paging file, unnamed, not inheritable; the
+        // handle is owned below.
+        let mapping = unsafe {
+            CreateFileMappingW(
+                INVALID_HANDLE_VALUE,
+                std::ptr::null(),
+                PAGE_READWRITE,
+                0,
+                SIZE as u32,
+                std::ptr::null(),
+            )
+        };
+        if mapping.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: as above.
+        Self::map(unsafe { Object::from_raw_handle(mapping as RawHandle) })
+    }
+
+    /// The ring behind `handle`, as a holder hands it back.
+    pub fn open(handle: Object) -> io::Result<Self> {
+        Self::map(handle)
+    }
+
+    /// Maps SIZE bytes, which fails for a mapping that is smaller.
+    fn map(handle: Object) -> io::Result<Self> {
+        use windows_sys::Win32::System::Memory::{FILE_MAP_ALL_ACCESS, MapViewOfFile};
+        // SAFETY: maps SIZE bytes of the mapping for reading and writing;
+        // unmapped on drop.
+        let view =
+            unsafe { MapViewOfFile(crate::win::raw(&handle), FILE_MAP_ALL_ACCESS, 0, 0, SIZE) };
+        if view.Value.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(SharedRing {
+            fd: handle,
+            map: view.Value.cast(),
+        })
+    }
+}
+
+#[cfg(unix)]
 impl SharedRing {
     /// A new, empty ring.
     pub fn create() -> io::Result<Self> {
@@ -78,9 +135,11 @@ impl SharedRing {
             map: map.cast(),
         })
     }
+}
 
-    /// The descriptor, to give to the holder.
-    pub fn fd(&self) -> &OwnedFd {
+impl SharedRing {
+    /// The descriptor, or the handle, to give to the holder.
+    pub fn fd(&self) -> &Object {
         &self.fd
     }
 
@@ -140,7 +199,18 @@ impl Drop for SharedRing {
     fn drop(&mut self) {
         // SAFETY: unmaps the mapping made in `map`, which nothing uses
         // after this.
-        unsafe { libc::munmap(self.map.cast(), SIZE) };
+        #[cfg(unix)]
+        unsafe {
+            libc::munmap(self.map.cast(), SIZE)
+        };
+        #[cfg(windows)]
+        unsafe {
+            windows_sys::Win32::System::Memory::UnmapViewOfFile(
+                windows_sys::Win32::System::Memory::MEMORY_MAPPED_VIEW_ADDRESS {
+                    Value: self.map.cast(),
+                },
+            )
+        };
     }
 }
 
@@ -155,7 +225,7 @@ fn create_object() -> io::Result<OwnedFd> {
     Ok(unsafe { OwnedFd::from_raw_fd(fd) })
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn create_object() -> io::Result<OwnedFd> {
     let name = std::ffi::CString::new(format!("/pinrail-ring-{}", crate::random_hex(8)))
         .map_err(io::Error::other)?;
@@ -184,10 +254,12 @@ fn create_object() -> io::Result<OwnedFd> {
 }
 
 /// A temporary file, removed at once, for where shared memory is missing.
+#[cfg(unix)]
 fn unlinked_file() -> io::Result<OwnedFd> {
     Ok(OwnedFd::from(tempfile_in_tmp()?))
 }
 
+#[cfg(unix)]
 fn tempfile_in_tmp() -> io::Result<std::fs::File> {
     let path = std::env::temp_dir().join(format!("pinrail-ring-{}", crate::random_hex(8)));
     let file = std::fs::OpenOptions::new()

@@ -119,8 +119,10 @@ fn mismatch(run: &RunRow, agent: &str, agent_session: &str) -> Mismatch {
 
 /// Whether `reported` is the run's own agent process: the process the
 /// host spawned for it, by pid and start time. When the spawned process is
-/// a launcher rather than the agent, as the npm `codex` is, its direct
-/// child counts too. `agent` tells whether a process is the agent's own,
+/// a launcher rather than the agent, as the npm `codex` is, a process it
+/// started counts too, through launchers: on Windows cmd runs the npm
+/// shim, which starts node, which starts the agent. An agent on the way
+/// makes it a nested one. `agent` tells whether a process is the agent's own,
 /// as its adapter recognises it, and `lookup` reads a running process.
 pub(crate) fn own_process(
     run: &RunRow,
@@ -139,7 +141,24 @@ pub(crate) fn own_process(
         return false;
     };
     let launcher = lookup(spawned).is_some_and(|p| &p.started == started && !agent(&p));
-    launcher && lookup(child).is_some_and(|p| &p.started == reported_started && p.parent == spawned)
+    let Some(reported) = lookup(child).filter(|p| &p.started == reported_started) else {
+        return false;
+    };
+    if !launcher {
+        return false;
+    }
+    // up from the reported process, through launchers only
+    let mut parent = reported.parent;
+    for _ in 0..4 {
+        if parent == spawned {
+            return true;
+        }
+        match lookup(parent) {
+            Some(p) if !agent(&p) && p.parent != parent => parent = p.parent,
+            _ => return false,
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -224,6 +243,34 @@ mod tests {
         assert!(!own_process(
             &run,
             Some(&(13, "s13".into())),
+            &codex,
+            &lookup
+        ));
+    }
+
+    /// On Windows the host runs an npm shim through cmd: cmd (20) starts
+    /// node (21), which starts the agent (22).
+    #[test]
+    fn an_agent_two_launchers_down_is_the_runs_own() {
+        let lookup = |pid: u32| match pid {
+            20 => Some(process(20, 1, "cmd.exe", "s20")),
+            21 => Some(process(21, 20, "node.exe", "s21")),
+            22 => Some(process(22, 21, "codex", "s22")),
+            23 => Some(process(23, 22, "cmd.exe", "s23")),
+            24 => Some(process(24, 23, "codex", "s24")),
+            _ => None,
+        };
+        let run = run(Some((20, "s20")));
+        assert!(own_process(
+            &run,
+            Some(&(22, "s22".into())),
+            &codex,
+            &lookup
+        ));
+        // one the agent started is a nested agent, however far down
+        assert!(!own_process(
+            &run,
+            Some(&(24, "s24".into())),
             &codex,
             &lookup
         ));

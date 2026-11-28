@@ -746,7 +746,6 @@ async fn archive(
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
     state.reviews().archive_session(&agent, &id, true)?;
-    #[cfg(unix)]
     if let Err(error) = state.runtime().stop_session(&agent, &id).await {
         tracing::warn!("stopping the run of session {id} failed: {error}");
     }
@@ -796,7 +795,6 @@ async fn delete_session(
     State(state): State<Arc<Pinrail>>,
     Path((agent, id)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
-    #[cfg(unix)]
     if let Err(error) = state.runtime().stop_session(&agent, &id).await {
         tracing::warn!("stopping the run of session {id} failed: {error}");
     }
@@ -999,7 +997,6 @@ async fn report(
         .report(&agent, &id, &report, keep_texts, now)?;
     // a prompt confirms a message typed into the terminal, and an idle
     // agent can take the next one
-    #[cfg(unix)]
     if let ReportEvent::Prompt {
         prompt: Some(prompt),
     } = &report.event
@@ -1121,10 +1118,7 @@ async fn send_message(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let text = body.get("text").and_then(Value::as_str).unwrap_or("");
     let local_id = body.get("local_id").and_then(Value::as_str);
-    #[cfg(unix)]
     let route = state.runtime().message_route(&agent, &id);
-    #[cfg(not(unix))]
-    let route = "queue";
     let message = state
         .reviews()
         .send_message(&agent, &id, text, local_id, route)?;
@@ -1134,15 +1128,10 @@ async fn send_message(
 
 /// Types the messages waiting for the session, in the background.
 pub(super) fn deliver_later(state: &Arc<Pinrail>, agent: &str, id: &str) {
-    #[cfg(unix)]
-    {
-        let (app, agent, id) = (state.clone(), agent.to_string(), id.to_string());
-        tokio::spawn(async move {
-            let _ = app.runtime().deliver(&agent, &id).await;
-        });
-    }
-    #[cfg(not(unix))]
-    let _ = (state, agent, id);
+    let (app, agent, id) = (state.clone(), agent.to_string(), id.to_string());
+    tokio::spawn(async move {
+        let _ = app.runtime().deliver(&agent, &id).await;
+    });
 }
 
 /// Types a message that shows as unconfirmed into the agent's terminal
@@ -1160,24 +1149,17 @@ async fn type_message(
     if !matches!(found.state.as_str(), "queued" | "unconfirmed") {
         return Err(Error::Conflict("This message is not waiting to be typed.".to_string()).into());
     }
-    #[cfg(unix)]
-    {
-        if state.runtime().message_route(&agent, &id) != "type" {
-            return Err(Error::Conflict(
-                "Pinrail no longer runs this session, so it cannot type into it.".to_string(),
-            )
-            .into());
-        }
-        let app = state.clone();
-        tokio::spawn(async move {
-            let _ = app.runtime().type_now(&agent, &id, message).await;
-        });
-        Ok(StatusCode::ACCEPTED)
+    if state.runtime().message_route(&agent, &id) != "type" {
+        return Err(Error::Conflict(
+            "Pinrail no longer runs this session, so it cannot type into it.".to_string(),
+        )
+        .into());
     }
-    #[cfg(not(unix))]
-    {
-        Err(Error::Conflict("Pinrail does not run agents on this system.".to_string()).into())
-    }
+    let app = state.clone();
+    tokio::spawn(async move {
+        let _ = app.runtime().type_now(&agent, &id, message).await;
+    });
+    Ok(StatusCode::ACCEPTED)
 }
 
 /// What `pinrail status` sends once it has printed the messages a status

@@ -15,49 +15,15 @@ use std::process::{Command, Stdio};
 
 use crate::environment::find_program;
 
-/// A started program.
-#[derive(Debug)]
-pub struct Spawned {
-    pub pid: u32,
-    /// Its start time, as `pinrail-runtime` reads it for every comparison.
-    pub started: Option<String>,
-    /// The PTY's master side, non-blocking.
-    pub master: OwnedFd,
-}
+pub use crate::pty_common::{Control, Exit, SpawnError, Spawned};
 
-#[derive(Debug)]
-pub enum SpawnError {
-    /// The folder does not exist or is not a folder.
-    FolderMissing,
-    /// The program is not on the environment's `PATH`.
-    NotFound(String),
-    Io(io::Error),
-}
+/// The host's side of a terminal: the PTY's master, non-blocking.
+pub type Master = OwnedFd;
 
-impl std::fmt::Display for SpawnError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SpawnError::FolderMissing => write!(f, "the folder does not exist"),
-            SpawnError::NotFound(name) => write!(f, "{name} was not found"),
-            SpawnError::Io(error) => write!(f, "{error}"),
-        }
-    }
-}
-
-impl std::error::Error for SpawnError {}
-
-impl From<io::Error> for SpawnError {
-    fn from(error: io::Error) -> Self {
-        SpawnError::Io(error)
-    }
-}
-
-/// How a program ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Exit {
-    Code(i32),
-    Signal(i32),
-}
+pub const SIGHUP: i32 = libc::SIGHUP;
+pub const SIGINT: i32 = libc::SIGINT;
+pub const SIGKILL: i32 = libc::SIGKILL;
+pub const SIGTERM: i32 = libc::SIGTERM;
 
 /// Starts `argv` in `cwd` with exactly `env`, as the session leader of a
 /// new PTY of `cols` × `rows` that is its controlling terminal. The
@@ -227,6 +193,150 @@ pub fn reap(pid: u32) {
     let mut status = 0;
     // SAFETY: waits for this child only, without blocking.
     unsafe { libc::waitpid(pid as libc::pid_t, &mut status, libc::WNOHANG) };
+}
+
+/// Sends a signal to the program's process group and, if it differs, to
+/// the PTY's foreground process group.
+pub fn signal(master: &Master, pid: u32, signal: i32) -> io::Result<()> {
+    signal_group(pid, signal)?;
+    if let Some(foreground) = foreground_group(master)
+        && foreground != pid
+    {
+        let _ = signal_group(foreground, signal);
+    }
+    Ok(())
+}
+
+/// The host's side of a terminal from the descriptors a holder sent: the
+/// master.
+pub fn master_from(
+    _pid: u32,
+    fds: &mut dyn Iterator<Item = OwnedFd>,
+    _size: (u16, u16),
+) -> Option<Master> {
+    fds.next()
+}
+
+/// The host acts on a PTY itself, so it never needs the holder for it.
+pub fn set_control(_: &Master, _: Control) {}
+
+/// A program the holder started and keeps, with its PTY's master.
+pub struct Holding {
+    pub pid: u32,
+    pub started: Option<String>,
+    master: OwnedFd,
+}
+
+impl Holding {
+    pub fn spawn(
+        argv: &[String],
+        cwd: &Path,
+        env: &BTreeMap<String, String>,
+        cols: u16,
+        rows: u16,
+    ) -> Result<Holding, SpawnError> {
+        let spawned = spawn(argv, cwd, env, cols, rows)?;
+        Ok(Holding {
+            pid: spawned.pid,
+            started: spawned.started,
+            master: spawned.master,
+        })
+    }
+
+    /// What the host gets: a duplicate of the master.
+    pub fn for_host(&self) -> io::Result<Vec<OwnedFd>> {
+        Ok(vec![self.master.try_clone()?])
+    }
+
+    pub fn size(&self) -> (u16, u16) {
+        size(&self.master).unwrap_or((80, 24))
+    }
+
+    /// Something that waits until the program exits, for a thread of its
+    /// own, leaving it unreaped.
+    pub fn exit_waiter(&self) -> io::Result<impl FnOnce() -> io::Result<Exit> + Send + 'static> {
+        let pid = self.pid;
+        Ok(move || wait_exit(pid))
+    }
+
+    /// Nothing to do after an exit: the PTY ends once its programs have.
+    pub fn exited(&self) {}
+
+    /// Lets the terminal go: closes the master, and reaps the program if it
+    /// exited, which frees its pid.
+    pub fn forget(self, exited: bool) {
+        if exited {
+            reap(self.pid);
+        }
+    }
+}
+
+/// Wakes a reader that waits for output, so that it stops.
+pub struct Waker(io::PipeWriter);
+
+/// What a reader watches for its waker.
+pub struct Wake(io::PipeReader);
+
+pub fn wake_pair() -> io::Result<(Waker, Wake)> {
+    let (read, write) = io::pipe()?;
+    Ok((Waker(write), Wake(read)))
+}
+
+impl Waker {
+    pub fn wake(&mut self) {
+        use std::io::Write;
+        let _ = self.0.write_all(b"x");
+    }
+}
+
+/// Reads the PTY until it ends or the reader is woken, giving each piece to
+/// `out` until it says to stop. Reads first, and waits in `poll` only when
+/// a read would block.
+pub fn read_loop(master: Master, wake: Wake, mut out: impl FnMut(Vec<u8>) -> bool) {
+    use std::io::Read;
+    let mut master = std::fs::File::from(master);
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        match master.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                if !out(buf[..n].to_vec()) {
+                    return;
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                match wait_readable(&master, &wake.0) {
+                    Ok(Ready::Master) => {}
+                    Ok(Ready::Wake) | Err(_) => break,
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            // EIO once every slave descriptor is closed
+            Err(_) => break,
+        }
+    }
+}
+
+/// Writes every input to the PTY in order, waiting when it is full, until
+/// the terminal ends.
+pub fn write_loop(master: Master, input: std::sync::mpsc::Receiver<Vec<u8>>) {
+    use std::io::Write;
+    let mut master = std::fs::File::from(master);
+    for bytes in input {
+        let mut rest = &bytes[..];
+        while !rest.is_empty() {
+            match master.write(rest) {
+                Ok(n) => rest = &rest[n..],
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    if wait_writable(&master).is_err() {
+                        return;
+                    }
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(_) => return,
+            }
+        }
+    }
 }
 
 /// Sends a signal to a process group.

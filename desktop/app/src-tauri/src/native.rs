@@ -181,13 +181,18 @@ fn tomorrow() -> DateTime<Utc> {
         .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(12))
 }
 
-/// Shows the window and sends the shell to a route.
-pub fn open(app: &AppHandle, route: &str) {
+/// Shows the window where it was.
+pub fn show(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// Shows the window and sends the shell to a route.
+pub fn open(app: &AppHandle, route: &str) {
+    show(app);
     if let Some(native) = app.try_state::<Native>() {
         *native.pending_route.lock().unwrap() = Some(route.to_string());
     }
@@ -299,14 +304,50 @@ const TRAY_PAUSED_ICON: &[u8] = include_bytes!("../icons/tray-paused.png");
 
 /// The menu bar icon as this system shows it. Linux desktops show the
 /// image as it is, on a top bar that is dark in GNOME's light and dark
-/// styles alike, so the icon is drawn in white there.
+/// styles alike, so the icon is drawn in white there. Windows shows it as
+/// it is too, on a taskbar that follows the system's theme: white on a
+/// dark taskbar, black on a light one.
 fn tray_image(bytes: &[u8]) -> tauri::Result<tauri::image::Image<'static>> {
     let image = tauri::image::Image::from_bytes(bytes)?;
-    if cfg!(target_os = "linux") {
+    if cfg!(target_os = "linux") || (cfg!(windows) && !light_taskbar()) {
         Ok(light(&image))
     } else {
         Ok(image.to_owned())
     }
+}
+
+/// Redraws the tray icon when the taskbar's colour changes, which Windows
+/// can change apart from the apps' theme, so the window is not told.
+#[cfg(windows)]
+fn watch_taskbar(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut light = light_taskbar();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(30));
+            let now = light_taskbar();
+            if now != light {
+                light = now;
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || refresh_tray(&handle));
+            }
+        }
+    });
+}
+
+/// Whether Windows draws its taskbar light: the system's theme, apart from
+/// the apps'. Dark when the setting cannot be read, as Windows 10's was.
+#[cfg(windows)]
+fn light_taskbar() -> bool {
+    windows_registry::CURRENT_USER
+        .open(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        .and_then(|key| key.get_u32("SystemUsesLightTheme"))
+        .is_ok_and(|light| light != 0)
+}
+
+#[cfg(not(windows))]
+fn light_taskbar() -> bool {
+    false
 }
 
 /// The image in white, with its alpha kept.
@@ -324,10 +365,25 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .icon(icon)
         .icon_as_template(true)
         .tooltip("Pinrail")
-        .show_menu_on_left_click(true)
+        // on Windows a click opens the app, and the menu is the right
+        // button's, as every tray icon there does
+        .show_menu_on_left_click(!cfg!(windows))
+        .on_tray_icon_event(|tray, event| {
+            if cfg!(windows)
+                && let tauri::tray::TrayIconEvent::Click {
+                    button: tauri::tray::MouseButton::Left,
+                    button_state: tauri::tray::MouseButtonState::Up,
+                    ..
+                } = event
+            {
+                show(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .build(app)?;
     watch_tray(app);
+    #[cfg(windows)]
+    watch_taskbar(app);
     refresh_tray(app);
     Ok(tray)
 }
@@ -750,9 +806,9 @@ pub fn watch(app: AppHandle) {
 fn notify(app: &AppHandle, announce: &serde_json::Value) {
     let title = announce["title"].as_str().unwrap_or("Pinrail").to_string();
     let body = announce["body"].as_str().unwrap_or_default().to_string();
-    // the fallback below has no tags, which only macOS and Linux use
+    // the fallback below has no tags, which macOS, Linux and Windows use
     #[cfg_attr(
-        not(any(target_os = "macos", target_os = "linux")),
+        not(any(target_os = "macos", target_os = "linux", windows)),
         allow(unused_variables)
     )]
     let tag = announce["tag"].as_str().map(str::to_string);
@@ -767,6 +823,11 @@ fn notify(app: &AppHandle, announce: &serde_json::Value) {
     #[cfg(target_os = "linux")]
     {
         crate::notify_linux::notify(app, &title, &body, tag, sound);
+        return;
+    }
+    #[cfg(windows)]
+    {
+        crate::notify_windows::notify(app, &title, &body, tag, sound);
         return;
     }
     #[allow(unreachable_code)]
@@ -801,6 +862,8 @@ fn close_notification(app: &AppHandle, review_id: &str) {
     }
     #[cfg(target_os = "linux")]
     crate::notify_linux::close(review_id);
+    #[cfg(windows)]
+    crate::notify_windows::close(app, review_id);
 }
 
 #[cfg(test)]

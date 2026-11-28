@@ -37,7 +37,7 @@ pub fn recent_folders(home: &Path, limit: usize) -> Vec<Used> {
     // a home folder that is itself in a temporary folder, as a test's is,
     // has its projects there
     recent_where(home, limit, &|folder| {
-        !is_scratch(folder) || folder.starts_with(home)
+        !is_scratch(folder) || under(folder, home)
     })
 }
 
@@ -57,14 +57,17 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
     for (agent, folders) in readers {
         for (folder, at) in folders {
             let path = Path::new(&folder);
-            if !path.is_absolute() || path.parent().is_none() || path == home {
+            if !path.is_absolute() || path.parent().is_none() || same_folder(path, home) {
                 continue;
             }
             if !path.is_dir() || !keep(path) {
                 continue;
             }
             let used_at = DateTime::<Utc>::from(at);
-            match found.iter_mut().find(|used| used.folder == folder) {
+            match found
+                .iter_mut()
+                .find(|used| same_folder(Path::new(&used.folder), path))
+            {
                 Some(used) if used.used_at < used_at => {
                     used.agent = agent;
                     used.used_at = used_at;
@@ -83,6 +86,62 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
     found
 }
 
+/// A folder's path as it compares on Windows: in its long form, as a
+/// temporary folder can come as ALICE~1, as far as it is there to read,
+/// so that a folder not made yet compares as it will be; without the
+/// \\?\ of a long path, a share's as \\server\share; in lower case,
+/// with \ between its parts.
+#[cfg(windows)]
+fn comparable(path: &Path) -> String {
+    let long = path
+        .ancestors()
+        .find_map(|there| {
+            let rest = path.strip_prefix(there).ok()?;
+            let resolved = there.canonicalize().ok()?;
+            Some(if rest.as_os_str().is_empty() {
+                resolved
+            } else {
+                resolved.join(rest)
+            })
+        })
+        .unwrap_or_else(|| path.to_path_buf());
+    let text = long.to_string_lossy();
+    let text = match text.strip_prefix(r"\\?\UNC\") {
+        Some(share) => format!(r"\\{share}"),
+        None => text.strip_prefix(r"\\?\").unwrap_or(&text).to_string(),
+    };
+    text.replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_lowercase()
+}
+
+/// Whether two paths name one folder: on Windows in any capitals, with
+/// either separator.
+pub(crate) fn same_folder(a: &Path, b: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        comparable(a) == comparable(b)
+    }
+    #[cfg(not(windows))]
+    {
+        a == b
+    }
+}
+
+/// Whether `folder` is `base` or inside it, compared as [`same_folder`]
+/// compares.
+pub(crate) fn under(folder: &Path, base: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let (folder, base) = (comparable(folder), comparable(base));
+        folder == base || folder.starts_with(&format!("{base}\\"))
+    }
+    #[cfg(not(windows))]
+    {
+        folder.starts_with(base)
+    }
+}
+
 /// Whether `folder` is under a temporary folder, where an agent's work is
 /// a test or a one-off.
 pub(crate) fn is_scratch(folder: &Path) -> bool {
@@ -95,7 +154,10 @@ pub(crate) fn is_scratch(folder: &Path) -> bool {
     ]
     .iter()
     .any(|scratch| folder.starts_with(scratch))
-        || folder.starts_with(std::env::temp_dir())
+        || under(folder, &std::env::temp_dir())
+        // Windows' own, beside the person's
+        || std::env::var_os("SystemRoot")
+            .is_some_and(|root| under(folder, &std::path::Path::new(&root).join("Temp")))
 }
 
 /// The entries of `dir` that `wanted` keeps, each with when it last
@@ -263,6 +325,62 @@ fn opencode(data: &Path) -> Vec<(String, SystemTime)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder that is not there yet, under one named in its short form
+    /// (ALICE~1, as a temporary folder can come), is the same folder as
+    /// its long form; and a long path to a share is the share's path.
+    #[cfg(windows)]
+    #[test]
+    fn a_folder_not_there_yet_compares_by_its_long_form() {
+        let root = tempfile::tempdir().unwrap();
+        let long = root.path().join("a folder of a long name");
+        std::fs::create_dir(&long).unwrap();
+        // cmd gives the short form, when the volume makes them
+        use std::os::windows::process::CommandExt;
+        let out = std::process::Command::new("cmd")
+            .arg("/c")
+            .raw_arg(format!("for %I in (\"{}\") do @echo %~sI", long.display()))
+            .output()
+            .unwrap();
+        let short = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        if short.file_name() == long.file_name() {
+            eprintln!("skipped: the volume makes no short names");
+        } else {
+            assert!(same_folder(&short.join("work"), &long.join("work")));
+            assert!(under(&short.join("work"), &long));
+            assert!(under(&long.join("work").join("deeper"), &short));
+        }
+        assert!(same_folder(
+            Path::new(r"\\?\UNC\server\share\dir"),
+            Path::new(r"\\server\share\dir")
+        ));
+        assert!(same_folder(
+            Path::new(r"\\?\C:\Code"),
+            Path::new(r"C:\Code")
+        ));
+    }
+
+    /// Windows takes a path in any capitals, with either separator, and
+    /// its temporary folder can come in its short form, ALICE~1.
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_folder_is_compared_as_windows_names_it() {
+        let temp = std::env::temp_dir();
+        let shouting = PathBuf::from(temp.display().to_string().to_uppercase()).join("work");
+        assert!(is_scratch(&shouting), "{}", shouting.display());
+        assert!(same_folder(
+            Path::new(r"C:\Code\API"),
+            Path::new("c:/code/api/")
+        ));
+        assert!(under(
+            Path::new(r"C:\USERS\me\code"),
+            Path::new(r"c:\users\me")
+        ));
+        assert!(!under(
+            Path::new(r"C:\Users\meant"),
+            Path::new(r"C:\Users\me")
+        ));
+    }
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
 
@@ -406,12 +524,16 @@ mod tests {
         assert_eq!(home.recent(8), [(api, "pi")]);
     }
 
-    #[cfg(unix)]
     #[test]
     fn grok_names_the_folder_in_the_name_of_its_sessions_folder() {
         let home = Home::new();
         let api = home.project("my api");
-        let encoded = api.replace('/', "%2F").replace(' ', "%20");
+        // what a folder's name cannot hold, on either system
+        let encoded = api
+            .replace('/', "%2F")
+            .replace('\\', "%5C")
+            .replace(':', "%3A")
+            .replace(' ', "%20");
         let dir = home.path().join(".grok/sessions").join(&encoded);
         std::fs::create_dir_all(dir.join("0193-session")).unwrap();
         home.aged(&dir, 5);

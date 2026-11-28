@@ -152,17 +152,24 @@ export function SetupRun({
               {part.state === "failed" ? (
                 <div className="setup-step-fix">
                   {part.fix === "path" ? (
-                    <p>
-                      Pinrail installed it in <code>~/.local/bin</code>. Add this line to{" "}
-                      {part.profile ? (
-                        <code>{part.profile}</code>
-                      ) : (
-                        <>
-                          your shell profile, such as <code>~/.zshrc</code>
-                        </>
-                      )}
-                      , then open a new terminal.
-                    </p>
+                    part.userPath ? (
+                      <p>
+                        Pinrail installed it in <code>~\.local\bin</code>. Add the folder to your PATH from here, or run
+                        this line in PowerShell, then open a new terminal.
+                      </p>
+                    ) : (
+                      <p>
+                        Pinrail installed it in <code>~/.local/bin</code>. Add this line to{" "}
+                        {part.profile ? (
+                          <code>{part.profile}</code>
+                        ) : (
+                          <>
+                            your shell profile, such as <code>~/.zshrc</code>
+                          </>
+                        )}
+                        , then open a new terminal.
+                      </p>
+                    )
                   ) : (
                     <p>{part.reason}</p>
                   )}
@@ -180,7 +187,7 @@ export function SetupRun({
                           aria-label={`Add it to ${part.profile}`}
                         >
                           {/* a long path, such as fish's, names the file alone, to keep the buttons on one line */}
-                          Add it to {part.profile.length > 16 ? part.profile.split("/").pop() : part.profile}
+                          Add it to {part.profile.length > 16 ? part.profile.split(/[\\/]/).pop() : part.profile}
                         </button>
                       ) : null}
                       <button type="button" className="chrome-button" onClick={onRecheck} disabled={running}>

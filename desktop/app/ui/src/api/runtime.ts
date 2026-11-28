@@ -77,7 +77,12 @@ export type StartRequest = {
 };
 
 export const runtime = {
-  startable: async () => (await request<{ agents: StartableAgent[] }>("GET", "/api/v1/agents/startable")).agents,
+  /** The agents Pinrail can start: as the core last found them, at once,
+   *  or, with `fresh`, once it has looked again, so that one installed
+   *  since shows. */
+  startable: async (fresh = false) =>
+    (await request<{ agents: StartableAgent[] }>("GET", `/api/v1/agents/startable${fresh ? "?fresh=true" : ""}`))
+      .agents,
   recentFolders: async () => (await request<{ folders: RecentFolder[] }>("GET", "/api/v1/folders/recent")).folders,
   start: (body: StartRequest) =>
     // why the new session could not claim the item it was started on

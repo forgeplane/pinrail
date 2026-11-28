@@ -1,0 +1,22 @@
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "externalBin": ["binaries/pinrail-cli", "binaries/pinrail-host"],
+    "resources": {
+      "binaries/conpty/": "conpty/"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

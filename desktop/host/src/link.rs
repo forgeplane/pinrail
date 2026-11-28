@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use tokio::net::UnixStream;
 use tokio::sync::{Notify, broadcast, mpsc, oneshot, watch};
 
 use crate::frame::{self, CONTROL_CHANNEL, Frame, kind};
@@ -353,10 +352,10 @@ impl HostLink {
                 (registration.socket, registration.secret)
             }
         };
-        let stream = UnixStream::connect(&socket)
+        let stream = crate::net::connect_async(&socket)
             .await
             .map_err(|e| Retry(format!("{}: {e}", socket.display())))?;
-        let (mut reader, mut writer) = stream.into_split();
+        let (mut reader, mut writer) = crate::net::split(stream);
         let hello = json!({"jsonrpc": "2.0", "id": 0, "method": "hello", "params": {
             "secret": secret,
             "client": self.inner.client,

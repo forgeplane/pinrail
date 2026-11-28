@@ -188,12 +188,13 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_skill_holds_no_links() {
         let dir = tempfile::tempdir().unwrap();
         write(dir.path(), MAIN, MAIN_TEXT);
-        std::os::unix::fs::symlink("/etc/hosts", dir.path().join(FOLDER).join("hosts")).unwrap();
+        if !crate::file_link("/etc/hosts", dir.path().join(FOLDER).join("hosts")) {
+            return;
+        }
         assert_eq!(
             load(dir.path()),
             Err("skill/hosts: a link, which a skill does not hold".to_string())

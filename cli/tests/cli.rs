@@ -3543,6 +3543,33 @@ fn a_review_names_the_top_of_the_checkout_as_its_folder() {
     assert_eq!(folder, top);
 }
 
+/// The zone the status tests give the command, as POSIX writes one: 5:45
+/// ahead of UTC, so that a time printed in UTC, or in the zone of the
+/// machine that runs the tests, is caught. Windows ignores `TZ`.
+const ZONE: &str = "NPT-05:45";
+
+/// An ISO time as the command prints it: in [`ZONE`], or on Windows by
+/// this machine's clock, whose zone a test cannot set there.
+fn local(iso: &str) -> String {
+    let time = chrono::DateTime::parse_from_rfc3339(iso).unwrap();
+    if cfg!(windows) {
+        time.with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+    } else {
+        let zone = chrono::FixedOffset::east_opt(5 * 3600 + 45 * 60).unwrap();
+        time.with_timezone(&zone)
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_status_tests_expect_times_in_a_zone_ahead_of_utc() {
+    assert_eq!(local("2026-11-02T10:04:00Z"), "2026-11-02 15:49");
+}
+
 #[test]
 fn a_status_prints_the_messages_it_receives_then_acknowledges_them() {
     let answers = Arc::new(Mutex::new(vec![
@@ -3571,7 +3598,7 @@ fn a_status_prints_the_messages_it_receives_then_acknowledges_them() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
-            .env("TZ", "UTC")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
@@ -3588,8 +3615,12 @@ fn a_status_prints_the_messages_it_receives_then_acknowledges_them() {
     assert!(acknowledged.lock().unwrap().is_empty());
     assert_eq!(
         status(),
-        "Message from pnezis, sent 2026-11-02 10:04:\nUse the v2 endpoint.\n\n\
-         Message from pnezis, sent 2026-11-02 10:05:\nAnd keep the old tests:\nthey cover the retries.\n"
+        format!(
+            "Message from pnezis, sent {}:\nUse the v2 endpoint.\n\n\
+             Message from pnezis, sent {}:\nAnd keep the old tests:\nthey cover the retries.\n",
+            local("2026-11-02T10:04:00Z"),
+            local("2026-11-02T10:05:00Z")
+        )
     );
     // once printed, the messages are acknowledged, so that a CLI killed
     // before it printed them gets them again with its next status
@@ -3615,7 +3646,7 @@ fn status_answers_in_json_and_prints_messages_without_terminal_escapes() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
-            .env("TZ", "UTC")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
@@ -3662,16 +3693,17 @@ fn status_prints_the_open_stage_above_the_messages() {
             .env("PINRAIL_URL", &server.url)
             .env("CLAUDECODE", "1")
             .env("CLAUDE_CODE_SESSION_ID", "c-1")
-            .env("TZ", "UTC")
+            .env("TZ", ZONE)
             .current_dir(std::env::temp_dir())
             .output()
             .unwrap();
         assert_eq!(out.status.code(), Some(0));
         String::from_utf8(out.stdout).unwrap()
     };
+    let (started, sent) = (local("2026-11-02T10:00:00Z"), local("2026-11-02T10:04:00Z"));
     assert_eq!(
         status(),
-        "Current stage: Add rate limiting (started 2026-11-02 10:00)\n"
+        format!("Current stage: Add rate limiting (started {started})\n")
     );
     assert_eq!(
         status(),
@@ -3679,13 +3711,17 @@ fn status_prints_the_open_stage_above_the_messages() {
     );
     assert_eq!(
         status(),
-        "Current stage: Add rate limiting (started 2026-11-02 10:00)\n\n\
-         Message from pnezis, sent 2026-11-02 10:04:\nUse v2.\n"
+        format!(
+            "Current stage: Add rate limiting (started {started})\n\n\
+             Message from pnezis, sent {sent}:\nUse v2.\n"
+        )
     );
     // with the session's name, when the app gives it
     assert_eq!(
         status(),
-        "Current stage: Add rate limiting (started 2026-11-02 10:00), in session Happy Hydrogen\n"
+        format!(
+            "Current stage: Add rate limiting (started {started}), in session Happy Hydrogen\n"
+        )
     );
 }
 

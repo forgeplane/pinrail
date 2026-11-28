@@ -1,14 +1,23 @@
 //! The login environment probe: the variables a person's login shell sets,
 //! such as the `PATH` their version managers add to, so that an agent
 //! started from the app finds the commands it would find in a terminal.
+//!
+//! Windows has no login shell: there the variables are read afresh from
+//! the user's and the system's settings, as a new terminal would get them,
+//! which also picks up a `PATH` an installer changed since the host started.
 
+#[cfg(unix)]
 use std::io::{self, Read};
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
+#[cfg(unix)]
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
 use crate::pty;
 
 /// How long the shell may take.
@@ -16,6 +25,7 @@ pub const TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a probed environment is reused.
 const KEEP: Duration = Duration::from_secs(60);
 /// The most output read from the shell.
+#[cfg(unix)]
 const MAX_OUTPUT: usize = 1024 * 1024;
 
 pub type Vars = Vec<(String, String)>;
@@ -33,10 +43,11 @@ pub struct Outcome {
 
 impl Outcome {
     pub fn path_entries(&self) -> usize {
+        let separator = if cfg!(windows) { ';' } else { ':' };
         self.vars
             .iter()
-            .find(|(k, _)| k == "PATH")
-            .map(|(_, v)| v.split(':').filter(|p| !p.is_empty()).count())
+            .find(|(k, _)| k == "PATH" || cfg!(windows) && k.eq_ignore_ascii_case("PATH"))
+            .map(|(_, v)| v.split(separator).filter(|p| !p.is_empty()).count())
             .unwrap_or(0)
     }
 }
@@ -83,8 +94,114 @@ pub fn probe(shell: Option<&str>, timeout: Duration) -> Outcome {
     }
 }
 
+/// The host's environment as it is: the folders of installed commands are
+/// on Windows' own `PATH` already.
+#[cfg(windows)]
+pub fn fallback(vars: Vars) -> Vars {
+    vars
+}
+
+/// The variables a new terminal gets: the host's, with the user's and the
+/// system's settings read afresh over them.
+#[cfg(windows)]
+fn run(_shell: Option<&str>, _timeout: Duration) -> Result<Vars, String> {
+    let mut env: std::collections::BTreeMap<String, String> = std::env::vars().collect();
+    refresh(&mut env).map_err(|e| format!("the settings could not be read: {e}"))?;
+    Ok(env.into_iter().collect())
+}
+
+/// Puts the user's and the system's variables, as Windows reads them from
+/// the registry, over `env`; a variable only this process has stays.
+/// This process's token, for reading the user's own environment.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn user_token() -> std::io::Result<std::os::windows::io::OwnedHandle> {
+    use std::os::windows::io::{FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::Security::{TOKEN_DUPLICATE, TOKEN_IMPERSONATE, TOKEN_QUERY};
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    let mut token = std::ptr::null_mut();
+    // impersonation too, which expanding the user's variables asks for
+    // SAFETY: the token is owned below.
+    crate::win::check(unsafe {
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE,
+            &mut token,
+        )
+    })?;
+    // SAFETY: as above.
+    Ok(unsafe { OwnedHandle::from_raw_handle(token.cast()) })
+}
+
+/// `text` with the user's `%VARIABLES%` expanded.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn expand_for_user(
+    token: &std::os::windows::io::OwnedHandle,
+    text: &str,
+) -> std::io::Result<String> {
+    use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsForUserW;
+    let source: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+    let mut expanded = vec![0u16; 32_768];
+    // SAFETY: the source is NUL-terminated; the buffer holds its size.
+    crate::win::check(unsafe {
+        ExpandEnvironmentStringsForUserW(
+            crate::win::raw(token),
+            source.as_ptr(),
+            expanded.as_mut_ptr(),
+            expanded.len() as u32,
+        )
+    })?;
+    let len = expanded
+        .iter()
+        .position(|&c| c == 0)
+        .unwrap_or(expanded.len());
+    Ok(String::from_utf16_lossy(&expanded[..len]))
+}
+
+/// Adapted from herdr-core's crates/herdr-core/src/platform/windows_env.rs.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn refresh(env: &mut std::collections::BTreeMap<String, String>) -> std::io::Result<()> {
+    use windows_sys::Win32::System::Environment::{
+        CreateEnvironmentBlock, DestroyEnvironmentBlock,
+    };
+    let token = user_token()?;
+    let mut block = std::ptr::null_mut();
+    // SAFETY: Windows writes a block it allocates, freed below.
+    crate::win::check(unsafe { CreateEnvironmentBlock(&mut block, crate::win::raw(&token), 0) })?;
+    // SAFETY: the block is `name=value` strings, each ending in a NUL, and
+    // an empty one at the end.
+    unsafe {
+        let mut at = block.cast::<u16>();
+        while *at != 0 {
+            let len = (0..).take_while(|&i| *at.add(i) != 0).count();
+            let entry = String::from_utf16_lossy(std::slice::from_raw_parts(at, len));
+            if let Some((key, value)) = entry.split_once('=')
+                && !key.is_empty()
+            {
+                env.retain(|k, _| !k.eq_ignore_ascii_case(key));
+                env.insert(key.into(), value.into());
+            }
+            at = at.add(len + 1);
+        }
+        DestroyEnvironmentBlock(block);
+    }
+    // the block can leave references to variables set late, such as
+    // ProgramFiles, in PATH
+    if let Some((_, path)) = env
+        .iter_mut()
+        .find(|(key, _)| key.eq_ignore_ascii_case("PATH"))
+        && path.contains('%')
+    {
+        *path = expand_for_user(&token, path)?;
+    }
+    Ok(())
+}
+
 /// The host's environment with the usual folders of installed commands
 /// added to `PATH`.
+#[cfg(unix)]
 pub fn fallback(mut vars: Vars) -> Vars {
     let home = vars
         .iter()
@@ -114,6 +231,7 @@ pub fn fallback(mut vars: Vars) -> Vars {
     vars
 }
 
+#[cfg(unix)]
 fn default_shell() -> &'static str {
     if cfg!(target_os = "macos") {
         "/bin/zsh"
@@ -122,6 +240,7 @@ fn default_shell() -> &'static str {
     }
 }
 
+#[cfg(unix)]
 /// Runs `$SHELL -l -i -c` with a command that prints the environment
 /// between two random markers, and parses only what lies between them. The
 /// shell runs in its own process group, which is killed as soon as the end
@@ -157,10 +276,10 @@ fn run(shell: Option<&str>, timeout: Duration) -> Result<Vars, String> {
     let group = child.id();
     let mut stdout = child.stdout.take().expect("piped");
     let deadline = Instant::now() + timeout;
-    let (start_marker, end_marker) = (marker(&start), marker(&end));
+    let mut between = Between::new(marker(&start), marker(&end));
     let mut output = Vec::new();
     let found = loop {
-        if let Some(found) = between(&output, &start_marker, &end_marker) {
+        if let Some(found) = between.of(&output) {
             break Ok(found.to_vec());
         }
         if output.len() > MAX_OUTPUT {
@@ -194,6 +313,7 @@ fn run(shell: Option<&str>, timeout: Duration) -> Result<Vars, String> {
     found.map(|bytes| parse(&bytes))
 }
 
+#[cfg(unix)]
 fn marker(name: &str) -> Vec<u8> {
     let mut marker = vec![0u8];
     marker.extend(name.as_bytes());
@@ -201,18 +321,71 @@ fn marker(name: &str) -> Vec<u8> {
     marker
 }
 
-/// The bytes between the first `start` and the next `end`, once both
-/// arrived.
-fn between<'a>(output: &'a [u8], start: &[u8], end: &[u8]) -> Option<&'a [u8]> {
-    let from = find(output, start)? + start.len();
-    let to = from + find(&output[from..], end)?;
-    Some(&output[from..to])
+#[cfg(unix)]
+/// Looks for the bytes between the first `start` and the next `end` in
+/// output that grows with every read. It remembers how far it looked, so
+/// each byte is searched once: searching everything again after every read
+/// costs the square of the output, which for a shell that prints a megabyte
+/// took seconds of the time the shell is allowed in an unoptimized build.
+struct Between {
+    start: Vec<u8>,
+    end: Vec<u8>,
+    /// Where the environment begins, once `start` arrived.
+    from: Option<usize>,
+    /// How much of the output held neither marker when last looked at.
+    searched: usize,
 }
 
+#[cfg(unix)]
+impl Between {
+    fn new(start: Vec<u8>, end: Vec<u8>) -> Self {
+        Self {
+            start,
+            end,
+            from: None,
+            searched: 0,
+        }
+    }
+
+    /// The bytes between the markers, once both arrived. `output` is what
+    /// the last call saw with more appended.
+    fn of<'a>(&mut self, output: &'a [u8]) -> Option<&'a [u8]> {
+        let from = match self.from {
+            Some(from) => from,
+            None => {
+                let at = resume(self.searched, &self.start);
+                let Some(found) = find(&output[at..], &self.start) else {
+                    self.searched = output.len();
+                    return None;
+                };
+                let from = at + found + self.start.len();
+                self.from = Some(from);
+                self.searched = from;
+                from
+            }
+        };
+        let at = resume(self.searched, &self.end).max(from);
+        let Some(found) = find(&output[at..], &self.end) else {
+            self.searched = output.len();
+            return None;
+        };
+        Some(&output[from..at + found])
+    }
+}
+
+#[cfg(unix)]
+/// Where to look for `needle` again after `searched` bytes held none: a
+/// little before their end, since a read can stop in the middle of one.
+fn resume(searched: usize, needle: &[u8]) -> usize {
+    searched.saturating_sub(needle.len().saturating_sub(1))
+}
+
+#[cfg(unix)]
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
 
+#[cfg(unix)]
 /// `env -0`'s output: `NAME=value` entries separated by NUL bytes.
 fn parse(bytes: &[u8]) -> Vars {
     bytes
@@ -225,7 +398,31 @@ fn parse(bytes: &[u8]) -> Vars {
         .collect()
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn the_user_s_settings_come_over_the_host_s_own() {
+        let mut env = std::collections::BTreeMap::new();
+        env.insert("PINRAIL_ONLY_HERE".to_string(), "kept".to_string());
+        env.insert("PATH".to_string(), r"C:\stale".to_string());
+        refresh(&mut env).unwrap();
+        assert_eq!(env["PINRAIL_ONLY_HERE"], "kept");
+        let path: Vec<_> = env
+            .iter()
+            .filter(|(k, _)| k.eq_ignore_ascii_case("path"))
+            .collect();
+        assert_eq!(path.len(), 1);
+        assert!(path[0].1.to_lowercase().contains(r"c:\windows"), "{path:?}");
+        assert!(!path[0].1.contains('%'), "{path:?}");
+        let outcome = probe(None, TIMEOUT);
+        assert!(outcome.failure.is_none());
+        assert!(outcome.path_entries() > 1);
+    }
+}
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
@@ -236,7 +433,8 @@ mod tests {
         output.extend(b"PATH=/a:/b\0MULTI=one\ntwo\0BROKEN\0");
         output.extend(marker("E"));
         output.extend(b"FAKE=after\0");
-        let vars = parse(between(&output, &marker("S"), &marker("E")).unwrap());
+        let mut between = Between::new(marker("S"), marker("E"));
+        let vars = parse(between.of(&output).unwrap());
         assert_eq!(
             vars,
             [
@@ -244,7 +442,32 @@ mod tests {
                 ("MULTI".to_string(), "one\ntwo".to_string())
             ]
         );
-        assert!(between(b"\0S\0PATH=/a", &marker("S"), &marker("E")).is_none());
+        let mut between = Between::new(marker("S"), marker("E"));
+        assert!(between.of(b"\0S\0PATH=/a").is_none());
+    }
+
+    #[test]
+    fn the_markers_are_found_however_the_output_is_cut_into_reads() {
+        let mut output = b"noise\0".to_vec();
+        output.extend(marker("START"));
+        output.extend(b"PATH=/a:/b\0HOME=/Users/p\0");
+        output.extend(marker("END"));
+        output.extend(b"FAKE=after\0");
+        output.extend(marker("END"));
+        for step in 1..=output.len() {
+            let mut between = Between::new(marker("START"), marker("END"));
+            let mut found = None;
+            let mut arrived = 0;
+            while found.is_none() && arrived < output.len() {
+                arrived = (arrived + step).min(output.len());
+                found = between.of(&output[..arrived]);
+            }
+            assert_eq!(
+                found,
+                Some(&b"PATH=/a:/b\0HOME=/Users/p\0"[..]),
+                "{step} bytes at a time"
+            );
+        }
     }
 
     #[test]
@@ -257,6 +480,21 @@ mod tests {
         assert_eq!(
             path,
             "/usr/bin:/usr/local/bin:/opt/homebrew/bin:/Users/p/.local/bin"
+        );
+    }
+}
+
+#[cfg(all(test, windows))]
+mod token_tests {
+    #[test]
+    fn the_user_s_variables_expand_with_the_token_the_probe_opens() {
+        let token = super::user_token().unwrap();
+        // a system variable, and one of the user's own
+        let system = std::env::var("SystemRoot").unwrap();
+        let profile = std::env::var("USERPROFILE").unwrap();
+        assert_eq!(
+            super::expand_for_user(&token, r"%SystemRoot%\x;%USERPROFILE%\y").unwrap(),
+            format!(r"{system}\x;{profile}\y")
         );
     }
 }

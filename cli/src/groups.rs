@@ -74,11 +74,6 @@ mod tests {
             assert_eq!(times, 1, "{name} is in {times} groups");
         }
         for name in grouped {
-            // the reference lists attach, which only Unix has, for every
-            // platform
-            if cfg!(not(unix)) && name == "attach" {
-                continue;
-            }
             assert!(
                 root.find_subcommand(name).is_some(),
                 "{name} is in a group and is no command"

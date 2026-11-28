@@ -127,20 +127,26 @@ fn type_first_task(state: &Arc<Pinrail>, request: &crate::runtime::Start, run: &
     let Some(agent) = pinrail_runtime::adapter(&request.agent) else {
         return;
     };
-    let task = agent
-        .start(&pinrail_runtime::StartRequest {
-            task: request.task.as_deref(),
+    // decided on the task with Pinrail's note, as the start was; what is
+    // typed is the person's task, which delivery puts the note before
+    let noted = crate::runtime::noted_task(request);
+    let typed = pinrail_runtime::start_plan(
+        agent,
+        &pinrail_runtime::StartRequest {
+            task: noted.as_deref(),
             extra_args: &request.args,
             session_id: "",
-        })
-        .and_then(|plan| plan.type_task);
-    let (Some(task), Some((agent, session))) = (task, &run.session) else {
+        },
+    )
+    .is_some_and(|plan| plan.type_task.is_some());
+    let task = request.task.as_deref().filter(|t| !t.trim().is_empty());
+    let (true, Some(task), Some((agent, session))) = (typed, task, &run.session) else {
         return;
     };
     let local_id = format!("first-task-{}", run.id);
     match state
         .reviews()
-        .send_message(agent, session, &task, Some(&local_id), "type")
+        .send_message(agent, session, task, Some(&local_id), "type")
     {
         Ok(_) => super::reviews::deliver_later(state, agent, session),
         Err(error) => tracing::warn!("sending the first task failed: {error:?}"),
@@ -358,6 +364,15 @@ async fn startable(
     Query(query): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
     let refresh = query.get("refresh").is_some_and(|v| v == "true");
+    // fresh: answer with a check begun now, for a screen that showed the
+    // kept list and wants an agent installed since; a failed check leaves
+    // the kept list, as for any request
+    if query.get("fresh").is_some_and(|v| v == "true") {
+        let _ = state
+            .runtime()
+            .check_startable(Some(chrono::Utc::now()))
+            .await;
+    }
     match state.runtime().startable(refresh).await {
         Ok((body, due)) => {
             if due {

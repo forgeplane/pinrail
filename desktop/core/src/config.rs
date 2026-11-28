@@ -70,11 +70,19 @@ fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBu
 impl Config {
     /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
     /// `PINRAIL_SDK_DIR` from the environment. The data dir falls back to
-    /// `$XDG_DATA_HOME/pinrail`, then `~/.local/share/pinrail`, on every
-    /// platform, where the CLI looks for it too.
+    /// `%LOCALAPPDATA%\dev.pinrail.desktop` on Windows, the app's own
+    /// local data folder, apart from the one the installer puts the
+    /// program in, and elsewhere to
+    /// `$XDG_DATA_HOME/pinrail`, then `~/.local/share/pinrail`, where the
+    /// CLI looks for it too.
     pub fn from_env() -> Self {
         let mut config = Self::from_vars(
             env::var_os("PINRAIL_DATA_DIR").map(PathBuf::from),
+            if cfg!(windows) {
+                env::var_os("LOCALAPPDATA").map(PathBuf::from)
+            } else {
+                None
+            },
             env::var_os("XDG_DATA_HOME").map(PathBuf::from),
             home_dir(),
             env::var("PINRAIL_PORT").ok(),
@@ -83,8 +91,10 @@ impl Config {
             env::var("PINRAIL_PORT").ok().as_deref(),
             crate::settings::port_in(&config.data_dir),
         );
+        // Windows names the person in USERNAME
         config.user = env::var("PINRAIL_USER")
             .or_else(|_| env::var("USER"))
+            .or_else(|_| env::var("USERNAME"))
             .ok()
             .filter(|u| !u.trim().is_empty())
             .unwrap_or_else(|| "pinrail".to_string());
@@ -121,13 +131,16 @@ impl Config {
 
     fn from_vars(
         data_dir: Option<PathBuf>,
+        local_app_data: Option<PathBuf>,
         xdg_data_home: Option<PathBuf>,
         home: Option<PathBuf>,
         port: Option<String>,
     ) -> Self {
-        let data_dir = data_dir
-            .or_else(|| xdg_data_home.map(|d| d.join("pinrail")))
-            .or_else(|| home.map(|h| h.join(".local/share/pinrail")))
+        let set = |v: Option<PathBuf>| v.filter(|v| !v.as_os_str().is_empty());
+        let data_dir = set(data_dir)
+            .or_else(|| set(local_app_data).map(|d| d.join("dev.pinrail.desktop")))
+            .or_else(|| set(xdg_data_home).map(|d| d.join("pinrail")))
+            .or_else(|| set(home).map(|h| h.join(".local/share/pinrail")))
             .unwrap_or_else(|| PathBuf::from("pinrail-data"));
         let port = port.and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
         Self::new(data_dir, port)
@@ -206,6 +219,7 @@ mod tests {
     fn explicit_data_dir_wins() {
         let c = Config::from_vars(
             Some("/tmp/w".into()),
+            Some(r"C:\Users\u\AppData\Local".into()),
             Some("/xdg".into()),
             Some("/home/u".into()),
             None,
@@ -215,11 +229,38 @@ mod tests {
     }
 
     #[test]
-    fn the_data_folder_is_under_xdg_data_home_or_else_the_home_folder() {
-        let c = Config::from_vars(None, Some("/xdg".into()), Some("/home/u".into()), None);
-        assert_eq!(c.data_dir, PathBuf::from("/xdg/pinrail"));
-        let c = Config::from_vars(None, None, Some("/home/u".into()), None);
+    fn an_empty_variable_counts_as_unset_as_for_the_cli_and_the_host() {
+        let c = Config::from_vars(None, None, Some("".into()), Some("/home/u".into()), None);
         assert_eq!(c.data_dir, PathBuf::from("/home/u/.local/share/pinrail"));
+        let c = Config::from_vars(None, None, None, Some("".into()), None);
+        assert_eq!(c.data_dir, PathBuf::from("pinrail-data"));
+    }
+
+    #[test]
+    fn the_data_folder_is_under_xdg_data_home_or_else_the_home_folder() {
+        let c = Config::from_vars(
+            None,
+            None,
+            Some("/xdg".into()),
+            Some("/home/u".into()),
+            None,
+        );
+        assert_eq!(c.data_dir, PathBuf::from("/xdg/pinrail"));
+        let c = Config::from_vars(None, None, None, Some("/home/u".into()), None);
+        assert_eq!(c.data_dir, PathBuf::from("/home/u/.local/share/pinrail"));
+    }
+
+    #[test]
+    fn on_windows_the_data_folder_is_in_local_app_data() {
+        let local = PathBuf::from(r"C:\Users\u\AppData\Local");
+        let c = Config::from_vars(
+            None,
+            Some(local.clone()),
+            Some("/xdg".into()),
+            Some(r"C:\Users\u".into()),
+            None,
+        );
+        assert_eq!(c.data_dir, local.join("dev.pinrail.desktop"));
     }
 
     #[test]
@@ -241,9 +282,9 @@ mod tests {
 
     #[test]
     fn port_parses_or_defaults() {
-        let c = Config::from_vars(Some("/d".into()), None, None, Some("5000".into()));
+        let c = Config::from_vars(Some("/d".into()), None, None, None, Some("5000".into()));
         assert_eq!(c.port, 5000);
-        let c = Config::from_vars(Some("/d".into()), None, None, Some("nope".into()));
+        let c = Config::from_vars(Some("/d".into()), None, None, None, Some("nope".into()));
         assert_eq!(c.port, DEFAULT_PORT);
         assert_eq!(c.bind_addr().to_string(), "127.0.0.1:4747");
         assert_eq!(c.url(), "http://127.0.0.1:4747");

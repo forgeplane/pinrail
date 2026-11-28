@@ -39,7 +39,14 @@ pub fn of(folder: &Path) -> Option<Checkout> {
 }
 
 fn git(folder: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git")
+    let mut command = Command::new("git");
+    // the app reads checkouts, and has no console for git to show
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    let out = command
         .arg("-C")
         .arg(folder)
         .args(args)
@@ -56,13 +63,17 @@ fn git(folder: &Path, args: &[&str]) -> Option<String> {
 /// `acme/api`; a subgroup stays in (`group/sub/api`); a local path gives its
 /// last folder.
 pub fn project_of(url: &str) -> Option<String> {
-    let url = url.trim().trim_end_matches('/');
+    let url = url.trim().trim_end_matches(['/', '\\']);
     let url = url.strip_suffix(".git").unwrap_or(url);
     let path = if let Some((_, rest)) = url.split_once("://") {
         // scheme://[user@]host[:port]/path
         rest.split_once('/').map(|(_, path)| path)?
-    } else if url.starts_with('/') || url.starts_with('.') || url.starts_with('~') {
-        url.rsplit('/').next()?
+    } else if url.starts_with('/')
+        || url.starts_with('.')
+        || url.starts_with('~')
+        || windows_path(url)
+    {
+        url.rsplit(['/', '\\']).next()?
     } else if let Some((_, path)) = url.split_once(':') {
         // [user@]host:path
         path
@@ -73,8 +84,25 @@ pub fn project_of(url: &str) -> Option<String> {
     (!path.is_empty()).then(|| path.to_string())
 }
 
+/// Whether `url` is a Windows path, `C:\…`, `C:/…` or `\\server\…`,
+/// which git takes for a local remote, not for `host:path`.
+fn windows_path(url: &str) -> bool {
+    let bytes = url.as_bytes();
+    url.starts_with("\\\\")
+        || bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/')
+}
+
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_windows_folder_ending_in_a_separator_names_its_project() {
+        assert_eq!(project_of(r"C:\code\api\").as_deref(), Some("api"));
+        assert_eq!(project_of(r"C:\code\api").as_deref(), Some("api"));
+    }
     use super::project_of;
 
     #[test]
@@ -91,6 +119,9 @@ mod tests {
             ("https://token@gitlab.com/group/api.git", "group/api"),
             ("/srv/git/api.git", "api"),
             ("../api", "api"),
+            (r"C:\srv\git\api.git", "api"),
+            ("C:/srv/git/api.git", "api"),
+            (r"\\server\git\api.git", "api"),
         ] {
             assert_eq!(project_of(url).as_deref(), Some(project), "{url}");
         }

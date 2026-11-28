@@ -84,6 +84,9 @@ pub struct Status {
     pub profile: Option<PathBuf>,
     /// that line, in the shell's syntax
     pub profile_line: Option<String>,
+    /// whether the PATH is the user's value in the registry, as on Windows,
+    /// which Pinrail can add the folder to, rather than a shell's file
+    pub user_path: bool,
 }
 
 /// What went wrong after the last install, kept so that the status check that
@@ -191,10 +194,20 @@ pub fn status(
         installed,
         outdated,
         occupied_by,
-        runs: shell.and_then(|s| s.command.clone()),
+        // the installed CLI by its own name, however the PATH spells it:
+        // with other capitals on Windows, where PATHEXT gives `.EXE`, or
+        // through `.`; the window compares the two as text
+        runs: shell.and_then(|s| s.command.clone()).map(|runs| {
+            if same_file(&runs, link) {
+                link.to_path_buf()
+            } else {
+                runs
+            }
+        }),
         warning: None,
         profile: None,
         profile_line: None,
+        user_path: cfg!(windows),
         dir_on_path: shell.map(|s| {
             dir.as_ref()
                 .is_some_and(|d| s.path.iter().any(|p| same_file(p, d)))
@@ -332,11 +345,22 @@ fn same_contents(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Starts `command` without a console window of its own on Windows, which
+/// the app, having no console, would otherwise open for a console program.
+pub(crate) fn without_window(command: &mut Command) -> &mut Command {
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        command,
+        windows_sys::Win32::System::Threading::CREATE_NO_WINDOW,
+    );
+    command
+}
+
 /// Whether `path` is some version of the pinrail CLI: it says `pinrail <version>`
 /// when asked. Anything that does not answer in time is not.
 fn is_pinrail_cli(path: &Path) -> bool {
     let Ok(mut child) = spawn(
-        Command::new(path)
+        without_window(&mut Command::new(path))
             .arg("--version")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -577,25 +601,70 @@ fn expand_variables(text: &str) -> String {
     out
 }
 
+/// A PowerShell line that puts `dir` at the end of the user's PATH, for
+/// someone to run when Pinrail could not: the value in the registry, which
+/// a new terminal reads, not the running shell's. It reads and writes the
+/// value as it is stored, so the `%VARIABLES%` in it stay variables, and
+/// then sets and removes a variable through .NET, which tells running
+/// programs, such as Explorer, that the environment changed.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn powershell_path_line(dir: &Path) -> String {
+    path_line_for("Path", dir)
+}
+
+/// The line, for the user variable `name`.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn path_line_for(name: &str, dir: &Path) -> String {
+    let dir = dir.display().to_string().replace('\'', "''");
+    format!(
+        "$k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment'); \
+         $p = [string]$k.GetValue('{name}', '', 'DoNotExpandEnvironmentNames'); \
+         $k.SetValue('{name}', (@($p.TrimEnd(';'), '{dir}') -ne '') -join ';', 'ExpandString'); \
+         [Environment]::SetEnvironmentVariable('PinrailRefresh', '1', 'User'); \
+         [Environment]::SetEnvironmentVariable('PinrailRefresh', $null, 'User')"
+    )
+}
+
 /// Puts `dir` at the end of the user's PATH, if it is not there, keeping the
 /// `%VARIABLES%` the value already has, then tells running programs, such as
 /// Explorer, that the environment changed, so that a terminal opened next
 /// sees it. True when the PATH changed. A PATH value that is not a string is
 /// left alone, since writing it back as one would change its meaning.
 #[cfg(windows)]
-#[allow(unsafe_code)]
 pub fn add_to_user_path(dir: &Path) -> Result<bool, String> {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        HWND_BROADCAST, SMTO_ABORTIFHUNG, SendMessageTimeoutA, WM_SETTINGCHANGE,
-    };
     let key = windows_registry::CURRENT_USER
         .create("Environment")
         .map_err(|e| format!("cannot add {} to the PATH: {e}", dir.display()))?;
     if !add_to_path_in(&key, dir)? {
         return Ok(false);
     }
-    // tell Explorer and the rest that the environment changed, so that a
-    // terminal opened next sees it
+    environment_changed();
+    Ok(true)
+}
+
+/// Takes `dir` out of the user's PATH, leaving every other entry as it is
+/// written, then tells running programs that the environment changed. True
+/// when the PATH changed.
+#[cfg(windows)]
+pub fn remove_from_user_path(dir: &Path) -> Result<bool, String> {
+    let key = windows_registry::CURRENT_USER
+        .create("Environment")
+        .map_err(|e| format!("cannot take {} off the PATH: {e}", dir.display()))?;
+    if !remove_from_path_in(&key, dir)? {
+        return Ok(false);
+    }
+    environment_changed();
+    Ok(true)
+}
+
+/// Tells Explorer and the rest that the environment changed, so that a
+/// terminal opened next sees it.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn environment_changed() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        HWND_BROADCAST, SMTO_ABORTIFHUNG, SendMessageTimeoutA, WM_SETTINGCHANGE,
+    };
     // SAFETY: the message and the NUL-terminated string outlive the call.
     unsafe {
         SendMessageTimeoutA(
@@ -608,49 +677,157 @@ pub fn add_to_user_path(dir: &Path) -> Result<bool, String> {
             std::ptr::null_mut(),
         );
     }
-    Ok(true)
+}
+
+/// The `Path` value of `key` as written, with its `%VARIABLES%` unexpanded,
+/// and whether it is stored as one that expands them; empty when there is
+/// none. A value that is not a string is refused, since writing it back as
+/// one would change its meaning: `doing` says what could not be done.
+#[cfg(windows)]
+fn raw_path_in(key: &windows_registry::Key, doing: &str) -> Result<(String, bool), String> {
+    match key.get_value("Path") {
+        Ok(value) => {
+            let expands = match value.ty() {
+                windows_registry::Type::String => false,
+                windows_registry::Type::ExpandString => true,
+                _ => return Err(format!("{doing}: the user PATH is not a string value")),
+            };
+            String::try_from(value)
+                .map(|raw| (raw, expands))
+                .map_err(|e| format!("{doing}: {e}"))
+        }
+        // no PATH of the user's yet: ERROR_FILE_NOT_FOUND
+        Err(e) if e.code().0 == 0x8007_0002_u32 as i32 => Ok((String::new(), true)),
+        Err(e) => Err(format!("{doing}: {e}")),
+    }
 }
 
 /// Puts `dir` at the end of the `Path` value in `key`, as [`add_to_user_path`]
 /// does in the user's environment. True when the value changed.
 #[cfg(windows)]
 fn add_to_path_in(key: &windows_registry::Key, dir: &Path) -> Result<bool, String> {
-    let fail = |e: String| format!("cannot add {} to the PATH: {e}", dir.display());
-    // the value as written, with its %VARIABLES% unexpanded
-    let raw = match key.get_value("Path") {
-        Ok(value) => match value.ty() {
-            windows_registry::Type::String | windows_registry::Type::ExpandString => {
-                String::try_from(value).map_err(|e| fail(e.to_string()))?
-            }
-            _ => {
-                return Err(format!(
-                    "cannot add {} to the PATH: the user PATH is not a string value",
-                    dir.display()
-                ));
-            }
-        },
-        // no PATH of the user's yet: ERROR_FILE_NOT_FOUND
-        Err(e) if e.code().0 == 0x8007_0002_u32 as i32 => String::new(),
-        Err(e) => return Err(fail(e.to_string())),
-    };
-    let wanted = dir.to_string_lossy();
-    let wanted = wanted.trim_end_matches('\\');
-    let same = |entry: &str| {
-        expand_variables(entry.trim())
-            .trim_end_matches('\\')
-            .eq_ignore_ascii_case(wanted)
-    };
-    if raw.split(';').any(same) {
+    let doing = format!("cannot add {} to the PATH", dir.display());
+    let (raw, _) = raw_path_in(key, &doing)?;
+    let Some(new) = with_path_entry(&raw, &dir.to_string_lossy()) else {
         return Ok(false);
-    }
-    let new = if raw.is_empty() {
-        wanted.to_string()
-    } else {
-        format!("{};{wanted}", raw.trim_end_matches(';'))
     };
     key.set_expand_string("Path", &new)
-        .map_err(|e| fail(e.to_string()))?;
+        .map_err(|e| format!("{doing}: {e}"))?;
     Ok(true)
+}
+
+/// Takes `dir` out of the `Path` value in `key`, as
+/// [`remove_from_user_path`] does in the user's environment: the value keeps
+/// its type, and is removed when `dir` was all it held, as there was none
+/// before Pinrail added to it. True when the value changed.
+#[cfg(windows)]
+fn remove_from_path_in(key: &windows_registry::Key, dir: &Path) -> Result<bool, String> {
+    let doing = format!("cannot take {} off the PATH", dir.display());
+    let (raw, expands) = raw_path_in(key, &doing)?;
+    let Some(new) = without_path_entry(&raw, &dir.to_string_lossy()) else {
+        return Ok(false);
+    };
+    let written = if new.is_empty() {
+        key.remove_value("Path")
+    } else if expands {
+        key.set_expand_string("Path", &new)
+    } else {
+        key.set_string("Path", &new)
+    };
+    written.map_err(|e| format!("{doing}: {e}"))?;
+    Ok(true)
+}
+
+/// Whether `entry`, one of a registry PATH's, names the folder `dir`: with
+/// its `%VARIABLES%` expanded, whatever its capitals, with or without a
+/// backslash at its end.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn is_path_entry(entry: &str, dir: &str) -> bool {
+    expand_variables(entry.trim())
+        .trim_end_matches('\\')
+        .eq_ignore_ascii_case(dir.trim_end_matches('\\'))
+}
+
+/// The registry PATH `raw` with `dir` at its end; none when `raw` has it
+/// already.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn with_path_entry(raw: &str, dir: &str) -> Option<String> {
+    if raw.split(';').any(|entry| is_path_entry(entry, dir)) {
+        return None;
+    }
+    let dir = dir.trim_end_matches('\\');
+    Some(if raw.is_empty() {
+        dir.to_string()
+    } else {
+        format!("{};{dir}", raw.trim_end_matches(';'))
+    })
+}
+
+/// The registry PATH `raw` without its entries for `dir`, the others as
+/// they are written and in their order; none when `raw` has no such entry.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn without_path_entry(raw: &str, dir: &str) -> Option<String> {
+    if !raw.split(';').any(|entry| is_path_entry(entry, dir)) {
+        return None;
+    }
+    Some(
+        raw.split(';')
+            .filter(|entry| !is_path_entry(entry, dir))
+            .collect::<Vec<_>>()
+            .join(";"),
+    )
+}
+
+/// The file in Pinrail's data folder that names the folder Pinrail put on
+/// the user's PATH. The uninstaller takes off the PATH only an entry
+/// recorded here: one that the person added, or another program that keeps
+/// its commands in `~\.local\bin`, is theirs.
+#[cfg_attr(not(windows), allow(dead_code))]
+const PATH_RECORD: &str = "cli-path-entry";
+
+/// Records in `data_dir` that Pinrail put `dir` on the user's PATH.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn record_path_entry(data_dir: &Path, dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(data_dir)?;
+    std::fs::write(data_dir.join(PATH_RECORD), dir.to_string_lossy().as_bytes())
+}
+
+/// The folder Pinrail put on the user's PATH, as `data_dir` records it.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn recorded_path_entry(data_dir: &Path) -> Option<PathBuf> {
+    let text = std::fs::read_to_string(data_dir.join(PATH_RECORD)).ok()?;
+    let text = text.trim();
+    (!text.is_empty()).then(|| PathBuf::from(text))
+}
+
+/// Forgets the folder [`record_path_entry`] recorded.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn forget_path_entry(data_dir: &Path) {
+    let _ = std::fs::remove_file(data_dir.join(PATH_RECORD));
+}
+
+/// Removes the copy of the CLI at `link` that [`Mode::Copy`] installed, and
+/// what installing leaves beside it. The copy is told as installing tells
+/// one it may replace: it matches the bundled CLI, or it is some version of
+/// the pinrail CLI. A link, a folder and any other file stay. True when a
+/// copy was removed.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn remove_copy(bundled: Option<&Path>, link: &Path) -> Result<bool, String> {
+    for beside in ["partial", "old"] {
+        let _ = std::fs::remove_file(link.with_file_name(format!(".{PROGRAM}.{beside}")));
+    }
+    let ours = match std::fs::symlink_metadata(link) {
+        Ok(meta) if meta.is_file() => {
+            bundled.is_some_and(|b| same_contents(b, link)) || is_pinrail_cli(link)
+        }
+        _ => false,
+    };
+    if !ours {
+        return Ok(false);
+    }
+    std::fs::remove_file(link)
+        .map(|()| true)
+        .map_err(|e| format!("cannot remove {}: {e}", link.display()))
 }
 
 #[cfg_attr(windows, allow(dead_code))]
@@ -674,7 +851,181 @@ fn parse_shell(text: &str) -> Option<ShellView> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_powershell_line_sets_the_users_path_with_the_folder_quoted() {
+        let line = super::powershell_path_line(Path::new(r"C:\Users\o'neil\.local\bin"));
+        assert!(line.contains(r"'C:\Users\o''neil\.local\bin'"), "{line}");
+        assert!(line.contains("GetValue('Path', ''"), "{line}");
+        assert!(line.contains("SetValue('Path', "), "{line}");
+    }
+
     use super::*;
+
+    /// Runs the PowerShell line for the user variable `name`, set to
+    /// `value` first, or unset, and gives what the registry then holds:
+    /// its type and its text, as written.
+    #[cfg(windows)]
+    fn after_the_line(
+        name: &str,
+        value: Option<&str>,
+        dir: &str,
+    ) -> (windows_registry::Type, String) {
+        let env = windows_registry::CURRENT_USER
+            .create("Environment")
+            .unwrap();
+        match value {
+            Some(value) => env.set_expand_string(name, value).unwrap(),
+            None => {
+                let _ = env.remove_value(name);
+            }
+        }
+        let line = path_line_for(name, Path::new(dir));
+        let status = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &line])
+            .status()
+            .unwrap();
+        assert!(status.success(), "{line}");
+        let found = (env.get_type(name).unwrap(), env.get_string(name).unwrap());
+        env.remove_value(name).unwrap();
+        found
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_powershell_line_keeps_the_variables_the_path_names() {
+        let (kind, value) =
+            after_the_line("PinrailTestPath", Some(r"%USERPROFILE%\tools"), r"C:\x");
+        assert_eq!(value, r"%USERPROFILE%\tools;C:\x");
+        assert_eq!(kind, windows_registry::Type::ExpandString);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_powershell_line_starts_a_path_that_was_not_there() {
+        assert_eq!(after_the_line("PinrailTestPath2", None, r"C:\x").1, r"C:\x");
+    }
+
+    #[test]
+    fn a_folder_is_added_to_a_registry_path_once_and_taken_out_again() {
+        let dir = r"C:\Users\p\.local\bin";
+        let before = r"%USERPROFILE%\tools;C:\x";
+        let after = with_path_entry(before, dir).unwrap();
+        assert_eq!(after, r"%USERPROFILE%\tools;C:\x;C:\Users\p\.local\bin");
+        assert_eq!(with_path_entry(&after, dir), None, "already there");
+        assert_eq!(without_path_entry(&after, dir).as_deref(), Some(before));
+        assert_eq!(without_path_entry(before, dir), None, "nothing to take");
+
+        // a PATH that Pinrail started holds nothing once the folder is out
+        let alone = with_path_entry("", dir).unwrap();
+        assert_eq!(alone, dir);
+        assert_eq!(without_path_entry(&alone, dir).as_deref(), Some(""));
+    }
+
+    #[test]
+    fn taking_a_folder_out_of_a_registry_path_leaves_the_rest_as_written() {
+        let dir = r"C:\Users\p\.local\bin";
+        // other capitals, a backslash at the end, spaces, and twice
+        let raw = r"%PINRAIL_UNSET_VAR%\x; C:\Tools ;c:\users\P\.LOCAL\bin\;;C:\Users\p\.local\bin;C:\Users\p\.local\bin2";
+        assert_eq!(
+            without_path_entry(raw, dir).as_deref(),
+            Some(r"%PINRAIL_UNSET_VAR%\x; C:\Tools ;;C:\Users\p\.local\bin2")
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_registry_path_gets_a_folder_and_loses_only_that_folder() {
+        let key = windows_registry::CURRENT_USER
+            .create(r"Software\PinrailTest\PathEntry")
+            .unwrap();
+        let dir = Path::new(r"C:\Users\p\.local\bin");
+
+        // none before: one is made, and removed with its only folder
+        let _ = key.remove_value("Path");
+        assert_eq!(add_to_path_in(&key, dir), Ok(true));
+        assert_eq!(key.get_string("Path").unwrap(), r"C:\Users\p\.local\bin");
+        assert_eq!(remove_from_path_in(&key, dir), Ok(true));
+        assert!(key.get_value("Path").is_err());
+        assert_eq!(remove_from_path_in(&key, dir), Ok(false));
+
+        // the others stay as written, and the value keeps its type
+        key.set_expand_string("Path", r"%USERPROFILE%\tools;C:\x")
+            .unwrap();
+        assert_eq!(add_to_path_in(&key, dir), Ok(true));
+        assert_eq!(add_to_path_in(&key, dir), Ok(false));
+        assert_eq!(remove_from_path_in(&key, dir), Ok(true));
+        assert_eq!(key.get_string("Path").unwrap(), r"%USERPROFILE%\tools;C:\x");
+        assert_eq!(
+            key.get_type("Path").unwrap(),
+            windows_registry::Type::ExpandString
+        );
+        key.set_string("Path", r"C:\x;C:\Users\p\.local\bin\")
+            .unwrap();
+        assert_eq!(remove_from_path_in(&key, dir), Ok(true));
+        assert_eq!(key.get_string("Path").unwrap(), r"C:\x");
+        assert_eq!(
+            key.get_type("Path").unwrap(),
+            windows_registry::Type::String
+        );
+
+        windows_registry::CURRENT_USER
+            .remove_tree(r"Software\PinrailTest")
+            .unwrap();
+    }
+
+    #[test]
+    fn the_folder_put_on_the_path_is_recorded_and_forgotten() {
+        let data = tempfile::tempdir().unwrap();
+        let data_dir = data.path().join("data");
+        assert_eq!(recorded_path_entry(&data_dir), None);
+        record_path_entry(&data_dir, Path::new(r"C:\Users\p\.local\bin")).unwrap();
+        assert_eq!(
+            recorded_path_entry(&data_dir),
+            Some(PathBuf::from(r"C:\Users\p\.local\bin"))
+        );
+        forget_path_entry(&data_dir);
+        assert_eq!(recorded_path_entry(&data_dir), None);
+    }
+
+    /// Only the pinrail CLI is removed from the install's place: the copy
+    /// of the bundled one or an older one, with what an install left beside
+    /// it; not a file that is something else, a link or a folder.
+    #[cfg(unix)]
+    #[test]
+    fn only_a_copy_of_the_cli_is_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundled = dir.path().join("app").join(COMMAND);
+        script(&bundled, "0.2.0");
+        let link = link_path(&dir.path().join("home"));
+        let bin = link.parent().unwrap();
+
+        assert_eq!(remove_copy(Some(&bundled), &link), Ok(false), "none there");
+
+        install(Mode::Copy, &bundled, &link).unwrap();
+        let old = bin.join(".pinrail.old");
+        std::fs::write(&old, "").unwrap();
+        assert_eq!(remove_copy(Some(&bundled), &link), Ok(true));
+        assert!(!link.exists() && !old.exists());
+
+        script(&link, "0.1.0");
+        assert_eq!(remove_copy(None, &link), Ok(true), "an older copy");
+        assert!(!link.exists());
+
+        std::fs::write(&link, "#!/bin/sh\necho 'something else'\n").unwrap();
+        executable(&link).unwrap();
+        assert_eq!(remove_copy(Some(&bundled), &link), Ok(false));
+        assert!(link.is_file());
+
+        std::fs::remove_file(&link).unwrap();
+        symlink(&bundled, &link).unwrap();
+        assert_eq!(remove_copy(Some(&bundled), &link), Ok(false));
+        assert!(link.is_symlink());
+
+        std::fs::remove_file(&link).unwrap();
+        std::fs::create_dir(&link).unwrap();
+        assert_eq!(remove_copy(Some(&bundled), &link), Ok(false));
+        assert!(link.is_dir());
+    }
 
     #[test]
     fn a_registry_path_expands_the_variables_it_can() {
@@ -841,6 +1192,50 @@ mod tests {
             status(Mode::Link, Some(&cli), &link, None).dir_on_path,
             None
         );
+    }
+
+    /// The installed CLI in a folder of its own, and that folder.
+    fn installed_file(root: &Path) -> (PathBuf, PathBuf) {
+        let link = link_path(&root.join("home"));
+        let dir = link.parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&link, b"cli").unwrap();
+        (link, dir)
+    }
+
+    #[test]
+    fn the_installed_cli_by_another_spelling_is_the_one_a_terminal_runs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (link, dir) = installed_file(tmp.path());
+        // the same file, as a PATH entry can spell its folder
+        let view = ShellView {
+            path: vec![dir.join(".")],
+            command: Some(dir.join(".").join(link.file_name().unwrap())),
+        };
+        let s = status(Mode::Copy, None, &link, Some(&view));
+        // as the window compares them: as text
+        assert_eq!(text(s.runs.as_deref()), text(Some(&link)));
+        assert_eq!(s.dir_on_path, Some(true));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_cli_found_through_pathext_is_the_installed_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (link, dir) = installed_file(tmp.path());
+        // Windows' PATHEXT has its extensions in capitals
+        let found = find_command(std::slice::from_ref(&dir), ".COM;.EXE;.BAT;.CMD").unwrap();
+        let view = ShellView {
+            path: vec![dir],
+            command: Some(found),
+        };
+        let runs = status(Mode::Copy, None, &link, Some(&view)).runs;
+        assert_eq!(text(runs.as_deref()), text(Some(&link)));
+    }
+
+    /// A path as the window gets it, in JSON.
+    fn text(path: Option<&Path>) -> Option<String> {
+        path.map(|p| p.as_os_str().to_string_lossy().into_owned())
     }
 
     /// A stand-in CLI: a script that answers `--version` the way `pinrail` does.

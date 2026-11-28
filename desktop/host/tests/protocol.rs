@@ -1,25 +1,24 @@
 //! The connection itself: every method of the schema is served, calls are
 //! answered as they finish rather than in turn, channel 0 stays bounded, an
 //! idle connection hears pings, and `connect` bridges a remote core in.
-#![cfg(unix)]
 
 mod common;
 
 use std::io::Write;
-use std::os::unix::net::UnixStream;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use pinrail_host::client::{CallError, Client};
 use pinrail_host::frame::{self, Frame, kind};
+use pinrail_host::net::{self, Stream};
 use pinrail_host::protocol;
 use serde_json::{Value, json};
 
 use common::{folders, serve};
 
 /// A raw connection that has said hello.
-fn raw(host: &common::Host) -> UnixStream {
-    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+fn raw(host: &common::Host) -> Stream {
+    let mut stream = net::connect(&host.registration.socket).unwrap();
     let hello = json!({"jsonrpc": "2.0", "id": 0, "method": "hello",
                        "params": {"secret": host.registration.secret}});
     frame::write_blocking(&mut stream, &Frame::json(&hello)).unwrap();
@@ -29,7 +28,7 @@ fn raw(host: &common::Host) -> UnixStream {
     stream
 }
 
-fn call(stream: &mut UnixStream, id: u64, method: &str, params: Value) {
+fn call(stream: &mut Stream, id: u64, method: &str, params: Value) {
     let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
     frame::write_blocking(stream, &Frame::json(&message)).unwrap();
 }
@@ -38,14 +37,14 @@ fn call(stream: &mut UnixStream, id: u64, method: &str, params: Value) {
 /// it did to a connection; fails after ten seconds.
 fn wait_for_log(folders: &common::Folders, text: &str) {
     let log = folders.data.join("host/host.log");
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     while !std::fs::read_to_string(&log).is_ok_and(|l| l.contains(text)) {
         assert!(Instant::now() < deadline, "no {text:?} in the host's log");
         std::thread::sleep(Duration::from_millis(20));
     }
 }
 
-fn message(stream: &mut UnixStream) -> Option<Value> {
+fn message(stream: &mut Stream) -> Option<Value> {
     let frame = frame::read_blocking(stream).ok()??;
     if frame.channel != 0 || frame.kind != kind::DATA {
         return message(stream);
@@ -84,7 +83,7 @@ fn a_slow_call_does_not_hold_up_the_others() {
         &mut stream,
         1,
         "terminal.spawn",
-        json!({"argv": ["sh", "-c", "while :; do echo drawing; sleep 0.05; done"],
+        json!({"argv": common::shell("while :; do echo drawing; sleep 0.05; done"),
                "cwd": folders.runtime, "cols": 80, "rows": 24}),
     );
     let spawned = message(&mut stream).unwrap();
@@ -122,12 +121,18 @@ fn a_subscriber_that_falls_behind_is_told_it_missed_events() {
     assert_eq!(message(&mut stream).unwrap()["id"], 1);
     // far more than 8 MiB of title events, which the connection does not
     // read while they are written
+    let titles = "BEGIN { for (i = 0; i < 150000; i++) printf \"\\033]0;title %d\\007\", i }";
+    // Git's awk on Windows, which its shell finds and quotes the program for
+    let argv = if cfg!(windows) {
+        common::shell(&format!("awk '{titles}'"))
+    } else {
+        vec!["awk".to_string(), titles.to_string()]
+    };
     call(
         &mut stream,
         2,
         "terminal.spawn",
-        json!({"argv": ["awk", "BEGIN { for (i = 0; i < 150000; i++) printf \"\\033]0;title %d\\007\", i }"],
-               "cwd": folders.runtime, "cols": 80, "rows": 24}),
+        json!({"argv": argv, "cwd": folders.runtime, "cols": 80, "rows": 24}),
     );
     wait_for_log(&folders, "fell behind on events");
     stream
@@ -159,14 +164,32 @@ fn a_connection_that_reads_no_replies_is_closed() {
         &mut stream,
         1,
         "terminal.spawn",
-        json!({"argv": ["sh", "-c", "i=0; while [ $i -lt 3000 ]; do echo \"a long line of output number $i to fill the history\"; i=$((i+1)); done"],
+        json!({"argv": common::shell("i=0; while [ $i -lt 3000 ]; do echo \"a long line of output number $i to fill the history\"; i=$((i+1)); done"),
                "cwd": folders.runtime, "cols": 80, "rows": 24}),
     );
     let id = message(&mut stream).unwrap()["result"]["terminal"]
         .as_str()
         .unwrap()
         .to_string();
-    std::thread::sleep(Duration::from_millis(500));
+    // until the history is full, which a shell on Windows takes seconds for
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        call(
+            &mut stream,
+            0,
+            "terminal.text",
+            json!({"terminal": id, "lines": 0}),
+        );
+        let text = message(&mut stream).unwrap();
+        if text["result"]["text"]
+            .as_str()
+            .is_some_and(|screen| screen.contains("number 2999"))
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline, "the program did not finish");
+        std::thread::sleep(Duration::from_millis(50));
+    }
     // about 160 KB a reply: 800 of them is far past 64 MiB
     let started = Instant::now();
     for n in 0..800 {

@@ -1,7 +1,6 @@
 //! A window attaches to a terminal of the host through the core: with a
 //! ticket of the person's, it gets a snapshot, then the output from the
 //! cut on, types to take control, and hears of a resize and the exit.
-#![cfg(unix)]
 
 mod common;
 
@@ -66,11 +65,34 @@ impl Served {
             .call(
                 "terminal.spawn",
                 json!({"argv": ["sh", "-c", script], "cwd": "/", "cols": 80, "rows": 24,
-                       "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                       "env": {"PATH": common::path_with(std::path::Path::new("/"))},
+                       "env_base": "host"}),
             )
             .await
             .unwrap();
         format!("local:{}", spawned["terminal"].as_str().unwrap())
+    }
+
+    /// Waits until the terminal shows `text`: a program can take a while to
+    /// start, more on a loaded machine.
+    async fn shows(&self, terminal: &str, text: &str) {
+        let id = terminal.strip_prefix("local:").unwrap_or(terminal);
+        let host = self.app.state.runtime().host().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        loop {
+            let screen = host
+                .call("terminal.text", json!({"terminal": id, "lines": 0}))
+                .await
+                .unwrap();
+            if screen["text"].as_str().is_some_and(|s| s.contains(text)) {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no {text:?} in {screen}"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
     }
 
     async fn ticket(&self, terminal: &str) -> String {
@@ -210,7 +232,7 @@ async fn a_window_gets_a_snapshot_then_the_output_from_its_cut() {
     let terminal = served
         .spawn("printf 'ready\\n'; read line; printf 'got:%s\\n' \"$line\"; sleep 600")
         .await;
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    served.shows(&terminal, "ready").await;
     let mut socket = served.attach(&terminal).await;
 
     let hello = text(&mut socket, "hello").await;

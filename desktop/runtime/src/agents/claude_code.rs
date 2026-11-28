@@ -25,6 +25,25 @@ const OWN_PROMPTS: [&str; 3] = [
     "<cross-session-message ",
 ];
 
+/// A folder as Claude Code matches paths in its rules: on Windows in POSIX
+/// form, `C:\Users\p` as `/c/Users/p`; elsewhere as it is.
+fn posix(folder: &str) -> String {
+    // a share, in its long form too: \\server\share, //server/share
+    if let Some(share) = folder.strip_prefix(r"\\?\UNC\") {
+        return format!("//{}", share.replace('\\', "/"));
+    }
+    let folder = folder.strip_prefix(r"\\?\").unwrap_or(folder);
+    if folder.starts_with(r"\\") {
+        return folder.replace('\\', "/");
+    }
+    let bytes = folder.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        let drive = (bytes[0] as char).to_ascii_lowercase();
+        return format!("/{drive}{}", folder[2..].replace('\\', "/"));
+    }
+    folder.to_string()
+}
+
 impl Agent for ClaudeCode {
     fn spec(&self) -> &'static AgentSpec {
         spec("claude-code")
@@ -193,7 +212,7 @@ impl Agent for ClaudeCode {
     /// session, and would let Claude Code edit and run files there too.
     fn read_folder_args(&self, folder: &str) -> Vec<String> {
         // an absolute path in a rule starts with `//`
-        let rule = format!("Read(/{}/**)", folder.trim_end_matches('/'));
+        let rule = format!("Read(/{}/**)", posix(folder).trim_end_matches('/'));
         let settings = serde_json::json!({ "permissions": { "allow": [rule] } });
         vec!["--settings".to_string(), settings.to_string()]
     }
@@ -399,6 +418,16 @@ fn status_hint(file: &Value, session: &str) -> Option<Hint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_on_a_share_is_written_with_forward_slashes() {
+        assert_eq!(posix(r"\\server\share\sessions"), "//server/share/sessions");
+        assert_eq!(
+            posix(r"\\?\UNC\server\share\sessions"),
+            "//server/share/sessions"
+        );
+        assert_eq!(posix(r"C:\Users\me"), "/c/Users/me");
+    }
 
     fn line(entry: Value) -> String {
         format!("{entry}\n")

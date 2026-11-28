@@ -2,7 +2,7 @@
 //! by the names of the agent's binaries.
 
 use pinrail_runtime::process::Process;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
 use pinrail_runtime::process::{ancestor, arguments, process};
 use pinrail_runtime::{adapter, runs_as};
 
@@ -49,7 +49,7 @@ fn grok_s_process_is_named_after_the_versioned_binary_it_links_to() {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
 #[test]
 fn the_walk_finds_the_nearest_process_a_test_accepts() {
     let me = process(std::process::id()).unwrap();
@@ -61,7 +61,7 @@ fn the_walk_finds_the_nearest_process_a_test_accepts() {
     assert_eq!(ancestor(me.pid, &|_| false), None);
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
 #[test]
 fn a_process_s_arguments_are_read_as_it_was_started() {
     let args = arguments(std::process::id()).unwrap();

@@ -1,11 +1,11 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI passes first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
-# .app.tar.gz the action adds) and Linux builds for x86-64 and ARM64
-# (.AppImage, .deb, .rpm), each
+# .app.tar.gz the action adds), Linux builds for x86-64 and ARM64
+# (.AppImage, .deb, .rpm) and Windows installers for x64 and ARM64 (.exe), each
 # with the pinrail CLI inside (/usr/bin/pinrail in the Linux packages, beside the
 # app as pinrail-desktop; pinrail-cli in the macOS bundle) and the third-party
 # notices as THIRD_PARTY_NOTICES.txt, the CLI on its own for each platform
-# (pinrail-cli-<target>.tar.gz), a build provenance attestation for each
+# (pinrail-cli-<target>.tar.gz, a .zip on Windows), a build provenance attestation for each
 # installer and CLI archive, and a SHA256SUMS file. The update bundles are
 # signed with the updater key, and latest.json lists them for the app's
 # updater, which reads it from the latest published release.
@@ -116,7 +116,7 @@ jobs:
 
           ---
 
-          The macOS build is signed and notarized by Apple, so it opens without a warning.
+          The macOS build is signed and notarized by Apple, so it opens without a warning. The Windows installers are not signed yet: SmartScreen asks first, under *More info*, *Run anyway*.
 
           Check a download against `SHA256SUMS`, or with `gh attestation verify <file> --repo ${{ github.repository }}`.
           EOF
@@ -170,12 +170,32 @@ jobs:
               desktop/target/release/bundle/appimage/*.AppImage
               desktop/target/release/bundle/deb/*.deb
               desktop/target/release/bundle/rpm/*.rpm
+          # a per-user NSIS installer, with the CLI, the host and ConPTY;
+          # not signed yet, so SmartScreen warns on the first run
+          - name: windows
+            runner: windows-latest
+            triple: x86_64-pc-windows-msvc
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.windows.conf.json
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/nsis/*.exe
+          - name: windows-arm
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.windows.conf.json
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/nsis/*.exe
     runs-on: ${{ matrix.runner }}
     # The universal macOS build compiles twice, about 20 minutes, then
     # waits in Apple's notary queue, which can take most of an hour. Two
     # hours leaves room for both, and a stuck notarization still fails
     # well before the default six.
     timeout-minutes: 120
+    # the steps are written for a Unix shell, which is Git Bash on Windows
+    defaults:
+      run:
+        shell: bash
     env:
       # a step cannot read a secret in its condition, only an environment
       # value: this says whether this run has what it takes to sign
@@ -228,6 +248,15 @@ jobs:
         with:
           version: ${{ steps.zig.outputs.version }}
           use-cache: false
+      # ring, which rustls uses, builds its assembly with Clang on Windows
+      # on ARM64, where MSVC's compiler cannot
+      - name: Clang (Windows on ARM64)
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        run: |
+          if ! command -v clang > /dev/null; then
+            choco install llvm --no-progress -y
+            echo "C:/Program Files/LLVM/bin" >> "$GITHUB_PATH"
+          fi
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with: # zizmor: ignore[cache-poisoning]
           # The name the CI workflow saves under, keyed by the runner image
@@ -365,7 +394,8 @@ jobs:
           # names them the same: pinrail-app-universal.dmg, pinrail-app-amd64.AppImage,
           # pinrail-app-amd64.deb, pinrail-app-x86_64.rpm, and on ARM64
           # pinrail-app-aarch64.AppImage, pinrail-app-arm64.deb and
-          # pinrail-app-aarch64.rpm
+          # pinrail-app-aarch64.rpm; on Windows pinrail-app-x64.exe and
+          # pinrail-app-arm64.exe
           releaseAssetNamePattern: "pinrail-app-[arch][ext]"
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
@@ -445,10 +475,39 @@ jobs:
           status=0
           timeout 15 xvfb-run -a pinrail-desktop || status=$?
           test "$status" -eq 124 || { echo "the app window exited with $status before the timeout"; exit 1; }
+      # What the person installing on Windows gets: the installer installs
+      # for them without asking, puts the CLI, the host and ConPTY beside
+      # the app, and the app starts and serves, the SDK included.
+      - name: Install and start the Windows app
+        if: runner.os == 'Windows'
+        run: |
+          set -eu
+          installer=$(ls desktop/target/release/bundle/nsis/*.exe)
+          cmd //c "$(cygpath -w "$installer") /S"
+          dir="$LOCALAPPDATA/Pinrail"
+          for file in Pinrail.exe pinrail-cli.exe pinrail-host.exe conpty/conpty.dll sdk/v1/pinrail-plugin.js; do
+            test -f "$dir/$file" || { echo "the installer did not put $file in $dir"; exit 1; }
+          done
+          ls "$dir"/conpty/*/OpenConsole.exe
+          "$dir/pinrail-cli.exe" --version
+          data=$(mktemp -d)
+          # its output in a file, so that the step's own streams close, and
+          # the app stopped however the step ends
+          "$dir/Pinrail.exe" --headless --port 4792 --data-dir "$(cygpath -w "$data")" > "$data.log" 2>&1 &
+          app=$!
+          trap 'kill $app 2> /dev/null || true; cat "$data.log"' EXIT
+          for _ in $(seq 1 100); do
+            curl -fsS "http://127.0.0.1:4792/api/v1/info" > /dev/null 2>&1 && break
+            sleep 0.2
+          done
+          curl -fsS "http://127.0.0.1:4792/api/v1/info"
+          echo
+          curl -fsS -o /dev/null "http://127.0.0.1:4792/sdk/v1/pinrail-plugin.js"
       # The CLI on its own, for machines without the app, such as a plugin's
       # CI running `pinrail plugins check`. On macOS it is the copy inside
       # the app, which the bundle's signing and notarization cover; on Linux,
-      # the sidecar the packages carry. The name has no version, so that
+      # the sidecar the packages carry; on Windows, the CLI sidecar, in a
+      # zip, which Windows opens itself. The name has no version, so that
       # releases/latest/download/<name> stays the same from one release to
       # the next.
       - name: Package the CLI on its own
@@ -458,23 +517,29 @@ jobs:
           COPYFILE_DISABLE: 1
         run: |
           set -eu
+          staging=$(mktemp -d)
+          mkdir -p cli-dist
+          cp LICENSE NOTICE desktop/app/notices/THIRD_PARTY_NOTICES.txt "$staging/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp "desktop/app/src-tauri/binaries/pinrail-cli-$TRIPLE.exe" "$staging/pinrail.exe"
+            "$staging/pinrail.exe" --version
+            (cd "$staging" && 7z a -tzip "$OLDPWD/cli-dist/pinrail-cli-$TRIPLE.zip" . > /dev/null)
+            exit 0
+          fi
           if [ "$RUNNER_OS" = macOS ]; then
             app=$(find desktop/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
             binary="$app/Contents/MacOS/pinrail-cli"
           else
             binary="desktop/app/src-tauri/binaries/pinrail-$TRIPLE"
           fi
-          staging=$(mktemp -d)
           cp "$binary" "$staging/pinrail"
-          cp LICENSE NOTICE desktop/app/notices/THIRD_PARTY_NOTICES.txt "$staging/"
           "$staging/pinrail" --version
-          mkdir -p cli-dist
           tar -czf "cli-dist/pinrail-cli-$TRIPLE.tar.gz" -C "$staging" .
       - name: Upload the CLI
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" cli-dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" cli-dist/* --repo "$GITHUB_REPOSITORY" --clobber
       # Attestations are refused to a private repository on the free plan,
       # so they wait for the repository to be public rather than failing a
       # signed, notarized build over a signature nobody can check yet.
@@ -491,7 +556,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
       - name: Wait before attesting again
         if: steps.attest.outcome == 'failure'
         run: sleep 30
@@ -503,7 +568,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
       - name: Wait before the last try
         if: steps.attest-again.outcome == 'failure'
         run: sleep 90
@@ -513,7 +578,7 @@ jobs:
         with:
           subject-path: |
             ${{ matrix.bundles }}
-            cli-dist/*.tar.gz
+            cli-dist/*
 
   checksums:
     # always(), as for the build: a test job skipped because main's CI ran
@@ -535,7 +600,8 @@ jobs:
           # a signature. Every build adds to one file, so a lost entry shows here.
           jq -e '. as $j
             | ($j.version | length > 0)
-            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64", "linux-aarch64" ]
+            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64", "linux-aarch64",
+                   "windows-x86_64", "windows-aarch64" ]
                  | all(. as $p | ($j.platforms[$p].signature // "" | length > 0)
                                  and ($j.platforms[$p].url // "" | length > 0)))
           ' latest.json > /dev/null || { echo "latest.json is missing a platform or a signature:"; cat latest.json; exit 1; }

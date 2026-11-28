@@ -14,9 +14,16 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 /** The packed package, extracted into a directory of its own. */
 function packed() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-pack-"));
-  const out = execFileSync("npm", ["pack", "--json", "--pack-destination", dir], { cwd: root, encoding: "utf8" });
+  // npm is a batch file on Windows, which runs only through a shell there
+  const windows = process.platform === "win32";
+  const out = execFileSync("npm", ["pack", "--json", "--pack-destination", windows ? `"${dir}"` : dir], {
+    cwd: root,
+    encoding: "utf8",
+    shell: windows,
+  });
   const [{ filename }] = JSON.parse(out.slice(out.indexOf("[")));
-  execFileSync("tar", ["-xzf", path.join(dir, filename), "-C", dir]);
+  // by its name in its folder: GNU tar, as Git Bash has, reads C: as a host
+  execFileSync("tar", ["-xzf", filename], { cwd: dir });
   return path.join(dir, "package");
 }
 

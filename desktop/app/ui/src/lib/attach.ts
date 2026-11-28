@@ -9,16 +9,30 @@ import { api, errorMessage } from "../api/client";
 export type Attached = { sha256: string; size: number; media_type: string };
 
 /** A name the core takes and a Markdown link can hold: no folders, no
- *  spaces or brackets, not hidden, at most 120 characters. */
+ *  spaces or brackets, not hidden, at most 120 characters; and, as the core
+ *  makes it, one Windows can hold too: none of `: " | ? *`, no dot at the
+ *  end, and not a device's name. */
 export function fileName(name: string): string {
   const cleaned = [...name]
     .filter((c) => c.charCodeAt(0) >= 32)
     .join("")
-    .replace(/[\\/\s()[\]<>]+/g, "-")
-    .replace(/^[.-]+/, "");
+    .replace(/[\\/\s()[\]<>:"|?*]+/g, "-")
+    .replace(/^[.-]+/, "")
+    .replace(/\.+$/, "");
   const [stem, ext] = split(cleaned);
-  return (stem.slice(0, NAME_MAX - ext.length) || "file") + ext;
+  // a device's name is told from what comes before the first dot, which
+  // the cut leaves as it is; room is kept for what goes before it
+  const prefix = DEVICE.test(stem.split(".")[0]) ? "file-" : "";
+  let kept = stem.slice(0, NAME_MAX - prefix.length - ext.length);
+  // the cut may end at a dot, which would be the name's last
+  if (!ext) kept = kept.replace(/\.+$/, "");
+  return (kept ? prefix + kept : "file") + ext;
 }
+
+/** A device's name on Windows, which no file may have: `con`, `nul` and
+ *  the like, and `com` or `lpt` with one digit, which may be one of the
+ *  superscripts ¹ ² ³. */
+const DEVICE = /^(con|prn|aux|nul|conin\$|conout\$|(com|lpt)[0-9¹²³])$/i;
 
 /** The longest name the core takes. */
 const NAME_MAX = 120;

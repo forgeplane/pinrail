@@ -1,7 +1,8 @@
 //! The core starts the host so that it outlives the app: from a versioned
 //! copy, outside the core's process tree, with the core's environment, and
 //! adopts the one already running rather than starting a second.
-#![cfg(unix)]
+
+mod common;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -11,8 +12,9 @@ use pinrail_host::launch::{Launcher, Method};
 use pinrail_host::registration::Registration;
 use serde_json::json;
 
-/// The started host, stopped when dropped.
-struct Started(Registration);
+/// The started host, stopped when dropped, with the holders it started in
+/// its data folder.
+struct Started(Registration, std::path::PathBuf);
 
 impl Drop for Started {
     fn drop(&mut self) {
@@ -20,10 +22,14 @@ impl Drop for Started {
             let _ = client.call("host.stop", json!({}));
         }
         // in case the call failed, quietly: a host that stopped is gone
+        #[cfg(unix)]
         let _ = Command::new("kill")
             .arg(self.0.pid.to_string())
             .stderr(std::process::Stdio::null())
             .status();
+        #[cfg(windows)]
+        common::kill(self.0.pid);
+        common::kill_holders(&self.1.join("host/holders"));
     }
 }
 
@@ -38,6 +44,7 @@ fn launcher(data_dir: &Path, method: Method) -> Launcher {
     }
 }
 
+#[cfg(unix)]
 fn parent_of(pid: u32) -> u32 {
     let output = Command::new("ps")
         .args(["-o", "ppid=", "-p", &pid.to_string()])
@@ -56,7 +63,7 @@ fn starts_outside_the_core(method: Method) {
     let logged = std::cell::RefCell::new(Vec::new());
     let log = |line: &str| logged.borrow_mut().push(line.to_string());
     let (registration, how) = launcher(&data, method).ensure(&log).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     assert_eq!(how, Some(method), "{:?}", logged.borrow());
 
     // it runs from the versioned copy, not the bundled binary
@@ -65,7 +72,25 @@ fn starts_outside_the_core(method: Method) {
         .map(|e| e.unwrap().path())
         .collect();
     assert_eq!(copies.len(), 1);
-    // and is no child of the core
+    // on Windows with ConPTY beside it, for each architecture, as the host
+    // loads it from there
+    #[cfg(windows)]
+    for file in [
+        r"conpty\conpty.dll",
+        r"conpty\x64\OpenConsole.exe",
+        r"conpty\arm64\OpenConsole.exe",
+    ] {
+        assert!(
+            copies[0].join(file).is_file(),
+            "no {file} in {}",
+            copies[0].display()
+        );
+    }
+    // and is no child of the core. Windows keeps no tree of processes for
+    // a host to leave: a process outlives the one that started it, and
+    // what would end the host with the app is the app's console or job,
+    // which the host is started without.
+    #[cfg(unix)]
     assert_ne!(parent_of(registration.pid), std::process::id());
     // with the environment it was given
     let client = Client::connect(&registration).unwrap();
@@ -134,7 +159,7 @@ fn the_programs_in_its_terminals_are_their_holder_s_responsibility() {
     let root = tempfile::tempdir().unwrap();
     let data = root.path().join("data");
     let (registration, _) = launcher(&data, Method::Launchd).ensure(&|_| {}).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     let mut client = Client::connect(&registration).unwrap();
     let spawned = client
         .call(
@@ -142,7 +167,7 @@ fn the_programs_in_its_terminals_are_their_holder_s_responsibility() {
             json!({
                 "argv": ["sleep", "60"],
                 "cwd": "/",
-                "env": {"PATH": "/usr/bin:/bin"},
+                "env": {"PATH": common::path()},
                 "session_env": {},
                 "cols": 80,
                 "rows": 24,
@@ -173,7 +198,7 @@ fn a_host_bundle_runs_from_the_executable_in_its_copy() {
     let mut launcher = launcher(&data, Method::Launchd);
     launcher.bundled = executable;
     let (registration, how) = launcher.ensure(&|_| {}).unwrap();
-    let started = Started(registration.clone());
+    let started = Started(registration.clone(), data.clone());
     assert_eq!(how, Some(Method::Launchd));
     let output = Command::new("ps")
         .args(["-o", "comm=", "-p", &registration.pid.to_string()])
@@ -205,14 +230,14 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
     let data = root.path().join("data");
     let log = |_: &str| {};
     let (old, _) = launcher(&data, Method::Detached).ensure(&log).unwrap();
-    let old_host = Started(old.clone());
+    let old_host = Started(old.clone(), data.clone());
     let mut client = Client::connect(&old).unwrap();
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo ready; exec sleep 600"],
+            json!({"argv": common::shell("echo ready; exec sleep 600"),
                    "cwd": root.path(), "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                   "env": {"PATH": common::path()}, "env_base": "host"}),
         )
         .unwrap();
     let terminal = spawned["terminal"].as_str().unwrap().to_string();
@@ -230,7 +255,7 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
     std::fs::write(&path, written.to_string()).unwrap();
 
     let (new, how) = launcher(&data, Method::Detached).ensure(&log).unwrap();
-    let _new_host = Started(new.clone());
+    let _new_host = Started(new.clone(), data.clone());
     assert_eq!(how, Some(Method::Detached));
     assert_ne!(new.pid, old.pid);
     // the old host is gone, and the new one keeps its terminal
@@ -262,8 +287,7 @@ fn a_host_of_another_build_is_replaced_and_its_terminals_kept() {
 /// A copy of the host binary in `dir` that is another build: the same
 /// program with other bytes, as an older release would be.
 fn another_build(dir: &Path) -> PathBuf {
-    let copy = dir.join("pinrail-host");
-    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &copy).unwrap();
+    let copy = common::host_copy(dir);
     if cfg!(target_os = "macos") {
         // signed again under another identifier, which changes its bytes
         let status = Command::new("codesign")
@@ -298,11 +322,15 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     let mut old_launcher = launcher(&data, Method::Detached);
     old_launcher.bundled = another_build(&old_dir);
     let (old, _) = old_launcher.ensure(&|_| {}).unwrap();
-    let old_host = Started(old.clone());
+    let old_host = Started(old.clone(), data.clone());
     let old_build = old.build.clone().unwrap();
     let old_binary = std::fs::read_dir(data.join("host/bin"))
         .unwrap()
-        .map(|e| e.unwrap().path().join("pinrail-host"))
+        .map(|e| {
+            e.unwrap()
+                .path()
+                .join(old_launcher.bundled.file_name().unwrap())
+        })
         .next()
         .unwrap();
 
@@ -311,30 +339,58 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     let racer = {
         let (data, old_binary, pid) = (data.clone(), old_binary.clone(), old.pid);
         std::thread::spawn(move || {
-            while Command::new("kill")
-                .args(["-0", &pid.to_string()])
-                .stderr(std::process::Stdio::null())
-                .status()
-                .is_ok_and(|s| s.success())
-            {
+            while common::alive(pid) {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
+            #[cfg(unix)]
             Command::new(&old_binary)
                 .args(["serve", "--daemonize", "--data-dir"])
                 .arg(&data)
                 .status()
                 .unwrap();
+            // a holder on Windows starts its host as a process of its own,
+            // which runs until it is replaced or finds another host running
+            #[cfg(windows)]
+            Command::new(&old_binary)
+                .args(["serve", "--data-dir"])
+                .arg(&data)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap()
+                .wait()
+                .unwrap();
         })
     };
 
     let (new, _) = launcher(&data, Method::Detached).ensure(&|_| {}).unwrap();
+    // ended by the guard, should the racer have failed
+    let new_host = Started(new.clone(), data.clone());
     racer.join().unwrap();
-    let new_host = Started(new.clone());
     std::mem::forget(old_host);
     let ours = Registration::read(&data.join("host/host.json")).unwrap();
     assert_ne!(new.build.as_deref(), Some(old_build.as_str()));
     assert_eq!(ours.pid, new.pid);
     drop(new_host);
+}
+
+/// A host started as administrator keeps the pipe and the lock out of
+/// reach of a Pinrail that is not, whose own host would fail on the lock.
+/// Run by hand, without administrator rights, with PINRAIL_ADMIN_HOST_DATA
+/// naming the data folder of a host that was started with them.
+#[cfg(windows)]
+#[test]
+#[ignore = "needs a host run as administrator, and this test without"]
+fn a_host_run_as_administrator_turns_away_a_pinrail_that_is_not() {
+    let data = PathBuf::from(std::env::var("PINRAIL_ADMIN_HOST_DATA").unwrap());
+    let error = launcher(&data, Method::Detached)
+        .ensure(&|_| {})
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("runs as administrator"),
+        "{error}"
+    );
 }
 
 #[test]

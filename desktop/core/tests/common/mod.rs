@@ -177,7 +177,6 @@ pub async fn call_as(
 
 /// A terminal host served from a thread of the test, with its data in
 /// `dir`, and its registration.
-#[cfg(unix)]
 pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
     use std::time::{Duration, Instant};
     let data_dir = dir.join("host-data");
@@ -188,6 +187,9 @@ pub fn host(dir: &std::path::Path) -> pinrail_host::registration::Registration {
         // the programs are this process's own, through a holder on a thread
         holder: pinrail_host::holders::Start::Thread,
     };
+    // as the host's own process does: on Windows the console hosts its
+    // programs run under would otherwise keep the test's output open
+    pinrail_host::keep_own_output_from_children();
     std::thread::spawn(move || pinrail_host::server::serve(config));
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -231,6 +233,59 @@ fi
 exec sleep 600
 "#;
 
+/// Git's `sh`, which runs the tests' scripts on Windows, as it does CI's
+/// steps.
+#[cfg(windows)]
+pub fn sh() -> std::path::PathBuf {
+    let git = std::path::PathBuf::from(r"C:\Program Files\Git\usr\bin\sh.exe");
+    if git.is_file() {
+        return git;
+    }
+    std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .map(|dir| dir.join("sh.exe"))
+        .find(|sh| sh.is_file())
+        .expect("Git's sh.exe, for the tests' scripts")
+}
+
+/// The `PATH` that finds the programs in `bin` first, then the system's: on
+/// Windows Git's tools too, which the tests' scripts use.
+pub fn path_with(bin: &std::path::Path) -> String {
+    #[cfg(windows)]
+    {
+        let system = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
+        format!(
+            r"{};{};{system}\System32;{system}",
+            bin.display(),
+            sh().parent().unwrap().display()
+        )
+    }
+    #[cfg(unix)]
+    {
+        format!("{}:/usr/bin:/bin", bin.display())
+    }
+}
+
+/// Writes `name` in `dir` as a batch file that runs `script` with Git's
+/// `sh`, as npm installs agents on Windows.
+#[cfg(windows)]
+pub fn program(dir: &std::path::Path, name: &str, script: &str) {
+    std::fs::create_dir_all(dir).unwrap();
+    let file = dir.join(format!("{name}.sh"));
+    std::fs::write(&file, format!("{script}\n")).unwrap();
+    shim(dir, name, &file);
+}
+
+/// `dir/name.cmd`, which runs `script` with Git's `sh` and passes its
+/// arguments on.
+#[cfg(windows)]
+fn shim(dir: &std::path::Path, name: &str, script: &std::path::Path) {
+    std::fs::write(
+        dir.join(format!("{name}.cmd")),
+        format!("@\"{}\" \"{}\" %*\r\n", sh().display(), script.display()),
+    )
+    .unwrap();
+}
+
 /// Links `name` in `dir` to a script that runs `script`, written once for
 /// its content under Cargo's target folder: macOS scans a new executable
 /// for about 25 seconds the first time it runs, longer than a program has
@@ -248,10 +303,10 @@ pub fn program(dir: &std::path::Path, name: &str, script: &str) {
     if !kept.is_file() {
         std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
         // written beside it and renamed, as other tests may run it meanwhile
-        let fresh = kept.with_extension(std::process::id().to_string());
+        let fresh = kept.with_extension(unique());
         std::fs::write(&fresh, content).unwrap();
         std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::rename(&fresh, &kept).unwrap();
+        put_in_place(&fresh, &kept);
     }
     std::fs::create_dir_all(dir).unwrap();
     std::os::unix::fs::symlink(&kept, dir.join(name)).unwrap();
@@ -264,9 +319,94 @@ pub fn program(dir: &std::path::Path, name: &str, script: &str) {
 /// rewritten only when it changes: macOS scans a new executable for about
 /// 25 seconds the first time it runs, which a fresh copy for each test
 /// would pay every time.
-#[cfg(unix)]
 pub fn stand_in_path(dir: &std::path::Path) -> String {
     stand_in_path_as(dir, &["claude"])
+}
+
+/// The stand-in agent on Windows, for node: what [`STAND_IN_AGENT`] does.
+/// An agent npm installs runs as node does, behind a batch file, so its
+/// arguments reach it as Windows quotes them, which Git's `sh` reads
+/// otherwise.
+#[cfg(windows)]
+pub const STAND_IN_AGENT_JS: &str = r#"const fs = require("fs");
+const args = process.argv.slice(2);
+if (args[0] === "--version") { console.log("1.0.0 (stand-in)"); process.exit(0); }
+console.log("stand-in agent starting");
+// each written whole, then renamed, so a test never reads half of one
+const whole = (name, text) => { fs.writeFileSync(name + ".part", text); fs.renameSync(name + ".part", name); };
+// as sh's printf '%s\n' "$@" writes them: one empty line for none
+whole("argv", (args.length ? args : [""]).map((a) => a + "\n").join(""));
+whole("term_program", process.env.TERM_PROGRAM || "");
+whole("token", process.env.PINRAIL_RUN_TOKEN || "");
+whole("data_dir", process.env.PINRAIL_DATA_DIR || "");
+if (fs.existsSync("exit")) process.exit(Number(fs.readFileSync("exit", "utf8").trim()));
+const hear = (then) => {
+  let rest = "";
+  // raw, as an agent reads its terminal: Windows then passes the escape
+  // sequences of a bracketed paste on, which it drops from a line it edits
+  if (process.stdin.isTTY) process.stdin.setRawMode(true);
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => {
+    rest += chunk;
+    let at;
+    while ((at = rest.search(/\r?\n|\r/)) >= 0) {
+      const line = rest.slice(0, at);
+      rest = rest.slice(at + (rest.slice(at, at + 2) === "\r\n" ? 2 : 1));
+      fs.appendFileSync("heard", line + "\n");
+    }
+  });
+  process.stdin.on("end", then);
+};
+if (fs.existsSync("listen")) {
+  hear(() => process.exit(0));
+} else if (fs.existsSync("records")) {
+  hear(() => {});
+  setInterval(() => {
+    if (fs.existsSync("record")) { process.stdout.write("\x1b]7501;" + fs.readFileSync("record", "utf8") + "\x1b\\"); fs.rmSync("record"); }
+    if (fs.existsSync("notify")) { process.stdout.write("\x1b]777;notify;" + fs.readFileSync("notify", "utf8") + "\x1b\\"); fs.rmSync("notify"); }
+  }, 50);
+} else {
+  setTimeout(() => {}, 600 * 1000);
+}
+"#;
+
+/// The node that runs the stand-in agent on Windows: the one the project's
+/// tools give, by its own path, since a version manager's shim needs the
+/// project's folder.
+#[cfg(windows)]
+pub fn node() -> std::path::PathBuf {
+    static NODE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    NODE.get_or_init(|| {
+        let output = std::process::Command::new("node")
+            .args(["-p", "process.execPath"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .expect("node, for the stand-in agent");
+        std::path::PathBuf::from(String::from_utf8_lossy(&output.stdout).trim())
+    })
+    .clone()
+}
+
+/// Puts the stand-in agent as each of `names` into `dir/bin`, a batch file
+/// that runs it with node, and returns the `PATH` that finds them.
+#[cfg(windows)]
+pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
+    let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude.cjs");
+    if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT_JS) {
+        let fresh = script.with_extension(unique());
+        std::fs::write(&fresh, STAND_IN_AGENT_JS).unwrap();
+        put_in_place(&fresh, &script);
+    }
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for name in names {
+        std::fs::write(
+            bin.join(format!("{name}.cmd")),
+            format!("@\"{}\" \"{}\" %*\r\n", node().display(), script.display()),
+        )
+        .unwrap();
+    }
+    path_with(&bin)
 }
 
 /// Links the stand-in agent as each of `names` into `dir/bin`, and returns
@@ -277,20 +417,19 @@ pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
     let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude");
     if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT) {
         // written beside it and renamed, as other tests may run it meanwhile
-        let fresh = script.with_extension(format!("{}", std::process::id()));
+        let fresh = script.with_extension(unique());
         std::fs::write(&fresh, STAND_IN_AGENT).unwrap();
         std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::rename(&fresh, &script).unwrap();
+        put_in_place(&fresh, &script);
     }
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
     for name in names {
         std::os::unix::fs::symlink(&script, bin.join(name)).unwrap();
     }
-    format!("{}:/usr/bin:/bin", bin.display())
+    path_with(&bin)
 }
 
-#[cfg(unix)]
 /// Has the stand-in agent in `folder` write `record` as an OSC 7501 record,
 /// and waits until it has.
 /// Has the stand-in agent in `folder` write `notify` (a title, `;`, a body)
@@ -318,5 +457,121 @@ pub async fn record(folder: &std::path::Path, record: &str) {
             "the record was not written"
         );
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
+
+/// The rule that lets Claude Code read `folder`, as Pinrail gives it: an
+/// absolute path starts with `//`, and on Windows is in POSIX form, as
+/// Claude Code matches paths there, `C:\\Users` as `/c/Users`.
+pub fn read_rule(folder: &std::path::Path) -> String {
+    let folder = folder.to_string_lossy();
+    let folder = match folder.as_bytes() {
+        [drive, b':', ..] if drive.is_ascii_alphabetic() => format!(
+            "/{}{}",
+            (*drive as char).to_ascii_lowercase(),
+            folder[2..].replace('\\', "/")
+        ),
+        _ => folder.into_owned(),
+    };
+    format!("Read(/{folder}/**)")
+}
+
+/// Makes `path` writable again, as someone changing a stored file behind
+/// the app's back would: mode 0644 on Unix, no read-only attribute on
+/// Windows.
+pub fn make_writable(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    #[cfg(windows)]
+    {
+        let mut permissions = std::fs::metadata(path).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        std::fs::set_permissions(path, permissions).unwrap();
+    }
+}
+
+/// A symbolic link at `link` to `target`: Windows makes a link to a file
+/// and one to a folder differently.
+/// Whether it was made: Windows makes links only with Developer Mode on, or
+/// for an administrator, and a test without one says so and goes no further.
+#[must_use]
+pub fn symlink(target: &std::path::Path, link: &std::path::Path) -> bool {
+    #[cfg(unix)]
+    let made = std::os::unix::fs::symlink(target, link);
+    #[cfg(windows)]
+    let made = if target.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link)
+    } else {
+        std::os::windows::fs::symlink_file(target, link)
+    };
+    match made {
+        Ok(()) => true,
+        // ERROR_PRIVILEGE_NOT_HELD
+        Err(error) if cfg!(windows) && error.raw_os_error() == Some(1314) => {
+            eprintln!("skipped: making a link needs Developer Mode on Windows");
+            false
+        }
+        Err(error) => panic!("{error}"),
+    }
+}
+
+/// Whether only this user and the system may open `path`, as icacls lists
+/// its ACL on Windows.
+#[cfg(windows)]
+pub fn owner_only(path: &std::path::Path) -> Result<(), String> {
+    // the descriptor as SDDL, which names accounts by their SIDs in every
+    // language, and this user's SID
+    let output = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "(Get-Acl -LiteralPath $env:PINRAIL_ACL_PATH).Sddl; \
+             [Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+        ])
+        .env("PINRAIL_ACL_PATH", path)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    let mut lines = text.lines();
+    let (sddl, user) = (
+        lines.next().unwrap_or_default(),
+        lines.next().unwrap_or_default(),
+    );
+    let dacl = sddl.split("D:").nth(1).unwrap_or_default();
+    let dacl = dacl.split("S:").next().unwrap_or_default();
+    // its own, protected, or inherited from a folder that is so
+    let grants = dacl.matches("(A;").count();
+    // SDDL names the computer's own Administrator, RID 500, as LA
+    let named = |sid: &str| dacl.contains(&format!(";;;{sid})"));
+    let ok = grants == 2
+        && named("SY")
+        && !user.is_empty()
+        && (named(user) || user.ends_with("-500") && named("LA"));
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("{sddl} (this user {user})"))
+    }
+}
+
+/// A name for a file written beside another, of this process and this
+/// call: tests of one binary run on threads of the one process.
+fn unique() -> String {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{}-{n}", std::process::id())
+}
+
+/// Renames `fresh` over `file`. On Windows a file another test runs cannot
+/// be replaced: one that already holds the same is as good.
+fn put_in_place(fresh: &std::path::Path, file: &std::path::Path) {
+    if let Err(error) = std::fs::rename(fresh, file) {
+        let same = std::fs::read(fresh).ok() == std::fs::read(file).ok();
+        let _ = std::fs::remove_file(fresh);
+        assert!(same, "{}: {error}", file.display());
     }
 }

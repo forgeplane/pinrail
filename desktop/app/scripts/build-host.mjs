@@ -1,6 +1,6 @@
 // Builds pinrail-host, the terminal host, for a release bundle. The core
 // copies it into the data folder and starts it from there, so that it
-// outlives the app. It runs on macOS and Linux only.
+// outlives the app.
 //
 // On macOS the host is an app bundle, src-tauri/binaries/Pinrail Host.app,
 // which tauri.release.conf.json places in Pinrail.app's Contents/Helpers.
@@ -12,7 +12,11 @@
 // Application identity when there is one, so that macOS keeps the grants
 // given to the dev host across rebuilds; HOST_SIGNING_IDENTITY=- signs it
 // ad hoc. On Linux the host is the sidecar
-// src-tauri/binaries/pinrail-host-<target triple>.
+// src-tauri/binaries/pinrail-host-<target triple>. On Windows it is the
+// sidecar pinrail-host-<target triple>.exe, with Microsoft's ConPTY, which
+// it loads from beside itself, in src-tauri/binaries/conpty; a --dev build
+// is target/debug/pinrail-host.exe, with the conpty folder the host's build
+// puts beside it.
 //
 //   node scripts/build-host.mjs                          # the host's triple
 //   node scripts/build-host.mjs universal-apple-darwin   # arm64, x86_64, and the two joined with lipo
@@ -34,6 +38,9 @@ const macos = path.join(workspace, "host", "macos");
 const run = (cmd, args) => execFileSync(cmd, args, { stdio: "inherit" });
 const host = () => /host: (\S+)/.exec(execFileSync("rustc", ["-vV"], { encoding: "utf8" }))[1];
 
+/** The executable's name for a target: with .exe on Windows. */
+const exe = (target) => (target.includes("-windows-") ? "pinrail-host.exe" : "pinrail-host");
+
 /** Builds for one target, or for the host's in debug, and returns the binary's path. */
 function build(target, { dev = false } = {}) {
   const args = [
@@ -46,10 +53,10 @@ function build(target, { dev = false } = {}) {
   ];
   if (dev) {
     run("cargo", ["-q", ...args]);
-    return path.join(workspace, "target", "debug", "pinrail-host");
+    return path.join(workspace, "target", "debug", exe(target));
   }
   run("cargo", [...args, "--release", "--target", target]);
-  return path.join(workspace, "target", target, "release", "pinrail-host");
+  return path.join(workspace, "target", target, "release", exe(target));
 }
 
 /** The version of the desktop workspace, which the host reports. */
@@ -102,10 +109,7 @@ function bundle(binary, folder, identity) {
 
 const dev = process.argv.includes("--dev");
 const target = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? host();
-if (target.includes("-windows-")) {
-  console.error("pinrail-host runs only on macOS and Linux");
-  process.exit(1);
-}
+const windows = target.includes("-windows-");
 const apple = target.endsWith("-apple-darwin");
 
 const identity = process.env.HOST_SIGNING_IDENTITY || (dev && apple && developerId()) || "-";
@@ -119,7 +123,7 @@ if (dev) {
 
   /** Puts a built binary where Tauri looks for the sidecar of `triple`. */
   const place = (from, triple) => {
-    const to = path.join(out, `pinrail-host-${triple}`);
+    const to = path.join(out, `pinrail-host-${triple}${windows ? ".exe" : ""}`);
     fs.copyFileSync(from, to);
     fs.chmodSync(to, 0o755);
     return to;
@@ -136,6 +140,13 @@ if (dev) {
   } else {
     binary = place(build(target), target);
     written.push(binary);
+  }
+  if (windows) {
+    // the ConPTY the host's build put beside it
+    const conpty = path.join(out, "conpty");
+    fs.rmSync(conpty, { recursive: true, force: true });
+    fs.cpSync(path.join(workspace, "target", target, "release", "conpty"), conpty, { recursive: true });
+    written.push(conpty);
   }
   if (apple) written.push(bundle(binary, out, identity));
 }

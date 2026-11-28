@@ -1,7 +1,6 @@
 //! Terminals through the protocol: `terminal.spawn`, `list` and `text`,
 //! with the program's queries answered and its last output kept when it
 //! exits.
-#![cfg(unix)]
 
 mod common;
 
@@ -20,9 +19,9 @@ fn spawn(client: &mut Client, script: &str, cwd: &str) -> Result<Value, CallErro
     client.call(
         "terminal.spawn",
         json!({
-            "argv": ["sh", "-c", script],
+            "argv": common::shell(script),
             "cwd": cwd,
-            "env": {"PATH": "/usr/bin:/bin"},
+            "env": {"PATH": common::path()},
             "session_env": {},
             "cols": 80,
             "rows": 24,
@@ -34,7 +33,7 @@ fn spawn(client: &mut Client, script: &str, cwd: &str) -> Result<Value, CallErro
 
 /// The terminal's entry in `terminal.list` once it has ended.
 fn ended(client: &mut Client, id: &str) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     loop {
         let list = client.call("terminal.list", json!({})).unwrap();
         let entry = list
@@ -152,7 +151,7 @@ fn a_spawn_that_cannot_start_answers_why() {
             json!({
                 "argv": ["no-such-agent"],
                 "cwd": "/",
-                "env": {"PATH": "/usr/bin:/bin"},
+                "env": {"PATH": common::path()},
                 "cols": 80,
                 "rows": 24,
             }),

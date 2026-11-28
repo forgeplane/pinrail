@@ -346,8 +346,14 @@ export function serve(argv) {
     console.log(`shell at ${url}`);
     console.log(`in the app: pinrail plugins install ${pluginDir} --link`);
     if (open) {
-      const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-      execFile(cmd, [url], () => {});
+      // start is a command of cmd's own, with a window title first
+      const [cmd, args] =
+        process.platform === "darwin"
+          ? ["open", [url]]
+          : process.platform === "win32"
+            ? ["cmd", ["/c", "start", "", url]]
+            : ["xdg-open", [url]];
+      execFile(cmd, args, () => {});
     }
   });
 }

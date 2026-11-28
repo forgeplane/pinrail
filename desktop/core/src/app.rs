@@ -390,7 +390,9 @@ pub fn locked_by(dir: &Path) -> Option<u32> {
 
 /// Creates the data directory readable by its owner only, and closes an
 /// existing one that others can read: it holds every review, decision and
-/// file, and everything in it is created beneath it.
+/// file, and the person token, and everything in it is created beneath it.
+/// On Windows that is an ACL of this user and the system, which the files
+/// made in it inherit.
 fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     #[cfg(unix)]
@@ -400,6 +402,8 @@ fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
             std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
         }
     }
+    #[cfg(windows)]
+    pinrail_host::make_private(dir)?;
     Ok(())
 }
 

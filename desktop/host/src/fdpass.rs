@@ -12,6 +12,15 @@ use std::os::unix::net::UnixStream;
 
 use serde_json::Value;
 
+/// What a message carries, owned.
+pub type Owned = OwnedFd;
+/// What a message is given to carry.
+pub type Raw = RawFd;
+
+pub fn raw(owned: &Owned) -> Raw {
+    owned.as_raw_fd()
+}
+
 /// The most descriptors one message carries: two per terminal, for the
 /// 64 terminals a host runs, with room to spare.
 pub const MAX_FDS: usize = 160;
@@ -38,6 +47,16 @@ pub fn send(stream: &UnixStream, value: &Value, fds: &[RawFd]) -> io::Result<()>
         sent += n;
     }
     Ok(())
+}
+
+/// Receives a message that must carry nothing: what a peer sends before
+/// it has shown who it is. Descriptors that came anyway are closed.
+pub fn recv_plain(stream: &UnixStream) -> io::Result<Option<Value>> {
+    match recv(stream)? {
+        Some((value, fds)) if fds.is_empty() => Ok(Some(value)),
+        Some(_) => Err(io::Error::other("descriptors where none belong")),
+        None => Ok(None),
+    }
 }
 
 /// Receives a message and the descriptors that came with it, or `None` when

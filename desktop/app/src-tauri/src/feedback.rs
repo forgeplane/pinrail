@@ -60,27 +60,57 @@ pub fn send(url: &str, content_type: &str, body: &[u8]) -> Result<(), String> {
 }
 
 /// The operating system's name and version, as people know it: "macOS
-/// 15.4.1", or on Linux the distribution and the kernel. `None` when the
-/// system does not say.
+/// 15.4.1", on Linux the distribution and the kernel, on Windows
+/// "Windows 11 24H2 (26100.2033)". `None` when the system does not say.
 pub fn os_version() -> Option<String> {
-    if cfg!(target_os = "macos") {
-        let out = std::process::Command::new("/usr/bin/sw_vers")
-            .arg("-productVersion")
-            .output()
+    #[cfg(windows)]
+    {
+        let key = windows_registry::LOCAL_MACHINE
+            .open(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
             .ok()?;
-        let version = String::from_utf8(out.stdout).ok()?.trim().to_string();
-        return (!version.is_empty()).then(|| format!("macOS {version}"));
+        let build = key.get_string("CurrentBuildNumber").ok()?;
+        Some(windows_version(
+            &build,
+            key.get_string("DisplayVersion").ok().as_deref(),
+            key.get_u32("UBR").ok(),
+        ))
     }
-    if cfg!(target_os = "linux") {
-        let release = std::fs::read_to_string("/etc/os-release").ok();
-        let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease").ok();
-        return linux_version(release.as_deref(), kernel.as_deref());
+    #[cfg(not(windows))]
+    {
+        if cfg!(target_os = "macos") {
+            let out = std::process::Command::new("/usr/bin/sw_vers")
+                .arg("-productVersion")
+                .output()
+                .ok()?;
+            let version = String::from_utf8(out.stdout).ok()?.trim().to_string();
+            return (!version.is_empty()).then(|| format!("macOS {version}"));
+        }
+        if cfg!(target_os = "linux") {
+            let release = std::fs::read_to_string("/etc/os-release").ok();
+            let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease").ok();
+            return linux_version(release.as_deref(), kernel.as_deref());
+        }
+        None
     }
-    None
+}
+
+/// "Windows 11 24H2 (26100.2033)": Windows 11 from its build on, as the
+/// registry's product name still says Windows 10 there.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn windows_version(build: &str, display: Option<&str>, update: Option<u32>) -> String {
+    let release = if build.parse::<u32>().is_ok_and(|b| b >= 22_000) {
+        "Windows 11"
+    } else {
+        "Windows 10"
+    };
+    let display = display.map(|d| format!(" {d}")).unwrap_or_default();
+    let update = update.map(|u| format!(".{u}")).unwrap_or_default();
+    format!("{release}{display} ({build}{update})")
 }
 
 /// "Arch Linux, kernel 6.10.3": the distribution's name from os-release
 /// and the kernel's release.
+#[cfg_attr(windows, allow(dead_code))]
 fn linux_version(os_release: Option<&str>, kernel: Option<&str>) -> Option<String> {
     let name = os_release.and_then(|text| {
         let field = |key: &str| {
@@ -102,6 +132,25 @@ fn linux_version(os_release: Option<&str>, kernel: Option<&str>) -> Option<Strin
 
 #[cfg(test)]
 mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn this_windows_says_its_version() {
+        let version = super::os_version().unwrap();
+        assert!(version.starts_with("Windows 1"), "{version}");
+    }
+
+    #[test]
+    fn windows_is_named_by_its_build() {
+        assert_eq!(
+            super::windows_version("26100", Some("24H2"), Some(2033)),
+            "Windows 11 24H2 (26100.2033)"
+        );
+        assert_eq!(
+            super::windows_version("19045", None, None),
+            "Windows 10 (19045)"
+        );
+    }
+
     use super::*;
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;

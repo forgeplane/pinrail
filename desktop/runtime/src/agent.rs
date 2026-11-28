@@ -395,6 +395,40 @@ pub(crate) fn push_task(argv: &mut Vec<String>, task: Option<&str>) {
     }
 }
 
+/// How to start `agent` for `request`: its own plan, but with a first
+/// task the command could not carry left out of it and typed as the
+/// first prompt instead (see [`fits_command`]).
+pub fn start_plan(agent: &dyn Agent, request: &StartRequest) -> Option<StartPlan> {
+    start_plan_on(agent, request, cfg!(windows))
+}
+
+fn start_plan_on(agent: &dyn Agent, request: &StartRequest, windows: bool) -> Option<StartPlan> {
+    match request.task.filter(|t| !t.trim().is_empty()) {
+        Some(task) if !fits_command(task, windows) => {
+            let mut plan = agent.start(&StartRequest {
+                task: None,
+                ..*request
+            })?;
+            plan.type_task = Some(task.to_string());
+            Some(plan)
+        }
+        _ => agent.start(request),
+    }
+}
+
+/// The longest task, in bytes, that goes in a command on Windows.
+const LONGEST_COMMAND_TASK: usize = 4_000;
+
+/// Whether `task` can go in an agent's command, on Windows or not. An
+/// agent installed with npm is a batch file there, which runs through
+/// cmd: cmd cannot carry a line break in an argument, and takes a line
+/// of 8,191 characters at most, the agent's own arguments included.
+/// Which programs are batch files is known only once the host finds
+/// them, so such a task is never given on Windows.
+fn fits_command(task: &str, windows: bool) -> bool {
+    !windows || !(task.contains(['\r', '\n']) || task.len() > LONGEST_COMMAND_TASK)
+}
+
 /// Whether `id` can be given to an agent as a session id: letters,
 /// digits, `-`, `_` and `.`, not starting with `-`. A session's id comes
 /// from its hooks' reports, so an id that an agent could read as a flag,
@@ -429,9 +463,71 @@ pub fn skips_checks<'a>(agent: &dyn Agent, args: &'a [String]) -> Option<&'a str
 }
 
 /// The arguments in `line`, split as a shell would: by spaces, with
-/// quotes and backslashes keeping one argument whole.
+/// quotes and backslashes keeping one argument whole. On Windows, as a
+/// Windows program splits its command line, where a backslash is a
+/// folder's separator, as in `--add-dir C:\code\app`.
 pub fn split_args(line: &str) -> Result<Vec<String>, String> {
+    if cfg!(windows) {
+        return windows_split(line);
+    }
     shlex::split(line).ok_or_else(|| "has a quote that is not closed".to_string())
+}
+
+/// `line` split by the rules of Windows programs (Microsoft's C runtime):
+/// spaces and tabs part the arguments outside double quotes; backslashes
+/// are themselves, but before a `"`, where each pair is one backslash and
+/// an odd one makes the `"` a character; and `""` inside quotes is one `"`.
+fn windows_split(line: &str) -> Result<Vec<String>, String> {
+    let mut args = Vec::new();
+    let mut arg = String::new();
+    let (mut quoted, mut started) = (false, false);
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                let mut slashes = 1;
+                while chars.peek() == Some(&'\\') {
+                    chars.next();
+                    slashes += 1;
+                }
+                if chars.peek() == Some(&'"') {
+                    arg.extend(std::iter::repeat_n('\\', slashes / 2));
+                    if slashes % 2 == 1 {
+                        chars.next();
+                        arg.push('"');
+                    }
+                } else {
+                    arg.extend(std::iter::repeat_n('\\', slashes));
+                }
+                started = true;
+            }
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                chars.next();
+                arg.push('"');
+            }
+            '"' => {
+                quoted = !quoted;
+                started = true;
+            }
+            ' ' | '\t' if !quoted => {
+                if started {
+                    args.push(std::mem::take(&mut arg));
+                    started = false;
+                }
+            }
+            c => {
+                arg.push(c);
+                started = true;
+            }
+        }
+    }
+    if quoted {
+        return Err("has a quote that is not closed".to_string());
+    }
+    if started {
+        args.push(arg);
+    }
+    Ok(args)
 }
 
 /// The first of `args` that gives again a flag Pinrail sets itself for the
@@ -558,8 +654,74 @@ pub(crate) mod testing {
 }
 
 #[cfg(test)]
+mod windows_split_tests {
+    use super::windows_split;
+
+    #[test]
+    fn a_windows_command_line_keeps_folders_whole() {
+        let args = windows_split(r#"--add-dir C:\code\app --model "opus 4" """#).unwrap();
+        assert_eq!(
+            args,
+            [r"--add-dir", r"C:\code\app", "--model", "opus 4", ""]
+        );
+        // a backslash before a quote, and quotes inside an argument
+        assert_eq!(
+            windows_split(r#"a\"b "c\\" "say ""hi""" d\\\"e"#).unwrap(),
+            [r#"a"b"#, r"c\", r#"say "hi""#, r#"d\"e"#]
+        );
+        assert_eq!(windows_split("  ").unwrap(), Vec::<String>::new());
+        assert!(windows_split(r#"--name "open"#).is_err());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_task_cmd_could_not_carry_is_typed_on_windows() {
+        let lines = "first line\nsecond line";
+        let long = "a".repeat(LONGEST_COMMAND_TASK + 1);
+        assert!(fits_command("one line", true));
+        assert!(fits_command(&"a".repeat(LONGEST_COMMAND_TASK), true));
+        assert!(!fits_command(lines, true));
+        assert!(!fits_command("a\r", true));
+        assert!(!fits_command(&long, true));
+        // elsewhere the command takes them all
+        assert!(fits_command(lines, false));
+        assert!(fits_command(&long, false));
+    }
+
+    #[test]
+    fn every_agent_types_a_task_its_command_could_not_carry() {
+        let task = "first line\nsecond line";
+        let request = StartRequest {
+            task: Some(task),
+            extra_args: &[],
+            session_id: "6f1c2a4e-0b7d-4c8e-9f3a-2d5b6c7e8f90",
+        };
+        let mut started = 0;
+        for spec in crate::all() {
+            // the agents Pinrail starts
+            let Some(plan) = adapter(spec.id).and_then(|a| a.start(&request)) else {
+                continue;
+            };
+            let agent = adapter(spec.id).unwrap();
+            started += 1;
+            assert!(plan.argv.iter().any(|a| a.contains('\n')), "{}", spec.id);
+            let plan = start_plan_on(agent, &request, true).unwrap();
+            assert!(
+                !plan.argv.iter().any(|a| a.contains('\n')),
+                "{}: {:?}",
+                spec.id,
+                plan.argv
+            );
+            assert_eq!(plan.type_task.as_deref(), Some(task), "{}", spec.id);
+            // and elsewhere it goes as each agent takes it
+            assert_eq!(start_plan_on(agent, &request, false), agent.start(&request));
+        }
+        assert!(started >= 7, "{started}");
+    }
 
     /// The agents without an adapter, which take the skill alone: their
     /// configuration folders and where the skill goes.
@@ -637,6 +799,23 @@ mod tests {
             ),
             argv(&["claude", "--settings", rule, "--resume", "s-1"])
         );
+    }
+
+    #[test]
+    fn claude_code_s_rule_names_a_windows_folder_in_posix_form() {
+        let claude = adapter("claude-code").unwrap();
+        // as Claude Code matches paths on Windows: C:\Users as /c/Users
+        let rule = r#"{"permissions":{"allow":["Read(//c/Users/p/data/sessions/**)"]}}"#;
+        for folder in [
+            r"C:\Users\p\data\sessions",
+            r"\\?\C:\Users\p\data\sessions\",
+        ] {
+            assert_eq!(
+                with_read_folder(claude, argv(&["claude"]), folder),
+                argv(&["claude", "--settings", rule]),
+                "{folder}"
+            );
+        }
     }
 
     #[test]

@@ -1091,8 +1091,6 @@ mod tests {
     /// A plugin reads only files inside its folder: an entry that climbs
     /// out is refused, and a template or an example that a link carries
     /// out of the folder is dropped.
-    #[cfg(unix)]
-    #[cfg(unix)]
     #[test]
     fn a_plugin_reads_no_file_outside_its_folder() {
         let root = tempfile::tempdir().unwrap();
@@ -1103,8 +1101,11 @@ mod tests {
         let linked = with_manifest(root.path(), "linked", manifest(serde_json::json!({})));
         std::fs::create_dir_all(linked.join("templates")).unwrap();
         std::fs::create_dir_all(linked.join("samples")).unwrap();
-        std::os::unix::fs::symlink(outside.join("t.j2"), linked.join(TEMPLATE)).unwrap();
-        std::os::unix::fs::symlink(outside.join("s.json"), linked.join("samples/s.json")).unwrap();
+        if !crate::file_link(outside.join("t.j2"), linked.join(TEMPLATE))
+            || !crate::file_link(outside.join("s.json"), linked.join("samples/s.json"))
+        {
+            return;
+        }
         let loaded = Plugin::load(&linked);
         assert!(loaded.error.is_none(), "{:?}", loaded.error);
         assert!(

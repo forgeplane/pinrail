@@ -33,11 +33,16 @@ export function useAgentStart(repo: string, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     let current = true;
+    const show = (found: StartableAgent[]) => {
+      if (!current) return;
+      setAgents(found);
+      setAgent((chosen) => chosen ?? defaultAgent(found)?.id ?? null);
+    };
+    // the kept list at once, then one looked for afresh
     runtime.startable().then(
       (found) => {
-        if (!current) return;
-        setAgents(found);
-        setAgent((chosen) => chosen ?? defaultAgent(found)?.id ?? null);
+        show(found);
+        runtime.startable(true).then(show, () => {});
       },
       () => {},
     );

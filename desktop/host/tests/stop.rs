@@ -1,7 +1,6 @@
 //! Signals, stops and the events a terminal reports: a stop escalates
 //! until the program ends, every exit says why, and what the program tells
 //! its terminal becomes an event.
-#![cfg(unix)]
 
 mod common;
 
@@ -13,13 +12,17 @@ use serde_json::{Value, json};
 use common::{Folders, folders, serve};
 
 fn spawn(client: &mut Client, folders: &Folders, script: &str) -> (String, u64) {
+    spawn_program(client, folders, common::shell(script))
+}
+
+fn spawn_program(client: &mut Client, folders: &Folders, argv: Vec<String>) -> (String, u64) {
     let spawned = client
         .call(
             "terminal.spawn",
             json!({
-                "argv": ["sh", "-c", script],
+                "argv": argv,
                 "cwd": folders.runtime,
-                "env": {"PATH": "/usr/bin:/bin"},
+                "env": {"PATH": common::path()},
                 "cols": 80,
                 "rows": 24,
                 "labels": {},
@@ -39,7 +42,7 @@ fn subscribed(client: &mut Client) {
 
 /// The next event called `method` for `terminal`, skipping others.
 fn event(client: &mut Client, method: &str, terminal: &str) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     while Instant::now() < deadline {
         if let Some(message) = client.notification(Duration::from_millis(200))
             && message["method"] == method
@@ -53,7 +56,7 @@ fn event(client: &mut Client, method: &str, terminal: &str) -> Value {
 
 /// Waits until the program has started and set its traps.
 fn ready(client: &mut Client, terminal: &str) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     loop {
         let text = client
             .call("terminal.text", json!({"terminal": terminal, "lines": 0}))
@@ -67,15 +70,9 @@ fn ready(client: &mut Client, terminal: &str) {
 }
 
 fn gone(pid: u64) -> bool {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     while Instant::now() < deadline {
-        let alive = std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .stderr(std::process::Stdio::null())
-            .status()
-            .unwrap()
-            .success();
-        if !alive {
+        if !common::alive(pid as u32) {
             return true;
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -89,19 +86,37 @@ fn a_stop_escalates_to_kill_for_a_program_that_ignores_hangup_and_terminate() {
     let host = serve(&folders, &[]);
     let mut client = Client::connect(&host.registration).unwrap();
     subscribed(&mut client);
-    let (id, _) = spawn(
-        &mut client,
-        &folders,
-        "trap '' HUP TERM; echo ready; while :; do sleep 0.05; done",
-    );
-    ready(&mut client, &id);
+    #[cfg(unix)]
+    let id = {
+        let (id, _) = spawn(
+            &mut client,
+            &folders,
+            "trap '' HUP TERM; echo ready; while :; do sleep 0.05; done",
+        );
+        ready(&mut client, &id);
+        id
+    };
+    // On Windows a hangup and a terminate close the console, which ends
+    // every program on it whatever it asked for. What they leave running
+    // is a program that has no console, as one with a window: here the
+    // script host for windows, with a script that waits.
+    #[cfg(windows)]
+    let id = {
+        std::fs::write(folders.runtime.join("stay.js"), "WScript.Sleep(300000);").unwrap();
+        let argv = ["wscript", "//B", "//Nologo", "stay.js"].map(String::from);
+        spawn_program(&mut client, &folders, argv.to_vec()).0
+    };
     let started = Instant::now();
     client
         .call("terminal.stop", json!({"terminal": id, "grace_ms": 300}))
         .unwrap();
     let exited = event(&mut client, "exited", &id);
     assert_eq!(exited["reason"], "stopped");
+    #[cfg(unix)]
     assert_eq!(exited["signal"], 9);
+    // the code of a program whose job was ended
+    #[cfg(windows)]
+    assert_eq!(exited["code"], 1);
     // 500 ms after the hangup, then the grace
     assert!(started.elapsed() >= Duration::from_millis(800));
 }
@@ -118,14 +133,26 @@ fn a_stop_ends_at_terminate_for_a_program_that_ignores_only_hangup() {
         "trap '' HUP; echo ready; while :; do sleep 0.05; done",
     );
     ready(&mut client, &id);
+    let started = Instant::now();
     client
         .call("terminal.stop", json!({"terminal": id, "grace_ms": 5000}))
         .unwrap();
     let exited = event(&mut client, "exited", &id);
+    #[cfg(unix)]
     assert_eq!(
         (exited["reason"].clone(), exited["signal"].clone()),
         (json!("stopped"), json!(15))
     );
+    // On Windows the hangup and the terminate are one act, the closing of
+    // the console, which no program on it can ignore: it ends with a code,
+    // as every program does there.
+    #[cfg(windows)]
+    {
+        assert_eq!(exited["reason"], "stopped");
+        assert!(exited["code"].is_number() && exited["signal"].is_null());
+    }
+    // well within the grace, after which it would have been killed
+    assert!(started.elapsed() < Duration::from_millis(5_000));
 }
 
 #[test]
@@ -137,7 +164,14 @@ fn a_stop_ends_the_program_s_children_too() {
     let (id, _) = spawn(
         &mut client,
         &folders,
-        "sleep 300 & echo \"child=$!\"; echo ready; wait",
+        // The child says its own id: Windows' one, as Git's sh numbers
+        // its programs itself. Asked of it from outside, as /proc/$!/winpid,
+        // that id is for a moment the one of the copy of sh which starts
+        // the child and ends as it does. The child is ready once what it
+        // started runs: a program that starts as its console closes is
+        // not told, and runs on.
+        "sh -c 'echo \"child=$(cat /proc/$$/winpid 2>/dev/null || echo $$)\"; \
+         sleep 300 & sleep 1; echo ready; wait' & wait",
     );
     ready(&mut client, &id);
     let text = client
@@ -151,6 +185,8 @@ fn a_stop_ends_the_program_s_children_too() {
         .unwrap()
         .parse()
         .unwrap();
+    // the child is there to be stopped, or the test proves nothing
+    assert!(common::alive(child as u32), "no child {child} runs");
     client
         .call("terminal.stop", json!({"terminal": id}))
         .unwrap();
@@ -172,7 +208,16 @@ fn every_exit_says_why() {
     );
 
     let (id, _) = spawn(&mut client, &folders, "kill -TERM $$");
-    assert_eq!(event(&mut client, "exited", &id)["reason"], "signaled");
+    let exited = event(&mut client, "exited", &id);
+    #[cfg(unix)]
+    assert_eq!(exited["reason"], "signaled");
+    // Windows has no signals to die of: Git's shell, which has its own,
+    // exits with the signal in its code
+    #[cfg(windows)]
+    assert_eq!(
+        (exited["reason"].clone(), exited["code"].clone()),
+        (json!("exited"), json!(15 << 8))
+    );
 
     let (id, _) = spawn(
         &mut client,
@@ -250,11 +295,15 @@ fn an_ended_terminal_keeps_its_record_and_final_screen() {
     let screen = folders.data.join(format!("host/screens/{id}.snap"));
     let paint = std::fs::read_to_string(&screen).unwrap();
     assert!(paint.contains("last words"));
-    use std::os::unix::fs::PermissionsExt;
-    let mode = std::fs::metadata(&screen).unwrap().permissions().mode() & 0o777;
-    assert_eq!(mode, 0o600);
+    // its owner's alone; on Windows the host's folder makes it so
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&screen).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
     // terminals.json catches up within a second or so
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     loop {
         let records: Value = serde_json::from_str(
             &std::fs::read_to_string(folders.data.join("host/terminals.json")).unwrap(),
@@ -269,7 +318,7 @@ fn an_ended_terminal_keeps_its_record_and_final_screen() {
             .clone();
         if record["exit"] == json!({"code": 2}) {
             assert_eq!(record["pid"], pid);
-            assert_eq!(record["argv0"], "sh");
+            assert_eq!(record["argv0"], common::shell("")[0].as_str());
             assert!(record["ended_at"].is_string());
             break;
         }
@@ -291,7 +340,7 @@ fn stopping_the_host_stops_its_terminals() {
         .unwrap();
     assert_eq!(event(&mut client, "exited", &id)["reason"], "host_shutdown");
     assert!(gone(pid));
-    assert!(common::exits_within(&mut host, Duration::from_secs(5)));
+    assert!(common::exits_within(&mut host, common::within(5)));
 }
 
 /// The records in the host's `terminals.json`.
@@ -312,7 +361,7 @@ fn a_host_that_stops_leaves_the_exits_in_its_records() {
     client
         .call("host.stop", json!({"stop_terminals": true}))
         .unwrap();
-    assert!(common::exits_within(&mut host, Duration::from_secs(5)));
+    assert!(common::exits_within(&mut host, common::within(5)));
     let records = records(&folders);
     assert_eq!(records[0]["id"], id.as_str());
     assert!(records[0]["ended_at"].is_string(), "{records:?}");
@@ -332,7 +381,7 @@ fn a_host_that_starts_ends_the_records_of_terminals_no_holder_keeps() {
     )
     .unwrap();
     let host = serve(&folders, &[]);
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + common::within(5);
     loop {
         let records = records(&folders);
         if records.len() == 1 && records[0]["ended_at"].is_string() {

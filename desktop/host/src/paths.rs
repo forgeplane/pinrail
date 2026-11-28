@@ -1,13 +1,18 @@
-//! Where the host keeps its files, and where its socket lives.
+//! Where the host keeps its files, and where its socket lives: a Unix
+//! socket in a private folder, or on Windows a named pipe, whose name
+//! starts with a hash of the data folder.
 
+#[cfg(unix)]
 use std::fs::{self, DirBuilder};
 use std::io;
+#[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
 /// The longest socket path the system accepts, without the final NUL.
+#[cfg(unix)]
 const MAX_SOCKET_PATH: usize = if cfg!(target_os = "macos") { 103 } else { 107 };
 
 /// The host's files for one data directory.
@@ -15,10 +20,80 @@ const MAX_SOCKET_PATH: usize = if cfg!(target_os = "macos") { 103 } else { 107 }
 pub struct Paths {
     /// `<data dir>/host`
     pub host_dir: PathBuf,
-    /// The folder of the host's socket and the holders' sockets.
+    /// The folder of the host's socket and the holders' sockets: on
+    /// Windows, the named pipes' `\\.\pipe\`.
     pub socket_dir: PathBuf,
+    /// What each socket's name starts with: on Windows, where every pipe
+    /// shares one folder, `pinrail-host-<hash>.`.
+    pub socket_prefix: String,
 }
 
+#[cfg(windows)]
+impl Paths {
+    /// The paths for `data_dir`: each data directory has pipes of its own,
+    /// named after a hash of its path.
+    pub fn new(data_dir: &Path) -> Self {
+        Self {
+            host_dir: data_dir.join("host"),
+            socket_dir: PathBuf::from(r"\\.\pipe\"),
+            socket_prefix: format!("pinrail-host-{}.", short_hash(data_dir)),
+        }
+    }
+
+    /// Creates the host's folder, readable by this user and the system
+    /// only, as are the files made in it. A pipe needs none.
+    pub fn create(&self) -> io::Result<()> {
+        std::fs::create_dir_all(&self.host_dir)?;
+        crate::win::make_private(&self.host_dir)
+    }
+}
+
+impl Paths {
+    pub fn socket(&self) -> PathBuf {
+        self.socket_dir
+            .join(format!("{}host.sock", self.socket_prefix))
+    }
+
+    /// The socket of the holder `instance`.
+    pub fn holder_socket(&self, instance: &str) -> PathBuf {
+        self.socket_dir
+            .join(format!("{}holder.{instance}.sock", self.socket_prefix))
+    }
+
+    /// The instances of the holders whose sockets are there.
+    pub fn holder_instances(&self) -> Vec<String> {
+        let Ok(entries) = std::fs::read_dir(&self.socket_dir) else {
+            return Vec::new();
+        };
+        let start = format!("{}holder.", self.socket_prefix);
+        let mut found: Vec<String> = entries
+            .flatten()
+            .filter_map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                name.strip_prefix(&start)?
+                    .strip_suffix(".sock")
+                    .map(str::to_string)
+            })
+            .collect();
+        found.sort();
+        found.dedup();
+        found
+    }
+
+    pub fn registration(&self) -> PathBuf {
+        self.host_dir.join("host.json")
+    }
+
+    pub fn lock(&self) -> PathBuf {
+        self.host_dir.join("host.lock")
+    }
+
+    pub fn log(&self) -> PathBuf {
+        self.host_dir.join("host.log")
+    }
+}
+
+#[cfg(unix)]
 impl Paths {
     /// The paths for `data_dir`, with the runtime directory the environment
     /// names: `$XDG_RUNTIME_DIR` on Linux, `$TMPDIR` on macOS, else
@@ -47,23 +122,8 @@ impl Paths {
         Self {
             host_dir: data_dir.join("host"),
             socket_dir,
+            socket_prefix: String::new(),
         }
-    }
-
-    pub fn socket(&self) -> PathBuf {
-        self.socket_dir.join("host.sock")
-    }
-
-    pub fn registration(&self) -> PathBuf {
-        self.host_dir.join("host.json")
-    }
-
-    pub fn lock(&self) -> PathBuf {
-        self.host_dir.join("host.lock")
-    }
-
-    pub fn log(&self) -> PathBuf {
-        self.host_dir.join("host.log")
     }
 
     /// Creates the host's folder and the socket's folder, readable by
@@ -82,8 +142,23 @@ impl Paths {
 }
 
 /// The data directory the core uses when it is not told one:
+/// `$PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\dev.pinrail.desktop`.
+#[cfg(windows)]
+pub fn default_data_dir() -> PathBuf {
+    let var = |name| {
+        std::env::var_os(name)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    };
+    var("PINRAIL_DATA_DIR")
+        .or_else(|| var("LOCALAPPDATA").map(|d| d.join("dev.pinrail.desktop")))
+        .unwrap_or_else(|| PathBuf::from("pinrail-data"))
+}
+
+/// The data directory the core uses when it is not told one:
 /// `$PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else
 /// `~/.local/share/pinrail`.
+#[cfg(unix)]
 pub fn default_data_dir() -> PathBuf {
     let var = |name| {
         std::env::var_os(name)
@@ -96,6 +171,7 @@ pub fn default_data_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("pinrail-data"))
 }
 
+#[cfg(unix)]
 fn runtime_dir() -> Option<PathBuf> {
     let var = if cfg!(target_os = "macos") {
         "TMPDIR"
@@ -115,11 +191,13 @@ fn short_hash(path: &Path) -> String {
 
 /// Whether the longest socket in `dir` fits the system's limit. The
 /// holders' sockets, `holder.<8 hex digits>.sock`, are the longest.
+#[cfg(unix)]
 fn fits(dir: &Path) -> bool {
     dir.join("holder.00000000.sock").as_os_str().len() <= MAX_SOCKET_PATH
 }
 
 /// Creates `dir` with mode 0700, or closes an existing one of ours.
+#[cfg(unix)]
 fn private_dir(dir: &Path) -> io::Result<()> {
     DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
     if fs::metadata(dir)?.permissions().mode() & 0o077 != 0 {
@@ -130,6 +208,7 @@ fn private_dir(dir: &Path) -> io::Result<()> {
 
 /// Creates `dir` with mode 0700, or checks that the one there belongs to
 /// this user and is closed to others.
+#[cfg(unix)]
 fn owned_dir(dir: &Path) -> io::Result<()> {
     match DirBuilder::new().mode(0o700).create(dir) {
         Ok(()) => return Ok(()),
@@ -152,7 +231,61 @@ fn owned_dir(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn each_data_directory_has_pipes_of_its_own() {
+        let paths = Paths::new(Path::new(r"C:\Users\p\AppData\Local\Pinrail"));
+        let socket = paths.socket().to_string_lossy().into_owned();
+        assert!(socket.starts_with(r"\\.\pipe\pinrail-host-"), "{socket}");
+        assert!(socket.ends_with(".host.sock"), "{socket}");
+        let other = Paths::new(Path::new(r"C:\Users\q\AppData\Local\Pinrail"));
+        assert_ne!(other.socket(), paths.socket());
+        let holder = paths.holder_socket("0a1b2c3d");
+        assert_eq!(
+            holder.to_string_lossy(),
+            format!(r"\\.\pipe\{}holder.0a1b2c3d.sock", paths.socket_prefix)
+        );
+    }
+
+    #[test]
+    fn the_host_s_folder_and_its_files_are_this_user_s_alone() {
+        let data = tempfile::tempdir().unwrap();
+        let paths = Paths::new(data.path());
+        paths.create().unwrap();
+        std::fs::write(paths.registration(), "{}").unwrap();
+        let user = crate::win::sid_text(&crate::win::current_user().unwrap());
+        for path in [paths.host_dir.clone(), paths.registration()] {
+            let acl = crate::win::acl_of(&path).unwrap();
+            // protected, so nothing from the folders above applies
+            if path == paths.host_dir {
+                assert!(acl.starts_with("D:P"), "{acl}");
+            }
+            assert!(acl.contains(&user), "{acl}");
+            assert!(acl.contains(";;;SY)"), "{acl}");
+            // no one else: not the users, the authenticated users, everyone
+            // or the administrators
+            for other in [";BU)", ";AU)", ";WD)", ";BA)"] {
+                assert!(!acl.contains(other), "{other} in {acl}");
+            }
+        }
+        // creating it again keeps it so
+        paths.create().unwrap();
+    }
+
+    #[test]
+    fn the_holders_listening_are_found_by_their_pipes() {
+        let data = tempfile::tempdir().unwrap();
+        let paths = Paths::new(data.path());
+        assert!(paths.holder_instances().is_empty());
+        let _listening = crate::net::listen(&paths.holder_socket("0a1b2c3d")).unwrap();
+        assert_eq!(paths.holder_instances(), ["0a1b2c3d"]);
+    }
+}
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

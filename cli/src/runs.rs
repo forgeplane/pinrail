@@ -106,7 +106,24 @@ pub fn terminal_size() -> Option<(u16, u16)> {
         let ok = unsafe { libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &mut size) } == 0;
         (ok && size.ws_col > 0 && size.ws_row > 0).then_some((size.ws_col, size.ws_row))
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{
+            CONSOLE_SCREEN_BUFFER_INFO, GetConsoleScreenBufferInfo, GetStdHandle, STD_OUTPUT_HANDLE,
+        };
+        // SAFETY: the info is plain data the call fills; the handle is the
+        // process's own standard output, which it does not close.
+        let mut info: CONSOLE_SCREEN_BUFFER_INFO = unsafe { std::mem::zeroed() };
+        let ok =
+            unsafe { GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &mut info) } != 0;
+        let window = info.srWindow;
+        let (cols, rows) = (
+            window.Right - window.Left + 1,
+            window.Bottom - window.Top + 1,
+        );
+        (ok && cols > 0 && rows > 0).then_some((cols as u16, rows as u16))
+    }
+    #[cfg(not(any(unix, windows)))]
     None
 }
 

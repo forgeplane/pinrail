@@ -213,7 +213,6 @@ async fn delete_repo(
     let source = super::reviews::source(&headers, &Value::Null);
     // the agents Pinrail runs in its sessions stop first, as when a
     // session is deleted, or they would run on with no session to show
-    #[cfg(unix)]
     if let Err(error) = state.runtime().stop_repo(repo.trim()).await {
         tracing::warn!("stopping the runs of {repo} failed: {error}");
     }

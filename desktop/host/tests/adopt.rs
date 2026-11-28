@@ -1,7 +1,6 @@
 //! A host that is killed ends no agent: the holder keeps the program and
 //! its PTY, and the next host takes the terminal back, with its screen
 //! rebuilt from the output ring, and goes on reading and typing.
-#![cfg(unix)]
 
 mod common;
 
@@ -26,7 +25,7 @@ fn text(client: &mut Client, terminal: &str) -> String {
 }
 
 fn wait_for(client: &mut Client, terminal: &str, wanted: &str) -> String {
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let deadline = Instant::now() + common::within(15);
     loop {
         let screen = text(client, terminal);
         if screen.contains(wanted) {
@@ -46,6 +45,75 @@ fn listed(client: &mut Client) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// A holder that dies, as a crash would end it: the host starts another
+/// holder for the next terminal. The program of the one it kept can go on,
+/// as the host holds its terminal too.
+#[test]
+fn a_host_goes_on_after_its_holder_dies() {
+    let folders = folders();
+    let host = serve(&folders, &[]);
+    let mut client = connect(&host);
+    // a terminal, and the holder that started its program: its parent
+    let spawn = |client: &mut Client, script: &str| {
+        let spawned = client
+            .call(
+                "terminal.spawn",
+                json!({"argv": common::shell(script), "cwd": folders.runtime,
+                       "cols": 80, "rows": 24, "env": {"PATH": common::path()},
+                       "env_base": "host"}),
+            )
+            .unwrap();
+        let pid = spawned["pid"].as_u64().unwrap() as u32;
+        let holder = pinrail_runtime::process::process(pid).unwrap().parent;
+        (spawned["terminal"].as_str().unwrap().to_string(), holder)
+    };
+    let (first, old_holder) = spawn(&mut client, "echo ready; sleep 300");
+    wait_for(&mut client, &first, "ready");
+    let old = pinrail_runtime::process::process(old_holder).unwrap();
+    common::kill_holders_only(&host.holders);
+    // the next one starts and runs, whether the host has seen its holder
+    // go by now or learns it from the spawn that fails
+    let (second, new_holder) = spawn(&mut client, "echo again; sleep 300");
+    wait_for(&mut client, &second, "again");
+    assert_ne!(new_holder, old_holder, "the holder that died started it");
+    let deadline = Instant::now() + common::within(15);
+    while pinrail_runtime::process::process(old_holder).is_some_and(|p| p.started == old.started) {
+        assert!(Instant::now() < deadline, "the first holder still runs");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// More terminals than one message from the holder can carry the
+/// descriptors of, as a host with many agents has.
+#[test]
+fn a_new_host_adopts_more_terminals_than_one_message_carries() {
+    const TERMINALS: usize = 100;
+    let folders = folders();
+    let mut first = serve(&folders, &[]);
+    let mut client = connect(&first);
+    for _ in 0..TERMINALS {
+        client
+            .call(
+                "terminal.spawn",
+                json!({"argv": common::sleep(300), "cwd": folders.runtime,
+                       "cols": 80, "rows": 24, "env": {"PATH": common::path()},
+                       "env_base": "host"}),
+            )
+            .unwrap();
+    }
+    assert_eq!(listed(&mut client).len(), TERMINALS);
+    let _ = first.child.kill();
+    let _ = first.child.wait();
+    drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    let second = serve(&folders, &[]);
+    let mut client = connect(&second);
+    assert_eq!(listed(&mut client).len(), TERMINALS);
+}
+
 #[test]
 fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
     let folders = folders();
@@ -54,9 +122,9 @@ fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo ready; while read line; do echo got:$line; done"],
+            json!({"argv": common::shell("echo ready; while read line; do echo got:$line; done"),
                    "cwd": folders.runtime, "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host",
+                   "env": {"PATH": common::path()}, "env_base": "host",
                    "labels": {"run": "run_1"}}),
         )
         .unwrap();
@@ -70,6 +138,7 @@ fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
     drop(client);
     let holders = first.holders.clone();
     // the next host must not kill the holders when this one is dropped
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -100,8 +169,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     // a copy at another path stands for the build before an update
     let old = folders.home.join("old-build");
     std::fs::create_dir(&old).unwrap();
-    let old = old.join("pinrail-host");
-    std::fs::copy(env!("CARGO_BIN_EXE_pinrail-host"), &old).unwrap();
+    let old = common::host_copy(&old);
     let parent = |pid: u64| pinrail_runtime::process::process(pid as u32).map(|p| p.parent);
 
     // its holder exits a second after its last terminal, not 30 seconds
@@ -110,9 +178,9 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo ready; read line; echo got:$line"],
+            json!({"argv": common::shell("echo ready; read line; echo got:$line"),
                    "cwd": folders.runtime, "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                   "env": {"PATH": common::path()}, "env_base": "host"}),
         )
         .unwrap();
     let before = spawned["terminal"].as_str().unwrap().to_string();
@@ -123,6 +191,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -132,7 +201,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sleep", "600"], "cwd": folders.runtime, "cols": 80, "rows": 24,
+            json!({"argv": common::sleep(600), "cwd": folders.runtime, "cols": 80, "rows": 24,
                    "env_base": "host"}),
         )
         .unwrap();
@@ -149,7 +218,7 @@ fn a_host_starts_new_terminals_under_a_holder_of_its_own_build() {
     wait_for(&mut client, &before, "got:hello");
 
     // and exits once that terminal has ended, while the host runs on
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let deadline = Instant::now() + common::within(15);
     while pinrail_runtime::process::process(old_holder).is_some() {
         assert!(Instant::now() < deadline, "the old holder kept running");
         std::thread::sleep(Duration::from_millis(200));
@@ -166,7 +235,7 @@ fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sleep", "600"], "cwd": folders.runtime, "cols": 80, "rows": 24,
+            json!({"argv": common::sleep(600), "cwd": folders.runtime, "cols": 80, "rows": 24,
                    "env_base": "host"}),
         )
         .unwrap();
@@ -174,6 +243,7 @@ fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
     // a spawn whose record the host never wrote, as after a crash in the
@@ -183,8 +253,10 @@ fn a_program_the_holder_keeps_without_a_record_is_stopped() {
     let second = serve(&folders, &[]);
     let mut client = connect(&second);
     assert!(listed(&mut client).is_empty());
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while pinrail_runtime::process::process(pid).is_some_and(|p| p.name == "sleep") {
+    let deadline = Instant::now() + common::within(10);
+    // what `common::sleep` runs
+    let name = if cfg!(windows) { "ping" } else { "sleep" };
+    while pinrail_runtime::process::process(pid).is_some_and(|p| p.name == name) {
         assert!(Instant::now() < deadline, "the program kept running");
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -199,9 +271,9 @@ fn the_holder_starts_a_host_when_none_comes_back() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo ready; while read line; do echo got:$line; done"],
+            json!({"argv": common::shell("echo ready; while read line; do echo got:$line; done"),
                    "cwd": folders.runtime, "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                   "env": {"PATH": common::path()}, "env_base": "host"}),
         )
         .unwrap();
     let terminal = spawned["terminal"].as_str().unwrap().to_string();
@@ -211,12 +283,13 @@ fn the_holder_starts_a_host_when_none_comes_back() {
     let _ = first.child.wait();
     drop(client);
     let holders = first.holders.clone();
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
     // nobody starts a host: the holder does, within about 5 seconds
     let path = common::registration_path(&folders);
-    let deadline = Instant::now() + Duration::from_secs(20);
+    let deadline = Instant::now() + common::within(20);
     let registration = loop {
         if let Some(registration) = pinrail_host::registration::Registration::read(&path)
             && registration.pid != old
@@ -228,16 +301,14 @@ fn the_holder_starts_a_host_when_none_comes_back() {
         std::thread::sleep(Duration::from_millis(100));
     };
     let mut client = Client::connect(&registration).unwrap();
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + common::within(10);
     while listed(&mut client).is_empty() {
         assert!(Instant::now() < deadline, "the new host adopted nothing");
         std::thread::sleep(Duration::from_millis(50));
     }
     wait_for(&mut client, &terminal, "ready");
     // the host the holder started, and the holder, end with the test
-    let _ = std::process::Command::new("kill")
-        .arg(registration.pid.to_string())
-        .status();
+    common::kill(registration.pid);
     common::kill_holders(&holders);
 }
 
@@ -250,9 +321,9 @@ fn hand_over_in(format: &str) {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "printf '\\033]2;Agent title\\007'; echo ready; read go; echo after:$go; while read line; do echo got:$line; done"],
+            json!({"argv": common::shell("printf '\\033]2;Agent title\\007'; echo ready; read go; echo after:$go; while read line; do echo got:$line; done"),
                    "cwd": folders.runtime, "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host",
+                   "env": {"PATH": common::path()}, "env_base": "host",
                    "labels": {"run": "run_1"}}),
         )
         .unwrap();
@@ -267,7 +338,7 @@ fn hand_over_in(format: &str) {
             json!({"stop_terminals": false, "formats": [format, "vt"]}),
         )
         .ok();
-    assert!(common::exits_within(&mut first, Duration::from_secs(10)));
+    assert!(common::exits_within(&mut first, common::within(10)));
     let file = folders
         .data
         .join(format!("host/handover/{terminal}.handover"));
@@ -277,6 +348,7 @@ fn hand_over_in(format: &str) {
             .unwrap();
     assert_eq!(header["format"], format);
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 
@@ -318,13 +390,13 @@ fn a_new_host_shows_the_last_screen_of_a_terminal_that_ended_under_the_last() {
     let spawned = client
         .call(
             "terminal.spawn",
-            json!({"argv": ["sh", "-c", "echo the last words; sleep 0.2"],
+            json!({"argv": common::shell("echo the last words; sleep 0.2"),
                    "cwd": folders.runtime, "cols": 80, "rows": 24,
-                   "env": {"PATH": "/usr/bin:/bin"}, "env_base": "host"}),
+                   "env": {"PATH": common::path()}, "env_base": "host"}),
         )
         .unwrap();
     let terminal = spawned["terminal"].as_str().unwrap().to_string();
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let deadline = Instant::now() + common::within(15);
     while !listed(&mut client)
         .iter()
         .any(|t| t["terminal"] == terminal.as_str() && !t["ended_at"].is_null())
@@ -350,6 +422,7 @@ fn a_new_host_shows_the_last_screen_of_a_terminal_that_ended_under_the_last() {
     let _ = first.child.kill();
     let _ = first.child.wait();
     drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
     first.holders = folders.data.join("none");
     drop(first);
 

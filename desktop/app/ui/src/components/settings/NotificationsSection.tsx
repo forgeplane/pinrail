@@ -14,6 +14,7 @@ import { useOptionsMenu } from "../OptionsMenu";
 import { ProjectAvatar } from "../ProjectAvatar";
 import { Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
+import { onWindows } from "../../lib/platform";
 
 /** A kind of notification: its inbox switch, or none when it always
  *  waits there, and its system notification switch, if it has one. */
@@ -276,7 +277,7 @@ export function NotificationsSection({ open }: { open: boolean }) {
             </button>
           ) : system.status && !system.status.shows ? (
             <button type="button" className="chrome-button" onClick={openSystemSettings}>
-              <Settings size={14} /> Open System Settings
+              <Settings size={14} /> {onWindows ? "Open Settings" : "Open System Settings"}
             </button>
           ) : null}
         </SettingsRow>

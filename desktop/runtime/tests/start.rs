@@ -322,8 +322,17 @@ fn antigravity_takes_a_message_as_a_bracketed_paste_and_enter() {
 
 #[test]
 fn a_person_s_arguments_are_split_as_a_shell_splits_them() {
+    // single quotes are a shell's; Windows programs know only double ones
+    let flag = if cfg!(windows) {
+        r#"--flag="a b""#
+    } else {
+        "--flag='a b'"
+    };
     assert_eq!(
-        split_args(r#"--model opus --append-system-prompt "Be brief" --flag='a b'"#).unwrap(),
+        split_args(&format!(
+            r#"--model opus --append-system-prompt "Be brief" {flag}"#
+        ))
+        .unwrap(),
         args(&[
             "--model",
             "opus",

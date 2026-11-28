@@ -55,7 +55,6 @@ fn live(app: &AppHandle) -> Option<(String, Vec<serde_json::Value>)> {
     let native = app.try_state::<Native>()?;
     let on_quit = native.state.settings().value("/runtime/on_quit");
     let on_quit = on_quit.as_str().unwrap_or("ask").to_string();
-    #[cfg(unix)]
     let running = native
         .state
         .runtime()
@@ -64,15 +63,11 @@ fn live(app: &AppHandle) -> Option<(String, Vec<serde_json::Value>)> {
         .into_iter()
         .map(|(run, title)| json!({"agent": run.agent, "title": title, "folder": run.folder}))
         .collect();
-    // agents run in Pinrail only on Unix
-    #[cfg(not(unix))]
-    let running = Vec::new();
     Some((on_quit, running))
 }
 
 /// Stops every agent, waiting at most a few seconds for the host to take
 /// the requests.
-#[cfg(unix)]
 fn stop_all(app: &AppHandle) {
     let Some(native) = app.try_state::<Native>() else {
         return;
@@ -91,10 +86,6 @@ fn stop_all(app: &AppHandle) {
         Err(_) => eprintln!("pinrail: stopping the agents took too long"),
     }
 }
-
-/// Agents run in Pinrail only on Unix: there are none to stop elsewhere.
-#[cfg(not(unix))]
-fn stop_all(_app: &AppHandle) {}
 
 /// Handles an exit request: lets it through, stops the agents first, or
 /// keeps the app open and asks in the window.
@@ -152,7 +143,6 @@ pub async fn quit(app: AppHandle, stop: bool, remember: bool) -> Result<(), Stri
             .change(&json!({"runtime": {"on_quit": choice}}))
             .map_err(|error| error.to_string())?;
     }
-    #[cfg(unix)]
     if stop {
         native
             .state

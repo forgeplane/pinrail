@@ -1058,6 +1058,13 @@ async fn the_sdk_is_served_only_when_configured() {
         get("/sdk/v1/.env").await.unwrap().status(),
         StatusCode::NOT_FOUND
     );
+    // nor one in a folder named with Windows' separator, %5C
+    std::fs::create_dir(dir.path().join("sub")).unwrap();
+    std::fs::write(dir.path().join("sub").join(".env"), "TOKEN=1").unwrap();
+    assert_eq!(
+        get("/sdk/v1/sub%5C.env").await.unwrap().status(),
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[tokio::test]
@@ -1411,22 +1418,72 @@ async fn a_stored_bundle_serves_its_view_and_nothing_else() {
 
 /// A stored file that no longer matches its bundle's listing is not served:
 /// it is not the release the address names.
-#[cfg(unix)]
 #[tokio::test]
 async fn a_changed_bundle_file_is_not_served() {
-    use std::os::unix::fs::PermissionsExt;
     let app = app();
     let root = tempfile::tempdir().unwrap();
     let hello = plugin_copy(root.path(), "hello", "1.0.0");
     let hash = app.state.bundles().store(&hello).unwrap().hash;
     let page = app.state.bundles().path(&hash).join("view/index.html");
-    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    common::make_writable(&page);
     std::fs::write(&page, "<script>changed</script>").unwrap();
 
     let response = bundle_get(&app, &format!("/bundles/{hash}/view/index.html"), &[]).await;
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert!(!String::from_utf8_lossy(&body).contains("changed"));
+}
+
+/// A bundle stored on macOS or Linux before names were held to Windows'
+/// rules still serves the files it has under such names.
+#[cfg(not(windows))]
+#[tokio::test]
+async fn a_bundle_stored_with_a_name_windows_refuses_serves_it() {
+    use pinrail_format::bundle::File;
+    use sha2::{Digest, Sha256};
+    let app = app();
+    let files = [
+        ("manifest.json", r#"{"name": "hello", "version": "1.0.0"}"#),
+        ("view/a:b.txt", "text"),
+        ("view/aux.js", "let a;"),
+        ("view/index.html", "<p>hello</p>"),
+    ];
+    // as an earlier Pinrail stored it: the folder and the row
+    let listing = Listing {
+        files: files
+            .iter()
+            .map(|(path, text)| File {
+                path: path.to_string(),
+                size: text.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(text.as_bytes())),
+            })
+            .collect(),
+    };
+    let hash = listing.hash();
+    let folder = app.state.bundles().path(&hash);
+    std::fs::create_dir_all(folder.join("view")).unwrap();
+    for (path, text) in files {
+        std::fs::write(folder.join(path), text).unwrap();
+    }
+    let record = pinrail_core::db::BundleRecord {
+        hash: hash.clone(),
+        name: "hello".into(),
+        version: "1.0.0".into(),
+        manifest: files[0].1.into(),
+        size: listing.size(),
+        stored_at: String::new(),
+    };
+    db(&app).insert_bundle(&record, &listing.text()).unwrap();
+
+    for (path, text) in [("view/aux.js", "let a;"), ("view/a:b.txt", "text")] {
+        let response = bundle_get(&app, &format!("/bundles/{hash}/{path}"), &[]).await;
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body, text.as_bytes(), "{path}");
+    }
+    // and no name it does not list
+    let response = bundle_get(&app, &format!("/bundles/{hash}/view/nul"), &[]).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 /// A plugin's files are for its own view, which loads them as a page,
@@ -1466,7 +1523,6 @@ async fn other_websites_cannot_read_a_plugins_files() {
 
 /// A symbolic link in a plugin could point anywhere on the machine, such
 /// as a private key: neither a copy nor a link takes a folder that has one.
-#[cfg(unix)]
 #[tokio::test]
 async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
     let app = app();
@@ -1485,7 +1541,9 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
         let plugin = plugin_copy(root.path(), "hello", "1.0.0");
         let renamed = root.path().join(name);
         std::fs::rename(&plugin, &renamed).unwrap();
-        std::os::unix::fs::symlink(target, renamed.join(link)).unwrap();
+        if !common::symlink(target, &renamed.join(link)) {
+            return;
+        }
         for linked in [false, true] {
             let (status, body) = install(&app, &renamed, json!({ "link": linked })).await;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{name}: {body}");
@@ -2631,10 +2689,8 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
 /// An installed bundle: the official list plugin copied under another name
 /// and installed from its folder. A file changed behind the app's back is
 /// flagged on the plugin's row and not served.
-#[cfg(unix)]
 #[tokio::test]
 async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
-    use std::os::unix::fs::PermissionsExt;
     let app = app();
     let source = tempfile::tempdir().unwrap();
     let list = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/list");
@@ -2675,7 +2731,7 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
 
     // changed behind the app's back: no longer served
     let page = stored.join("view/index.html");
-    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    common::make_writable(&page);
     std::fs::write(&page, "<html>changed</html>").unwrap();
     assert_eq!(
         bundle_get(&app, &url, &[]).await.status(),

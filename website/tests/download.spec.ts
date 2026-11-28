@@ -55,8 +55,8 @@ const cases = [
     platform: "Win32",
     ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/129.0 Safari/537.36",
     link: "windows",
-    text: "Windows: coming soon",
-    href: "/download/",
+    text: "Download for Windows",
+    href: `${latest}/pinrail-app-x64.exe`,
   },
   {
     system: "a phone",

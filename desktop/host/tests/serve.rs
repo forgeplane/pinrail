@@ -1,19 +1,17 @@
 //! `pinrail-host serve`, `status` and `stop`, run as the core and a person
 //! run them: the registration, the lock, the `hello`, one controller at a
 //! time, and the ways the host stops.
-#![cfg(unix)]
 
 mod common;
 
 use std::io::Write;
-use std::os::unix::net::UnixStream;
-use std::path::Path;
 use std::time::Duration;
 
 use common::{exits_within, folders, registration_path, run, serve};
 
 use pinrail_host::client::{CallError, Client};
 use pinrail_host::frame::{self, Frame, kind};
+use pinrail_host::net;
 use pinrail_host::registration::Registration;
 use serde_json::json;
 
@@ -25,13 +23,25 @@ fn the_host_registers_itself_and_answers_a_controller() {
     assert_eq!(registration.boot_id, pinrail_host::boot_id().unwrap());
     assert_eq!(registration.secret.len(), 64);
     // the socket's folder is in the runtime folder and closed to others
-    assert!(registration.socket.starts_with(&folders.runtime));
-    assert!(registration.socket.ends_with("host.sock"));
-    use std::os::unix::fs::PermissionsExt;
-    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
-    assert_eq!(mode(registration.socket.parent().unwrap()), 0o700);
-    assert_eq!(mode(&registration.socket), 0o600);
-    assert_eq!(mode(&registration_path(&folders)), 0o600);
+    #[cfg(unix)]
+    {
+        assert!(registration.socket.starts_with(&folders.runtime));
+        assert!(registration.socket.ends_with("host.sock"));
+        use std::os::unix::fs::PermissionsExt;
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(registration.socket.parent().unwrap()), 0o700);
+        assert_eq!(mode(&registration.socket), 0o600);
+        assert_eq!(mode(&registration_path(&folders)), 0o600);
+    }
+    // a pipe named for the data folder; that only this user opens it, and
+    // the registration, is tested with `net` and `paths`
+    #[cfg(windows)]
+    {
+        let pipe = registration.socket.to_string_lossy();
+        assert!(pipe.starts_with(r"\\.\pipe\pinrail-host-"), "{pipe}");
+        assert!(pipe.ends_with(".host.sock"), "{pipe}");
+        assert!(registration_path(&folders).is_file());
+    }
 
     let mut client = Client::connect(registration).unwrap();
     assert_eq!(client.hello["generation"], 1);
@@ -57,7 +67,7 @@ fn a_connection_without_the_secret_is_closed() {
         Err(CallError::Closed(None))
     ));
     // so is one whose first frame is not hello
-    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let mut stream = net::connect(&host.registration.socket).unwrap();
     let info = json!({"jsonrpc": "2.0", "id": 1, "method": "host.info"});
     frame::write_blocking(&mut stream, &Frame::json(&info)).unwrap();
     assert_eq!(frame::read_blocking(&mut stream).unwrap(), None);
@@ -67,7 +77,7 @@ fn a_connection_without_the_secret_is_closed() {
 fn a_frame_over_the_limit_closes_the_connection() {
     let folders = folders();
     let host = serve(&folders, &[]);
-    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let mut stream = net::connect(&host.registration.socket).unwrap();
     let mut header = vec![0, 0, 0, 0, kind::DATA];
     header.extend(((frame::MAX_PAYLOAD + 1) as u32).to_le_bytes());
     stream.write_all(&header).unwrap();
@@ -125,6 +135,34 @@ fn status_prints_the_registration_without_the_secret() {
     assert!(status.get("secret").is_none());
 }
 
+/// A client that still holds a connection to a host that stopped, as a
+/// core holds one until it reads the end: on Windows a pipe lasts as long
+/// as any handle to it, and the next host still listens on its name.
+#[test]
+fn the_next_host_starts_while_a_client_of_the_last_one_holds_on() {
+    let folders = folders();
+    let mut host = serve(&folders, &[]);
+    let held = pinrail_host::net::connect(&host.registration.socket).unwrap();
+    assert!(run(&folders, &["stop"]).status.success());
+    assert!(exits_within(&mut host, Duration::from_secs(5)));
+    let _next = serve(&folders, &[]);
+    drop(held);
+}
+
+/// Windows names the person and their folder in USERNAME and USERPROFILE;
+/// HOME and USER are Git Bash's.
+#[cfg(windows)]
+#[test]
+fn the_host_names_its_user_and_home_on_windows() {
+    let folders = folders();
+    let mut serve = common::command(&folders, &["serve"]);
+    serve.env_remove("HOME").env_remove("USER");
+    let host = common::started(serve, &folders);
+    let client = Client::connect(&host.registration).unwrap();
+    assert_eq!(client.hello["user"], std::env::var("USERNAME").unwrap());
+    assert_eq!(client.hello["home"], std::env::var("USERPROFILE").unwrap());
+}
+
 #[test]
 fn stop_ends_the_host_and_removes_its_registration_and_socket() {
     let folders = folders();
@@ -148,7 +186,7 @@ fn stop_ends_the_host_and_removes_its_registration_and_socket() {
 fn a_stop_is_kept_when_its_connection_closes_before_the_host_notes_it() {
     let folders = folders();
     let mut host = serve(&folders, &[]);
-    let mut stream = UnixStream::connect(&host.registration.socket).unwrap();
+    let mut stream = net::connect(&host.registration.socket).unwrap();
     let hello = json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -166,7 +204,12 @@ fn a_stop_is_kept_when_its_connection_closes_before_the_host_notes_it() {
     // so the host reads the end of the connection right after the call
     let stop = json!({"jsonrpc": "2.0", "id": 2, "method": "host.stop", "params": {}});
     frame::write_blocking(&mut stream, &Frame::json(&stop)).unwrap();
+    #[cfg(unix)]
     stream.shutdown(std::net::Shutdown::Write).unwrap();
+    // a pipe has no half to close: the client lets go of all of it, and
+    // what it wrote stays for the host to read
+    #[cfg(windows)]
+    drop(stream);
     assert!(exits_within(&mut host, Duration::from_secs(5)));
     let log = std::fs::read_to_string(folders.data.join("host/host.log")).unwrap();
     assert!(log.contains("stopped: host.stop"), "{log}");

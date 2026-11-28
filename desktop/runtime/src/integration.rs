@@ -9,8 +9,17 @@ use std::path::PathBuf;
 use serde_json::{Map, Value, json};
 
 /// How a command Pinrail installs starts, which is also how Pinrail tells
-/// its own entries from the person's.
+/// its own entries from the person's: the CLI the agent's terminal names
+/// in `PINRAIL_CLI`, else the one on the `PATH`, in the syntax of a POSIX
+/// shell, which agents run their hooks with on macOS and Linux.
+#[cfg(unix)]
 pub const COMMAND_PREFIX: &str = "\"${PINRAIL_CLI:-pinrail}\" hook";
+
+/// On Windows an agent may run its hooks with cmd, PowerShell or Git's
+/// bash, and the command is one that each runs alike: the CLI on the
+/// `PATH`, where the app puts it.
+#[cfg(windows)]
+pub const COMMAND_PREFIX: &str = "pinrail hook";
 
 /// The longest a hook may run, in seconds: `pinrail hook` gives up after
 /// one.

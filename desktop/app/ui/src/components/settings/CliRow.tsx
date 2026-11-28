@@ -26,6 +26,8 @@ export type CliStatus = {
   profile: string | null;
   /** that line, in the shell's syntax */
   profile_line: string | null;
+  /** the PATH is the user's value in the registry, as on Windows */
+  user_path?: boolean;
 };
 
 const invoke = <T,>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
@@ -120,14 +122,31 @@ export function CliRow({ open }: { open: boolean }) {
 
   let note: ReactNode = undefined;
   if (error) note = error;
+  // on Windows, the line to run by hand, as Pinrail could not change the PATH
+  else if (status.warning && status.user_path && status.dir_on_path === false)
+    note = (
+      <span>
+        Installed, but {status.warning}. Add it from here, or run <span className="mono">{status.profile_line}</span> in
+        PowerShell
+      </span>
+    );
   else if (status.warning) note = `Installed, but ${status.warning}`;
   else if (status.outdated) note = `${link} is a copy from another version of Pinrail; installing replaces it`;
   else if (!status.installed && status.occupied_by)
     note = `${link} is already ${status.occupied_by}; installing replaces ${status.mode === "copy" ? "a link or an older copy" : "a link"}, never another file`;
   else if (added)
-    note = (
+    note = status.user_path ? (
+      <span>Added {folder(link)} to your PATH. Open a new terminal to use it</span>
+    ) : (
       <span>
         Added {folder(link)} to your PATH in <span className="mono">{added}</span>. Open a new terminal to use it
+      </span>
+    );
+  else if (status.installed && status.dir_on_path === false && status.user_path)
+    note = (
+      <span>
+        {folder(link)} is not on your PATH. Add it from here, or run <span className="mono">{status.profile_line}</span>{" "}
+        in PowerShell
       </span>
     );
   else if (status.installed && status.dir_on_path === false)
@@ -144,20 +163,23 @@ export function CliRow({ open }: { open: boolean }) {
         A new terminal runs <span className="mono">{short(status.runs)}</span> first, which is not this one
       </span>
     );
-  // the line can be added from here for a shell Pinrail knows
+  // the line can be added from here for a shell Pinrail knows, and on
+  // Windows to the user's PATH in the registry
   const profile = !added && status.installed && status.dir_on_path === false && status.profile;
-  const add = profile ? (
-    <button
-      type="button"
-      className="chrome-button"
-      onClick={async () => {
-        if (await addToPath()) setAdded(short(profile));
-      }}
-      disabled={busy}
-    >
-      Add it to {short(profile)}
-    </button>
-  ) : null;
+  const target = profile ? short(profile) : status.user_path ? "your PATH" : null;
+  const add =
+    !added && status.installed && status.dir_on_path === false && target ? (
+      <button
+        type="button"
+        className="chrome-button"
+        onClick={async () => {
+          if (await addToPath()) setAdded(target);
+        }}
+        disabled={busy}
+      >
+        Add it to {target}
+      </button>
+    ) : null;
 
   if (status.mode === "package")
     return (

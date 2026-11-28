@@ -5,15 +5,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use tokio::net::UnixStream;
-use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, mpsc, oneshot};
 
 use crate::environment;
@@ -114,7 +111,7 @@ pub fn serve(config: Config) -> Result<(), Error> {
         config.holder,
     ));
     let _ = fs::remove_file(paths.registration());
-    let _ = fs::remove_file(paths.socket());
+    crate::net::remove(&paths.socket());
     match &result {
         Ok(reason) => log.line(&format!("stopped: {reason}")),
         Err(error) => log.line(&format!("failed: {error}")),
@@ -125,19 +122,23 @@ pub fn serve(config: Config) -> Result<(), Error> {
 /// Takes `host.lock` and writes this process's id into it. The system
 /// releases the lock when the process ends, however it ends.
 fn take_lock(paths: &Paths) -> Result<File, Error> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(paths.lock())?;
-    fs::set_permissions(paths.lock(), fs::Permissions::from_mode(0o600))?;
+    let mut file = crate::private(
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false),
+    )
+    .open(paths.lock())?;
     match file.try_lock() {
         Ok(()) => {}
         Err(TryLockError::WouldBlock) => {
+            // Windows lets no one else read a locked file: there the
+            // running host's registration says which process it is
             let pid = fs::read_to_string(paths.lock())
                 .ok()
-                .and_then(|s| s.trim().parse().ok());
+                .and_then(|s| s.trim().parse().ok())
+                .or_else(|| Registration::read(&paths.registration()).map(|r| r.pid));
             return Err(Error::Running(pid));
         }
         Err(TryLockError::Error(error)) => return Err(error.into()),
@@ -196,9 +197,7 @@ async fn run(
     let socket = paths.socket();
     let (exits, mut exited) = tokio::sync::mpsc::unbounded_channel();
     // the lock is ours, so a socket left here is from a host that ended
-    let _ = fs::remove_file(&socket);
-    let listener = tokio::net::UnixListener::bind(&socket)?;
-    fs::set_permissions(&socket, fs::Permissions::from_mode(0o600))?;
+    let mut listener = crate::net::AsyncListener::bind(&socket)?;
     let shared = Arc::new(Shared {
         secret: crate::random_hex(32),
         instance: crate::random_hex(8),
@@ -265,21 +264,19 @@ async fn run(
             }
         }
     });
-    let mut terminate = signal(SignalKind::terminate())?;
-    let mut interrupt = signal(SignalKind::interrupt())?;
+    let mut stops = Stops::new()?;
     let mut tick = tokio::time::interval(idle_exit.min(Duration::from_secs(1)));
     let mut next_connection = 0u64;
     let reason = loop {
         tokio::select! {
             accepted = listener.accept() => {
-                if let Ok((stream, _)) = accepted {
+                if let Ok(stream) = accepted {
                     next_connection += 1;
                     tokio::spawn(connection(stream, next_connection, shared.clone()));
                 }
             }
             () = shared.stop.notified() => break "host.stop",
-            _ = terminate.recv() => break "SIGTERM",
-            _ = interrupt.recv() => break "SIGINT",
+            reason = stops.recv() => break reason,
             _ = tick.tick() => {
                 shared.prune();
                 let idle = *shared.idle_since.lock().unwrap_or_else(|e| e.into_inner());
@@ -294,6 +291,57 @@ async fn run(
     // the writer is at most a second behind, and stops with the host
     let _ = shared.context.records.write();
     Ok(reason.to_string())
+}
+
+/// What stops the host from outside: SIGTERM and SIGINT on Unix; on
+/// Windows, Ctrl+C and Ctrl+Break, for a host run in a console.
+struct Stops {
+    #[cfg(unix)]
+    terminate: tokio::signal::unix::Signal,
+    #[cfg(unix)]
+    interrupt: tokio::signal::unix::Signal,
+    #[cfg(windows)]
+    interrupt: tokio::signal::windows::CtrlC,
+    #[cfg(windows)]
+    brk: tokio::signal::windows::CtrlBreak,
+}
+
+impl Stops {
+    fn new() -> io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use tokio::signal::unix::{SignalKind, signal};
+            Ok(Stops {
+                terminate: signal(SignalKind::terminate())?,
+                interrupt: signal(SignalKind::interrupt())?,
+            })
+        }
+        #[cfg(windows)]
+        {
+            Ok(Stops {
+                interrupt: tokio::signal::windows::ctrl_c()?,
+                brk: tokio::signal::windows::ctrl_break()?,
+            })
+        }
+    }
+
+    /// The next one, by name.
+    async fn recv(&mut self) -> &'static str {
+        #[cfg(unix)]
+        {
+            tokio::select! {
+                _ = self.terminate.recv() => "SIGTERM",
+                _ = self.interrupt.recv() => "SIGINT",
+            }
+        }
+        #[cfg(windows)]
+        {
+            tokio::select! {
+                _ = self.interrupt.recv() => "Ctrl+C",
+                _ = self.brk.recv() => "Ctrl+Break",
+            }
+        }
+    }
 }
 
 /// Takes back the terminals the holders keep. A terminal with a record
@@ -317,7 +365,7 @@ fn adopt(shared: &Arc<Shared>) {
             .get(&id)
             .filter(|r| r["ended_at"].is_null());
         let Some(record) = record else {
-            let _ = crate::pty::signal_group(spawned.pid, libc::SIGKILL);
+            let _ = crate::pty::signal(&spawned.master, spawned.pid, crate::pty::SIGKILL);
             shared.holders.forget(&holder, &id);
             continue;
         };
@@ -434,8 +482,8 @@ pub const PING_EVERY: Duration = Duration::from_secs(15);
 /// One connection: its `hello`, then JSON-RPC calls on channel 0, each
 /// answered by a task of its own, until it closes, is replaced, overflows
 /// or stops the host.
-async fn connection(stream: UnixStream, id: u64, shared: Arc<Shared>) {
-    let (reader, writer) = stream.into_split();
+async fn connection(stream: crate::net::AsyncStream, id: u64, shared: Arc<Shared>) {
+    let (reader, writer) = crate::net::split(stream);
     // the loop below reads in a select!, where a read can be dropped
     let mut reader = frame::FrameReader::new(reader);
     let Ok(Ok(Some(first))) = tokio::time::timeout(HELLO_WITHIN, reader.next()).await else {
@@ -595,8 +643,14 @@ fn hello_result(shared: &Shared) -> Value {
         "features": [],
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
-        "home": std::env::var("HOME").unwrap_or_default(),
-        "user": std::env::var("USER").unwrap_or_default(),
+        // Windows names them in USERPROFILE and USERNAME; HOME and USER
+        // are Git Bash's
+        "home": std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default(),
+        "user": std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_default(),
         "instance": shared.instance,
         "time": crate::now(),
     })
@@ -707,7 +761,10 @@ async fn answer(payload: &[u8], shared: &Shared) -> (Option<Value>, bool) {
             let found = tokio::task::block_in_place(|| {
                 let mut env = shared.probe.get(false).vars;
                 if let Some(path) = path {
-                    env.retain(|(k, _)| k != "PATH");
+                    // Windows' own is spelt `Path`, and takes them as one
+                    env.retain(|(k, _)| {
+                        !(k == "PATH" || cfg!(windows) && k.eq_ignore_ascii_case("PATH"))
+                    });
                     env.push(("PATH".to_string(), path));
                 }
                 crate::programs::find(&names, &env)

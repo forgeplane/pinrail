@@ -41,6 +41,10 @@ fn main() {
     unix::main();
 }
 
-/// The host runs only on Unix, so there is nothing to measure elsewhere.
+/// The benchmark drives the host through a Unix socket and a shell's
+/// programs, and has not been ported to Windows' pipes and consoles: it
+/// measures nothing there yet.
 #[cfg(not(unix))]
-fn main() {}
+fn main() {
+    eprintln!("host bench: not ported to Windows yet; nothing measured");
+}

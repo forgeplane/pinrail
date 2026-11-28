@@ -3441,6 +3441,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "windows-registry",
  "zip 9.8.2",
 ]
 
@@ -3475,6 +3476,8 @@ dependencies = [
  "tempfile",
  "tokio",
  "ureq",
+ "webview2-com",
+ "windows",
  "windows-registry",
  "windows-sys 0.61.2",
 ]
@@ -3507,6 +3510,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

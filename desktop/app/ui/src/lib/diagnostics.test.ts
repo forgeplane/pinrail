@@ -46,6 +46,16 @@ const settings = {
 } as ServerSettings;
 
 describe("describeDiagnostics", () => {
+  test("names Windows' installer, which copies the command too", () => {
+    const text = describeDiagnostics({
+      info,
+      plugins: [],
+      settings,
+      cli: { mode: "copy", installed: true, outdated: false, dir_on_path: true, user_path: true },
+    });
+    expect(text).toContain("Installed as: Windows installer");
+  });
+
   test("says how Pinrail is installed, its plugins and its settings", () => {
     const text = describeDiagnostics({
       info,

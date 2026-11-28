@@ -1,7 +1,6 @@
 //! A host runs as many terminals as the person needs: here 200, well
 //! beyond the 64 it used to stop at, each a program that sleeps. The test
 //! prints what the host and the holder hold for them, for the docs.
-#![cfg(unix)]
 
 mod common;
 
@@ -14,8 +13,27 @@ use common::{folders, serve};
 
 const TERMINALS: usize = 200;
 
+/// What the process `pid` holds: its open handles, its threads and its
+/// working set in KiB.
+#[cfg(windows)]
+fn holds(pid: u32) -> (usize, usize, u64) {
+    let script = format!(
+        "$p = Get-Process -Id {pid}; \
+         \"$($p.HandleCount) $($p.Threads.Count) $([int]($p.WorkingSet64 / 1024))\""
+    );
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .output()
+        .unwrap();
+    let output = String::from_utf8_lossy(&output.stdout);
+    let mut counts = output.split_whitespace().map(|n| n.parse().unwrap_or(0));
+    let mut next = || counts.next().unwrap_or(0);
+    (next() as usize, next() as usize, next())
+}
+
 /// What the process `pid` holds: its open descriptors, its threads and
 /// its resident memory in KiB.
+#[cfg(unix)]
 fn holds(pid: u32) -> (usize, usize, u64) {
     let pid = pid.to_string();
     let fds = if cfg!(target_os = "linux") {
@@ -65,6 +83,15 @@ fn holds(pid: u32) -> (usize, usize, u64) {
 }
 
 /// The parent of the process `pid`.
+#[cfg(windows)]
+fn parent(pid: u64) -> u32 {
+    pinrail_runtime::process::process(pid as u32)
+        .unwrap()
+        .parent
+}
+
+/// The parent of the process `pid`.
+#[cfg(unix)]
 fn parent(pid: u64) -> u32 {
     let ps = Command::new("ps")
         .args(["-o", "ppid=", "-p", &pid.to_string()])
@@ -87,9 +114,9 @@ fn a_host_runs_well_beyond_64_terminals() {
             .call(
                 "terminal.spawn",
                 json!({
-                    "argv": ["sleep", "600"],
+                    "argv": common::sleep(600),
                     "cwd": "/",
-                    "env": {"PATH": "/usr/bin:/bin"},
+                    "env": {"PATH": common::path()},
                     "session_env": {},
                     "cols": 80,
                     "rows": 24,

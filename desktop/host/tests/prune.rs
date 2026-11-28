@@ -1,7 +1,6 @@
 //! A host that starts forgets the terminals earlier hosts ended more than a
 //! day ago, with their final screens, as it forgets its own: the host
 //! exits when idle, so a record it never held would otherwise stay.
-#![cfg(unix)]
 
 mod common;
 

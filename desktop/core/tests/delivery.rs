@@ -1,7 +1,6 @@
 //! Messages to an agent Pinrail runs: typed into its terminal when it is
 //! idle, held while it works, confirmed when its prompt hook reports the
 //! same text, and sent through the queue when it cannot be typed.
-#![cfg(unix)]
 
 mod common;
 
@@ -229,11 +228,22 @@ async fn the_first_message_to_an_agent_started_with_a_task_has_no_note() {
     file(folder.join("token")).await;
     let session = started["session"]["id"].as_str().unwrap().to_string();
     report(&app, &session, "started", json!({})).await;
+    if cfg!(windows) {
+        // the task, which its note keeps off a batch file's command line,
+        // is typed first, and its prompt confirms it, as the agent's hooks
+        // would
+        heard_text(&folder, "fix the login").await;
+        let prompt = json!({"detail": {"prompt": "fix the login"}});
+        report(&app, &session, "prompt", prompt).await;
+        report(&app, &session, "turn_ended", json!({"end": "done"})).await;
+    }
 
     send(&app, &session, "Also check the logout.").await;
     let heard = heard_text(&folder, "Also check the logout.").await;
     assert!(heard.contains("Also check the logout."), "{heard:?}");
-    assert!(!heard.contains("<pinrail>"), "{heard:?}");
+    // on Windows the first task, with its note, was typed too, before it
+    let notes = if cfg!(windows) { 1 } else { 0 };
+    assert_eq!(heard.matches("<pinrail>").count(), notes, "{heard:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -564,4 +574,57 @@ async fn the_first_task_of_an_agent_that_takes_none_is_typed_once_it_is_idle() {
     let heard = std::fs::read_to_string(folder.join("heard")).unwrap();
     assert_eq!(heard.matches("Fix the login.").count(), 1, "{heard:?}");
     assert_eq!(thread().await.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_first_task_with_a_line_break_reaches_an_agent_behind_a_batch_file() {
+    // on Windows the stand-in claude is a batch file, as npm installs it,
+    // and cmd cannot carry a line break in an argument
+    first_task_reaches("Fix the login.\nThen the logout.", "Then the logout.").await;
+}
+
+/// Pinrail's note before the task has line breaks of its own, so even a
+/// task of one line is typed on Windows, and must not be lost.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_first_task_on_one_line_reaches_an_agent_behind_a_batch_file() {
+    first_task_reaches("Fix the login.", "Fix the login.").await;
+}
+
+/// Starts the stand-in claude with `task`, and checks that it reaches the
+/// agent, up to its line `last`: typed on Windows, in its arguments
+/// elsewhere.
+async fn first_task_reaches(task: &str, last: &str) {
+    let app = linked().await;
+    let folder = app.dir.path().join("app");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("records"), "").unwrap();
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/runs",
+        Some(json!({"agent": "claude-code", "folder": folder, "task": task})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    file(folder.join("token")).await;
+    let argv = file(folder.join("argv")).await;
+    if cfg!(windows) {
+        // typed as the first prompt once the agent is idle
+        assert!(!argv.contains("Fix the login."), "{argv:?}");
+        common::record(&folder, "state=idle:app=claude-code").await;
+        // the agent writes down each line as it comes
+        file(folder.join("heard")).await;
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        let heard = loop {
+            let heard = std::fs::read_to_string(folder.join("heard")).unwrap();
+            if heard.contains(last) || std::time::Instant::now() > deadline {
+                break heard;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        };
+        assert!(heard.contains("Fix the login."), "{heard:?}");
+        assert!(heard.contains(last), "{heard:?}");
+    } else {
+        assert!(argv.contains(task), "{argv:?}");
+    }
 }

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "npm run sdk:build && npm run ghostty:wasm && vite",
     "build": "npm run sdk:build && npm run ghostty:wasm && tsc --noEmit && vite build",
-    "ghostty:wasm": "sh ../../scripts/ghostty-wasm.sh",
+    "ghostty:wasm": "node ../../scripts/sh.mjs ../../scripts/ghostty-wasm.sh",
     "sdk:build": "node scripts/build-sdk.mjs",
     "cli:build": "node scripts/build-cli.mjs",
     "host:build": "node scripts/build-host.mjs",

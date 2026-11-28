@@ -2,7 +2,6 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -41,10 +40,7 @@ impl Log {
 }
 
 fn open(path: &Path) -> Option<File> {
-    OpenOptions::new()
-        .append(true)
-        .create(true)
-        .mode(0o600)
+    crate::private(OpenOptions::new().append(true).create(true))
         .open(path)
         .ok()
 }

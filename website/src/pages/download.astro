@@ -13,7 +13,6 @@ import Download from "../components/Download.astro";
 import AppleIcon from "../components/AppleIcon.astro";
 import LinuxIcon from "../components/LinuxIcon.astro";
 import WindowsIcon from "../components/WindowsIcon.astro";
-import GitHubIcon from "../components/GitHubIcon.astro";
 import { downloads, releases, repo } from "../components/index/content";
 ---
 
@@ -22,11 +21,11 @@ import { downloads, releases, repo } from "../components/index/content";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Download Pinrail for macOS and Linux: the desktop inbox where agents wait for your decision, with the pinrail command inside it. Windows is coming." />
+    <meta name="description" content="Download Pinrail for macOS, Linux and Windows: the desktop inbox where agents wait for your decision, with the pinrail command inside it." />
     <ThemeHead />
     <title>Download Pinrail</title>
     <meta property="og:title" content="Download Pinrail" />
-    <meta property="og:description" content="The desktop inbox where agents wait for your decision, for macOS and Linux." />
+    <meta property="og:description" content="The desktop inbox where agents wait for your decision, for macOS, Linux and Windows." />
     <SocialCard />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -90,11 +89,14 @@ import { downloads, releases, repo } from "../components/index/content";
           <p class="dl-arm-names">On ARM64 the files are <code>pinrail-app-aarch64.AppImage</code>, <code>pinrail-app-arm64.deb</code> and <code>pinrail-app-aarch64.rpm</code>, each named as its system names the architecture. <code>uname -m</code> prints yours.</p>
         </article>
 
-        <article class="dl-card is-soon">
+        <article class="dl-card" data-download-card="windows">
           <h2><WindowsIcon size={22} />Windows</h2>
-          <p class="dl-needs">Coming soon</p>
-          <a class="ghost big" href={repo}><GitHubIcon />Watch the repository</a>
-          <p>Star or watch it on GitHub to hear when the Windows build lands.</p>
+          <p class="dl-needs">Windows 10 or 11 · x64 and ARM64</p>
+          <div class="dl-formats">
+            <a class="primary big" href={downloads.windows}>pinrail-app-x64.exe</a>
+            <a class="ghost big" href={downloads.windowsArm}>pinrail-app-arm64.exe</a>
+          </div>
+          <p>Run the installer: it installs Pinrail for you alone, with no administrator rights. It is not signed yet, so Windows SmartScreen asks first: choose <em>More info</em>, then <em>Run anyway</em>.</p>
         </article>
       </section>
 
@@ -122,7 +124,6 @@ import { downloads, releases, repo } from "../components/index/content";
   .dl-card h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 24px; }
   .dl-card p { margin: 0; color: var(--ink-2); line-height: 1.5; }
   .dl-card .dl-needs { font: 12.5px/1.4 var(--mono); color: var(--faint); }
-  .dl-card.is-soon { opacity: 0.8; }
   .dl-formats { display: flex; flex-wrap: wrap; gap: 8px; }
   .dl-arch { display: flex; flex-direction: column; gap: 6px; }
   .dl-arch h3 { margin: 0; font: 600 12px var(--mono); letter-spacing: 0.04em; color: var(--faint); }

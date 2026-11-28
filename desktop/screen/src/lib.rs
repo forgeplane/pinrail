@@ -5,8 +5,7 @@
 //! implementation on libghostty-vt, which `build.rs` builds from the
 //! release `ghostty.lock` pins.
 
-// the terminal host runs agents in PTYs, so only on Unix
-#[cfg(all(feature = "ghostty", unix))]
+#[cfg(feature = "ghostty")]
 pub mod ghostty;
 
 /// The most lines of history a terminal keeps.

@@ -21,13 +21,32 @@ export async function copiedFiles(): Promise<string[]> {
   }
 }
 
-/** The paths of the files of the last drag, which only the app can read:
- *  none outside it. */
-export async function draggedFiles(): Promise<string[]> {
+/** WebView2's channel to the app, which only the window on Windows has. */
+interface WebView2 {
+  postMessageWithAdditionalObjects?: (message: string, objects: FileList) => void;
+}
+
+/** The message a drop's files are posted to the app with, as
+ *  src-tauri/src/clipboard_windows.rs reads it. */
+const DROP = "pinrail:dropped-files";
+let drops = 0;
+
+/** The paths of the files of the last drag, `dropped`, which only the app
+ *  can read: none outside it. On Windows the page hands the app the
+ *  dropped files, whose paths it reads; on macOS it reads the drag's own
+ *  pasteboard. */
+export async function draggedFiles(dropped?: FileList): Promise<string[]> {
   if (!inTauri()) return [];
+  const webview = (globalThis as { chrome?: { webview?: WebView2 } }).chrome?.webview;
+  // each drop has a number of its own, which its paths come back with
+  const id = ++drops;
+  if (webview?.postMessageWithAdditionalObjects) {
+    if (!dropped?.length) return [];
+    webview.postMessageWithAdditionalObjects(`${DROP}:${id}`, dropped);
+  }
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<string[]>("dragged_files");
+    return await invoke<string[]>("dragged_files", { id });
   } catch {
     return [];
   }
@@ -35,11 +54,15 @@ export async function draggedFiles(): Promise<string[]> {
 
 /** The paths of a paste's `file:` URLs, as Linux file managers copy files. */
 function uriListPaths(data: DataTransfer): string[] {
-  return data
-    .getData("text/uri-list")
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("file://"))
-    .map((line) => decodeURIComponent(new URL(line).pathname));
+  return (
+    data
+      .getData("text/uri-list")
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("file://"))
+      .map((line) => decodeURIComponent(new URL(line).pathname))
+      // file:///C:/… is the drive C:, not a folder of the root
+      .map((path) => path.replace(/^\/([A-Za-z]:\/)/, "$1"))
+  );
 }
 
 /** Takes a paste from the renderer and pastes it into `view`: always in
@@ -61,7 +84,7 @@ export function pasteInto(
   const listed = uriListPaths(data);
   void (native ? files() : Promise.resolve([])).then((paths) => {
     const copied = paths.length ? paths : listed;
-    if (copied.length) view.paste(copied.map(quotePath).join(" "));
+    if (copied.length) view.paste(copied.map((p) => quotePath(p)).join(" "));
     else if (text) view.paste(text);
     else if (image) view.pressKey({ key: "v", code: "KeyV", ctrlKey: true });
   });
@@ -78,7 +101,10 @@ export function allowFileDrop(event: DragEvent) {
 export function dropInto(
   view: Pick<TerminalView, "paste" | "focus">,
   event: DragEvent,
-  { files = draggedFiles, native = inTauri() }: { files?: () => Promise<string[]>; native?: boolean } = {},
+  {
+    files = draggedFiles,
+    native = inTauri(),
+  }: { files?: (dropped?: FileList) => Promise<string[]>; native?: boolean } = {},
 ) {
   const data = event.dataTransfer;
   if (!data?.types.includes("Files")) return;
@@ -86,10 +112,11 @@ export function dropInto(
   event.stopPropagation();
   // what the event carries is read before it ends
   const listed = uriListPaths(data);
-  void (native ? files() : Promise.resolve([])).then((paths) => {
+  const dropped = data.files;
+  void (native ? files(dropped) : Promise.resolve([])).then((paths) => {
     const dropped = paths.length ? paths : listed;
     if (!dropped.length) return;
-    view.paste(dropped.map(quotePath).join(" "));
+    view.paste(dropped.map((p) => quotePath(p)).join(" "));
     view.focus();
   });
 }

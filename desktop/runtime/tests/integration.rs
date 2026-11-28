@@ -5,7 +5,7 @@ use std::path::Path;
 
 use pinrail_runtime::adapter;
 use pinrail_runtime::integration::{
-    HookState, Integration, apply, file_state, install, remove, state,
+    COMMAND_PREFIX, HookState, Integration, apply, file_state, install, remove, state,
 };
 use serde_json::{Value, json};
 
@@ -22,6 +22,16 @@ fn own_hooks() -> Value {
         "/tests/fixtures/settings/claude-code-own-hooks.json"
     );
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+/// The command each hook starts with, as written into the agents' files:
+/// a change to it is a change every installed hook goes through.
+#[test]
+fn the_hook_command_is_the_cli_in_each_system_s_shells() {
+    #[cfg(unix)]
+    assert_eq!(COMMAND_PREFIX, r#""${PINRAIL_CLI:-pinrail}" hook"#);
+    #[cfg(windows)]
+    assert_eq!(COMMAND_PREFIX, "pinrail hook");
 }
 
 #[test]
@@ -69,7 +79,7 @@ fn an_empty_file_gets_one_hook_for_each_event_and_loses_them_again() {
     let stop = &settings["hooks"]["Stop"][0]["hooks"][0];
     assert_eq!(
         stop["command"],
-        "\"${PINRAIL_CLI:-pinrail}\" hook claude-code stop"
+        format!("{COMMAND_PREFIX} claude-code stop")
     );
     assert_eq!(stop["timeout"], 2);
     assert_eq!(settings["hooks"]["PermissionRequest"][0]["matcher"], "*");
@@ -187,7 +197,6 @@ fn a_missing_file_is_created_with_the_hooks() {
     assert_eq!(apply(&plan, false).unwrap(), HookState::Absent);
 }
 
-#[cfg(unix)]
 #[test]
 fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
     let dir = tempfile::tempdir().unwrap();
@@ -196,8 +205,20 @@ fn a_settings_file_linked_from_a_dotfiles_folder_stays_a_link() {
     std::fs::write(dotfiles.join("settings.json"), "{\"model\": \"opus\"}\n").unwrap();
     let claude = dir.path().join("claude");
     std::fs::create_dir_all(&claude).unwrap();
+    #[cfg(unix)]
     std::os::unix::fs::symlink(dotfiles.join("settings.json"), claude.join("settings.json"))
         .unwrap();
+    // Windows makes links only with Developer Mode on, or for an
+    // administrator: without one the test says so and goes no further
+    #[cfg(windows)]
+    if let Err(error) = std::os::windows::fs::symlink_file(
+        dotfiles.join("settings.json"),
+        claude.join("settings.json"),
+    ) {
+        assert_eq!(error.raw_os_error(), Some(1314), "{error}");
+        eprintln!("skipped: making a link needs Developer Mode on Windows");
+        return;
+    }
     let plan = Integration {
         file: claude.join("settings.json"),
         ..plan()
@@ -246,12 +267,12 @@ fn antigravity_s_hooks_go_in_its_global_hooks_file_as_a_named_hook() {
     // most events take their handlers in a list, a tool's event in groups
     assert_eq!(
         hooks["pinrail"]["Stop"][0]["command"],
-        "\"${PINRAIL_CLI:-pinrail}\" hook antigravity stop"
+        format!("{COMMAND_PREFIX} antigravity stop")
     );
     assert_eq!(hooks["pinrail"]["PostToolUse"][0]["matcher"], "*");
     assert_eq!(
         hooks["pinrail"]["PostToolUse"][0]["hooks"][0]["command"],
-        "\"${PINRAIL_CLI:-pinrail}\" hook antigravity tool-done"
+        format!("{COMMAND_PREFIX} antigravity tool-done")
     );
     let mut again = hooks.clone();
     install(&mut again, &plan);
@@ -319,7 +340,7 @@ fn grok_s_hooks_go_in_a_file_of_pinrail_s_own_in_its_hooks_folder() {
     assert_eq!(state(Some(&hooks), &plan), HookState::Current);
     assert_eq!(
         hooks["hooks"]["StopCancelled"][0]["hooks"][0]["command"],
-        "\"${PINRAIL_CLI:-pinrail}\" hook grok stop-cancelled"
+        format!("{COMMAND_PREFIX} grok stop-cancelled")
     );
     remove(&mut hooks, &plan);
     assert_eq!(state(Some(&hooks), &plan), HookState::Absent);
@@ -373,7 +394,7 @@ fn copilot_s_hooks_go_in_a_file_of_pinrail_s_own_listed_by_event() {
     assert_eq!(hooks["version"], 1);
     assert_eq!(
         hooks["hooks"]["agentStop"][0],
-        json!({"type": "command", "command": "\"${PINRAIL_CLI:-pinrail}\" hook copilot stop", "timeout": 2})
+        json!({"type": "command", "command": format!("{COMMAND_PREFIX} copilot stop"), "timeout": 2})
     );
     remove(&mut hooks, &plan);
     assert_eq!(state(Some(&hooks), &plan), HookState::Absent);
@@ -492,7 +513,7 @@ fn cursor_s_hooks_go_beside_the_person_s_in_its_hooks_file() {
     assert_eq!(hooks["hooks"]["sessionStart"].as_array().unwrap().len(), 2);
     assert_eq!(
         hooks["hooks"]["afterAgentResponse"][0]["command"],
-        "\"${PINRAIL_CLI:-pinrail}\" hook cursor response"
+        format!("{COMMAND_PREFIX} cursor response")
     );
     remove(&mut hooks, &plan);
     assert_eq!(hooks, original);
@@ -609,7 +630,7 @@ fn codex_s_hooks_go_beside_the_person_s_in_its_hooks_file() {
         hooks["hooks"]["UserPromptSubmit"][0]["hooks"][0],
         json!({
             "type": "command",
-            "command": "\"${PINRAIL_CLI:-pinrail}\" hook codex prompt",
+            "command": format!("{COMMAND_PREFIX} codex prompt"),
             "timeout": 2,
             "async": true
         })

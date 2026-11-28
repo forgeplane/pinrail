@@ -5,9 +5,9 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "lint": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' | xargs -0 eslint",
-    "format": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' '*.css' | xargs -0 prettier --write",
-    "format:check": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' '*.css' | xargs -0 prettier --check"
+    "lint": "node scripts/tracked.mjs eslint",
+    "format": "node scripts/tracked.mjs prettier --write",
+    "format:check": "node scripts/tracked.mjs prettier --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

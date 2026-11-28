@@ -58,7 +58,11 @@ impl Source {
                 "Pinrail installs a plugin from a folder or a zip on disk; download it, then install it from there",
             ));
         }
-        let expanded = match text.strip_prefix("~/") {
+        // `~\` too on Windows, where a person may type it
+        let expanded = match text
+            .strip_prefix("~/")
+            .or_else(|| cfg!(windows).then(|| text.strip_prefix("~\\")).flatten())
+        {
             Some(rest) => crate::config::home_dir()
                 .map(|home| home.join(rest))
                 .unwrap_or_else(|| PathBuf::from(text)),

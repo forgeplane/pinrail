@@ -26,24 +26,32 @@ pub fn default_url() -> String {
     format!("http://127.0.0.1:{port}")
 }
 
-/// `HOME`, or `USERPROFILE` where Windows sets only that.
-fn home_dir() -> Option<PathBuf> {
-    home_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
-}
-
-/// [`home_dir`] from the values of `HOME` and `USERPROFILE`.
+/// The home folder from the values of `HOME` and `USERPROFILE`: `HOME`, or
+/// `USERPROFILE` where Windows sets only that.
 fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBuf> {
     let set = |v: Option<OsString>| v.filter(|v| !v.is_empty());
     set(home).or_else(|| set(profile)).map(PathBuf::from)
 }
 
+/// Where the app keeps its data, as the core decides it:
+/// `PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\dev.pinrail.desktop` on
+/// Windows, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR") {
+    data_dir_from(&|name| std::env::var_os(name), cfg!(windows))
+}
+
+/// [`data_dir`] from the variables `var` gives, on Windows or not.
+fn data_dir_from(var: &dyn Fn(&str) -> Option<OsString>, windows: bool) -> PathBuf {
+    let set = |name: &str| var(name).filter(|v| !v.is_empty());
+    if let Some(dir) = set("PINRAIL_DATA_DIR") {
         return PathBuf::from(dir);
     }
-    let base = std::env::var_os("XDG_DATA_HOME")
+    if windows && let Some(local) = set("LOCALAPPDATA") {
+        return PathBuf::from(local).join("dev.pinrail.desktop");
+    }
+    let base = set("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| home_dir().map(|h| h.join(".local/share")))
+        .or_else(|| home_from(var("HOME"), var("USERPROFILE")).map(|h| h.join(".local/share")))
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("pinrail")
 }
@@ -255,6 +263,34 @@ fn keep_own_output_from_children() {
     }
 }
 
+/// Opens `url` in the default browser: on Windows through the shell, which
+/// takes the URL as it is, with no command line to quote it on.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+pub fn open_browser(url: &str) -> Result<()> {
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let (verb, target) = (wide("open"), wide(url));
+    // SAFETY: both strings are NUL-terminated and outlive the call.
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            target.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    // a value above 32 is success; below, an error code
+    if result as usize <= 32 {
+        bail!("Windows could not open {url} (error {})", result as usize);
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
 pub fn open_browser(url: &str) -> Result<()> {
     let program = if cfg!(target_os = "macos") {
         "open"
@@ -276,6 +312,34 @@ pub fn open_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_data_folder_is_the_app_s_on_each_system() {
+        let vars = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(k, _)| *k == name)
+                    .map(|(_, v)| OsString::from(v))
+            }
+        };
+        let windows = vars(&[
+            ("LOCALAPPDATA", r"C:\Users\me\AppData\Local"),
+            ("HOME", "/home/me"),
+        ]);
+        assert_eq!(
+            data_dir_from(&windows, true),
+            PathBuf::from(r"C:\Users\me\AppData\Local").join("dev.pinrail.desktop")
+        );
+        // LOCALAPPDATA means nothing elsewhere
+        assert_eq!(
+            data_dir_from(&windows, false),
+            PathBuf::from("/home/me/.local/share/pinrail")
+        );
+        // PINRAIL_DATA_DIR wins everywhere
+        let given = vars(&[("PINRAIL_DATA_DIR", "/data"), ("LOCALAPPDATA", r"C:\x")]);
+        assert_eq!(data_dir_from(&given, true), PathBuf::from("/data"));
+    }
 
     #[test]
     fn home_is_home_then_userprofile_and_an_empty_one_counts_as_not_set() {

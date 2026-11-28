@@ -8,6 +8,7 @@ import { inTauri, serverUrl } from "../api/client";
 import type { NoteAttachment, SessionStatus } from "../api/types";
 import { size } from "../lib/format";
 import { useToast } from "../state/toasts";
+import { REVEAL } from "../lib/keys";
 import { Dialog } from "./Dialog";
 
 /** The note a file belongs to: its session, and its status's id. */
@@ -104,11 +105,11 @@ export function useSaveNoteFile(note: NoteOf | null, url: (name: string) => stri
 }
 
 /** What a file's button does: save a copy, or show the file, which is on
- *  this computer already, in Finder. */
+ *  this computer already, in Finder or File Explorer. */
 type FileAction = "save" | "reveal";
 
 const actionLabel = (action: FileAction, name: string) =>
-  action === "save" ? `Save ${name}` : `Show ${name} in Finder`;
+  action === "save" ? `Save ${name}` : `${REVEAL.replace(/^Show /, `Show ${name} `)}`;
 
 const ActionIcon = ({ action, size }: { action: FileAction; size: number }) =>
   action === "save" ? <Download size={size} /> : <FolderOpen size={size} />;

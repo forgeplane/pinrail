@@ -10,6 +10,7 @@ import { useSettings } from "../../state/settings";
 import { Toggle } from "./controls";
 import { SettingsRow } from "./layout";
 import { useCopy } from "../../lib/useCopy";
+import { short } from "../welcome/names";
 
 export type AgentStatus = {
   id: string;
@@ -59,8 +60,8 @@ export const readsSkillOf = (agent: AgentStatus, agents: AgentStatus[]) =>
 /** "Claude Code's", or "Claude Code's and Cursor's". */
 const possessives = (names: string[]) => names.map((n) => `${n}'s`).join(" and ");
 
-/** The skill's folder, with ~ for the home folder. */
-export const where = (skill: string) => skill.replace(/^\/(?:Users|home)\/[^/]+/, "~").replace(/\/SKILL\.md$/, "");
+/** The skill's folder, with ~ for the home folder, on Windows too. */
+export const where = (skill: string) => short(skill).replace(/[\\/]SKILL\.md$/, "");
 
 /** The agents while `open`, looked at again when the window comes back, and
  *  connecting or disconnecting one. */

@@ -85,7 +85,11 @@ pub(crate) fn untrusted(listed: &Value, plan: &Integration) -> Map<String, Value
         .into_iter()
         .flatten()
         .flat_map(|entry| entry["hooks"].as_array().into_iter().flatten())
-        .filter(|hook| hook["sourcePath"].as_str() == Some(&file))
+        .filter(|hook| {
+            hook["sourcePath"]
+                .as_str()
+                .is_some_and(|path| same_path(path, &file))
+        })
         .filter(|hook| matches!(hook["trustStatus"].as_str(), Some("untrusted" | "modified")))
         .filter(|hook| plan.entries.iter().any(|entry| as_installed(hook, entry)))
         .filter_map(|hook| {
@@ -94,6 +98,24 @@ pub(crate) fn untrusted(listed: &Value, plan: &Integration) -> Map<String, Value
             Some((key, json!({"trusted_hash": hash})))
         })
         .collect()
+}
+
+/// Whether two spellings of a path name one file: as they are, or on
+/// Windows with either separator, in any case, and without the `\\?\` of
+/// a long path, a share's `\\?\UNC\server` as `\\server`.
+fn same_path(a: &str, b: &str) -> bool {
+    if !cfg!(windows) {
+        return a == b;
+    }
+    let plain = |p: &str| {
+        let p = p.replace('/', "\\");
+        let p = match p.strip_prefix(r"\\?\UNC\") {
+            Some(share) => format!(r"\\{share}"),
+            None => p.strip_prefix(r"\\?\").map(str::to_string).unwrap_or(p),
+        };
+        p.to_lowercase()
+    };
+    plain(a) == plain(b)
 }
 
 /// Whether Codex's description of a hook is `entry` as Pinrail writes it.
@@ -174,27 +196,43 @@ impl Server {
 /// An app server in a shell script: after a line of the login shell's
 /// own output, it answers `initialize`, answers `hooks/list` with the
 /// fixture, and keeps the `config/batchWrite` request in `$OUT`.
+/// A fake app server, in Node, which builds Pinrail and runs the same on
+/// every system: it greets as a login shell would, answers `initialize`
+/// and `hooks/list` from the fixture, and keeps the `config/batchWrite`
+/// request in `$OUT`.
+#[cfg(test)]
 pub(crate) const FAKE_SERVER: &str = r#"
-echo "Welcome to the login shell"
-while IFS= read -r line; do
-  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
-  case "$line" in
-*'"method":"initialize"'*) echo "{\"id\":$id,\"result\":{}}" ;;
-*'"method":"hooks/list"'*) tr -d '\n' < "$LIST" | sed "s/\"id\": *[0-9]*/\"id\":$id/"; echo ;;
-*'"method":"config/batchWrite"'*)
-  printf '%s\n' "$line" > "$OUT"
-  echo "{\"id\":$id,\"result\":{\"status\":\"ok\"}}" ;;
-  esac
-done
+const fs = require("fs");
+console.log("Welcome to the login shell");
+let rest = "";
+process.stdin.on("data", (chunk) => {
+  rest += chunk;
+  let at;
+  while ((at = rest.indexOf("\n")) >= 0) {
+    const line = rest.slice(0, at);
+    rest = rest.slice(at + 1);
+    const id = (/"id":(\d+)/.exec(line) || [])[1];
+    if (line.includes('"method":"initialize"')) console.log(`{"id":${id},"result":{}}`);
+    if (line.includes('"method":"hooks/list"')) {
+      const list = JSON.parse(fs.readFileSync(process.env.LIST, "utf8"));
+      list.id = Number(id);
+      console.log(JSON.stringify(list));
+    }
+    if (line.includes('"method":"config/batchWrite"')) {
+      fs.writeFileSync(process.env.OUT, line + "\n");
+      console.log(`{"id":${id},"result":{"status":"ok"}}`);
+    }
+  }
+});
 "#;
 
 /// A command that runs the fake app server, answering `hooks/list` from
 /// the fixture and keeping the `config/batchWrite` request in `out`.
 #[cfg(test)]
 pub(crate) fn fake_app_server(out: &std::path::Path) -> Command {
-    let mut command = Command::new("sh");
+    let mut command = Command::new("node");
     command
-        .args(["-c", FAKE_SERVER])
+        .args(["-e", FAKE_SERVER])
         .env(
             "LIST",
             concat!(
@@ -212,6 +250,20 @@ mod tests {
 
     use super::*;
     use crate::agent::Agent;
+
+    #[cfg(windows)]
+    #[test]
+    fn a_long_path_to_a_share_is_the_share_s_path() {
+        assert!(same_path(
+            r"\\?\UNC\server\share\hooks.json",
+            r"\\server\share\hooks.json"
+        ));
+        assert!(same_path(
+            r"\\?\C:\Users\me\hooks.json",
+            "c:/users/me/hooks.json"
+        ));
+        assert!(!same_path(r"\\?\UNC\server\share\a", r"\\server\other\a"));
+    }
     use crate::agents::Codex;
 
     fn plan() -> Integration {
@@ -224,16 +276,20 @@ mod tests {
     const FIXTURE_FILE: &str = "/Users/you/.codex/hooks.json";
 
     /// The fixture, naming the plan's hooks file as this system writes its
-    /// path.
+    /// path, and Pinrail's commands as this system's are.
     fn fixture() -> String {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/codex-app-server/hooks-list.json"
         );
         let file = plan().file.display().to_string().replace('\\', "\\\\");
+        // as JSON writes them, quotes and all
+        let unix = serde_json::to_string(r#""${PINRAIL_CLI:-pinrail}" hook"#).unwrap();
+        let ours = serde_json::to_string(crate::integration::COMMAND_PREFIX).unwrap();
         std::fs::read_to_string(path)
             .unwrap()
             .replace(FIXTURE_FILE, &file)
+            .replace(unix.trim_matches('"'), ours.trim_matches('"'))
     }
 
     fn listed() -> Value {
@@ -255,6 +311,27 @@ mod tests {
             hashes[&key("session_start:1:0")],
             json!({"trusted_hash": "sha256:372fa435cd287901b7cd307bdab1750ab43bcd7330e9178603bb6e72516aa179"})
         );
+    }
+
+    /// Codex can spell the file otherwise on Windows: with / for \, in
+    /// other capitals, or with the \\?\ of a long path.
+    #[cfg(windows)]
+    #[test]
+    fn the_hooks_file_is_known_however_windows_spells_it() {
+        let mut listed = listed();
+        let respelt = format!(
+            r"\\?\{}",
+            plan()
+                .file
+                .display()
+                .to_string()
+                .to_uppercase()
+                .replace('\\', "/")
+        );
+        for hook in listed["data"][0]["hooks"].as_array_mut().unwrap() {
+            hook["sourcePath"] = json!(respelt);
+        }
+        assert_eq!(untrusted(&listed, &plan()).len(), 7);
     }
 
     #[test]

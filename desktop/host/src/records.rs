@@ -7,7 +7,6 @@
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -169,11 +168,7 @@ impl Records {
             .unwrap_or_else(|e| e.into_inner())
             .clone();
         let temporary = self.path.with_extension("json.tmp");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
+        let mut file = crate::private(OpenOptions::new().write(true).create(true).truncate(true))
             .open(&temporary)?;
         let list: Vec<&Value> = entries.values().collect();
         file.write_all(serde_json::to_string(&list)?.as_bytes())?;

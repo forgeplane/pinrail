@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { NotificationStatus } from "./notifications";
 
-const where = vi.hoisted(() => ({ tauri: true, mac: true }));
+const where = vi.hoisted(() => ({ tauri: true, mac: true, windows: false }));
 vi.mock("../api/client", () => ({ inTauri: () => where.tauri }));
 vi.mock("../lib/keys", () => ({
   get isMac() {
     return where.mac;
+  },
+}));
+// Node names the system it runs on, which is Windows on a Windows machine
+vi.mock("../lib/platform", () => ({
+  get onWindows() {
+    return where.windows;
   },
 }));
 
@@ -25,6 +31,7 @@ const known = (status: Partial<NotificationStatus> | null) => ({
 });
 
 beforeEach(() => {
+  where.windows = false;
   where.tauri = true;
   where.mac = true;
 });
@@ -59,5 +66,12 @@ describe("describeSystem", () => {
     expect(describeSystem(known({ alert_style: "alert", sound: false, badge: false }))).toBe(
       "Allowed: Alerts, sound off in System Settings, no badge",
     );
+  });
+
+  test("on Windows, says whether the app's switch lets them show", () => {
+    where.mac = false;
+    where.windows = true;
+    expect(describeSystem(known({}))).toBe("Allowed");
+    expect(describeSystem(known({ authorization: "denied" }))).toBe("Turned off in Windows' notification settings");
   });
 });

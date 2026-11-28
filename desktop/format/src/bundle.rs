@@ -47,9 +47,14 @@ pub enum Taken {
     /// A plugin's source folder: what is outside the layout (sources,
     /// `node_modules`, tests, configuration, dot files) is left behind.
     FromSource,
-    /// A bundle as stored or downloaded: anything outside the layout is
-    /// refused.
+    /// A bundle as downloaded or carried, about to be stored: anything
+    /// outside the layout is refused.
     AsBundle,
+    /// A bundle already in the store, read back to compare with its
+    /// listing: as [`Taken::AsBundle`], but its names are not held to what
+    /// every system can hold, which is asked when a bundle is taken in. One
+    /// stored on macOS or Linux before that was asked may hold `aux.js`.
+    Stored,
 }
 
 /// One file of a bundle.
@@ -81,12 +86,13 @@ impl Listing {
         let mut folded: BTreeMap<String, String> = BTreeMap::new();
         let mut total: u64 = 0;
         for (raw, bytes) in files {
+            // what a source leaves out is not held to portable names
             let path = normalized(raw)?;
             let top = path.split('/').next().unwrap_or_default();
             if !in_layout(top) {
                 match taken {
                     Taken::FromSource => continue,
-                    Taken::AsBundle => {
+                    Taken::AsBundle | Taken::Stored => {
                         return Err(format!("{path}: not part of a bundle's layout"));
                     }
                 }
@@ -96,12 +102,16 @@ impl Listing {
             if path.split('/').any(|part| part.starts_with('.')) {
                 match taken {
                     Taken::FromSource => continue,
-                    Taken::AsBundle => {
+                    Taken::AsBundle | Taken::Stored => {
                         return Err(format!(
                             "{path}: a hidden file, which a bundle does not hold"
                         ));
                     }
                 }
+            }
+            // asked of what comes in, not of what the store already holds
+            if taken != Taken::Stored {
+                portable_path(raw, &path)?;
             }
             // a top-level name of a file only, or of a folder only
             if TOP_FILES.contains(&top) != !path.contains('/') {
@@ -214,7 +224,10 @@ impl Listing {
 }
 
 /// A path as a bundle records it: relative, `/` between its parts, in
-/// Unicode normalization form C, with no empty, `.` or `..` part.
+/// Unicode normalization form C, with no empty, `.` or `..` part. Whether
+/// every system can hold its names is not asked here but of a bundle taken
+/// in ([`Listing::from_files`]): this finds a file in a stored bundle's
+/// listing, which may be older than that rule.
 pub fn normalized(raw: &str) -> Result<String, String> {
     let path: String = raw.nfc().collect();
     if path.is_empty() || path.starts_with('/') || path.contains('\\') {
@@ -229,6 +242,69 @@ pub fn normalized(raw: &str) -> Result<String, String> {
         return Err(format!("{raw}: a path with an empty, . or .. part"));
     }
     Ok(path)
+}
+
+/// Refuses `path` when a part of it is no name a file can have on every
+/// system.
+fn portable_path(raw: &str, path: &str) -> Result<(), String> {
+    match path.split('/').find(|part| !portable(part)) {
+        Some(part) => Err(format!(
+            "{raw}: {part:?} is not a name a file can have on every system"
+        )),
+        None => Ok(()),
+    }
+}
+
+/// Whether Windows takes `part` as the file it says, as macOS and Linux
+/// do: no `:`, which names a stream of a file there, or other character it
+/// refuses; no device name, such as `con` or `nul.txt`; and no dot or
+/// space at the end, which it drops. A bundle installs on every system.
+fn portable(part: &str) -> bool {
+    // with the superscript digits and the console's own, which Windows
+    // reserves too
+    const DEVICES: [&str; 30] = [
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        "com1",
+        "com2",
+        "com3",
+        "com4",
+        "com5",
+        "com6",
+        "com7",
+        "com8",
+        "com9",
+        "lpt1",
+        "lpt2",
+        "lpt3",
+        "lpt4",
+        "lpt5",
+        "lpt6",
+        "lpt7",
+        "lpt8",
+        "lpt9",
+        "com\u{b9}",
+        "com\u{b2}",
+        "com\u{b3}",
+        "lpt\u{b9}",
+        "lpt\u{b2}",
+        "lpt\u{b3}",
+        "conin$",
+        "conout$",
+    ];
+    let stem = part
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end()
+        .to_lowercase();
+    !part
+        .chars()
+        .any(|c| c.is_control() || r#":*?"<>|"#.contains(c))
+        && !part.ends_with(['.', ' '])
+        && !DEVICES.contains(&stem.as_str())
 }
 
 fn walk(
@@ -460,6 +536,20 @@ mod tests {
             "/view/a.js",
             "view//a.js",
             "view\\a.js",
+            // what Windows reads as a stream, a device, or another name
+            "view/a.js:hidden",
+            "view/C:x",
+            "view/con",
+            "view/NUL.txt",
+            "view/lpt1",
+            "view/com\u{b9}",
+            "view/LPT\u{b3}.txt",
+            "view/CONIN$",
+            "view/conout$.log",
+            "view/a.js.",
+            "view/a.js ",
+            "view/a?.js",
+            "view/a\u{1}.js",
         ] {
             let refused = listing(&[(bad, "x")], Taken::AsBundle).unwrap_err();
             assert!(refused.starts_with(bad), "{bad}: {refused}");
@@ -472,11 +562,59 @@ mod tests {
         assert!(refused.contains("differ only in case"), "{refused}");
     }
 
-    #[cfg(unix)]
+    /// The names only Windows refuses are asked of a bundle taken in, from
+    /// a source or as a bundle. One the store already holds, from before
+    /// that was asked on macOS and Linux, is read back with the names it
+    /// has, and its files are found by them.
+    #[test]
+    fn a_stored_bundle_is_not_held_to_portable_names() {
+        let files = [
+            ("manifest.json", "{}"),
+            ("view/a:b.txt", "x"),
+            ("view/aux.js", "x"),
+            ("view/con.css", "x"),
+            ("view/index.html", "<html>"),
+        ];
+        assert!(listing(&files, Taken::AsBundle).is_err());
+        assert!(listing(&files, Taken::FromSource).is_err());
+        let stored = listing(&files, Taken::Stored).unwrap();
+        assert_eq!(stored.files.len(), 5);
+        assert!(stored.file("view/aux.js").is_some());
+        assert_eq!(normalized("view/aux.js").unwrap(), "view/aux.js");
+        assert_eq!(normalized("view/a:b.txt").unwrap(), "view/a:b.txt");
+
+        // every other rule of a bundle holds for a stored one
+        for bad in ["notes/a.txt", "view/.cache/a.js", "view/../manifest.json"] {
+            let refused = listing(&[(bad, "x")], Taken::Stored).unwrap_err();
+            assert!(refused.starts_with(bad), "{bad}: {refused}");
+        }
+        for bad in ["view/../manifest.json", "/view/a.js", "view\\a.js", ""] {
+            assert!(normalized(bad).is_err(), "{bad}");
+        }
+    }
+
+    /// A source's files outside the layout, or hidden, are left out before
+    /// their names are looked at: a name Windows cannot hold among them is
+    /// no reason to refuse the plugin.
+    #[test]
+    fn a_source_s_file_left_out_is_not_held_to_portable_names() {
+        let files = [
+            ("manifest.json", "{}"),
+            ("notes/a:b.txt", "x"),
+            ("view/.cache/a?.js", "x"),
+            ("view/index.html", "<html>"),
+        ];
+        let listed = listing(&files, Taken::FromSource).unwrap();
+        let paths: Vec<_> = listed.files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, ["manifest.json", "view/index.html"]);
+    }
+
     #[test]
     fn a_symbolic_link_is_refused() {
         let dir = folder(PLUGIN);
-        std::os::unix::fs::symlink("/etc/hosts", dir.path().join("view/hosts")).unwrap();
+        if !crate::file_link("/etc/hosts", dir.path().join("view/hosts")) {
+            return;
+        }
         let refused = Listing::of_folder(dir.path(), Taken::FromSource).unwrap_err();
         assert_eq!(
             refused,

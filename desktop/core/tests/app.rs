@@ -1,5 +1,7 @@
 //! Application operations without an HTTP router or a desktop runtime.
 
+mod common;
+
 use pinrail_core::db::Db;
 use pinrail_core::plugins::InstallOptions;
 use pinrail_core::reviews::Source;
@@ -243,6 +245,34 @@ fn the_data_directory_is_readable_by_its_owner_only() {
     std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
     Pinrail::open(Config::new(&open, 0)).unwrap();
     assert_eq!(mode(&open), 0o700);
+}
+
+/// On Windows the same: the data directory, and the files made in it, such
+/// as the person token, are this user's and the system's alone.
+#[cfg(windows)]
+#[test]
+fn the_data_directory_is_readable_by_its_owner_only() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("data");
+    let mut config = Config::new(&dir, 0);
+    config.person_token = "secret".to_string();
+    Pinrail::open(config.clone()).unwrap();
+    pinrail_core::person_token::sync(&config, true).unwrap();
+    for path in [dir.clone(), dir.join("person-token")] {
+        common::owner_only(&path).unwrap();
+    }
+    // and an existing one that everyone may read is closed
+    let open = root.path().join("open");
+    std::fs::create_dir(&open).unwrap();
+    let granted = std::process::Command::new("icacls")
+        .arg(&open)
+        .args(["/grant", "*S-1-1-0:(OI)(CI)R"])
+        .output()
+        .unwrap();
+    assert!(granted.status.success());
+    assert!(common::owner_only(&open).is_err());
+    Pinrail::open(Config::new(&open, 0)).unwrap();
+    common::owner_only(&open).unwrap();
 }
 
 #[test]
