@@ -116,11 +116,12 @@ fn take_drop(id: u64, within: Duration) -> Vec<String> {
     match dropped.take() {
         Some((got, paths)) if got == id => paths,
         // a later drop's: left for it
-        Some(later) => {
+        Some(later) if later.0 > id => {
             *dropped = Some(later);
             Vec::new()
         }
-        None => Vec::new(),
+        // an earlier one's, or none
+        _ => Vec::new(),
     }
 }
 
@@ -204,6 +205,8 @@ mod tests {
             take_drop(2, Duration::from_millis(50)),
             Vec::<String>::new()
         );
+        // and is let go of, not kept for a drop that will never ask
+        assert!(DROPPED.lock().unwrap().is_none());
         keep_drop(2, vec!["new".into()]);
         assert_eq!(
             take_drop(2, Duration::from_millis(50)),
