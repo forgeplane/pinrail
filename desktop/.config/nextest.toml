@@ -3,10 +3,10 @@
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 5 }
 
-# The test of a host with many terminals starts as many console hosts on
+# The tests of a host with many terminals start as many console hosts on
 # Windows, which leaves the other tests too little of the computer to
-# answer in time: there it runs alone.
+# answer in time: there they run alone.
 [[profile.default.overrides]]
 platform = 'cfg(windows)'
-filter = 'package(pinrail-host) & binary(many)'
+filter = 'package(pinrail-host) & (binary(many) | test(=a_new_host_adopts_more_terminals_than_one_message_carries))'
 threads-required = 'num-test-threads'
