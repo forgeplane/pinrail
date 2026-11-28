@@ -545,10 +545,12 @@ pub fn owner_only(path: &std::path::Path) -> Result<(), String> {
     let dacl = dacl.split("S:").next().unwrap_or_default();
     // its own, protected, or inherited from a folder that is so
     let grants = dacl.matches("(A;").count();
+    // SDDL names the computer's own Administrator, RID 500, as LA
+    let named = |sid: &str| dacl.contains(&format!(";;;{sid})"));
     let ok = grants == 2
-        && dacl.contains(";;;SY)")
+        && named("SY")
         && !user.is_empty()
-        && dacl.contains(&format!(";;;{user})"));
+        && (named(user) || user.ends_with("-500") && named("LA"));
     if ok {
         Ok(())
     } else {

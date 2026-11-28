@@ -241,6 +241,12 @@ fn is_private(acl: &str, user: &str) -> bool {
         .map(|a| a.strip_prefix('('))
         .map(|a| a.and_then(|a| a.strip_prefix("A;OICI;FA;;;")).unwrap_or(""))
         .collect();
+    // SDDL names the computer's own Administrator, RID 500, as LA
+    let user = if user.ends_with("-500") && granted.contains(&"LA") {
+        "LA"
+    } else {
+        user
+    };
     granted.sort_unstable();
     let mut wanted = vec!["SY", user];
     wanted.sort_unstable();
@@ -364,6 +370,11 @@ mod tests {
             &format!("D:P(A;OICI;FA;;;{USER})(A;OICI;FA;;;SY)"),
             USER
         ));
+        // the computer's own Administrator, whom SDDL names LA
+        assert!(is_private(
+            "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;LA)",
+            "S-1-5-21-1-2-3-500"
+        ));
         for open in [
             // inherited from the folder above, which can change
             format!("D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;{USER})"),
@@ -375,6 +386,8 @@ mod tests {
             format!("D:PAI(A;;FA;;;SY)(A;;FA;;;{USER})"),
             // a denial
             format!("D:PAI(D;OICI;FA;;;SY)(A;OICI;FA;;;{USER})"),
+            // the computer's Administrator, who is not this user
+            "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;LA)".to_string(),
             // none at all: everyone may
             "D:NO_ACCESS_CONTROL".to_string(),
             String::new(),
