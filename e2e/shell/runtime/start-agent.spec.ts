@@ -174,14 +174,15 @@ test("the page shows a tip, the next one on request", async ({ page }) => {
 });
 
 test("a typed folder is used as it is, and a flag that turns permission checks off is refused", async ({ page }) => {
-  // the core refuses the flag as it starts a run, which only Unix does
-  test.skip(process.platform === "win32", "agents run in Pinrail only on Unix");
+  // a folder there is on each system, as the core refuses the flag as it
+  // starts a run
+  const typed = process.platform === "win32" ? "C:\\Windows" : "/tmp";
   await page.route(/\/api\/v1\/agents\/startable/, (route) => route.fulfill({ json: { agents: AGENTS } }));
   await page.goto("/#/sessions/new");
   await folderPicker(page).click();
-  await page.getByRole("combobox", { name: "Folder" }).fill("/tmp");
+  await page.getByRole("combobox", { name: "Folder" }).fill(typed);
   await page.keyboard.press("Enter");
-  await expect(folderPicker(page)).toHaveAccessibleName("Folder: /tmp");
+  await expect(folderPicker(page)).toHaveAccessibleName(`Folder: ${typed}`);
   await page.getByRole("button", { name: "Arguments" }).click();
   await page.getByLabel("Extra arguments").fill("--dangerously-skip-permissions");
   await page.getByRole("button", { name: "Start" }).click();
