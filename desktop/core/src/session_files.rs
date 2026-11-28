@@ -189,25 +189,43 @@ fn file_name(name: &str) -> String {
     }
     let cleaned = cleaned.trim_start_matches(['.', '-']).trim_end_matches('.');
     let (stem, ext) = split(cleaned);
-    let stem = cut(stem, NAME_MAX.saturating_sub(ext.len()));
+    // a device's name is told from what comes before the first dot, which
+    // the cut leaves as it is; room is kept for what goes before it
+    let prefix = if device(stem) { "file-" } else { "" };
+    let mut stem = cut(stem, NAME_MAX.saturating_sub(prefix.len() + ext.len()));
+    if ext.is_empty() {
+        // the cut may end at a dot, which would be the name's last
+        stem = stem.trim_end_matches('.');
+    }
     if stem.is_empty() {
         format!("file{ext}")
-    } else if device(stem) {
-        format!("file-{stem}{ext}")
     } else {
-        format!("{stem}{ext}")
+        format!("{prefix}{stem}{ext}")
     }
 }
 
-/// Whether a name's stem is a device's on Windows, with any extension.
+/// Whether a name's stem is a device's on Windows, with any extension:
+/// `con`, `nul` and the like, and `com` or `lpt` with one digit, which may
+/// be one of the superscripts ¹ ² ³.
 fn device(stem: &str) -> bool {
     let base = stem.split('.').next().unwrap_or(stem).to_ascii_lowercase();
-    matches!(
+    if matches!(
         base.as_str(),
         "con" | "prn" | "aux" | "nul" | "conin$" | "conout$"
-    ) || (base.len() == 4
-        && (base.starts_with("com") || base.starts_with("lpt"))
-        && base.ends_with(|c: char| c.is_ascii_digit()))
+    ) {
+        return true;
+    }
+    let Some(number) = base
+        .strip_prefix("com")
+        .or_else(|| base.strip_prefix("lpt"))
+    else {
+        return false;
+    };
+    let mut digits = number.chars();
+    matches!(
+        (digits.next(), digits.next()),
+        (Some('0'..='9' | '\u{b9}' | '\u{b2}' | '\u{b3}'), None)
+    )
 }
 
 /// A name's stem and extension. What follows the last dot is no extension
@@ -265,6 +283,47 @@ mod tests {
         assert_eq!(file_name("Screen Shot  2026.png"), "Screen-Shot-2026.png");
         assert_eq!(file_name("..."), "file");
         assert_eq!(file_name(&format!("{}.png", "é".repeat(100))).len(), 120);
+    }
+
+    /// A cleaned name is one the cleaning leaves alone and that fits, which
+    /// is what [`SessionFiles::file`] asks of a saved file's name.
+    fn holds(name: &str) -> String {
+        let out = file_name(name);
+        assert_eq!(file_name(&out), out, "cleaning {name:?} again");
+        assert!(out.len() <= NAME_MAX, "{out:?} is {} bytes", out.len());
+        assert!(!out.ends_with('.'), "{out:?} ends with a dot");
+        out
+    }
+
+    #[test]
+    fn a_long_name_of_a_device_still_fits() {
+        // an extension too long to be one, so the whole name is the stem
+        let out = holds(&format!("CON.{}", "a".repeat(120)));
+        assert!(out.starts_with("file-CON."));
+        let out = holds(&format!("{}.txt", "nul.".repeat(40)));
+        assert!(out.starts_with("file-nul.") && out.ends_with(".txt"));
+        assert_eq!(holds(&format!("aux.{}", "b".repeat(111))).len(), 120);
+    }
+
+    #[test]
+    fn a_name_cut_at_a_dot_does_not_end_with_it() {
+        let out = holds(&format!("{}.{}", "a".repeat(119), "b".repeat(25)));
+        assert_eq!(out, "a".repeat(119));
+        let out = holds(&format!("{}...{}", "a".repeat(118), "b".repeat(25)));
+        assert_eq!(out, "a".repeat(118));
+        // with an extension the dot is inside the name, and stays
+        holds(&format!("{}.{}.png", "a".repeat(115), "b".repeat(25)));
+    }
+
+    #[test]
+    fn a_device_numbered_in_superscript_is_one_too() {
+        for name in ["com\u{b9}", "COM\u{b2}.txt", "lpt\u{b3}.log", "Lpt\u{b9}"] {
+            assert_eq!(holds(name), format!("file-{name}"));
+        }
+        assert_eq!(holds("com\u{2074}.txt"), "com\u{2074}.txt");
+        assert_eq!(holds("com12.txt"), "com12.txt");
+        assert_eq!(holds("lpt.txt"), "lpt.txt");
+        assert_eq!(holds("lpt0"), "file-lpt0");
     }
 
     #[test]

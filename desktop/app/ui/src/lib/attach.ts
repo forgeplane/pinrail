@@ -20,12 +20,19 @@ export function fileName(name: string): string {
     .replace(/^[.-]+/, "")
     .replace(/\.+$/, "");
   const [stem, ext] = split(cleaned);
-  const kept = stem.slice(0, NAME_MAX - ext.length) || "file";
-  return (DEVICE.test(kept.split(".")[0]) ? `file-${kept}` : kept) + ext;
+  // a device's name is told from what comes before the first dot, which
+  // the cut leaves as it is; room is kept for what goes before it
+  const prefix = DEVICE.test(stem.split(".")[0]) ? "file-" : "";
+  let kept = stem.slice(0, NAME_MAX - prefix.length - ext.length);
+  // the cut may end at a dot, which would be the name's last
+  if (!ext) kept = kept.replace(/\.+$/, "");
+  return (kept ? prefix + kept : "file") + ext;
 }
 
-/** A device's name on Windows, which no file may have. */
-const DEVICE = /^(con|prn|aux|nul|conin\$|conout\$|com\d|lpt\d)$/i;
+/** A device's name on Windows, which no file may have: `con`, `nul` and
+ *  the like, and `com` or `lpt` with one digit, which may be one of the
+ *  superscripts ¹ ² ³. */
+const DEVICE = /^(con|prn|aux|nul|conin\$|conout\$|(com|lpt)[0-9¹²³])$/i;
 
 /** The longest name the core takes. */
 const NAME_MAX = 120;
