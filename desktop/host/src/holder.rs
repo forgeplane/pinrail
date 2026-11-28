@@ -280,7 +280,7 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
         let mut fds = fds.into_iter();
         let (mut answer, out) = match request["op"].as_str() {
             Some("spawn") => spawn(state, &request, fds.next()),
-            Some("list") => list(state),
+            Some("list") => list(state, &request),
             Some("forget") => forget(state, &request),
             #[cfg(windows)]
             Some("resize") => resize(state, &request),
@@ -453,11 +453,27 @@ fn watch_exit(state: &Shared, terminal: &str, pid: u32, waiter: impl FnOnce() ->
 
 /// `list`: every terminal, with duplicates of what the host gets of it
 /// and of its ring descriptor, in that order, and its size.
-fn list(state: &Shared) -> (Value, Vec<Owned>) {
+///
+/// A host asks for them a page at a time, `{"after", "limit"}`, as one
+/// message carries the descriptors of some 80 terminals at most: the
+/// answer says whether `more` follow. Asked without a limit, as a host of
+/// an earlier build asks, it lists them all.
+fn list(state: &Shared, request: &Value) -> (Value, Vec<Owned>) {
     let state = lock(state);
+    let after = request["after"].as_str();
+    let limit = request["limit"].as_u64().map(|n| n as usize);
     let mut terminals = Vec::new();
     let mut fds = Vec::new();
-    for (id, held) in &state.terminals {
+    let mut more = false;
+    let page = state
+        .terminals
+        .iter()
+        .filter(|(id, _)| after.is_none_or(|after| id.as_str() > after));
+    for (id, held) in page {
+        if limit.is_some_and(|limit| terminals.len() >= limit) {
+            more = true;
+            break;
+        }
         let (Ok(master), ring) = (
             held.holding.for_host(),
             held.ring.as_ref().and_then(|r| r.try_clone().ok()),
@@ -478,7 +494,7 @@ fn list(state: &Shared) -> (Value, Vec<Owned>) {
         fds.extend(master);
         fds.extend(ring);
     }
-    (json!({"terminals": terminals}), fds)
+    (json!({"terminals": terminals, "more": more}), fds)
 }
 
 /// `forget {terminal}`: closes the terminal's descriptors, and reaps the

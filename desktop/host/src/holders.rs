@@ -44,6 +44,10 @@ pub enum Start {
 
 /// A program's exit, as a holder reports it: the holder's instance, the
 /// terminal and the exit.
+/// The terminals a holder lists in one message: their descriptors, two
+/// or four each, stay well within what a message carries.
+const LIST_PAGE: usize = 32;
+
 pub type Exited = (String, String, Exit);
 
 type Pending = Arc<Mutex<HashMap<u64, mpsc::Sender<(Value, Vec<Owned>)>>>>;
@@ -318,50 +322,74 @@ impl Holders {
             let Ok(link) = self.connect(&instance) else {
                 continue;
             };
-            let Ok((listed, fds)) = link.request(json!({"op": "list"}), &[]) else {
-                continue;
-            };
-            let mut fds = fds.into_iter();
-            for entry in listed["terminals"].as_array().into_iter().flatten() {
-                let pid = entry["pid"].as_u64().unwrap_or_default() as u32;
-                let size = |key: &str, default: u16| {
-                    entry[key]
-                        .as_u64()
-                        .and_then(|n| u16::try_from(n).ok())
-                        .unwrap_or(default)
-                };
-                let size = (size("cols", 80), size("rows", 24));
-                let Some(master) = pty::master_from(pid, &mut fds, size) else {
+            // a page at a time: one message carries the descriptors of some
+            // 80 terminals at most. A holder of an earlier build answers
+            // with them all, and no more after.
+            let mut pages = Vec::new();
+            let mut after: Option<String> = None;
+            loop {
+                let mut request = json!({"op": "list", "limit": LIST_PAGE});
+                if let Some(after) = &after {
+                    request["after"] = json!(after);
+                }
+                let Ok((listed, fds)) = link.request(request, &[]) else {
                     break;
                 };
-                let terminal = entry["terminal"].as_str().unwrap_or_default();
-                pty::set_control(&master, link.control(terminal));
-                let ring = if entry["ring"] == true {
-                    fds.next()
-                } else {
-                    None
-                };
-                let exit = match (&entry["exit"]["code"], &entry["exit"]["signal"]) {
-                    (Value::Number(code), _) => {
-                        Some(Exit::Code(code.as_i64().unwrap_or(-1) as i32))
-                    }
-                    (_, Value::Number(signal)) => {
-                        Some(Exit::Signal(signal.as_i64().unwrap_or(-1) as i32))
-                    }
-                    _ => None,
-                };
-                link.terminals.fetch_add(1, Ordering::Relaxed);
-                kept.push(Kept {
-                    holder: instance.clone(),
-                    terminal: entry["terminal"].as_str().unwrap_or_default().to_string(),
-                    spawned: Spawned {
-                        pid,
-                        started: entry["started"].as_str().map(str::to_string),
-                        master,
-                    },
-                    ring,
-                    exit,
-                });
+                let last = listed["terminals"]
+                    .as_array()
+                    .and_then(|t| t.last())
+                    .and_then(|t| t["terminal"].as_str())
+                    .map(str::to_string);
+                let more = listed["more"] == true && last.is_some();
+                pages.push((listed, fds));
+                if !more {
+                    break;
+                }
+                after = last;
+            }
+            for (listed, fds) in pages {
+                let mut fds = fds.into_iter();
+                for entry in listed["terminals"].as_array().into_iter().flatten() {
+                    let pid = entry["pid"].as_u64().unwrap_or_default() as u32;
+                    let size = |key: &str, default: u16| {
+                        entry[key]
+                            .as_u64()
+                            .and_then(|n| u16::try_from(n).ok())
+                            .unwrap_or(default)
+                    };
+                    let size = (size("cols", 80), size("rows", 24));
+                    let Some(master) = pty::master_from(pid, &mut fds, size) else {
+                        break;
+                    };
+                    let terminal = entry["terminal"].as_str().unwrap_or_default();
+                    pty::set_control(&master, link.control(terminal));
+                    let ring = if entry["ring"] == true {
+                        fds.next()
+                    } else {
+                        None
+                    };
+                    let exit = match (&entry["exit"]["code"], &entry["exit"]["signal"]) {
+                        (Value::Number(code), _) => {
+                            Some(Exit::Code(code.as_i64().unwrap_or(-1) as i32))
+                        }
+                        (_, Value::Number(signal)) => {
+                            Some(Exit::Signal(signal.as_i64().unwrap_or(-1) as i32))
+                        }
+                        _ => None,
+                    };
+                    link.terminals.fetch_add(1, Ordering::Relaxed);
+                    kept.push(Kept {
+                        holder: instance.clone(),
+                        terminal: entry["terminal"].as_str().unwrap_or_default().to_string(),
+                        spawned: Spawned {
+                            pid,
+                            started: entry["started"].as_str().map(str::to_string),
+                            master,
+                        },
+                        ring,
+                        exit,
+                    });
+                }
             }
             // a holder of another build with nothing to keep may exit
             if !link.own && link.terminals.load(Ordering::Relaxed) == 0 {

@@ -45,6 +45,37 @@ fn listed(client: &mut Client) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// More terminals than one message from the holder can carry the
+/// descriptors of, as a host with many agents has.
+#[test]
+fn a_new_host_adopts_more_terminals_than_one_message_carries() {
+    const TERMINALS: usize = 100;
+    let folders = folders();
+    let mut first = serve(&folders, &[]);
+    let mut client = connect(&first);
+    for _ in 0..TERMINALS {
+        client
+            .call(
+                "terminal.spawn",
+                json!({"argv": common::sleep(300), "cwd": folders.runtime,
+                       "cols": 80, "rows": 24, "env": {"PATH": common::path()},
+                       "env_base": "host"}),
+            )
+            .unwrap();
+    }
+    assert_eq!(listed(&mut client).len(), TERMINALS);
+    let _ = first.child.kill();
+    let _ = first.child.wait();
+    drop(client);
+    let _holders = common::KillsHolders(first.holders.clone());
+    first.holders = folders.data.join("none");
+    drop(first);
+
+    let second = serve(&folders, &[]);
+    let mut client = connect(&second);
+    assert_eq!(listed(&mut client).len(), TERMINALS);
+}
+
 #[test]
 fn a_new_host_adopts_the_agents_of_a_host_that_was_killed() {
     let folders = folders();
