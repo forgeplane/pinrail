@@ -63,7 +63,7 @@ fn git(folder: &Path, args: &[&str]) -> Option<String> {
 /// `acme/api`; a subgroup stays in (`group/sub/api`); a local path gives its
 /// last folder.
 pub fn project_of(url: &str) -> Option<String> {
-    let url = url.trim().trim_end_matches('/');
+    let url = url.trim().trim_end_matches(['/', '\\']);
     let url = url.strip_suffix(".git").unwrap_or(url);
     let path = if let Some((_, rest)) = url.split_once("://") {
         // scheme://[user@]host[:port]/path
@@ -97,6 +97,12 @@ fn windows_path(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_windows_folder_ending_in_a_separator_names_its_project() {
+        assert_eq!(project_of(r"C:\code\api\").as_deref(), Some("api"));
+        assert_eq!(project_of(r"C:\code\api").as_deref(), Some("api"));
+    }
     use super::project_of;
 
     #[test]

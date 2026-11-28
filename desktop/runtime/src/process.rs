@@ -392,6 +392,20 @@ fn read(_pid: u32) -> Option<Process> {
 
 #[cfg(test)]
 mod tests {
+
+    /// A process that ended while a handle to it is still open, as the
+    /// one that started it keeps one.
+    #[cfg(windows)]
+    #[test]
+    fn an_ended_process_is_not_read_while_a_handle_keeps_it() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/C", "exit 0"])
+            .spawn()
+            .unwrap();
+        child.wait().unwrap();
+        assert!(read(child.id()).is_none());
+        drop(child);
+    }
     use super::*;
 
     #[test]

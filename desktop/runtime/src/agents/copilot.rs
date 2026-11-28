@@ -183,8 +183,14 @@ impl Agent for Copilot {
     }
 
     /// An example of the person's arguments, from its `--help`.
+    /// Quoted as this system splits the arguments: single quotes are no
+    /// quotes on Windows.
     fn args_example(&self) -> Option<&'static str> {
-        Some("--allow-tool 'shell(git:*)'")
+        Some(if cfg!(windows) {
+            r#"--allow-tool "shell(git:*)""#
+        } else {
+            "--allow-tool 'shell(git:*)'"
+        })
     }
 
     /// The flags Pinrail sets to name, resume or prompt the session.
@@ -263,6 +269,15 @@ fn tail(transcript: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_example_splits_into_two_words_on_this_system() {
+        let example = Copilot.args_example().unwrap();
+        assert_eq!(
+            crate::agent::split_args(example).unwrap(),
+            ["--allow-tool", "shell(git:*)"]
+        );
+    }
 
     #[test]
     fn it_knows_the_flags_that_turn_its_checks_off() {
