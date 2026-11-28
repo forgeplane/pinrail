@@ -349,9 +349,11 @@ fn a_new_host_adopts_the_programs_of_a_host_that_was_killed() {
     assert_eq!(terminals[0]["pid"], pid);
     // the screen, rebuilt from the output ring
     wait_for(&mut client, &id, "ready");
-    // the program still reads what is typed, and the host what it writes
-    submit(&mut client, &id, "echo got-hello");
-    wait_for(&mut client, &id, "got-hello");
+    // the program still reads what is typed, and the host what it writes:
+    // the name of the terminal, which only cmd puts in place of %TERM%,
+    // where the console shows the line as it was typed
+    submit(&mut client, &id, "echo got-%TERM%");
+    wait_for(&mut client, &id, "got-xterm-256color");
     assert_eq!(second.holders, holders);
     client
         .call("terminal.stop", json!({"terminal": id}))
