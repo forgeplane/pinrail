@@ -101,15 +101,21 @@ export function NewSession() {
   // the last known lists show at once; fresh ones replace them
   useEffect(() => {
     let current = true;
+    const show = (found: StartableAgent[]) => {
+      knownAgents = found;
+      if (!current) return;
+      setAgents(found);
+      setAgent((chosen) => {
+        if (chosen && found.some((a) => a.id === chosen && a.installed)) return chosen;
+        return defaultAgent(found)?.id ?? null;
+      });
+    };
+    // the kept list at once, then one looked for afresh: an agent
+    // installed since shows without leaving the page
     runtime.startable().then(
       (found) => {
-        knownAgents = found;
-        if (!current) return;
-        setAgents(found);
-        setAgent((chosen) => {
-          if (chosen && found.some((a) => a.id === chosen && a.installed)) return chosen;
-          return defaultAgent(found)?.id ?? null;
-        });
+        show(found);
+        runtime.startable(true).then(show, () => {});
       },
       (e: unknown) => current && setError(refusal(e, undefined)),
     );

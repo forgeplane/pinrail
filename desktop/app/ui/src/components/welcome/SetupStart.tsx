@@ -65,8 +65,15 @@ export function SetupStart({
   const [folders, setFolders] = useState<StartFolder[]>([]);
   useEffect(() => {
     let current = true;
+    // the kept list at once, then one looked for afresh
     runtime.startable().then(
-      (found) => current && setStartable(found),
+      (found) => {
+        if (current) setStartable(found);
+        runtime.startable(true).then(
+          (fresh) => current && setStartable(fresh),
+          () => {},
+        );
+      },
       () => current && setStartable([]),
     );
     void startFolders().then((found) => current && setFolders(found));
