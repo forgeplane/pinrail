@@ -653,29 +653,50 @@ mod console {
 mod console {
     use std::sync::atomic::{AtomicBool, Ordering};
 
+    use std::sync::mpsc::{Receiver, TryRecvError, channel};
+    use std::sync::{Mutex, OnceLock};
+
     use windows_sys::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
     use windows_sys::Win32::Networking::WinSock::{
-        FD_CLOSE, FD_READ, WSACreateEvent, WSAEventSelect, WSAResetEvent,
+        FD_CLOSE, FD_READ, WSACloseEvent, WSACreateEvent, WSAEventSelect, WSAResetEvent,
     };
     use windows_sys::Win32::Storage::FileSystem::{ReadFile, WriteFile};
     use windows_sys::Win32::System::Console::{
-        DISABLE_NEWLINE_AUTO_RETURN, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
+        CTRL_CLOSE_EVENT, CTRL_LOGOFF_EVENT, CTRL_SHUTDOWN_EVENT, DISABLE_NEWLINE_AUTO_RETURN,
+        ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT, ENABLE_PROCESSED_OUTPUT,
         ENABLE_VIRTUAL_TERMINAL_INPUT, ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleCP,
-        GetConsoleMode, GetConsoleOutputCP, GetStdHandle, INPUT_RECORD, KEY_EVENT,
-        PeekConsoleInputW, ReadConsoleInputW, STD_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
-        SetConsoleCP, SetConsoleCtrlHandler, SetConsoleMode, SetConsoleOutputCP,
+        GetConsoleMode, GetConsoleOutputCP, GetStdHandle, STD_HANDLE, STD_INPUT_HANDLE,
+        STD_OUTPUT_HANDLE, SetConsoleCP, SetConsoleCtrlHandler, SetConsoleMode, SetConsoleOutputCP,
     };
-    use windows_sys::Win32::System::Threading::WaitForMultipleObjects;
+    use windows_sys::Win32::System::Threading::{
+        CreateEventW, ResetEvent, SetEvent, WaitForMultipleObjects,
+    };
     use windows_sys::core::BOOL;
 
     static TERMINATED: AtomicBool = AtomicBool::new(false);
+    /// Set once the console is given back, after the relay has closed.
+    static RESTORED: AtomicBool = AtomicBool::new(false);
 
     /// The socket.
     pub type Fd = u64;
     pub const NO_FD: Fd = u64::MAX;
 
-    unsafe extern "system" fn on_ctrl(_: u32) -> BOOL {
+    unsafe extern "system" fn on_ctrl(kind: u32) -> BOOL {
         TERMINATED.store(true, Ordering::SeqCst);
+        // Windows ends the process once this returns from a close, a
+        // sign-out or a shutdown: the relay is given a moment to close the
+        // connection and give the console back first
+        if matches!(
+            kind,
+            CTRL_CLOSE_EVENT | CTRL_LOGOFF_EVENT | CTRL_SHUTDOWN_EVENT
+        ) {
+            for _ in 0..40 {
+                if RESTORED.load(Ordering::SeqCst) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        }
         1
     }
 
@@ -717,7 +738,10 @@ mod console {
                 SetConsoleMode(std(STD_INPUT_HANDLE), raw);
                 SetConsoleMode(
                     std(STD_OUTPUT_HANDLE),
-                    output | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN,
+                    output
+                        | ENABLE_PROCESSED_OUTPUT
+                        | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                        | DISABLE_NEWLINE_AUTO_RETURN,
                 );
                 // keys are read, and output written, as UTF-8 bytes
                 SetConsoleOutputCP(65001);
@@ -738,6 +762,7 @@ mod console {
                     SetConsoleCP(cp_in);
                 }
             }
+            RESTORED.store(true, Ordering::SeqCst);
         }
     }
 
@@ -790,74 +815,113 @@ mod console {
                 if event == 0 {
                     return None;
                 }
-                (WSAEventSelect(socket as usize, event, (FD_READ | FD_CLOSE) as i32) == 0)
-                    .then_some(event as usize)
+                if WSAEventSelect(socket as usize, event, (FD_READ | FD_CLOSE) as i32) != 0 {
+                    WSACloseEvent(event);
+                    return None;
+                }
+                Some(event as usize)
             }
         });
         event.map(|e| e as HANDLE)
     }
 
+    /// The keyboard, read on a thread of its own: a key that types
+    /// nothing, such as Volume Up, makes a console read wait for the next
+    /// key that does, which must not hold up the output meanwhile. Each
+    /// piece read is handed over with the event set; `None` when the
+    /// console's input ended.
+    struct Keyboard {
+        ready: usize,
+        pieces: Mutex<Receiver<Option<Vec<u8>>>>,
+    }
+
+    /// The keyboard's reader, started on the first wait, once the console
+    /// is in raw mode, so that it reads keys and not lines.
+    fn keyboard() -> &'static Keyboard {
+        static KEYBOARD: OnceLock<Keyboard> = OnceLock::new();
+        KEYBOARD.get_or_init(|| {
+            // SAFETY: a new manual-reset event, kept for the process's life.
+            let ready = unsafe { CreateEventW(std::ptr::null(), 1, 0, std::ptr::null()) } as usize;
+            let (tx, rx) = channel();
+            std::thread::spawn(move || {
+                let input = std(STD_INPUT_HANDLE);
+                let mut buf = [0u8; 8192];
+                loop {
+                    let mut got = 0u32;
+                    // SAFETY: the buffer is valid for its length.
+                    let ok = unsafe {
+                        ReadFile(
+                            input,
+                            buf.as_mut_ptr(),
+                            buf.len() as u32,
+                            &mut got,
+                            std::ptr::null_mut(),
+                        )
+                    } != 0;
+                    let piece = (ok && got > 0).then(|| buf[..got as usize].to_vec());
+                    let ended = piece.is_none();
+                    let sent = tx.send(piece).is_ok();
+                    // SAFETY: the event lives as long as the process.
+                    unsafe { SetEvent(ready as HANDLE) };
+                    if ended || !sent {
+                        return;
+                    }
+                }
+            });
+            Keyboard {
+                ready,
+                pieces: Mutex::new(rx),
+            }
+        })
+    }
+
+    /// What the keyboard gave since it was last asked.
+    fn take_keys(keyboard: &Keyboard) -> Keys {
+        // reset first, so that a piece handed over meanwhile sets it again
+        // SAFETY: the event lives as long as the process.
+        unsafe { ResetEvent(keyboard.ready as HANDLE) };
+        let pieces = keyboard.pieces.lock().unwrap_or_else(|e| e.into_inner());
+        let mut keys = Vec::new();
+        loop {
+            match pieces.try_recv() {
+                Ok(Some(piece)) => keys.extend(piece),
+                Ok(None) | Err(TryRecvError::Disconnected) => return Keys::Closed,
+                Err(TryRecvError::Empty) => break,
+            }
+        }
+        if keys.is_empty() {
+            Keys::None
+        } else {
+            Keys::Some(keys)
+        }
+    }
+
     /// Waits up to `ms` for the keyboard or the socket. Returns what the
     /// keyboard gave, and whether the socket may have something to read.
-    /// Console events that are not keys, such as focus or a resize, wake the
-    /// wait without bytes: they are taken off and skipped.
+    /// Without an event for the socket, as over TLS, it waits for the
+    /// keyboard alone, and the socket is read each time it wakes.
     pub fn wait(socket: Fd, ms: i32) -> (Keys, bool) {
-        let input = std(STD_INPUT_HANDLE);
-        let Some(event) = socket_event(socket) else {
-            return (Keys::None, true);
+        let keyboard = keyboard();
+        let ready = keyboard.ready as HANDLE;
+        let socket = socket_event(socket);
+        let handles: Vec<HANDLE> = match socket {
+            Some(event) => vec![ready, event],
+            None => vec![ready],
         };
-        // SAFETY: both handles are open for the wait.
-        let woke =
-            unsafe { WaitForMultipleObjects(2, [input, event].as_ptr(), 0, ms.max(0) as u32) };
-        if woke == WAIT_OBJECT_0 + 1 {
+        // SAFETY: the handles are open for the wait.
+        let woke = unsafe {
+            WaitForMultipleObjects(handles.len() as u32, handles.as_ptr(), 0, ms.max(0) as u32)
+        };
+        if woke == WAIT_OBJECT_0 {
+            return (take_keys(keyboard), true);
+        }
+        if let (Some(event), true) = (socket, woke == WAIT_OBJECT_0 + 1) {
             // reset before reading, so what arrives meanwhile sets it again
             // SAFETY: the event is open.
             unsafe { WSAResetEvent(event as isize) };
-            return (Keys::None, true);
         }
-        if woke != WAIT_OBJECT_0 {
-            // a timeout: the WebSocket may hold data it has buffered
-            return (Keys::None, true);
-        }
-        (read_keys(input), true)
-    }
-
-    fn read_keys(input: HANDLE) -> Keys {
-        // SAFETY: the records are plain data the calls fill within their
-        // count; the buffer is valid for its length.
-        unsafe {
-            let mut events: [INPUT_RECORD; 32] = std::mem::zeroed();
-            let mut n = 0u32;
-            if PeekConsoleInputW(input, events.as_mut_ptr(), events.len() as u32, &mut n) == 0 {
-                return Keys::Closed;
-            }
-            // Shift, Ctrl, Alt, Windows or a lock key alone types nothing,
-            // and ReadFile would wait for a key that does
-            let modifier = |vk: u16| matches!(vk, 0x10..=0x12 | 0x14 | 0x5B | 0x5C | 0x90 | 0x91 | 0xA0..=0xA5);
-            let key = events[..n as usize].iter().any(|e| {
-                e.EventType == KEY_EVENT as u16
-                    && e.Event.KeyEvent.bKeyDown != 0
-                    && !modifier(e.Event.KeyEvent.wVirtualKeyCode)
-            });
-            if !key {
-                ReadConsoleInputW(input, events.as_mut_ptr(), n, &mut n);
-                return Keys::None;
-            }
-            let mut buf = [0u8; 8192];
-            let mut got = 0u32;
-            if ReadFile(
-                input,
-                buf.as_mut_ptr(),
-                buf.len() as u32,
-                &mut got,
-                std::ptr::null_mut(),
-            ) == 0
-                || got == 0
-            {
-                return Keys::Closed;
-            }
-            Keys::Some(buf[..got as usize].to_vec())
-        }
+        // the socket, or a timeout: the WebSocket may hold data it buffered
+        (Keys::None, true)
     }
 }
 

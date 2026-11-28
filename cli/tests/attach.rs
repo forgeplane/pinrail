@@ -24,6 +24,12 @@ struct Heard {
 
 /// Serves one attach: the HTTP requests before it, then the socket.
 fn mock_core(listener: TcpListener, heard: mpsc::Sender<Heard>) {
+    mock_core_with(listener, heard, None);
+}
+
+/// [`mock_core`], whose terminal also writes `late` a while after the
+/// screen, as a program goes on writing.
+fn mock_core_with(listener: TcpListener, heard: mpsc::Sender<Heard>, late: Option<&'static [u8]>) {
     for stream in listener.incoming() {
         let Ok(mut stream) = stream else { break };
         let mut peek = [0u8; 512];
@@ -35,7 +41,7 @@ fn mock_core(listener: TcpListener, heard: mpsc::Sender<Heard>) {
                 .nth(1)
                 .unwrap_or_default()
                 .to_string();
-            heard.send(serve_socket(stream, query)).unwrap();
+            heard.send(serve_socket(stream, query, late)).unwrap();
             return;
         }
         let mut request = Vec::new();
@@ -67,7 +73,7 @@ fn mock_core(listener: TcpListener, heard: mpsc::Sender<Heard>) {
     }
 }
 
-fn serve_socket(stream: TcpStream, query: String) -> Heard {
+fn serve_socket(stream: TcpStream, query: String, late: Option<&'static [u8]>) -> Heard {
     let mut socket = tungstenite::accept(stream).unwrap();
     let text = |value: Value| Message::Text(value.to_string().into());
     socket
@@ -86,6 +92,13 @@ fn serve_socket(stream: TcpStream, query: String) -> Heard {
     output.extend(0u64.to_le_bytes());
     output.extend(b" then output");
     socket.send(Message::Binary(output.into())).unwrap();
+    if let Some(late) = late {
+        std::thread::sleep(Duration::from_millis(1_500));
+        let mut output = vec![0x01];
+        output.extend((b"SCREEN then output".len() as u64).to_le_bytes());
+        output.extend(late);
+        socket.send(Message::Binary(output.into())).unwrap();
+    }
     let mut heard = Heard {
         query,
         ..Heard::default()
@@ -326,6 +339,44 @@ fn read_until(output: &mpsc::Receiver<Vec<u8>>, seen: &mut Vec<u8>, wanted: &[u8
             seen.extend(bytes);
         }
     }
+}
+
+/// A key that types nothing, such as Volume Up, which a console still reports:
+/// what the terminal writes after it keeps coming.
+#[cfg(windows)]
+#[test]
+fn a_key_that_types_nothing_holds_up_no_output() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let (tx, heard) = mpsc::channel();
+    std::thread::spawn(move || mock_core_with(listener, tx, Some(b" LATE")));
+    let data = std::env::temp_dir().join(format!("pinrail-attach-pause-{}", std::process::id()));
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::write(data.join("person-token"), "tok").unwrap();
+    let Attached {
+        output,
+        mut input,
+        wait,
+    } = attach(&url, &data);
+    let mut seen = Vec::new();
+    read_until(&output, &mut seen, b"SCREEN then output");
+    // Volume Up and the menu key, pressed and let go, as win32-input-mode
+    // writes a key: neither has a character
+    input
+        .write_all(
+            b"\x1b[175;48;0;1;0;1_\x1b[175;48;0;0;0;1_\x1b[93;93;0;1;0;1_\x1b[93;93;0;0;0;1_",
+        )
+        .unwrap();
+    read_until(&output, &mut seen, b" LATE");
+    input.write_all(b"\x1c").unwrap();
+    std::thread::sleep(Duration::from_millis(200));
+    input.write_all(b"d").unwrap();
+    read_until(&output, &mut seen, b"[detached from run_1");
+    assert!(wait());
+    // the keys typed nothing to send
+    let heard = heard.recv_timeout(Duration::from_secs(10)).unwrap();
+    assert_eq!(heard.input, b"");
+    let _ = std::fs::remove_dir_all(&data);
 }
 
 #[test]
