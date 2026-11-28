@@ -7,7 +7,7 @@
 
 use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
 
-use windows_sys::Win32::Foundation::{STILL_ACTIVE, WAIT_TIMEOUT};
+use windows_sys::Win32::Foundation::{STILL_ACTIVE, WAIT_OBJECT_0, WAIT_TIMEOUT};
 use windows_sys::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RegGetValueW};
 use windows_sys::Win32::System::SystemInformation::GetTickCount64;
 use windows_sys::Win32::System::Threading::{
@@ -72,13 +72,20 @@ pub fn alive(pid: u32) -> bool {
     }
     // SAFETY: `handle` is open and owned here.
     let handle = unsafe { OwnedHandle::from_raw_handle(handle as RawHandle) };
+    // signalled once it has ended, whatever its exit code, 259 included,
+    // which is the code a running process reports
     // SAFETY: waits on an open process handle without blocking.
-    if unsafe { WaitForSingleObject(raw(&handle), 0) } == WAIT_TIMEOUT {
-        return true;
+    match unsafe { WaitForSingleObject(raw(&handle), 0) } {
+        WAIT_TIMEOUT => true,
+        WAIT_OBJECT_0 => false,
+        _ => {
+            let mut code = 0u32;
+            // SAFETY: writes the exit code into `code`.
+            unsafe {
+                GetExitCodeProcess(raw(&handle), &mut code) != 0 && code == STILL_ACTIVE as u32
+            }
+        }
     }
-    let mut code = 0u32;
-    // SAFETY: writes the exit code into `code`.
-    unsafe { GetExitCodeProcess(raw(&handle), &mut code) != 0 && code == STILL_ACTIVE as u32 }
 }
 
 /// Keeps this process's standard streams from the processes it starts:
@@ -131,7 +138,8 @@ pub fn spawn_detached(mut command: std::process::Command) -> std::io::Result<std
 }
 
 /// The executable of the process `pid`, or `None` when it cannot be read.
-#[cfg(feature = "server")]
+/// The core needs it as much as the host, to keep the host's copies that
+/// still run.
 pub fn executable_of(pid: u32) -> Option<std::path::PathBuf> {
     use windows_sys::Win32::System::Threading::{PROCESS_NAME_WIN32, QueryFullProcessImageNameW};
     // SAFETY: the handle is owned below.
@@ -190,20 +198,10 @@ pub fn running_executables() -> std::io::Result<Vec<std::path::PathBuf>> {
     Ok(pids
         .into_iter()
         .filter(|&pid| crate::win::user_of(pid).is_ok_and(|theirs| theirs == user))
-        .filter_map(executable_of_any)
+        .filter_map(executable_of)
         // as the folders they are compared with are
         .map(|exe| exe.canonicalize().unwrap_or(exe))
         .collect())
-}
-
-#[cfg(feature = "server")]
-fn executable_of_any(pid: u32) -> Option<std::path::PathBuf> {
-    executable_of(pid)
-}
-
-#[cfg(not(feature = "server"))]
-fn executable_of_any(_: u32) -> Option<std::path::PathBuf> {
-    None
 }
 
 /// Windows has no limit of open handles to raise: the host keeps as many
@@ -222,6 +220,31 @@ mod tests {
         let id = boot_id().unwrap();
         assert!(!id.is_empty());
         assert_eq!(boot_id().unwrap(), id);
+    }
+
+    /// As the core builds the crate, without the host's server: it is the
+    /// core that decides which of the host's copies are still in use.
+    #[test]
+    fn the_running_programs_include_this_one() {
+        let this = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let running = running_executables().unwrap();
+        assert!(
+            running.contains(&this),
+            "{} not in {running:?}",
+            this.display()
+        );
+    }
+
+    /// A program that ended with 259, which is what Windows says of one
+    /// still running, while a handle keeps it known.
+    #[test]
+    fn a_program_that_ended_with_still_active_s_code_is_not_alive() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/C", "exit 259"])
+            .spawn()
+            .unwrap();
+        child.wait().unwrap();
+        assert!(!alive(child.id()));
     }
 
     #[test]

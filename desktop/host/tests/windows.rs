@@ -165,7 +165,11 @@ fn the_host_answers_while_a_program_leaves_what_is_typed_unread() {
     let folders = folders();
     let host = serve(&folders, &[]);
     let mut client = connect(&host);
-    let (id, _) = spawn(&mut client, &["ping", "-n", "60", "127.0.0.1"], &folders.runtime);
+    let (id, _) = spawn(
+        &mut client,
+        &["ping", "-n", "60", "127.0.0.1"],
+        &folders.runtime,
+    );
     wait_for(&mut client, &id, "Reply from 127.0.0.1");
     // 1 MB, in pieces a frame carries
     for _ in 0..16 {

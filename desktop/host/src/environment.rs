@@ -32,6 +32,15 @@ pub struct Request<'a> {
     pub terminal: &'a str,
 }
 
+/// Whether two variables' names are one: on Windows in any case.
+fn same_name(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
+}
+
 /// The agent's environment.
 pub fn build(request: &Request) -> BTreeMap<String, String> {
     let mut env: BTreeMap<String, String> = request
@@ -40,7 +49,7 @@ pub fn build(request: &Request) -> BTreeMap<String, String> {
         .filter(|(name, _)| {
             !pinrail_runtime::scrub::is_scrubbed(name)
                 && !is_session_variable(name)
-                && name != "OLDPWD"
+                && !same_name(name, "OLDPWD")
         })
         .cloned()
         .collect();
@@ -51,7 +60,10 @@ pub fn build(request: &Request) -> BTreeMap<String, String> {
     set("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
     set("PINRAIL_TERMINAL_ID", request.terminal);
     set("PWD", request.cwd);
-    if !env.contains_key("LANG") && !env.contains_key("LC_ALL") {
+    if !env
+        .keys()
+        .any(|k| same_name(k, "LANG") || same_name(k, "LC_ALL"))
+    {
         env.insert("LANG".to_string(), "en_US.UTF-8".to_string());
     }
     for (name, value) in request.session_env {
@@ -114,14 +126,20 @@ pub fn find_program_in(
         .or_else(|| std::env::var("PATHEXT").ok())
         .filter(|e| !e.is_empty())
         .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".to_string());
+    // what a terminal can start: a program, or a batch file through cmd;
+    // PATHEXT also lists scripts, such as .JS, that only their own
+    // program runs
+    let exts: Vec<&str> = exts
+        .split(';')
+        .filter(|e| [".com", ".exe", ".bat", ".cmd"].contains(&e.to_ascii_lowercase().as_str()))
+        .collect();
     let found = |base: PathBuf| -> Option<PathBuf> {
         if base.extension().is_some() && base.is_file() {
             return Some(base);
         }
         // in lower case, as programs' files are named: PATHEXT spells them
         // in capitals, and the file is found either way
-        exts.split(';')
-            .filter(|e| !e.is_empty())
+        exts.iter()
             .map(|e| PathBuf::from(format!("{}{}", base.display(), e.to_lowercase())))
             .find(|p| p.is_file())
     };
@@ -135,6 +153,8 @@ pub fn find_program_in(
     }
     path?
         .split(';')
+        // a folder in quotes, as an installer can write one with spaces
+        .map(|dir| dir.trim().trim_matches('"'))
         .filter(|dir| !dir.is_empty())
         .find_map(|dir| found(Path::new(dir).join(name)))
 }
@@ -164,6 +184,34 @@ fn executable(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    /// A PATH entry in quotes, as an installer can write one with spaces.
+    #[cfg(windows)]
+    #[test]
+    fn a_quoted_folder_on_the_path_is_searched() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("with space");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("tool.exe"), b"").unwrap();
+        let path = format!("\"{}\"", folder.display());
+        assert_eq!(
+            find_program("tool", Some(&path)),
+            Some(folder.join("tool.exe"))
+        );
+    }
+
+    /// PATHEXT can name scripts that only their own program runs, such as
+    /// .JS: a terminal can start none of them itself.
+    #[cfg(windows)]
+    #[test]
+    fn only_a_program_windows_can_start_is_found() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("tool.js"), b"").unwrap();
+        std::fs::write(dir.path().join("tool.exe"), b"").unwrap();
+        let path = dir.path().display().to_string();
+        let found = find_program_in("tool", Some(&path), Some(".JS;.EXE"), None);
+        assert_eq!(found, Some(dir.path().join("tool.exe")));
+    }
     use super::*;
 
     fn pairs(vars: &[(&str, &str)]) -> Vec<(String, String)> {

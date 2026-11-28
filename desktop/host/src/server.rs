@@ -643,8 +643,14 @@ fn hello_result(shared: &Shared) -> Value {
         "features": [],
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
-        "home": std::env::var("HOME").unwrap_or_default(),
-        "user": std::env::var("USER").unwrap_or_default(),
+        // Windows names them in USERPROFILE and USERNAME; HOME and USER
+        // are Git Bash's
+        "home": std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default(),
+        "user": std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_default(),
         "instance": shared.instance,
         "time": crate::now(),
     })

@@ -112,27 +112,61 @@ fn run(_shell: Option<&str>, _timeout: Duration) -> Result<Vars, String> {
 
 /// Puts the user's and the system's variables, as Windows reads them from
 /// the registry, over `env`; a variable only this process has stays.
-/// Adapted from herdr-core's crates/herdr-core/src/platform/windows_env.rs.
+/// This process's token, for reading the user's own environment.
 #[cfg(windows)]
 #[allow(unsafe_code)]
-fn refresh(env: &mut std::collections::BTreeMap<String, String>) -> std::io::Result<()> {
+fn user_token() -> std::io::Result<std::os::windows::io::OwnedHandle> {
     use std::os::windows::io::{FromRawHandle, OwnedHandle};
-    use windows_sys::Win32::Security::{TOKEN_DUPLICATE, TOKEN_QUERY};
-    use windows_sys::Win32::System::Environment::{
-        CreateEnvironmentBlock, DestroyEnvironmentBlock, ExpandEnvironmentStringsForUserW,
-    };
+    use windows_sys::Win32::Security::{TOKEN_DUPLICATE, TOKEN_IMPERSONATE, TOKEN_QUERY};
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
     let mut token = std::ptr::null_mut();
+    // impersonation too, which expanding the user's variables asks for
     // SAFETY: the token is owned below.
     crate::win::check(unsafe {
         OpenProcessToken(
             GetCurrentProcess(),
-            TOKEN_QUERY | TOKEN_DUPLICATE,
+            TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_IMPERSONATE,
             &mut token,
         )
     })?;
     // SAFETY: as above.
-    let token = unsafe { OwnedHandle::from_raw_handle(token.cast()) };
+    Ok(unsafe { OwnedHandle::from_raw_handle(token.cast()) })
+}
+
+/// `text` with the user's `%VARIABLES%` expanded.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn expand_for_user(
+    token: &std::os::windows::io::OwnedHandle,
+    text: &str,
+) -> std::io::Result<String> {
+    use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsForUserW;
+    let source: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+    let mut expanded = vec![0u16; 32_768];
+    // SAFETY: the source is NUL-terminated; the buffer holds its size.
+    crate::win::check(unsafe {
+        ExpandEnvironmentStringsForUserW(
+            crate::win::raw(token),
+            source.as_ptr(),
+            expanded.as_mut_ptr(),
+            expanded.len() as u32,
+        )
+    })?;
+    let len = expanded
+        .iter()
+        .position(|&c| c == 0)
+        .unwrap_or(expanded.len());
+    Ok(String::from_utf16_lossy(&expanded[..len]))
+}
+
+/// Adapted from herdr-core's crates/herdr-core/src/platform/windows_env.rs.
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn refresh(env: &mut std::collections::BTreeMap<String, String>) -> std::io::Result<()> {
+    use windows_sys::Win32::System::Environment::{
+        CreateEnvironmentBlock, DestroyEnvironmentBlock,
+    };
+    let token = user_token()?;
     let mut block = std::ptr::null_mut();
     // SAFETY: Windows writes a block it allocates, freed below.
     crate::win::check(unsafe { CreateEnvironmentBlock(&mut block, crate::win::raw(&token), 0) })?;
@@ -160,22 +194,7 @@ fn refresh(env: &mut std::collections::BTreeMap<String, String>) -> std::io::Res
         .find(|(key, _)| key.eq_ignore_ascii_case("PATH"))
         && path.contains('%')
     {
-        let source: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
-        let mut expanded = vec![0u16; 32_768];
-        // SAFETY: the source is NUL-terminated; the buffer holds its size.
-        crate::win::check(unsafe {
-            ExpandEnvironmentStringsForUserW(
-                crate::win::raw(&token),
-                source.as_ptr(),
-                expanded.as_mut_ptr(),
-                expanded.len() as u32,
-            )
-        })?;
-        let len = expanded
-            .iter()
-            .position(|&c| c == 0)
-            .unwrap_or(expanded.len());
-        *path = String::from_utf16_lossy(&expanded[..len]);
+        *path = expand_for_user(&token, path)?;
     }
     Ok(())
 }
@@ -461,6 +480,21 @@ mod tests {
         assert_eq!(
             path,
             "/usr/bin:/usr/local/bin:/opt/homebrew/bin:/Users/p/.local/bin"
+        );
+    }
+}
+
+#[cfg(all(test, windows))]
+mod token_tests {
+    #[test]
+    fn the_user_s_variables_expand_with_the_token_the_probe_opens() {
+        let token = super::user_token().unwrap();
+        // a system variable, and one of the user's own
+        let system = std::env::var("SystemRoot").unwrap();
+        let profile = std::env::var("USERPROFILE").unwrap();
+        assert_eq!(
+            super::expand_for_user(&token, r"%SystemRoot%\x;%USERPROFILE%\y").unwrap(),
+            format!(r"{system}\x;{profile}\y")
         );
     }
 }

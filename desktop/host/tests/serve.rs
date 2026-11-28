@@ -149,6 +149,20 @@ fn the_next_host_starts_while_a_client_of_the_last_one_holds_on() {
     drop(held);
 }
 
+/// Windows names the person and their folder in USERNAME and USERPROFILE;
+/// HOME and USER are Git Bash's.
+#[cfg(windows)]
+#[test]
+fn the_host_names_its_user_and_home_on_windows() {
+    let folders = folders();
+    let mut serve = common::command(&folders, &["serve"]);
+    serve.env_remove("HOME").env_remove("USER");
+    let host = common::started(serve, &folders);
+    let client = Client::connect(&host.registration).unwrap();
+    assert_eq!(client.hello["user"], std::env::var("USERNAME").unwrap());
+    assert_eq!(client.hello["home"], std::env::var("USERPROFILE").unwrap());
+}
+
 #[test]
 fn stop_ends_the_host_and_removes_its_registration_and_socket() {
     let folders = folders();

@@ -147,8 +147,9 @@ fn args(pid: u32) -> Option<Vec<String>> {
 
 /// The folder Windows keeps in the process's parameters, which only the
 /// process's memory has: the PEB points to them. A 32-bit process lays
-/// them out otherwise, and is left out.
-#[cfg(windows)]
+/// them out otherwise, and is left out, as is every process from a 32-bit
+/// build, whose offsets these are not.
+#[cfg(all(windows, target_pointer_width = "64"))]
 fn cwd(pid: u32) -> Option<String> {
     use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
     use windows_sys::Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation};
@@ -195,13 +196,14 @@ fn cwd(pid: u32) -> Option<String> {
             ) != 0
         };
         let mut word = [0u8; 8];
-        if !read(basic.PebBaseAddress as usize + PARAMETERS_IN_PEB, &mut word) {
+        let peb = basic.PebBaseAddress as usize;
+        if peb == 0 || !read(peb.checked_add(PARAMETERS_IN_PEB)?, &mut word) {
             return None;
         }
-        let parameters = u64::from_le_bytes(word) as usize;
+        let parameters = usize::try_from(u64::from_le_bytes(word)).ok()?;
         // Length u16, MaximumLength u16, padding, Buffer u64
         let mut string = [0u8; 16];
-        if !read(parameters + FOLDER_IN_PARAMETERS, &mut string) {
+        if parameters == 0 || !read(parameters.checked_add(FOLDER_IN_PARAMETERS)?, &mut string) {
             return None;
         }
         let len = usize::from(u16::from_le_bytes([string[0], string[1]]));
@@ -235,7 +237,11 @@ fn args(_: u32) -> Option<Vec<String>> {
     None
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    all(windows, target_pointer_width = "64")
+)))]
 fn cwd(_: u32) -> Option<String> {
     None
 }

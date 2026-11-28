@@ -91,7 +91,12 @@ pub fn current_user() -> io::Result<Vec<u8>> {
     let user = token_user(token);
     // SAFETY: the token was opened above.
     unsafe { CloseHandle(token) };
-    Ok(USER.get_or_init(|| user.unwrap_or_default()).clone())
+    // an error is not kept: the next call asks again
+    let user = user?;
+    if user.is_empty() {
+        return Err(io::Error::other("this process's user has no SID"));
+    }
+    Ok(USER.get_or_init(|| user).clone())
 }
 
 /// The user the process `pid` runs as, as the bytes of its SID. A process
@@ -115,6 +120,16 @@ pub fn user_of(pid: u32) -> io::Result<Vec<u8>> {
 
 /// A SID's text, `S-1-5-21-…`.
 pub fn sid_text(sid: &[u8]) -> String {
+    use windows_sys::Win32::Security::{GetLengthSid, IsValidSid};
+    // the bytes must hold a whole SID before Windows reads one from them
+    // SAFETY: IsValidSid and GetLengthSid read within the SID's header,
+    // which a slice of 8 bytes or more holds.
+    if sid.len() < 8
+        || unsafe { IsValidSid(sid.as_ptr() as *mut _) } == 0
+        || (unsafe { GetLengthSid(sid.as_ptr() as *mut _) } as usize) > sid.len()
+    {
+        return String::new();
+    }
     let mut text = null_mut();
     // SAFETY: `sid` holds a whole SID; the string is freed below.
     if unsafe { ConvertSidToStringSidW(sid.as_ptr() as *mut _, &mut text) } == 0 {

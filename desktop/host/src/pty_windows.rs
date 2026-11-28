@@ -1035,14 +1035,17 @@ mod tests {
     #[test]
     fn programs_are_found_with_the_terminal_s_own_pathext() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("tool.pyw"), b"").unwrap();
+        std::fs::write(dir.path().join("tool.exe"), b"").unwrap();
+        std::fs::write(dir.path().join("tool.cmd"), b"").unwrap();
         let path = dir.path().display().to_string();
-        let found = command_line(
+        // the terminal's order, not the host's
+        let line = command_line(
             &["tool".to_string()],
-            &env(&[("PATH", &path), ("PATHEXT", ".PYW")]),
+            &env(&[("PATH", &path), ("PATHEXT", ".CMD;.EXE")]),
             dir.path(),
-        );
-        assert!(found.is_ok());
+        )
+        .unwrap();
+        assert!(String::from_utf16_lossy(&line).contains("tool.cmd"));
     }
 
     /// A batch file in a folder whose name has a `%VARIABLE%` in it runs as
