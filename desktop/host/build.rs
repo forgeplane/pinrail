@@ -1,5 +1,8 @@
 //! On Windows, puts Microsoft's ConPTY beside the binaries this build
-//! makes: `conpty\conpty.dll` and `conpty\<arch>\OpenConsole.exe`, in the
+//! makes: `conpty\conpty.dll` and `conpty\<arch>\OpenConsole.exe` for
+//! each architecture, x64 and arm64, since conpty.dll starts the console of
+//! the machine's own architecture, which an x64 build emulated on ARM64 is
+//! not, and falls back to Windows' own without it; in the
 //! profile's folder, where `pinrail-host.exe` is, and in its `deps`
 //! folder, where the tests run. Windows' own ConPTY drops the escape
 //! sequences programs answer with, such as the replies to a device
@@ -47,7 +50,7 @@ fn main() {
         return;
     }
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let Some(&(_, name, dll_sha, console_sha)) = FILES.iter().find(|(a, ..)| *a == arch) else {
+    let Some(&(_, name, dll_sha, _)) = FILES.iter().find(|(a, ..)| *a == arch) else {
         panic!("no ConPTY is known for {arch}");
     };
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -55,14 +58,22 @@ fn main() {
     let profile = out.ancestors().nth(3).unwrap().to_path_buf();
     let unpacked = unpacked(&out.join("conpty").join(VERSION));
     let dll = unpacked.join(format!("runtimes/win-{name}/native/conpty.dll"));
-    let console = unpacked.join(format!("build/native/runtimes/{name}/OpenConsole.exe"));
     check(&dll, dll_sha);
-    check(&console, console_sha);
+    let consoles: Vec<(&str, PathBuf)> = FILES
+        .iter()
+        .map(|&(_, name, _, sha)| {
+            let console = unpacked.join(format!("build/native/runtimes/{name}/OpenConsole.exe"));
+            check(&console, sha);
+            (name, console)
+        })
+        .collect();
     for dir in [profile.clone(), profile.join("deps")] {
         let conpty = dir.join("conpty");
-        fs::create_dir_all(conpty.join(name)).unwrap();
         copy_if_changed(&dll, &conpty.join("conpty.dll"));
-        copy_if_changed(&console, &conpty.join(name).join("OpenConsole.exe"));
+        for (name, console) in &consoles {
+            fs::create_dir_all(conpty.join(name)).unwrap();
+            copy_if_changed(console, &conpty.join(name).join("OpenConsole.exe"));
+        }
     }
 }
 
@@ -130,11 +141,22 @@ fn check(file: &Path, sha256: &str) {
 
 /// Copies `from` over `to` unless `to` already has its content: a running
 /// host keeps its OpenConsole.exe open, and a build must not fail on it.
+/// The copy is made beside `to` and renamed over it, so that two builds of
+/// the crate at once, with and without its server, never see half a file.
 fn copy_if_changed(from: &Path, to: &Path) {
-    if fs::read(to).ok() == fs::read(from).ok() {
+    let wanted = fs::read(from).unwrap_or_else(|e| panic!("reading {}: {e}", from.display()));
+    if fs::read(to).ok().as_ref() == Some(&wanted) {
         return;
     }
-    fs::copy(from, to).unwrap_or_else(|e| panic!("copying to {}: {e}", to.display()));
+    let partial = to.with_extension(format!("partial-{}", std::process::id()));
+    fs::write(&partial, &wanted).unwrap_or_else(|e| panic!("writing {}: {e}", partial.display()));
+    if let Err(error) = fs::rename(&partial, to) {
+        let _ = fs::remove_file(&partial);
+        // another build put the same file there first
+        if fs::read(to).ok().as_ref() != Some(&wanted) {
+            panic!("copying to {}: {error}", to.display());
+        }
+    }
 }
 
 fn run(command: &mut Command) {

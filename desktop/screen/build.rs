@@ -350,9 +350,16 @@ fn zig_exe(zig: &str) -> Option<PathBuf> {
 fn which(program: &str) -> Option<PathBuf> {
     let program = Path::new(program);
     if program.components().count() > 1 {
-        return Some(program.to_path_buf());
+        // from this folder, as the build runs Zig from another
+        return Some(env::current_dir().ok()?.join(program));
     }
     env::split_paths(&env::var_os("PATH")?)
-        .flat_map(|dir| [dir.join(program), dir.join(program).with_extension("exe")])
+        .flat_map(|dir| {
+            let mut exe = dir.join(program).into_os_string();
+            // added, not swapped for an extension the name has, as in
+            // zig-0.17
+            exe.push(".exe");
+            [dir.join(program), PathBuf::from(exe)]
+        })
         .find(|p| p.is_file())
 }
