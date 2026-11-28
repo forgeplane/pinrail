@@ -930,6 +930,16 @@ pub fn run() {
             {
                 eprintln!("pinrail: the menu could not be set up: {error}");
             }
+            // Windows draws the menu as a bar under the title bar, above
+            // the app's own bar, so it is hidden there. Its accelerators
+            // never reach it while the web view has the keyboard, which
+            // is nearly always: on Windows the shell's own key handler
+            // runs the commands (ui/src/lib/commands.ts), and the web
+            // view copies and pastes by itself.
+            #[cfg(windows)]
+            if let Err(error) = app.hide_menu() {
+                eprintln!("pinrail: the menu bar could not be hidden: {error}");
+            }
             if let Err(error) = native::build_tray(app.handle()) {
                 eprintln!("pinrail: the menu bar icon could not be set up: {error}");
             }
