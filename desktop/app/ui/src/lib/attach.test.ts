@@ -2,6 +2,14 @@ import { describe, expect, test } from "vitest";
 import { fileName, freeName, linkedIn, markdownFor } from "./attach";
 
 describe("fileName", () => {
+  test("makes a name Windows cannot hold one it can, as the core does", () => {
+    expect(fileName("Screenshot 12:30:00.png")).toBe("Screenshot-12-30-00.png");
+    expect(fileName('a|b?c*d"e.txt')).toBe("a-b-c-d-e.txt");
+    expect(fileName("report.")).toBe("report");
+    expect(fileName("CON.txt")).toBe("file-CON.txt");
+    expect(fileName("console.txt")).toBe("console.txt");
+  });
+
   test("turns spaces, brackets and slashes into dashes", () => {
     expect(fileName("latency chart (final).png")).toBe("latency-chart-final-.png");
     expect(fileName("a/b\\c[1]<2>.txt")).toBe("a-b-c-1-2-.txt");

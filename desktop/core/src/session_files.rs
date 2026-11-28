@@ -163,14 +163,21 @@ fn segment(name: &str) -> bool {
 
 /// A name a file can have, from the one it came with: no folders, no
 /// spaces or brackets, not hidden, at most [`NAME_MAX`] bytes, as the
-/// window names attachments (`lib/attach.ts`).
+/// window names attachments (`lib/attach.ts`). And one every system can
+/// hold: none of what Windows refuses (`: " | ? *`), no dot at the end,
+/// which Windows drops, and not a device's name, such as `CON`.
 fn file_name(name: &str) -> String {
     // only the last part of a path
     let name = name.rsplit(['/', '\\']).next().unwrap_or("");
     let mut cleaned = String::new();
     let mut dash = false;
     for c in name.chars().filter(|c| !c.is_control()) {
-        if c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '<' | '>') {
+        if c.is_whitespace()
+            || matches!(
+                c,
+                '(' | ')' | '[' | ']' | '<' | '>' | ':' | '"' | '|' | '?' | '*'
+            )
+        {
             if !dash {
                 cleaned.push('-');
                 dash = true;
@@ -180,14 +187,27 @@ fn file_name(name: &str) -> String {
             dash = false;
         }
     }
-    let cleaned = cleaned.trim_start_matches(['.', '-']);
+    let cleaned = cleaned.trim_start_matches(['.', '-']).trim_end_matches('.');
     let (stem, ext) = split(cleaned);
     let stem = cut(stem, NAME_MAX.saturating_sub(ext.len()));
     if stem.is_empty() {
         format!("file{ext}")
+    } else if device(stem) {
+        format!("file-{stem}{ext}")
     } else {
         format!("{stem}{ext}")
     }
+}
+
+/// Whether a name's stem is a device's on Windows, with any extension.
+fn device(stem: &str) -> bool {
+    let base = stem.split('.').next().unwrap_or(stem).to_ascii_lowercase();
+    matches!(
+        base.as_str(),
+        "con" | "prn" | "aux" | "nul" | "conin$" | "conout$"
+    ) || (base.len() == 4
+        && (base.starts_with("com") || base.starts_with("lpt"))
+        && base.ends_with(|c: char| c.is_ascii_digit()))
 }
 
 /// A name's stem and extension. What follows the last dot is no extension
@@ -220,6 +240,23 @@ pub fn root(data_dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_name_windows_cannot_hold_is_made_one_it_can() {
+        // a stream on NTFS, and what Windows refuses in a name
+        assert_eq!(
+            file_name("Screenshot 12:30:00.png"),
+            "Screenshot-12-30-00.png"
+        );
+        assert_eq!(file_name("notes.txt:ads"), "notes.txt-ads");
+        assert_eq!(file_name("a|b?c*d\"e.txt"), "a-b-c-d-e.txt");
+        // a trailing dot Windows would drop, and a device's name
+        assert_eq!(file_name("report."), "report");
+        assert_eq!(file_name("CON.txt"), "file-CON.txt");
+        assert_eq!(file_name("nul"), "file-nul");
+        assert_eq!(file_name("com1.log"), "file-com1.log");
+        assert_eq!(file_name("console.txt"), "console.txt");
+    }
 
     #[test]
     fn a_name_loses_its_folders_spaces_and_leading_dots() {
