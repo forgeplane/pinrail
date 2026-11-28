@@ -28,7 +28,23 @@ export function runScript(script, args = [], options = {}) {
   return spawnSync(sh(), [script, ...args], { stdio: "inherit", ...options }).status ?? 1;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/** Whether this file is the script Node runs, however its path was spelt:
+ *  through a link, or with other capitals on Windows. */
+function isMain() {
+  if (!process.argv[1]) return false;
+  const real = (p) => {
+    try {
+      const resolved = fs.realpathSync(p);
+      return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+    } catch {
+      return null;
+    }
+  };
+  const self = real(fileURLToPath(import.meta.url));
+  return self !== null && real(process.argv[1]) === self;
+}
+
+if (isMain()) {
   const [script, ...args] = process.argv.slice(2);
   if (!script) {
     console.error("usage: node scripts/sh.mjs <script> [arguments]");
