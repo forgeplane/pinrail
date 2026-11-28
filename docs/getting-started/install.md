@@ -126,10 +126,10 @@ An empty list means that the command found the app. If the command cannot reach 
 ## Uninstalling
 
 1. In *Settings › Agents*, click **Remove** on each connected agent. This takes Pinrail's skill and hooks out of the agent's own folders.
-2. Quit Pinrail with **Stop agents and quit**. With no agent left and the app closed, the terminal host stops by itself within ten minutes. It leaves no `launchd` job and no `systemd` unit behind.
-3. Remove the app: drag it out of Applications on macOS, delete the AppImage, remove the `.deb` or `.rpm` package with your package manager, or on Windows uninstall Pinrail in *Settings › Apps*.
+2. Quit Pinrail with **Stop agents and quit**. With no agent left and the app closed, the terminal host stops by itself within ten minutes. It leaves no `launchd` job and no `systemd` unit behind. On Windows the uninstaller stops the host, and the agents that still run in it, in the next step.
+3. Remove the app: drag it out of Applications on macOS, delete the AppImage, remove the `.deb` or `.rpm` package with your package manager, or on Windows uninstall Pinrail in *Settings › Apps*. The Windows uninstaller closes the app, stops the terminal host, and removes `~\.local\bin\pinrail.exe`. It takes `~\.local\bin` out of your user `PATH` if Pinrail added it and nothing else is left in the folder. An update does none of this.
 4. Delete the data directory, `~/.local/share/pinrail` by default, or `%LOCALAPPDATA%\dev.pinrail.desktop` on Windows, where the uninstaller's *Delete the application data* box does it for you. It holds your sessions, work items, reviews and settings, and the copies of the terminal host.
-5. Delete `~/.local/bin/pinrail`, unless the package installed the command, and the line that adds `~/.local/bin` to your `PATH` if the setup added it to your shell's profile. On Windows, delete `~\.local\bin\pinrail.exe`, and take `~\.local\bin` out of your user `PATH` in *Settings › System › About › Advanced system settings › Environment Variables*.
+5. Delete `~/.local/bin/pinrail`, unless the package installed the command, and the line that adds `~/.local/bin` to your `PATH` if the setup added it to your shell's profile. On Windows the uninstaller has done this. If other programs keep their commands in `~\.local\bin`, the folder stays on your user `PATH`; you can take it out in *Settings › System › About › Advanced system settings › Environment Variables*.
 
 ## Next
 

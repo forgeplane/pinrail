@@ -23,6 +23,7 @@ mod notify_windows;
 mod quit;
 mod shell_profile;
 mod startup;
+mod uninstall;
 mod updater;
 mod window_buttons;
 
@@ -524,6 +525,18 @@ async fn cli_status() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Puts the CLI's folder on the user's PATH, and records in the data folder
+/// that Pinrail did when it was not there before, for the uninstaller, which
+/// takes off the PATH only what Pinrail put on it.
+#[cfg(windows)]
+fn put_on_user_path(dir: &Path) -> Result<bool, String> {
+    let added = cli_install::add_to_user_path(dir)?;
+    if added && let Err(error) = cli_install::record_path_entry(&Config::from_env().data_dir, dir) {
+        eprintln!("pinrail: cannot record the folder put on the PATH: {error}");
+    }
+    Ok(added)
+}
+
 /// Adds the line that puts `~/.local/bin` on the PATH to the file the
 /// person's shell reads at start, then reports as `cli_status`.
 #[tauri::command]
@@ -534,7 +547,7 @@ async fn add_cli_to_path() -> Result<cli_install::Status, String> {
         {
             let link = cli_install::link_path(&home);
             if let Some(dir) = link.parent() {
-                cli_install::add_to_user_path(dir)?;
+                put_on_user_path(dir)?;
             }
         }
         #[cfg(not(windows))]
@@ -707,9 +720,7 @@ async fn install_cli() -> Result<cli_install::Status, String> {
         let link = cli_install::link_path(&home);
         cli_install::install(mode, &bundled, &link)?;
         #[cfg(windows)]
-        let warning = link
-            .parent()
-            .and_then(|dir| cli_install::add_to_user_path(dir).err());
+        let warning = link.parent().and_then(|dir| put_on_user_path(dir).err());
         #[cfg(not(windows))]
         let warning = None;
         cli_install::remember_warning(warning);
@@ -795,6 +806,11 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     repeat_held_keys();
     let args: Vec<String> = std::env::args().collect();
+    // the uninstaller's hook, before it removes the app
+    #[cfg(windows)]
+    if uninstall::asked(&args) {
+        std::process::exit(uninstall::run());
+    }
     match headless::parse(&args) {
         Ok(Some(options)) => std::process::exit(headless::run(options)),
         Ok(None) => {}
