@@ -318,6 +318,23 @@ impl super::Runtime {
             .filter_map(|r| r.process)
             .filter(|(pid, started)| crate::presence::alive(*pid, started))
             .collect();
+        // the agent a lost run's launcher started, as cmd starts one on
+        // Windows: the session's own process, below one of them
+        let mut lost = lost;
+        if let Some((pid, started)) = self.db.session_process(&key.0, &key.1)?
+            && !lost.contains(&(pid, started.clone()))
+            && crate::presence::alive(pid, &started)
+            && let Ok(agent) = u32::try_from(pid)
+            && let Some(parent) = pinrail_runtime::process::process(agent).map(|p| p.parent)
+            && pinrail_runtime::process::ancestor(parent, &|p| {
+                lost.iter()
+                    .any(|(l, s)| *l == i64::from(p.pid) && *s == p.started)
+            })
+            .is_some()
+        {
+            lost.push((pid, started));
+        }
+        let lost = lost;
         let send = |force| {
             for (pid, started) in &lost {
                 if let Ok(pid) = u32::try_from(*pid) {
@@ -1066,7 +1083,15 @@ impl super::Runtime {
         let link = self.ready_host().ok_or(RunError::HostOffline)?;
         let names: Vec<&str> = agents.iter().map(|a| a.program.as_str()).collect();
         let mut params = json!({ "names": names });
-        if let Some(path) = self.run_env.get("PATH") {
+        // Windows names it Path as often as PATH
+        let path = self.run_env.iter().find(|(name, _)| {
+            if cfg!(windows) {
+                name.eq_ignore_ascii_case("PATH")
+            } else {
+                name.as_str() == "PATH"
+            }
+        });
+        if let Some((_, path)) = path {
             params["path"] = json!(path);
         }
         match link.call("programs.find", params).await {

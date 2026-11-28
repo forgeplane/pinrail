@@ -1775,6 +1775,104 @@ async fn resuming_a_session_lost_with_its_host_stops_the_agent_left_running() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn resuming_a_session_lost_with_its_host_stops_an_agent_its_launcher_started() {
+    let app = linked().await;
+    let here = folder(&app, "lost-launched");
+    let session = stopped_session(&app, &here).await;
+    // the run's process is a launcher, as cmd running an npm shim is on
+    // Windows, and the agent the session reported is its child
+    // it prints the child's pid: on Windows PowerShell, as Git's sh would
+    // print an MSYS one
+    #[cfg(windows)]
+    let mut launcher = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "$p = Start-Process ping -ArgumentList '-n','60','127.0.0.1' -PassThru -WindowStyle Hidden; $p.Id; $p.WaitForExit()",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    #[cfg(unix)]
+    let mut launcher = std::process::Command::new("sh")
+        .args(["-c", "sleep 60 & echo $!; wait"])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let launcher_pid = launcher.id();
+    let launcher_started = pinrail_runtime::process::process(launcher_pid)
+        .unwrap()
+        .started;
+    // the first line that is a number
+    let pid: u32 =
+        std::io::BufRead::lines(std::io::BufReader::new(launcher.stdout.take().unwrap()))
+            .map_while(Result::ok)
+            .find_map(|line| line.trim().parse().ok())
+            .unwrap();
+    let started = pinrail_runtime::process::process(pid).unwrap().started;
+    let db = common::db(&app);
+    let now = chrono::Utc::now();
+    db.insert_run(
+        &pinrail_core::db::NewRun {
+            id: "run_lost",
+            host: "local",
+            agent: "claude-code",
+            kind: "resume",
+            folder: &here,
+            argv: &["claude".to_string()],
+            task: None,
+            args: &[],
+            created_by: "app",
+            token_digest: "d-lost",
+            session: Some(&session),
+            agent_session: None,
+            checkout: None,
+        },
+        now,
+    )
+    .unwrap();
+    db.run_spawned(
+        "run_lost",
+        "local:t_lost",
+        Some((launcher_pid as i64, launcher_started.clone())),
+    )
+    .unwrap();
+    db.end_run("run_lost", "host_lost", None, None, now)
+        .unwrap();
+    let agent_session = db
+        .session("claude-code", &session, now)
+        .unwrap()
+        .unwrap()
+        .agent_session
+        .unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/sessions/claude-code/{agent_session}/reports"),
+        Some(
+            json!({"event": "prompt", "at": chrono::Utc::now().to_rfc3339(),
+                    "process": {"pid": pid, "started": started},
+                    "origin": {"folder": here}}),
+        ),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+
+    let (status, answer) = resume(&app, "claude-code", &session).await;
+    assert_eq!(status, StatusCode::CREATED, "{answer}");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while pinrail_runtime::process::process(pid).is_some_and(|p| p.started == started) {
+        assert!(
+            Instant::now() < deadline,
+            "the agent left running still runs"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let _ = launcher.kill();
+    let _ = launcher.wait();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_agent_starts_and_resumes_with_the_person_s_arguments() {
     let app = linked().await;
     app.state
