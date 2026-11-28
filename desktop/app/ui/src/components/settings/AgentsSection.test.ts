@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { connectionNote, connectionParts, type AgentStatus, type Integration } from "./AgentsSection";
+import { connectionNote, connectionParts, where, type AgentStatus, type Integration } from "./AgentsSection";
+
+test("a skill's folder shows with ~ on Windows too", () => {
+  expect(where("/Users/you/.claude/skills/pinrail/SKILL.md")).toBe("~/.claude/skills/pinrail");
+  expect(where(String.raw`C:\Users\you\.claude\skills\pinrail\SKILL.md`)).toBe(String.raw`~\.claude\skills\pinrail`);
+});
 
 const claude = (fields: Partial<AgentStatus> = {}, hooks: Integration["state"] | null = "current"): AgentStatus => ({
   id: "claude-code",

@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLatest } from "./useLatest";
+import { onWindows } from "./platform";
 
 type Result = { 0: { transcript: string }; isFinal: boolean };
 type Recognition = {
@@ -29,14 +30,16 @@ const Recognizer: RecognitionClass | undefined =
 export const canDictate = !!Recognizer;
 
 /** The message to show when recognition stops with an error, or null when there is none. */
-export function dictationError(error: string): string | null {
+export function dictationError(error: string, windows = onWindows): string | null {
   switch (error) {
     case "aborted":
     case "no-speech":
       return null;
     case "not-allowed":
     case "service-not-allowed":
-      return "Pinrail may not use the microphone or speech recognition. Allow both in System Settings › Privacy & Security.";
+      return windows
+        ? "Pinrail may not use the microphone. Allow it in Windows' Settings › Privacy & security › Microphone."
+        : "Pinrail may not use the microphone or speech recognition. Allow both in System Settings › Privacy & Security.";
     case "audio-capture":
       return "No microphone was found.";
     case "network":

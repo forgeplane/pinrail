@@ -19,4 +19,10 @@ describe("shortPath", () => {
       String.raw`D:\…\packages\web`,
     );
   });
+
+  it("keeps a network share's server and share at the start", () => {
+    expect(shortPath(String.raw`\\server\share\projects\clients\acme\packages\web`)).toBe(
+      String.raw`\\server\share\…\packages\web`,
+    );
+  });
 });

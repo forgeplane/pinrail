@@ -46,8 +46,10 @@ describe("dictationError", () => {
 
   test("says what to do for a refused microphone, and names an unknown error", async () => {
     const { dictationError } = await import("./dictation");
-    expect(dictationError("not-allowed")).toMatch(/Privacy & Security/);
-    expect(dictationError("service-not-allowed")).toBe(dictationError("not-allowed"));
+    expect(dictationError("not-allowed", false)).toMatch(/System Settings › Privacy & Security/);
+    expect(dictationError("service-not-allowed", false)).toBe(dictationError("not-allowed", false));
+    // Windows has its own settings, which name it otherwise
+    expect(dictationError("not-allowed", true)).toMatch(/Windows' Settings › Privacy & security › Microphone/);
     expect(dictationError("audio-capture")).toBe("No microphone was found.");
     expect(dictationError("bad-grammar")).toBe("Dictation stopped: bad-grammar.");
   });

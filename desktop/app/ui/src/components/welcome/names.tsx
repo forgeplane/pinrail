@@ -23,7 +23,9 @@ export const shortPath = (folder: string, max = 40) => {
   const sep = path.includes("\\") && !path.includes("/") ? "\\" : "/";
   const parts = path.split(sep);
   const end = parts.slice(-2).join(sep);
-  const start = parts[0] === "" ? `${sep}${parts[1]}` : parts[0];
+  // a network share's start is its server and share: \\server\share
+  const share = sep === "\\" && path.startsWith("\\\\");
+  const start = share ? `\\\\${parts[2]}\\${parts[3]}` : parts[0] === "" ? `${sep}${parts[1]}` : parts[0];
   const kept = `${start}${sep}…${sep}${end}`;
   return kept.length < path.length ? kept : path;
 };
