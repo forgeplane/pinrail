@@ -22,6 +22,8 @@ export interface KeyTarget {
 
 export interface KeyboardOptions {
   mac: boolean;
+  /** Ctrl+C and Ctrl+V copy and paste as well, as in Windows Terminal. */
+  windows?: boolean;
   optionAsMeta: OptionAsMeta;
   /** The keys Shift+Enter sends, a new line in the agent's input, or null
    *  to encode Shift+Enter as any other key. */
@@ -189,20 +191,24 @@ export class Keyboard {
     if (event.key === "Alt") this.rightOption = event.code === "AltRight";
     // a composition sends its text when it ends
     if (event.isComposing || this.composing || event.keyCode === 229) return;
-    const { mac } = this.options;
+    const { mac, windows } = this.options;
     const key = event.key.toLowerCase();
-    // copy: Cmd+C on macOS, Ctrl+Shift+C on Linux, with a selection
+    // copy: Cmd+C on macOS, Ctrl+Shift+C elsewhere, with a selection
     const clipboardKey = mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && event.shiftKey;
-    if (clipboardKey && key === "c") {
+    // and on Windows Ctrl+C, which is the program's interrupt when nothing
+    // is selected, and Ctrl+V, as Windows Terminal takes them
+    const windowsKey = !!windows && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+    if ((clipboardKey || windowsKey) && key === "c") {
       const text = this.target.selectionText();
       if (text) {
         event.preventDefault();
         this.options.copy(text);
+        return;
       }
-      return;
+      if (clipboardKey) return;
     }
     // paste: the browser's paste event follows, which encodes it
-    if (clipboardKey && key === "v") return;
+    if ((clipboardKey || windowsKey) && key === "v") return;
     // the window's own shortcuts: Cmd on macOS, Ctrl+Shift on Linux
     if (mac ? event.metaKey : event.ctrlKey && event.shiftKey && !event.metaKey) return;
     if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && this.options.newline) {

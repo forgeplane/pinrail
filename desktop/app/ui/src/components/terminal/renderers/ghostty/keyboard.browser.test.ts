@@ -115,6 +115,28 @@ test("Ctrl+Shift+C copies the selection on Linux, and Cmd+C on macOS", async () 
   expect(mac.sent).toEqual([["key", "\x03"]]);
 });
 
+test("Ctrl+V pastes on Windows, and Ctrl+C copies a selection or interrupts", async () => {
+  const windows = await rig({ windows: true });
+  const prevented: boolean[] = [];
+  windows.keyboard.input.addEventListener("keydown", (e) => queueMicrotask(() => prevented.push(e.defaultPrevented)));
+  // the browser's paste event follows, as for Ctrl+Shift+V
+  await userEvent.keyboard("{Control>}v{/Control}");
+  expect(windows.sent).toEqual([]);
+  expect(prevented).toEqual([false, false]);
+  windows.write("hello world");
+  windows.core.setSelection({ x: 0, y: 0 }, { x: 4, y: 0 });
+  await userEvent.keyboard("{Control>}c{/Control}");
+  expect(windows.copied).toEqual(["hello"]);
+  expect(windows.sent).toEqual([]);
+  windows.core.clearSelection();
+  await userEvent.keyboard("{Control>}c{/Control}");
+  expect(windows.sent).toEqual([["key", "\x03"]]);
+  // on Linux, Ctrl+V is the program's
+  const linux = await rig();
+  await userEvent.keyboard("{Control>}v{/Control}");
+  expect(linux.sent).toEqual([["key", "\x16"]]);
+});
+
 test("Ctrl+Shift keys are the window's on Linux, and Cmd keys on macOS", async () => {
   const linux = await rig();
   const prevented: boolean[] = [];

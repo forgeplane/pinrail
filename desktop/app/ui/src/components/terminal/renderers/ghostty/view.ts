@@ -7,6 +7,7 @@
 
 import "./ghostty.css";
 import { isMac } from "../../../../lib/keys";
+import { onWindows } from "../../../../lib/platform";
 import type {
   BenchHooks,
   InputKind,
@@ -146,6 +147,7 @@ class GhosttyView implements TerminalView, BenchHooks {
     });
     this.keyboard = new Keyboard(element, this.core, (bytes, kind) => this.input(bytes, kind), {
       mac: isMac,
+      windows: onWindows,
       optionAsMeta: options.optionAsMeta ?? "off",
       newline: null,
       copy: (text) => void navigator.clipboard?.writeText(text),
