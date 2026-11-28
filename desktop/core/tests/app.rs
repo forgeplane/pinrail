@@ -1,5 +1,7 @@
 //! Application operations without an HTTP router or a desktop runtime.
 
+mod common;
+
 use pinrail_core::db::Db;
 use pinrail_core::plugins::InstallOptions;
 use pinrail_core::reviews::Source;
@@ -256,24 +258,21 @@ fn the_data_directory_is_readable_by_its_owner_only() {
     config.person_token = "secret".to_string();
     Pinrail::open(config.clone()).unwrap();
     pinrail_core::person_token::sync(&config, true).unwrap();
-    let user = std::env::var("USERNAME").unwrap().to_lowercase();
     for path in [dir.clone(), dir.join("person-token")] {
-        let output = std::process::Command::new("icacls")
-            .arg(&path)
-            .output()
-            .unwrap();
-        let acl = String::from_utf8_lossy(&output.stdout).to_lowercase();
-        assert!(acl.contains(&format!("\\{user}:")), "{acl}");
-        assert!(acl.contains("nt authority\\system:"), "{acl}");
-        for other in [
-            "builtin\\users",
-            "everyone",
-            "authenticated users",
-            "builtin\\administrators",
-        ] {
-            assert!(!acl.contains(other), "{other} in {acl}");
-        }
+        common::owner_only(&path).unwrap();
     }
+    // and an existing one that everyone may read is closed
+    let open = root.path().join("open");
+    std::fs::create_dir(&open).unwrap();
+    let granted = std::process::Command::new("icacls")
+        .arg(&open)
+        .args(["/grant", "*S-1-1-0:(OI)(CI)R"])
+        .output()
+        .unwrap();
+    assert!(granted.status.success());
+    assert!(common::owner_only(&open).is_err());
+    Pinrail::open(Config::new(&open, 0)).unwrap();
+    common::owner_only(&open).unwrap();
 }
 
 #[test]

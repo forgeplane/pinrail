@@ -303,10 +303,10 @@ pub fn program(dir: &std::path::Path, name: &str, script: &str) {
     if !kept.is_file() {
         std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
         // written beside it and renamed, as other tests may run it meanwhile
-        let fresh = kept.with_extension(std::process::id().to_string());
+        let fresh = kept.with_extension(unique());
         std::fs::write(&fresh, content).unwrap();
         std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::rename(&fresh, &kept).unwrap();
+        put_in_place(&fresh, &kept);
     }
     std::fs::create_dir_all(dir).unwrap();
     std::os::unix::fs::symlink(&kept, dir.join(name)).unwrap();
@@ -393,9 +393,9 @@ pub fn node() -> std::path::PathBuf {
 pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
     let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude.cjs");
     if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT_JS) {
-        let fresh = script.with_extension(format!("{}", std::process::id()));
+        let fresh = script.with_extension(unique());
         std::fs::write(&fresh, STAND_IN_AGENT_JS).unwrap();
-        std::fs::rename(&fresh, &script).unwrap();
+        put_in_place(&fresh, &script);
     }
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
@@ -417,10 +417,10 @@ pub fn stand_in_path_as(dir: &std::path::Path, names: &[&str]) -> String {
     let script = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("stand-in-claude");
     if std::fs::read_to_string(&script).ok().as_deref() != Some(STAND_IN_AGENT) {
         // written beside it and renamed, as other tests may run it meanwhile
-        let fresh = script.with_extension(format!("{}", std::process::id()));
+        let fresh = script.with_extension(unique());
         std::fs::write(&fresh, STAND_IN_AGENT).unwrap();
         std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::rename(&fresh, &script).unwrap();
+        put_in_place(&fresh, &script);
     }
     let bin = dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
@@ -496,14 +496,26 @@ pub fn make_writable(path: &std::path::Path) {
 
 /// A symbolic link at `link` to `target`: Windows makes a link to a file
 /// and one to a folder differently.
-pub fn symlink(target: &std::path::Path, link: &std::path::Path) {
+/// Whether it was made: Windows makes links only with Developer Mode on, or
+/// for an administrator, and a test without one says so and goes no further.
+#[must_use]
+pub fn symlink(target: &std::path::Path, link: &std::path::Path) -> bool {
     #[cfg(unix)]
-    std::os::unix::fs::symlink(target, link).unwrap();
+    let made = std::os::unix::fs::symlink(target, link);
     #[cfg(windows)]
-    if target.is_dir() {
-        std::os::windows::fs::symlink_dir(target, link).unwrap();
+    let made = if target.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link)
     } else {
-        std::os::windows::fs::symlink_file(target, link).unwrap();
+        std::os::windows::fs::symlink_file(target, link)
+    };
+    match made {
+        Ok(()) => true,
+        // ERROR_PRIVILEGE_NOT_HELD
+        Err(error) if cfg!(windows) && error.raw_os_error() == Some(1314) => {
+            eprintln!("skipped: making a link needs Developer Mode on Windows");
+            false
+        }
+        Err(error) => panic!("{error}"),
     }
 }
 
@@ -511,24 +523,53 @@ pub fn symlink(target: &std::path::Path, link: &std::path::Path) {
 /// its ACL on Windows.
 #[cfg(windows)]
 pub fn owner_only(path: &std::path::Path) -> Result<(), String> {
-    let output = std::process::Command::new("icacls")
-        .arg(path)
+    // the descriptor as SDDL, which names accounts by their SIDs in every
+    // language, and this user's SID
+    let output = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "(Get-Acl -LiteralPath $env:PINRAIL_ACL_PATH).Sddl; \
+             [Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+        ])
+        .env("PINRAIL_ACL_PATH", path)
         .output()
         .unwrap();
-    let acl = String::from_utf8_lossy(&output.stdout).to_lowercase();
-    let user = std::env::var("USERNAME").unwrap().to_lowercase();
-    if !acl.contains(&format!("\\{user}:")) || !acl.contains("nt authority\\system:") {
-        return Err(acl);
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    let mut lines = text.lines();
+    let (sddl, user) = (
+        lines.next().unwrap_or_default(),
+        lines.next().unwrap_or_default(),
+    );
+    let dacl = sddl.split("D:").nth(1).unwrap_or_default();
+    let dacl = dacl.split("S:").next().unwrap_or_default();
+    // its own, protected, or inherited from a folder that is so
+    let grants = dacl.matches("(A;").count();
+    let ok = grants == 2
+        && dacl.contains(";;;SY)")
+        && !user.is_empty()
+        && dacl.contains(&format!(";;;{user})"));
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("{sddl} (this user {user})"))
     }
-    for other in [
-        "builtin\\users",
-        "everyone",
-        "authenticated users",
-        "builtin\\administrators",
-    ] {
-        if acl.contains(other) {
-            return Err(acl);
-        }
+}
+
+/// A name for a file written beside another, of this process and this
+/// call: tests of one binary run on threads of the one process.
+fn unique() -> String {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{}-{n}", std::process::id())
+}
+
+/// Renames `fresh` over `file`. On Windows a file another test runs cannot
+/// be replaced: one that already holds the same is as good.
+fn put_in_place(fresh: &std::path::Path, file: &std::path::Path) {
+    if let Err(error) = std::fs::rename(fresh, file) {
+        let same = std::fs::read(fresh).ok() == std::fs::read(file).ok();
+        let _ = std::fs::remove_file(fresh);
+        assert!(same, "{}: {error}", file.display());
     }
-    Ok(())
 }
