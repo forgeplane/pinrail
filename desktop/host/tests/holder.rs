@@ -310,3 +310,49 @@ fn a_holder_with_nothing_to_hold_exits() {
     }
     assert!(!holder.socket.exists());
 }
+
+/// A host that hangs: it asks and reads no answer, with its end of the
+/// connection open. The answers fill the connection, and the holder's
+/// write of the next one waits for room that never comes.
+#[test]
+fn a_host_that_stops_reading_does_not_keep_the_next_host_out() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let folders = folders();
+    let holder = holder(&folders, 30);
+    let (hung, _) = connect(&holder, SECRET);
+    let asked = Arc::new(AtomicU64::new(0));
+    {
+        let (hung, asked) = (hung.try_clone().unwrap(), asked.clone());
+        std::thread::spawn(move || {
+            while fdpass::send(&hung, &json!({"op": "list", "id": 1}), &[]).is_ok() {
+                asked.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+    }
+    // until the holder takes no more requests: it waits to write
+    let deadline = Instant::now() + common::within(30);
+    let mut before = 0;
+    loop {
+        std::thread::sleep(Duration::from_millis(500));
+        let now = asked.load(Ordering::Relaxed);
+        if now > 0 && now == before {
+            break;
+        }
+        before = now;
+        assert!(
+            Instant::now() < deadline,
+            "the holder never waited to write"
+        );
+    }
+
+    // the next host is let in, and served
+    let next = net::connect(&holder.socket).unwrap();
+    next.set_read_timeout(Some(common::within(10))).unwrap();
+    fdpass::send(&next, &json!({"secret": SECRET, "protocol": 1}), &[]).unwrap();
+    let hello = fdpass::recv(&next).expect("the holder let no other host in");
+    assert_eq!(hello.unwrap().0["protocol"], 1);
+    let (listed, _) = request(&next, json!({"op": "list", "id": 2}), &[]);
+    assert_eq!(listed["terminals"], json!([]));
+    drop(hung);
+}

@@ -52,12 +52,33 @@ struct Held {
     exit: Option<Exit>,
 }
 
+/// The holder's end of its connection to a host, for what it sends.
+struct Host {
+    stream: Stream,
+    /// Held for each message sent: answers and events go from several
+    /// threads, and a message written in parts must not have another's
+    /// between them.
+    sending: Mutex<()>,
+}
+
+impl Host {
+    /// Sends one message whole. It waits for as long as the host does not
+    /// read, so it is never called with the holder's state locked: a host
+    /// that hangs then holds up what is sent to it and nothing else. The
+    /// wait ends when the connection is shut down, as it is when another
+    /// host connects.
+    fn send(&self, value: &Value, fds: &[fdpass::Raw]) {
+        let _whole = self.sending.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = fdpass::send(&self.stream, value, fds);
+    }
+}
+
 #[derive(Default)]
 struct State {
     terminals: BTreeMap<String, Held>,
     /// The connected host, for replies and events, and its connection's
     /// number.
-    host: Option<Stream>,
+    host: Option<Arc<Host>>,
     connection: u64,
     /// When the last host left, or the holder started.
     alone_since: Option<Instant>,
@@ -257,24 +278,30 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
     let Ok(writer) = stream.try_clone() else {
         return;
     };
-    let mine = {
+    let host = Arc::new(Host {
+        stream: writer,
+        sending: Mutex::new(()),
+    });
+    let (mine, exits) = {
         let mut state = lock(state);
-        if let Some(old) = state.host.replace(writer) {
-            let _ = old.shutdown(std::net::Shutdown::Both);
+        if let Some(old) = state.host.replace(host.clone()) {
+            // which also ends a write that waits for the old host to read
+            let _ = old.stream.shutdown(std::net::Shutdown::Both);
         }
         state.connection += 1;
         state.alone_since = None;
-        // exits that came while no host was connected
+        // exits that came while no host was connected. An exit after this
+        // finds the host in the state, and is sent by the one that saw it.
         let exits: Vec<(String, Exit)> = state
             .terminals
             .iter()
             .filter_map(|(id, held)| Some((id.clone(), held.exit?)))
             .collect();
-        for (terminal, exit) in exits {
-            send_on(&state, &exited(&terminal, exit), &[]);
-        }
-        state.connection
+        (state.connection, exits)
     };
+    for (terminal, exit) in exits {
+        host.send(&exited(&terminal, exit), &[]);
+    }
     while let Ok(Some((request, fds))) = fdpass::recv(&stream) {
         let id = request["id"].clone();
         let mut fds = fds.into_iter();
@@ -292,14 +319,14 @@ fn serve(stream: Stream, state: &Shared, registration: &Path, instance: &str) {
             ),
         };
         answer["id"] = id;
-        let state = lock(state);
-        // an answer for this connection's host, not for one that replaced
-        // it meanwhile, whose own requests have the same ids
-        if state.connection != mine {
+        // a host that replaced this one is asked nothing more by it; the
+        // answer goes on this connection, never on the new host's, whose
+        // own requests have the same ids
+        if lock(state).connection != mine {
             break;
         }
         let raw: Vec<fdpass::Raw> = out.iter().map(fdpass::raw).collect();
-        send_on(&state, &answer, &raw);
+        host.send(&answer, &raw);
     }
     let mut state = lock(state);
     if state.connection == mine {
@@ -332,12 +359,6 @@ fn handshake(stream: &Stream, registration: &Path, instance: &str) -> bool {
         &[],
     )
     .is_ok()
-}
-
-fn send_on(state: &State, value: &Value, fds: &[fdpass::Raw]) {
-    if let Some(host) = &state.host {
-        let _ = fdpass::send(host, value, fds);
-    }
 }
 
 fn exited(terminal: &str, exit: Exit) -> Value {
@@ -439,15 +460,24 @@ fn watch_exit(state: &Shared, terminal: &str, pid: u32, waiter: impl FnOnce() ->
     let Ok(exit) = waiter() else {
         return;
     };
-    let mut state = lock(state);
-    match state.terminals.get_mut(terminal) {
-        Some(held) if held.holding.pid == pid => {
-            held.exit = Some(exit);
-            held.holding.exited();
-            send_on(&state, &exited(terminal, exit), &[]);
+    let host = {
+        let mut state = lock(state);
+        match state.terminals.get_mut(terminal) {
+            Some(held) if held.holding.pid == pid => {
+                held.exit = Some(exit);
+                held.holding.exited();
+                state.host.clone()
+            }
+            // forgotten before it exited: nothing will signal it now
+            _ => {
+                pty::reap(pid);
+                return;
+            }
         }
-        // forgotten before it exited: nothing will signal it now
-        _ => pty::reap(pid),
+    };
+    // a host that connects from here on is told of the exit as it connects
+    if let Some(host) = host {
+        host.send(&exited(terminal, exit), &[]);
     }
 }
 
