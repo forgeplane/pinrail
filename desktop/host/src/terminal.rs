@@ -64,10 +64,64 @@ fn leaves_alternate_at(bytes: &[u8]) -> Option<usize> {
     None
 }
 
-/// Whether `bytes` turn focus reporting (mode 1004) on.
+/// Whether `bytes` turn focus reporting (mode 1004) on, read on their own.
+#[cfg(test)]
 fn asks_for_focus_reports(bytes: &[u8]) -> bool {
-    const ON: &[u8] = b"\x1b[?1004h";
-    bytes.windows(ON.len()).any(|window| window == ON)
+    FocusAsks::default().feed(bytes)
+}
+
+/// Finds a program's requests to turn focus reporting (mode 1004) on in
+/// its output: `CSI ? … h` with 1004 among its modes, as in
+/// `\x1b[?1004;2004h`, whole or cut between two reads.
+#[derive(Default)]
+struct FocusAsks {
+    /// An unfinished request at the end of the last read.
+    held: Vec<u8>,
+}
+
+impl FocusAsks {
+    /// The longest request it holds on to.
+    const LONGEST: usize = 64;
+
+    /// Whether `bytes`, after what came before, ask for focus reports.
+    fn feed(&mut self, bytes: &[u8]) -> bool {
+        let mut data = std::mem::take(&mut self.held);
+        data.extend_from_slice(bytes);
+        let mut asked = false;
+        let mut at = 0;
+        while let Some(found) = data[at..].iter().position(|&b| b == 0x1b) {
+            let start = at + found;
+            let rest = &data[start..];
+            // ESC [ ? then digits and ;, then the final byte
+            let params = rest.get(3..).map(|p| {
+                p.iter()
+                    .take_while(|b| b.is_ascii_digit() || **b == b';')
+                    .count()
+            });
+            let complete = rest.len() >= 2 && rest[1] != b'[';
+            match params {
+                _ if complete => at = start + 1,
+                _ if rest.len() >= 3 && rest[2] != b'?' => at = start + 1,
+                Some(n) if rest.len() > 3 + n => {
+                    let modes = &rest[3..3 + n];
+                    if rest[3 + n] == b'h'
+                        && modes.split(|b| *b == b';').any(|mode| mode == b"1004")
+                    {
+                        asked = true;
+                    }
+                    at = start + 3 + n + 1;
+                }
+                // cut off: kept for the next read, if it is short enough
+                _ => {
+                    if rest.len() <= Self::LONGEST {
+                        self.held = rest.to_vec();
+                    }
+                    break;
+                }
+            }
+        }
+        asked
+    }
 }
 
 /// Feeds program output to `screen`. When the output leaves the alternate
@@ -442,6 +496,7 @@ impl Terminal {
             size: (cols, rows),
             ended: false,
             focus_reporting: false,
+            focus_asks: FocusAsks::default(),
             focused: false,
             kept: None,
             left_alternate: None,
@@ -695,6 +750,8 @@ struct Actor {
     for_viewers: Vec<u8>,
     /// Whether the program asked for focus reports (mode 1004).
     focus_reporting: bool,
+    /// The program's requests for focus reports, read across its output.
+    focus_asks: FocusAsks,
     /// Whether a controlling viewer's window is focused and shows the
     /// terminal.
     focused: bool,
@@ -1328,9 +1385,9 @@ impl Actor {
         // and passes each program's own request on: the mode is on by
         // then, so the screen signals no change, and the program waits to
         // be told all the same.
-        if cfg!(windows)
+        let asked = cfg!(windows) && self.focus_asks.feed(bytes);
+        if asked
             && self.focus_reporting
-            && asks_for_focus_reports(bytes)
             && !signals
                 .iter()
                 .any(|signal| matches!(signal, Signal::FocusReporting(_)))
@@ -1592,6 +1649,30 @@ pub fn screen(cols: u16, rows: u16, scrollback_lines: usize) -> io::Result<Box<d
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn focus_reports_asked_for_among_other_modes_are_seen() {
+        assert!(asks_for_focus_reports(b"\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"x\x1b[?1004;2004hy"));
+        assert!(asks_for_focus_reports(b"\x1b[?1000;1002;1004;1006h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?10041h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?1004l"));
+        assert!(!asks_for_focus_reports(b"\x1b[1004h"));
+    }
+
+    #[test]
+    fn a_focus_request_cut_between_two_reads_is_seen() {
+        for cut in 1..b"\x1b[?1004;2004h".len() {
+            let (first, second) = b"ab\x1b[?1004;2004hcd".split_at(cut + 2);
+            let mut asks = FocusAsks::default();
+            let asked = asks.feed(first) | asks.feed(second);
+            assert!(asked, "cut after {cut}");
+        }
+        // and nothing is held for good from text with no request
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"plain \x1b[1mbold\x1b[0m"));
+        assert!(asks.held.is_empty());
+    }
 
     #[test]
     fn a_standalone_ctrl_c_or_escape_is_an_interrupt() {
