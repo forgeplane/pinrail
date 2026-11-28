@@ -817,8 +817,15 @@ async fn the_agents_list_is_kept_and_checked_again_only_when_due() {
     // and so does a request that asks for it
     let (_, _) = call(&app, "GET", "/api/v1/agents/startable?refresh=true", None).await;
     becomes(3).await;
-    checked_after(&app, &second).await;
+    let third = checked_after(&app, &second).await;
     assert_eq!(counted(), 3);
+
+    // and one that waits for a check answers with what it found: an agent
+    // installed since the last check shows at once
+    let (status, body) = call(&app, "GET", "/api/v1/agents/startable?fresh=true", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(counted(), 4, "checked before the answer");
+    assert_ne!(body["checked_at"], third);
 }
 
 /// When the agents were checked, once a check after `before` finished.

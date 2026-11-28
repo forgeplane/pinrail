@@ -360,6 +360,15 @@ async fn startable(
     Query(query): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
     let refresh = query.get("refresh").is_some_and(|v| v == "true");
+    // fresh: answer with a check begun now, for a screen that showed the
+    // kept list and wants an agent installed since; a failed check leaves
+    // the kept list, as for any request
+    if query.get("fresh").is_some_and(|v| v == "true") {
+        let _ = state
+            .runtime()
+            .check_startable(Some(chrono::Utc::now()))
+            .await;
+    }
     match state.runtime().startable(refresh).await {
         Ok((body, due)) => {
             if due {
