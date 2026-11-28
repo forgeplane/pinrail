@@ -37,6 +37,10 @@ The way the host talks to the holder is also frozen. It has four messages, and a
 
 A holder also looks after its agents when no host is there. An agent that prints to a terminal that nobody reads would stop and wait. So a holder that still has agents, and has had no host for 5 seconds, starts a host itself.
 
+:::note[Programs an agent leaves running, on Windows]
+On macOS and Linux, a program that an agent starts in the background, such as a development server, can keep running after the agent exits. On Windows it cannot: when the agent exits, its terminal closes, and the programs that it started end with it. To keep a server running after the agent, start it outside Pinrail's terminal, for example in Windows Terminal.
+:::
+
 ## What keeps an agent running
 
 | What happens | The host | The holder and its agents |

@@ -74,6 +74,8 @@ A terminal finds `pinrail` only when `~/.local/bin` is on your `PATH`. When it i
 
 On Windows the `PATH` is a setting of your account, not a line in a file. The setup adds `~\.local\bin` to it, and when it could not, the step offers **Add it to your PATH**, and a PowerShell line that does the same. Open a new terminal afterwards.
 
+On Windows the agents' hooks also find `pinrail` on the `PATH`, as they run it with cmd, PowerShell or Git's bash. Until the step for the command is done, the hooks cannot report, and sessions show no status.
+
 When the step reads *Another one runs first*, a different `pinrail` is earlier on your `PATH`, for example one that you built from source. Put `~/.local/bin` earlier on the `PATH`, or remove the other one.
 
 You can also install the command later from **Settings › Data** with **Install the CLI**.
