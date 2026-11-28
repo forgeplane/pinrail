@@ -53,7 +53,8 @@ export default function (pi: Pi) {
       return;
     }
     try {
-      const child = spawn(cli, ["hook", "pi", event], { stdio: ["pipe", "ignore", "ignore"] });
+      // without a console window of its own on Windows
+      const child = spawn(cli, ["hook", "pi", event], { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
       child.on("error", () => {});
       child.stdin.on("error", () => {});
       child.stdin.end(body);

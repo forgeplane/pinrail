@@ -57,6 +57,13 @@ test.runIf(process.platform === "win32")("on Windows a path reads with either se
   expect(replies).toEqual([{ sessionID: "ses_1", requestID: "per_8", decision: "once" }]);
 });
 
+test("a path that climbs out of the sessions folder still asks", async () => {
+  const { replies, ask } = opened();
+  ask("per_9", "external_directory", [`${folder}/../../../../../etc/*`]);
+  await Promise.resolve();
+  expect(replies).toEqual([]);
+});
+
 test("any other folder, a folder beside the sessions one, or another action still asks", async () => {
   const { replies, ask } = opened();
   ask("per_2", "external_directory", ["/Users/me/secrets/*"]);

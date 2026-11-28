@@ -26,26 +26,34 @@ const sessionFiles = path.join(
   "sessions",
 );
 
-/** A path as it compares: on Windows either separator, and any case. */
-const comparable = (p) => (windows ? p.replaceAll("/", "\\").toLowerCase() : p);
+/** Whether a resource OpenCode names, a folder or `folder/*`, is inside
+ *  Pinrail's session files: resolved first, so that `..` cannot climb out,
+ *  and on Windows without the `\\?\` of a long path, in either case,
+ *  which path.relative ignores there. */
+function insideSessionFiles(resource) {
+  let target = resource.replace(/[\\/]\*$/, "");
+  if (windows) target = target.replace(/^\\\\\?\\/, "");
+  const relative = path.relative(sessionFiles, path.resolve(target));
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
 
 /** Whether a permission OpenCode asks for is only to read folders inside
  *  Pinrail's session files, which it then needs no answer for. */
 function readsSessionFiles(data) {
   const resources = data.resources ?? [];
-  const inside = comparable(sessionFiles + path.sep);
-  return (
-    data.action === "external_directory" &&
-    resources.length > 0 &&
-    resources.every((resource) => comparable(resource).startsWith(inside))
-  );
+  return data.action === "external_directory" && resources.length > 0 && resources.every(insideSessionFiles);
 }
 
 /** Runs `pinrail hook opencode <event>` with `body`; a report Pinrail misses
  *  must never stop OpenCode. */
 function report(event, body, detached = false) {
   try {
-    const child = spawn(cli, ["hook", "opencode", event], { stdio: ["pipe", "ignore", "ignore"], detached });
+    // without a console window of its own on Windows
+    const child = spawn(cli, ["hook", "opencode", event], {
+      stdio: ["pipe", "ignore", "ignore"],
+      detached,
+      windowsHide: true,
+    });
     child.on("error", () => {});
     child.stdin.on("error", () => {});
     child.stdin.end(JSON.stringify(body));
