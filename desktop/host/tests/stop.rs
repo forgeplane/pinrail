@@ -164,8 +164,14 @@ fn a_stop_ends_the_program_s_children_too() {
     let (id, _) = spawn(
         &mut client,
         &folders,
-        // Windows' own id of the child, which Git's sh numbers itself
-        "sleep 300 & echo \"child=$(cat /proc/$!/winpid 2>/dev/null || echo $!)\"; echo ready; wait",
+        // The child says its own id: Windows' one, as Git's sh numbers
+        // its programs itself. Asked of it from outside, as /proc/$!/winpid,
+        // that id is for a moment the one of the copy of sh which starts
+        // the child and ends as it does. The child is ready once what it
+        // started runs: a program that starts as its console closes is
+        // not told, and runs on.
+        "sh -c 'echo \"child=$(cat /proc/$$/winpid 2>/dev/null || echo $$)\"; \
+         sleep 300 & sleep 1; echo ready; wait' & wait",
     );
     ready(&mut client, &id);
     let text = client
