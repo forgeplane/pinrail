@@ -60,10 +60,13 @@ fn clipboard_files() -> Vec<String> {
 }
 
 /// The paths of the files copied in Explorer, for a terminal to paste.
+/// Async, as it can wait a moment for the clipboard.
 #[cfg(windows)]
 #[tauri::command]
-fn clipboard_files() -> Vec<String> {
-    clipboard_windows::copied_files()
+async fn clipboard_files() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(clipboard_windows::copied_files)
+        .await
+        .unwrap_or_default()
 }
 
 /// On Linux, no files: a terminal reads a paste's URI list.
@@ -85,8 +88,11 @@ fn dragged_files() -> Vec<String> {
 /// waits off the main thread, where WebView2 delivers the post.
 #[cfg(windows)]
 #[tauri::command]
-async fn dragged_files() -> Vec<String> {
-    tauri::async_runtime::spawn_blocking(clipboard_windows::dragged_files)
+async fn dragged_files(id: Option<u64>) -> Vec<String> {
+    let Some(id) = id else {
+        return Vec::new();
+    };
+    tauri::async_runtime::spawn_blocking(move || clipboard_windows::dragged_files(id))
         .await
         .unwrap_or_default()
 }

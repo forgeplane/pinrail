@@ -29,6 +29,7 @@ interface WebView2 {
 /** The message a drop's files are posted to the app with, as
  *  src-tauri/src/clipboard_windows.rs reads it. */
 const DROP = "pinrail:dropped-files";
+let drops = 0;
 
 /** The paths of the files of the last drag, `dropped`, which only the app
  *  can read: none outside it. On Windows the page hands the app the
@@ -37,13 +38,15 @@ const DROP = "pinrail:dropped-files";
 export async function draggedFiles(dropped?: FileList): Promise<string[]> {
   if (!inTauri()) return [];
   const webview = (globalThis as { chrome?: { webview?: WebView2 } }).chrome?.webview;
+  // each drop has a number of its own, which its paths come back with
+  const id = ++drops;
   if (webview?.postMessageWithAdditionalObjects) {
     if (!dropped?.length) return [];
-    webview.postMessageWithAdditionalObjects(DROP, dropped);
+    webview.postMessageWithAdditionalObjects(`${DROP}:${id}`, dropped);
   }
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<string[]>("dragged_files");
+    return await invoke<string[]>("dragged_files", { id });
   } catch {
     return [];
   }
