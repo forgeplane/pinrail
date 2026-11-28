@@ -375,6 +375,24 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     drop(new_host);
 }
 
+/// A host started as administrator keeps the pipe and the lock out of
+/// reach of a Pinrail that is not, whose own host would fail on the lock.
+/// Run by hand, without administrator rights, with PINRAIL_ADMIN_HOST_DATA
+/// naming the data folder of a host that was started with them.
+#[cfg(windows)]
+#[test]
+#[ignore = "needs a host run as administrator, and this test without"]
+fn a_host_run_as_administrator_turns_away_a_pinrail_that_is_not() {
+    let data = PathBuf::from(std::env::var("PINRAIL_ADMIN_HOST_DATA").unwrap());
+    let error = launcher(&data, Method::Detached)
+        .ensure(&|_| {})
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("runs as administrator"),
+        "{error}"
+    );
+}
+
 #[test]
 fn the_host_names_the_snapshot_formats_it_reads() {
     let output = Command::new(env!("CARGO_BIN_EXE_pinrail-host"))

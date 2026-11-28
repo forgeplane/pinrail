@@ -130,6 +130,9 @@ impl Launcher {
                 replace(&registration, &formats_of(&copy))?;
             } else if attempt == REPLACEMENTS {
                 break;
+            } else if let Some(refused) = turned_away(&paths) {
+                // another would only fail on the running one's lock
+                return Err(Error::Io(refused));
             }
             started = Some(self.launch(&paths, log)?);
         }
@@ -178,6 +181,32 @@ const REPLACEMENTS: u32 = 3;
 fn answering(paths: &Paths) -> Option<Registration> {
     let registration = Registration::read(&paths.registration())?;
     (registration.may_be_live() && Client::connect(&registration).is_ok()).then_some(registration)
+}
+
+/// Why a host that runs turns this process away, when it does: on
+/// Windows, a host that runs as administrator keeps out a Pinrail that
+/// does not, whose own host could not start beside it.
+fn turned_away(paths: &Paths) -> Option<io::Error> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let registration = Registration::read(&paths.registration())?;
+    if !registration.may_be_live() {
+        return None;
+    }
+    // ERROR_ACCESS_DENIED
+    match crate::net::connect(&registration.socket) {
+        Err(error) if error.raw_os_error() == Some(5) => Some(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!(
+                "the terminal host, process {}, runs as administrator, and this Pinrail \
+                 does not, so it cannot reach it: end that process in Task Manager, or \
+                 open Pinrail as administrator",
+                registration.pid
+            ),
+        )),
+        _ => None,
+    }
 }
 
 /// Waits for a host to register and answer.
