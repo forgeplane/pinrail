@@ -46,7 +46,13 @@ export default function (pi: Pi) {
     if (sync) {
       // Pi exits right after session_shutdown, before an async child reads
       try {
-        spawnSync(cli, ["hook", "pi", event], { input: body, stdio: ["pipe", "ignore", "ignore"], timeout: 1500 });
+        // without a console window of its own on Windows
+        spawnSync(cli, ["hook", "pi", event], {
+          input: body,
+          stdio: ["pipe", "ignore", "ignore"],
+          timeout: 1500,
+          windowsHide: true,
+        });
       } catch {
         // a report Pinrail misses must never stop Pi
       }
