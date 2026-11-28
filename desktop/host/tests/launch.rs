@@ -365,8 +365,9 @@ fn an_old_host_restarted_during_a_replacement_is_replaced_again() {
     };
 
     let (new, _) = launcher(&data, Method::Detached).ensure(&|_| {}).unwrap();
-    racer.join().unwrap();
+    // ended by the guard, should the racer have failed
     let new_host = Started(new.clone(), data.clone());
+    racer.join().unwrap();
     std::mem::forget(old_host);
     let ours = Registration::read(&data.join("host/host.json")).unwrap();
     assert_ne!(new.build.as_deref(), Some(old_build.as_str()));
