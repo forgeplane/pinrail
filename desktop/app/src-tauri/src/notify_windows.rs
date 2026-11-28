@@ -17,7 +17,8 @@ use tauri::AppHandle;
 use windows::Data::Xml::Dom::XmlDocument;
 use windows::Foundation::TypedEventHandler;
 use windows::UI::Notifications::{
-    NotificationSetting, ToastDismissedEventArgs, ToastNotification, ToastNotificationManager,
+    NotificationSetting, ToastDismissalReason, ToastDismissedEventArgs, ToastNotification,
+    ToastNotificationManager,
 };
 use windows::core::{HSTRING, IInspectable};
 
@@ -34,6 +35,13 @@ fn shown() -> std::sync::MutexGuard<'static, VecDeque<(u64, ToastNotification)>>
 
 fn forget(key: u64) {
     shown().retain(|(k, _)| *k != key);
+}
+
+/// Whether a toast dismissed for `reason` is let go of. One whose banner
+/// timed out goes on in the Action Center, where it can still be clicked,
+/// so it is kept; one the person or the app dismissed is gone.
+fn let_go_when_dismissed(reason: Option<ToastDismissalReason>) -> bool {
+    reason != Some(ToastDismissalReason::TimedOut)
 }
 
 /// The group every review's toast is in, which with its tag names it.
@@ -146,16 +154,25 @@ fn show(
     toast.Dismissed(&TypedEventHandler::<
         ToastNotification,
         ToastDismissedEventArgs,
-    >::new(move |_, _| {
-        forget(key);
+    >::new(move |_, args| {
+        let reason = args.as_ref().and_then(|args| args.Reason().ok());
+        if let_go_when_dismissed(reason) {
+            forget(key);
+        }
         Ok(())
     }))?;
-    ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(app_id(app)))?
-        .Show(&toast)?;
-    let mut shown = shown();
-    shown.push_back((key, toast));
-    while shown.len() > KEPT {
-        shown.pop_front();
+    // kept before it shows: a click or a dismissal may come at once
+    {
+        let mut shown = shown();
+        shown.push_back((key, toast.clone()));
+        while shown.len() > KEPT {
+            shown.pop_front();
+        }
+    }
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(app_id(app)));
+    if let Err(error) = notifier.and_then(|notifier| notifier.Show(&toast)) {
+        forget(key);
+        return Err(error);
     }
     Ok(())
 }
@@ -181,6 +198,17 @@ pub fn allowed(app: &AppHandle) -> Option<bool> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_toast_that_timed_out_to_the_action_center_is_kept() {
+        use super::ToastDismissalReason as Reason;
+        assert!(!super::let_go_when_dismissed(Some(Reason::TimedOut)));
+        assert!(super::let_go_when_dismissed(Some(Reason::UserCanceled)));
+        assert!(super::let_go_when_dismissed(Some(
+            Reason::ApplicationHidden
+        )));
+        assert!(super::let_go_when_dismissed(None));
+    }
+
     #[test]
     fn a_toast_with_control_characters_in_its_text_still_loads() {
         let xml = super::toast_xml("\u{1b}[31mfailed\u{1b}[0m", "a\0b\u{7}c", true);
