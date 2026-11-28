@@ -109,7 +109,9 @@ impl FocusAsks {
                     {
                         asked = true;
                     }
-                    at = start + 3 + n + 1;
+                    // an escape that cuts the request short starts the
+                    // next sequence, and is read again as one
+                    at = start + 3 + n + usize::from(rest[3 + n] != 0x1b);
                 }
                 // cut off: kept for the next read, if it is short enough
                 _ => {
@@ -1672,6 +1674,22 @@ mod tests {
         let mut asks = FocusAsks::default();
         assert!(!asks.feed(b"plain \x1b[1mbold\x1b[0m"));
         assert!(asks.held.is_empty());
+    }
+
+    #[test]
+    fn a_focus_request_right_after_an_unfinished_one_is_seen() {
+        // the escape that cuts a request short starts the next one
+        assert!(asks_for_focus_reports(b"\x1b[?100\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"\x1b[?\x1b[?1004h"));
+        assert!(asks_for_focus_reports(b"\x1b[?1049;\x1b[?2004;1004h"));
+        assert!(!asks_for_focus_reports(b"\x1b[?1004\x1b[?2004h"));
+        // and cut between two reads
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"\x1b[?100\x1b[?10"));
+        assert!(asks.feed(b"04h"));
+        let mut asks = FocusAsks::default();
+        assert!(!asks.feed(b"\x1b[?100"));
+        assert!(asks.feed(b"\x1b[?1004h"));
     }
 
     #[test]
