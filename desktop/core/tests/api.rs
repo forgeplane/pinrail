@@ -1058,6 +1058,13 @@ async fn the_sdk_is_served_only_when_configured() {
         get("/sdk/v1/.env").await.unwrap().status(),
         StatusCode::NOT_FOUND
     );
+    // nor one in a folder named with Windows' separator, %5C
+    std::fs::create_dir(dir.path().join("sub")).unwrap();
+    std::fs::write(dir.path().join("sub").join(".env"), "TOKEN=1").unwrap();
+    assert_eq!(
+        get("/sdk/v1/sub%5C.env").await.unwrap().status(),
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[tokio::test]

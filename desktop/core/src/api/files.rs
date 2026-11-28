@@ -187,7 +187,8 @@ async fn sdk(State(state): State<Arc<Pinrail>>, Path(path): Path<String>) -> Res
     };
     // a developer may point the app at a working tree: its hidden files
     // are not the SDK's to serve
-    if path.split('/').any(|part| part.starts_with('.')) {
+    // with either separator, as Windows takes a \ in the path for one
+    if path.split(['/', '\\']).any(|part| part.starts_with('.')) {
         return StatusCode::NOT_FOUND.into_response();
     }
     let Some(file) = safe_join(dir, &path).filter(|f| f.is_file()) else {
