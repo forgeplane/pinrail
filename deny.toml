@@ -38,7 +38,7 @@ unused-allowed-license = "allow"
 [licenses.private]
 ignore = true
 
-# the target platforms, macOS and Linux on both ARM and Intel
+# the target platforms, macOS, Linux and Windows on both ARM and Intel
 [graph]
 targets = [
   "aarch64-apple-darwin",

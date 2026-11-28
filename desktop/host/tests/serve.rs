@@ -136,8 +136,8 @@ fn status_prints_the_registration_without_the_secret() {
 }
 
 /// A client that still holds a connection to a host that stopped, as a
-/// core holds one until it reads the end: on Windows the pipe's name lasts
-/// as long as any handle to it, so the next host must not need that name.
+/// core holds one until it reads the end: on Windows a pipe lasts as long
+/// as any handle to it, and the next host still listens on its name.
 #[test]
 fn the_next_host_starts_while_a_client_of_the_last_one_holds_on() {
     let folders = folders();
