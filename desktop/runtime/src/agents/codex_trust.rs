@@ -102,17 +102,18 @@ pub(crate) fn untrusted(listed: &Value, plan: &Integration) -> Map<String, Value
 
 /// Whether two spellings of a path name one file: as they are, or on
 /// Windows with either separator, in any case, and without the `\\?\` of
-/// a long path.
+/// a long path, a share's `\\?\UNC\server` as `\\server`.
 fn same_path(a: &str, b: &str) -> bool {
     if !cfg!(windows) {
         return a == b;
     }
     let plain = |p: &str| {
         let p = p.replace('/', "\\");
-        p.strip_prefix(r"\\?\")
-            .map(str::to_string)
-            .unwrap_or(p)
-            .to_lowercase()
+        let p = match p.strip_prefix(r"\\?\UNC\") {
+            Some(share) => format!(r"\\{share}"),
+            None => p.strip_prefix(r"\\?\").map(str::to_string).unwrap_or(p),
+        };
+        p.to_lowercase()
     };
     plain(a) == plain(b)
 }
@@ -249,6 +250,20 @@ mod tests {
 
     use super::*;
     use crate::agent::Agent;
+
+    #[cfg(windows)]
+    #[test]
+    fn a_long_path_to_a_share_is_the_share_s_path() {
+        assert!(same_path(
+            r"\\?\UNC\server\share\hooks.json",
+            r"\\server\share\hooks.json"
+        ));
+        assert!(same_path(
+            r"\\?\C:\Users\me\hooks.json",
+            "c:/users/me/hooks.json"
+        ));
+        assert!(!same_path(r"\\?\UNC\server\share\a", r"\\server\other\a"));
+    }
     use crate::agents::Codex;
 
     fn plan() -> Integration {

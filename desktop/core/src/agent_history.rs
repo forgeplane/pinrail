@@ -86,14 +86,30 @@ fn recent_where(home: &Path, limit: usize, keep: &dyn Fn(&Path) -> bool) -> Vec<
     found
 }
 
-/// A folder's path as it compares on Windows: its long form when it is
-/// there to read, as a temporary folder can come as ALICE~1, without the
-/// \\?\ of a long path, in lower case, with \ between its parts.
+/// A folder's path as it compares on Windows: in its long form, as a
+/// temporary folder can come as ALICE~1, as far as it is there to read,
+/// so that a folder not made yet compares as it will be; without the
+/// \\?\ of a long path, a share's as \\server\share; in lower case,
+/// with \ between its parts.
 #[cfg(windows)]
 fn comparable(path: &Path) -> String {
-    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let text = path.to_string_lossy();
-    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    let long = path
+        .ancestors()
+        .find_map(|there| {
+            let rest = path.strip_prefix(there).ok()?;
+            let resolved = there.canonicalize().ok()?;
+            Some(if rest.as_os_str().is_empty() {
+                resolved
+            } else {
+                resolved.join(rest)
+            })
+        })
+        .unwrap_or_else(|| path.to_path_buf());
+    let text = long.to_string_lossy();
+    let text = match text.strip_prefix(r"\\?\UNC\") {
+        Some(share) => format!(r"\\{share}"),
+        None => text.strip_prefix(r"\\?\").unwrap_or(&text).to_string(),
+    };
     text.replace('/', "\\")
         .trim_end_matches('\\')
         .to_lowercase()
@@ -309,6 +325,40 @@ fn opencode(data: &Path) -> Vec<(String, SystemTime)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder that is not there yet, under one named in its short form
+    /// (ALICE~1, as a temporary folder can come), is the same folder as
+    /// its long form; and a long path to a share is the share's path.
+    #[cfg(windows)]
+    #[test]
+    fn a_folder_not_there_yet_compares_by_its_long_form() {
+        let root = tempfile::tempdir().unwrap();
+        let long = root.path().join("a folder of a long name");
+        std::fs::create_dir(&long).unwrap();
+        // cmd gives the short form, when the volume makes them
+        use std::os::windows::process::CommandExt;
+        let out = std::process::Command::new("cmd")
+            .arg("/c")
+            .raw_arg(format!("for %I in (\"{}\") do @echo %~sI", long.display()))
+            .output()
+            .unwrap();
+        let short = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        if short.file_name() == long.file_name() {
+            eprintln!("skipped: the volume makes no short names");
+        } else {
+            assert!(same_folder(&short.join("work"), &long.join("work")));
+            assert!(under(&short.join("work"), &long));
+            assert!(under(&long.join("work").join("deeper"), &short));
+        }
+        assert!(same_folder(
+            Path::new(r"\\?\UNC\server\share\dir"),
+            Path::new(r"\\server\share\dir")
+        ));
+        assert!(same_folder(
+            Path::new(r"\\?\C:\Code"),
+            Path::new(r"C:\Code")
+        ));
+    }
 
     /// Windows takes a path in any capitals, with either separator, and
     /// its temporary folder can come in its short form, ALICE~1.
