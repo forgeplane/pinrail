@@ -834,6 +834,13 @@ mod tests {
     use std::io::{Read, Write};
     use std::time::Duration;
 
+    /// Removes what [`address`] made: on Unix the socket and its folder.
+    fn done(path: &std::path::Path) {
+        remove(path);
+        #[cfg(unix)]
+        let _ = std::fs::remove_dir(path.parent().unwrap());
+    }
+
     fn address(name: &str) -> std::path::PathBuf {
         #[cfg(unix)]
         {
@@ -875,7 +882,7 @@ mod tests {
         assert_eq!(&buf, b"hello");
         client.write_all(b"world").unwrap();
         let listener = server.join().unwrap();
-        remove(&path);
+        done(&path);
         drop(listener);
     }
 
@@ -928,6 +935,7 @@ mod tests {
             .collect();
         let reached: usize = clients.into_iter().map(|c| c.join().unwrap()).sum();
         assert_eq!(reached, THREADS * EACH);
+        done(&path);
     }
 
     #[test]
@@ -943,7 +951,7 @@ mod tests {
             assert!(shut.write_all(b"more").is_err(), "{side}");
         }
         drop(listener);
-        remove(&path);
+        done(&path);
     }
 
     #[test]
@@ -964,7 +972,7 @@ mod tests {
         // and the writing is over
         assert!((&client).write_all(b"more").is_err());
         drop(listener);
-        remove(&path);
+        done(&path);
     }
 
     #[test]
@@ -996,7 +1004,7 @@ mod tests {
         client.set_read_timeout(None).unwrap();
         assert_eq!((&client).read(&mut buf).unwrap_or(0), 0);
         drop(second);
-        remove(&path);
+        done(&path);
     }
 
     #[test]
@@ -1037,7 +1045,7 @@ mod tests {
             reader.read_exact(&mut buf).await.unwrap();
             assert_eq!(&buf, b"ping");
             accepting.await.unwrap();
-            remove(&path);
+            done(&path);
         });
     }
 }
