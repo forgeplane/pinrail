@@ -26,12 +26,8 @@ pub fn default_url() -> String {
     format!("http://127.0.0.1:{port}")
 }
 
-/// `HOME`, or `USERPROFILE` where Windows sets only that.
-fn home_dir() -> Option<PathBuf> {
-    home_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
-}
-
-/// [`home_dir`] from the values of `HOME` and `USERPROFILE`.
+/// The home folder from the values of `HOME` and `USERPROFILE`: `HOME`, or
+/// `USERPROFILE` where Windows sets only that.
 fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBuf> {
     let set = |v: Option<OsString>| v.filter(|v| !v.is_empty());
     set(home).or_else(|| set(profile)).map(PathBuf::from)
@@ -41,17 +37,21 @@ fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBu
 /// `PINRAIL_DATA_DIR`, else `%LOCALAPPDATA%\dev.pinrail.desktop` on
 /// Windows, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR").filter(|d| !d.is_empty()) {
+    data_dir_from(&|name| std::env::var_os(name), cfg!(windows))
+}
+
+/// [`data_dir`] from the variables `var` gives, on Windows or not.
+fn data_dir_from(var: &dyn Fn(&str) -> Option<OsString>, windows: bool) -> PathBuf {
+    let set = |name: &str| var(name).filter(|v| !v.is_empty());
+    if let Some(dir) = set("PINRAIL_DATA_DIR") {
         return PathBuf::from(dir);
     }
-    if cfg!(windows)
-        && let Some(local) = std::env::var_os("LOCALAPPDATA").filter(|d| !d.is_empty())
-    {
+    if windows && let Some(local) = set("LOCALAPPDATA") {
         return PathBuf::from(local).join("dev.pinrail.desktop");
     }
-    let base = std::env::var_os("XDG_DATA_HOME")
+    let base = set("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| home_dir().map(|h| h.join(".local/share")))
+        .or_else(|| home_from(var("HOME"), var("USERPROFILE")).map(|h| h.join(".local/share")))
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("pinrail")
 }
@@ -312,6 +312,34 @@ pub fn open_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_data_folder_is_the_app_s_on_each_system() {
+        let vars = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(k, _)| *k == name)
+                    .map(|(_, v)| OsString::from(v))
+            }
+        };
+        let windows = vars(&[
+            ("LOCALAPPDATA", r"C:\Users\me\AppData\Local"),
+            ("HOME", "/home/me"),
+        ]);
+        assert_eq!(
+            data_dir_from(&windows, true),
+            PathBuf::from(r"C:\Users\me\AppData\Local").join("dev.pinrail.desktop")
+        );
+        // LOCALAPPDATA means nothing elsewhere
+        assert_eq!(
+            data_dir_from(&windows, false),
+            PathBuf::from("/home/me/.local/share/pinrail")
+        );
+        // PINRAIL_DATA_DIR wins everywhere
+        let given = vars(&[("PINRAIL_DATA_DIR", "/data"), ("LOCALAPPDATA", r"C:\x")]);
+        assert_eq!(data_dir_from(&given, true), PathBuf::from("/data"));
+    }
 
     #[test]
     fn home_is_home_then_userprofile_and_an_empty_one_counts_as_not_set() {
